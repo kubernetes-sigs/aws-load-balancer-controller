@@ -932,10 +932,12 @@
                 
                 <h1 id="subnet-auto-discovery">Subnet Auto Discovery<a class="headerlink" href="#subnet-auto-discovery" title="Permanent link">&para;</a></h1>
 <p>AWS Load Balancer controller auto discovers network subnets for ALB or NLB by default. ALB requires at least two subnets across Availability Zones, NLB requires one subnet.
-The subnets must be tagged appropriately for the auto discovery to work. The controller chooses one subnet from each Availability Zone. In case of multiple tagged subnets in
-an Availability Zone, the controller will choose the first one in lexicographical order by the Subnet IDs. If you use <code>eksctl</code> or an Amazon EKS AWS CloudFormation template to
- create your VPC after March 26, 2020, then the subnets are tagged appropriately when they're created. For more information about the Amazon EKS AWS CloudFormation VPC templates,
- see <a href="https://docs.aws.amazon.com/eks/latest/userguide/create-public-private-vpc.html">Creating a VPC for your Amazon EKS cluster</a>.</p>
+The subnets must be tagged appropriately for the auto discovery to work. The controller chooses one subnet from each Availability Zone. During auto-discovery, the controller
+considers subnets with at lease 8 available ip addresses. In case of multiple qualified tagged subnets in an Availability Zone, the controller chooses the first one in lexicographical 
+order by the Subnet IDs. For more information about the subnets for the AWS load balancer, see <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html">Application Load Balancers</a> 
+and <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html">Network Load Balancers</a>.
+If you use <code>eksctl</code> or an Amazon EKS AWS CloudFormation template to create your VPC after March 26, 2020, then the subnets are tagged appropriately when they're created. For 
+more information about the Amazon EKS AWS CloudFormation VPC templates, see <a href="https://docs.aws.amazon.com/eks/latest/userguide/create-public-private-vpc.html">Creating a VPC for your Amazon EKS cluster</a>.</p>
 <h2 id="public-subnets">Public subnets<a class="headerlink" href="#public-subnets" title="Permanent link">&para;</a></h2>
 <p>Public subnets are used for internet-facing load balancers. These subnets must have the following tags:</p>
 <table>

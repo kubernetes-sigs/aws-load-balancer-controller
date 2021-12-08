@@ -1262,10 +1262,14 @@ documentation is not an accurate reference for the services reconciled by the in
 </li>
 <li>
 <p><a name="lb-type"><code>service.beta.kubernetes.io/aws-load-balancer-type</code></a> specifies the load balancer type. This controller reconciles those service resources with this annotation set to either <code>nlb-ip</code> or <code>external</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>This annotation specifies the controller used to provision LoadBalancers (as specified in <a href="#legacy-cloud-provider">legacy-cloud-provider</a>). Refer to <a href="#lb-scheme">lb-scheme</a> to specify whether the LoadBalancer is internet-facing or internal.</p>
+</div>
 <div class="admonition note">
 <ul>
-<li>For <code>nlb-ip</code> type, controller will provision NLB with IP targets. This value is supported for backwards compatibility</li>
-<li>For <code>external</code> type, NLB target type depend on the annotation <a href="#nlb-target-type">nlb-target-type</a></li>
+<li>[Deprecated] For type <code>nlb-ip</code>, the controller will provision an NLB with targets registered by IP address. This value is supported for backwards compatibility.</li>
+<li>For type <code>external</code>, the NLB target type depends on the <a href="#nlb-target-type">nlb-target-type</a> annotation.</li>
 </ul>
 </div>
 <div class="admonition warning">
@@ -1285,7 +1289,7 @@ documentation is not an accurate reference for the services reconciled by the in
 <code>instance</code> and <code>ip</code>.</p>
 <ul>
 <li>
-<p><code>instance</code> mode will route traffic to all EC2 instances within cluster on the <a href="https://kubernetes.io/docs/concepts/services-networking/service/#nodeport">NodePort</a> opened for your service.</p>
+<p><code>instance</code> mode will route traffic to all EC2 instances within cluster on the <a href="https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport">NodePort</a> opened for your service.</p>
 <div class="admonition note">
 <p>service must be of type <code>NodePort</code> or <code>LoadBalancer</code> for <code>instance</code> targets</p>
 </div>
@@ -1380,11 +1384,13 @@ on the load balancer.</p>
 <li>You must specify the IPv4 addresses from the load balancer subnet IPv4 ranges</li>
 </ul>
 </div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses: 192.168.10.15, 192.168.32.16
+</code></pre></div>
+</div>
 </li>
 </ul>
-<p>!!!example
-      <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses: 192.168.10.15, 192.168.32.16
-</code></pre></div></p>
 <h2 id="traffic-listening">Traffic Listening<a class="headerlink" href="#traffic-listening" title="Permanent link">&para;</a></h2>
 <p>Traffic Listening can be controlled with following annotations:</p>
 <ul>
@@ -1513,8 +1519,11 @@ service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled
 </li>
 <li>
 <p><a name="healthcheck-port"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port</code></a> specifies the TCP port to use for target group health check.</p>
-<p>!!!note""
-    - if you do not specify the health check port, controller uses <code>traffic-port</code> as default value</p>
+<div class="admonition note">
+<ul>
+<li>if you do not specify the health check port, controller uses <code>traffic-port</code> as default value</li>
+</ul>
+</div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>

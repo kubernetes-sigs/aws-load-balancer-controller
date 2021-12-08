@@ -1494,7 +1494,7 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 <p><a name="target-type"><code>alb.ingress.kubernetes.io/target-type</code></a> specifies how to route traffic to pods. You can choose between <code>instance</code> and <code>ip</code>:</p>
 <ul>
 <li>
-<p><code>instance</code> mode will route traffic to all ec2 instances within cluster on <a href="https://kubernetes.io/docs/concepts/services-networking/service/#nodeport">NodePort</a> opened for your service.</p>
+<p><code>instance</code> mode will route traffic to all ec2 instances within cluster on <a href="https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport">NodePort</a> opened for your service.</p>
 <div class="admonition note">
 <p>service must be of type "NodePort" or "LoadBalancer" to use <code>instance</code> mode</p>
 </div>

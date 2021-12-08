@@ -527,6 +527,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#feature-gates" class="md-nav__link">
+    Feature Gates
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1016,6 +1023,13 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#feature-gates" class="md-nav__link">
+    Feature Gates
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1193,6 +1207,12 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <td>AWS Tag keys that will be managed externally. Specified Tags are ignored during reconciliation</td>
 </tr>
 <tr>
+<td><a href="#feature-gates">feature-gates</a></td>
+<td>stringMap</td>
+<td></td>
+<td>A set of key=value pairs to enable or disable features</td>
+</tr>
+<tr>
 <td>ingress-class</td>
 <td>string</td>
 <td>alb</td>
@@ -1322,6 +1342,32 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 </code></pre></div>
 <h3 id="instance-metadata">Instance metadata<a class="headerlink" href="#instance-metadata" title="Permanent link">&para;</a></h3>
 <p>If running on EC2, the default values are obtained from the instance metadata service.</p>
+<h3 id="feature-gates">Feature Gates<a class="headerlink" href="#feature-gates" title="Permanent link">&para;</a></h3>
+<p>They are a set of kye=value pairs that describe AWS load balance controller features. You can use it as flags <code>--feature-gates=key1=value1,key2=value2</code></p>
+<table>
+<thead>
+<tr>
+<th>Features-gate Supported Key</th>
+<th>Type</th>
+<th>Default Value</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ListenerRulesTagging</td>
+<td>string</td>
+<td>true</td>
+<td>Enable or disable tagging AWS load balancer listeners and rules</td>
+</tr>
+<tr>
+<td>WeightedTargetGroups</td>
+<td>string</td>
+<td>true</td>
+<td>Enable or disable weighted target groups</td>
+</tr>
+</tbody>
+</table>
                 
               
               

@@ -1081,7 +1081,7 @@ you will end up with leaked AWS load balancer resources.</p>
 <p>the controller will provision NLB in IP mode. With this, the <code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</code> annotation gets ignored.</p>
 </div>
 <h3 id="instance-mode_1">Instance mode<a class="headerlink" href="#instance-mode_1" title="Permanent link">&para;</a></h3>
-<p>Similar to the IP mode, the instance mode is based on the annotation <code>service.beta.kubernetes.io/aws-load-balancer-type</code> value <code>instance</code>. Here is a sample manifest snippet:</p>
+<p>Similar to the IP mode, the instance mode is based on the annotation <code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</code> value <code>instance</code>. Here is a sample manifest snippet:</p>
 <div class="highlight"><pre><span></span><code>    <span class="nt">metadata</span><span class="p">:</span>
       <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-service</span>
       <span class="nt">annotations</span><span class="p">:</span>

@@ -479,6 +479,19 @@
     Setup IAM manually
   </a>
   
+    <nav class="md-nav" aria-label="Setup IAM manually">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#iam-permission-subset-for-those-who-use-targetgroupbinding-only-and-dont-plan-to-use-the-aws-load-balancer-controller-to-manage-security-group-rules" class="md-nav__link">
+    IAM permission subset for those who use TargetGroupBinding only and don't plan to use the AWS Load Balancer Controller to manage security group rules:
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -987,6 +1000,19 @@
     Setup IAM manually
   </a>
   
+    <nav class="md-nav" aria-label="Setup IAM manually">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#iam-permission-subset-for-those-who-use-targetgroupbinding-only-and-dont-plan-to-use-the-aws-load-balancer-controller-to-manage-security-group-rules" class="md-nav__link">
+    IAM permission subset for those who use TargetGroupBinding only and don't plan to use the AWS Load Balancer Controller to manage security group rules:
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -1086,7 +1112,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 </div>
 <h2 id="iam-permissions">IAM Permissions<a class="headerlink" href="#iam-permissions" title="Permanent link">&para;</a></h2>
 <h4 id="setup-iam-role-for-service-accounts">Setup IAM role for service accounts<a class="headerlink" href="#setup-iam-role-for-service-accounts" title="Permanent link">&para;</a></h4>
-<p>The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB resources via IAM permissions. 
+<p>The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB resources via IAM permissions.
 The IAM permissions can either be setup via IAM roles for ServiceAccount or can be attached directly to the worker node IAM roles.</p>
 <div class="admonition warning">
 <p class="admonition-title">Permissions with the least privileges</p>
@@ -1108,11 +1134,10 @@ and add it to the above IAM permissions.
         }
     }
 </code></pre></div>
-OR restrict access to security groups tagged for the particular k8s cluster. Replace CLUSTER-ID with your k8s cluster id and add it to
-the above IAM permissions.
+OR restrict access to the security groups tagged for the particular k8s cluster. Replace CLUSTER-NAME with the name of your k8s cluster and add it to the above IAM permissions.
 <div class="highlight"><pre><span></span><code>    &quot;Condition&quot;: {
         &quot;Null&quot;: {
-            &quot;aws:ResourceTag/kubernetes.io/cluster/CLUSTER-ID&quot;: &quot;false&quot;
+            &quot;aws:ResourceTag/kubernetes.io/cluster/CLUSTER-NAME&quot;: &quot;false&quot;
         }
     }
 </code></pre></div></p>
@@ -1128,7 +1153,7 @@ the above IAM permissions.
 </li>
 <li>
 <p>Download IAM policy for the AWS Load Balancer Controller
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.0/docs/install/iam_policy.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.1/docs/install/iam_policy.json
 </code></pre></div></p>
 </li>
 <li>
@@ -1154,8 +1179,29 @@ the above IAM permissions.
 </ol>
 <h4 id="setup-iam-manually">Setup IAM manually<a class="headerlink" href="#setup-iam-manually" title="Permanent link">&para;</a></h4>
 <p>If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
-<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/iam_policy.json
+<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.1/docs/install/iam_policy.json
 </code></pre></div></p>
+<h5 id="iam-permission-subset-for-those-who-use-targetgroupbinding-only-and-dont-plan-to-use-the-aws-load-balancer-controller-to-manage-security-group-rules">IAM permission subset for those who use <em>TargetGroupBinding</em> only and don't plan to use the AWS Load Balancer Controller to manage security group rules:<a class="headerlink" href="#iam-permission-subset-for-those-who-use-targetgroupbinding-only-and-dont-plan-to-use-the-aws-load-balancer-controller-to-manage-security-group-rules" title="Permanent link">&para;</a></h5>
+<div class="highlight"><pre><span></span><code>{
+    &quot;Statement&quot;: [
+        {
+            &quot;Action&quot;: [
+                &quot;ec2:DescribeSecurityGroups&quot;,
+                &quot;ec2:DescribeInstances&quot;,
+                &quot;elasticloadbalancing:DescribeTargetGroups&quot;,
+                &quot;elasticloadbalancing:DescribeTargetHealth&quot;,
+                &quot;elasticloadbalancing:ModifyTargetGroup&quot;,
+                &quot;elasticloadbalancing:ModifyTargetGroupAttributes&quot;,
+                &quot;elasticloadbalancing:RegisterTargets&quot;,
+                &quot;elasticloadbalancing:DeregisterTargets&quot;
+            ],
+            &quot;Effect&quot;: &quot;Allow&quot;,
+            &quot;Resource&quot;: &quot;*&quot;
+        }
+    ],
+    &quot;Version&quot;: &quot;2012-10-17&quot;
+}
+</code></pre></div>
 <h2 id="add-controller-to-cluster">Add Controller to Cluster<a class="headerlink" href="#add-controller-to-cluster" title="Permanent link">&para;</a></h2>
 <div class="admonition note">
 <p class="admonition-title">Use Fargate</p>
@@ -1198,17 +1244,17 @@ the above IAM permissions.
 </code></pre></div>
 <h3 id="apply-yaml">Apply YAML<a class="headerlink" href="#apply-yaml" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Download spec for load balancer controller. 
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.3.0/v2_3_0_full.yaml
+<li>Download spec for load balancer controller.
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.3.1/v2_3_1_full.yaml
 </code></pre></div></li>
 <li>Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
 <div class="highlight"><pre><span></span><code>apiVersion: apps/v1
 kind: Deployment
-. . . 
+. . .
 name: aws-load-balancer-controller
 namespace: kube-system
 spec:
-    . . . 
+    . . .
     template:
         spec:
             containers:
@@ -1219,8 +1265,8 @@ spec:
 <div class="highlight"><pre><span></span><code>apiVersion: v1
 kind: ServiceAccount
 </code></pre></div></li>
-<li>Apply the yaml file 
-<div class="highlight"><pre><span></span><code>kubectl apply -f v2_3_0_full.yaml
+<li>Apply the yaml file
+<div class="highlight"><pre><span></span><code>kubectl apply -f v2_3_1_full.yaml
 </code></pre></div></li>
 </ol>
 </div>
