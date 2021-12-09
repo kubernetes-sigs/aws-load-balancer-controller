@@ -5,14 +5,19 @@ import (
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sort"
 )
 
+const exactPathType = "Exact"
+
 type Rule struct {
-	Conditions []elbv2model.RuleCondition
-	Actions    []elbv2model.Action
-	Tags       map[string]string
+	Conditions  []elbv2model.RuleCondition
+	Actions     []elbv2model.Action
+	Tags        map[string]string
+	Ingresspath networking.HTTPIngressPath
 }
 
 // RuleOptimizer will optimize the listener Rules for a single Listener.
@@ -46,6 +51,7 @@ type defaultRuleOptimizer struct {
 func (o *defaultRuleOptimizer) Optimize(_ context.Context, port int64, protocol elbv2model.Protocol, rules []Rule) ([]Rule, error) {
 	optimizedRules := o.omitInfiniteRedirectRules(port, protocol, rules)
 	optimizedRules = o.omitOvershadowedRulesAfterRedirectRules(optimizedRules)
+	optimizedRules = o.sortRulesByIngressPathLength(optimizedRules)
 	return optimizedRules, nil
 }
 
@@ -79,6 +85,33 @@ func (o *defaultRuleOptimizer) omitOvershadowedRulesAfterRedirectRules(rules []R
 		if !ruleIsOvershadowed {
 			optimizedRules = append(optimizedRules, rule)
 		}
+	}
+	return optimizedRules
+}
+
+func (o *defaultRuleOptimizer) sortRulesByIngressPathLength(rules []Rule) []Rule {
+	o.logger.Info("!!!! call sortRulesByIngressPathLength")
+	var optimizedRules []Rule
+	path2RulesMap := map[networking.HTTPIngressPath][]Rule{}
+	paths := make([]networking.HTTPIngressPath, 0, len(rules))
+	for _, rule := range rules {
+		if _, ok := path2RulesMap[rule.Ingresspath]; ok {
+			path2RulesMap[rule.Ingresspath] = append(path2RulesMap[rule.Ingresspath], rule)
+		} else {
+			path2RulesMap[rule.Ingresspath] = []Rule{rule}
+			paths = append(paths, rule.Ingresspath)
+		}
+	}
+	// sort paths by length, if lengths equal, the path with Exact pathType has precedence
+	sort.Slice(paths, func(i, j int) bool {
+		if len(paths[i].Path) == len(paths[j].Path) {
+			return *paths[i].PathType == exactPathType
+		}
+		return len(paths[i].Path) > len(paths[j].Path)
+	})
+	for idx, path := range paths {
+		o.logger.Info("path ", "idx", idx, "path", path)
+		optimizedRules = append(optimizedRules, path2RulesMap[path]...)
 	}
 	return optimizedRules
 }
