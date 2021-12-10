@@ -4,6 +4,7 @@ import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/stretchr/testify/assert"
+	networking "k8s.io/api/networking/v1beta1"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
@@ -15,7 +16,7 @@ func Test_defaultRuleOptimizer_Optimize(t *testing.T) {
 		protocol elbv2model.Protocol
 		rules    []Rule
 	}
-	tests := []struct {
+	var tests = []struct {
 		name    string
 		args    args
 		want    []Rule
@@ -225,6 +226,300 @@ func Test_defaultRuleOptimizer_Optimize(t *testing.T) {
 								StatusCode: "HTTP_301",
 							},
 						},
+					},
+				},
+			},
+		},
+		{
+			name: "Rules sorted by path length descending, no ties",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rules: []Rule{
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/www"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Path:       awssdk.String("/app"),
+									StatusCode: "HTTP_301",
+								},
+							},
+						},
+						Ingresspath: networking.HTTPIngressPath{
+							Path:     "/",
+							PathType: (*networking.PathType)(awssdk.String("Exact")),
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/app"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeFixedResponse,
+								FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+									StatusCode: "200",
+								},
+							},
+						},
+						Ingresspath: networking.HTTPIngressPath{
+							Path:     "/aaa/bbb",
+							PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/*"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("home.example.com"),
+									StatusCode: "HTTP_301",
+								},
+							},
+						},
+						Ingresspath: networking.HTTPIngressPath{
+							Path:     "/abc",
+							PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						},
+					},
+				},
+			},
+			want: []Rule{
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/app"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeFixedResponse,
+							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+								StatusCode: "200",
+							},
+						},
+					},
+					Ingresspath: networking.HTTPIngressPath{
+						Path:     "/aaa/bbb",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("home.example.com"),
+								StatusCode: "HTTP_301",
+							},
+						},
+					},
+					Ingresspath: networking.HTTPIngressPath{
+						Path:     "/abc",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/www"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Path:       awssdk.String("/app"),
+								StatusCode: "HTTP_301",
+							},
+						},
+					},
+					Ingresspath: networking.HTTPIngressPath{
+						Path:     "/",
+						PathType: (*networking.PathType)(awssdk.String("Exact")),
+					},
+				},
+			},
+		},
+		{
+			name: "Rules sorted by path length descending, when tie, rules with Exact path type precedes",
+			args: args{
+				port:     443,
+				protocol: elbv2model.ProtocolHTTPS,
+				rules: []Rule{
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/www"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Path:       awssdk.String("/app"),
+									StatusCode: "HTTP_301",
+								},
+							},
+						},
+						Ingresspath: networking.HTTPIngressPath{
+							Path:     "/aaa",
+							PathType: (*networking.PathType)(awssdk.String("Exact")),
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/app"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeFixedResponse,
+								FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+									StatusCode: "200",
+								},
+							},
+						},
+						Ingresspath: networking.HTTPIngressPath{
+							Path:     "/aaa/bbb",
+							PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						},
+					},
+					{
+						Conditions: []elbv2model.RuleCondition{
+							{
+								Field: elbv2model.RuleConditionFieldPathPattern,
+								PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+									Values: []string{"/*"},
+								},
+							},
+						},
+						Actions: []elbv2model.Action{
+							{
+								Type: elbv2model.ActionTypeRedirect,
+								RedirectConfig: &elbv2model.RedirectActionConfig{
+									Host:       awssdk.String("home.example.com"),
+									StatusCode: "HTTP_301",
+								},
+							},
+						},
+						Ingresspath: networking.HTTPIngressPath{
+							Path:     "/abc",
+							PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						},
+					},
+				},
+			},
+			want: []Rule{
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/app"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeFixedResponse,
+							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+								StatusCode: "200",
+							},
+						},
+					},
+					Ingresspath: networking.HTTPIngressPath{
+						Path:     "/aaa/bbb",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/www"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Path:       awssdk.String("/app"),
+								StatusCode: "HTTP_301",
+							},
+						},
+					},
+					Ingresspath: networking.HTTPIngressPath{
+						Path:     "/aaa",
+						PathType: (*networking.PathType)(awssdk.String("Exact")),
+					},
+				},
+				{
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: elbv2model.RuleConditionFieldPathPattern,
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+					Actions: []elbv2model.Action{
+						{
+							Type: elbv2model.ActionTypeRedirect,
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Host:       awssdk.String("home.example.com"),
+								StatusCode: "HTTP_301",
+							},
+						},
+					},
+					Ingresspath: networking.HTTPIngressPath{
+						Path:     "/abc",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
 					},
 				},
 			},

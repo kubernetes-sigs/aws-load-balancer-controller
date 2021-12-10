@@ -90,7 +90,6 @@ func (o *defaultRuleOptimizer) omitOvershadowedRulesAfterRedirectRules(rules []R
 }
 
 func (o *defaultRuleOptimizer) sortRulesByIngressPathLength(rules []Rule) []Rule {
-	o.logger.Info("!!!! call sortRulesByIngressPathLength")
 	var optimizedRules []Rule
 	path2RulesMap := map[networking.HTTPIngressPath][]Rule{}
 	paths := make([]networking.HTTPIngressPath, 0, len(rules))
@@ -105,12 +104,13 @@ func (o *defaultRuleOptimizer) sortRulesByIngressPathLength(rules []Rule) []Rule
 	// sort paths by length, if lengths equal, the path with Exact pathType has precedence
 	sort.Slice(paths, func(i, j int) bool {
 		if len(paths[i].Path) == len(paths[j].Path) {
-			return *paths[i].PathType == exactPathType
+			if paths[i].PathType != nil {
+				return *paths[i].PathType == exactPathType
+			}
 		}
 		return len(paths[i].Path) > len(paths[j].Path)
 	})
-	for idx, path := range paths {
-		o.logger.Info("path ", "idx", idx, "path", path)
+	for _, path := range paths {
 		optimizedRules = append(optimizedRules, path2RulesMap[path]...)
 	}
 	return optimizedRules
