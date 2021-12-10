@@ -81,10 +81,10 @@ func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string) ([]s
 		}
 
 		if len(certARNsForHost) > 1 {
-			return nil, errors.Errorf("multiple certificate found for host: %s, certARNs: %v", host, certARNsForHost)
+			return nil, errors.Errorf("multiple certificates found for host: %s, certARNs: %v", host, certARNsForHost)
 		}
 		if len(certARNsForHost) == 0 {
-			return nil, errors.Errorf("none certificate found for host: %s", host)
+			return nil, errors.Errorf("no certificate found for host: %s", host)
 		}
 		certARNs.Insert(certARNsForHost...)
 	}
