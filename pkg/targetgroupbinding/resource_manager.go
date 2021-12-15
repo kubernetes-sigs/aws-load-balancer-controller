@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"inet.af/netaddr"
-	"k8s.io/api/networking/v1beta1"
 	"time"
 
 	"k8s.io/client-go/tools/record"
@@ -18,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -240,7 +240,7 @@ func (m *defaultResourceManager) reconcileWithALBTargetType(ctx context.Context,
 func (m *defaultResourceManager) buildTargetLoadBalancerArn(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, error) {
 	ingressName := tgb.Spec.IngressRef.Name
 	ingressKey := types.NamespacedName{Namespace: tgb.Namespace, Name: ingressName}
-	ingress := &v1beta1.Ingress{}
+	ingress := &networkingv1.Ingress{}
 	err := m.k8sClient.Get(ctx, ingressKey, ingress)
 	if err != nil {
 		return "", err
