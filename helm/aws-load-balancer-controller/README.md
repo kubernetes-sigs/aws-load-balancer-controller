@@ -153,7 +153,7 @@ The following tables lists the configurable parameters of the chart and their de
 The default values set by the application itself can be confirmed [here](https://kubernetes-sigs.github.io/aws-load-balancer-controller/guide/controller/configurations/).
 
 | Parameter                                   | Description                                                                                              | Default                                                                            |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------- |------------------------------------------------------------------------------------|
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `image.repository`                          | image repository                                                                                         | `602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller` |
 | `image.tag`                                 | image tag                                                                                                | `<VERSION>`                                                                        |
 | `image.pullPolicy`                          | image pull policy                                                                                        | `IfNotPresent`                                                                     |
