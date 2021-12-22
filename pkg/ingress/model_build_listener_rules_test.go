@@ -1,11 +1,122 @@
 package ingress
 
 import (
+	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	"testing"
 )
+
+func Test_defaultModelBuildTask_sortIngressPath(t *testing.T) {
+	type args struct {
+		paths []networking.HTTPIngressPath
+	}
+	tests := []struct {
+		name string
+		args args
+		want []networking.HTTPIngressPath
+	}{
+		{
+			name: "Paths sorted by length descending, no ties",
+			args: args{
+				paths: []networking.HTTPIngressPath{
+					{
+						Path:     "/abc",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+					},
+					{
+						Path:     "/aaa/bbb",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+					},
+					{
+						Path:     "",
+						PathType: (*networking.PathType)(awssdk.String("Exact")),
+					},
+				},
+			},
+			want: []networking.HTTPIngressPath{
+				{
+					Path:     "/aaa/bbb",
+					PathType: (*networking.PathType)(awssdk.String("Prefix")),
+				},
+				{
+					Path:     "/abc",
+					PathType: (*networking.PathType)(awssdk.String("Prefix")),
+				},
+				{
+					Path:     "",
+					PathType: (*networking.PathType)(awssdk.String("Exact")),
+				},
+			},
+		},
+		{
+			name: "Paths length descending, when tie, the path with Exact path type precedes",
+			args: args{
+				paths: []networking.HTTPIngressPath{
+					{
+						Path:     "/aaa",
+						PathType: (*networking.PathType)(awssdk.String("Exact")),
+					},
+					{
+						Path:     "/aaa/bbb",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+					},
+					{
+						Path:     "/abc",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+					},
+				},
+			},
+			want: []networking.HTTPIngressPath{
+				{
+					Path:     "/aaa/bbb",
+					PathType: (*networking.PathType)(awssdk.String("Prefix")),
+				},
+				{
+					Path:     "/aaa",
+					PathType: (*networking.PathType)(awssdk.String("Exact")),
+				},
+				{
+					Path:     "/abc",
+					PathType: (*networking.PathType)(awssdk.String("Prefix")),
+				},
+			},
+		},
+		{
+			name: "Paths are the same, the path with Exact path type precedes",
+			args: args{
+				paths: []networking.HTTPIngressPath{
+					{
+						Path:     "/aaa",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+					},
+					{
+						Path:     "/aaa",
+						PathType: (*networking.PathType)(awssdk.String("Exact")),
+					},
+				},
+			},
+			want: []networking.HTTPIngressPath{
+				{
+					Path:     "/aaa",
+					PathType: (*networking.PathType)(awssdk.String("Exact")),
+				},
+				{
+					Path:     "/aaa",
+					PathType: (*networking.PathType)(awssdk.String("Prefix")),
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{}
+			got := task.sortIngressPaths(tt.args.paths)
+			assert.Equal(t, got, tt.want)
+		})
+	}
+}
 
 func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 	pathTypeImplementationSpecific := networking.PathTypeImplementationSpecific

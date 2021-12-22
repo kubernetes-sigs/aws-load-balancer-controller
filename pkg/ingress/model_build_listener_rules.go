@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -24,7 +25,8 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 			if rule.HTTP == nil {
 				continue
 			}
-			for _, path := range rule.HTTP.Paths {
+			paths := t.sortIngressPaths(rule.HTTP.Paths)
+			for _, path := range paths {
 				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, path.Backend,
 					WithLoadBackendServices(true, t.backendServices),
 					WithLoadAuthConfig(true))
@@ -44,10 +46,9 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
 				}
 				rules = append(rules, Rule{
-					Conditions:  conditions,
-					Actions:     actions,
-					Tags:        tags,
-					Ingresspath: path,
+					Conditions: conditions,
+					Actions:    actions,
+					Tags:       tags,
 				})
 			}
 		}
@@ -71,6 +72,19 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 	}
 
 	return nil
+}
+
+// sort paths by length, if lengths equal, the path with Exact pathType has precedence
+func (t *defaultModelBuildTask) sortIngressPaths(paths []networking.HTTPIngressPath) []networking.HTTPIngressPath {
+	sort.Slice(paths, func(i, j int) bool {
+		if len(paths[i].Path) == len(paths[j].Path) {
+			if paths[i].PathType != nil {
+				return *paths[i].PathType == networking.PathTypeExact
+			}
+		}
+		return len(paths[i].Path) > len(paths[j].Path)
+	})
+	return paths
 }
 
 func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, rule networking.IngressRule,
