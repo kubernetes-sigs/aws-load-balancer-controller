@@ -91,6 +91,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |leader-election-namespace              | string                          |                 | Name of the leader election ID to use for this controller |
 |log-level                              | string                          | info            | Set the controller log level - info, debug |
 |metrics-bind-addr                      | string                          | :8080           | The address the metric endpoint binds to |
+|service-default-target-type            | string                          |                 | Default target type for Services - ip, instance |
 |service-max-concurrent-reconciles      | int                             | 3               | Maximum number of concurrently running reconcile loops for service |
 |sync-period                            | duration                        | 1h0m0s          | Period at which the controller forces the repopulation of its local object stores|
 |targetgroupbinding-max-concurrent-reconciles | int                       | 3               | Maximum number of concurrently running reconcile loops for targetGroupBinding |

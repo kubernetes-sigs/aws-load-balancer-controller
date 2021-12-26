@@ -2,13 +2,13 @@ package service
 
 import (
 	"context"
-	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"strconv"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -35,7 +35,7 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
-	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
+	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
@@ -47,6 +47,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		defaultTags:         defaultTags,
 		externalManagedTags: sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:    defaultSSLPolicy,
+		defaultTargetType:   elbv2model.TargetType(defaultTargetType),
 	}
 }
 
@@ -64,6 +65,7 @@ type defaultModelBuilder struct {
 	defaultTags         map[string]string
 	externalManagedTags sets.String
 	defaultSSLPolicy    string
+	defaultTargetType   elbv2model.TargetType
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
@@ -99,6 +101,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckUnhealthyThreshold: 3,
 		defaultIPv4SourceRanges:              []string{"0.0.0.0/0"},
 		defaultIPv6SourceRanges:              []string{"::/0"},
+		defaultTargetType:                    b.defaultTargetType,
 
 		defaultHealthCheckPortForInstanceModeLocal:               strconv.Itoa(int(service.Spec.HealthCheckNodePort)),
 		defaultHealthCheckProtocolForInstanceModeLocal:           elbv2model.ProtocolHTTP,
@@ -153,6 +156,7 @@ type defaultModelBuildTask struct {
 	defaultDeletionProtectionEnabled     bool
 	defaultIPv4SourceRanges              []string
 	defaultIPv6SourceRanges              []string
+	defaultTargetType                    elbv2model.TargetType
 
 	// Default health check settings for NLB instance mode with spec.ExternalTrafficPolicy set to Local
 	defaultHealthCheckProtocolForInstanceModeLocal           elbv2model.Protocol

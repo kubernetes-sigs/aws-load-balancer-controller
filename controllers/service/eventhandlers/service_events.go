@@ -15,11 +15,12 @@ import (
 )
 
 // NewEnqueueRequestForServiceEvent constructs new enqueueRequestsForServiceEvent.
-func NewEnqueueRequestForServiceEvent(eventRecorder record.EventRecorder, annotationParser annotations.Parser, logger logr.Logger) *enqueueRequestsForServiceEvent {
+func NewEnqueueRequestForServiceEvent(eventRecorder record.EventRecorder, annotationParser annotations.Parser, logger logr.Logger, handleByDefault bool) *enqueueRequestsForServiceEvent {
 	return &enqueueRequestsForServiceEvent{
 		eventRecorder:    eventRecorder,
 		annotationParser: annotationParser,
 		logger:           logger,
+		handleByDefault:  handleByDefault,
 	}
 }
 
@@ -29,6 +30,7 @@ type enqueueRequestsForServiceEvent struct {
 	eventRecorder    record.EventRecorder
 	annotationParser annotations.Parser
 	logger           logr.Logger
+	handleByDefault  bool
 }
 
 func (h *enqueueRequestsForServiceEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
@@ -58,6 +60,9 @@ func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue wor
 }
 
 func (h *enqueueRequestsForServiceEvent) isServiceSupported(service *corev1.Service) bool {
+	if h.handleByDefault {
+		return true
+	}
 	lbType := ""
 	_ = h.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, service.Annotations)
 	if lbType == svcpkg.LoadBalancerTypeNLBIP {

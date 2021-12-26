@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 const (
@@ -17,6 +18,7 @@ const (
 	flagDefaultTags                                  = "default-tags"
 	flagExternalManagedTags                          = "external-managed-tags"
 	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
+	flagServiceDefaultTargetType                     = "service-default-target-type"
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
@@ -75,6 +77,8 @@ type ControllerConfig struct {
 
 	// Max concurrent reconcile loops for Service objects
 	ServiceMaxConcurrentReconciles int
+	// Default target type for Service objects
+	ServiceDefaultTargetType string
 	// Max concurrent reconcile loops for TargetGroupBinding objects
 	TargetGroupBindingMaxConcurrentReconciles int
 	// Max exponential backoff delay for reconcile failures of TargetGroupBinding
@@ -104,6 +108,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"List of Tag keys on AWS resources that will be managed externally")
 	fs.IntVar(&cfg.ServiceMaxConcurrentReconciles, flagServiceMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for service")
+	fs.StringVar(&cfg.ServiceDefaultTargetType, flagServiceDefaultTargetType, "",
+		"Default target type for Services - ip, instance")
 	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for targetGroupBinding")
 	fs.DurationVar(&cfg.TargetGroupBindingMaxExponentialBackoffDelay, flagTargetGroupBindingMaxExponentialBackoffDelay, defaultMaxExponentialBackoffDelay,
@@ -143,6 +149,9 @@ func (cfg *ControllerConfig) Validate() error {
 	if err := cfg.validateExternalManagedTagsCollisionWithDefaultTags(); err != nil {
 		return err
 	}
+	if err := cfg.validateServiceDefaultTargetType(); err != nil {
+		return err
+	}
 	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
 		return err
 	}
@@ -175,6 +184,15 @@ func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithDefaultTags
 		}
 	}
 	return nil
+}
+
+func (cfg *ControllerConfig) validateServiceDefaultTargetType() error {
+	switch cfg.ServiceDefaultTargetType {
+	case "", string(elbv2.TargetTypeInstance), string(elbv2.TargetTypeIP):
+		return nil
+	default:
+		return errors.Errorf("invalid value %v for default target type", cfg.ServiceDefaultTargetType)
+	}
 }
 
 func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {

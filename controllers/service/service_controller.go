@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -42,7 +43,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, config.ClusterName)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, logger)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
-		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.ExternalManagedTags, config.DefaultSSLPolicy)
+		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.ExternalManagedTags, config.DefaultSSLPolicy, config.ServiceDefaultTargetType)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
 	return &serviceReconciler{
@@ -57,6 +58,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 		logger:          logger,
 
 		maxConcurrentReconciles: config.ServiceMaxConcurrentReconciles,
+		defaultTargetType:       config.ServiceDefaultTargetType,
 	}
 }
 
@@ -72,6 +74,7 @@ type serviceReconciler struct {
 	logger          logr.Logger
 
 	maxConcurrentReconciles int
+	defaultTargetType       string
 }
 
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch
@@ -184,7 +187,7 @@ func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 
 func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Controller) error {
 	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder, r.annotationParser,
-		r.logger.WithName("eventHandlers").WithName("service"))
+		r.logger.WithName("eventHandlers").WithName("service"), r.defaultTargetType != "")
 	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
 		return err
 	}

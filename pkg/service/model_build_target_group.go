@@ -347,6 +347,9 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context) (elbv2model.T
 		}
 		return elbv2model.TargetTypeInstance, nil
 	}
+	if t.defaultTargetType != "" {
+		return t.defaultTargetType, nil
+	}
 	return "", errors.Errorf("unsupported target type \"%v\" for load balancer type \"%v\"", lbTargetType, lbType)
 }
 

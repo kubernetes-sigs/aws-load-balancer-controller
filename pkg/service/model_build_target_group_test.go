@@ -1142,10 +1142,11 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 
 	tests := []struct {
-		testName string
-		svc      *corev1.Service
-		want     elbv2.TargetType
-		wantErr  error
+		testName          string
+		svc               *corev1.Service
+		defaultTargetType string
+		want              elbv2.TargetType
+		wantErr           error
 	}{
 		{
 			testName: "empty annotation",
@@ -1225,13 +1226,26 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 			},
 			wantErr: errors.New("unsupported service type \"ClusterIP\" for load balancer target type \"instance\""),
 		},
+		{
+			testName:          "default instance",
+			svc:               &corev1.Service{},
+			defaultTargetType: "instance",
+			want:              elbv2.TargetTypeInstance,
+		},
+		{
+			testName:          "default ip",
+			svc:               &corev1.Service{},
+			defaultTargetType: "ip",
+			want:              elbv2.TargetTypeIP,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{
-				annotationParser: parser,
-				service:          tt.svc,
+				annotationParser:  parser,
+				service:           tt.svc,
+				defaultTargetType: elbv2.TargetType(tt.defaultTargetType),
 			}
 			got, err := builder.buildTargetType(context.Background())
 			if tt.wantErr != nil {
