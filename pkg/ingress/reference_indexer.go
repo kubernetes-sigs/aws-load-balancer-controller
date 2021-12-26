@@ -2,9 +2,10 @@ package ingress
 
 import (
 	"context"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,8 +54,8 @@ type defaultReferenceIndexer struct {
 
 func (i *defaultReferenceIndexer) BuildServiceRefIndexes(ctx context.Context, ing *networking.Ingress) []string {
 	var backends []networking.IngressBackend
-	if ing.Spec.Backend != nil {
-		backends = append(backends, *ing.Spec.Backend)
+	if ing.Spec.DefaultBackend != nil {
+		backends = append(backends, *ing.Spec.DefaultBackend)
 	}
 	for _, rule := range ing.Spec.Rules {
 		if rule.HTTP == nil {

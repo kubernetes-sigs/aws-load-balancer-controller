@@ -2,16 +2,16 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
@@ -31,9 +31,13 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 						Name: "my-ing",
 					},
 					Spec: networking.IngressSpec{
-						Backend: &networking.IngressBackend{
-							ServiceName: "svc-a",
-							ServicePort: intstr.FromInt(80),
+						DefaultBackend: &networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-a",
+								Port: networking.ServiceBackendPort{
+									Number: 80,
+								},
+							},
 						},
 						Rules: []networking.IngressRule{
 							{
@@ -44,15 +48,23 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 											{
 												Path: "/pathB",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-b",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-b",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 											{
 												Path: "/pathC",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-c",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-c",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 										},
@@ -67,15 +79,23 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 											{
 												Path: "/pathB",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-b",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-b",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 											{
 												Path: "/pathD",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-d",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-d",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 										},
@@ -96,7 +116,7 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 						Name: "my-ing",
 					},
 					Spec: networking.IngressSpec{
-						Backend: nil,
+						DefaultBackend: nil,
 						Rules: []networking.IngressRule{
 							{
 								Host: "/hostX",
@@ -106,15 +126,23 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 											{
 												Path: "/pathB",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-b",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-b",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 											{
 												Path: "/pathC",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-c",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-c",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 										},
@@ -129,15 +157,23 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 											{
 												Path: "/pathB",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-b",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-b",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 											{
 												Path: "/pathD",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-d",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-d",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 										},
@@ -173,15 +209,23 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 											{
 												Path: "/pathB",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-b",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-b",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 											{
 												Path: "/pathD",
 												Backend: networking.IngressBackend{
-													ServiceName: "svc-d",
-													ServicePort: intstr.FromInt(80),
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-d",
+														Port: networking.ServiceBackendPort{
+															Number: 80,
+														},
+													},
 												},
 											},
 										},
@@ -208,9 +252,13 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 						},
 					},
 					Spec: networking.IngressSpec{
-						Backend: &networking.IngressBackend{
-							ServiceName: "forward-single-svc",
-							ServicePort: intstr.FromString("use-annotation"),
+						DefaultBackend: &networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "forward-single-svc",
+								Port: networking.ServiceBackendPort{
+									Name: "use-annotation",
+								},
+							},
 						},
 						Rules: []networking.IngressRule{
 							{
@@ -221,22 +269,34 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 											{
 												Path: "/pathB",
 												Backend: networking.IngressBackend{
-													ServiceName: "forward-multiple-svc",
-													ServicePort: intstr.FromString("use-annotation"),
+													Service: &networking.IngressServiceBackend{
+														Name: "forward-multiple-svc",
+														Port: networking.ServiceBackendPort{
+															Name: "use-annotation",
+														},
+													},
 												},
 											},
 											{
 												Path: "/pathC",
 												Backend: networking.IngressBackend{
-													ServiceName: "forward-single-tg",
-													ServicePort: intstr.FromString("use-annotation"),
+													Service: &networking.IngressServiceBackend{
+														Name: "forward-single-tg",
+														Port: networking.ServiceBackendPort{
+															Name: "use-annotation",
+														},
+													},
 												},
 											},
 											{
 												Path: "/pathD",
 												Backend: networking.IngressBackend{
-													ServiceName: "forward-multiple-tg",
-													ServicePort: intstr.FromString("use-annotation"),
+													Service: &networking.IngressServiceBackend{
+														Name: "forward-multiple-tg",
+														Port: networking.ServiceBackendPort{
+															Name: "use-annotation",
+														},
+													},
 												},
 											},
 										},

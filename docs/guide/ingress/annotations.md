@@ -247,13 +247,12 @@ Traffic Routing can be controlled with following annotations:
         - forward-multiple-tg: forward to multiple targetGroups with different weights and stickiness config [**advanced schema**]
 
         ```yaml
-        apiVersion: extensions/v1beta1
+        apiVersion: networking.k8s.io/v1
         kind: Ingress
         metadata:
           namespace: default
           name: ingress
           annotations:
-            kubernetes.io/ingress.class: alb
             alb.ingress.kubernetes.io/scheme: internet-facing
             alb.ingress.kubernetes.io/actions.response-503: >
               {"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"503","messageBody":"503 error text"}}
@@ -264,25 +263,38 @@ Traffic Routing can be controlled with following annotations:
             alb.ingress.kubernetes.io/actions.forward-multiple-tg: >
               {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"service-1","servicePort":"http","weight":20},{"serviceName":"service-2","servicePort":80,"weight":20},{"targetGroupARN":"arn-of-your-non-k8s-target-group","weight":60}],"targetGroupStickinessConfig":{"enabled":true,"durationSeconds":200}}}
         spec:
+          ingressClassName: alb
           rules:
             - http:
                 paths:
                   - path: /503
+                    pathType: Exact
                     backend:
-                      serviceName: response-503
-                      servicePort: use-annotation
+                      service:
+                        name: response-503
+                        port:
+                          name: use-annotation
                   - path: /eks
+                    pathType: Exact
                     backend:
-                      serviceName: redirect-to-eks
-                      servicePort: use-annotation
+                      service:
+                        name: redirect-to-eks
+                        port:
+                          name: use-annotation
                   - path: /path1
+                    pathType: Exact
                     backend:
-                      serviceName: forward-single-tg
-                      servicePort: use-annotation
+                      service:
+                        name: forward-single-tg
+                        port:
+                          name: use-annotation
                   - path: /path2
+                    pathType: Exact
                     backend:
-                      serviceName: forward-multiple-tg
-                      servicePort: use-annotation
+                      service:
+                        name: forward-multiple-tg
+                        port:
+                          name: use-annotation
         ```
 
 - <a name="conditions">`alb.ingress.kubernetes.io/conditions.${conditions-name}`</a> Provides a method for specifying routing conditions **in addition to original host/path condition on Ingress spec**. 
@@ -332,13 +344,12 @@ Traffic Routing can be controlled with following annotations:
             - Query string is paramB:valueB
 
         ```yaml
-        apiVersion: extensions/v1beta1
+        apiVersion: networking.k8s.io/v1
         kind: Ingress
         metadata:
           namespace: default
           name: ingress
           annotations:
-            kubernetes.io/ingress.class: alb
             alb.ingress.kubernetes.io/scheme: internet-facing
             alb.ingress.kubernetes.io/actions.rule-path1: >
               {"type":"fixed-response","fixedResponseConfig":{"contentType":"text/plain","statusCode":"200","messageBody":"Host is www.example.com OR anno.example.com"}}
@@ -369,38 +380,60 @@ Traffic Routing can be controlled with following annotations:
             alb.ingress.kubernetes.io/conditions.rule-path7: >
               [{"field":"http-header","httpHeaderConfig":{"httpHeaderName": "HeaderName", "values":["HeaderValue"]}},{"field":"query-string","queryStringConfig":{"values":[{"key":"paramA","value":"valueA"}]}},{"field":"query-string","queryStringConfig":{"values":[{"key":"paramB","value":"valueB"}]}}]
         spec:
+          ingressClassName: alb
           rules:
             - host: www.example.com
               http:
                 paths:
                   - path: /path1
+                    pathType: Exact
                     backend:
-                      serviceName: rule-path1
-                      servicePort: use-annotation
+                      service:
+                        name: rule-path1
+                        port:
+                          name: use-annotation
                   - path: /path2
+                    pathType: Exact
                     backend:
-                      serviceName: rule-path2
-                      servicePort: use-annotation
+                      service:
+                        name: rule-path2
+                        port:
+                          name: use-annotation
                   - path: /path3
+                    pathType: Exact
                     backend:
-                      serviceName: rule-path3
-                      servicePort: use-annotation
+                      service:
+                        name: rule-path3
+                        port:
+                          name: use-annotation
                   - path: /path4
+                    pathType: Exact
                     backend:
-                      serviceName: rule-path4
-                      servicePort: use-annotation
+                      service:
+                        name: rule-path4
+                        port:
+                          name: use-annotation
                   - path: /path5
+                    pathType: Exact
                     backend:
-                      serviceName: rule-path5
-                      servicePort: use-annotation
+                      service:
+                        name: rule-path5
+                        port:
+                          name: use-annotation
                   - path: /path6
+                    pathType: Exact
                     backend:
-                      serviceName: rule-path6
-                      servicePort: use-annotation
+                      service:
+                        name: rule-path6
+                        port:
+                          name: use-annotation
                   - path: /path7
+                    pathType: Exact
                     backend:
-                      serviceName: rule-path7
-                      servicePort: use-annotation
+                      service:
+                        name: rule-path7
+                        port:
+                          name: use-annotation
         ```
 
 ## Access control

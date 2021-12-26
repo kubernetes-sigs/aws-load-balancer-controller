@@ -6,7 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
@@ -36,7 +36,7 @@ const (
 	controllerName   = "ingress"
 
 	// the groupVersion of used Ingress & IngressClass resource.
-	ingressResourcesGroupVersion = "networking.k8s.io/v1beta1"
+	ingressResourcesGroupVersion = "networking.k8s.io/v1"
 	ingressClassKind             = "IngressClass"
 )
 
