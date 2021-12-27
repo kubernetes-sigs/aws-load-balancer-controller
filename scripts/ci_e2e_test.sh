@@ -36,6 +36,8 @@ CLUSTER_INSTANCE_TYPE="m5.xlarge"
 CLUSTER_NODE_COUNT="4"
 CLUSTER_KUBECONFIG=${CLUSTER_KUBECONFIG:-"/tmp/lb-controller-e2e/clusters/${CLUSTER_NAME}.kubeconfig"}
 
+HELM_DIR="$(cd $(dirname "${BASH_SOURCE[0]}")/../helm ; pwd)"
+
 #######################################
 # Build and push ECR image for AWS Load Balancer Controller
 #
@@ -227,6 +229,7 @@ test_controller_image() {
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
     --aws-vpc-id=${cluster_vpc_id} \
+    --helm-dir=${HELM_DIR} \
     --controller-image=${CONTROLLER_IMAGE_NAME} \
     --s3-bucket-name=${S3_BUCKET} \
     --certificate-arns=${CERTIFICATE_ARNS}

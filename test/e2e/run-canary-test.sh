@@ -62,21 +62,16 @@ eksctl create iamserviceaccount \
 --override-existing-serviceaccounts \
 --approve || true
 
-echo "Update helm repo eks"
-helm repo add eks https://aws.github.io/eks-charts
-
-helm repo update
-
 echo "Install TargetGroupBinding CRDs"
 kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
 
 echo "Install aws-load-balancer-controller"
-helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
+helm upgrade -i aws-load-balancer-controller $SCRIPT_DIR/../helm/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
 
 #Start the test
 echo "Starting the ginkgo test suite" 
 
-(cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
+(cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --helm-dir=$SCRIPT_DIR/../helm || true)
 
 echo "Delete aws-load-balancer-controller"
 helm delete aws-load-balancer-controller -n kube-system --timeout=10m || true

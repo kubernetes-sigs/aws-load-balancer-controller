@@ -12,11 +12,12 @@ func init() {
 	globalOptions.BindFlags()
 }
 
-// configuration options
+// Options are the configuration options.
 type Options struct {
 	ClusterName string
 	AWSRegion   string
 	AWSVPCID    string
+	HelmDir     string
 	KubeConfig  string
 
 	// AWS Load Balancer Controller image. leave empty to use default one from helm chart.
@@ -31,6 +32,7 @@ func (options *Options) BindFlags() {
 	flag.StringVar(&options.ClusterName, "cluster-name", "", `Kubernetes cluster name (required)`)
 	flag.StringVar(&options.AWSRegion, "aws-region", "", `AWS Region for the kubernetes cluster`)
 	flag.StringVar(&options.AWSVPCID, "aws-vpc-id", "", `ID of VPC to create load balancers in`)
+	flag.StringVar(&options.HelmDir, "helm-dir", "", `directory containing Helm chart`)
 
 	flag.StringVar(&options.ControllerImage, "controller-image", "", `AWS Load Balancer Controller image`)
 
@@ -50,6 +52,9 @@ func (options *Options) Validate() error {
 	}
 	if len(options.AWSVPCID) == 0 {
 		return errors.Errorf("%s must be set!", "aws-vpc-id")
+	}
+	if len(options.HelmDir) == 0 {
+		return errors.Errorf("%s must be set!", "helm-dir")
 	}
 	return nil
 }
