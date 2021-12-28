@@ -78,6 +78,9 @@ echo "Starting the ginkgo test suite"
 
 (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
 
+echo "Fetch most recent aws-load-balancer-controller logs"
+kubectl logs --tail=100 deploy/aws-load-balancer-controller -n kube-system
+
 echo "Delete aws-load-balancer-controller"
 helm delete aws-load-balancer-controller -n kube-system --timeout=10m || true
 
