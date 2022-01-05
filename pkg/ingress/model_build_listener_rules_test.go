@@ -3,7 +3,7 @@ package ingress
 import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	"testing"
 )
 

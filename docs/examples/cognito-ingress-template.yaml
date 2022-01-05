@@ -17,13 +17,12 @@
 #    - Related Kubernetes service/application
 #
 
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: <ingress-name>  # app.example.com
   namespace: <placement-namespace>  # default
   annotations:
-    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/tags: Environment=<environment-name>,Owner=<your-name>
     # For each `listen-ports` object defined an ALB lister is created
@@ -50,18 +49,25 @@ metadata:
     # ACM certificate ARN for your SSL domain
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>
 spec:
+  ingressClassName: alb
   rules:
     # If you are using ExternalDNS, this will become your applications FQDN
     - host: <FQDN>
       http:
         paths:
           # This first path should perform an ssl-redirect as below
-          - path: /*
+          - path: /
+            pathType: Prefix
             backend:
-              serviceName: ssl-redirect
-              # Configured via the redirect settings in the annotations
-              servicePort: use-annotation
+              service:
+                name: ssl-redirect
+                # Configured via the redirect settings in the annotations
+                port:
+                  name: use-annotation
           - path: <html-path>
+            pathType: Prefix
             backend:
-              serviceName: <service-name>
-              servicePort: <service-port>
+              service:
+                name: <service-name>
+                port:
+                  number: <service-port>

@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -230,15 +230,23 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_1.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 														{
 															Path: "/svc-2",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_2.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -253,8 +261,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-3",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_3.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -698,15 +710,23 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_1.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 														{
 															Path: "/svc-2",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_2.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -721,8 +741,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-3",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_3.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -1176,15 +1200,23 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_1.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 														{
 															Path: "/svc-2",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_2.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -1199,8 +1231,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-3",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_3.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -1648,15 +1684,23 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_1.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 														{
 															Path: "/svc-2",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_2.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -1671,8 +1715,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-3",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_3.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -2128,15 +2176,23 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-1-name",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_1.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 														{
 															Path: "/svc-1-port",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_1.Name,
-																ServicePort: intstr.FromInt(80),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Number: 80,
+																	},
+																},
 															},
 														},
 													},
@@ -2520,15 +2576,23 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_1.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 														{
 															Path: "/svc-2",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_2.Name,
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -2543,8 +2607,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-3",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_3.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -3034,8 +3102,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-3",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_3.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -3233,8 +3305,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/svc-3",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_3.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -3282,8 +3358,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_ipv6.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_ipv6.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -3510,8 +3590,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/",
 															Backend: networking.IngressBackend{
-																ServiceName: ns_1_svc_ipv6.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_ipv6.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -3558,8 +3642,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 														{
 															Path: "/",
 															Backend: networking.IngressBackend{
-																ServiceName: svcWithNamedTargetPort.Name,
-																ServicePort: intstr.FromString("https"),
+																Service: &networking.IngressServiceBackend{
+																	Name: svcWithNamedTargetPort.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
 															},
 														},
 													},
@@ -3860,8 +3948,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-1",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-1",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -3912,8 +4004,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-1",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-1",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -3967,8 +4063,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-1",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-1",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -4019,8 +4119,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-1",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-1",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -4068,8 +4172,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-1",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-1",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -4095,8 +4203,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-2",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-2",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-2",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -4147,8 +4259,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-1",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-1",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -4174,8 +4290,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-2",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-2",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-2",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -4229,8 +4349,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-1",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-1",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -4259,8 +4383,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-2",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-2",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-2",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -4314,8 +4442,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-1",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-1",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-1",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},
@@ -4344,8 +4476,12 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 														{
 															Path: "/svc-2",
 															Backend: networking.IngressBackend{
-																ServiceName: "svc-2",
-																ServicePort: intstr.FromString("http"),
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-2",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
 															},
 														},
 													},

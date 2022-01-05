@@ -18,7 +18,7 @@ Refer to the [installation guide](installation.md) for installing the controller
 You can limit the ingresses ALB ingress controller controls by combining following two approaches:
 
 ### Limiting ingress class
-Setting the `--ingress-class` argument constrains the controller's scope to ingresses with matching `kubernetes.io/ingress.class` annotation.
+Setting the `--ingress-class` argument constrains the controller's scope to ingresses with matching `ingressClassName` field.
 
 An example of the container spec portion of the controller, only listening for resources with the class "alb", would be as follows.
 
@@ -29,18 +29,17 @@ spec:
     - --ingress-class=alb
 ```
 
-Now, only ingress resources with the appropriate annotation are picked up, as seen below.
+Now, only ingress resources with the appropriate class are picked up, as seen below.
 
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: echoserver
   namespace: echoserver
-  annotations:
-    kubernetes.io/ingress.class: "alb"
 spec:
-    ...
+  ingressClassName: alb
+  ...
 ```
 
 If the ingress class is not specified, the controller will reconcile Ingress objects without the ingress class specified or ingress class `alb`.

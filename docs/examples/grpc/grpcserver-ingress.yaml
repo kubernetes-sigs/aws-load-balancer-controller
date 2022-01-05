@@ -1,4 +1,4 @@
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
@@ -8,22 +8,28 @@ metadata:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    kubernetes.io/ingress.class: alb
   labels:
     app: grpcserver
     environment: dev
   name: grpcserver
   namespace: grpcserver
 spec:
+  ingressClassName: alb
   rules:
   - host: grpcserver.example.com
     http:
       paths:
       - backend:
-          serviceName: ssl-redirect
-          servicePort: use-annotation
-        path: /*
+          service:
+            name: ssl-redirect
+            port:
+              name: use-annotation
+        path: /
+        pathType: Prefix
       - backend:
-          serviceName: grpcserver
-          servicePort: 50051
-        path: /helloworld.Greeter/*
+          service:
+            name: grpcserver
+            port:
+              number: 50051
+        path: /helloworld.Greeter
+        pathType: Prefix

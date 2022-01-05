@@ -76,7 +76,7 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
-        path: /validate-networking-v1beta1-ingress
+        path: /validate-networking-v1-ingress
     failurePolicy: Fail
     matchPolicy: Equivalent
     name: vingress.elbv2.k8s.aws
@@ -84,7 +84,7 @@ webhooks:
       - apiGroups:
           - networking.k8s.io
         apiVersions:
-          - v1beta1
+          - v1
         operations:
           - CREATE
           - UPDATE
