@@ -3,6 +3,9 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/gavv/httpexpect/v2"
 	. "github.com/onsi/ginkgo"
@@ -12,13 +15,11 @@ import (
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"net/http"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/fixture"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/manifest"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"time"
 )
 
 var _ = Describe("vanilla ingress tests", func() {
@@ -32,7 +33,8 @@ var _ = Describe("vanilla ingress tests", func() {
 		ctx = context.Background()
 		if tf.Options.ControllerImage != "" {
 			By(fmt.Sprintf("ensure cluster installed with controller: %s", tf.Options.ControllerImage), func() {
-				tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage)
+				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage)
+				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(60 * time.Second)
 			})
 		}

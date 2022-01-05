@@ -2,6 +2,8 @@ package helm
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/go-logr/logr"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
@@ -9,7 +11,6 @@ import (
 	"helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
-	"time"
 )
 
 // ActionOptions contains general helm action options
@@ -38,15 +39,15 @@ func WithTimeout(timeout time.Duration) ActionOption {
 // ReleaseManager is responsible for manage helm releases
 type ReleaseManager interface {
 	// InstallOrUpgradeRelease install or upgrade helm release
-	InstallOrUpgradeRelease(chartRepo string, chartName string,
+	InstallOrUpgradeRelease(chartName string,
 		namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error)
 
 	// InstallRelease install helm release
-	InstallRelease(chartRepo string, chartName string,
+	InstallRelease(chartName string,
 		namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error)
 
 	// UpgradeRelease upgrade helm release
-	UpgradeRelease(chartRepo string, chartName string,
+	UpgradeRelease(chartName string,
 		namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error)
 }
 
@@ -66,24 +67,23 @@ type defaultReleaseManager struct {
 	logger     logr.Logger
 }
 
-func (m *defaultReleaseManager) InstallOrUpgradeRelease(chartRepo string, chartName string,
+func (m *defaultReleaseManager) InstallOrUpgradeRelease(chartName string,
 	namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error) {
 	actionCFG := m.obtainActionConfig(namespace)
 	historyAction := action.NewHistory(actionCFG)
 	historyAction.Max = 1
 	if _, err := historyAction.Run(releaseName); err == driver.ErrReleaseNotFound {
-		return m.InstallRelease(chartRepo, chartName, namespace, releaseName, vals, opts...)
+		return m.InstallRelease(chartName, namespace, releaseName, vals, opts...)
 	} else {
-		return m.UpgradeRelease(chartRepo, chartName, namespace, releaseName, vals, opts...)
+		return m.UpgradeRelease(chartName, namespace, releaseName, vals, opts...)
 	}
 }
 
-func (m *defaultReleaseManager) InstallRelease(chartRepo string, chartName string,
+func (m *defaultReleaseManager) InstallRelease(chartName string,
 	namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error) {
 
 	actionCFG := m.obtainActionConfig(namespace)
 	installAction := action.NewInstall(actionCFG)
-	installAction.ChartPathOptions.RepoURL = chartRepo
 	installAction.Namespace = namespace
 	installAction.SkipCRDs = false
 	installAction.ReleaseName = releaseName
@@ -107,12 +107,11 @@ func (m *defaultReleaseManager) InstallRelease(chartRepo string, chartName strin
 	return installAction.Run(chartRequested, vals)
 }
 
-func (m *defaultReleaseManager) UpgradeRelease(chartRepo string, chartName string,
+func (m *defaultReleaseManager) UpgradeRelease(chartName string,
 	namespace string, releaseName string, vals map[string]interface{}, opts ...ActionOption) (*release.Release, error) {
 
 	actionCFG := m.obtainActionConfig(namespace)
 	upgradeAction := action.NewUpgrade(actionCFG)
-	upgradeAction.ChartPathOptions.RepoURL = chartRepo
 	upgradeAction.Namespace = namespace
 	upgradeAction.ResetValues = true
 
