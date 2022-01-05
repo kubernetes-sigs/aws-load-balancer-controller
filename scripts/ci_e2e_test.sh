@@ -229,7 +229,7 @@ test_controller_image() {
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
     --aws-vpc-id=${cluster_vpc_id} \
-    --helm-dir=${HELM_DIR} \
+    --helm-chart=${HELM_DIR}/aws-load-balancer-controller \
     --controller-image=${CONTROLLER_IMAGE_NAME} \
     --s3-bucket-name=${S3_BUCKET} \
     --certificate-arns=${CERTIFICATE_ARNS}

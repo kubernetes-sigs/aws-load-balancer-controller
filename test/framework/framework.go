@@ -89,6 +89,6 @@ func InitFramework() (*Framework, error) {
 
 func buildControllerInstallationManager(options Options, logger logr.Logger) controller.InstallationManager {
 	helmReleaseManager := helm.NewDefaultReleaseManager(options.KubeConfig, logger)
-	ctrlInstallationManager := controller.NewDefaultInstallationManager(helmReleaseManager, options.ClusterName, options.AWSRegion, options.AWSVPCID, options.HelmDir, logger)
+	ctrlInstallationManager := controller.NewDefaultInstallationManager(helmReleaseManager, options.ClusterName, options.AWSRegion, options.AWSVPCID, options.HelmChart, logger)
 	return ctrlInstallationManager
 }

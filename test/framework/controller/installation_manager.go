@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"path"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -17,13 +16,13 @@ type InstallationManager interface {
 }
 
 // NewDefaultInstallationManager constructs new defaultInstallationManager.
-func NewDefaultInstallationManager(helmReleaseManager helm.ReleaseManager, clusterName string, region string, vpcID string, helmDir string, logger logr.Logger) *defaultInstallationManager {
+func NewDefaultInstallationManager(helmReleaseManager helm.ReleaseManager, clusterName string, region string, vpcID string, helmChart string, logger logr.Logger) *defaultInstallationManager {
 	return &defaultInstallationManager{
 		helmReleaseManager: helmReleaseManager,
 		clusterName:        clusterName,
 		region:             region,
 		vpcID:              vpcID,
-		helmDir:            helmDir,
+		helmChart:          helmChart,
 
 		namespace:        "kube-system",
 		controllerSAName: "aws-load-balancer-controller",
@@ -39,7 +38,7 @@ type defaultInstallationManager struct {
 	clusterName        string
 	region             string
 	vpcID              string
-	helmDir            string
+	helmChart          string
 
 	namespace        string
 	controllerSAName string
@@ -48,7 +47,7 @@ type defaultInstallationManager struct {
 
 func (m *defaultInstallationManager) ResetController() error {
 	vals := m.computeDefaultHelmVals()
-	_, err := m.helmReleaseManager.InstallOrUpgradeRelease(path.Join(m.helmDir, AWSLoadBalancerControllerHelmChart),
+	_, err := m.helmReleaseManager.InstallOrUpgradeRelease(m.helmChart,
 		m.namespace, AWSLoadBalancerControllerHelmRelease, vals,
 		helm.WithTimeout(AWSLoadBalancerControllerInstallationTimeout))
 	return err
@@ -67,7 +66,7 @@ func (m *defaultInstallationManager) UpgradeController(controllerImage string) e
 	vals["podLabels"] = map[string]string{
 		"revision": string(uuid.NewUUID()),
 	}
-	_, err = m.helmReleaseManager.InstallOrUpgradeRelease(path.Join(m.helmDir, AWSLoadBalancerControllerHelmChart),
+	_, err = m.helmReleaseManager.InstallOrUpgradeRelease(m.helmChart,
 		m.namespace, AWSLoadBalancerControllerHelmRelease, vals,
 		helm.WithTimeout(AWSLoadBalancerControllerInstallationTimeout))
 	return err
