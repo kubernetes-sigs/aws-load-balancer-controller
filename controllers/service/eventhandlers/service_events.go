@@ -60,7 +60,7 @@ func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue wor
 }
 
 func (h *enqueueRequestsForServiceEvent) isServiceSupported(service *corev1.Service) bool {
-	if h.handleByDefault {
+	if h.handleByDefault && service.Spec.Type == corev1.ServiceTypeLoadBalancer {
 		return true
 	}
 	lbType := ""
