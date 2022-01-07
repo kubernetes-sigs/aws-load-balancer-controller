@@ -36,6 +36,7 @@ const (
 var (
 	trackingTagKeys = sets.NewString(
 		"elbv2.k8s.aws/cluster",
+		"elbv2.k8s.aws/resource",
 		"ingress.k8s.aws/stack",
 		"ingress.k8s.aws/resource",
 		"service.k8s.aws/stack",
