@@ -386,8 +386,10 @@ func (r *defaultSubnetsResolver) filterSubnetsByAvailableIPAddress(subnets []*ec
 	for _, subnet := range subnets {
 		if awssdk.Int64Value(subnet.AvailableIpAddressCount) >= availableIPAddressCount {
 			filteredSubnets = append(filteredSubnets, subnet)
+		} else {
+			r.logger.Info("ELB requires at least 8 free IP addresses in each subnet",
+				"not enough IP addresses found in ", awssdk.StringValue(subnet.SubnetId))
 		}
 	}
-	r.logger.V(4).Info("Subnets filtered by Available IP Address: ", filteredSubnets)
 	return filteredSubnets
 }
