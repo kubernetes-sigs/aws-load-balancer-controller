@@ -5,30 +5,34 @@ You can use the [`alb.ingress.kubernetes.io/ssl-redirect`](../ingress/annotation
 
 ## Example Ingress Manifest
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   namespace: default
   name: ingress
   annotations:
-    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxx:certificate/xxxxxx
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
     alb.ingress.kubernetes.io/ssl-redirect: '443'
 spec:
+  ingressClassName: alb
   rules:
     - http:
         paths:
          - path: /users/*
            pathType: ImplementationSpecific
            backend:
-             serviceName: user-service
-             servicePort: 80
+             service:
+               name: user-service
+               port:
+                 number: 80
          - path: /*
            pathType: ImplementationSpecific
            backend:
-             serviceName: default-service
-             servicePort: 80
+             service:
+               name: default-service
+               port:
+                 number: 80
 ```
 
 !!!note

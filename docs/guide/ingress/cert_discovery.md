@@ -11,25 +11,28 @@ The controller will attempt to discover TLS certificates from the `tls` field in
 !!!example
         - attaches certs for `www.example.com` to the ALB
             ```yaml
-            apiVersion: extensions/v1beta1
+            apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
             namespace: default
             name: ingress
             annotations:
-              kubernetes.io/ingress.class: alb
               alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
             spec:
+              ingressClassName: alb
               tls:
               - hosts:
                 - www.example.com
               rules:
               - http:
                   paths:
-                  - path: /users/*
+                  - path: /users
+                    pathType: Prefix
                     backend:
-                      serviceName: user-service
-                      servicePort: 80
+                      service:
+                        name: user-service
+                        port:
+                          number: 80
             ```
 
 
@@ -38,21 +41,24 @@ The controller will attempt to discover TLS certificates from the `tls` field in
 !!!example
         - attaches a cert for `dev.example.com` or `*.example.com` to the ALB
             ```yaml
-            apiVersion: extensions/v1beta1
+            apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
             namespace: default
             name: ingress
             annotations:
-              kubernetes.io/ingress.class: alb
               alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
             spec:
-            rules:
-            - host: dev.example.com
-              http:
-                paths:
-                - path: /users/*
-                backend:
-                  serviceName: user-service
-                  servicePort: 80
+              ingressClassName: alb
+              rules:
+              - host: dev.example.com
+                http:
+                  paths:
+                  - path: /users
+                    pathType: Prefix
+                    backend:
+                      service:
+                        name: user-service
+                        port:
+                          number: 80
             ```

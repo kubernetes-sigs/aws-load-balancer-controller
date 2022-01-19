@@ -214,11 +214,15 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 	if err != nil {
 		if isELBV2TargetGroupNotFoundError(err) {
 			return nil
+		} else if isELBV2TargetGroupARNInvalidError(err) {
+			return nil
 		}
 		return err
 	}
 	if err := m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets); err != nil {
 		if isELBV2TargetGroupNotFoundError(err) {
+			return nil
+		} else if isELBV2TargetGroupARNInvalidError(err) {
 			return nil
 		}
 		return err
@@ -503,6 +507,14 @@ func isELBV2TargetGroupNotFoundError(err error) bool {
 	var awsErr awserr.Error
 	if errors.As(err, &awsErr) {
 		return awsErr.Code() == "TargetGroupNotFound"
+	}
+	return false
+}
+
+func isELBV2TargetGroupARNInvalidError(err error) bool {
+	var awsErr awserr.Error
+	if errors.As(err, &awsErr) {
+		return awsErr.Code() == "ValidationError"
 	}
 	return false
 }

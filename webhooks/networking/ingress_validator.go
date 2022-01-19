@@ -2,10 +2,11 @@ package networking
 
 import (
 	"context"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -17,7 +18,7 @@ import (
 )
 
 const (
-	apiPathValidateNetworkingIngress = "/validate-networking-v1beta1-ingress"
+	apiPathValidateNetworkingIngress = "/validate-networking-v1-ingress"
 )
 
 // NewIngressValidator returns a validator for Ingress API.
@@ -163,7 +164,7 @@ func (v *ingressValidator) checkIngressClassUsage(ctx context.Context, ing *netw
 	return nil
 }
 
-// +kubebuilder:webhook:path=/validate-networking-v1beta1-ingress,mutating=false,failurePolicy=fail,groups=networking.k8s.io,resources=ingresses,verbs=create;update,versions=v1beta1,name=vingress.elbv2.k8s.aws,sideEffects=None,matchPolicy=Equivalent,webhookVersions=v1,admissionReviewVersions=v1beta1
+// +kubebuilder:webhook:path=/validate-networking-v1-ingress,mutating=false,failurePolicy=fail,groups=networking.k8s.io,resources=ingresses,verbs=create;update,versions=v1,name=vingress.elbv2.k8s.aws,sideEffects=None,matchPolicy=Equivalent,webhookVersions=v1,admissionReviewVersions=v1beta1
 
 func (v *ingressValidator) SetupWithManager(mgr ctrl.Manager) {
 	mgr.GetWebhookServer().Register(apiPathValidateNetworkingIngress, webhook.ValidatingWebhookForValidator(v))

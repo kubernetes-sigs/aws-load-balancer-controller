@@ -14,26 +14,32 @@ Learn more about the actions annotation at
 
 ## Example Ingress Manifest
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   namespace: testcase
   name: echoserver
   annotations:
-    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/actions.legacy-app: '{"Type": "forward", "TargetGroupArn": "legacy-tg-arn"}'
 spec:
+  ingressClassName: alb
   rules:
     - http:
         paths:
           - path: /v1/endpoints
+            pathType: Exact
             backend:
-              serviceName: legacy-app
-              servicePort: use-annotation
+              service:
+                name: legacy-app
+                port:
+                  name: use-annotation
           - path: /normal-path
+            pathType: Exact
             backend:
-              serviceName: echoserver
-              servicePort: 80
+              service:
+                name: echoserver
+                port:
+                  number: 80
 ```
 
 !!!note

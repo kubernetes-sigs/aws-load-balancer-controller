@@ -3,22 +3,22 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/gavv/httpexpect/v2"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"net/http"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/fixture"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/manifest"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"time"
 )
 
 var _ = Describe("vanilla ingress tests", func() {
@@ -28,11 +28,14 @@ var _ = Describe("vanilla ingress tests", func() {
 		sandboxNS *corev1.Namespace
 	)
 
+	exact := networking.PathTypeExact
+
 	BeforeEach(func() {
 		ctx = context.Background()
 		if tf.Options.ControllerImage != "" {
 			By(fmt.Sprintf("ensure cluster installed with controller: %s", tf.Options.ControllerImage), func() {
-				tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage)
+				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage)
+				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(60 * time.Second)
 			})
 		}
@@ -70,7 +73,14 @@ var _ = Describe("vanilla ingress tests", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
 			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
-			ingBackend := networking.IngressBackend{ServiceName: svc.Name, ServicePort: intstr.FromInt(80)}
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
 			ingClass := &networking.IngressClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: sandboxNS.Name,
@@ -80,7 +90,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				},
 			}
 			ing := ingBuilder.
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", Backend: ingBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithIngressClassName(ingClass.Name).
 				WithAnnotations(map[string]string{
 					"alb.ingress.kubernetes.io/scheme": "internet-facing",
@@ -102,9 +112,16 @@ var _ = Describe("vanilla ingress tests", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
 			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
-			ingBackend := networking.IngressBackend{ServiceName: svc.Name, ServicePort: intstr.FromInt(80)}
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
 			ing := ingBuilder.
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", Backend: ingBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(map[string]string{
 					"kubernetes.io/ingress.class":      "alb",
 					"alb.ingress.kubernetes.io/scheme": "internet-facing",
@@ -128,7 +145,14 @@ var _ = Describe("vanilla ingress tests", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
 			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
-			ingBackend := networking.IngressBackend{ServiceName: svc.Name, ServicePort: intstr.FromInt(80)}
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
 			ingClass := &networking.IngressClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: sandboxNS.Name,
@@ -138,7 +162,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				},
 			}
 			ing := ingBuilder.
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", Backend: ingBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithIngressClassName(ingClass.Name).
 				WithAnnotations(map[string]string{
 					"alb.ingress.kubernetes.io/scheme": "internet-facing",
@@ -154,9 +178,16 @@ var _ = Describe("vanilla ingress tests", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
 			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
-			ingBackend := networking.IngressBackend{ServiceName: svc.Name, ServicePort: intstr.FromInt(80)}
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
 			ing := ingBuilder.
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", Backend: ingBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(map[string]string{
 					"kubernetes.io/ingress.class":      "nginx",
 					"alb.ingress.kubernetes.io/scheme": "internet-facing",
@@ -172,9 +203,16 @@ var _ = Describe("vanilla ingress tests", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
 			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
-			ingBackend := networking.IngressBackend{ServiceName: svc.Name, ServicePort: intstr.FromInt(80)}
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
 			ing := ingBuilder.
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", Backend: ingBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(map[string]string{
 					"alb.ingress.kubernetes.io/scheme": "internet-facing",
 				}).Build(sandboxNS.Name, "ing")
@@ -191,10 +229,17 @@ var _ = Describe("vanilla ingress tests", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
 			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
-			ingBackend := networking.IngressBackend{ServiceName: svc.Name, ServicePort: intstr.FromInt(80)}
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
 			lbName := fmt.Sprintf("%.16s-%.15s", tf.Options.ClusterName, sandboxNS.Name)
 			ing := ingBuilder.
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", Backend: ingBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(map[string]string{
 					"kubernetes.io/ingress.class":                  "alb",
 					"alb.ingress.kubernetes.io/scheme":             "internet-facing",
@@ -224,9 +269,16 @@ var _ = Describe("vanilla ingress tests", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder().WithTargetPortName("e2e-targetport")
 			ingBuilder := manifest.NewIngressBuilder()
 			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
-			ingBackend := networking.IngressBackend{ServiceName: svc.Name, ServicePort: intstr.FromInt(80)}
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
 			ing := ingBuilder.
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", Backend: ingBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(map[string]string{
 					"kubernetes.io/ingress.class":           "alb",
 					"alb.ingress.kubernetes.io/scheme":      "internet-facing",
@@ -253,15 +305,43 @@ var _ = Describe("vanilla ingress tests", func() {
 			ingBuilder := manifest.NewIngressBuilder()
 			dp1, svc1 := appBuilder.WithHTTPBody("app-1").Build(sandboxNS.Name, "app-1")
 			dp2, svc2 := appBuilder.WithHTTPBody("app-2").Build(sandboxNS.Name, "app-2")
-			ingResponse503Backend := networking.IngressBackend{ServiceName: "response-503", ServicePort: intstr.FromString("use-annotation")}
-			ingRedirectToAWSBackend := networking.IngressBackend{ServiceName: "redirect-to-aws", ServicePort: intstr.FromString("use-annotation")}
-			ingForwardSingleTGBackend := networking.IngressBackend{ServiceName: "forward-single-tg", ServicePort: intstr.FromString("use-annotation")}
-			ingForwardMultipleTGBackend := networking.IngressBackend{ServiceName: "forward-multiple-tg", ServicePort: intstr.FromString("use-annotation")}
+			ingResponse503Backend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "response-503",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
+			ingRedirectToAWSBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "redirect-to-aws",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
+			ingForwardSingleTGBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "forward-single-tg",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
+			ingForwardMultipleTGBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "forward-multiple-tg",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
 			ing := ingBuilder.
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/response-503", Backend: ingResponse503Backend}).
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/redirect-to-aws", Backend: ingRedirectToAWSBackend}).
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/forward-single-tg", Backend: ingForwardSingleTGBackend}).
-				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/forward-multiple-tg", Backend: ingForwardMultipleTGBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/response-503", PathType: &exact, Backend: ingResponse503Backend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/redirect-to-aws", PathType: &exact, Backend: ingRedirectToAWSBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/forward-single-tg", PathType: &exact, Backend: ingForwardSingleTGBackend}).
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/forward-multiple-tg", PathType: &exact, Backend: ingForwardMultipleTGBackend}).
 				WithAnnotations(map[string]string{
 					"kubernetes.io/ingress.class":                           "alb",
 					"alb.ingress.kubernetes.io/scheme":                      "internet-facing",
@@ -296,22 +376,71 @@ var _ = Describe("vanilla ingress tests", func() {
 	Context("with `alb.ingress.kubernetes.io/conditions.${conditions-name}` variant settings", func() {
 		It("with annotation based conditions, one ALB shall be created and functional", func() {
 			ingBuilder := manifest.NewIngressBuilder()
-			ingRulePath1Backend := networking.IngressBackend{ServiceName: "rule-path1", ServicePort: intstr.FromString("use-annotation")}
-			ingRulePath2Backend := networking.IngressBackend{ServiceName: "rule-path2", ServicePort: intstr.FromString("use-annotation")}
-			ingRulePath3Backend := networking.IngressBackend{ServiceName: "rule-path3", ServicePort: intstr.FromString("use-annotation")}
-			ingRulePath4Backend := networking.IngressBackend{ServiceName: "rule-path4", ServicePort: intstr.FromString("use-annotation")}
-			ingRulePath5Backend := networking.IngressBackend{ServiceName: "rule-path5", ServicePort: intstr.FromString("use-annotation")}
-			ingRulePath6Backend := networking.IngressBackend{ServiceName: "rule-path6", ServicePort: intstr.FromString("use-annotation")}
-			ingRulePath7Backend := networking.IngressBackend{ServiceName: "rule-path7", ServicePort: intstr.FromString("use-annotation")}
+			ingRulePath1Backend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "rule-path1",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
+			ingRulePath2Backend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "rule-path2",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
+			ingRulePath3Backend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "rule-path3",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
+			ingRulePath4Backend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "rule-path4",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
+			ingRulePath5Backend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "rule-path5",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
+			ingRulePath6Backend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "rule-path6",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
+			ingRulePath7Backend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: "rule-path7",
+					Port: networking.ServiceBackendPort{
+						Name: "use-annotation",
+					},
+				},
+			}
 
 			ing := ingBuilder.
-				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path1", Backend: ingRulePath1Backend}).
-				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path2", Backend: ingRulePath2Backend}).
-				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path3", Backend: ingRulePath3Backend}).
-				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path4", Backend: ingRulePath4Backend}).
-				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path5", Backend: ingRulePath5Backend}).
-				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path6", Backend: ingRulePath6Backend}).
-				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path7", Backend: ingRulePath7Backend}).
+				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path1", PathType: &exact, Backend: ingRulePath1Backend}).
+				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path2", PathType: &exact, Backend: ingRulePath2Backend}).
+				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path3", PathType: &exact, Backend: ingRulePath3Backend}).
+				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path4", PathType: &exact, Backend: ingRulePath4Backend}).
+				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path5", PathType: &exact, Backend: ingRulePath5Backend}).
+				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path6", PathType: &exact, Backend: ingRulePath6Backend}).
+				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path7", PathType: &exact, Backend: ingRulePath7Backend}).
 				WithAnnotations(map[string]string{
 					"kubernetes.io/ingress.class":                     "alb",
 					"alb.ingress.kubernetes.io/scheme":                "internet-facing",

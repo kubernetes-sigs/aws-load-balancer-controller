@@ -1,6 +1,6 @@
 package ingress
 
-import networking "k8s.io/api/networking/v1beta1"
+import networking "k8s.io/api/networking/v1"
 
 func FindIngressDNSName(ing *networking.Ingress) string {
 	for _, ingSTS := range ing.Status.LoadBalancer.Ingress {

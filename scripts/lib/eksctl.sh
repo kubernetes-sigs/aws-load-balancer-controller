@@ -21,7 +21,8 @@ EKSCTL_TEMPLATE_IAM_SA="$(dirname "${BASH_SOURCE[0]}")/eksctl_tmpl_iam_sa.yaml"
 eksctl::init() {
   declare -r version="$1"
 
-  local os_arch="$(go env GOOS)_$(go env GOARCH)"
+  local go_os="$(go env GOOS)"
+  local os_arch="$(echo ${go_os:0:1} | tr [a-z] [A-Z])${go_os:1}_$(go env GOARCH)"
   local eksctl_download_url="https://github.com/weaveworks/eksctl/releases/download/${version}/eksctl_${os_arch}.tar.gz"
   local eksctl_binary_dir=$(dirname $EKSCTL_BINARY)
 

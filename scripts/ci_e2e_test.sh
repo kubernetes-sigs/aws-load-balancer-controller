@@ -29,12 +29,14 @@ CONTROLLER_IAM_POLICY_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
 CONTROLLER_IAM_POLICY_ARN="" # will be fulfilled during setup_controller_iam_sa
 
 # Cluster settings
-EKSCTL_VERSION="0.34.0"
+EKSCTL_VERSION="v0.77.0"
 CLUSTER_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
-CLUSTER_VERSION=${CLUSTER_VERSION:-"1.18"}
+CLUSTER_VERSION=${CLUSTER_VERSION:-"1.19"}
 CLUSTER_INSTANCE_TYPE="m5.xlarge"
 CLUSTER_NODE_COUNT="4"
 CLUSTER_KUBECONFIG=${CLUSTER_KUBECONFIG:-"/tmp/lb-controller-e2e/clusters/${CLUSTER_NAME}.kubeconfig"}
+
+HELM_DIR="$(cd $(dirname "${BASH_SOURCE[0]}")/../helm ; pwd)"
 
 #######################################
 # Build and push ECR image for AWS Load Balancer Controller
@@ -227,6 +229,7 @@ test_controller_image() {
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
     --aws-vpc-id=${cluster_vpc_id} \
+    --helm-chart=${HELM_DIR}/aws-load-balancer-controller \
     --controller-image=${CONTROLLER_IMAGE_NAME} \
     --s3-bucket-name=${S3_BUCKET} \
     --certificate-arns=${CERTIFICATE_ARNS}

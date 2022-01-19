@@ -1,10 +1,6 @@
 {{ $tls := fromYaml ( include "aws-load-balancer-controller.webhook-certs" . ) }}
 ---
-{{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1" }}
 apiVersion: admissionregistration.k8s.io/v1
-{{- else }}
-apiVersion: admissionregistration.k8s.io/v1beta1
-{{- end }}
 kind: MutatingWebhookConfiguration
 metadata:
 {{- if $.Values.enableCertManager }}
@@ -76,11 +72,7 @@ webhooks:
     - targetgroupbindings
   sideEffects: None
 ---
-{{- if .Capabilities.APIVersions.Has "admissionregistration.k8s.io/v1" }}
 apiVersion: admissionregistration.k8s.io/v1
-{{- else }}
-apiVersion: admissionregistration.k8s.io/v1beta1
-{{- end }}
 kind: ValidatingWebhookConfiguration
 metadata:
 {{- if $.Values.enableCertManager }}
@@ -117,7 +109,7 @@ webhooks:
     service:
       name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
       namespace: {{ $.Release.Namespace }}
-      path: /validate-networking-v1beta1-ingress
+      path: /validate-networking-v1-ingress
   failurePolicy: Fail
   matchPolicy: Equivalent
   name: vingress.elbv2.k8s.aws
@@ -127,7 +119,7 @@ webhooks:
   - apiGroups:
     - networking.k8s.io
     apiVersions:
-    - v1beta1
+    - v1
     operations:
     - CREATE
     - UPDATE

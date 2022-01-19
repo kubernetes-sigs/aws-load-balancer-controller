@@ -2,7 +2,8 @@
 
 ## Kubernetes version requirements
 * AWS Load Balancer Controller v2.0.0~v2.1.3 requires Kubernetes 1.15+
-* AWS Load Balancer Controller v2.2.0+ requires Kubernetes 1.16+
+* AWS Load Balancer Controller v2.2.0~v2.3.1 requires Kubernetes 1.16-1.21
+* AWS Load Balancer Controller v2.4.0+ requires Kubernetes 1.19+
 
 !!!warning "Existing AWS ALB Ingress Controller users"
     AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer controller.

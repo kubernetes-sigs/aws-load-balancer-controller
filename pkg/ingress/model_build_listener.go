@@ -9,7 +9,7 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
@@ -62,7 +62,7 @@ func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context,
 
 	ingsWithDefaultBackend := make([]ClassifiedIngress, 0, len(ingList))
 	for _, ing := range ingList {
-		if ing.Ing.Spec.Backend != nil {
+		if ing.Ing.Spec.DefaultBackend != nil {
 			ingsWithDefaultBackend = append(ingsWithDefaultBackend, ing)
 		}
 	}
@@ -78,7 +78,7 @@ func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context,
 		return nil, errors.Errorf("multiple ingress defined default backend: %v", ingKeys)
 	}
 	ing := ingsWithDefaultBackend[0]
-	enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, *ing.Ing.Spec.Backend,
+	enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, *ing.Ing.Spec.DefaultBackend,
 		WithLoadBackendServices(true, t.backendServices),
 		WithLoadAuthConfig(true))
 	if err != nil {

@@ -2,12 +2,14 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -16,7 +18,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
@@ -43,6 +44,7 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 		},
 	}
 	portHTTP := intstr.FromString("http")
+	backendPortHTTP := networking.ServiceBackendPort{Name: "http"}
 	tests := []struct {
 		name                string
 		env                 env
@@ -69,8 +71,10 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "svc-1",
-					ServicePort: portHTTP,
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-1",
+						Port: backendPortHTTP,
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
@@ -119,8 +123,10 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "svc-1",
-					ServicePort: portHTTP,
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-1",
+						Port: backendPortHTTP,
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
@@ -179,8 +185,10 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "svc-1",
-					ServicePort: portHTTP,
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-1",
+						Port: backendPortHTTP,
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
@@ -232,8 +240,10 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "svc-2",
-					ServicePort: portHTTP,
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-2",
+						Port: backendPortHTTP,
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
@@ -275,8 +285,10 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "svc-2",
-					ServicePort: portHTTP,
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-2",
+						Port: backendPortHTTP,
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
@@ -301,8 +313,10 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "svc-2",
-					ServicePort: portHTTP,
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-2",
+						Port: backendPortHTTP,
+					},
 				},
 				loadBackendServices: false,
 				loadAuthConfig:      false,
@@ -342,8 +356,12 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "fake-my-svc",
-					ServicePort: intstr.FromString("use-annotation"),
+					Service: &networking.IngressServiceBackend{
+						Name: "fake-my-svc",
+						Port: networking.ServiceBackendPort{
+							Name: "use-annotation",
+						},
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
@@ -393,8 +411,12 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "fake-my-svc",
-					ServicePort: intstr.FromString("use-annotation"),
+					Service: &networking.IngressServiceBackend{
+						Name: "fake-my-svc",
+						Port: networking.ServiceBackendPort{
+							Name: "use-annotation",
+						},
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
@@ -454,8 +476,12 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "fake-my-svc",
-					ServicePort: intstr.FromString("use-annotation"),
+					Service: &networking.IngressServiceBackend{
+						Name: "fake-my-svc",
+						Port: networking.ServiceBackendPort{
+							Name: "use-annotation",
+						},
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
@@ -507,8 +533,12 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "fake-my-svc",
-					ServicePort: intstr.FromString("use-annotation"),
+					Service: &networking.IngressServiceBackend{
+						Name: "fake-my-svc",
+						Port: networking.ServiceBackendPort{
+							Name: "use-annotation",
+						},
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
@@ -550,14 +580,47 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 					},
 				},
 				backend: networking.IngressBackend{
-					ServiceName: "fake-my-svc",
-					ServicePort: intstr.FromString("use-annotation"),
+					Service: &networking.IngressServiceBackend{
+						Name: "fake-my-svc",
+						Port: networking.ServiceBackendPort{
+							Name: "use-annotation",
+						},
+					},
 				},
 				loadBackendServices: true,
 				loadAuthConfig:      true,
 				backendServices:     map[types.NamespacedName]*corev1.Service{},
 			},
 			wantErr: errors.New("missing actions.fake-my-svc configuration"),
+		},
+		{
+			name: "resource backend",
+			env: env{
+				svcs: []*corev1.Service{svc1},
+			},
+			fields: fields{
+				tolerateNonExistentBackendService: true,
+				tolerateNonExistentBackendAction:  true,
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:   "awesome-ns",
+						Annotations: map[string]string{},
+					},
+				},
+				backend: networking.IngressBackend{
+					Resource: &corev1.TypedLocalObjectReference{
+						APIGroup: awssdk.String("v1"),
+						Kind:     "Service",
+						Name:     "awesome-service",
+					},
+				},
+				loadBackendServices: true,
+				loadAuthConfig:      true,
+				backendServices:     map[types.NamespacedName]*corev1.Service{},
+			},
+			wantErr: errors.New("missing required \"service\" field"),
 		},
 	}
 	for _, tt := range tests {

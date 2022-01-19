@@ -14,7 +14,7 @@ spec:
         app: echoserver
     spec:
       containers:
-      - image: gcr.io/google_containers/echoserver:1.4
+      - image: k8s.gcr.io/e2e-test-images/echoserver:2.5
         imagePullPolicy: Always
         name: echoserver
         ports:
