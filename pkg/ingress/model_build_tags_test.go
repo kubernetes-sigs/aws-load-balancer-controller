@@ -276,6 +276,7 @@ func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 			want: map[string]string{
 				"tag-c": "value-c1",
 				"tag-d": "value-d1",
+				"tag-e": "value-e",
 			},
 		},
 		{
@@ -401,6 +402,59 @@ func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 				"tag-c": "value-c",
 				"tag-d": "value-d1",
 				"tag-e": "value-e",
+			},
+		},
+		{
+			name: "non-empty annotation tags from Ingress and Service, non-empty IngressClass tags",
+			fields: fields{
+				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+			},
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "awesome-ns",
+							Name:      "awesome-ing",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/tags": "tag-c=value-c,tag-d=value-d, tag-f=value-f",
+							},
+						},
+					},
+					IngClassConfig: ClassConfiguration{
+						IngClassParams: &elbv2api.IngressClassParams{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "awesome-class",
+							},
+							Spec: elbv2api.IngressClassParamsSpec{
+								Tags: []elbv2api.Tag{
+									{
+										Key:   "tag-d",
+										Value: "value-d1",
+									},
+									{
+										Key:   "tag-e",
+										Value: "value-e",
+									},
+								},
+							},
+						},
+					},
+				},
+				backend: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-svc",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/tags": "tag-c=value-c,tag-d=value-d2",
+						},
+					},
+				},
+			},
+			want: map[string]string{
+				"tag-c": "value-c",
+				"tag-d": "value-d1",
+				"tag-e": "value-e",
+				"tag-f": "value-f",
 			},
 		},
 		{
