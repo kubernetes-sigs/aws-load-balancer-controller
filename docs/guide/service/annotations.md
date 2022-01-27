@@ -213,7 +213,7 @@ for proxy protocol v2 configuration.
         Custom attributes set in this annotation's config map will be overriden by annotation-specific attributes. For backwards compatibility, existing annotations for the individual load balancer attributes get precedence in case of ties.
   
     !!!note ""
-        - If `deletion_protection.enable=true` is in the annotation, the controller will not be able to delete the NLB during reconciliation. Once the attribute gets edited to `deletion_protection.enable=false` during reconciliation, the deployer will force delete the resource.
+        - If `deletion_protection.enabled=true` is in the annotation, the controller will not be able to delete the NLB during reconciliation. Once the attribute gets edited to `deletion_protection.enabled=false` during reconciliation, the deployer will force delete the resource.
         - Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
     
     !!!example
