@@ -80,4 +80,5 @@ const (
 	SvcLBSuffixALPNPolicy                    = "aws-load-balancer-alpn-policy"
 	SvcLBSuffixTargetNodeLabels              = "aws-load-balancer-target-node-labels"
 	SvcLBSuffixLoadBalancerAttributes        = "aws-load-balancer-attributes"
+	SvcLBSuffixManageSGRules                 = "aws-load-balancer-manage-backend-security-group-rules"
 )

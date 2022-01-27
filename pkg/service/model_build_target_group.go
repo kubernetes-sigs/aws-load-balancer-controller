@@ -383,7 +383,10 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceSpec{}, err
 	}
-	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, preserveClientIP, *hc.Port, port, defaultSourceRanges, *targetGroup.Spec.IPAddressType)
+	tgbNetworking, err := t.buildTargetGroupBindingNetworking(ctx, targetPort, preserveClientIP, *hc.Port, port, defaultSourceRanges, *targetGroup.Spec.IPAddressType)
+	if err != nil {
+		return elbv2model.TargetGroupBindingResourceSpec{}, err
+	}
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -430,7 +433,14 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRangesConfiguration(_ contex
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, tgPort intstr.IntOrString, preserveClientIP bool,
-	hcPort intstr.IntOrString, port corev1.ServicePort, defaultSourceRanges []string, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) *elbv2model.TargetGroupBindingNetworking {
+	hcPort intstr.IntOrString, port corev1.ServicePort, defaultSourceRanges []string, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) (*elbv2model.TargetGroupBindingNetworking, error) {
+	manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !manageBackendSGRules {
+		return nil, nil
+	}
 	tgProtocol := port.Protocol
 	loadBalancerSubnetsSourceRanges := t.getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType)
 	networkingProtocol := elbv2api.NetworkingProtocolTCP
@@ -459,7 +469,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 		preserveClientIP, customSourceRangesConfigured); len(hcIngressRules) > 0 {
 		tgbNetworking.Ingress = append(tgbNetworking.Ingress, hcIngressRules...)
 	}
-	return tgbNetworking
+	return tgbNetworking, nil
 }
 
 func (t *defaultModelBuildTask) getDefaultIPSourceRanges(ctx context.Context, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType,
@@ -569,4 +579,16 @@ func (t *defaultModelBuildTask) buildHealthCheckNetworkingIngressRules(trafficSo
 		From:  hcSource,
 		Ports: healthCheckPorts,
 	}}
+}
+
+func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Context) (bool, error) {
+	var rawEnabled bool
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixManageSGRules, &rawEnabled, t.service.Annotations)
+	if err != nil {
+		return true, err
+	}
+	if exists {
+		return rawEnabled, nil
+	}
+	return true, nil
 }
