@@ -87,6 +87,11 @@ enableCertManager: false
 # ingresses without ingress class annotation and ingresses of type alb
 ingressClass: alb
 
+# The ingressClassParams the ingress class refers to and enforce settings for a set of Ingresses when using with ingress Controller.
+ingressClassParams:
+  # The name of ingressClassParams resource will be referred in ingressClass
+  name:
+
 # To use IngressClass resource instead of annotation, before you need to install the IngressClass resource pointing to controller.
 # If specified as true, the IngressClass resource will be created.
 createIngressClassResource: true
