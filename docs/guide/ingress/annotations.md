@@ -741,6 +741,8 @@ The AWS Load Balancer Controller automatically applies following tags to the AWS
 In addition, you can use annotations to specify additional tags
 
 - <a name="tags">`alb.ingress.kubernetes.io/tags`</a> specifies additional tags that will be applied to AWS resources created.
+  In case of target group, the controller will merge the tags from the ingress and the backend service giving precedence 
+  to the values specified on the service when there is conflict.
 
     !!!example
         ```
