@@ -134,7 +134,7 @@ webhookTLS:
   key:
 
 # keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade
-keepTLSSecret: false
+keepTLSSecret: true
 
 # Maximum number of concurrently running reconcile loops for service (default 3)
 serviceMaxConcurrentReconciles:
