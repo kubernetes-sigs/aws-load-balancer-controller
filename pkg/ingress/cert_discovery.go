@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pkg/errors"
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -24,6 +25,8 @@ const (
 	defaultImportedCertDomainsCacheTTL = 5 * time.Minute
 	// the domain names for private certificates won't change, cache for a longer time.
 	defaultPrivateCertDomainsCacheTTL = 10 * time.Hour
+	// whether the controller should throw an error if more than 1 matching cert is auto discovered
+	flagMultipleAutodiscoveredCertsEnabled = "enable-multiple-discovered-certs"
 )
 
 // CertDiscovery is responsible for auto-discover TLS certificates for tls hosts.
@@ -80,8 +83,8 @@ func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string) ([]s
 			}
 		}
 
-		if len(certARNsForHost) > 1 {
-			return nil, errors.Errorf("multiple certificates found for host: %s, certARNs: %v", host, certARNsForHost)
+		if !flagMultipleAutodiscoveredCertsEnabled && len(certARNsForHost) > 1 {
+			return nil, errors.Errorf("multiple certificates found for host: %s, certARNs: %v but enableMultipleDiscoveredCerts is false", host, certARNsForHost)
 		}
 		if len(certARNsForHost) == 0 {
 			return nil, errors.Errorf("no certificate found for host: %s", host)

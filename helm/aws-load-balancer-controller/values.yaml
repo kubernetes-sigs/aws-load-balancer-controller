@@ -115,6 +115,9 @@ enableWaf:
 # Enable WAF V2 addon for ALB (default true)
 enableWafv2:
 
+# enableMultipleDiscoveredCerts enables the controller to assign more than 1 auto discovered certificate instead of failing.
+enableMultipleDiscoveredCerts: false
+
 # Maximum number of concurrently running reconcile loops for ingress (default 3)
 ingressMaxConcurrentReconciles:
 

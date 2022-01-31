@@ -134,6 +134,9 @@ spec:
         {{- if kindIs "bool" .Values.disableRestrictedSecurityGroupRules }}
         - --disable-restricted-sg-rules={{ .Values.disableRestrictedSecurityGroupRules }}
         {{- end }}
+        {{- if kindIs "bool" .Values.enableMultipleDiscoveredCerts }}
+        - --enable-multiple-discovered-certs={{ .Values.enableMultipleDiscoveredCerts }}
+        {{- end }}
         {{- if .Values.env }}
         env:
         {{- range $key, $value := .Values.env }}
