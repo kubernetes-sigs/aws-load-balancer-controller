@@ -7,7 +7,7 @@ metadata:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 spec:
   controller: ingress.k8s.aws/alb
-  {{- if .Values.ingressClassParams.name }}
+  {{- if .Values.createIngressClassParamsResource }}
   parameters:
     apiGroup: elbv2.k8s.aws
     kind: IngressClassParams
