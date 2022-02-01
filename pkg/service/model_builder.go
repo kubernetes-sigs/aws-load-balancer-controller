@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"strconv"
 	"sync"
 
@@ -35,13 +36,14 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
-	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
+	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, featureGates config.FeatureGates) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
 		vpcInfoProvider:     vpcInfoProvider,
 		trackingProvider:    trackingProvider,
 		elbv2TaggingManager: elbv2TaggingManager,
+		featureGates:        featureGates,
 		clusterName:         clusterName,
 		vpcID:               vpcID,
 		defaultTags:         defaultTags,
@@ -58,6 +60,7 @@ type defaultModelBuilder struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	featureGates        config.FeatureGates
 
 	clusterName         string
 	vpcID               string
@@ -76,6 +79,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		vpcInfoProvider:     b.vpcInfoProvider,
 		trackingProvider:    b.trackingProvider,
 		elbv2TaggingManager: b.elbv2TaggingManager,
+		featureGates:        b.featureGates,
 
 		service:   service,
 		stack:     stack,
@@ -90,6 +94,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultIPAddressType:                 elbv2model.IPAddressTypeIPV4,
 		defaultLoadBalancingCrossZoneEnabled: false,
 		defaultProxyProtocolV2Enabled:        false,
+		defaultTargetTypeForLBClass:          elbv2model.TargetTypeInstance,
 		defaultHealthCheckProtocol:           elbv2model.ProtocolTCP,
 		defaultHealthCheckPort:               healthCheckPortTrafficPort,
 		defaultHealthCheckPath:               "/",
@@ -123,6 +128,7 @@ type defaultModelBuildTask struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	featureGates        config.FeatureGates
 
 	service *corev1.Service
 
@@ -143,6 +149,7 @@ type defaultModelBuildTask struct {
 	defaultIPAddressType                 elbv2model.IPAddressType
 	defaultLoadBalancingCrossZoneEnabled bool
 	defaultProxyProtocolV2Enabled        bool
+	defaultTargetTypeForLBClass          elbv2model.TargetType
 	defaultHealthCheckProtocol           elbv2model.Protocol
 	defaultHealthCheckPort               string
 	defaultHealthCheckPath               string
@@ -165,7 +172,7 @@ type defaultModelBuildTask struct {
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
-	if !t.service.DeletionTimestamp.IsZero() {
+	if t.needsCleanup() {
 		deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(*t.service)
 		if err != nil {
 			return err
@@ -213,4 +220,20 @@ func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(svc corev1.Se
 		return deletionProtectionEnabled, nil
 	}
 	return false, nil
+}
+
+func (t *defaultModelBuildTask) needsCleanup() bool {
+	if !t.service.DeletionTimestamp.IsZero() {
+		return true
+	}
+	if t.service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		if t.featureGates.Enabled(config.ServiceTypeLoadBalancerOnly) {
+			return true
+		}
+		var lbType string
+		if !t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.service.Annotations) {
+			return true
+		}
+	}
+	return false
 }

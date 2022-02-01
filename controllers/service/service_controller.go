@@ -42,14 +42,15 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, config.ClusterName)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, logger)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
-		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.ExternalManagedTags, config.DefaultSSLPolicy)
+		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.ExternalManagedTags, config.DefaultSSLPolicy, config.FeatureGates)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
 	return &serviceReconciler{
-		k8sClient:        k8sClient,
-		eventRecorder:    eventRecorder,
-		finalizerManager: finalizerManager,
-		annotationParser: annotationParser,
+		k8sClient:         k8sClient,
+		eventRecorder:     eventRecorder,
+		finalizerManager:  finalizerManager,
+		annotationParser:  annotationParser,
+		loadBalancerClass: config.ServiceConfig.LoadBalancerClass,
 
 		modelBuilder:    modelBuilder,
 		stackMarshaller: stackMarshaller,
@@ -61,10 +62,11 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 }
 
 type serviceReconciler struct {
-	k8sClient        client.Client
-	eventRecorder    record.EventRecorder
-	finalizerManager k8s.FinalizerManager
-	annotationParser annotations.Parser
+	k8sClient         client.Client
+	eventRecorder     record.EventRecorder
+	finalizerManager  k8s.FinalizerManager
+	annotationParser  annotations.Parser
+	loadBalancerClass string
 
 	modelBuilder    service.ModelBuilder
 	stackMarshaller deploy.StackMarshaller
@@ -87,13 +89,20 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	if err := r.k8sClient.Get(ctx, req.NamespacedName, svc); err != nil {
 		return client.IgnoreNotFound(err)
 	}
-	if !svc.DeletionTimestamp.IsZero() {
-		return r.cleanupLoadBalancerResources(ctx, svc)
+	stack, lb, err := r.buildModel(ctx, svc)
+	if err != nil {
+		return err
 	}
-	return r.reconcileLoadBalancerResources(ctx, svc)
+	var resLBs []*elbv2model.LoadBalancer
+	stack.ListResources(&resLBs)
+
+	if len(resLBs) == 0 {
+		return r.cleanupLoadBalancerResources(ctx, svc, stack, lb)
+	}
+	return r.reconcileLoadBalancerResources(ctx, svc, stack, lb)
 }
 
-func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
+func (r *serviceReconciler) buildModel(ctx context.Context, svc *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
 	stack, lb, err := r.modelBuilder.Build(ctx, svc)
 	if err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
@@ -105,22 +114,25 @@ func (r *serviceReconciler) buildAndDeployModel(ctx context.Context, svc *corev1
 		return nil, nil, err
 	}
 	r.logger.Info("successfully built model", "model", stackJSON)
-
-	if err = r.stackDeployer.Deploy(ctx, stack); err != nil {
-		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
-		return nil, nil, err
-	}
-	r.logger.Info("successfully deployed model", "service", k8s.NamespacedName(svc))
-
 	return stack, lb, nil
 }
 
-func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, svc *corev1.Service) error {
+func (r *serviceReconciler) deployModel(ctx context.Context, svc *corev1.Service, stack core.Stack) error {
+	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
+		return err
+	}
+	r.logger.Info("successfully deployed model", "service", k8s.NamespacedName(svc))
+
+	return nil
+}
+
+func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, svc *corev1.Service, stack core.Stack, lb *elbv2model.LoadBalancer) error {
 	if err := r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer); err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
-	_, lb, err := r.buildAndDeployModel(ctx, svc)
+	err := r.deployModel(ctx, svc, stack)
 	if err != nil {
 		return err
 	}
@@ -137,10 +149,14 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	return nil
 }
 
-func (r *serviceReconciler) cleanupLoadBalancerResources(ctx context.Context, svc *corev1.Service) error {
+func (r *serviceReconciler) cleanupLoadBalancerResources(ctx context.Context, svc *corev1.Service, stack core.Stack, lb *elbv2model.LoadBalancer) error {
 	if k8s.HasFinalizer(svc, serviceFinalizer) {
-		_, _, err := r.buildAndDeployModel(ctx, svc)
+		err := r.deployModel(ctx, svc, stack)
 		if err != nil {
+			return err
+		}
+		if err = r.cleanupServiceStatus(ctx, svc); err != nil {
+			r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedCleanupStatus, fmt.Sprintf("Failed update status due to %v", err))
 			return err
 		}
 		if err := r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer); err != nil {
@@ -168,6 +184,15 @@ func (r *serviceReconciler) updateServiceStatus(ctx context.Context, lbDNS strin
 	return nil
 }
 
+func (r *serviceReconciler) cleanupServiceStatus(ctx context.Context, svc *corev1.Service) error {
+	svcOld := svc.DeepCopy()
+	svc.Status.LoadBalancer = corev1.LoadBalancerStatus{}
+	if err := r.k8sClient.Status().Patch(ctx, svc, client.MergeFrom(svcOld)); err != nil {
+		return errors.Wrapf(err, "failed to cleanup service status: %v", k8s.NamespacedName(svc))
+	}
+	return nil
+}
+
 func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
 	c, err := controller.New(controllerName, mgr, controller.Options{
 		MaxConcurrentReconciles: r.maxConcurrentReconciles,
@@ -183,8 +208,8 @@ func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 }
 
 func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Controller) error {
-	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder, r.annotationParser,
-		r.logger.WithName("eventHandlers").WithName("service"))
+	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder, r.annotationParser, r.loadBalancerClass,
+		serviceFinalizer, r.logger.WithName("eventHandlers").WithName("service"))
 	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
 		return err
 	}

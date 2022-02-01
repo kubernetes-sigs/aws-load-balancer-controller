@@ -10,8 +10,9 @@ import (
 type Feature string
 
 const (
-	ListenerRulesTagging Feature = "ListenerRulesTagging"
-	WeightedTargetGroups Feature = "WeightedTargetGroups"
+	ListenerRulesTagging        Feature = "ListenerRulesTagging"
+	WeightedTargetGroups        Feature = "WeightedTargetGroups"
+	ServiceTypeLoadBalancerOnly Feature = "ServiceTypeLoadBalancerOnly"
 )
 
 type FeatureGates interface {
@@ -39,8 +40,9 @@ type defaultFeatureGates struct {
 func NewFeatureGates() FeatureGates {
 	return &defaultFeatureGates{
 		featureState: map[Feature]bool{
-			ListenerRulesTagging: true,
-			WeightedTargetGroups: true,
+			ListenerRulesTagging:        true,
+			WeightedTargetGroups:        true,
+			ServiceTypeLoadBalancerOnly: false,
 		},
 	}
 }
