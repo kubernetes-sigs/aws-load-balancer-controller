@@ -37,7 +37,7 @@ spec:
       - name: cert
         secret:
           defaultMode: 420
-          secretName: {{ template "aws-load-balancer-controller.namePrefix" . }}-tls
+          secretName: {{ template "aws-load-balancer-controller.webhookCertSecret" . }}
       {{- with .Values.extraVolumes }}
       {{ toYaml . | nindent 6 }}
       {{- end }}
@@ -120,7 +120,7 @@ spec:
         - --external-managed-tags={{ join "," .Values.externalManagedTags }}
         {{- end }}
         {{- if .Values.defaultTags }}
-        - --default-tags={{ include "aws-load-balancer-controller.convert-map-to-csv" .Values.defaultTags | trimSuffix "," }}
+        - --default-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.defaultTags | trimSuffix "," }}
         {{- end }}
         {{- if kindIs "bool" .Values.enableEndpointSlices }}
         - --enable-endpoint-slices={{ .Values.enableEndpointSlices }}

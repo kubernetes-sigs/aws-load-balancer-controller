@@ -1,4 +1,4 @@
-{{ $tls := fromYaml ( include "aws-load-balancer-controller.webhook-certs" . ) }}
+{{ $tls := fromYaml ( include "aws-load-balancer-controller.webhookCerts" . ) }}
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -14,7 +14,7 @@ webhooks:
 - clientConfig:
     caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
     service:
-      name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-v1-pod
   failurePolicy: Fail
@@ -53,7 +53,7 @@ webhooks:
 - clientConfig:
     caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
     service:
-      name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
   failurePolicy: Fail
@@ -86,7 +86,7 @@ webhooks:
 - clientConfig:
     caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
     service:
-      name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
   failurePolicy: Fail
@@ -107,7 +107,7 @@ webhooks:
 - clientConfig:
     caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
     service:
-      name: {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /validate-networking-v1-ingress
   failurePolicy: Fail
@@ -131,7 +131,7 @@ webhooks:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ template "aws-load-balancer-controller.namePrefix" . }}-tls
+  name: {{ template "aws-load-balancer-controller.webhookCertSecret" . }}
   namespace: {{ .Release.Namespace }}
   labels:
 {{ include "aws-load-balancer-controller.labels" . | indent 4 }}
@@ -154,12 +154,12 @@ metadata:
 {{ include "aws-load-balancer-controller.labels" . | indent 4 }}
 spec:
   dnsNames:
-  - {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service.{{ .Release.Namespace }}.svc
-  - {{ template "aws-load-balancer-controller.namePrefix" . }}-webhook-service.{{ .Release.Namespace }}.svc.cluster.local
+  - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc
+  - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc.cluster.local
   issuerRef:
     kind: Issuer
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
-  secretName: {{ template "aws-load-balancer-controller.namePrefix" . }}-tls
+  secretName: {{ template "aws-load-balancer-controller.webhookCertSecret" . }}
 ---
 {{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
 apiVersion: cert-manager.io/v1
