@@ -118,7 +118,19 @@ Convert map to comma separated key=value string
 {{- range $key, $value := . -}} {{ $key }}={{ $value }}, {{- end -}}
 {{- end -}}
 
+{{/*
+Create the name of the ingressClassParams
+*/}}
 {{- define "aws-load-balancer-controller.ingressClassParamsName" -}}
 {{ default (include "aws-load-balancer-controller.fullname" .) .Values.ingressClassParams.name }}
 {{- end -}}
 
+{{/*
+Create the parameters fields for ingressClass
+*/}}
+{{- define "aws-load-balancer-controller.ingressClassParameters" -}}
+parameters:
+    apiGroup: elbv2.k8s.aws
+    kind: IngressClassParams
+    name: {{ include "aws-load-balancer-controller.ingressClassParamsName" . }}
+{{- end -}}
