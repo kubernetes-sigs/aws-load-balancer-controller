@@ -87,34 +87,25 @@ enableCertManager: false
 # ingresses without ingress class annotation and ingresses of type alb
 ingressClass: alb
 
-# ingressClassParams specifies the IngressCLassParams that enforce settings for a set of Ingresses when using with ingress Controller.
+# ingressClassParams specify the IngressCLassParams that enforce settings for a set of Ingresses when using with ingress Controller.
 ingressClassParams:
+  create: true
   # The name of ingressClassParams resource will be referred in ingressClass
   name:
-  spec:
-    namespaceSelector:
-      matchLabels:
-    group:
-    scheme:
-    ipAddressType:
-    tags:
+  spec: {}
+    # You always can set specifications in `helm install` command through `--set` or `--set-string`
+    # If you do want to specify specifications in values.yaml, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'spec:'.
+    # namespaceSelector:
+    #   matchLabels:
+    # group:
+    # scheme:
+    # ipAddressType:
+    # tags:
 
 # To use IngressClass resource instead of annotation, before you need to install the IngressClass resource pointing to controller.
 # If specified as true, the IngressClass resource will be created.
 createIngressClassResource: true
-
-# To use IngressClassParams custom resource instead of IngressClass' parameter fields.
-# If specified as true, the IngressClassParams resource will be created.
-createIngressClassParamsResource: false
-
-# If specified as true, the IngressClass will enforce on the name of group
-createIngressClassParamsGroup: false
-
-# If specified as true, the IngressClass will enforce on the selector against namespaces of ingresses
-createIngressClassParamsNamespaceSelector: false
-
-# If specified as true, the IngressClass will restrict the scheme for all Ingresses that belong to this IngressClass.
-createIngressClassParamsScheme: false
 
 # The AWS region for the kubernetes cluster. Set to use KIAM or kube2iam for example.
 region:

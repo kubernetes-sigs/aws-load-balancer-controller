@@ -1,22 +1,10 @@
-{{- if .Values.createIngressClassParamsResource }}
+{{- if .Values.ingressClassParams.create }}
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: IngressClassParams
 metadata:
-  name: {{ .Values.ingressClassParams.name }}
+  name: {{ include "aws-load-balancer-controller.ingressClassParamsName" . }}
 spec:
-  {{- if .Values.createIngressClassParamsGroup }}
-  group:
-    name: {{ .Values.ingressClassParams.spec.group }}
-  {{- end }}
-  {{- if .Values.createIngressClassParamsScheme }}
-  scheme: {{ .Values.ingressClassParams.spec.scheme }}
-  ipAddressType: {{ .Values.ingressClassParams.spec.ipAddressType }}
-  tags:
-    {{ toYaml .Values.ingressClassParams.spec.tags | nindent 4 }}
-  {{- end }}
-  {{- if .Values.createIngressClassParamsNamespaceSelector }}
-  namespaceSelector:
-    matchLabels:
-      {{ toYaml .Values.ingressClassParams.spec.namespaceSelector.matchLabels | nindent 6 }}
+  {{- if .Values.ingressClassParams.spec }}
+  {{ toYaml .Values.ingressClassParams.spec | nindent 2}}
   {{- end }}
 {{- end }}
