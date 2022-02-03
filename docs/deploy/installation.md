@@ -221,6 +221,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
       - v1beta1
       clientConfig:
         # PEM encoded CA bundle, created earlier, which will be used to validate the webhook's server certificate.
+        # For example: `cat aws_lbc.crt | base64`
         caBundle: "Ci0tLS0tQk..."
     ```
     
