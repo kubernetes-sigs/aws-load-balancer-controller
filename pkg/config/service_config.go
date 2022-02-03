@@ -4,7 +4,7 @@ import "github.com/spf13/pflag"
 
 const (
 	flagLoadBalancerClass    = "load-balancer-class"
-	defaultLoadBalancerClass = "elbv2.k8s.aws"
+	defaultLoadBalancerClass = "service.k8s.aws/nlb"
 )
 
 // ServiceConfig contains the configurations for the Service controller

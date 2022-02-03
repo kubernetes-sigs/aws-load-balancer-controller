@@ -2415,7 +2415,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					Type:              corev1.ServiceTypeLoadBalancer,
-					LoadBalancerClass: aws.String("elbv2.k8s.aws"),
+					LoadBalancerClass: aws.String("service.k8s.aws/nlb"),
 					Selector:          map[string]string{"app": "class"},
 					Ports: []corev1.ServicePort{
 						{

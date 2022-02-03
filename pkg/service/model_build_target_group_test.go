@@ -1149,8 +1149,19 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 	}{
 		{
 			testName: "empty annotation",
-			svc:      &corev1.Service{},
-			wantErr:  errors.New("unsupported target type \"\" for load balancer type \"\""),
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			wantErr: errors.New("unsupported target type \"\" for load balancer type \"\""),
 		},
 		{
 			testName: "lb type nlb-ip",
@@ -1158,6 +1169,16 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
 					},
 				},
 			},
@@ -1172,6 +1193,16 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
 					},
 				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
 			},
 			want: elbv2.TargetTypeInstance,
 		},
@@ -1182,6 +1213,16 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
 						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
 					},
 				},
 			},
@@ -1195,6 +1236,16 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-type": "external",
 					},
 				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
 			},
 			wantErr: errors.New("unsupported target type \"\" for load balancer type \"external\""),
 		},
@@ -1205,6 +1256,16 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
 						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "unknown",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
 					},
 				},
 			},
@@ -1221,19 +1282,86 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					Type: corev1.ServiceTypeClusterIP,
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
 				},
 			},
 			wantErr: errors.New("unsupported service type \"ClusterIP\" for load balancer target type \"instance\""),
+		},
+		{
+			testName: "load balancer class, default target type",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Type:              corev1.ServiceTypeLoadBalancer,
+					LoadBalancerClass: aws.String("service.k8s.aws/nlb"),
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   31223,
+						},
+					},
+				},
+			},
+			want: elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "allocate load balancer node ports false",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Type:              corev1.ServiceTypeLoadBalancer,
+					LoadBalancerClass: aws.String("service.k8s.aws/nlb"),
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   31223,
+						},
+					},
+					AllocateLoadBalancerNodePorts: aws.Bool(false),
+				},
+			},
+			want: elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "allocate load balancer node ports false, node port unspecified",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Type:              corev1.ServiceTypeLoadBalancer,
+					LoadBalancerClass: aws.String("service.k8s.aws/nlb"),
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+					AllocateLoadBalancerNodePorts: aws.Bool(false),
+				},
+			},
+			wantErr: errors.New("unable to support instance target type with an unallocated NodePort"),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{
-				annotationParser: parser,
-				service:          tt.svc,
+				annotationParser:            parser,
+				service:                     tt.svc,
+				defaultTargetTypeForLBClass: LoadBalancerTargetTypeInstance,
 			}
-			got, err := builder.buildTargetType(context.Background())
+			got, err := builder.buildTargetType(context.Background(), tt.svc.Spec.Ports[0])
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
