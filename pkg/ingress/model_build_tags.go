@@ -49,14 +49,19 @@ func (t *defaultModelBuildTask) buildIngressResourceTags(ing ClassifiedIngress) 
 
 // buildIngressBackendResourceTags builds the AWS Tags used for a single Ingress and Backend. e.g. TargetGroup.
 // Note: the Tags specified via IngressClass takes higher priority than tags specified via annotation on Ingress or Service.
-//		 the Tags annotation of Service takes higher priority than annotation of Ingress. (TODO: we might consider change this behavior to merge tags instead)
+//		 the target group will have the merged tags specified by the annotations of both Ingress and Service
+// 		 the Tags annotation of Service takes higher priority if there is conflict between the tags of Ingress and Service
 func (t *defaultModelBuildTask) buildIngressBackendResourceTags(ing ClassifiedIngress, backend *corev1.Service) (map[string]string, error) {
-	mergedAnnotations := algorithm.MergeStringMap(backend.Annotations, ing.Ing.Annotations)
-	var annotationTags map[string]string
-	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &annotationTags, mergedAnnotations); err != nil {
+	var backendAnnotationTags map[string]string
+	var ingressAnnotationTags map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &backendAnnotationTags, backend.Annotations); err != nil {
 		return nil, err
 	}
-	if err := t.validateTagCollisionWithExternalManagedTags(annotationTags); err != nil {
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixTags, &ingressAnnotationTags, ing.Ing.Annotations); err != nil {
+		return nil, err
+	}
+	mergedAnnotationTags := algorithm.MergeStringMap(backendAnnotationTags, ingressAnnotationTags)
+	if err := t.validateTagCollisionWithExternalManagedTags(mergedAnnotationTags); err != nil {
 		return nil, errors.Wrapf(err, "failed build tags for Ingress %v and Service %v",
 			k8s.NamespacedName(ing.Ing).String(), k8s.NamespacedName(backend).String())
 	}
@@ -66,7 +71,7 @@ func (t *defaultModelBuildTask) buildIngressBackendResourceTags(ing ClassifiedIn
 		return nil, err
 	}
 
-	return algorithm.MergeStringMap(ingClassTags, annotationTags), nil
+	return algorithm.MergeStringMap(ingClassTags, mergedAnnotationTags), nil
 }
 
 // buildIngressClassResourceTags builds the AWS Tags for a IngressClass.

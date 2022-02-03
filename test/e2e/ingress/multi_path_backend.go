@@ -257,7 +257,7 @@ func (s *multiPathBackendStack) buildIngressResource(ns *corev1.Namespace, ingID
 		backendSVC := svcByBackendID[pathCFG.BackendID]
 		exact := networking.PathTypeExact
 		ing.Spec.Rules[0].HTTP.Paths = append(ing.Spec.Rules[0].HTTP.Paths, networking.HTTPIngressPath{
-			Path: pathCFG.Path,
+			Path:     pathCFG.Path,
 			PathType: &exact,
 			Backend: networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
