@@ -3,8 +3,8 @@ apiVersion: elbv2.k8s.aws/v1beta1
 kind: IngressClassParams
 metadata:
   name: {{ include "aws-load-balancer-controller.ingressClassParamsName" . }}
+{{- if .Values.ingressClassParams.spec }}
 spec:
-  {{- if .Values.ingressClassParams.spec }}
   {{ toYaml .Values.ingressClassParams.spec | nindent 2}}
-  {{- end }}
+{{- end }}
 {{- end }}
