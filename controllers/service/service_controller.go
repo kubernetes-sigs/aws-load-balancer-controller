@@ -41,8 +41,9 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, config.ClusterName)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, logger)
+	serviceUtils := service.NewServiceUtils(annotationParser, serviceFinalizer, config.ServiceConfig.LoadBalancerClass)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
-		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.ExternalManagedTags, config.DefaultSSLPolicy, config.FeatureGates)
+		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.ExternalManagedTags, config.DefaultSSLPolicy, config.FeatureGates, serviceUtils)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
 	return &serviceReconciler{
@@ -51,6 +52,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 		finalizerManager:  finalizerManager,
 		annotationParser:  annotationParser,
 		loadBalancerClass: config.ServiceConfig.LoadBalancerClass,
+		serviceUtils:      serviceUtils,
 
 		modelBuilder:    modelBuilder,
 		stackMarshaller: stackMarshaller,
@@ -67,6 +69,7 @@ type serviceReconciler struct {
 	finalizerManager  k8s.FinalizerManager
 	annotationParser  annotations.Parser
 	loadBalancerClass string
+	serviceUtils      service.ServiceUtils
 
 	modelBuilder    service.ModelBuilder
 	stackMarshaller deploy.StackMarshaller
@@ -93,11 +96,8 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	if err != nil {
 		return err
 	}
-	var resLBs []*elbv2model.LoadBalancer
-	stack.ListResources(&resLBs)
-
-	if len(resLBs) == 0 {
-		return r.cleanupLoadBalancerResources(ctx, svc, stack, lb)
+	if lb == nil {
+		return r.cleanupLoadBalancerResources(ctx, svc, stack)
 	}
 	return r.reconcileLoadBalancerResources(ctx, svc, stack, lb)
 }
@@ -149,7 +149,7 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	return nil
 }
 
-func (r *serviceReconciler) cleanupLoadBalancerResources(ctx context.Context, svc *corev1.Service, stack core.Stack, lb *elbv2model.LoadBalancer) error {
+func (r *serviceReconciler) cleanupLoadBalancerResources(ctx context.Context, svc *corev1.Service, stack core.Stack) error {
 	if k8s.HasFinalizer(svc, serviceFinalizer) {
 		err := r.deployModel(ctx, svc, stack)
 		if err != nil {
@@ -208,8 +208,8 @@ func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 }
 
 func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Controller) error {
-	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder, r.annotationParser, r.loadBalancerClass,
-		serviceFinalizer, r.logger.WithName("eventHandlers").WithName("service"))
+	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder,
+		r.serviceUtils, r.logger.WithName("eventHandlers").WithName("service"))
 	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
 		return err
 	}

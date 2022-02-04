@@ -2588,8 +2588,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			for _, call := range tt.fetchVPCInfoCalls {
 				vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
 			}
+			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb")
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", featureGates)
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", featureGates, serviceUtils)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

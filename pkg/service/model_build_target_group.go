@@ -337,9 +337,7 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context, port corev1.S
 	var lbType string
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.service.Annotations)
 	var lbTargetType string
-	if t.service.Spec.LoadBalancerClass != nil {
-		lbTargetType = string(t.defaultTargetTypeForLBClass)
-	}
+	lbTargetType = string(t.defaultTargetType)
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, t.service.Annotations)
 	if lbType == LoadBalancerTypeNLBIP || lbTargetType == LoadBalancerTargetTypeIP {
 		return elbv2model.TargetTypeIP, nil
@@ -353,7 +351,7 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context, port corev1.S
 		}
 		return elbv2model.TargetTypeInstance, nil
 	}
-	return "", errors.Errorf("unsupported target type \"%v\" for load balancer type \"%v\"", lbTargetType, lbType)
+	return t.defaultTargetType, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupResourceID(svcKey types.NamespacedName, port intstr.IntOrString) string {

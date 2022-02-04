@@ -1161,7 +1161,7 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("unsupported target type \"\" for load balancer type \"\""),
+			want: elbv2.TargetTypeInstance,
 		},
 		{
 			testName: "lb type nlb-ip",
@@ -1227,49 +1227,6 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 				},
 			},
 			want: elbv2.TargetTypeIP,
-		},
-		{
-			testName: "external, no target type",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type": "external",
-					},
-				},
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "http",
-							Port:       80,
-							TargetPort: intstr.FromInt(80),
-							Protocol:   corev1.ProtocolTCP,
-						},
-					},
-				},
-			},
-			wantErr: errors.New("unsupported target type \"\" for load balancer type \"external\""),
-		},
-		{
-			testName: "external, some other target type",
-			svc: &corev1.Service{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
-						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "unknown",
-					},
-				},
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "http",
-							Port:       80,
-							TargetPort: intstr.FromInt(80),
-							Protocol:   corev1.ProtocolTCP,
-						},
-					},
-				},
-			},
-			wantErr: errors.New("unsupported target type \"unknown\" for load balancer type \"external\""),
 		},
 		{
 			testName: "external, ClusterIP with target type instance",
@@ -1357,9 +1314,9 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 		t.Run(tt.testName, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{
-				annotationParser:            parser,
-				service:                     tt.svc,
-				defaultTargetTypeForLBClass: LoadBalancerTargetTypeInstance,
+				annotationParser:  parser,
+				service:           tt.svc,
+				defaultTargetType: LoadBalancerTargetTypeInstance,
 			}
 			got, err := builder.buildTargetType(context.Background(), tt.svc.Spec.Ports[0])
 			if tt.wantErr != nil {
