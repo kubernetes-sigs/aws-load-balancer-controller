@@ -342,16 +342,13 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context, port corev1.S
 	if lbType == LoadBalancerTypeNLBIP || lbTargetType == LoadBalancerTargetTypeIP {
 		return elbv2model.TargetTypeIP, nil
 	}
-	if lbTargetType == LoadBalancerTargetTypeInstance {
-		if svcType == corev1.ServiceTypeClusterIP {
-			return "", errors.Errorf("unsupported service type \"%v\" for load balancer target type \"%v\"", svcType, lbTargetType)
-		}
-		if port.NodePort == 0 && t.service.Spec.AllocateLoadBalancerNodePorts != nil && !*t.service.Spec.AllocateLoadBalancerNodePorts {
-			return "", errors.New("unable to support instance target type with an unallocated NodePort")
-		}
-		return elbv2model.TargetTypeInstance, nil
+	if svcType == corev1.ServiceTypeClusterIP {
+		return "", errors.Errorf("unsupported service type \"%v\" for load balancer target type \"%v\"", svcType, lbTargetType)
 	}
-	return t.defaultTargetType, nil
+	if port.NodePort == 0 && t.service.Spec.AllocateLoadBalancerNodePorts != nil && !*t.service.Spec.AllocateLoadBalancerNodePorts {
+		return "", errors.New("unable to support instance target type with an unallocated NodePort")
+	}
+	return elbv2model.TargetTypeInstance, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupResourceID(svcKey types.NamespacedName, port intstr.IntOrString) string {

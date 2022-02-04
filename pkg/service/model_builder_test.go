@@ -2407,6 +2407,24 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 `,
 		},
 		{
+			testName: "service type LoadBalancer, no lb type annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "type-loadbalancer",
+					Namespace: "some-namespace",
+				},
+				Spec: corev1.ServiceSpec{
+					Type: corev1.ServiceTypeNodePort,
+				},
+			},
+			wantValue: `
+{
+"id": "some-namespace/type-loadbalancer",
+"resources": {}
+}
+`,
+		},
+		{
 			testName: "spec.loadBalancerClass specified",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{

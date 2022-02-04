@@ -231,11 +231,13 @@ func (t *defaultModelBuildTask) needsCleanup() bool {
 	if !t.service.DeletionTimestamp.IsZero() {
 		return true
 	}
-	if t.service.Spec.Type != corev1.ServiceTypeLoadBalancer {
-		if t.featureGates.Enabled(config.ServiceTypeLoadBalancerOnly) {
+	if t.service.Spec.LoadBalancerClass == nil {
+		if !t.serviceUtils.IsLoadBalancerTypeAnnotationSupported(t.service) {
 			return true
 		}
-		if !t.serviceUtils.IsLoadBalancerTypeAnnotationSupported(t.service) {
+	}
+	if t.service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		if t.featureGates.Enabled(config.ServiceTypeLoadBalancerOnly) {
 			return true
 		}
 	}
