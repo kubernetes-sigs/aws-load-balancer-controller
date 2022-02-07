@@ -87,6 +87,22 @@ enableCertManager: false
 # ingresses without ingress class annotation and ingresses of type alb
 ingressClass: alb
 
+# ingressClassParams specify the IngressCLassParams that enforce settings for a set of Ingresses when using with ingress Controller.
+ingressClassParams:
+  create: true
+  # The name of ingressClassParams resource will be referred in ingressClass
+  name:
+  spec: {}
+    # You always can set specifications in `helm install` command through `--set` or `--set-string`
+    # If you do want to specify specifications in values.yaml, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'spec:'.
+    # namespaceSelector:
+    #   matchLabels:
+    # group:
+    # scheme:
+    # ipAddressType:
+    # tags:
+
 # To use IngressClass resource instead of annotation, before you need to install the IngressClass resource pointing to controller.
 # If specified as true, the IngressClass resource will be created.
 createIngressClassResource: true
