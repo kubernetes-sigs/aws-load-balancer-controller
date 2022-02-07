@@ -24,6 +24,7 @@ const (
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
+	flagDesiredAvailabilityZoneIDs                   = "desired-availability-zone-ids"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
@@ -92,6 +93,9 @@ type ControllerConfig struct {
 	DisableRestrictedSGRules bool
 
 	FeatureGates FeatureGates
+
+	// Desired AvailabilityZoneIDs specifies
+	DesiredAvailabilityZoneIDs string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -119,6 +123,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Enable EndpointSlices for IP targets instead of Endpoints")
 	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
 		"Disable the usage of restricted security group rules")
+	fs.StringVar(&cfg.DesiredAvailabilityZoneIDs, flagDesiredAvailabilityZoneIDs, "",
+		"Desired AvailabilityZoneIDs")
 
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)

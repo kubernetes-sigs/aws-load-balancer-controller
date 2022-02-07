@@ -99,13 +99,18 @@ type SubnetsResolver interface {
 }
 
 // NewDefaultSubnetsResolver constructs new defaultSubnetsResolver.
-func NewDefaultSubnetsResolver(azInfoProvider AZInfoProvider, ec2Client services.EC2, vpcID string, clusterName string, logger logr.Logger) *defaultSubnetsResolver {
+func NewDefaultSubnetsResolver(azInfoProvider AZInfoProvider, ec2Client services.EC2, vpcID string, clusterName string, logger logr.Logger, desiredAvailabilityZoneIDs string) *defaultSubnetsResolver {
+	var azIds []string
+	if len(desiredAvailabilityZoneIDs) > 0 {
+		azIds = strings.Split(desiredAvailabilityZoneIDs, ",")
+	}
 	return &defaultSubnetsResolver{
-		azInfoProvider: azInfoProvider,
-		ec2Client:      ec2Client,
-		vpcID:          vpcID,
-		clusterName:    clusterName,
-		logger:         logger,
+		azInfoProvider:             azInfoProvider,
+		ec2Client:                  ec2Client,
+		vpcID:                      vpcID,
+		clusterName:                clusterName,
+		logger:                     logger,
+		desiredAvailabilityZoneIDs: azIds,
 	}
 }
 
@@ -113,11 +118,12 @@ var _ SubnetsResolver = &defaultSubnetsResolver{}
 
 // default implementation for SubnetsResolver.
 type defaultSubnetsResolver struct {
-	azInfoProvider AZInfoProvider
-	ec2Client      services.EC2
-	vpcID          string
-	clusterName    string
-	logger         logr.Logger
+	azInfoProvider             AZInfoProvider
+	ec2Client                  services.EC2
+	vpcID                      string
+	clusterName                string
+	logger                     logr.Logger
+	desiredAvailabilityZoneIDs []string
 }
 
 func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
@@ -152,7 +158,9 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 			subnets = append(subnets, subnet)
 		}
 	}
-	filteredSubnets := r.filterSubnetsByAvailableIPAddress(subnets, resolveOpts.AvailableIPAddressCount)
+	filteredSubnets := r.filterSubnetsByAvailableZoneIDs(subnets, r.desiredAvailabilityZoneIDs)
+	filteredSubnets = r.filterSubnetsByAvailableIPAddress(filteredSubnets, resolveOpts.AvailableIPAddressCount)
+
 	subnetsByAZ := mapSDKSubnetsByAZ(filteredSubnets)
 	chosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnetsByAZ))
 	for az, subnets := range subnetsByAZ {
@@ -392,4 +400,28 @@ func (r *defaultSubnetsResolver) filterSubnetsByAvailableIPAddress(subnets []*ec
 		}
 	}
 	return filteredSubnets
+}
+
+func (r *defaultSubnetsResolver) filterSubnetsByAvailableZoneIDs(subnets []*ec2sdk.Subnet, DesiredAvailabilityZoneIDs []string) []*ec2sdk.Subnet {
+	if DesiredAvailabilityZoneIDs != nil && len(DesiredAvailabilityZoneIDs) > 0 {
+		filteredSubnets := make([]*ec2sdk.Subnet, 0, len(subnets))
+		for _, subnet := range subnets {
+			matched := false
+			zoneId := awssdk.StringValue(subnet.AvailabilityZoneId)
+			for _, azId := range DesiredAvailabilityZoneIDs {
+				if strings.EqualFold(zoneId, azId) {
+					filteredSubnets = append(filteredSubnets, subnet)
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				r.logger.Info("ELB requires the subnet %s @ %s in desired availability zone IDs %v",
+					subnet.SubnetId, zoneId, DesiredAvailabilityZoneIDs)
+			}
+		}
+		return filteredSubnets
+	} else {
+		return subnets
+	}
 }
