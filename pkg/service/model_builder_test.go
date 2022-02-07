@@ -2035,6 +2035,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
 						"service.beta.kubernetes.io/aws-load-balancer-attributes":      "deletion_protection.enabled=true",
 					},
+					Finalizers: []string{"service.k8s.aws/resources"},
 				},
 				Spec: corev1.ServiceSpec{
 					Type:     corev1.ServiceTypeLoadBalancer,
@@ -2606,9 +2607,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			for _, call := range tt.fetchVPCInfoCalls {
 				vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
 			}
-			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb")
+			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates)
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", featureGates, serviceUtils)
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", serviceUtils)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

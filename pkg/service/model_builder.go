@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"strconv"
 	"sync"
 
@@ -37,14 +36,13 @@ type ModelBuilder interface {
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
 	elbv2TaggingManager elbv2deploy.TaggingManager, clusterName string, defaultTags map[string]string,
-	externalManagedTags []string, defaultSSLPolicy string, featureGates config.FeatureGates, serviceUtils ServiceUtils) *defaultModelBuilder {
+	externalManagedTags []string, defaultSSLPolicy string, serviceUtils ServiceUtils) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
 		vpcInfoProvider:     vpcInfoProvider,
 		trackingProvider:    trackingProvider,
 		elbv2TaggingManager: elbv2TaggingManager,
-		featureGates:        featureGates,
 		serviceUtils:        serviceUtils,
 		clusterName:         clusterName,
 		vpcID:               vpcID,
@@ -62,7 +60,6 @@ type defaultModelBuilder struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
-	featureGates        config.FeatureGates
 	serviceUtils        ServiceUtils
 
 	clusterName         string
@@ -82,7 +79,6 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		vpcInfoProvider:     b.vpcInfoProvider,
 		trackingProvider:    b.trackingProvider,
 		elbv2TaggingManager: b.elbv2TaggingManager,
-		featureGates:        b.featureGates,
 		serviceUtils:        b.serviceUtils,
 
 		service:   service,
@@ -132,7 +128,6 @@ type defaultModelBuildTask struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
-	featureGates        config.FeatureGates
 	serviceUtils        ServiceUtils
 
 	service *corev1.Service
@@ -177,13 +172,15 @@ type defaultModelBuildTask struct {
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
-	if t.needsCleanup() {
-		deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(*t.service)
-		if err != nil {
-			return err
-		}
-		if deletionProtectionEnabled {
-			return errors.Errorf("deletion_protection is enabled, cannot delete the service: %v", t.service.Name)
+	if !t.serviceUtils.IsServiceSupported(t.service) {
+		if t.serviceUtils.IsServicePendingFinalization(t.service) {
+			deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(*t.service)
+			if err != nil {
+				return err
+			}
+			if deletionProtectionEnabled {
+				return errors.Errorf("deletion_protection is enabled, cannot delete the service: %v", t.service.Name)
+			}
 		}
 		return nil
 	}
@@ -225,21 +222,4 @@ func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(svc corev1.Se
 		return deletionProtectionEnabled, nil
 	}
 	return false, nil
-}
-
-func (t *defaultModelBuildTask) needsCleanup() bool {
-	if !t.service.DeletionTimestamp.IsZero() {
-		return true
-	}
-	if t.service.Spec.LoadBalancerClass == nil {
-		if !t.serviceUtils.IsLoadBalancerTypeAnnotationSupported(t.service) {
-			return true
-		}
-	}
-	if t.service.Spec.Type != corev1.ServiceTypeLoadBalancer {
-		if t.featureGates.Enabled(config.ServiceTypeLoadBalancerOnly) {
-			return true
-		}
-	}
-	return false
 }

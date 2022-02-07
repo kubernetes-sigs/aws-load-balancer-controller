@@ -59,7 +59,7 @@ func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue wor
 
 func (h *enqueueRequestsForServiceEvent) enqueueManagedService(queue workqueue.RateLimitingInterface, service *corev1.Service) {
 	// Check if the svc needs to be handled
-	if !h.serviceUtils.IsServiceSupported(service) {
+	if !h.serviceUtils.IsServicePendingFinalization(service) && !h.serviceUtils.IsServiceSupported(service) {
 		return
 	}
 	queue.Add(reconcile.Request{

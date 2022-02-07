@@ -3,6 +3,7 @@ package service
 import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 )
 
@@ -11,16 +12,17 @@ type ServiceUtils interface {
 	// IsServiceSupported returns true if the service is supported by the controller
 	IsServiceSupported(service *corev1.Service) bool
 
-	// IsLoadBalancerTypeAnnotationSupported returns true if the combination of aws-load-balancer-type/aws-load-balancer-nlb-target-type
-	// annotations are supported by this controller
-	IsLoadBalancerTypeAnnotationSupported(service *corev1.Service) bool
+	// IsServicePendingFinalization returns true if the service contains the aws-load-balancer-controller finalizer
+	IsServicePendingFinalization(service *corev1.Service) bool
 }
 
-func NewServiceUtils(annotationsParser annotations.Parser, serviceFinalizer string, loadBalancerClass string) *defaultServiceUtils {
+func NewServiceUtils(annotationsParser annotations.Parser, serviceFinalizer string, loadBalancerClass string,
+	featureGates config.FeatureGates) *defaultServiceUtils {
 	return &defaultServiceUtils{
 		annotationParser:  annotationsParser,
 		serviceFinalizer:  serviceFinalizer,
 		loadBalancerClass: loadBalancerClass,
+		featureGates:      featureGates,
 	}
 }
 
@@ -30,20 +32,32 @@ type defaultServiceUtils struct {
 	annotationParser  annotations.Parser
 	serviceFinalizer  string
 	loadBalancerClass string
+	featureGates      config.FeatureGates
+}
+
+// IsServicePendingFinalization returns true if service has the aws-load-balancer-controller finalizer
+func (u *defaultServiceUtils) IsServicePendingFinalization(service *corev1.Service) bool {
+	if k8s.HasFinalizer(service, u.serviceFinalizer) {
+		return true
+	}
+	return false
 }
 
 // IsServiceSupported returns true if the service is supported by the controller
 func (u *defaultServiceUtils) IsServiceSupported(service *corev1.Service) bool {
-	if k8s.HasFinalizer(service, u.serviceFinalizer) {
-		return true
+	if !service.DeletionTimestamp.IsZero() {
+		return false
 	}
-	if service.Spec.LoadBalancerClass != nil && *service.Spec.LoadBalancerClass == u.loadBalancerClass {
-		return true
+	if u.featureGates.Enabled(config.ServiceTypeLoadBalancerOnly) && service.Spec.Type != corev1.ServiceTypeLoadBalancer {
+		return false
 	}
-	return u.checkAWSLoadBalancerTypeAnnotation(service)
-}
-
-func (u *defaultServiceUtils) IsLoadBalancerTypeAnnotationSupported(service *corev1.Service) bool {
+	if service.Spec.LoadBalancerClass != nil {
+		if *service.Spec.LoadBalancerClass == u.loadBalancerClass {
+			return true
+		} else {
+			return false
+		}
+	}
 	return u.checkAWSLoadBalancerTypeAnnotation(service)
 }
 
