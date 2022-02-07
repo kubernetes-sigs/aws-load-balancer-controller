@@ -117,3 +117,10 @@ Convert map to comma separated key=value string
 {{- define "aws-load-balancer-controller.convertMapToCsv" -}}
 {{- range $key, $value := . -}} {{ $key }}={{ $value }}, {{- end -}}
 {{- end -}}
+
+{{/*
+Create the name of the ingressClassParams
+*/}}
+{{- define "aws-load-balancer-controller.ingressClassParamsName" -}}
+{{ default (include "aws-load-balancer-controller.fullname" .) .Values.ingressClassParams.name }}
+{{- end -}}
