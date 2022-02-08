@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"github.com/pkg/errors"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"testing"
 	"time"
 
@@ -104,6 +105,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		wantError                    bool
 		wantValue                    string
 		wantNumResources             int
+		restrictToTypeLoadBalancer   bool
 	}{
 		{
 			testName: "Simple service",
@@ -2033,6 +2035,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
 						"service.beta.kubernetes.io/aws-load-balancer-attributes":      "deletion_protection.enabled=true",
 					},
+					Finalizers: []string{"service.k8s.aws/resources"},
 				},
 				Spec: corev1.ServiceSpec{
 					Type:     corev1.ServiceTypeLoadBalancer,
@@ -2380,6 +2383,201 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 }
 `,
 		},
+		{
+			testName: "service type NodePort, restrict to LoadBalancer enabled",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "type-nodeport",
+					Namespace: "some-namespace",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-internal":        "true",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type: corev1.ServiceTypeNodePort,
+				},
+			},
+			restrictToTypeLoadBalancer: true,
+			wantValue: `
+{
+"id": "some-namespace/type-nodeport",
+"resources": {}
+}
+`,
+		},
+		{
+			testName: "service type LoadBalancer, no lb type annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "type-loadbalancer",
+					Namespace: "some-namespace",
+				},
+				Spec: corev1.ServiceSpec{
+					Type: corev1.ServiceTypeNodePort,
+				},
+			},
+			wantValue: `
+{
+"id": "some-namespace/type-loadbalancer",
+"resources": {}
+}
+`,
+		},
+		{
+			testName: "spec.loadBalancerClass specified",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "lb-with-class",
+					Namespace: "awesome",
+				},
+				Spec: corev1.ServiceSpec{
+					Type:              corev1.ServiceTypeLoadBalancer,
+					LoadBalancerClass: aws.String("service.k8s.aws/nlb"),
+					Selector:          map[string]string{"app": "class"},
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(8080),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   32110,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("192.168.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantNumResources: 4,
+			wantValue: `
+{
+  "id": "awesome/lb-with-class",
+  "resources": {
+    "AWS::ElasticLoadBalancingV2::Listener": {
+      "80": {
+        "spec": {
+          "loadBalancerARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+          },
+          "port": 80,
+          "protocol": "TCP",
+          "defaultActions": [
+            {
+              "type": "forward",
+              "forwardConfig": {
+                "targetGroups": [
+                  {
+                    "targetGroupARN": {
+                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/awesome/lb-with-class:80/status/targetGroupARN"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
+      "LoadBalancer": {
+        "spec": {
+          "name": "k8s-awesome-lbwithcl-6652458428",
+          "type": "network",
+          "scheme": "internal",
+          "ipAddressType": "ipv4",
+          "subnetMapping": [
+            {
+              "subnetID": "subnet-1"
+            }
+          ]
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup": {
+      "awesome/lb-with-class:80": {
+        "spec": {
+          "name": "k8s-awesome-lbwithcl-081c7df2ca",
+          "targetType": "instance",
+          "port": 32110,
+          "protocol": "TCP",
+          "ipAddressType": "ipv4",
+          "healthCheckConfig": {
+            "port": "traffic-port",
+            "protocol": "TCP",
+            "intervalSeconds": 10,
+            "healthyThresholdCount": 3,
+            "unhealthyThresholdCount": 3
+          },
+          "targetGroupAttributes": [
+            {
+              "key": "proxy_protocol_v2.enabled",
+              "value": "false"
+            }
+          ]
+        }
+      }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
+      "awesome/lb-with-class:80": {
+        "spec": {
+          "template": {
+            "metadata": {
+              "name": "k8s-awesome-lbwithcl-081c7df2ca",
+              "namespace": "awesome",
+              "creationTimestamp": null
+            },
+            "spec": {
+              "targetGroupARN": {
+                "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/awesome/lb-with-class:80/status/targetGroupARN"
+              },
+              "targetType": "instance",
+              "serviceRef": {
+                "name": "lb-with-class",
+                "port": 80
+              },
+              "networking": {
+                "ingress": [
+                  {
+                    "from": [
+                      {
+                        "ipBlock": {
+                          "cidr": "192.168.0.0/16"
+                        }
+                      }
+                    ],
+                    "ports": [
+                      {
+                        "protocol": "TCP",
+                        "port": 32110
+                      }
+                    ]
+                  }
+                ]
+              },
+              "ipAddressType": "ipv4"
+            }
+          }
+        }
+      }
+    }
+  }
+}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -2394,7 +2592,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			for _, call := range tt.resolveViaNameOrIDSliceCalls {
 				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}
-
+			featureGates := config.NewFeatureGates()
+			if tt.restrictToTypeLoadBalancer {
+				featureGates.Enable(config.ServiceTypeLoadBalancerOnly)
+			}
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			trackingProvider := tracking.NewDefaultProvider("service.k8s.aws", "my-cluster")
 
@@ -2406,8 +2607,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			for _, call := range tt.fetchVPCInfoCalls {
 				vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
 			}
+			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates)
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08")
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", serviceUtils)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

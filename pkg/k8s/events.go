@@ -15,6 +15,7 @@ const (
 	ServiceEventReasonFailedAddFinalizer     = "FailedAddFinalizer"
 	ServiceEventReasonFailedRemoveFinalizer  = "FailedRemoveFinalizer"
 	ServiceEventReasonFailedUpdateStatus     = "FailedUpdateStatus"
+	ServiceEventReasonFailedCleanupStatus    = "FailedCleanupStatus"
 	ServiceEventReasonFailedBuildModel       = "FailedBuildModel"
 	ServiceEventReasonFailedDeployModel      = "FailedDeployModel"
 	ServiceEventReasonSuccessfullyReconciled = "SuccessfullyReconciled"

@@ -35,7 +35,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 	if targetGroup, exists := t.tgByResID[tgResourceID]; exists {
 		return targetGroup, nil
 	}
-	targetType, err := t.buildTargetType(ctx)
+	targetType, err := t.buildTargetType(ctx, port)
 	if err != nil {
 		return nil, err
 	}
@@ -332,22 +332,23 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCou
 	return unhealthyThresholdCount, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetType(_ context.Context) (elbv2model.TargetType, error) {
+func (t *defaultModelBuildTask) buildTargetType(_ context.Context, port corev1.ServicePort) (elbv2model.TargetType, error) {
 	svcType := t.service.Spec.Type
 	var lbType string
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.service.Annotations)
 	var lbTargetType string
+	lbTargetType = string(t.defaultTargetType)
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, t.service.Annotations)
-	if lbType == LoadBalancerTypeNLBIP || (lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeIP) {
+	if lbType == LoadBalancerTypeNLBIP || lbTargetType == LoadBalancerTargetTypeIP {
 		return elbv2model.TargetTypeIP, nil
 	}
-	if lbType == LoadBalancerTypeExternal && lbTargetType == LoadBalancerTargetTypeInstance {
-		if svcType == corev1.ServiceTypeClusterIP {
-			return "", errors.Errorf("unsupported service type \"%v\" for load balancer target type \"%v\"", svcType, lbTargetType)
-		}
-		return elbv2model.TargetTypeInstance, nil
+	if svcType == corev1.ServiceTypeClusterIP {
+		return "", errors.Errorf("unsupported service type \"%v\" for load balancer target type \"%v\"", svcType, lbTargetType)
 	}
-	return "", errors.Errorf("unsupported target type \"%v\" for load balancer type \"%v\"", lbTargetType, lbType)
+	if port.NodePort == 0 && t.service.Spec.AllocateLoadBalancerNodePorts != nil && !*t.service.Spec.AllocateLoadBalancerNodePorts {
+		return "", errors.New("unable to support instance target type with an unallocated NodePort")
+	}
+	return elbv2model.TargetTypeInstance, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupResourceID(svcKey types.NamespacedName, port intstr.IntOrString) string {
