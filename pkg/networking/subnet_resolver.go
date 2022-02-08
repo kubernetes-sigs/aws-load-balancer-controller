@@ -244,9 +244,12 @@ func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, su
 	if len(resolvedSubnets) != len(subnetNameOrIDs) {
 		return nil, errors.Errorf("couldn't find all subnets, nameOrIDs: %v, found: %v", subnetNameOrIDs, len(resolvedSubnets))
 	}
+
+	resolvedSubnets = r.filterSubnetsByAvailableZoneIDs(resolvedSubnets, r.desiredAvailabilityZoneIDs)
 	if len(resolvedSubnets) == 0 {
 		return nil, errors.New("unable to resolve at least one subnet")
 	}
+
 	if err := r.validateSubnetsAZExclusivity(resolvedSubnets); err != nil {
 		return nil, err
 	}
