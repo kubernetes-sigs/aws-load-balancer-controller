@@ -24,6 +24,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/scheme](#scheme)|internal \| internet-facing|internal|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/subnets](#subnets)|stringList|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/security-groups](#security-groups)|stringList|N/A|Ingress|Exclusive|
+|[alb.ingress.kubernetes.io/manage-backend-security-group-rules](#manage-backend-security-group-rules)|boolean|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/customer-owned-ipv4-pool](#customer-owned-ipv4-pool)|string|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/load-balancer-attributes](#load-balancer-attributes)|stringMap|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/wafv2-acl-arn](#wafv2-acl-arn)|string|N/A|Ingress|Exclusive|
@@ -470,8 +471,11 @@ Access control for LoadBalancer can be controlled with following annotations:
 - <a name="security-groups">`alb.ingress.kubernetes.io/security-groups`</a> specifies the securityGroups you want to attach to LoadBalancer.
 
     !!!note ""
-        When this annotation is not present, the controller will automatically create one security groups: the security group will be attached to the LoadBalancer and allow access from [`inbound-cidrs`](#inbound-cidrs) to the [`listen-ports`](#listen-ports). 
+        When this annotation is not present, the controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from [`inbound-cidrs`](#inbound-cidrs) to the [`listen-ports`](#listen-ports).
         Also, the securityGroups for Node/Pod will be modified to allow inbound traffic from this securityGroup.
+
+    !!!note ""
+        If you specify this annotation, you need to configure the security groups on your Node/Pod to allow inbound traffic from the load balancer. You could also set the [`manage-backend-security-group-rules`](#manage-backend-security-group-rules) if you want the controller to manage the access rules.
 
     !!!tip ""
         Both name or ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
@@ -479,6 +483,16 @@ Access control for LoadBalancer can be controlled with following annotations:
     !!!example
         ```
         alb.ingress.kubernetes.io/security-groups: sg-xxxx, nameOfSg1, nameOfSg2
+        ```
+
+- <a name="manage-backend-security-group-rules">`alb.ingress.kubernetes.io/manage-backend-security-group-rules`</a> specifies whether you want the controller to configure security group rules on Node/Pod for traffic access when you specify [`security-groups`](#security-groups).
+
+    !!!note ""
+        This annotation applies only in case you specify the security groups via [`security-groups`](#security-groups) annotation. If set to true, controller attaches an additional shared backend security group to your load balancer. This backend security group is used in the Node/Pod security group rules.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
         ```
 
 ## Authentication
