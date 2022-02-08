@@ -1031,6 +1031,25 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 				},
 			},
 		},
+		{
+			name: "with manage backend SG disabled via annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules": "false",
+					},
+				},
+			},
+			tgPort: port80,
+			hcPort: port808,
+			subnets: []*ec2.Subnet{{
+				CidrBlock: aws.String("172.16.0.0/19"),
+				SubnetId:  aws.String("az-1"),
+			}},
+			tgProtocol:    corev1.ProtocolTCP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
+			want:          nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1039,7 +1058,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			port := corev1.ServicePort{
 				Protocol: tt.tgProtocol,
 			}
-			got := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.preserveClientIP, tt.hcPort, port, tt.defaultSourceRanges, tt.ipAddressType)
+			got, _ := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.preserveClientIP, tt.hcPort, port, tt.defaultSourceRanges, tt.ipAddressType)
 			assert.Equal(t, tt.want, got)
 		})
 	}

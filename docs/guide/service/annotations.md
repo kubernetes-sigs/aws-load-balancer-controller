@@ -46,6 +46,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | false                     |                                                        |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -413,6 +414,16 @@ Load balancer access can be controlled via following annotations:
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+        ```
+
+- <a name="manage-backend-sg-rules">`service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules`</a> specifies whether the controller should automatically add the ingress rules to the instance/ENI security group.
+
+    !!!warning ""
+        If you disable the automatic management of security group rules for an NLB, you will need to manually add appropriate ingress rules to your EC2 instance or ENI security groups to allow access to the traffic and health check ports.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: "false"
         ```
 
 ## Legacy Cloud Provider
