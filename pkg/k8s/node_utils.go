@@ -30,7 +30,7 @@ func IsNodeSuitableAsTrafficProxy(node *corev1.Node) bool {
 		if taint.Key == toBeDeletedByCATaint {
 			return false
 		}
-		if strings.HasPrefix(taint.Value, awsNodeTerminationHandlerTaintPrefix) {
+		if strings.HasPrefix(taint.Key, awsNodeTerminationHandlerTaintPrefix) {
 			return false
 		}
 	}
