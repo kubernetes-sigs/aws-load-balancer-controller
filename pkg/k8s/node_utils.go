@@ -9,6 +9,7 @@ import (
 
 const (
 	toBeDeletedByCATaint = "ToBeDeletedByClusterAutoscaler"
+  awsNodeTerminationHandlerTaintPrefix = "aws-node-termination-handler/"
 )
 
 var awsInstanceIDRegex = regexp.MustCompile("^i-[^/]*$")
@@ -23,11 +24,15 @@ func IsNodeReady(node *corev1.Node) bool {
 // mimic the logic of serviceController: https://github.com/kubernetes/kubernetes/blob/b6b494b4484b51df8dc6b692fab234573da30ab4/pkg/controller/service/controller.go#L605
 func IsNodeSuitableAsTrafficProxy(node *corev1.Node) bool {
 	// ToBeDeletedByClusterAutoscaler taint is added by cluster autoscaler before removing node from cluster
-	// Marking the node as unsuitable for traffic once the taint is observed on the node
+	// aws-node-termination-handler/* taints are added by the aws-node-termination-handler
+	// Marking the node as unsuitable for traffic once any of these taints are observed on the node
 	for _, taint := range node.Spec.Taints {
 		if taint.Key == toBeDeletedByCATaint {
 			return false
 		}
+    if strings.HasPrefix(taint.Value, awsNodeTerminationHandlerTaintPrefix) {
+      return false
+    }
 	}
 
 	return IsNodeReady(node)
