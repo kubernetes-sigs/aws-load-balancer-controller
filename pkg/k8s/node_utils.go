@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	toBeDeletedByCATaint = "ToBeDeletedByClusterAutoscaler"
-  awsNodeTerminationHandlerTaintPrefix = "aws-node-termination-handler/"
+	toBeDeletedByCATaint                 = "ToBeDeletedByClusterAutoscaler"
+	awsNodeTerminationHandlerTaintPrefix = "aws-node-termination-handler/"
 )
 
 var awsInstanceIDRegex = regexp.MustCompile("^i-[^/]*$")
@@ -30,9 +30,9 @@ func IsNodeSuitableAsTrafficProxy(node *corev1.Node) bool {
 		if taint.Key == toBeDeletedByCATaint {
 			return false
 		}
-    if strings.HasPrefix(taint.Value, awsNodeTerminationHandlerTaintPrefix) {
-      return false
-    }
+		if strings.HasPrefix(taint.Value, awsNodeTerminationHandlerTaintPrefix) {
+			return false
+		}
 	}
 
 	return IsNodeReady(node)
