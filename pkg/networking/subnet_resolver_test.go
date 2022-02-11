@@ -1824,6 +1824,87 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "subnets with desiredAvailabilityZoneIds",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: awssdk.StringSlice([]string{"subnet-6"}),
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:           awssdk.String("subnet-6"),
+								AvailabilityZone:   awssdk.String("us-west-2c"),
+								AvailabilityZoneId: awssdk.String("usw2-az3"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{},
+			},
+			args: args{
+				subnetNameOrIDs: []string{"subnet-6"},
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
+					WithFilterByDesiredAvailabilityZoneIDs(true),
+				},
+			},
+			wantErr: errors.New("unable to resolve at least one subnet"),
+		},
+		{
+			name: "subnets with desiredAvailabilityZoneIds disabled",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: awssdk.StringSlice([]string{"subnet-6"}),
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:           awssdk.String("subnet-6"),
+								AvailabilityZone:   awssdk.String("us-west-2c"),
+								AvailabilityZoneId: awssdk.String("usw2-az3"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az3"},
+						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+							"usw2-az3": {
+								ZoneId:   awssdk.String("usw2-az3"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithFilterByDesiredAvailabilityZoneIDs(false),
+				},
+			},
+			want: []*ec2sdk.Subnet{
+				{
+					SubnetId:                awssdk.String("subnet-6"),
+					AvailabilityZone:        awssdk.String("us-west-2c"),
+					AvailabilityZoneId:      awssdk.String("usw2-az3"),
+					VpcId:                   awssdk.String("vpc-1"),
+					AvailableIpAddressCount: awssdk.Int64(10),
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1841,11 +1922,12 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 			}
 
 			r := &defaultSubnetsResolver{
-				azInfoProvider: azInfoProvider,
-				ec2Client:      ec2Client,
-				vpcID:          tt.fields.vpcID,
-				clusterName:    tt.fields.clusterName,
-				logger:         &log.NullLogger{},
+				azInfoProvider:             azInfoProvider,
+				ec2Client:                  ec2Client,
+				vpcID:                      tt.fields.vpcID,
+				clusterName:                tt.fields.clusterName,
+				logger:                     &log.NullLogger{},
+				desiredAvailabilityZoneIDs: []string{"usw2-az1", "usw2-az2"},
 			}
 			got, err := r.ResolveViaNameOrIDSlice(context.Background(), tt.args.subnetNameOrIDs, tt.args.opts...)
 			if tt.wantErr != nil {
