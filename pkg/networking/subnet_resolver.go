@@ -44,6 +44,8 @@ type SubnetsResolveOptions struct {
 	LBScheme elbv2model.LoadBalancerScheme
 	// count of available ip addresses
 	AvailableIPAddressCount int64
+	// To Use DesiredAvailabilityZoneIDs
+	FilterByDesiredAvailabilityZoneIDs bool
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -81,6 +83,13 @@ func WithSubnetsResolveLBScheme(lbScheme elbv2model.LoadBalancerScheme) SubnetsR
 func WithSubnetsResolveAvailableIPAddressCount(AvailableIPAddressCount int64) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.AvailableIPAddressCount = AvailableIPAddressCount
+	}
+}
+
+// With FilterByDesiredAvailabilityZoneIDs
+func WithFilterByDesiredAvailabilityZoneIDs(filterByDesiredAvailabilityZoneIDs bool) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.FilterByDesiredAvailabilityZoneIDs = filterByDesiredAvailabilityZoneIDs
 	}
 }
 
@@ -158,7 +167,10 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 			subnets = append(subnets, subnet)
 		}
 	}
-	filteredSubnets := r.filterSubnetsByAvailableZoneIDs(subnets, r.desiredAvailabilityZoneIDs)
+	filteredSubnets := subnets
+	if resolveOpts.FilterByDesiredAvailabilityZoneIDs {
+		filteredSubnets = r.filterSubnetsByAvailableZoneIDs(filteredSubnets, r.desiredAvailabilityZoneIDs)
+	}
 	filteredSubnets = r.filterSubnetsByAvailableIPAddress(filteredSubnets, resolveOpts.AvailableIPAddressCount)
 
 	subnetsByAZ := mapSDKSubnetsByAZ(filteredSubnets)
@@ -245,7 +257,9 @@ func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, su
 		return nil, errors.Errorf("couldn't find all subnets, nameOrIDs: %v, found: %v", subnetNameOrIDs, len(resolvedSubnets))
 	}
 
-	resolvedSubnets = r.filterSubnetsByAvailableZoneIDs(resolvedSubnets, r.desiredAvailabilityZoneIDs)
+	if resolveOpts.FilterByDesiredAvailabilityZoneIDs {
+		resolvedSubnets = r.filterSubnetsByAvailableZoneIDs(resolvedSubnets, r.desiredAvailabilityZoneIDs)
+	}
 	if len(resolvedSubnets) == 0 {
 		return nil, errors.New("unable to resolve at least one subnet")
 	}
