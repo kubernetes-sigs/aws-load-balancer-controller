@@ -1889,6 +1889,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				},
 			},
 			args: args{
+				subnetNameOrIDs: []string{"subnet-6"},
 				opts: []SubnetsResolveOption{
 					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
@@ -1897,11 +1898,10 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 			},
 			want: []*ec2sdk.Subnet{
 				{
-					SubnetId:                awssdk.String("subnet-6"),
-					AvailabilityZone:        awssdk.String("us-west-2c"),
-					AvailabilityZoneId:      awssdk.String("usw2-az3"),
-					VpcId:                   awssdk.String("vpc-1"),
-					AvailableIpAddressCount: awssdk.Int64(10),
+					SubnetId:           awssdk.String("subnet-6"),
+					AvailabilityZone:   awssdk.String("us-west-2c"),
+					AvailabilityZoneId: awssdk.String("usw2-az3"),
+					VpcId:              awssdk.String("vpc-1"),
 				},
 			},
 		},
