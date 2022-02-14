@@ -44,9 +44,15 @@ The reference IAM policies contain the following permissive configuration:
     "Effect": "Allow",
     "Action": [
         "ec2:AuthorizeSecurityGroupIngress",
-        "ec2:RevokeSecurityGroupIngress"
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:DeleteSecurityGroup"
     ],
     "Resource": "*"
+    "Condition": {
+        "Null": {
+            "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
+        }
+    }
 },
 ```
 
@@ -57,6 +63,9 @@ Example condition for VPC ID:
     "Condition": {
         "ArnEquals": {
             "ec2:Vpc": "arn:aws:ec2:<REGION>:<ACCOUNT-ID>:vpc/<VPC-ID>"
+        },
+        "Null": {
+            "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
         }
     }
 ```
