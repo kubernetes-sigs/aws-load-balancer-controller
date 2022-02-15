@@ -122,5 +122,5 @@ Convert map to comma separated key=value string
 Create the name of the ingressClassParams
 */}}
 {{- define "aws-load-balancer-controller.ingressClassParamsName" -}}
-{{ default (include "aws-load-balancer-controller.fullname" .) .Values.ingressClassParams.name }}
+{{ default .Values.ingressClass .Values.ingressClassParams.name }}
 {{- end -}}
