@@ -32,3 +32,18 @@ In version v2.1.1 and older, both the public and private subnets must be tagged 
  `${cluster-name}` is the name of the kubernetes cluster
  
  The cluster tag is not required in v2.1.2 and newer releases. 
+
+## Desired availability zones
+A list of availability zone IDs can be provided as a comma seperated argument over the aws-load-balancer-controller.
+Will limit the subnet discover picks the subnets only from the given allow list.
+
+Here is an example,
+```text
+--desired-availability-zone-ids=usw2-az1,usw2-az2
+```
+
+| Load balancer type                      | Behavior                 |
+| --------------------------------------- | --------------------- |
+| Application (ALB) |  ALB will be reconciled and subnets will be limited from the given AZ IDs. The changing of AZ IDs could be adding or removing, controller reconciles it as desired |
+| Network (NLB) |  NLB will be left as it is, the given AZ IDs only applies to newly created NLBs |
+
