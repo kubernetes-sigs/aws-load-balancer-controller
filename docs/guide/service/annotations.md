@@ -17,7 +17,7 @@
 |--------------------------------------------------------------------------------------------------|-------------------------|---------------------------|--------------------------------------------------------|
 | [service.beta.kubernetes.io/load-balancer-source-ranges](#lb-source-ranges)                      | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-type](#lb-type)                                    | string                  |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-nlb-target-type](#nlb-target-type)                 | string                  |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-nlb-target-type](#nlb-target-type)                 | string                  |                           | default `instance` in case of LoadBalancerClass        |
 | [service.beta.kubernetes.io/aws-load-balancer-name](#load-balancer-name)                         | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-internal](#lb-internal)                            | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-scheme](#lb-scheme)|
 | [service.beta.kubernetes.io/aws-load-balancer-scheme](#lb-scheme)                                | string                  | internal                  |                                                        |
@@ -83,9 +83,13 @@ Traffic Routing can be controlled with following annotations:
     - `instance` mode will route traffic to all EC2 instances within cluster on the [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) opened for your service.
 
         !!!note ""
-            service must be of type `NodePort` or `LoadBalancer` for `instance` targets
+            - service must be of type `NodePort` or `LoadBalancer` for `instance` targets
+            - for k8s 1.22 and later if `spec.allocateLoadBalancerNodePorts` is set to `false`, `NodePort` must be allocated manually
 
-    - `ip` mode will route traffic directly to the pod IP.
+        !!!note "default value"
+            If you configure `spec.loadBalancerClass`, the controller defaults to `instance` target type
+
+      - `ip` mode will route traffic directly to the pod IP.
 
         !!!note ""
             network plugin must use native AWS VPC networking configuration for pod IP, for example [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s).
