@@ -19,6 +19,9 @@
     - Ensure subnets are tagged appropriately for auto-discovery to work
     - For IP targets, pods must have IPs from the VPC subnets. You can configure `amazon-vpc-cni-k8s` plugin for this purpose.
 
+!!!note "security group configuration"
+    If you do not use `eksctl`, you need to ensure worker nodes security group permit access to TCP port 9443 from the kubernetes control plane for the webhook access.
+
 ## Using metadata server version 2 (IMDSv2)
 If you are using the IMDSv2 you must set the hop limit to 2 or higher in order to allow the AWS Load Balancer Controller to perform the metadata introspection. Otherwise you have to manually specify the AWS region and the VPC via the controller flags `--aws-region` and `--aws-vpc-id`.
 
