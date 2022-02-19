@@ -104,7 +104,7 @@ ifeq (, $(shell which kustomize))
 	KUSTOMIZE_TMP_DIR=$$(mktemp -d) ;\
 	cd $$KUSTOMIZE_TMP_DIR ;\
 	go mod init tmp ;\
-	go install sigs.k8s.io/kustomize/kustomize/v3 ;\
+	GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3 ;\
 	rm -rf $$KUSTOMIZE_TMP_DIR ;\
 	}
 KUSTOMIZE=$(GOBIN)/kustomize
