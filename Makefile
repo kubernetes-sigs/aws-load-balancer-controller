@@ -101,12 +101,12 @@ kustomize:
 ifeq (, $(shell which kustomize))
 	@{ \
 	set -e ;\
-        KUSTOMIZE_TMP_DIR=$$(mktemp -d) ;\
-        cd $$KUSTOMIZE_TMP_DIR ;\
-        go mod init tmp ;\
-        go install sigs.k8s.io/kustomize/kustomize/v3 ;\
-        rm -rf $$KUSTOMIZE_TMP_DIR ;\
-        }
+	KUSTOMIZE_TMP_DIR=$$(mktemp -d) ;\
+	cd $$KUSTOMIZE_TMP_DIR ;\
+	go mod init tmp ;\
+	go install sigs.k8s.io/kustomize/kustomize/v3 ;\
+	rm -rf $$KUSTOMIZE_TMP_DIR ;\
+	}
 KUSTOMIZE=$(GOBIN)/kustomize
 else
 KUSTOMIZE=$(shell which kustomize)
