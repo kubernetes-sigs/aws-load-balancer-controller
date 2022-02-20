@@ -244,7 +244,7 @@ Traffic Routing can be controlled with following annotations:
     !!!example
         - response-503: return fixed 503 response
         - redirect-to-eks: redirect to an external url
-        - forward-single-tg: forward to an single targetGroup [**simplified schema**]
+        - forward-single-tg: forward to a single targetGroup [**simplified schema**]
         - forward-multiple-tg: forward to multiple targetGroups with different weights and stickiness config [**advanced schema**]
 
         ```yaml
