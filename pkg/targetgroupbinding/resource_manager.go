@@ -40,7 +40,8 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, useEndpointSlices bool, disabledRestrictedSGRulesFlag bool, vpcInfoProvider networking.VPCInfoProvider) *defaultResourceManager {
+	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, useEndpointSlices bool,
+	disabledRestrictedSGRulesFlag bool, vpcInfoProvider networking.VPCInfoProvider) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
 
@@ -58,6 +59,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		logger:            logger,
 		vpcID:             vpcID,
 		vpcInfoProvider:   vpcInfoProvider,
+		podInfoRepo:       podInfoRepo,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
 		enableEndpointSlices:        useEndpointSlices,
@@ -75,6 +77,7 @@ type defaultResourceManager struct {
 	eventRecorder     record.EventRecorder
 	logger            logr.Logger
 	vpcInfoProvider   networking.VPCInfoProvider
+	podInfoRepo       k8s.PodInfoRepo
 	vpcID             string
 
 	targetHealthRequeueDuration time.Duration
@@ -334,58 +337,26 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 // updatePodAsHealthyForDeletedTGB updates pod's targetHealth condition as healthy when deleting a TGB
 // if the pod has readiness Gate.
 func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
 	targetHealthCondType := BuildTargetHealthPodConditionType(tgb)
-	resolveOpts := []backend.EndpointResolveOption{
-		backend.WithPodReadinessGate(targetHealthCondType),
-	}
 
-	var endpoints []backend.PodEndpoint
-	var err error
-
-	// Decide whether to use Endpoints or EndpointSlices based on config flag
-	if m.enableEndpointSlices {
-		endpoints, _, err = m.endpointResolver.ResolvePodEndpointsFromSlices(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
-	} else {
-		endpoints, _, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
-	}
-	if err != nil {
-		if errors.Is(err, backend.ErrNotFound) {
-			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
-			return m.Cleanup(ctx, tgb)
-		}
-		return err
-	}
-
-	tgARN := tgb.Spec.TargetGroupARN
-	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
-	if err != nil {
-		return err
-	}
-	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
-	matchedEndpointAndTargets, unmatchedEndpointAndTargets, _ := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
-
-	var podsToUpdate []k8s.PodInfo
-	for _, endpointAndTarget := range matchedEndpointAndTargets {
-		pod := endpointAndTarget.endpoint.Pod
-		if pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
-			podsToUpdate = append(podsToUpdate, pod)
-		}
-	}
-	for _, endpoint := range unmatchedEndpointAndTargets {
-		pod := endpoint.Pod
-		if pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
-			podsToUpdate = append(podsToUpdate, pod)
-		}
-	}
-	for _, pod := range podsToUpdate {
-		targetHealth := &elbv2sdk.TargetHealth{
-			State:       awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
-			Description: awssdk.String("Target Group Binding is deleted"),
-		}
-		_, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
+	allPodKeys := m.podInfoRepo.ListKeys(ctx)
+	for _, podKey := range allPodKeys {
+		pod, exists, err := m.podInfoRepo.Get(ctx, podKey)
 		if err != nil {
 			return err
+		}
+		if !exists {
+			return errors.New("couldn't find podInfo for ready endpoint")
+		}
+		if pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
+			targetHealth := &elbv2sdk.TargetHealth{
+				State:       awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+				Description: awssdk.String("Target Group Binding is deleted"),
+			}
+			_, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
