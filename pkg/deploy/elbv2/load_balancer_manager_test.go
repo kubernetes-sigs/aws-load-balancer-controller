@@ -150,45 +150,6 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 	}
 }
 
-func Test_buildSDKSubnetMappings(t *testing.T) {
-	type args struct {
-		modelSubnetMappings []elbv2model.SubnetMapping
-	}
-	tests := []struct {
-		name string
-		args args
-		want []*elbv2sdk.SubnetMapping
-	}{
-		{
-			name: "standard case",
-			args: args{
-				modelSubnetMappings: []elbv2model.SubnetMapping{
-					{
-						SubnetID: "subnet-a",
-					},
-					{
-						SubnetID: "subnet-b",
-					},
-				},
-			},
-			want: []*elbv2sdk.SubnetMapping{
-				{
-					SubnetId: awssdk.String("subnet-a"),
-				},
-				{
-					SubnetId: awssdk.String("subnet-b"),
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := buildSDKSubnetMappings(tt.args.modelSubnetMappings)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func Test_buildSDKSecurityGroups(t *testing.T) {
 	type args struct {
 		modelSecurityGroups []coremodel.StringToken
@@ -242,10 +203,10 @@ func Test_buildSDKSubnetMapping(t *testing.T) {
 		want *elbv2sdk.SubnetMapping
 	}{
 		{
-			name: "stand case",
+			name: "standard case",
 			args: args{
 				modelSubnetMapping: elbv2model.SubnetMapping{
-					AllocationID:       awssdk.String("some-id"),
+					AllocationID:       coremodel.LiteralStringToken("some-id"),
 					PrivateIPv4Address: awssdk.String("192.168.100.0"),
 					SubnetID:           "subnet-abc",
 				},
@@ -270,7 +231,8 @@ func Test_buildSDKSubnetMapping(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildSDKSubnetMapping(tt.args.modelSubnetMapping)
+			got, err := buildSDKSubnetMapping(tt.args.modelSubnetMapping)
+			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}

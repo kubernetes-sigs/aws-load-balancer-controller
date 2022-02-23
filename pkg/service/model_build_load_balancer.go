@@ -266,15 +266,29 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[
 	return t.buildAdditionalResourceTags(ctx)
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme, ec2Subnets []*ec2sdk.Subnet) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme, ec2Subnets []*ec2sdk.Subnet) ([]elbv2model.SubnetMapping, error) {
 	var eipAllocation []string
-	eipConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
-	if eipConfigured {
+	eipAllocConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
+
+	var eipPool []string
+	eipPoolConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPIpv4Pool, &eipPool, t.service.Annotations)
+
+	if eipAllocConfigured && eipPoolConfigured {
+		return []elbv2model.SubnetMapping{}, errors.Errorf("only one of EIP allocations or pool can be set")
+	}
+
+	if eipAllocConfigured {
 		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
 			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
 		}
 		if len(eipAllocation) != len(ec2Subnets) {
 			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(ec2Subnets))
+		}
+	}
+
+	if eipPoolConfigured {
+		if scheme == elbv2model.LoadBalancerSchemeInternal {
+			return []elbv2model.SubnetMapping{}, errors.Errorf("EIP pool can only be set for internet facing load balancers")
 		}
 	}
 
@@ -326,11 +340,19 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(ec2Subnets))
 	for idx, subnet := range ec2Subnets {
+		subnetID := awssdk.StringValue(subnet.SubnetId)
 		mapping := elbv2model.SubnetMapping{
-			SubnetID: awssdk.StringValue(subnet.SubnetId),
+			SubnetID: subnetID,
 		}
-		if eipConfigured {
-			mapping.AllocationID = awssdk.String(eipAllocation[idx])
+		if eipAllocConfigured {
+			mapping.AllocationID = core.LiteralStringToken(eipAllocation[idx])
+		}
+		if eipPoolConfigured {
+			eip, err := t.buildElasticIPAddress(ctx, subnetID)
+			if err != nil {
+				return []elbv2model.SubnetMapping{}, err
+			}
+			mapping.AllocationID = eip.AllocationID()
 		}
 		if ipv4AddrConfigured {
 			subnetIPv4CIDRs, err := networking.GetSubnetAssociatedIPv4CIDRs(subnet)
@@ -339,7 +361,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 			}
 			ipv4AddressesWithinSubnet := networking.FilterIPsWithinCIDRs(ipv4Addresses, subnetIPv4CIDRs)
 			if len(ipv4AddressesWithinSubnet) != 1 {
-				return nil, errors.Errorf("expect one private IPv4 address configured for subnet: %v", awssdk.StringValue(subnet.SubnetId))
+				return nil, errors.Errorf("expect one private IPv4 address configured for subnet: %v", subnetID)
 			}
 			mapping.PrivateIPv4Address = awssdk.String(ipv4AddressesWithinSubnet[0].String())
 		}
@@ -350,7 +372,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 			}
 			ipv6AddressesWithinSubnet := networking.FilterIPsWithinCIDRs(ipv6Addresses, subnetIPv6CIDRs)
 			if len(ipv6AddressesWithinSubnet) != 1 {
-				return nil, errors.Errorf("expect one IPv6 address configured for subnet: %v", awssdk.StringValue(subnet.SubnetId))
+				return nil, errors.Errorf("expect one IPv6 address configured for subnet: %v", subnetID)
 			}
 			mapping.IPv6Address = awssdk.String(ipv6AddressesWithinSubnet[0].String())
 		}

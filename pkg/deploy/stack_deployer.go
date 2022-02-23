@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -24,11 +25,13 @@ type StackDeployer interface {
 
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
 func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
-	networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
+	networkingEIPManager networking.ElasticIPAddressManager,
+	networkingSGManager networking.SecurityGroupManager,
+	networkingSGReconciler networking.SecurityGroupReconciler,
 	config config.ControllerConfig, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
 
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
-	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, cloud.VpcID(), logger)
+	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingEIPManager, networkingSGManager, cloud.VpcID(), logger)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, cloud.RGT(), logger)
 
 	return &defaultStackDeployer{
@@ -37,6 +40,7 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 		addonsConfig:                        config.AddonsConfig,
 		trackingProvider:                    trackingProvider,
 		ec2TaggingManager:                   ec2TaggingManager,
+		ec2EIPManager:                       ec2.NewDefaultElasticIPAddressManager(cloud.EC2(), trackingProvider, ec2TaggingManager, cloud.VpcID(), config.ExternalManagedTags, logger),
 		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), trackingProvider, ec2TaggingManager, networkingSGReconciler, cloud.VpcID(), config.ExternalManagedTags, logger),
 		elbv2TaggingManager:                 elbv2TaggingManager,
 		elbv2LBManager:                      elbv2.NewDefaultLoadBalancerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, logger),
@@ -62,6 +66,7 @@ type defaultStackDeployer struct {
 	addonsConfig                        config.AddonsConfig
 	trackingProvider                    tracking.Provider
 	ec2TaggingManager                   ec2.TaggingManager
+	ec2EIPManager                       ec2.ElasticIPAddressManager
 	ec2SGManager                        ec2.SecurityGroupManager
 	elbv2TaggingManager                 elbv2.TaggingManager
 	elbv2LBManager                      elbv2.LoadBalancerManager
@@ -87,6 +92,7 @@ type ResourceSynthesizer interface {
 func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	synthesizers := []ResourceSynthesizer{
 		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.logger, stack),
+		ec2.NewElasticIPAddressSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2EIPManager, d.vpcID, d.logger, stack),
 		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, d.featureGates, stack),
 		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, stack),
 		elbv2.NewListenerSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LSManager, d.logger, stack),
