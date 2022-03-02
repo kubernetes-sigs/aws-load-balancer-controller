@@ -176,30 +176,6 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 		currentExtraCertARNs.Insert(certARNs...)
 	}
 
-	for _, certARN := range desiredExtraCertARNs.Difference(currentExtraCertARNs).List() {
-		req := &elbv2sdk.AddListenerCertificatesInput{
-			ListenerArn: sdkLS.Listener.ListenerArn,
-			Certificates: []*elbv2sdk.Certificate{
-				{
-					CertificateArn: awssdk.String(certARN),
-				},
-			},
-		}
-		m.logger.Info("adding certificate to listener",
-			"stackID", resLS.Stack().StackID(),
-			"resourceID", resLS.ID(),
-			"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn),
-			"certificateARN", certARN)
-		if _, err := m.elbv2Client.AddListenerCertificatesWithContext(ctx, req); err != nil {
-			return err
-		}
-		m.logger.Info("added certificate to listener",
-			"stackID", resLS.Stack().StackID(),
-			"resourceID", resLS.ID(),
-			"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn),
-			"certificateARN", certARN)
-	}
-
 	for _, certARN := range currentExtraCertARNs.Difference(desiredExtraCertARNs).List() {
 		req := &elbv2sdk.RemoveListenerCertificatesInput{
 			ListenerArn: sdkLS.Listener.ListenerArn,
@@ -218,6 +194,30 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 			return err
 		}
 		m.logger.Info("removed certificate from listener",
+			"stackID", resLS.Stack().StackID(),
+			"resourceID", resLS.ID(),
+			"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn),
+			"certificateARN", certARN)
+	}
+
+	for _, certARN := range desiredExtraCertARNs.Difference(currentExtraCertARNs).List() {
+		req := &elbv2sdk.AddListenerCertificatesInput{
+			ListenerArn: sdkLS.Listener.ListenerArn,
+			Certificates: []*elbv2sdk.Certificate{
+				{
+					CertificateArn: awssdk.String(certARN),
+				},
+			},
+		}
+		m.logger.Info("adding certificate to listener",
+			"stackID", resLS.Stack().StackID(),
+			"resourceID", resLS.ID(),
+			"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn),
+			"certificateARN", certARN)
+		if _, err := m.elbv2Client.AddListenerCertificatesWithContext(ctx, req); err != nil {
+			return err
+		}
+		m.logger.Info("added certificate to listener",
 			"stackID", resLS.Stack().StackID(),
 			"resourceID", resLS.ID(),
 			"arn", awssdk.StringValue(sdkLS.Listener.ListenerArn),
