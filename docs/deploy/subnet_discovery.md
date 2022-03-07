@@ -31,7 +31,7 @@ In version v2.1.1 and older, both the public and private subnets must be tagged 
 
  `${cluster-name}` is the name of the kubernetes cluster
  
- The cluster tag is not required in v2.1.2 and newer releases. 
+ The cluster tag is not required in v2.1.2 and newer releases, unless a cluster tag for another cluster is present.
 
 ## Desired availability zones
 A list of availability zone IDs can be provided as a comma seperated argument over the aws-load-balancer-controller.
