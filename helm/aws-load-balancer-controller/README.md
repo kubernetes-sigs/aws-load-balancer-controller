@@ -20,16 +20,12 @@ AWS Load Balancer controller manages the following AWS resources
 **Note**: Deployed chart does not receive security updates automatically. You need to manually upgrade to a newer chart.
 
 ## Prerequisites
-- Kubernetes >= 1.16 for ALB
-- Kubernetes >= 1.16 for NLB IP/Instance using Service type NodePort
-- Kubernetes >= v1.20 or EKS >= 1.16 or the following patch releases for Service type `LoadBalancer`
-   - 1.18.18+ for 1.18
-   - 1.19.10+ for 1.19
+- Kubernetes >= 1.19
 - IAM permissions
+- Helm v3
 - Optional dependencies
   - cert-manager
   - Prometheus Operator
-- Helm v3 is needed
 
 The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB resources via IAM permissions. The
 IAM permissions can either be setup via IAM roles for ServiceAccount or can be attached directly to the worker node IAM roles.
@@ -151,6 +147,11 @@ $ helm delete aws-load-balancer-controller -n kube-system
 helm delete aws-load-balancer-controller -n kube-system
 ```
 
+If you setup IAM Roles for ServiceAccount, you can cleanup as follows
+```
+eksctl delete iamserviceaccount --cluster <cluster-name> --namespace kube-system --name aws-load-balancer-controller
+```
+
 ## HA configuration
 Chart release v1.2.0 and later enables high availability configuration by default.
 - The default number of replicas is 2. You can pass`--set replicaCount=1` flag during chart installation to disable this. Due to leader election, only one controller will actively reconcile resources.
@@ -184,10 +185,10 @@ The default values set by the application itself can be confirmed [here](https:/
 | `serviceAccount.name`                          | Service account to be used                                                                               | None                                                                               |
 | `terminationGracePeriodSeconds`                | Time period for controller pod to do a graceful shutdown                                                 | 10                                                                                 |
 | `ingressClass`                                 | The ingress class to satisfy                                                                             | alb                                                                                |
-| `createIngressClassResource`                   | Create ingressClass resource                                                                             | true                                                                              |
-| `ingressClassParams.name`                      | IngressClassParams resource's name, default to the aws load balancer controller's name                   | None
-| `ingressClassParams.create`                    | If `true`, create a new ingressClassParams                                                               | true
-| `ingressClassParams.spec`                      | IngressClassParams defined ingress specifications                                                        | {}
+| `createIngressClassResource`                   | Create ingressClass resource                                                                             | true                                                                               |
+| `ingressClassParams.name`                      | IngressClassParams resource's name, default to the aws load balancer controller's name                   | None                                                                               |
+| `ingressClassParams.create`                    | If `true`, create a new ingressClassParams                                                               | true                                                                               |
+| `ingressClassParams.spec`                      | IngressClassParams defined ingress specifications                                                        | {}                                                                                 |
 | `region`                                       | The AWS region for the kubernetes cluster                                                                | None                                                                               |
 | `vpcId`                                        | The VPC ID for the Kubernetes cluster                                                                    | None                                                                               |
 | `awsMaxRetries`                                | Maximum retries for AWS APIs                                                                             | None                                                                               |
@@ -202,7 +203,7 @@ The default values set by the application itself can be confirmed [here](https:/
 | `webhookTLS.caCert`                            | TLS CA certificate for webhook (auto-generated if not provided)                                          | ""                                                                                 |
 | `webhookTLS.cert`                              | TLS certificate for webhook (auto-generated if not provided)                                             | ""                                                                                 |
 | `webhookTLS.key`                               | TLS private key for webhook (auto-generated if not provided)                                             | ""                                                                                 |
-| `keepTLSSecret`                                | Reuse existing TLS Secret during chart upgrade                                                           | `false`                                                                            |
+| `keepTLSSecret`                                | Reuse existing TLS Secret during chart upgrade                                                           | `true`                                                                             |
 | `serviceAnnotations`                           | Annotations to be added to the provisioned webhook service resource                                      | `{}`                                                                               |
 | `serviceMaxConcurrentReconciles`               | Maximum number of concurrently running reconcile loops for service                                       | None                                                                               |
 | `targetgroupbindingMaxConcurrentReconciles`    | Maximum number of concurrently running reconcile loops for targetGroupBinding                            | None                                                                               |
@@ -223,13 +224,13 @@ The default values set by the application itself can be confirmed [here](https:/
 | `replicaCount`                                 | Number of controller pods to run, only one will be active due to leader election                         | `2`                                                                                |
 | `podDisruptionBudget`                          | Limit the disruption for controller pods. Require at least 2 controller replicas and 3 worker nodes      | `{}`                                                                               |
 | `updateStrategy`                               | Defines the update strategy for the deployment                                                           | `{}`                                                                               |
-| `enableCertManager`                            | If enabled, cert-manager issues the webhook certificates instead of the helm template, requires cert-manager and it's CRDs to be installed                    | `false`                                                                            |
+| `enableCertManager`                            | If enabled, cert-manager issues the webhook certificates instead of the helm template, requires cert-manager and it's CRDs to be installed | `false`                                          |
 | `enableEndpointSlices`                         | If enabled, controller uses k8s EndpointSlices instead of Endpoints for IP targets                       | `false`                                                                            |
 | `enableBackendSecurityGroup`                   | If enabled, controller uses shared security group for backend traffic                                    | `true`                                                                             |
 | `backendSecurityGroup`                         | Backend security group to use instead of auto created one if the feature is enabled                      | ``                                                                                 |
 | `disableRestrictedSecurityGroupRules`          | If disabled, controller will not specify port range restriction in the backend security group rules      | `false`                                                                            |
 | `objectSelector.matchExpressions`              | Webhook configuration to select specific pods by specifying the expression to be matched                 | None                                                                               |
 | `objectSelector.matchLabels`                   | Webhook configuration to select specific pods by specifying the key value label pair to be matched       | None                                                                               |
-| `serviceMonitor.enabled`                       | Specifies whether a service monitor should be created, requires the ServiceMonitor CRD to be installed                                                    | `false`                                                                            |
+| `serviceMonitor.enabled`                       | Specifies whether a service monitor should be created, requires the ServiceMonitor CRD to be installed   | `false`                                                                            |
 | `serviceMonitor.additionalLabels`              | Labels to add to the service account                                                                     | `{}`                                                                               |
 | `serviceMonitor.interval`                      | Prometheus scrape interval                                                                               | `1m`                                                                               |

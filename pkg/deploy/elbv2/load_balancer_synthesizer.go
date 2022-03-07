@@ -2,8 +2,9 @@ package elbv2
 
 import (
 	"context"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -12,7 +13,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"strings"
 )
 
 const (
@@ -89,7 +89,6 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 }
 
 func (s *loadBalancerSynthesizer) disableDeletionProtection(lb *elbv2sdk.LoadBalancer) error {
-	svc := elbv2sdk.New(session.Must(session.NewSession()))
 	input := &elbv2sdk.ModifyLoadBalancerAttributesInput{
 		Attributes: []*elbv2sdk.LoadBalancerAttribute{
 			{
@@ -99,7 +98,7 @@ func (s *loadBalancerSynthesizer) disableDeletionProtection(lb *elbv2sdk.LoadBal
 		},
 		LoadBalancerArn: lb.LoadBalancerArn,
 	}
-	_, err := svc.ModifyLoadBalancerAttributes(input)
+	_, err := s.elbv2Client.ModifyLoadBalancerAttributes(input)
 	return err
 }
 

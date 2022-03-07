@@ -34,14 +34,16 @@ type ModelBuilder interface {
 
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
-	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
-	clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string) *defaultModelBuilder {
+	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
+	elbv2TaggingManager elbv2deploy.TaggingManager, clusterName string, defaultTags map[string]string,
+	externalManagedTags []string, defaultSSLPolicy string, serviceUtils ServiceUtils) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
 		vpcInfoProvider:     vpcInfoProvider,
 		trackingProvider:    trackingProvider,
 		elbv2TaggingManager: elbv2TaggingManager,
+		serviceUtils:        serviceUtils,
 		clusterName:         clusterName,
 		vpcID:               vpcID,
 		defaultTags:         defaultTags,
@@ -58,6 +60,7 @@ type defaultModelBuilder struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	serviceUtils        ServiceUtils
 
 	clusterName         string
 	vpcID               string
@@ -76,6 +79,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		vpcInfoProvider:     b.vpcInfoProvider,
 		trackingProvider:    b.trackingProvider,
 		elbv2TaggingManager: b.elbv2TaggingManager,
+		serviceUtils:        b.serviceUtils,
 
 		service:   service,
 		stack:     stack,
@@ -90,6 +94,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultIPAddressType:                 elbv2model.IPAddressTypeIPV4,
 		defaultLoadBalancingCrossZoneEnabled: false,
 		defaultProxyProtocolV2Enabled:        false,
+		defaultTargetType:                    elbv2model.TargetTypeInstance,
 		defaultHealthCheckProtocol:           elbv2model.ProtocolTCP,
 		defaultHealthCheckPort:               healthCheckPortTrafficPort,
 		defaultHealthCheckPath:               "/",
@@ -123,6 +128,7 @@ type defaultModelBuildTask struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	serviceUtils        ServiceUtils
 
 	service *corev1.Service
 
@@ -143,6 +149,7 @@ type defaultModelBuildTask struct {
 	defaultIPAddressType                 elbv2model.IPAddressType
 	defaultLoadBalancingCrossZoneEnabled bool
 	defaultProxyProtocolV2Enabled        bool
+	defaultTargetType                    elbv2model.TargetType
 	defaultHealthCheckProtocol           elbv2model.Protocol
 	defaultHealthCheckPort               string
 	defaultHealthCheckPath               string
@@ -165,13 +172,15 @@ type defaultModelBuildTask struct {
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
-	if !t.service.DeletionTimestamp.IsZero() {
-		deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(*t.service)
-		if err != nil {
-			return err
-		}
-		if deletionProtectionEnabled {
-			return errors.Errorf("deletion_protection is enabled, cannot delete the service: %v", t.service.Name)
+	if !t.serviceUtils.IsServiceSupported(t.service) {
+		if t.serviceUtils.IsServicePendingFinalization(t.service) {
+			deletionProtectionEnabled, err := t.getDeletionProtectionViaAnnotation(*t.service)
+			if err != nil {
+				return err
+			}
+			if deletionProtectionEnabled {
+				return errors.Errorf("deletion_protection is enabled, cannot delete the service: %v", t.service.Name)
+			}
 		}
 		return nil
 	}

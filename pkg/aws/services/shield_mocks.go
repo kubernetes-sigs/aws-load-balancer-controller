@@ -886,6 +886,56 @@ func (mr *MockShieldMockRecorder) DescribeSubscriptionWithContext(arg0, arg1 int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeSubscriptionWithContext", reflect.TypeOf((*MockShield)(nil).DescribeSubscriptionWithContext), varargs...)
 }
 
+// DisableApplicationLayerAutomaticResponse mocks base method.
+func (m *MockShield) DisableApplicationLayerAutomaticResponse(arg0 *shield.DisableApplicationLayerAutomaticResponseInput) (*shield.DisableApplicationLayerAutomaticResponseOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DisableApplicationLayerAutomaticResponse", arg0)
+	ret0, _ := ret[0].(*shield.DisableApplicationLayerAutomaticResponseOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DisableApplicationLayerAutomaticResponse indicates an expected call of DisableApplicationLayerAutomaticResponse.
+func (mr *MockShieldMockRecorder) DisableApplicationLayerAutomaticResponse(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableApplicationLayerAutomaticResponse", reflect.TypeOf((*MockShield)(nil).DisableApplicationLayerAutomaticResponse), arg0)
+}
+
+// DisableApplicationLayerAutomaticResponseRequest mocks base method.
+func (m *MockShield) DisableApplicationLayerAutomaticResponseRequest(arg0 *shield.DisableApplicationLayerAutomaticResponseInput) (*request.Request, *shield.DisableApplicationLayerAutomaticResponseOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DisableApplicationLayerAutomaticResponseRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*shield.DisableApplicationLayerAutomaticResponseOutput)
+	return ret0, ret1
+}
+
+// DisableApplicationLayerAutomaticResponseRequest indicates an expected call of DisableApplicationLayerAutomaticResponseRequest.
+func (mr *MockShieldMockRecorder) DisableApplicationLayerAutomaticResponseRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableApplicationLayerAutomaticResponseRequest", reflect.TypeOf((*MockShield)(nil).DisableApplicationLayerAutomaticResponseRequest), arg0)
+}
+
+// DisableApplicationLayerAutomaticResponseWithContext mocks base method.
+func (m *MockShield) DisableApplicationLayerAutomaticResponseWithContext(arg0 context.Context, arg1 *shield.DisableApplicationLayerAutomaticResponseInput, arg2 ...request.Option) (*shield.DisableApplicationLayerAutomaticResponseOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "DisableApplicationLayerAutomaticResponseWithContext", varargs...)
+	ret0, _ := ret[0].(*shield.DisableApplicationLayerAutomaticResponseOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DisableApplicationLayerAutomaticResponseWithContext indicates an expected call of DisableApplicationLayerAutomaticResponseWithContext.
+func (mr *MockShieldMockRecorder) DisableApplicationLayerAutomaticResponseWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableApplicationLayerAutomaticResponseWithContext", reflect.TypeOf((*MockShield)(nil).DisableApplicationLayerAutomaticResponseWithContext), varargs...)
+}
+
 // DisableProactiveEngagement mocks base method.
 func (m *MockShield) DisableProactiveEngagement(arg0 *shield.DisableProactiveEngagementInput) (*shield.DisableProactiveEngagementOutput, error) {
 	m.ctrl.T.Helper()
@@ -1084,6 +1134,56 @@ func (mr *MockShieldMockRecorder) DisassociateHealthCheckWithContext(arg0, arg1 
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisassociateHealthCheckWithContext", reflect.TypeOf((*MockShield)(nil).DisassociateHealthCheckWithContext), varargs...)
+}
+
+// EnableApplicationLayerAutomaticResponse mocks base method.
+func (m *MockShield) EnableApplicationLayerAutomaticResponse(arg0 *shield.EnableApplicationLayerAutomaticResponseInput) (*shield.EnableApplicationLayerAutomaticResponseOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnableApplicationLayerAutomaticResponse", arg0)
+	ret0, _ := ret[0].(*shield.EnableApplicationLayerAutomaticResponseOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnableApplicationLayerAutomaticResponse indicates an expected call of EnableApplicationLayerAutomaticResponse.
+func (mr *MockShieldMockRecorder) EnableApplicationLayerAutomaticResponse(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableApplicationLayerAutomaticResponse", reflect.TypeOf((*MockShield)(nil).EnableApplicationLayerAutomaticResponse), arg0)
+}
+
+// EnableApplicationLayerAutomaticResponseRequest mocks base method.
+func (m *MockShield) EnableApplicationLayerAutomaticResponseRequest(arg0 *shield.EnableApplicationLayerAutomaticResponseInput) (*request.Request, *shield.EnableApplicationLayerAutomaticResponseOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnableApplicationLayerAutomaticResponseRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*shield.EnableApplicationLayerAutomaticResponseOutput)
+	return ret0, ret1
+}
+
+// EnableApplicationLayerAutomaticResponseRequest indicates an expected call of EnableApplicationLayerAutomaticResponseRequest.
+func (mr *MockShieldMockRecorder) EnableApplicationLayerAutomaticResponseRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableApplicationLayerAutomaticResponseRequest", reflect.TypeOf((*MockShield)(nil).EnableApplicationLayerAutomaticResponseRequest), arg0)
+}
+
+// EnableApplicationLayerAutomaticResponseWithContext mocks base method.
+func (m *MockShield) EnableApplicationLayerAutomaticResponseWithContext(arg0 context.Context, arg1 *shield.EnableApplicationLayerAutomaticResponseInput, arg2 ...request.Option) (*shield.EnableApplicationLayerAutomaticResponseOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "EnableApplicationLayerAutomaticResponseWithContext", varargs...)
+	ret0, _ := ret[0].(*shield.EnableApplicationLayerAutomaticResponseOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// EnableApplicationLayerAutomaticResponseWithContext indicates an expected call of EnableApplicationLayerAutomaticResponseWithContext.
+func (mr *MockShieldMockRecorder) EnableApplicationLayerAutomaticResponseWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnableApplicationLayerAutomaticResponseWithContext", reflect.TypeOf((*MockShield)(nil).EnableApplicationLayerAutomaticResponseWithContext), varargs...)
 }
 
 // EnableProactiveEngagement mocks base method.
@@ -1666,6 +1766,56 @@ func (mr *MockShieldMockRecorder) UntagResourceWithContext(arg0, arg1 interface{
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UntagResourceWithContext", reflect.TypeOf((*MockShield)(nil).UntagResourceWithContext), varargs...)
+}
+
+// UpdateApplicationLayerAutomaticResponse mocks base method.
+func (m *MockShield) UpdateApplicationLayerAutomaticResponse(arg0 *shield.UpdateApplicationLayerAutomaticResponseInput) (*shield.UpdateApplicationLayerAutomaticResponseOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateApplicationLayerAutomaticResponse", arg0)
+	ret0, _ := ret[0].(*shield.UpdateApplicationLayerAutomaticResponseOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateApplicationLayerAutomaticResponse indicates an expected call of UpdateApplicationLayerAutomaticResponse.
+func (mr *MockShieldMockRecorder) UpdateApplicationLayerAutomaticResponse(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationLayerAutomaticResponse", reflect.TypeOf((*MockShield)(nil).UpdateApplicationLayerAutomaticResponse), arg0)
+}
+
+// UpdateApplicationLayerAutomaticResponseRequest mocks base method.
+func (m *MockShield) UpdateApplicationLayerAutomaticResponseRequest(arg0 *shield.UpdateApplicationLayerAutomaticResponseInput) (*request.Request, *shield.UpdateApplicationLayerAutomaticResponseOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateApplicationLayerAutomaticResponseRequest", arg0)
+	ret0, _ := ret[0].(*request.Request)
+	ret1, _ := ret[1].(*shield.UpdateApplicationLayerAutomaticResponseOutput)
+	return ret0, ret1
+}
+
+// UpdateApplicationLayerAutomaticResponseRequest indicates an expected call of UpdateApplicationLayerAutomaticResponseRequest.
+func (mr *MockShieldMockRecorder) UpdateApplicationLayerAutomaticResponseRequest(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationLayerAutomaticResponseRequest", reflect.TypeOf((*MockShield)(nil).UpdateApplicationLayerAutomaticResponseRequest), arg0)
+}
+
+// UpdateApplicationLayerAutomaticResponseWithContext mocks base method.
+func (m *MockShield) UpdateApplicationLayerAutomaticResponseWithContext(arg0 context.Context, arg1 *shield.UpdateApplicationLayerAutomaticResponseInput, arg2 ...request.Option) (*shield.UpdateApplicationLayerAutomaticResponseOutput, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "UpdateApplicationLayerAutomaticResponseWithContext", varargs...)
+	ret0, _ := ret[0].(*shield.UpdateApplicationLayerAutomaticResponseOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateApplicationLayerAutomaticResponseWithContext indicates an expected call of UpdateApplicationLayerAutomaticResponseWithContext.
+func (mr *MockShieldMockRecorder) UpdateApplicationLayerAutomaticResponseWithContext(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateApplicationLayerAutomaticResponseWithContext", reflect.TypeOf((*MockShield)(nil).UpdateApplicationLayerAutomaticResponseWithContext), varargs...)
 }
 
 // UpdateEmergencyContactSettings mocks base method.

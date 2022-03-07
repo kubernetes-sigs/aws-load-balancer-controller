@@ -61,6 +61,8 @@ type ControllerConfig struct {
 	IngressConfig IngressConfig
 	// Configurations for Addons feature
 	AddonsConfig AddonsConfig
+	// Configurations for the Service controller
+	ServiceConfig ServiceConfig
 
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
@@ -133,6 +135,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	cfg.PodWebhookConfig.BindFlags(fs)
 	cfg.IngressConfig.BindFlags(fs)
 	cfg.AddonsConfig.BindFlags(fs)
+	cfg.ServiceConfig.BindFlags(fs)
 }
 
 // Validate the controller configuration

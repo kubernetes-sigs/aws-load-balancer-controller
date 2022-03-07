@@ -93,6 +93,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |kubeconfig                             | string                          | in-cluster config | Path to the kubeconfig file containing authorization and API server information |
 |leader-election-id                     | string                          | aws-load-balancer-controller-leader | Name of the leader election ID to use for this controller |
 |leader-election-namespace              | string                          |                 | Name of the leader election ID to use for this controller |
+|load-balancer-class                    | string                          | service.k8s.aws/nlb| Name of the load balancer class specified in service `spec.loadBalancerClass` reconciled by this controller |
 |log-level                              | string                          | info            | Set the controller log level - info, debug |
 |metrics-bind-addr                      | string                          | :8080           | The address the metric endpoint binds to |
 |service-max-concurrent-reconciles      | int                             | 3               | Maximum number of concurrently running reconcile loops for service |
@@ -140,5 +141,6 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 
 |Features-gate Supported Key            | Type                            | Default Value   | Description |
 |---------------------------------------|---------------------------------|-----------------|-------------|
-|ListenerRulesTagging                   | string                          | true            | Enable or disable tagging AWS load balancer listeners and rules |
-|WeightedTargetGroups                   | string                          | true            | Enable or disable weighted target groups |
+| ListenerRulesTagging                  | string                          | true           | Enable or disable tagging AWS load balancer listeners and rules |
+| WeightedTargetGroups                  | string                          | true           | Enable or disable weighted target groups |
+| ServiceTypeLoadBalancerOnly           | string                          | false          | If enabled, controller will be limited to reconciling service of type `LoadBalancer`|

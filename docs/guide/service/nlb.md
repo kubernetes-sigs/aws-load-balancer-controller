@@ -59,6 +59,8 @@ NLB IP mode is determined based on the `service.beta.kubernetes.io/aws-load-bala
 
 ### Instance mode
 Similar to the IP mode, the instance mode is based on the annotation `service.beta.kubernetes.io/aws-load-balancer-nlb-target-type` value `instance`. Here is a sample manifest snippet:
+!!!warning "NodePort allocation"
+    k8s version 1.22 and later support disabling NodePort allocation by setting the service field `spec.allocateLoadBalancerNodePorts` to `false`. If the NodePort is not allocated for a service port, the controller will fail to reconcile instance mode NLB.
 
 ```yaml
     metadata:
@@ -95,3 +97,10 @@ security groups, the controller expects only one security group tagged with the 
 | `kubernetes.io/cluster/${cluster-name}` | `owned` or `shared`   |
 
 `${cluster-name}` is the name of the kubernetes cluster
+
+## Load Balancer Class
+The AWS Load Balancer Controller supports `LoadBalancerClass` starting v2.4.0 release on k8s 1.22 or later clusters. The LoadBalancerClass provides a cloudprovider agnostic way of offloading the load balancer reconciliation to an external controller. This controller uses the `service.k8s.aws/nlb` as the default class,
+you can configure it to a different value via the controller flag `--load-balancer-class`.
+
+When you specify the `spec.loadBalancerClass` on a service of type `LoadBalancer` during service creation, this controller creates an internal NLB with instance targets by default. If the LoadBalancerClass is not the configured for this controller, this controller ignores the service resource completely regardless of the annotation
+`service.beta.kubernetes.io/aws-load-balancer-type`. If you modify the service, with `spec.loadBalancerClass`, type from `LoadBalancer` to anything else, the controller will cleanup the NLB.
