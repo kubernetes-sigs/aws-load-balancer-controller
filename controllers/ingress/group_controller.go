@@ -93,6 +93,7 @@ type groupReconciler struct {
 	stackMarshaller   deploy.StackMarshaller
 	stackDeployer     deploy.StackDeployer
 	backendSGProvider networkingpkg.BackendSGProvider
+	secretsManager    k8s.SecretsManager
 
 	groupLoader           ingress.GroupLoader
 	groupFinalizerManager ingress.FinalizerManager
@@ -160,7 +161,7 @@ func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 }
 
 func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingress.Group) (core.Stack, *elbv2model.LoadBalancer, error) {
-	stack, lb, err := r.modelBuilder.Build(ctx, ingGroup)
+	stack, lb, secrets, err := r.modelBuilder.Build(ctx, ingGroup)
 	if err != nil {
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, err
@@ -177,6 +178,7 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 		return nil, nil, err
 	}
 	r.logger.Info("successfully deployed model", "ingressGroup", ingGroup.ID)
+	r.secretsManager.MonitorSecrets(ingGroup.ID.String(), secrets)
 	return stack, lb, err
 }
 
@@ -229,7 +231,7 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer(), ingressClassResourceAvailable); err != nil {
 		return err
 	}
-	if err := r.setupWatches(ctx, c, ingressClassResourceAvailable); err != nil {
+	if err := r.setupWatches(ctx, c, ingressClassResourceAvailable, clientSet); err != nil {
 		return err
 	}
 	return nil
@@ -276,7 +278,7 @@ func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.
 	return nil
 }
 
-func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controller, ingressClassResourceAvailable bool) error {
+func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controller, ingressClassResourceAvailable bool, clientSet *kubernetes.Clientset) error {
 	ingEventChan := make(chan event.GenericEvent)
 	svcEventChan := make(chan event.GenericEvent)
 	ingEventHandler := eventhandlers.NewEnqueueRequestsForIngressEvent(r.groupLoader, r.eventRecorder,
@@ -297,10 +299,6 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Kind{Type: &corev1.Secret{}}, secretEventHandler); err != nil {
-		return err
-	}
-
 	if ingressClassResourceAvailable {
 		ingClassEventChan := make(chan event.GenericEvent)
 		ingClassParamsEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassParamsEvent(ingClassEventChan, r.k8sClient, r.eventRecorder,
@@ -317,6 +315,7 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 			return err
 		}
 	}
+	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventHandler, ctrl.Log.WithName("secrets-manager"))
 	return nil
 }
 
