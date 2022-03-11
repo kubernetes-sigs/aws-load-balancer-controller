@@ -2,6 +2,7 @@ package backend
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	discv1 "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 )
@@ -26,13 +27,18 @@ type NodePortEndpoint struct {
 	Node *corev1.Node
 }
 
+type EndpointsData struct {
+	Ports     []discv1.EndpointPort
+	Endpoints []discv1.Endpoint
+}
+
 // options for Endpoints resolve APIs
 type EndpointResolveOptions struct {
-	// [NodePort Endpoint] only nodes that are ready and matched by nodeSelector will be included.
+	// [NodePort Endpoint] only nodes that are matched by nodeSelector will be included.
 	// By default, no node will be selected.
 	NodeSelector labels.Selector
 
-	// [Pod Endpoint] If pod readinessGates is defined, then pods from unready addresses with any of these readinessGates and containersReady condition will be included as well.
+	// [Pod Endpoint] if pod readinessGates is defined, then pods from unready addresses with any of these readinessGates and containersReady condition will be included as well.
 	// By default, no readinessGate is specified.
 	PodReadinessGates []corev1.PodConditionType
 }

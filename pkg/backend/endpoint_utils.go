@@ -1,6 +1,7 @@
 package backend
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
@@ -11,6 +12,8 @@ const (
 	labelNodeRoleExcludeBalancer      = "node.kubernetes.io/exclude-from-external-load-balancers"
 	labelAlphaNodeRoleExcludeBalancer = "alpha.service-controller.kubernetes.io/exclude-balancer"
 	labelEKSComputeType               = "eks.amazonaws.com/compute-type"
+
+	toBeDeletedByCATaint = "ToBeDeletedByClusterAutoscaler"
 )
 
 var (
@@ -53,4 +56,18 @@ func GetTrafficProxyNodeSelector(tgb *elbv2api.TargetGroupBinding) (labels.Selec
 		selector = selector.Add(req...)
 	}
 	return selector, nil
+}
+
+// IsNodeSuitableAsTrafficProxy check whether node is suitable as a traffic proxy.
+// This should be checked in additional to the nodeSelector defined in TargetGroupBinding.
+func IsNodeSuitableAsTrafficProxy(node *corev1.Node) bool {
+	// ToBeDeletedByClusterAutoscaler taint is added by cluster autoscaler before removing node from cluster
+	// Marking the node as unsuitable for traffic once the taint is observed on the node
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == toBeDeletedByCATaint {
+			return false
+		}
+	}
+
+	return true
 }
