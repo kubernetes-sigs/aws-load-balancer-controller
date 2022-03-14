@@ -63,14 +63,6 @@ rules:
 - apiGroups: [""]
   resources: [secrets]
   verbs: [get, list, watch]
-{{- else if .Values.clusterSecretsPermissions.secretNames }}
-- apiGroups: [""]
-  resources: [secrets]
-{{- with .Values.clusterSecretsPermissions.secretNames }}
-  resourceNames:
-{{- toYaml . | nindent 4 }}
-{{- end }}
-  verbs: [get, list, watch]
 {{- end }}
 - apiGroups: ["elbv2.k8s.aws", "", "extensions", "networking.k8s.io"]
   resources: [targetgroupbindings/status, pods/status, services/status, ingresses/status]
