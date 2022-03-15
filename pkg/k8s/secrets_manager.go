@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -17,7 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // SecretsManager manages the secret resources needed by the controller
@@ -26,25 +26,25 @@ type SecretsManager interface {
 	MonitorSecrets(ingressGroupID string, secrets []types.NamespacedName)
 }
 
-func NewSecretsManager(clientSet kubernetes.Interface, eventHandler handler.EventHandler, logger logr.Logger) *defaultSecretsManager {
+func NewSecretsManager(clientSet kubernetes.Interface, secretsEventChan chan<- event.GenericEvent, logger logr.Logger) *defaultSecretsManager {
 	return &defaultSecretsManager{
-		mutex:        sync.Mutex{},
-		secretMap:    make(map[types.NamespacedName]*secretItem),
-		eventHandler: eventHandler,
-		clientSet:    clientSet,
-		logger:       logger,
+		mutex:            sync.Mutex{},
+		secretMap:        make(map[types.NamespacedName]*secretItem),
+		secretsEventChan: secretsEventChan,
+		clientSet:        clientSet,
+		logger:           logger,
 	}
 }
 
 var _ SecretsManager = &defaultSecretsManager{}
 
 type defaultSecretsManager struct {
-	mutex        sync.Mutex
-	secretMap    map[types.NamespacedName]*secretItem
-	eventHandler handler.EventHandler
-	clientSet    kubernetes.Interface
-	queue        workqueue.RateLimitingInterface
-	logger       logr.Logger
+	mutex            sync.Mutex
+	secretMap        map[types.NamespacedName]*secretItem
+	secretsEventChan chan<- event.GenericEvent
+	clientSet        kubernetes.Interface
+	queue            workqueue.RateLimitingInterface
+	logger           logr.Logger
 }
 
 type secretItem struct {
@@ -121,7 +121,7 @@ func (m *defaultSecretsManager) newReflector(namespace, name string) *secretItem
 }
 
 func (m *defaultSecretsManager) newStore() *SecretsStore {
-	return NewSecretsStore(m.eventHandler, cache.MetaNamespaceKeyFunc, m.queue)
+	return NewSecretsStore(m.secretsEventChan, cache.MetaNamespaceKeyFunc, m.logger)
 }
 
 func (s *secretItem) stopReflector() {

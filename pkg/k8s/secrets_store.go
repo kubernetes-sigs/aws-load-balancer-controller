@@ -1,19 +1,18 @@
 package k8s
 
 import (
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // NewSecretsStore constructs new conversionStore
-func NewSecretsStore(eventHandler handler.EventHandler, keyFunc cache.KeyFunc, queue workqueue.RateLimitingInterface) *SecretsStore {
+func NewSecretsStore(secretsEventChan chan<- event.GenericEvent, keyFunc cache.KeyFunc, logger logr.Logger) *SecretsStore {
 	return &SecretsStore{
-		eventHandler: eventHandler,
-		queue:        queue,
-		store:        cache.NewStore(keyFunc),
+		secretsEventChan: secretsEventChan,
+		logger:           logger,
+		store:            cache.NewStore(keyFunc),
 	}
 }
 
@@ -22,9 +21,9 @@ var _ cache.Store = &SecretsStore{}
 // SecretsStore implements cache.Store.
 // It invokes the eventhandler for Add, Update, Delete events
 type SecretsStore struct {
-	store        cache.Store
-	queue        workqueue.RateLimitingInterface
-	eventHandler handler.EventHandler
+	store            cache.Store
+	secretsEventChan chan<- event.GenericEvent
+	logger           logr.Logger
 }
 
 // Add adds the given object to the accumulator associated with the given object's key
@@ -32,21 +31,22 @@ func (s *SecretsStore) Add(obj interface{}) error {
 	if err := s.store.Add(obj); err != nil {
 		return err
 	}
-	s.eventHandler.Create(event.CreateEvent{Object: obj.(*corev1.Secret)}, s.queue)
+	s.logger.V(1).Info("secret created, notifying event handler", "resource", obj)
+	s.secretsEventChan <- event.GenericEvent{
+		Object: obj.(*corev1.Secret),
+	}
 	return nil
 }
 
 // Update updates the given object in the accumulator associated with the given object's key
 func (s *SecretsStore) Update(obj interface{}) error {
-	oldObj, exists, err := s.store.Get(obj)
-	if err != nil || !exists {
-		return err
-	}
 	if err := s.store.Update(obj); err != nil {
 		return err
 	}
-	updateEvent := event.UpdateEvent{ObjectOld: oldObj.(*corev1.Secret), ObjectNew: obj.(*corev1.Secret)}
-	s.eventHandler.Update(updateEvent, s.queue)
+	s.logger.V(1).Info("secret updated, notifying event handler", "resource", obj)
+	s.secretsEventChan <- event.GenericEvent{
+		Object: obj.(*corev1.Secret),
+	}
 	return nil
 }
 
@@ -55,7 +55,10 @@ func (s *SecretsStore) Delete(obj interface{}) error {
 	if err := s.store.Delete(obj); err != nil {
 		return err
 	}
-	s.eventHandler.Delete(event.DeleteEvent{Object: obj.(*corev1.Secret)}, s.queue)
+	s.logger.V(1).Info("secret deleted, notifying event handler", "resource", obj)
+	s.secretsEventChan <- event.GenericEvent{
+		Object: obj.(*corev1.Secret),
+	}
 	return nil
 }
 

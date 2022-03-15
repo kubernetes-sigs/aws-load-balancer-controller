@@ -6,20 +6,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var _ handler.EventHandler = &testSecretsEventHandler{}
-
-type testSecretsEventHandler struct{}
-
-func (h *testSecretsEventHandler) Create(_ event.CreateEvent, _ workqueue.RateLimitingInterface)   {}
-func (h *testSecretsEventHandler) Update(_ event.UpdateEvent, _ workqueue.RateLimitingInterface)   {}
-func (h *testSecretsEventHandler) Delete(_ event.DeleteEvent, _ workqueue.RateLimitingInterface)   {}
-func (h *testSecretsEventHandler) Generic(_ event.GenericEvent, _ workqueue.RateLimitingInterface) {}
 
 func Test_defaultSecretsManager_MonitorSecrets(t *testing.T) {
 	type monitorSecretsCall struct {
@@ -159,8 +148,9 @@ func Test_defaultSecretsManager_MonitorSecrets(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
+			secretsEventChan := make(chan event.GenericEvent, 100)
 			fakeClient := fake.NewSimpleClientset()
-			secretsManager := NewSecretsManager(fakeClient, &testSecretsEventHandler{}, &log.NullLogger{})
+			secretsManager := NewSecretsManager(fakeClient, secretsEventChan, &log.NullLogger{})
 
 			for _, call := range tt.monitorSecretsCall {
 				secretsManager.MonitorSecrets(call.groupID, call.secrets)

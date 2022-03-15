@@ -281,6 +281,7 @@ func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.
 func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controller, ingressClassResourceAvailable bool, clientSet *kubernetes.Clientset) error {
 	ingEventChan := make(chan event.GenericEvent)
 	svcEventChan := make(chan event.GenericEvent)
+	secretEventsChan := make(chan event.GenericEvent)
 	ingEventHandler := eventhandlers.NewEnqueueRequestsForIngressEvent(r.groupLoader, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("ingress"))
 	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(ingEventChan, r.k8sClient, r.eventRecorder,
@@ -299,6 +300,9 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
 		return err
 	}
+	if err := c.Watch(&source.Channel{Source: secretEventsChan}, secretEventHandler); err != nil {
+		return err
+	}
 	if ingressClassResourceAvailable {
 		ingClassEventChan := make(chan event.GenericEvent)
 		ingClassParamsEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassParamsEvent(ingClassEventChan, r.k8sClient, r.eventRecorder,
@@ -315,7 +319,7 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 			return err
 		}
 	}
-	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventHandler, ctrl.Log.WithName("secrets-manager"))
+	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, ctrl.Log.WithName("secrets-manager"))
 	return nil
 }
 
