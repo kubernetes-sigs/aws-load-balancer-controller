@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -237,7 +238,8 @@ var _ = Describe("vanilla ingress tests", func() {
 					},
 				},
 			}
-			lbName := fmt.Sprintf("%.16s-%.15s", tf.Options.ClusterName, sandboxNS.Name)
+			safeClusterName := strings.ReplaceAll(tf.Options.ClusterName, ".", "-")
+			lbName := fmt.Sprintf("%.16s-%.15s", safeClusterName, sandboxNS.Name)
 			ing := ingBuilder.
 				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(map[string]string{

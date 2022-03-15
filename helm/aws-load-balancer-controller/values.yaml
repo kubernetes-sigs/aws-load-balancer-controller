@@ -266,3 +266,12 @@ serviceMonitor:
   additionalLabels: {}
   # Prometheus scrape interval
   interval: 1m
+
+# clusterSecretsPermissions lets you configure RBAC permissions for secret resources
+# Access to secrets resource is required only if you use the OIDC feature, and instead of
+# enabling access to all secrets, we recommend configuring namespaced role/rolebinding.
+# This option is for backwards compatibility only, and will potentially be deprecated in future.
+clusterSecretsPermissions:
+  # allowAllSecrets allows the controller to access all secrets in the cluster.
+  # This is to get backwards compatible behavior, but *NOT* recommended for security reasons
+  allowAllSecrets: false

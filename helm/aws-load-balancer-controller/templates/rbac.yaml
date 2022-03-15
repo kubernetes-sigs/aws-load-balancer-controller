@@ -57,8 +57,13 @@ rules:
   resources: [services, ingresses]
   verbs: [get, list, patch, update, watch]
 - apiGroups: [""]
-  resources: [nodes, secrets, namespaces, endpoints]
+  resources: [nodes, namespaces, endpoints]
   verbs: [get, list, watch]
+{{- if .Values.clusterSecretsPermissions.allowAllSecrets }}
+- apiGroups: [""]
+  resources: [secrets]
+  verbs: [get, list, watch]
+{{- end }}
 - apiGroups: ["elbv2.k8s.aws", "", "extensions", "networking.k8s.io"]
   resources: [targetgroupbindings/status, pods/status, services/status, ingresses/status]
   verbs: [update, patch]

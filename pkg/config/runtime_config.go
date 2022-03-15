@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -8,7 +10,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"time"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -121,6 +123,7 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 		LeaderElectionNamespace:    rtCfg.LeaderElectionNamespace,
 		Namespace:                  rtCfg.WatchNamespace,
 		SyncPeriod:                 &rtCfg.SyncPeriod,
+		ClientDisableCacheFor:      []client.Object{&corev1.Secret{}},
 	}
 }
 
@@ -128,5 +131,5 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 func ConfigureWebhookServer(rtCfg RuntimeConfig, mgr ctrl.Manager) {
 	mgr.GetWebhookServer().CertName = rtCfg.WebhookCertName
 	mgr.GetWebhookServer().KeyName = rtCfg.WebhookKeyName
-	mgr.GetWebhookServer().TLSMinVersion = "1.2"
+	mgr.GetWebhookServer().TLSMinVersion = "1.3"
 }
