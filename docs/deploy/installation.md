@@ -113,6 +113,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
     "Statement": [
         {
             "Action": [
+                "ec2:DescribeVpcs",
                 "ec2:DescribeSecurityGroups",
                 "ec2:DescribeInstances",
                 "elasticloadbalancing:DescribeTargetGroups",
