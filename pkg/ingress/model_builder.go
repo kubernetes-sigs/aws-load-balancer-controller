@@ -30,7 +30,7 @@ const (
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
 type ModelBuilder interface {
 	// build mode stack for a IngressGroup.
-	Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, error)
+	Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, error)
 }
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
@@ -97,7 +97,7 @@ type defaultModelBuilder struct {
 }
 
 // build mode stack for a IngressGroup.
-func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, error) {
+func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, error) {
 	stack := core.NewDefaultStack(core.StackID(ingGroup.ID))
 	task := &defaultModelBuildTask{
 		k8sClient:                b.k8sClient,
@@ -143,9 +143,9 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		backendServices: make(map[types.NamespacedName]*corev1.Service),
 	}
 	if err := task.run(ctx); err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return task.stack, task.loadBalancer, nil
+	return task.stack, task.loadBalancer, task.secretKeys, nil
 }
 
 // the default model build task
@@ -193,6 +193,7 @@ type defaultModelBuildTask struct {
 	loadBalancer    *elbv2model.LoadBalancer
 	tgByResID       map[string]*elbv2model.TargetGroup
 	backendServices map[types.NamespacedName]*corev1.Service
+	secretKeys      []types.NamespacedName
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {

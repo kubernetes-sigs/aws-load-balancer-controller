@@ -63,7 +63,8 @@ func (h *enqueueRequestsForSecretEvent) Delete(e event.DeleteEvent, _ workqueue.
 }
 
 func (h *enqueueRequestsForSecretEvent) Generic(e event.GenericEvent, _ workqueue.RateLimitingInterface) {
-	// we don't have any generic event for secrets.
+	secretObj := e.Object.(*corev1.Secret)
+	h.enqueueImpactedObjects(secretObj)
 }
 
 func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(secret *corev1.Secret) {

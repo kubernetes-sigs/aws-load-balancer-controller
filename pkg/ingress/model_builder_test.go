@@ -3900,7 +3900,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				defaultSSLPolicy: "ELBSecurityPolicy-2016-08",
 			}
 
-			gotStack, _, err := b.Build(context.Background(), tt.args.ingGroup)
+			gotStack, _, _, err := b.Build(context.Background(), tt.args.ingGroup)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

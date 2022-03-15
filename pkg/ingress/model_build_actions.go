@@ -172,7 +172,6 @@ func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context,
 	if err := t.k8sClient.Get(ctx, secretKey, secret); err != nil {
 		return elbv2model.Action{}, err
 	}
-
 	rawClientID, ok := secret.Data["clientID"]
 	// AWSALBIngressController looks for clientId, we should be backwards-compatible here.
 	if !ok {
@@ -186,6 +185,7 @@ func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context,
 		return elbv2model.Action{}, errors.Errorf("missing clientSecret, secret: %v", secretKey)
 	}
 
+	t.secretKeys = append(t.secretKeys, secretKey)
 	clientID := strings.TrimRightFunc(string(rawClientID), unicode.IsSpace)
 	clientSecret := string(rawClientSecret)
 	return elbv2model.Action{
