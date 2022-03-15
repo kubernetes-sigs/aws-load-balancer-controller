@@ -60,6 +60,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		logger:            logger,
 		vpcID:             vpcID,
 		vpcInfoProvider:   vpcInfoProvider,
+		podInfoRepo:       podInfoRepo,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
 	}
@@ -76,6 +77,7 @@ type defaultResourceManager struct {
 	eventRecorder     record.EventRecorder
 	logger            logr.Logger
 	vpcInfoProvider   networking.VPCInfoProvider
+	podInfoRepo       k8s.PodInfoRepo
 	vpcID             string
 
 	targetHealthRequeueDuration time.Duration
@@ -96,6 +98,9 @@ func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.Targ
 		return err
 	}
 	if err := m.networkingManager.Cleanup(ctx, tgb); err != nil {
+		return err
+	}
+	if err := m.updatePodAsHealthyForDeletedTGB(ctx, tgb); err != nil {
 		return err
 	}
 	return nil
@@ -323,6 +328,34 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 	}
 
 	return needFurtherProbe, nil
+}
+
+// updatePodAsHealthyForDeletedTGB updates pod's targetHealth condition as healthy when deleting a TGB
+// if the pod has readiness Gate.
+func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	targetHealthCondType := BuildTargetHealthPodConditionType(tgb)
+
+	allPodKeys := m.podInfoRepo.ListKeys(ctx)
+	for _, podKey := range allPodKeys {
+		pod, exists, err := m.podInfoRepo.Get(ctx, podKey)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.New("couldn't find podInfo for ready endpoint")
+		}
+		if pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
+			targetHealth := &elbv2sdk.TargetHealth{
+				State:       awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+				Description: awssdk.String("Target Group Binding is deleted"),
+			}
+			_, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN string, targets []TargetInfo) error {
