@@ -13,6 +13,7 @@ const (
 	ListenerRulesTagging        Feature = "ListenerRulesTagging"
 	WeightedTargetGroups        Feature = "WeightedTargetGroups"
 	ServiceTypeLoadBalancerOnly Feature = "ServiceTypeLoadBalancerOnly"
+	EndpointsFailOpen           Feature = "EndpointsFailOpen"
 )
 
 type FeatureGates interface {
@@ -43,6 +44,7 @@ func NewFeatureGates() FeatureGates {
 			ListenerRulesTagging:        true,
 			WeightedTargetGroups:        true,
 			ServiceTypeLoadBalancerOnly: false,
+			EndpointsFailOpen:           false,
 		},
 	}
 }

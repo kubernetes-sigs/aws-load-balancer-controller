@@ -40,9 +40,11 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcID string, clusterName string, eventRecorder record.EventRecorder, logger logr.Logger, useEndpointSlices bool, disabledRestrictedSGRulesFlag bool, vpcInfoProvider networking.VPCInfoProvider) *defaultResourceManager {
+	vpcInfoProvider networking.VPCInfoProvider,
+	vpcID string, clusterName string, failOpenEnabled bool, endpointSliceEnabled bool, disabledRestrictedSGRulesFlag bool,
+	eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
-	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, logger)
+	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, failOpenEnabled, endpointSliceEnabled, logger)
 
 	nodeInfoProvider := networking.NewDefaultNodeInfoProvider(ec2Client, logger)
 	podENIResolver := networking.NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, vpcID, logger)
@@ -60,7 +62,6 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		vpcInfoProvider:   vpcInfoProvider,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
-		enableEndpointSlices:        useEndpointSlices,
 	}
 }
 
@@ -78,7 +79,6 @@ type defaultResourceManager struct {
 	vpcID             string
 
 	targetHealthRequeueDuration time.Duration
-	enableEndpointSlices        bool
 }
 
 func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
@@ -108,16 +108,13 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	resolveOpts := []backend.EndpointResolveOption{
 		backend.WithPodReadinessGate(targetHealthCondType),
 	}
+
 	var endpoints []backend.PodEndpoint
 	var containsPotentialReadyEndpoints bool
 	var err error
 
-	// Decide whether to use Endpoints or EndpointSlices based on config flag
-	if m.enableEndpointSlices {
-		endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpointsFromSlices(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
-	} else {
-		endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
-	}
+	endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
+
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())

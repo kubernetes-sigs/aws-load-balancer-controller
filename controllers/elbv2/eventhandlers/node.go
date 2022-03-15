@@ -55,23 +55,31 @@ func (h *enqueueRequestsForNodeEvent) Generic(e event.GenericEvent, queue workqu
 	// nothing to do here
 }
 
-// enqueueImpactedEndpointBindings will enqueue all impacted TargetGroupBindings for node events.
+// enqueueImpactedTargetGroupBindings will enqueue all impacted TargetGroupBindings for node events.
 func (h *enqueueRequestsForNodeEvent) enqueueImpactedTargetGroupBindings(queue workqueue.RateLimitingInterface, nodeOld *corev1.Node, nodeNew *corev1.Node) {
 	var nodeKey types.NamespacedName
-	nodeOldIsReady := false
-	nodeNewIsReady := false
+	nodeOldSuitableAsTrafficProxy := false
+	nodeNewSuitableAsTrafficProxy := false
+	nodeOldReadyCondStatus := corev1.ConditionFalse
+	nodeNewReadyCondStatus := corev1.ConditionFalse
 	if nodeOld != nil {
 		nodeKey = k8s.NamespacedName(nodeOld)
-		nodeOldIsReady = k8s.IsNodeSuitableAsTrafficProxy(nodeOld)
+		nodeOldSuitableAsTrafficProxy = backend.IsNodeSuitableAsTrafficProxy(nodeOld)
+		if readyCond := k8s.GetNodeCondition(nodeOld, corev1.NodeReady); readyCond != nil {
+			nodeOldReadyCondStatus = readyCond.Status
+		}
 	}
 	if nodeNew != nil {
 		nodeKey = k8s.NamespacedName(nodeNew)
-		nodeNewIsReady = k8s.IsNodeSuitableAsTrafficProxy(nodeNew)
+		nodeNewSuitableAsTrafficProxy = backend.IsNodeSuitableAsTrafficProxy(nodeNew)
+		if readyCond := k8s.GetNodeCondition(nodeNew, corev1.NodeReady); readyCond != nil {
+			nodeNewReadyCondStatus = readyCond.Status
+		}
 	}
 
 	tgbList := &elbv2api.TargetGroupBindingList{}
 	if err := h.k8sClient.List(context.Background(), tgbList); err != nil {
-		h.logger.Error(err, "failed to fetch targetGroupBindings")
+		h.logger.Error(err, "[this should never happen] failed to fetch targetGroupBindings")
 		return
 	}
 
@@ -79,23 +87,22 @@ func (h *enqueueRequestsForNodeEvent) enqueueImpactedTargetGroupBindings(queue w
 		if tgb.Spec.TargetType == nil || (*tgb.Spec.TargetType) != elbv2api.TargetTypeInstance {
 			continue
 		}
-
 		nodeSelector, err := backend.GetTrafficProxyNodeSelector(&tgb)
 		if err != nil {
 			h.logger.Error(err, "failed to get nodeSelector", "TargetGroupBinding", tgb)
-			return
+			continue
 		}
 
-		nodeOldIsTrafficProxy := false
-		nodeNewIsTrafficProxy := false
+		nodeOldSuitableAsTrafficProxyForTGB := false
+		nodeNewSuitableAsTrafficProxyForTGB := false
 		if nodeOld != nil {
-			nodeOldIsTrafficProxy = nodeOldIsReady && nodeSelector.Matches(labels.Set(nodeOld.Labels))
+			nodeOldSuitableAsTrafficProxyForTGB = nodeOldSuitableAsTrafficProxy && nodeSelector.Matches(labels.Set(nodeOld.Labels))
 		}
 		if nodeNew != nil {
-			nodeNewIsTrafficProxy = nodeNewIsReady && nodeSelector.Matches(labels.Set(nodeNew.Labels))
+			nodeNewSuitableAsTrafficProxyForTGB = nodeNewSuitableAsTrafficProxy && nodeSelector.Matches(labels.Set(nodeNew.Labels))
 		}
 
-		if nodeOldIsTrafficProxy != nodeNewIsTrafficProxy {
+		if h.shouldEnqueueTGBDueToNodeEvent(nodeOldSuitableAsTrafficProxyForTGB, nodeOldReadyCondStatus, nodeNewSuitableAsTrafficProxyForTGB, nodeNewReadyCondStatus) {
 			h.logger.V(1).Info("enqueue targetGroupBinding for node event",
 				"node", nodeKey,
 				"targetGroupBinding", k8s.NamespacedName(&tgb),
@@ -108,4 +115,23 @@ func (h *enqueueRequestsForNodeEvent) enqueueImpactedTargetGroupBindings(queue w
 			})
 		}
 	}
+}
+
+// shouldEnqueueTGBDueToNodeEvent checks whether a TGB should be queued due to node event.
+func (h *enqueueRequestsForNodeEvent) shouldEnqueueTGBDueToNodeEvent(
+	nodeOldSuitableAsTrafficProxyForTGB bool, nodeOldReadyCondStatus corev1.ConditionStatus,
+	nodeNewSuitableAsTrafficProxyForTGB bool, nodeNewReadyCondStatus corev1.ConditionStatus) bool {
+	if nodeOldSuitableAsTrafficProxyForTGB == false && nodeNewSuitableAsTrafficProxyForTGB == false {
+		return false
+	}
+	if nodeOldSuitableAsTrafficProxyForTGB == true && nodeNewSuitableAsTrafficProxyForTGB == true {
+		return nodeOldReadyCondStatus != nodeNewReadyCondStatus
+	}
+	if nodeOldSuitableAsTrafficProxyForTGB == true && nodeNewSuitableAsTrafficProxyForTGB == false {
+		return nodeOldReadyCondStatus != corev1.ConditionFalse
+	}
+	if nodeOldSuitableAsTrafficProxyForTGB == false && nodeNewSuitableAsTrafficProxyForTGB == true {
+		return nodeNewReadyCondStatus != corev1.ConditionFalse
+	}
+	return false
 }
