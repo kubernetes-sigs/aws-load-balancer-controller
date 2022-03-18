@@ -144,3 +144,4 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 | ListenerRulesTagging                  | string                          | true           | Enable or disable tagging AWS load balancer listeners and rules |
 | WeightedTargetGroups                  | string                          | true           | Enable or disable weighted target groups |
 | ServiceTypeLoadBalancerOnly           | string                          | false          | If enabled, controller will be limited to reconciling service of type `LoadBalancer`|
+| EndpointsFailOpen                     | string                          | false          | Enable or disable allowing endpoints with `ready:unknown` state in the target groups. |

@@ -33,6 +33,7 @@ nav:
   - Examples:
     - EchoServer: examples/echo_server.md
     - gRPCServer: examples/grpc_server.md
+    - RBAC to access OIDC Secret: examples/secrets_access.md
 
 
 
