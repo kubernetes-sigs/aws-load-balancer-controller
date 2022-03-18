@@ -935,6 +935,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/secrets_access/" class="md-nav__link">
+        RBAC to access OIDC Secret
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1158,7 +1170,7 @@ OR restrict access to the security groups tagged for the particular k8s cluster.
 </li>
 <li>
 <p>Download IAM policy for the AWS Load Balancer Controller
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/install/iam_policy.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.1/docs/install/iam_policy.json
 </code></pre></div></p>
 </li>
 <li>
@@ -1184,13 +1196,14 @@ OR restrict access to the security groups tagged for the particular k8s cluster.
 </ol>
 <h4 id="setup-iam-manually">Setup IAM manually<a class="headerlink" href="#setup-iam-manually" title="Permanent link">&para;</a></h4>
 <p>If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
-<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/install/iam_policy.json
+<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.1/docs/install/iam_policy.json
 </code></pre></div></p>
 <h5 id="iam-permission-subset-for-those-who-use-targetgroupbinding-only-and-dont-plan-to-use-the-aws-load-balancer-controller-to-manage-security-group-rules">IAM permission subset for those who use <em>TargetGroupBinding</em> only and don't plan to use the AWS Load Balancer Controller to manage security group rules:<a class="headerlink" href="#iam-permission-subset-for-those-who-use-targetgroupbinding-only-and-dont-plan-to-use-the-aws-load-balancer-controller-to-manage-security-group-rules" title="Permanent link">&para;</a></h5>
 <div class="highlight"><pre><span></span><code>{
     &quot;Statement&quot;: [
         {
             &quot;Action&quot;: [
+                &quot;ec2:DescribeVpcs&quot;,
                 &quot;ec2:DescribeSecurityGroups&quot;,
                 &quot;ec2:DescribeInstances&quot;,
                 &quot;elasticloadbalancing:DescribeTargetGroups&quot;,
@@ -1250,7 +1263,7 @@ OR restrict access to the security groups tagged for the particular k8s cluster.
 <h3 id="apply-yaml">Apply YAML<a class="headerlink" href="#apply-yaml" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Download spec for load balancer controller.
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.0/v2_4_0_full.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.1/v2_4_1_full.yaml
 </code></pre></div></li>
 <li>Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
 <div class="highlight"><pre><span></span><code>apiVersion: apps/v1
@@ -1271,7 +1284,7 @@ spec:
 kind: ServiceAccount
 </code></pre></div></li>
 <li>Apply the yaml file
-<div class="highlight"><pre><span></span><code>kubectl apply -f v2_4_0_full.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f v2_4_1_full.yaml
 </code></pre></div></li>
 </ol>
 </div>

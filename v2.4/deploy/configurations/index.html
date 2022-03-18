@@ -922,6 +922,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/secrets_access/" class="md-nav__link">
+        RBAC to access OIDC Secret
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1400,6 +1412,12 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <td>string</td>
 <td>false</td>
 <td>If enabled, controller will be limited to reconciling service of type <code>LoadBalancer</code></td>
+</tr>
+<tr>
+<td>EndpointsFailOpen</td>
+<td>string</td>
+<td>false</td>
+<td>Enable or disable allowing endpoints with <code>ready:unknown</code> state in the target groups.</td>
 </tr>
 </tbody>
 </table>
