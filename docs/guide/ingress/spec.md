@@ -29,6 +29,4 @@ The host field specifies the eventual Route 53-managed domain that will route to
 
 The service, service-2048, must be of type NodePort in order for the provisioned ALB to route to it.(see [echoserver-service.yaml](../../examples/echoservice/echoserver-service.yaml))
 
-For details on purpose of annotations seen above, see [Annotations](annotations.md).
-
 The AWS Load Balancer Controller does not support the `resource` field of `backend`.
