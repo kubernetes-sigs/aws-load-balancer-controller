@@ -61,7 +61,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
 The controller will automatically merge Ingress rules for all Ingresses within IngressGroup and support them with a single ALB.
-In addition, most annotations defined on a Ingress only applies to the paths defined by that Ingress.
+In addition, most annotations defined on a Ingress only apply to the paths defined by that Ingress.
 
 By default, Ingresses don't belong to any IngressGroup, and we treat it as a "implicit IngressGroup" consisted of the Ingress itself.
 
