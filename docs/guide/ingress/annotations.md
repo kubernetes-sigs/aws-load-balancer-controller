@@ -61,14 +61,14 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
 The controller will automatically merge Ingress rules for all Ingresses within IngressGroup and support them with a single ALB.
-In addition, most annotations defined on a Ingress only applies to the paths defined by that Ingress.
+In addition, most annotations defined on an Ingress only apply to the paths defined by that Ingress.
 
-By default, Ingresses don't belong to any IngressGroup, and we treat it as a "implicit IngressGroup" consisted of the Ingress itself.
+By default, Ingresses don't belong to any IngressGroup, and we treat it as a "implicit IngressGroup" consisting of the Ingress itself.
 
 - <a name="group.name">`alb.ingress.kubernetes.io/group.name`</a> specifies the group name that this Ingress belongs to.
 
     !!!note ""
-        - Ingresses with same `group.name` annotation will form as a "explicit IngressGroup".
+        - Ingresses with same `group.name` annotation will form an "explicit IngressGroup".
         - groupName must consist of lower case alphanumeric characters, `-` or `.`, and must start and end with an alphanumeric character.
         - groupName must be no more than 63 character.
 
@@ -76,7 +76,7 @@ By default, Ingresses don't belong to any IngressGroup, and we treat it as a "im
         IngressGroup feature should only be used when all Kubernetes users with RBAC permission to create/modify Ingress resources are within trust boundary.
         
         If you turn your Ingress to belong a "explicit IngressGroup" by adding `group.name` annotation,
-        other Kubernetes user may create/modify their Ingresses to belong same IngressGroup, thus can add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.
+        other Kubernetes users may create/modify their Ingresses to belong to the same IngressGroup, and can thus add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.
 
         We'll add more fine-grained access-control in future versions.
 
@@ -89,8 +89,8 @@ By default, Ingresses don't belong to any IngressGroup, and we treat it as a "im
     
     !!!note ""
         - You can explicitly denote the order using a number between 1-1000
-        - The smaller the order, the rule will be evaluated first. All Ingresses without explicit order setting get order value as 0
-        - By default the rule order between Ingresses within IngressGroup are determined by the lexical order of Ingress’s namespace/name.
+        - The smaller the order, the rule will be evaluated first. All Ingresses without an explicit order setting get order value as 0
+        - By default the rule order between Ingresses within IngressGroup is determined by the lexical order of Ingress’s namespace/name.
 
     !!!warning "" 
         You may not have duplicate group order explicitly defined for Ingresses within IngressGroup.
@@ -101,9 +101,9 @@ By default, Ingresses don't belong to any IngressGroup, and we treat it as a "im
         ```
 
 ## Traffic Listening
-Traffic Listening can be controlled with following annotations:
+Traffic Listening can be controlled with the following annotations:
 
-- <a name="listen-ports">`alb.ingress.kubernetes.io/listen-ports`</a> specifies the ports that ALB used to listen on.
+- <a name="listen-ports">`alb.ingress.kubernetes.io/listen-ports`</a> specifies the ports that ALB listens on.
     
     !!!note "Merge Behavior"
         `listen-ports` is merged across all Ingresses in IngressGroup.
@@ -112,7 +112,7 @@ Traffic Listening can be controlled with following annotations:
         - If same listen-port is defined by multiple Ingress within IngressGroup, Ingress rules will be merged with respect to their group order within IngressGroup.
 
     !!!note "Default"
-        - defaults to `'[{"HTTP": 80}]'` or `'[{"HTTPS": 443}]'` depends on whether `certificate-arn` is specified.
+        - defaults to `'[{"HTTP": 80}]'` or `'[{"HTTPS": 443}]'` depending on whether `certificate-arn` is specified.
 
     !!!warning "" 
         You may not have duplicate load balancer ports defined.
@@ -130,7 +130,7 @@ Traffic Listening can be controlled with following annotations:
         - Once defined on a single Ingress, it impacts every Ingress within IngressGroup.
 
     !!!note ""
-        - Once enabled SSLRedirect, every HTTP listener will be configured with default action which redirects to HTTPS, other rules will be ignored.
+        - Once enabled SSLRedirect, every HTTP listener will be configured with a default action which redirects to HTTPS, other rules will be ignored.
         - The SSL port that redirects to must exists on LoadBalancer. See [alb.ingress.kubernetes.io/listen-ports](#listen-ports) for the listen ports configuration.
 
     !!!example
@@ -218,13 +218,13 @@ Traffic Routing can be controlled with following annotations:
             alb.ingress.kubernetes.io/backend-protocol-version: GRPC
             ```
 
-- <a name="subnets">`alb.ingress.kubernetes.io/subnets`</a> specifies the [Availability Zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) that ALB will route traffic to. See [Load Balancer subnets](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html) for more details.
+- <a name="subnets">`alb.ingress.kubernetes.io/subnets`</a> specifies the [Availability Zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)s that the ALB will route traffic to. See [Load Balancer subnets](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html) for more details.
 
     !!!note ""
-        You must specify at least two subnets in different AZ. both subnetID or subnetName(Name tag on subnets) can be used.
+        You must specify at least two subnets in different AZs. Either subnetID or subnetName(Name tag on subnets) can be used.
 
     !!!tip
-        You can enable subnet auto discovery to avoid specify this annotation on every Ingress. See [Subnet Discovery](../../deploy/subnet_discovery.md) for instructions.
+        You can enable subnet auto discovery to avoid specifying this annotation on every Ingress. See [Subnet Discovery](../../deploy/subnet_discovery.md) for instructions.
 
     !!!example
         ```
