@@ -67,6 +67,8 @@ tolerations: []
 
 affinity: {}
 
+topologySpreadConstraints: {}
+
 updateStrategy: {}
   # type: RollingUpdate
   # rollingUpdate:
