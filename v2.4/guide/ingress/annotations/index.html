@@ -1380,14 +1380,14 @@
 <h2 id="ingressgroup">IngressGroup<a class="headerlink" href="#ingressgroup" title="Permanent link">&para;</a></h2>
 <p>IngressGroup feature enables you to group multiple Ingress resources together.
 The controller will automatically merge Ingress rules for all Ingresses within IngressGroup and support them with a single ALB.
-In addition, most annotations defined on a Ingress only applies to the paths defined by that Ingress.</p>
-<p>By default, Ingresses don't belong to any IngressGroup, and we treat it as a "implicit IngressGroup" consisted of the Ingress itself.</p>
+In addition, most annotations defined on an Ingress only apply to the paths defined by that Ingress.</p>
+<p>By default, Ingresses don't belong to any IngressGroup, and we treat it as a "implicit IngressGroup" consisting of the Ingress itself.</p>
 <ul>
 <li>
 <p><a name="group.name"><code>alb.ingress.kubernetes.io/group.name</code></a> specifies the group name that this Ingress belongs to.</p>
 <div class="admonition note">
 <ul>
-<li>Ingresses with same <code>group.name</code> annotation will form as a "explicit IngressGroup".</li>
+<li>Ingresses with same <code>group.name</code> annotation will form an "explicit IngressGroup".</li>
 <li>groupName must consist of lower case alphanumeric characters, <code>-</code> or <code>.</code>, and must start and end with an alphanumeric character.</li>
 <li>groupName must be no more than 63 character.</li>
 </ul>
@@ -1396,7 +1396,7 @@ In addition, most annotations defined on a Ingress only applies to the paths def
 <p class="admonition-title">Security Risk</p>
 <p>IngressGroup feature should only be used when all Kubernetes users with RBAC permission to create/modify Ingress resources are within trust boundary.</p>
 <p>If you turn your Ingress to belong a "explicit IngressGroup" by adding <code>group.name</code> annotation,
-other Kubernetes user may create/modify their Ingresses to belong same IngressGroup, thus can add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.</p>
+other Kubernetes users may create/modify their Ingresses to belong to the same IngressGroup, and can thus add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.</p>
 <p>We'll add more fine-grained access-control in future versions.</p>
 </div>
 <div class="admonition example">
@@ -1410,8 +1410,8 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 <div class="admonition note">
 <ul>
 <li>You can explicitly denote the order using a number between 1-1000</li>
-<li>The smaller the order, the rule will be evaluated first. All Ingresses without explicit order setting get order value as 0</li>
-<li>By default the rule order between Ingresses within IngressGroup are determined by the lexical order of Ingress’s namespace/name.</li>
+<li>The smaller the order, the rule will be evaluated first. All Ingresses without an explicit order setting get order value as 0</li>
+<li>By default the rule order between Ingresses within IngressGroup is determined by the lexical order of Ingress’s namespace/name.</li>
 </ul>
 </div>
 <div class="admonition warning">
@@ -1425,10 +1425,10 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 </li>
 </ul>
 <h2 id="traffic-listening">Traffic Listening<a class="headerlink" href="#traffic-listening" title="Permanent link">&para;</a></h2>
-<p>Traffic Listening can be controlled with following annotations:</p>
+<p>Traffic Listening can be controlled with the following annotations:</p>
 <ul>
 <li>
-<p><a name="listen-ports"><code>alb.ingress.kubernetes.io/listen-ports</code></a> specifies the ports that ALB used to listen on.</p>
+<p><a name="listen-ports"><code>alb.ingress.kubernetes.io/listen-ports</code></a> specifies the ports that ALB listens on.</p>
 <div class="admonition note">
 <p class="admonition-title">Merge Behavior</p>
 <p><code>listen-ports</code> is merged across all Ingresses in IngressGroup.</p>
@@ -1440,7 +1440,7 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 <div class="admonition note">
 <p class="admonition-title">Default</p>
 <ul>
-<li>defaults to <code>'[{"HTTP": 80}]'</code> or <code>'[{"HTTPS": 443}]'</code> depends on whether <code>certificate-arn</code> is specified.</li>
+<li>defaults to <code>'[{"HTTP": 80}]'</code> or <code>'[{"HTTPS": 443}]'</code> depending on whether <code>certificate-arn</code> is specified.</li>
 </ul>
 </div>
 <div class="admonition warning">
@@ -1463,7 +1463,7 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 </div>
 <div class="admonition note">
 <ul>
-<li>Once enabled SSLRedirect, every HTTP listener will be configured with default action which redirects to HTTPS, other rules will be ignored.</li>
+<li>Once enabled SSLRedirect, every HTTP listener will be configured with a default action which redirects to HTTPS, other rules will be ignored.</li>
 <li>The SSL port that redirects to must exists on LoadBalancer. See <a href="#listen-ports">alb.ingress.kubernetes.io/listen-ports</a> for the listen ports configuration.</li>
 </ul>
 </div>
@@ -1497,12 +1497,14 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 <p>Traffic Routing can be controlled with following annotations:</p>
 <ul>
 <li>
-<p><a name="load-balancer-name"><code>alb.ingress.kubernetes.io/load-balancer-name</code></a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be treated as an error.
-    !!!note "Merge Behavior"
-        <code>name</code> is exclusive across all Ingresses in an IngressGroup.</p>
-<div class="codehilite"><pre><span></span><code>- Once defined on a single Ingress, it impacts every Ingress within the IngressGroup.
-</code></pre></div>
-
+<p><a name="load-balancer-name"><code>alb.ingress.kubernetes.io/load-balancer-name</code></a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be treated as an error.</p>
+<div class="admonition note">
+<p class="admonition-title">Merge Behavior</p>
+<p><code>name</code> is exclusive across all Ingresses in an IngressGroup.</p>
+<ul>
+<li>Once defined on a single Ingress, it impacts every Ingress within the IngressGroup.</li>
+</ul>
+</div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/load-balancer-name: custom-name
@@ -1536,13 +1538,16 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/target-type: instance
 </code></pre></div>
 </div>
-<p>-<a name="target-node-labels"><code>alb.ingress.kubernetes.io/target-node-labels</code></a> specifies which nodes to include in the target group registration for <code>instance</code> target type.</p>
-<div class="admonition example">
-<p class="admonition-title">Example</p>
-<div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/target-node-labels: label1=value1, label2=value2
-</code></pre></div>
-</div>
 </li>
+</ul>
+<p>-<a name="target-node-labels"><code>alb.ingress.kubernetes.io/target-node-labels</code></a> specifies which nodes to include in the target group registration for <code>instance</code> target type.</p>
+<div class="codehilite"><pre><span></span><code>!!!example
+    ```
+    alb.ingress.kubernetes.io/target-node-labels: label1=value1, label2=value2
+    ```
+</code></pre></div>
+
+<ul>
 <li>
 <p><a name="backend-protocol"><code>alb.ingress.kubernetes.io/backend-protocol</code></a> specifies the protocol used when route traffic to pods.</p>
 <div class="admonition example">
@@ -1566,13 +1571,13 @@ other Kubernetes user may create/modify their Ingresses to belong same IngressGr
 </div>
 </li>
 <li>
-<p><a name="subnets"><code>alb.ingress.kubernetes.io/subnets</code></a> specifies the <a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">Availability Zone</a> that ALB will route traffic to. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html">Load Balancer subnets</a> for more details.</p>
+<p><a name="subnets"><code>alb.ingress.kubernetes.io/subnets</code></a> specifies the <a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">Availability Zone</a>s that the ALB will route traffic to. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html">Load Balancer subnets</a> for more details.</p>
 <div class="admonition note">
-<p>You must specify at least two subnets in different AZ. both subnetID or subnetName(Name tag on subnets) can be used.</p>
+<p>You must specify at least two subnets in different AZs. Either subnetID or subnetName(Name tag on subnets) can be used.</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>You can enable subnet auto discovery to avoid specify this annotation on every Ingress. See <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a> for instructions.</p>
+<p>You can enable subnet auto discovery to avoid specifying this annotation on every Ingress. See <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a> for instructions.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
