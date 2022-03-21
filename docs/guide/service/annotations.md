@@ -46,7 +46,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | false                     |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      |                                                        |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
