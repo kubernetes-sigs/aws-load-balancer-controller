@@ -14,7 +14,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 # The name of the Kubernetes cluster. A non-empty value is required
-clusterName:
+clusterName: foo
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -65,7 +65,15 @@ nodeSelector: {}
 
 tolerations: []
 
-affinity: {}
+# affinity can be either a string or map.
+#
+# if affinity is a string, and if that string is "default", set an antiAffinity policy on
+# the podSpec to prevent colocation on the same node.
+#
+# if affinity is a map, set the affinity attribute on the podSpec with this exact value (do NOT
+# use the default, as described above).
+# affinity: {}
+affinity: default
 
 updateStrategy: {}
   # type: RollingUpdate

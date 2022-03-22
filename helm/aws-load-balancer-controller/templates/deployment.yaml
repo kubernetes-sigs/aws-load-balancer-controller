@@ -172,10 +172,14 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if .Values.affinity }}
+      {{- if kindIs "map" .Values.affinity }}
+      {{- with .Values.affinity }}
       affinity:
-        {{- toYaml .Values.affinity | nindent 8 }}
-      {{- else }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- if kindIs "string" .Values.affinity }}
+      {{- if eq .Values.affinity "default" }}
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -188,6 +192,7 @@ spec:
                   values:
                   - {{ include "aws-load-balancer-controller.name" . }}
               topologyKey: kubernetes.io/hostname
+      {{- end }}
       {{- end }}
       {{- with .Values.tolerations }}
       tolerations:
