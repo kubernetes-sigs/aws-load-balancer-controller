@@ -47,7 +47,10 @@ deploy: manifests
 manifests: controller-gen kustomize
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=controller-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	yq eval '.metadata.name = "webhook"' -i config/webhook/manifests.yaml
+
+crds: manifests
 	$(KUSTOMIZE) build config/crd > helm/aws-load-balancer-controller/crds/crds.yaml
+
 
 # Run go fmt against code
 fmt:
