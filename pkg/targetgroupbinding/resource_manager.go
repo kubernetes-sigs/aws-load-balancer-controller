@@ -337,12 +337,16 @@ func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Con
 
 	allPodKeys := m.podInfoRepo.ListKeys(ctx)
 	for _, podKey := range allPodKeys {
+		// check the pod is in the same namespace with the tgb
+		if podKey.Namespace != tgb.Namespace {
+			continue
+		}
 		pod, exists, err := m.podInfoRepo.Get(ctx, podKey)
 		if err != nil {
 			return err
 		}
 		if !exists {
-			return errors.New("couldn't find podInfo for ready endpoint")
+			continue
 		}
 		if pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
 			targetHealth := &elbv2sdk.TargetHealth{
