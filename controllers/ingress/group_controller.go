@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	cfg "sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -44,7 +44,7 @@ const (
 func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingSGManager networkingpkg.SecurityGroupManager,
 	networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
-	config config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider, logger logr.Logger) *groupReconciler {
+	config cfg.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider, logger logr.Logger) *groupReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
@@ -57,7 +57,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager,
 		cloud.VpcID(), config.ClusterName, config.DefaultTags, config.ExternalManagedTags,
-		config.DefaultSSLPolicy, backendSGProvider, config.EnableBackendSecurityGroup, config.DisableRestrictedSGRules, logger)
+		config.DefaultSSLPolicy, backendSGProvider, config.EnableBackendSecurityGroup, config.DisableRestrictedSGRules, config.FeatureGates.Enabled(cfg.EnableIPTargetType), logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		config, ingressTagPrefix, logger)

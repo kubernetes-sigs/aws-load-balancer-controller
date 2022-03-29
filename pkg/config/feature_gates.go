@@ -2,9 +2,10 @@ package config
 
 import (
 	"fmt"
-	"github.com/spf13/pflag"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/pflag"
 )
 
 type Feature string
@@ -15,6 +16,7 @@ const (
 	ServiceTypeLoadBalancerOnly Feature = "ServiceTypeLoadBalancerOnly"
 	EndpointsFailOpen           Feature = "EndpointsFailOpen"
 	EnableServiceController     Feature = "EnableServiceController"
+	EnableIPTargetType          Feature = "EnableIPTargetType"
 )
 
 type FeatureGates interface {
@@ -47,6 +49,7 @@ func NewFeatureGates() FeatureGates {
 			ServiceTypeLoadBalancerOnly: false,
 			EndpointsFailOpen:           false,
 			EnableServiceController:     true,
+			EnableIPTargetType:          true,
 		},
 	}
 }

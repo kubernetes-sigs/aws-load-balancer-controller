@@ -10,7 +10,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	cfg "sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -36,14 +36,14 @@ const (
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingSGManager networking.SecurityGroupManager,
 	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
-	vpcInfoProvider networking.VPCInfoProvider, config config.ControllerConfig, logger logr.Logger) *serviceReconciler {
+	vpcInfoProvider networking.VPCInfoProvider, config cfg.ControllerConfig, logger logr.Logger) *serviceReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, config.ClusterName)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, logger)
 	serviceUtils := service.NewServiceUtils(annotationParser, serviceFinalizer, config.ServiceConfig.LoadBalancerClass, config.FeatureGates)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
-		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.ExternalManagedTags, config.DefaultSSLPolicy, serviceUtils)
+		elbv2TaggingManager, config.ClusterName, config.DefaultTags, config.ExternalManagedTags, config.DefaultSSLPolicy, config.FeatureGates.Enabled(cfg.EnableIPTargetType), serviceUtils)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, config, serviceTagPrefix, logger)
 	return &serviceReconciler{

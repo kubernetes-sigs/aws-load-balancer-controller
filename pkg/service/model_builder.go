@@ -36,7 +36,7 @@ type ModelBuilder interface {
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
 	elbv2TaggingManager elbv2deploy.TaggingManager, clusterName string, defaultTags map[string]string,
-	externalManagedTags []string, defaultSSLPolicy string, serviceUtils ServiceUtils) *defaultModelBuilder {
+	externalManagedTags []string, defaultSSLPolicy string, enableIPTargetType bool, serviceUtils ServiceUtils) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
@@ -49,6 +49,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		defaultTags:         defaultTags,
 		externalManagedTags: sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:    defaultSSLPolicy,
+		enableIPTargetType:  enableIPTargetType,
 	}
 }
 
@@ -67,6 +68,7 @@ type defaultModelBuilder struct {
 	defaultTags         map[string]string
 	externalManagedTags sets.String
 	defaultSSLPolicy    string
+	enableIPTargetType  bool
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
@@ -80,6 +82,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		trackingProvider:    b.trackingProvider,
 		elbv2TaggingManager: b.elbv2TaggingManager,
 		serviceUtils:        b.serviceUtils,
+		enableIPTargetType:  b.enableIPTargetType,
 
 		service:   service,
 		stack:     stack,
@@ -129,6 +132,7 @@ type defaultModelBuildTask struct {
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
 	serviceUtils        ServiceUtils
+	enableIPTargetType  bool
 
 	service *corev1.Service
 

@@ -214,6 +214,9 @@ func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, sv
 	case string(elbv2model.TargetTypeInstance):
 		return elbv2model.TargetTypeInstance, nil
 	case string(elbv2model.TargetTypeIP):
+		if !t.enableIPTargetType {
+			return "", errors.Errorf("unsupported targetType: %v when EnableIPTargetType is %v", rawTargetType, t.enableIPTargetType)
+		}
 		return elbv2model.TargetTypeIP, nil
 	default:
 		return "", errors.Errorf("unknown targetType: %v", rawTargetType)

@@ -339,6 +339,9 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context, port corev1.S
 	var lbTargetType string
 	lbTargetType = string(t.defaultTargetType)
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, t.service.Annotations)
+	if lbTargetType == LoadBalancerTargetTypeIP && !t.enableIPTargetType {
+		return "", errors.Errorf("unsupported targetType: %v when EnableIPTargetType is %v", lbTargetType, t.enableIPTargetType)
+	}
 	if lbType == LoadBalancerTypeNLBIP || lbTargetType == LoadBalancerTargetTypeIP {
 		return elbv2model.TargetTypeIP, nil
 	}
