@@ -145,3 +145,4 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 | WeightedTargetGroups                  | string                          | true           | Enable or disable weighted target groups |
 | ServiceTypeLoadBalancerOnly           | string                          | false          | If enabled, controller will be limited to reconciling service of type `LoadBalancer`|
 | EndpointsFailOpen                     | string                          | false          | Enable or disable allowing endpoints with `ready:unknown` state in the target groups. |
+| EnableServiceController               | string                          | true           | Toggles support for `Service` type resources. |
