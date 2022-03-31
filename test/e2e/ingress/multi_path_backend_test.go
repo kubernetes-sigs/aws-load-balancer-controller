@@ -36,7 +36,7 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 		// TODO, force cleanup all left K8s resources if any.
 	})
 
-	Context("with podReadinessGate enabled", func() {
+	Context("with podReadinessGate enabled, backend target type both instance and ip", func() {
 		It("standalone Ingress should behaves correctly", func() {
 			stack := NewMultiPathBackendStack(map[string]NamespacedResourcesConfig{
 				"ns-1": {

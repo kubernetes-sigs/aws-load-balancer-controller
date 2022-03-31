@@ -10,6 +10,7 @@ echo "Running AWS Load Balancer Controller e2e tests with the following variable
 KUBE CONFIG: $KUBE_CONFIG_PATH
 CLUSTER_NAME: $CLUSTER_NAME
 REGION: $REGION
+IP_FAMILY: ${IP_FAMILY:-"IPv4"}
 OS_OVERRIDE: $OS_OVERRIDE"
 
 function toggle_windows_scheduling(){
@@ -74,9 +75,15 @@ echo "Install aws-load-balancer-controller"
 helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID
 
 #Start the test
-echo "Starting the ginkgo test suite" 
-
-(cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
+echo "Starting the ginkgo test suite"
+if [ "$IP_FAMILY" == "IPv4"  ]; then
+  (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+elif [ "$IP_FAMILY" == "IPv6"  ]; then
+  (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --skip="instance" -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+else
+  echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
+  exit
+fi
 
 # tail=-1 is added so that no logs are truncated
 # https://github.com/kubernetes/kubectl/issues/812
