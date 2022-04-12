@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -24,7 +25,11 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 			if rule.HTTP == nil {
 				continue
 			}
-			for _, path := range rule.HTTP.Paths {
+			paths, err := t.sortIngressPaths(rule.HTTP.Paths)
+			if err != nil {
+				return err
+			}
+			for _, path := range paths {
 				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, path.Backend,
 					WithLoadBackendServices(true, t.backendServices),
 					WithLoadAuthConfig(true))
@@ -70,6 +75,48 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 	}
 
 	return nil
+}
+
+// sortIngressPaths will sort the paths following the strategy:
+// all exact match paths come first, no need to sort since exact match has to be unique
+// followed by prefix paths, sort by lengths - longer paths get precedence
+// followed by ImplementationSpecific paths or paths with no pathType specified, keep the original order
+func (t *defaultModelBuildTask) sortIngressPaths(paths []networking.HTTPIngressPath) ([]networking.HTTPIngressPath, error) {
+	exactPaths, prefixPaths, implementationSpecificPaths, err := t.classifyIngressPathsByType(paths)
+	if err != nil {
+		return nil, err
+	}
+	sortedPaths := exactPaths
+	sort.SliceStable(prefixPaths, func(i, j int) bool {
+		return len(prefixPaths[i].Path) > len(prefixPaths[j].Path)
+	})
+	sortedPaths = append(sortedPaths, prefixPaths...)
+	sortedPaths = append(sortedPaths, implementationSpecificPaths...)
+	return sortedPaths, nil
+}
+
+// classifyIngressPathsByType will classify the paths by type Exact, Prefix and ImplementationSpecific
+func (t *defaultModelBuildTask) classifyIngressPathsByType(paths []networking.HTTPIngressPath) ([]networking.HTTPIngressPath, []networking.HTTPIngressPath, []networking.HTTPIngressPath, error) {
+	var exactPaths []networking.HTTPIngressPath
+	var prefixPaths []networking.HTTPIngressPath
+	var implementationSpecificPaths []networking.HTTPIngressPath
+	for _, path := range paths {
+		if path.PathType != nil {
+			switch *path.PathType {
+			case networking.PathTypeExact:
+				exactPaths = append(exactPaths, path)
+			case networking.PathTypePrefix:
+				prefixPaths = append(prefixPaths, path)
+			case networking.PathTypeImplementationSpecific:
+				implementationSpecificPaths = append(implementationSpecificPaths, path)
+			default:
+				return nil, nil, nil, errors.Errorf("unknown pathType for path %s", path.Path)
+			}
+		} else {
+			implementationSpecificPaths = append(implementationSpecificPaths, path)
+		}
+	}
+	return exactPaths, prefixPaths, implementationSpecificPaths, nil
 }
 
 func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, rule networking.IngressRule,
