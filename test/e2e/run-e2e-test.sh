@@ -7,7 +7,7 @@ set -e
 SECONDS=0
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 echo "Running AWS Load Balancer Controller e2e tests with the following variables
-KUBE CONFIG: $KUBE_CONFIG_PATH
+KUBE_CONFIG_PATH: $KUBE_CONFIG_PATH
 CLUSTER_NAME: $CLUSTER_NAME
 REGION: $REGION
 OS_OVERRIDE: $OS_OVERRIDE"
