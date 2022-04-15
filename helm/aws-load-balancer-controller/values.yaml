@@ -91,6 +91,9 @@ updateStrategy: {}
 # serviceAnnotations contains annotations to be added to the provisioned webhook service resource
 serviceAnnotations: {}
 
+# deploymentAnnotations contains annotations for the controller deployment
+deploymentAnnotations: {}
+
 podAnnotations: {}
 
 podLabels: {}
