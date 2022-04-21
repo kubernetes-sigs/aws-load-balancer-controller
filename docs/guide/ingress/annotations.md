@@ -57,6 +57,10 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/actions.${action-name}](#actions)|json|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)|json|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)|stringMap|N/A|Ingress,Service|N/A|
+|[alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-enabled](#endpoint-service-enable)|boolean|false|
+|[alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required](#endpoint-service-acceptance)|boolean||
+|[alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals](#endpoint-allowed-principles)|stringList||
+|[alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name](#endpoint-private-dns)|string||
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -802,3 +806,13 @@ In addition, you can use annotations to specify additional tags
         ```alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
         ```
 
+## VPC Endpoint Service
+A VPC Endpoint Service can be attached to a controlled loadbalancer via the following annotations:
+
+- <a name="endpoint-service-enable">``alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-enabled`</a> specifies whether to create a VPC Endpoint Service or not.  The `--enable-endpoint-service` flag must also be set.
+
+- <a name="endpoint-service-acceptance">``alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required`</a> specifies whether requests to attach an Endpoint to the Endpoint Service require manual acceptance.
+
+- <a name="endpoint-allowed-principles">``alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals`</a> is a list of principles from which an Endpoint can be attached to this Endpoint Service.
+
+- <a name="endpoint-private-dns">``alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name`</a> is the private DNS name given to the Endpoint Service.  This will need to be verifies through a valid DNS record.

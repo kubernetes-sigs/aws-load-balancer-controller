@@ -2,6 +2,8 @@ package ec2
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/mock/gomock"
@@ -12,7 +14,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
@@ -425,6 +426,265 @@ func Test_defaultTaggingManager_ListSecurityGroups(t *testing.T) {
 				assert.NoError(t, err)
 				opts := cmpopts.SortSlices(func(lhs networking.SecurityGroupInfo, rhs networking.SecurityGroupInfo) bool {
 					return lhs.SecurityGroupID < rhs.SecurityGroupID
+				})
+				assert.True(t, cmp.Equal(tt.want, got, opts), "diff", cmp.Diff(tt.want, got, opts))
+			}
+		})
+	}
+}
+
+func Test_defaultTaggingManager_ListVPCEndpointServices(t *testing.T) {
+	type fetchVPCESInfosByRequestCall struct {
+		req  *ec2sdk.DescribeVpcEndpointServiceConfigurationsInput
+		resp map[string]networking.VPCEndpointServiceInfo
+		err  error
+	}
+	type fields struct {
+		fetchVPCESInfosByRequestCalls []fetchVPCESInfosByRequestCall
+	}
+	type args struct {
+		tagFilters []tracking.TagFilter
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []networking.VPCEndpointServiceInfo
+		wantErr error
+	}{
+		{
+			name: "with a single tagFilter",
+			fields: fields{
+				fetchVPCESInfosByRequestCalls: []fetchVPCESInfosByRequestCall{
+					{
+						req: &ec2sdk.DescribeVpcEndpointServiceConfigurationsInput{
+							Filters: []*ec2sdk.Filter{
+								// {
+								// 	Name:   awssdk.String("vpc-id"),
+								// 	Values: awssdk.StringSlice([]string{"vpc-xxxxxxx"}),
+								// },
+								{
+									Name:   awssdk.String("tag:keyA"),
+									Values: awssdk.StringSlice([]string{"valueA"}),
+								},
+								{
+									Name:   awssdk.String("tag:keyB"),
+									Values: awssdk.StringSlice([]string{"valueB1", "valueB2"}),
+								},
+								{
+									Name:   awssdk.String("tag-key"),
+									Values: awssdk.StringSlice([]string{"keyC"}),
+								},
+							},
+						},
+						resp: map[string]networking.VPCEndpointServiceInfo{
+							"vpces-a": {
+								ServiceID: "vpces-a",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB1",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+							"vpces-b": {
+								ServiceID: "vpces-b",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB2",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": []string{"valueA"},
+						"keyB": []string{"valueB1", "valueB2"},
+						"keyC": nil,
+					},
+				},
+			},
+			want: []networking.VPCEndpointServiceInfo{
+				{
+					ServiceID: "vpces-a",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB1",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+				{
+					ServiceID: "vpces-b",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB2",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+			},
+		},
+		{
+			name: "with two tagFilter",
+			fields: fields{
+				fetchVPCESInfosByRequestCalls: []fetchVPCESInfosByRequestCall{
+					{
+						req: &ec2sdk.DescribeVpcEndpointServiceConfigurationsInput{
+							Filters: []*ec2sdk.Filter{
+								// {
+								// 	Name:   awssdk.String("vpc-id"),
+								// 	Values: awssdk.StringSlice([]string{"vpc-xxxxxxx"}),
+								// },
+								{
+									Name:   awssdk.String("tag:keyA"),
+									Values: awssdk.StringSlice([]string{"valueA"}),
+								},
+								{
+									Name:   awssdk.String("tag:keyB"),
+									Values: awssdk.StringSlice([]string{"valueB1", "valueB2"}),
+								},
+								{
+									Name:   awssdk.String("tag-key"),
+									Values: awssdk.StringSlice([]string{"keyC"}),
+								},
+							},
+						},
+						resp: map[string]networking.VPCEndpointServiceInfo{
+							"vpces-a": {
+								ServiceID: "vpces-a",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB1",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+							"vpces-b": {
+								ServiceID: "vpces-b",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB2",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+						},
+					},
+					{
+						req: &ec2sdk.DescribeVpcEndpointServiceConfigurationsInput{
+							Filters: []*ec2sdk.Filter{
+								// {
+								// 	Name:   awssdk.String("vpc-id"),
+								// 	Values: awssdk.StringSlice([]string{"vpc-xxxxxxx"}),
+								// },
+								{
+									Name:   awssdk.String("tag:keyA"),
+									Values: awssdk.StringSlice([]string{"valueA"}),
+								},
+								{
+									Name:   awssdk.String("tag:keyB"),
+									Values: awssdk.StringSlice([]string{"valueB2", "valueB3"}),
+								},
+								{
+									Name:   awssdk.String("tag-key"),
+									Values: awssdk.StringSlice([]string{"keyC"}),
+								},
+							},
+						},
+						resp: map[string]networking.VPCEndpointServiceInfo{
+							"vpces-b": {
+								ServiceID: "vpces-b",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB2",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+							"vpces-c": {
+								ServiceID: "vpces-c",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB3",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": []string{"valueA"},
+						"keyB": []string{"valueB1", "valueB2"},
+						"keyC": nil,
+					},
+					{
+						"keyA": []string{"valueA"},
+						"keyB": []string{"valueB2", "valueB3"},
+						"keyC": nil,
+					},
+				},
+			},
+			want: []networking.VPCEndpointServiceInfo{
+				{
+					ServiceID: "vpces-a",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB1",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+				{
+					ServiceID: "vpces-b",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB2",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+				{
+					ServiceID: "vpces-c",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB3",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			vpcEndpointServiceManager := networking.NewMockVPCEndpointServiceManager(ctrl)
+			for _, call := range tt.fields.fetchVPCESInfosByRequestCalls {
+				vpcEndpointServiceManager.EXPECT().FetchVPCESInfosByRequest(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			m := &defaultTaggingManager{
+				vpcEndpointServiceManager: vpcEndpointServiceManager,
+				// vpcID:                     "vpc-xxxxxxx",
+			}
+			got, err := m.ListVPCEndpointServices(context.Background(), tt.args.tagFilters...)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				opts := cmpopts.SortSlices(func(lhs networking.VPCEndpointServiceInfo, rhs networking.VPCEndpointServiceInfo) bool {
+					return lhs.ServiceID < rhs.ServiceID
 				})
 				assert.True(t, cmp.Equal(tt.want, got, opts), "diff", cmp.Diff(tt.want, got, opts))
 			}

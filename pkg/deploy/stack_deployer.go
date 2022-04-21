@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -24,11 +25,13 @@ type StackDeployer interface {
 
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
 func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
-	networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
+	networkingSGManager networking.SecurityGroupManager,
+	networkingSGReconciler networking.SecurityGroupReconciler,
+	vpcEndpointServiceManager networking.VPCEndpointServiceManager,
 	config config.ControllerConfig, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
 
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
-	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, cloud.VpcID(), logger)
+	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, vpcEndpointServiceManager, cloud.VpcID(), logger)
 	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, logger)
 
 	return &defaultStackDeployer{
@@ -36,7 +39,7 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 		k8sClient:                           k8sClient,
 		addonsConfig:                        config.AddonsConfig,
 		trackingProvider:                    trackingProvider,
-		ec2ESManager:                        ec2.NewDefaultEndpointServiceManager(cloud.EC2(), cloud.VpcID(), logger),
+		ec2ESManager:                        ec2.NewDefaultEndpointServiceManager(cloud.EC2(), cloud.VpcID(), logger, trackingProvider, ec2TaggingManager, config.ExternalManagedTags),
 		ec2TaggingManager:                   ec2TaggingManager,
 		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), trackingProvider, ec2TaggingManager, networkingSGReconciler, cloud.VpcID(), config.ExternalManagedTags, logger),
 		elbv2TaggingManager:                 elbv2TaggingManager,

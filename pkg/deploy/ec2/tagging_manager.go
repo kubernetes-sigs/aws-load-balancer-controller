@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
@@ -54,15 +55,25 @@ type TaggingManager interface {
 
 	// ListSecurityGroups returns SecurityGroups that matches any of the tagging requirements.
 	ListSecurityGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]networking.SecurityGroupInfo, error)
+
+	// ListVPCEndpointServices returns VPCEndpointServices that match any of the tagging requirements.
+	ListVPCEndpointServices(ctx context.Context, tagFilters ...tracking.TagFilter) ([]networking.VPCEndpointServiceInfo, error)
 }
 
 // NewDefaultTaggingManager constructs new defaultTaggingManager.
-func NewDefaultTaggingManager(ec2Client services.EC2, networkingSGManager networking.SecurityGroupManager, vpcID string, logger logr.Logger) *defaultTaggingManager {
+func NewDefaultTaggingManager(
+	ec2Client services.EC2,
+	networkingSGManager networking.SecurityGroupManager,
+	vpcEndpointServiceManager networking.VPCEndpointServiceManager,
+	vpcID string,
+	logger logr.Logger,
+) *defaultTaggingManager {
 	return &defaultTaggingManager{
-		ec2Client:           ec2Client,
-		networkingSGManager: networkingSGManager,
-		vpcID:               vpcID,
-		logger:              logger,
+		ec2Client:                 ec2Client,
+		networkingSGManager:       networkingSGManager,
+		vpcEndpointServiceManager: vpcEndpointServiceManager,
+		vpcID:                     vpcID,
+		logger:                    logger,
 	}
 }
 
@@ -70,10 +81,11 @@ var _ TaggingManager = &defaultTaggingManager{}
 
 // default implementation for TaggingManager.
 type defaultTaggingManager struct {
-	ec2Client           services.EC2
-	networkingSGManager networking.SecurityGroupManager
-	vpcID               string
-	logger              logr.Logger
+	ec2Client                 services.EC2
+	networkingSGManager       networking.SecurityGroupManager
+	vpcEndpointServiceManager networking.VPCEndpointServiceManager
+	vpcID                     string
+	logger                    logr.Logger
 }
 
 func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, resID string, desiredTags map[string]string, opts ...ReconcileTagsOption) error {
@@ -173,6 +185,48 @@ func (m *defaultTaggingManager) listSecurityGroupsWithTagFilter(ctx context.Cont
 	}
 
 	return m.networkingSGManager.FetchSGInfosByRequest(ctx, req)
+}
+
+func (m *defaultTaggingManager) ListVPCEndpointServices(ctx context.Context, tagFilters ...tracking.TagFilter) ([]networking.VPCEndpointServiceInfo, error) {
+	esInfoByID := make(map[string]networking.VPCEndpointServiceInfo)
+	for _, tagFilter := range tagFilters {
+		esInfoByIDForTagFilter, err := m.listVPCEndpointServicesWithTagFilter(ctx, tagFilter)
+		if err != nil {
+			return nil, err
+		}
+		for sgID, esInfo := range esInfoByIDForTagFilter {
+			esInfoByID[sgID] = esInfo
+		}
+	}
+
+	esInfos := make([]networking.VPCEndpointServiceInfo, 0, len(esInfoByID))
+	for _, esInfo := range esInfoByID {
+		esInfos = append(esInfos, esInfo)
+	}
+	return esInfos, nil
+}
+
+func (m *defaultTaggingManager) listVPCEndpointServicesWithTagFilter(ctx context.Context, tagFilter tracking.TagFilter) (map[string]networking.VPCEndpointServiceInfo, error) {
+	req := &ec2sdk.DescribeVpcEndpointServiceConfigurationsInput{
+		Filters: []*ec2sdk.Filter{},
+	}
+
+	for _, tagKey := range sets.StringKeySet(tagFilter).List() {
+		tagValues := tagFilter[tagKey]
+		var filter ec2sdk.Filter
+		if len(tagValues) == 0 {
+			tagFilterName := "tag-key"
+			filter.Name = awssdk.String(tagFilterName)
+			filter.Values = awssdk.StringSlice([]string{tagKey})
+		} else {
+			tagFilterName := fmt.Sprintf("tag:%v", tagKey)
+			filter.Name = awssdk.String(tagFilterName)
+			filter.Values = awssdk.StringSlice(tagValues)
+		}
+		req.Filters = append(req.Filters, &filter)
+	}
+
+	return m.vpcEndpointServiceManager.FetchVPCESInfosByRequest(ctx, req)
 }
 
 // convert tags into AWS SDK tag presentation.

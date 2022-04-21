@@ -52,11 +52,11 @@ func (es *VPCEndpointService) ServiceID() core.StringToken {
 // VPCEndpointServiceSpec defines the desired state of VPCEndpointService
 type VPCEndpointServiceSpec struct {
 	// whether requests from service consumers to create an endpoint to the service must be accepted
-	AcceptanceRequired *bool `json:"acceptance_required"`
+	AcceptanceRequired *bool `json:"acceptanceRequired"`
 
-	NetworkLoadBalancerArns []string `json:"network_load_balancer_arns"`
+	NetworkLoadBalancerArns []core.StringToken `json:"networkLoadBalancerArns"`
 
-	PrivateDNSName *string `json:"private_dns_name"`
+	PrivateDNSName *string `json:"privateDnsName"`
 
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
@@ -67,5 +67,25 @@ type VPCEndpointServiceStatus struct {
 	// The ID of the endpoint service.
 	ServiceID string `json:"serviceID"`
 
-	BaseEndpointDnsNames []string `json:"base_endpoint_dns_names"`
+	BaseEndpointDnsNames []string `json:"baseEndpointDnsNames"`
+}
+
+type VPCEndpointServicePermissions struct {
+	core.ResourceMeta `json:"-"`
+	Spec              VPCEndpointServicePermissionsSpec `json:"spec"`
+}
+
+// NewVPCEndpointService constructs new VPCEndpointServicePermissions resource.
+func NewVPCEndpointServicePermissions(stack core.Stack, id string, spec VPCEndpointServicePermissionsSpec) *VPCEndpointServicePermissions {
+	esPermissions := &VPCEndpointServicePermissions{
+		ResourceMeta: core.NewResourceMeta(stack, "AWS::EC2::VPCEndpointServicePermissions", id),
+		Spec:         spec,
+	}
+	stack.AddResource(esPermissions)
+	return esPermissions
+}
+
+type VPCEndpointServicePermissionsSpec struct {
+	AllowedPrinciples []string         `json:"allowedPrinciples"`
+	ServiceId         core.StringToken `json:"serviceID"`
 }

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/ec2/ec2iface"
@@ -21,6 +22,9 @@ type EC2 interface {
 
 	// wrapper to DescribeSubnetsPagesWithContext API, which aggregates paged results into list.
 	DescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error)
+
+	// wrapper to DescribeVpcEndpointServiceConfigurationsPagesWithContext API, which aggregates paged results into list.
+	DescribeVpcEndpointServicesAsList(ctx context.Context, input *ec2.DescribeVpcEndpointServiceConfigurationsInput) ([]*ec2.ServiceConfiguration, error)
 }
 
 // NewEC2 constructs new EC2 implementation.
@@ -73,6 +77,17 @@ func (c *defaultEC2) DescribeSubnetsAsList(ctx context.Context, input *ec2.Descr
 	var result []*ec2.Subnet
 	if err := c.DescribeSubnetsPagesWithContext(ctx, input, func(output *ec2.DescribeSubnetsOutput, _ bool) bool {
 		result = append(result, output.Subnets...)
+		return true
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *defaultEC2) DescribeVpcEndpointServicesAsList(ctx context.Context, input *ec2.DescribeVpcEndpointServiceConfigurationsInput) ([]*ec2.ServiceConfiguration, error) {
+	var result []*ec2.ServiceConfiguration
+	if err := c.DescribeVpcEndpointServiceConfigurationsPagesWithContext(ctx, input, func(output *ec2.DescribeVpcEndpointServiceConfigurationsOutput, _ bool) bool {
+		result = append(result, output.ServiceConfigurations...)
 		return true
 	}); err != nil {
 		return nil, err
