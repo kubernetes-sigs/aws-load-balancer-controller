@@ -14,6 +14,7 @@ const (
 	WeightedTargetGroups        Feature = "WeightedTargetGroups"
 	ServiceTypeLoadBalancerOnly Feature = "ServiceTypeLoadBalancerOnly"
 	EndpointsFailOpen           Feature = "EndpointsFailOpen"
+	EnableServiceController     Feature = "EnableServiceController"
 )
 
 type FeatureGates interface {
@@ -45,6 +46,7 @@ func NewFeatureGates() FeatureGates {
 			WeightedTargetGroups:        true,
 			ServiceTypeLoadBalancerOnly: false,
 			EndpointsFailOpen:           false,
+			EnableServiceController:     true,
 		},
 	}
 }
