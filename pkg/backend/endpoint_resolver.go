@@ -166,7 +166,7 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 					return nil, false, err
 				}
 				if !exists {
-					r.logger.Info("ignore pod Endpoint without non-exist podInfo", "podKey", podKey.String())
+					r.logger.Info("ignore pod Endpoint with non-existent podInfo", "podKey", podKey.String())
 					continue
 				}
 				podEndpoint := buildPodEndpoint(pod, epAddr, epPort)
