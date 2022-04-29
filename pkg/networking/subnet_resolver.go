@@ -156,7 +156,7 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 	}
 	var subnets []*ec2sdk.Subnet
 	for _, subnet := range allSubnets {
-		if r.checkSubnetIsNotTaggedForOtherClusters(subnet) {
+		if r.checkSubnetIsNotTaggedForOtherClusters(subnet, resolveOpts.SubnetsClusterTagCheck) {
 			subnets = append(subnets, subnet)
 		}
 	}
@@ -168,15 +168,13 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 			chosenSubnets = append(chosenSubnets, subnets[0])
 		} else if len(subnets) > 1 {
 			sort.Slice(subnets, func(i, j int) bool {
-				if resolveOpts.SubnetsClusterTagCheck {
-					clusterTagI := r.checkSubnetHasClusterTag(subnets[i])
-					clusterTagJ := r.checkSubnetHasClusterTag(subnets[j])
-					if clusterTagI != clusterTagJ {
-						if clusterTagI {
-							return true
-						}
-						return false
+				clusterTagI := r.checkSubnetHasClusterTag(subnets[i])
+				clusterTagJ := r.checkSubnetHasClusterTag(subnets[j])
+				if clusterTagI != clusterTagJ {
+					if clusterTagI {
+						return true
 					}
+					return false
 				}
 				return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
 			})
@@ -353,7 +351,10 @@ func (r *defaultSubnetsResolver) checkSubnetHasClusterTag(subnet *ec2sdk.Subnet)
 // checkSubnetIsNotTaggedForOtherClusters checks whether the subnet is tagged for the current cluster
 // or it doesn't contain the cluster tag at all. If the subnet contains a tag for other clusters, then
 // this check returns false so that the subnet does not used for the load balancer.
-func (r *defaultSubnetsResolver) checkSubnetIsNotTaggedForOtherClusters(subnet *ec2sdk.Subnet) bool {
+func (r *defaultSubnetsResolver) checkSubnetIsNotTaggedForOtherClusters(subnet *ec2sdk.Subnet, subnetsClusterTagCheck bool) bool {
+	if !subnetsClusterTagCheck {
+		return true
+	}
 	clusterResourceTagPrefix := "kubernetes.io/cluster"
 	clusterResourceTagKey := fmt.Sprintf("kubernetes.io/cluster/%s", r.clusterName)
 	hasClusterResourceTagPrefix := false

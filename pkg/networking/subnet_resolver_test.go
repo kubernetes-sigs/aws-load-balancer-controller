@@ -616,7 +616,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 			wantErr: errors.New("some error"),
 		},
 		{
-			name: "subnet with cluster tag gets precedence, with SubnetsClusterTagCheck enabled",
+			name: "subnet with cluster tag gets precedence",
 			fields: fields{
 				vpcID:       "vpc-1",
 				clusterName: "kube-cluster",
@@ -672,7 +672,6 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				opts: []SubnetsResolveOption{
 					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
-					WithSubnetsClusterTagCheck(defaultSubnetsClusterTagCheck),
 				},
 			},
 			want: []*ec2sdk.Subnet{
@@ -691,76 +690,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 			},
 		},
 		{
-			name: "subnet with cluster tag does not get precedence, with SubnetsClusterTagCheck disabled",
-			fields: fields{
-				vpcID:       "vpc-1",
-				clusterName: "kube-cluster",
-				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
-					{
-						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
-								{
-									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
-								},
-								{
-									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
-								},
-							},
-						},
-						output: []*ec2sdk.Subnet{
-							{
-								SubnetId:           awssdk.String("subnet-1"),
-								AvailabilityZone:   awssdk.String("us-west-2b"),
-								AvailabilityZoneId: awssdk.String("usw2-az2"),
-								VpcId:              awssdk.String("vpc-1"),
-							},
-							{
-								SubnetId:           awssdk.String("subnet-2"),
-								AvailabilityZone:   awssdk.String("us-west-2b"),
-								AvailabilityZoneId: awssdk.String("usw2-az2"),
-								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
-									{
-										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
-										Value: awssdk.String("owned"),
-									},
-								},
-							},
-						},
-					},
-				},
-				fetchAZInfosCalls: []fetchAZInfosCall{
-					{
-						availabilityZoneIDs: []string{"usw2-az2"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
-							"usw2-az2": {
-								ZoneId:   awssdk.String("usw2-az2"),
-								ZoneType: awssdk.String("availability-zone"),
-							},
-						},
-					},
-				},
-			},
-			args: args{
-				opts: []SubnetsResolveOption{
-					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
-					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
-					WithSubnetsClusterTagCheck(false),
-				},
-			},
-			want: []*ec2sdk.Subnet{
-				{
-					SubnetId:           awssdk.String("subnet-1"),
-					AvailabilityZone:   awssdk.String("us-west-2b"),
-					AvailabilityZoneId: awssdk.String("usw2-az2"),
-					VpcId:              awssdk.String("vpc-1"),
-				},
-			},
-		},
-		{
-			name: "subnets tagged for some other clusters get ignored",
+			name: "subnets tagged for some other clusters get ignored, with SubnetsClusterTagCheck enabled",
 			fields: fields{
 				vpcID:       "vpc-1",
 				clusterName: "kube-cluster",
@@ -861,6 +791,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				opts: []SubnetsResolveOption{
 					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithSubnetsClusterTagCheck(defaultSubnetsClusterTagCheck),
 				},
 			},
 			want: []*ec2sdk.Subnet{
@@ -881,6 +812,120 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					AvailabilityZone:   awssdk.String("us-west-2c"),
 					AvailabilityZoneId: awssdk.String("usw2-az3"),
 					VpcId:              awssdk.String("vpc-1"),
+				},
+			},
+		},
+		{
+			name: "subnets tagged for some other clusters doesn't get ignored, with SubnetsClusterTagCheck disabled",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: awssdk.StringSlice([]string{"", "1"}),
+								},
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-1"}),
+								},
+							},
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:           awssdk.String("subnet-3"),
+								AvailabilityZone:   awssdk.String("us-west-2c"),
+								AvailabilityZoneId: awssdk.String("usw2-az3"),
+								VpcId:              awssdk.String("vpc-1"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
+										Value: awssdk.String("owned"),
+									},
+								},
+							},
+							{
+								SubnetId:           awssdk.String("subnet-1"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
+										Value: awssdk.String("owned"),
+									},
+								},
+							},
+							{
+								SubnetId:           awssdk.String("subnet-2"),
+								AvailabilityZone:   awssdk.String("us-west-2c"),
+								AvailabilityZoneId: awssdk.String("usw2-az3"),
+								VpcId:              awssdk.String("vpc-1"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
+										Value: awssdk.String("owned"),
+									},
+								},
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az3"},
+						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+							"usw2-az3": {
+								ZoneId:   awssdk.String("usw2-az3"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithSubnetsClusterTagCheck(false),
+				},
+			},
+			want: []*ec2sdk.Subnet{
+				{
+					SubnetId:           awssdk.String("subnet-1"),
+					AvailabilityZone:   awssdk.String("us-west-2a"),
+					AvailabilityZoneId: awssdk.String("usw2-az1"),
+					VpcId:              awssdk.String("vpc-1"),
+					Tags: []*ec2sdk.Tag{
+						{
+							Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
+							Value: awssdk.String("owned"),
+						},
+					},
+				},
+				{
+					SubnetId:           awssdk.String("subnet-2"),
+					AvailabilityZone:   awssdk.String("us-west-2c"),
+					AvailabilityZoneId: awssdk.String("usw2-az3"),
+					VpcId:              awssdk.String("vpc-1"),
+					Tags: []*ec2sdk.Tag{
+						{
+							Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
+							Value: awssdk.String("owned"),
+						},
+					},
 				},
 			},
 		},
