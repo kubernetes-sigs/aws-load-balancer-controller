@@ -26,7 +26,7 @@ serviceAccount:
   name:
   # Automount API credentials for a Service Account.
   automountServiceAccountToken: true
-  # imagePullSecrets specifies the list of image pull secrets to add to the Service Account.
+  # List of image pull secrets to add to the Service Account.
   imagePullSecrets:
     # - name: docker
 
