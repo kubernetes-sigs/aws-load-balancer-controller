@@ -282,7 +282,7 @@ serviceMonitor:
   # Prometheus scrape interval
   interval: 1m
   # Namespace to create the service monitor in
-  namespace: ""
+  namespace:
 
 # clusterSecretsPermissions lets you configure RBAC permissions for secret resources
 # Access to secrets resource is required only if you use the OIDC feature, and instead of
