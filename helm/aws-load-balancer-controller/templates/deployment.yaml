@@ -3,6 +3,10 @@ kind: Deployment
 metadata:
   name: {{ include "aws-load-balancer-controller.fullname" . }}
   namespace: {{ .Release.Namespace }}
+  {{- if .Values.deploymentAnnotations }}
+  annotations:
+  {{- toYaml .Values.deploymentAnnotations | nindent 4 }}
+  {{- end }}
   labels:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 spec:
