@@ -147,3 +147,4 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 | EndpointsFailOpen                     | string                          | false          | Enable or disable allowing endpoints with `ready:unknown` state in the target groups. |
 | EnableServiceController               | string                          | true           | Toggles support for `Service` type resources. |
 | EnableIPTargetType                    | string                          | true           | Used to toggle support for target-type `ip` across `Ingress` and `Service` type resources. |
+| SubnetsClusterTagCheck                | string                          | true           | Enable or disable the check for `kubernetes.io/cluster/${cluster-name}` during subnet auto-discovery |
