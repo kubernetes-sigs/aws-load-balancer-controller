@@ -98,6 +98,9 @@ podAnnotations: {}
 
 podLabels: {}
 
+# additionalLabels -- Labels to add to each object of the chart.
+additionalLabels: {}
+
 # Enable cert-manager
 enableCertManager: false
 
