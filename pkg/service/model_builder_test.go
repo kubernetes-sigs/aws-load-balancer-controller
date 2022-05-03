@@ -2770,7 +2770,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			} else {
 				enableIPTargetType = *tt.enableIPTargetType
 			}
-			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager,
+			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, featureGates,
 				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", enableIPTargetType, serviceUtils)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)

@@ -97,8 +97,8 @@ func WithSubnetsClusterTagCheck(SubnetsClusterTagCheck bool) SubnetsResolveOptio
 type SubnetsResolver interface {
 	// ResolveViaDiscovery resolve subnets by auto discover matching subnets.
 	// Discovery candidate includes all subnets within the clusterVPC. Additionally,
-	//   * for internet-facing Load Balancer, "kubernetes.io/role/elb" tag must presents.
-	//   * for internal Load Balancer, "kubernetes.io/role/internal-elb" tag must presents.
+	//   * for internet-facing Load Balancer, "kubernetes.io/role/elb" tag must be present.
+	//   * for internal Load Balancer, "kubernetes.io/role/internal-elb" tag must be present.
 	//   * if SubnetClusterTagCheck is enabled, subnets within the clusterVPC must contain no cluster tag at all
 	//     or contain the "kubernetes.io/cluster/<cluster_name>" tag for the current cluster
 	// If multiple subnets are found for specific AZ, one subnet is chosen based on the lexical order of subnetID.

@@ -17,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -760,6 +761,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 
 			clusterName := "cluster-name"
 			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
+			featureGates := config.NewFeatureGates()
 
 			builder := &defaultModelBuildTask{
 				clusterName:         clusterName,
@@ -769,6 +771,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 				subnetsResolver:     subnetsResolver,
 				trackingProvider:    trackingProvider,
 				elbv2TaggingManager: elbv2TaggingManager,
+				featureGates:        featureGates,
 			}
 			got, err := builder.buildLoadBalancerSubnets(context.Background(), tt.scheme)
 			if tt.wantErr != nil {
