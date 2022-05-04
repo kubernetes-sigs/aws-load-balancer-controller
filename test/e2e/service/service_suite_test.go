@@ -1,10 +1,11 @@
 package service
 
 import (
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
