@@ -49,10 +49,6 @@ type defaultEndpointServiceManager struct {
 	externalManagedTags []string
 }
 
-func (m *defaultEndpointServiceManager) ReconcileTags(ctx context.Context, resID string, desiredTags map[string]string, opts ...ReconcileTagsOption) error {
-	return nil
-}
-
 func (m *defaultEndpointServiceManager) Create(ctx context.Context, resSG *ec2model.VPCEndpointService) (ec2model.VPCEndpointServiceStatus, error) {
 	sgTags := m.trackingProvider.ResourceTags(resSG.Stack(), resSG, resSG.Spec.Tags)
 	sdkTags := convertTagsToSDKTags(sgTags)
