@@ -15,6 +15,10 @@ func ChunkStrings(targets []string, chunkSize int) [][]string {
 	return chunks
 }
 
+// DiffStringSlice returns three lists these consist of :-
+// - all the elements in the first argument but not the second
+// - all the elements in both arguments
+// - all the elements in the second argument but not in the first
 func DiffStringSlice(first, second []string) ([]*string, []*string, []*string) {
 	firstSet := sets.NewString(first...)
 	secondSet := sets.NewString(second...)
