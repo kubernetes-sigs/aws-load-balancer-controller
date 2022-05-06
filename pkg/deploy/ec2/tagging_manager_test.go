@@ -3,7 +3,6 @@ package ec2
 import (
 	"context"
 	"testing"
-
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/golang/mock/gomock"

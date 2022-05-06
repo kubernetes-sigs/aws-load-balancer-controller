@@ -1,9 +1,8 @@
 package algorithm
 
 import (
-	"testing"
-
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestChunkStrings(t *testing.T) {

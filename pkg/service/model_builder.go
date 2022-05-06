@@ -2,12 +2,10 @@ package service
 
 import (
 	"context"
-	"strconv"
-	"sync"
-
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-
+	"strconv"
+	"sync"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"

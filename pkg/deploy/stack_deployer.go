@@ -2,7 +2,6 @@ package deploy
 
 import (
 	"context"
-
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"

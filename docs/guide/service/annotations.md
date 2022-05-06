@@ -11,7 +11,7 @@
 ## Annotations
 !!!warning
     These annotations are specific to the kubernetes [service resources reconciled](#lb-type) by the AWS Load Balancer Controller. Although the list was initially derived from the k8s in-tree `kube-controller-manager`, this
-    documentation is not an accurate reference for the services reconciled by the in-tree controller.
+    documentation is not an accurate reference for the services reconciled by the in-tree controller. 
 
 | Name                                                                                             | Type                    | Default                   | Notes                                                  |
 |--------------------------------------------------------------------------------------------------|-------------------------|---------------------------|--------------------------------------------------------|
@@ -69,7 +69,7 @@ Traffic Routing can be controlled with following annotations:
 
     !!!tip
         This annotation specifies the controller used to provision LoadBalancers (as specified in [legacy-cloud-provider](#legacy-cloud-provider)). Refer to [lb-scheme](#lb-scheme) to specify whether the LoadBalancer is internet-facing or internal.
-
+    
     !!!note ""
         - [Deprecated] For type `nlb-ip`, the controller will provision an NLB with targets registered by IP address. This value is supported for backwards compatibility.
         - For type `external`, the NLB target type depends on the [nlb-target-type](#nlb-target-type) annotation.
@@ -220,11 +220,11 @@ for proxy protocol v2 configuration.
     !!!warning ""
         Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(`access_logs.s3.enabled=false`) and omitting them is not sufficient.
         Custom attributes set in this annotation's config map will be overriden by annotation-specific attributes. For backwards compatibility, existing annotations for the individual load balancer attributes get precedence in case of ties.
-
+  
     !!!note ""
         - If `deletion_protection.enabled=true` is in the annotation, the controller will not be able to delete the NLB during reconciliation. Once the attribute gets edited to `deletion_protection.enabled=false` during reconciliation, the deployer will force delete the resource.
         - Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
-
+    
     !!!example
         - enable access log to s3
         ```
@@ -246,7 +246,7 @@ for proxy protocol v2 configuration.
         service.beta.kubernetes.io/aws-load-balancer-access-log-enabled
         service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name
         service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix
-        service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled
+        service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled 
         ```
 
 
@@ -444,7 +444,6 @@ A VPC Endpoint Service can be attached to a controlled loadbalancer via the foll
 - <a name="endpoint-allowed-principles">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals`</a> is a list of principles from which an Endpoint can be attached to this Endpoint Service.
 
 - <a name="endpoint-private-dns">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name`</a> is the private DNS name given to the Endpoint Service.  This will need to be verifies through a valid DNS record.
-
 
 ## Legacy Cloud Provider
 The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the legacy aws cloud provider. The annotation `service.beta.kubernetes.io/aws-load-balancer-type` is used to determine which controller reconciles the service. If the annotation value is `nlb-ip` or `external`, legacy cloud provider ignores the service resource (provided it has the correct patch) so that the AWS Load Balancer controller can take over. For all other values of the annotation, the legacy cloud provider will handle the service. Note that this annotation should be specified during service creation and not edited later.
