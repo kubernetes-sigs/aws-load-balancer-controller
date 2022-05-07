@@ -76,7 +76,7 @@ helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n
 #Start the test
 echo "Starting the ginkgo test suite" 
 
-(cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
+(cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --fail-on-pending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
 
 # tail=-1 is added so that no logs are truncated
 # https://github.com/kubernetes/kubectl/issues/812
