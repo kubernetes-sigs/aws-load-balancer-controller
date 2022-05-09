@@ -70,9 +70,13 @@ affinity: {}
 # more details here: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
 topologySpreadConstraints: {}
 
+deploymentAnnotations: {}
+
 podAnnotations: {}
 
 podLabels: {}
+
+additionalLabels: {}
 
 # Enable cert-manager
 enableCertManager: false

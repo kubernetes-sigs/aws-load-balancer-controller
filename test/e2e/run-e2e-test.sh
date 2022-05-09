@@ -7,7 +7,7 @@ set -e
 SECONDS=0
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 echo "Running AWS Load Balancer Controller e2e tests with the following variables
-KUBE CONFIG: $KUBE_CONFIG_PATH
+KUBE_CONFIG_PATH: $KUBE_CONFIG_PATH
 CLUSTER_NAME: $CLUSTER_NAME
 REGION: $REGION
 IP_FAMILY: ${IP_FAMILY:-"IPv4"}
@@ -77,9 +77,9 @@ helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n
 #Start the test
 echo "Starting the ginkgo test suite"
 if [ "$IP_FAMILY" == "IPv4"  ]; then
-  (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+  (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --fail-on-pending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
 elif [ "$IP_FAMILY" == "IPv6"  ]; then
-  (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --skip="instance" -v -r --timeout 60m --failOnPending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+  (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --skip="instance" -v -r --timeout 60m --fail-on-pending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
 else
   echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
   exit

@@ -26,6 +26,9 @@ serviceAccount:
   name:
   # Automount API credentials for a Service Account.
   automountServiceAccountToken: true
+  # List of image pull secrets to add to the Service Account.
+  imagePullSecrets:
+    # - name: docker
 
 rbac:
   # Specifies whether rbac resources should be created
@@ -91,9 +94,15 @@ updateStrategy: {}
 # serviceAnnotations contains annotations to be added to the provisioned webhook service resource
 serviceAnnotations: {}
 
+# deploymentAnnotations contains annotations for the controller deployment
+deploymentAnnotations: {}
+
 podAnnotations: {}
 
 podLabels: {}
+
+# additionalLabels -- Labels to add to each object of the chart.
+additionalLabels: {}
 
 # Enable cert-manager
 enableCertManager: false
@@ -281,6 +290,8 @@ serviceMonitor:
   additionalLabels: {}
   # Prometheus scrape interval
   interval: 1m
+  # Namespace to create the service monitor in
+  namespace:
 
 # clusterSecretsPermissions lets you configure RBAC permissions for secret resources
 # Access to secrets resource is required only if you use the OIDC feature, and instead of

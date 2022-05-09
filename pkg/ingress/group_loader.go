@@ -3,21 +3,21 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"sort"
+	"strings"
+
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
-	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"strings"
 )
 
 const (
 	defaultGroupOrder  int64 = 0
-	minGroupOrder      int64 = 1
+	minGroupOrder      int64 = -1000
 	maxGroupOder       int64 = 1000
 	maxGroupNameLength int   = 63
 )
@@ -251,7 +251,7 @@ type groupMemberWithOrder struct {
 
 // sortGroupMembers will sort Ingresses within Ingress group in ascending order.
 // the order for an ingress can be set as below:
-// * explicit denote the order via "group.order" annotation.(It's an error if two Ingress have same explicit order)
+// * explicit denote the order via "group.order" annotation.
 // * implicit denote the order of ${defaultGroupOrder}.
 // If two Ingress are of same order, they are sorted by lexical order of their full-qualified name.
 func (m *defaultGroupLoader) sortGroupMembers(members []ClassifiedIngress) ([]ClassifiedIngress, error) {
@@ -260,7 +260,6 @@ func (m *defaultGroupLoader) sortGroupMembers(members []ClassifiedIngress) ([]Cl
 	}
 
 	groupMemberWithOrderList := make([]groupMemberWithOrder, 0, len(members))
-	explicitOrders := sets.NewInt64()
 	for _, member := range members {
 		var order = defaultGroupOrder
 		exists, err := m.annotationParser.ParseInt64Annotation(annotations.IngressSuffixGroupOrder, &order, member.Ing.Annotations)
@@ -272,10 +271,6 @@ func (m *defaultGroupLoader) sortGroupMembers(members []ClassifiedIngress) ([]Cl
 				return nil, errors.Errorf("explicit Ingress group order must be within [%v:%v], Ingress: %v, order: %v",
 					minGroupOrder, maxGroupOder, k8s.NamespacedName(member.Ing), order)
 			}
-			if explicitOrders.Has(order) {
-				return nil, errors.Errorf("conflict Ingress group order: %v", order)
-			}
-			explicitOrders.Insert(order)
 		}
 
 		groupMemberWithOrderList = append(groupMemberWithOrderList, groupMemberWithOrder{member: member, order: order})

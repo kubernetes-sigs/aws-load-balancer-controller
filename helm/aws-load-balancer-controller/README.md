@@ -86,7 +86,7 @@ If you are setting `serviceMonitor.enabled: true` you need to have installed the
 
 ## Installing the Chart
 **Note**: You need to uninstall aws-alb-ingress-controller. Please refer to the [upgrade](#Upgrade) section below before you proceed.
-**Note**: Starting chart version 1.4.1, you need to explicitly set clusterSecretsPermissions.allowAllSecrets to true to grant the controller permission to access all secrets for OIDC feature. We recommend configuring access to individual secrets resource separately [[link](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/examples/secrets_access/)].
+**Note**: Starting chart version 1.4.1, you need to explicitly set `clusterSecretsPermissions.allowAllSecrets` to true to grant the controller permission to access all secrets for OIDC feature. We recommend configuring access to individual secrets resource separately [[link](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/examples/secrets_access/)].
 
 Add the EKS repository to Helm:
 ```shell script
@@ -166,7 +166,7 @@ The following tables lists the configurable parameters of the chart and their de
 The default values set by the application itself can be confirmed [here](https://kubernetes-sigs.github.io/aws-load-balancer-controller/guide/controller/configurations/).
 
 | Parameter                                      | Description                                                                                              | Default                                                                            |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+|------------------------------------------------| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `image.repository`                             | image repository                                                                                         | `602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller` |
 | `image.tag`                                    | image tag                                                                                                | `<VERSION>`                                                                        |
 | `image.pullPolicy`                             | image pull policy                                                                                        | `IfNotPresent`                                                                     |
@@ -178,11 +178,14 @@ The default values set by the application itself can be confirmed [here](https:/
 | `tolerations`                                  | Controller pod toleration for taints                                                                     | `{}`                                                                               |
 | `affinity`                                     | Affinity for pod assignment (string or map) (soft affinity if string "default", set explicitly if map)   | `default`                                                                          |
 | `topologySpreadConstraints`                    | Topology Spread Constraints for pod assignment                                                           | `{}`                                                                               |
+| `deploymentAnnotations`                        | Annotations to add to deployment                                                                         | `{}`                                                                               |
 | `podAnnotations`                               | Annotations to add to each pod                                                                           | `{}`                                                                               |
 | `podLabels`                                    | Labels to add to each pod                                                                                | `{}`                                                                               |
+| `additionalLabels`                             | Labels to add to all components                                                                          | `{}`                                                                               |
 | `rbac.create`                                  | if `true`, create and use RBAC resources                                                                 | `true`                                                                             |
 | `serviceAccount.annotations`                   | optional annotations to add to service account                                                           | None                                                                               |
 | `serviceAccount.automountServiceAccountToken`  | Automount API credentials for a Service Account                                                          | `true`                                                                             |
+| `serviceAccount.imagePullSecrets`              | List of image pull secrets to add to the Service Account                                                 | `[]`                                                                               |
 | `serviceAccount.create`                        | If `true`, create a new service account                                                                  | `true`                                                                             |
 | `serviceAccount.name`                          | Service account to be used                                                                               | None                                                                               |
 | `terminationGracePeriodSeconds`                | Time period for controller pod to do a graceful shutdown                                                 | 10                                                                                 |
@@ -236,4 +239,5 @@ The default values set by the application itself can be confirmed [here](https:/
 | `serviceMonitor.enabled`                       | Specifies whether a service monitor should be created, requires the ServiceMonitor CRD to be installed   | `false`                                                                            |
 | `serviceMonitor.additionalLabels`              | Labels to add to the service account                                                                     | `{}`                                                                               |
 | `serviceMonitor.interval`                      | Prometheus scrape interval                                                                               | `1m`                                                                               |
+| `serviceMonitor.namespace`                     | Namespace in which Prometheus is running                                                                 | None                                                                               |
 | `clusterSecretsPermissions.allowAllSecrets`    | If `true`, controller has access to all secrets in the cluster.                                          | `false`                                                                            |

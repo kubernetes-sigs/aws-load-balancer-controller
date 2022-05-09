@@ -32,7 +32,7 @@ type BackendConfig struct {
 
 type MultiPathIngressConfig struct {
 	GroupName  string
-	GroupOrder int32
+	GroupOrder int64
 	PathCFGs   []PathConfig
 }
 

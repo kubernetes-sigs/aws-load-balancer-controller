@@ -126,10 +126,15 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Ingress")
 		os.Exit(1)
 	}
-	if err = svcReconciler.SetupWithManager(ctx, mgr); err != nil {
-		setupLog.Error(err, "Unable to create controller", "controller", "Service")
-		os.Exit(1)
+
+	// Setup service reconciler only if AllowServiceType is set to true.
+	if controllerCFG.FeatureGates.Enabled(config.EnableServiceController) {
+		if err = svcReconciler.SetupWithManager(ctx, mgr); err != nil {
+			setupLog.Error(err, "Unable to create controller", "controller", "Service")
+			os.Exit(1)
+		}
 	}
+
 	if err := tgbReconciler.SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
 		os.Exit(1)

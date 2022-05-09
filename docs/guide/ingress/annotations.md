@@ -88,12 +88,9 @@ By default, Ingresses don't belong to any IngressGroup, and we treat it as a "im
 - <a name="group.order">`alb.ingress.kubernetes.io/group.order`</a> specifies the order across all Ingresses within IngressGroup.
     
     !!!note ""
-        - You can explicitly denote the order using a number between 1-1000
+        - You can explicitly denote the order using a number between -1000 and 1000
         - The smaller the order, the rule will be evaluated first. All Ingresses without an explicit order setting get order value as 0
-        - By default the rule order between Ingresses within IngressGroup is determined by the lexical order of Ingress’s namespace/name.
-
-    !!!warning "" 
-        You may not have duplicate group order explicitly defined for Ingresses within IngressGroup.
+        - Rules with the same order are sorted lexicographically by the Ingress’s namespace/name.
 
     !!!example
         ```
