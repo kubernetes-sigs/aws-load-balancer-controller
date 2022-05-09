@@ -2,6 +2,9 @@ package ingress
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
@@ -16,8 +19,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
-	"time"
 )
 
 func Test_defaultGroupLoader_Load(t *testing.T) {
@@ -2617,27 +2618,36 @@ func Test_defaultGroupLoader_sortGroupMembers(t *testing.T) {
 			wantErr: errors.New("failed to load Ingress group order for ingress: namespace/ingress: failed to parse int64 annotation, alb.ingress.kubernetes.io/group.order: x: strconv.ParseInt: parsing \"x\": invalid syntax"),
 		},
 		{
-			name: "invalid group order range",
+			name: "two ingress with the same order should be sorted lexically",
 			members: []ClassifiedIngress{
 				{
 					Ing: &networking.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
 							Namespace: "namespace",
-							Name:      "ingress",
+							Name:      "ingress-b",
 							Annotations: map[string]string{
 								"kubernetes.io/ingress.class":           "alb",
-								"alb.ingress.kubernetes.io/group.order": "1001",
+								"alb.ingress.kubernetes.io/group.name":  "awesome-group",
+								"alb.ingress.kubernetes.io/group.order": "42",
+							},
+						},
+					},
+				},
+				{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "namespace",
+							Name:      "ingress-a",
+							Annotations: map[string]string{
+								"kubernetes.io/ingress.class":           "alb",
+								"alb.ingress.kubernetes.io/group.name":  "awesome-group",
+								"alb.ingress.kubernetes.io/group.order": "42",
 							},
 						},
 					},
 				},
 			},
-			want:    nil,
-			wantErr: errors.New("explicit Ingress group order must be within [1:1000], Ingress: namespace/ingress, order: 1001"),
-		},
-		{
-			name: "two ingress shouldn't have same explicit order",
-			members: []ClassifiedIngress{
+			want: []ClassifiedIngress{
 				{
 					Ing: &networking.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
@@ -2665,8 +2675,65 @@ func Test_defaultGroupLoader_sortGroupMembers(t *testing.T) {
 					},
 				},
 			},
-			want:    nil,
-			wantErr: errors.New("conflict Ingress group order: 42"),
+		},
+		{
+			name: "negative orders are allow",
+			members: []ClassifiedIngress{
+				{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "namespace",
+							Name:      "ingress-b",
+							Annotations: map[string]string{
+								"kubernetes.io/ingress.class":           "alb",
+								"alb.ingress.kubernetes.io/group.name":  "awesome-group",
+								"alb.ingress.kubernetes.io/group.order": "0",
+							},
+						},
+					},
+				},
+				{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "namespace",
+							Name:      "ingress-a",
+							Annotations: map[string]string{
+								"kubernetes.io/ingress.class":           "alb",
+								"alb.ingress.kubernetes.io/group.name":  "awesome-group",
+								"alb.ingress.kubernetes.io/group.order": "-1",
+							},
+						},
+					},
+				},
+			},
+			want: []ClassifiedIngress{
+				{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "namespace",
+							Name:      "ingress-a",
+							Annotations: map[string]string{
+								"kubernetes.io/ingress.class":           "alb",
+								"alb.ingress.kubernetes.io/group.name":  "awesome-group",
+								"alb.ingress.kubernetes.io/group.order": "-1",
+							},
+						},
+					},
+				},
+				{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "namespace",
+							Name:      "ingress-b",
+							Annotations: map[string]string{
+								"kubernetes.io/ingress.class":           "alb",
+								"alb.ingress.kubernetes.io/group.name":  "awesome-group",
+								"alb.ingress.kubernetes.io/group.order": "0",
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
