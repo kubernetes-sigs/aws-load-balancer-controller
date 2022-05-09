@@ -40,7 +40,7 @@ func (options *Options) BindFlags() {
 
 	flag.StringVar(&options.S3BucketName, "s3-bucket-name", "", `S3 bucket to use for testing load balancer access logging feature`)
 	flag.StringVar(&options.CertificateARNs, "certificate-arns", "", `Certificate ARNs to use for TLS listeners`)
-	flag.StringVar(&options.IPFamily, "ip-family", "IPv4", "the ip family used for the cluster")
+	flag.StringVar(&options.IPFamily, "ip-family", "IPv4", "the ip family used for the cluster, can be IPv4 or IPv6")
 }
 
 func (options *Options) Validate() error {
