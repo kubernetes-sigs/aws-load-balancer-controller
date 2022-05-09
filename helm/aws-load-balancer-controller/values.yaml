@@ -301,3 +301,18 @@ clusterSecretsPermissions:
   # allowAllSecrets allows the controller to access all secrets in the cluster.
   # This is to get backwards compatible behavior, but *NOT* recommended for security reasons
   allowAllSecrets: false
+
+networkPolicy:
+  # Specifies whether network policies should be created
+  # By default the following connectivity is opened:
+  # - ingress/egress other aws-load-balancer-controller pods with matching selector labels
+  # - ingress to pods on .Values.webhookBindPort
+  enabled: false
+  # annotations adds annotations to the created NetworkPolicy resource
+  annotations: {}
+  # egressRules allows the user to define additional egress network policy rules beyond the default
+  # - should be formatted as defined in https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  egressRules: []
+  # ingressRules allows the user to define additional ingress network policy rules beyond the default
+  # - should be formatted as defined in https://kubernetes.io/docs/concepts/services-networking/network-policies/
+  ingressRules: []

@@ -1,0 +1,38 @@
+{{- if .Values.networkPolicy.enabled }}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: {{ include "aws-load-balancer-controller.fullname" . }}
+{{- if $.Values.networkPolicy.annotations }}
+  annotations:
+{{ toYaml $.Values.networkPolicy.annotations | indent 4}}
+{{- end }}
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "aws-load-balancer-controller.selectorLabels" . | nindent 6 }}
+  policyTypes:
+      - Ingress
+      - Egress
+  egress:
+    - to:
+      - podSelector:
+          matchLabels:
+            {{- include "aws-load-balancer-controller.selectorLabels" . | nindent 12 }}
+{{- if .Values.networkPolicy.egressRules }}
+{{ toYaml .Values.networkPolicy.egressRules | indent 4 }}
+{{- end }}
+  ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            {{- include "aws-load-balancer-controller.selectorLabels" . | nindent 12 }}
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.webhookBindPort | default 9443 }}
+{{- if .Values.networkPolicy.ingressRules }}
+{{ toYaml .Values.networkPolicy.ingressRules | indent 4 }}
+{{- end }}
+{{- end }}
