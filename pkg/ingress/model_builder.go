@@ -40,7 +40,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
-	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
+	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, disableRestrictedSGRules bool, enableIPTargetType bool, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
@@ -63,6 +63,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		defaultSSLPolicy:         defaultSSLPolicy,
 		enableBackendSG:          enableBackendSG,
 		disableRestrictedSGRules: disableRestrictedSGRules,
+		enableIPTargetType:       enableIPTargetType,
 		logger:                   logger,
 	}
 }
@@ -92,6 +93,7 @@ type defaultModelBuilder struct {
 	defaultSSLPolicy         string
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
+	enableIPTargetType       bool
 
 	logger logr.Logger
 }
@@ -117,6 +119,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		logger:                   b.logger,
 		enableBackendSG:          b.enableBackendSG,
 		disableRestrictedSGRules: b.disableRestrictedSGRules,
+		enableIPTargetType:       b.enableIPTargetType,
 
 		ingGroup: ingGroup,
 		stack:    stack,
@@ -172,6 +175,7 @@ type defaultModelBuildTask struct {
 	backendSGIDToken         core.StringToken
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
+	enableIPTargetType       bool
 
 	defaultTags                               map[string]string
 	externalManagedTags                       sets.String
