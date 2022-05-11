@@ -44,6 +44,8 @@ type SubnetsResolveOptions struct {
 	LBScheme elbv2model.LoadBalancerScheme
 	// count of available ip addresses
 	AvailableIPAddressCount int64
+	// whether to check the cluster tag
+	SubnetsClusterTagCheck bool
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -84,14 +86,20 @@ func WithSubnetsResolveAvailableIPAddressCount(AvailableIPAddressCount int64) Su
 	}
 }
 
+// WithSubnetsResolveAvailableIPAddressCount generates a option that configures AvailableIPAddressCount.
+func WithSubnetsClusterTagCheck(SubnetsClusterTagCheck bool) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.SubnetsClusterTagCheck = SubnetsClusterTagCheck
+	}
+}
+
 // SubnetsResolver is responsible for resolve EC2 Subnets for Load Balancers.
 type SubnetsResolver interface {
 	// ResolveViaDiscovery resolve subnets by auto discover matching subnets.
-	// Discovery candidate includes all subnets within clusterVPC that contains the "kubernetes.io/cluster/<cluster-name>" tag.
-	// Additionally,
+	//   * if SubnetClusterTagCheck is enabled, the discovered subnets within clusterVPC must contain the "kubernetes.io/cluster/<cluster-name>" tag
 	//   * for internet-facing Load Balancer, "kubernetes.io/role/elb" tag must presents.
 	//   * for internal Load Balancer, "kubernetes.io/role/internal-elb" tag must presents.
-	// If multiple subnets are found for specific AZ, one subnet is chosen based on the lexical order of subnetID.
+	// 	 * if multiple subnets are found for specific AZ, one subnet is chosen based on the lexical order of subnetID.
 	ResolveViaDiscovery(ctx context.Context, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
 
 	// ResolveViaNameOrIDSlice resolve subnets using subnet name or ID.
@@ -160,13 +168,15 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 			chosenSubnets = append(chosenSubnets, subnets[0])
 		} else if len(subnets) > 1 {
 			sort.Slice(subnets, func(i, j int) bool {
-				clusterTagI := r.checkSubnetHasClusterTag(subnets[i])
-				clusterTagJ := r.checkSubnetHasClusterTag(subnets[j])
-				if clusterTagI != clusterTagJ {
-					if clusterTagI {
-						return true
+				if resolveOpts.SubnetsClusterTagCheck {
+					clusterTagI := r.checkSubnetHasClusterTag(subnets[i])
+					clusterTagJ := r.checkSubnetHasClusterTag(subnets[j])
+					if clusterTagI != clusterTagJ {
+						if clusterTagI {
+							return true
+						}
+						return false
 					}
-					return false
 				}
 				return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
 			})

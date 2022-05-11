@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"testing"
 	"time"
 
@@ -3949,6 +3950,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				trackingProvider:       trackingProvider,
 				elbv2TaggingManager:    elbv2TaggingManager,
 				enableBackendSG:        tt.fields.enableBackendSG,
+				featureGates:           config.NewFeatureGates(),
 				logger:                 &log.NullLogger{},
 
 				defaultSSLPolicy: "ELBSecurityPolicy-2016-08",
