@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -35,7 +36,7 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
-	elbv2TaggingManager elbv2deploy.TaggingManager, clusterName string, defaultTags map[string]string,
+	elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, enableIPTargetType bool, serviceUtils ServiceUtils) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
@@ -43,6 +44,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		vpcInfoProvider:     vpcInfoProvider,
 		trackingProvider:    trackingProvider,
 		elbv2TaggingManager: elbv2TaggingManager,
+		featureGates:        featureGates,
 		serviceUtils:        serviceUtils,
 		clusterName:         clusterName,
 		vpcID:               vpcID,
@@ -61,6 +63,7 @@ type defaultModelBuilder struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	featureGates        config.FeatureGates
 	serviceUtils        ServiceUtils
 
 	clusterName         string
@@ -81,6 +84,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		vpcInfoProvider:     b.vpcInfoProvider,
 		trackingProvider:    b.trackingProvider,
 		elbv2TaggingManager: b.elbv2TaggingManager,
+		featureGates:        b.featureGates,
 		serviceUtils:        b.serviceUtils,
 		enableIPTargetType:  b.enableIPTargetType,
 
@@ -131,6 +135,7 @@ type defaultModelBuildTask struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	featureGates        config.FeatureGates
 	serviceUtils        ServiceUtils
 	enableIPTargetType  bool
 

@@ -16,6 +16,7 @@ const (
 	EndpointsFailOpen           Feature = "EndpointsFailOpen"
 	EnableServiceController     Feature = "EnableServiceController"
 	EnableIPTargetType          Feature = "EnableIPTargetType"
+	SubnetsClusterTagCheck      Feature = "SubnetsClusterTagCheck"
 )
 
 type FeatureGates interface {
@@ -49,6 +50,7 @@ func NewFeatureGates() FeatureGates {
 			EndpointsFailOpen:           false,
 			EnableServiceController:     true,
 			EnableIPTargetType:          true,
+			SubnetsClusterTagCheck:      true,
 		},
 	}
 }
