@@ -27,11 +27,9 @@ eksctl utils associate-iam-oidc-provider \
     --approve
 
 echo "Creating AWSLoadbalancerController IAM Policy"
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/iam_policy.json
-
 aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
-    --policy-document file://iam-policy.json || true
+    --policy-document file://"$SCRIPT_DIR"/../docs/install/iam_policy.json || true
 
 echo "Creating IAM serviceaccount"
 eksctl create iamserviceaccount \
@@ -79,5 +77,9 @@ kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller
 
 echo "Uncordon windows nodes"
 toggle_windows_scheduling "uncordon"
+
+# Need to do this as last step
+echo "Delete IAM Policy"
+aws iam delete-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
 
 echo "Successfully finished the test suite $(($SECONDS / 60)) minutes and $(($SECONDS % 60)) seconds"
