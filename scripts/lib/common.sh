@@ -4,11 +4,14 @@
 
 SECONDS=0
 
-echo "Running e2e tests for aws-load-balancer-controller with the following variables
-KUBE_CONFIG_PATH:  $KUBE_CONFIG_PATH
+# Set IP Family
+IP_FAMILY="${IP_FAMILY:-IPv4}"
+
+echo "Running AWS Load Balancer Controller e2e tests with the following variables
+KUBE_CONFIG_PATH: $KUBE_CONFIG_PATH
 CLUSTER_NAME: $CLUSTER_NAME
 REGION: $REGION
-ENDPOINT: $ENDPOINT
+IP_FAMILY: $IP_FAMILY
 OS_OVERRIDE: $OS_OVERRIDE"
 
 if [[ -z "${OS_OVERRIDE}" ]]; then

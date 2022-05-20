@@ -53,9 +53,16 @@ helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n
 
 function run_ginkgo_test() {
   local focus=$1
-  echo "Starting the ginkgo tests from generated ginkgo test binaries with focus: $focus" 
-  (CGO_ENABLED=0 ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 40m --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
-  (CGO_ENABLED=0 ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 40m --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID || true)
+  echo "Starting the ginkgo tests from generated ginkgo test binaries with focus: $focus"
+  if [ "$IP_FAMILY" == "IPv4" ]; then 
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+  elif [ "$IP_FAMILY" == "IPv6" ]; then
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+  else
+    echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
+  fi
 }
 
 #Start the test
