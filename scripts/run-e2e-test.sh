@@ -4,14 +4,10 @@
 
 set -e
 
-SECONDS=0
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-echo "Running AWS Load Balancer Controller e2e tests with the following variables
-KUBE_CONFIG_PATH: $KUBE_CONFIG_PATH
-CLUSTER_NAME: $CLUSTER_NAME
-REGION: $REGION
-IP_FAMILY: ${IP_FAMILY:-"IPv4"}
-OS_OVERRIDE: $OS_OVERRIDE"
+GINKGO_TEST_BUILD="$SCRIPT_DIR/../test/build"
+
+source "$SCRIPT_DIR"/lib/common.sh
 
 function toggle_windows_scheduling(){
   schedule=$1
@@ -22,25 +18,8 @@ function toggle_windows_scheduling(){
   done
 }
 
-if [[ -z "${OS_OVERRIDE}" ]]; then
-  OS_OVERRIDE=linux
-fi
-
-GET_CLUSTER_INFO_CMD="aws eks describe-cluster --name $CLUSTER_NAME --region $REGION"
-
-if [[ -z "${ENDPOINT}" ]]; then
-  CLUSTER_INFO=$($GET_CLUSTER_INFO_CMD)
-else
-  CLUSTER_INFO=$($GET_CLUSTER_INFO_CMD --endpoint $ENDPOINT)
-fi
-
 echo "Cordon off windows nodes"
 toggle_windows_scheduling "cordon"
-
-VPC_ID=$(echo $CLUSTER_INFO | jq -r '.cluster.resourcesVpcConfig.vpcId')
-ACCOUNT_ID=$(aws sts get-caller-identity | jq -r '.Account')
-
-echo "VPC ID: $VPC_ID"
 
 eksctl utils associate-iam-oidc-provider \
     --region $REGION \
@@ -48,11 +27,9 @@ eksctl utils associate-iam-oidc-provider \
     --approve
 
 echo "Creating AWSLoadbalancerController IAM Policy"
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.1/docs/install/iam_policy.json
-
 aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
-    --policy-document file://iam-policy.json || true
+    --policy-document file://"$SCRIPT_DIR"/../docs/install/iam_policy.json || true
 
 echo "Creating IAM serviceaccount"
 eksctl create iamserviceaccount \
@@ -74,16 +51,22 @@ kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/
 echo "Install aws-load-balancer-controller"
 helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID
 
+function run_ginkgo_test() {
+  local focus=$1
+  echo "Starting the ginkgo tests from generated ginkgo test binaries with focus: $focus"
+  if [ "$IP_FAMILY" == "IPv4" ]; then 
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+  elif [ "$IP_FAMILY" == "IPv6" ]; then
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+  else
+    echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
+  fi
+}
+
 #Start the test
-echo "Starting the ginkgo test suite"
-if [ "$IP_FAMILY" == "IPv4"  ]; then
-  (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo -v -r --timeout 60m --fail-on-pending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
-elif [ "$IP_FAMILY" == "IPv6"  ]; then
-  (cd $SCRIPT_DIR && CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --skip="instance" -v -r --timeout 60m --fail-on-pending -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
-else
-  echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
-  exit
-fi
+run_ginkgo_test
 
 # tail=-1 is added so that no logs are truncated
 # https://github.com/kubernetes/kubectl/issues/812
@@ -101,5 +84,9 @@ kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller
 
 echo "Uncordon windows nodes"
 toggle_windows_scheduling "uncordon"
+
+# Need to do this as last step
+echo "Delete IAM Policy"
+aws iam delete-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
 
 echo "Successfully finished the test suite $(($SECONDS / 60)) minutes and $(($SECONDS % 60)) seconds"
