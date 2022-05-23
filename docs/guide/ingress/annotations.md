@@ -812,5 +812,4 @@ A VPC Endpoint Service can be attached to a controlled loadbalancer via the foll
 - <a name="endpoint-service-enable">``alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-enabled`</a> specifies whether to create a VPC Endpoint Service or not.  The `--enable-endpoint-service` flag must also be set.
 - <a name="endpoint-service-acceptance">``alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required`</a> specifies whether requests to attach an Endpoint to the Endpoint Service require manual acceptance.
 - <a name="endpoint-allowed-principals">``alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals`</a> is a list of principals from which an Endpoint can be attached to this Endpoint Service.
-
 - <a name="endpoint-private-dns">``alb.ingress.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name`</a> is the private DNS name given to the Endpoint Service.  This will need to be verifies through a valid DNS record.

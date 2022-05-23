@@ -25,7 +25,7 @@ type EndpointServiceManager interface {
 	ReconcilePermissions(ctx context.Context, permissions *ec2model.VPCEndpointServicePermissions) error
 }
 
-// NewdefaultEndpointServiceManager constructs new defaultEndpointServiceManager.
+// NewDefaultEndpointServiceManager constructs new defaultEndpointServiceManager.
 func NewDefaultEndpointServiceManager(ec2Client services.EC2, vpcID string, logger logr.Logger, trackingProvider tracking.Provider, taggingManager TaggingManager, externalManagedTags []string) *defaultEndpointServiceManager {
 	return &defaultEndpointServiceManager{
 		ec2Client:           ec2Client,
@@ -49,12 +49,12 @@ type defaultEndpointServiceManager struct {
 	externalManagedTags []string
 }
 
-func (m *defaultEndpointServiceManager) Create(ctx context.Context, resSG *ec2model.VPCEndpointService) (ec2model.VPCEndpointServiceStatus, error) {
-	sgTags := m.trackingProvider.ResourceTags(resSG.Stack(), resSG, resSG.Spec.Tags)
+func (m *defaultEndpointServiceManager) Create(ctx context.Context, resES *ec2model.VPCEndpointService) (ec2model.VPCEndpointServiceStatus, error) {
+	sgTags := m.trackingProvider.ResourceTags(resES.Stack(), resES, resES.Spec.Tags)
 	sdkTags := convertTagsToSDKTags(sgTags)
 
 	var resolvedLoadBalancerArns []string
-	for _, unresolved := range resSG.Spec.NetworkLoadBalancerArns {
+	for _, unresolved := range resES.Spec.NetworkLoadBalancerArns {
 		arn, err := unresolved.Resolve(ctx)
 		if err != nil {
 			return ec2model.VPCEndpointServiceStatus{}, err
@@ -63,12 +63,12 @@ func (m *defaultEndpointServiceManager) Create(ctx context.Context, resSG *ec2mo
 	}
 
 	var privateDnsName *string
-	if resSG.Spec.PrivateDNSName != nil {
-		privateDnsName = awssdk.String(*resSG.Spec.PrivateDNSName)
+	if resES.Spec.PrivateDNSName != nil {
+		privateDnsName = awssdk.String(*resES.Spec.PrivateDNSName)
 	}
 
 	req := ec2sdk.CreateVpcEndpointServiceConfigurationInput{
-		AcceptanceRequired:      awssdk.Bool(*resSG.Spec.AcceptanceRequired),
+		AcceptanceRequired:      awssdk.Bool(*resES.Spec.AcceptanceRequired),
 		PrivateDnsName:          privateDnsName,
 		NetworkLoadBalancerArns: awssdk.StringSlice(resolvedLoadBalancerArns),
 		TagSpecifications: []*ec2sdk.TagSpecification{
@@ -79,14 +79,14 @@ func (m *defaultEndpointServiceManager) Create(ctx context.Context, resSG *ec2mo
 		},
 	}
 	m.logger.Info("creating VpcEndpointService",
-		"resourceID", resSG.ID())
+		"resourceID", resES.ID())
 	resp, err := m.ec2Client.CreateVpcEndpointServiceConfigurationWithContext(ctx, &req)
 	if err != nil {
 		return ec2model.VPCEndpointServiceStatus{}, err
 	}
 	serviceID := awssdk.StringValue(resp.ServiceConfiguration.ServiceId)
 	m.logger.Info("created VpcEndpointService",
-		"resourceID", resSG.ID(),
+		"resourceID", resES.ID(),
 		"serviceID", serviceID)
 
 	return ec2model.VPCEndpointServiceStatus{
@@ -190,21 +190,21 @@ func (m *defaultEndpointServiceManager) Delete(ctx context.Context, sdkES networ
 }
 
 func (m *defaultEndpointServiceManager) ReconcilePermissions(ctx context.Context, permissions *ec2model.VPCEndpointServicePermissions) error {
-	m.logger.Info("Reconciling Permissions")
+	m.logger.Info("reconciling permissions")
 
 	serviceId, err := permissions.Spec.ServiceId.Resolve(ctx)
 	if err != nil {
-		return errors.Wrap(err, "Failed to resolve VPCEndpointServicePermissions serviceID")
+		return errors.Wrap(err, "failed to resolve VPCEndpointServicePermissions serviceID")
 	}
 	req := &ec2sdk.DescribeVpcEndpointServicePermissionsInput{
 		ServiceId: &serviceId,
 	}
 
-	m.logger.Info("Reconciling Permissions for service", "serviceId", serviceId)
+	m.logger.Info("reconciling permissions for service", "serviceId", serviceId)
 
 	permissionsInfo, err := m.fetchESPermissionInfosFromAWS(ctx, req)
 	if err != nil {
-		m.logger.Info("Error while fetching existing VPC endpoint service permissions")
+		m.logger.Info("error while fetching existing VPC endpoint service permissions")
 		return errors.Wrap(err, "failed to fetch existing VPCEndpointServicePermissions")
 	}
 
