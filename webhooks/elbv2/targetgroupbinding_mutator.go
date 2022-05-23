@@ -39,6 +39,12 @@ func (m *targetGroupBindingMutator) Prototype(_ admission.Request) (runtime.Obje
 
 func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
+	if tgb.Spec.TargetGroupARN == "" && tgb.Spec.TargetGroupName == "" {
+		return nil, errors.Errorf("You must provide either TargetGroupARN or TargetGroupName")
+	}
+	if err := m.getArnFromNameIfNeeded(ctx, tgb); err != nil {
+		return nil, err
+	}
 	if err := m.defaultingTargetType(ctx, tgb); err != nil {
 		return nil, err
 	}
@@ -49,6 +55,17 @@ func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtim
 		return nil, err
 	}
 	return tgb, nil
+}
+
+func (m *targetGroupBindingMutator) getArnFromNameIfNeeded(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.TargetGroupARN == "" && tgb.Spec.TargetGroupName != "" {
+		tgObj, err := m.getTargetGroupsByNameFromAWS(ctx, tgb.Spec.TargetGroupName)
+		if err != nil {
+			return err
+		}
+		tgb.Spec.TargetGroupARN = *tgObj.TargetGroupArn
+	}
+	return nil
 }
 
 func (m *targetGroupBindingMutator) MutateUpdate(ctx context.Context, obj runtime.Object, oldObj runtime.Object) (runtime.Object, error) {
@@ -148,6 +165,20 @@ func (m *targetGroupBindingMutator) getVpcIDFromAWS(ctx context.Context, tgARN s
 		return "", err
 	}
 	return awssdk.ToString(targetGroup.VpcId), nil
+}
+
+func (m *targetGroupBindingMutator) getTargetGroupsByNameFromAWS(ctx context.Context, tgName string) (*elbv2sdk.TargetGroup, error) {
+	req := &elbv2sdk.DescribeTargetGroupsInput{
+		Names: awssdk.StringSlice([]string{tgName}),
+	}
+	tgList, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if len(tgList) != 1 {
+		return nil, errors.Errorf("expecting a single targetGroup with name [%s] but got %v", tgName, len(tgList))
+	}
+	return tgList[0], nil
 }
 
 // +kubebuilder:webhook:path=/mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=true,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=mtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1
