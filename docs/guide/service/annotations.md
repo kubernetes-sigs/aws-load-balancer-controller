@@ -49,7 +49,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-endpoint-service-enabled](#endpoint-service-enable)| boolean                 | false                     |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required](#endpoint-service-acceptance)| boolean |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals](#endpoint-allowed-principles)| stringList |                         |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals](#endpoint-allowed-principals)| stringList |                         |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name](#endpoint-private-dns)| string            |                           |                                                        |
 
 ## Traffic Routing
@@ -441,7 +441,7 @@ A VPC Endpoint Service can be attached to a controlled loadbalancer via the foll
 
 - <a name="endpoint-service-acceptance">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required`</a> specifies whether requests to attach an Endpoint to the Endpoint Service require manual acceptance.
 
-- <a name="endpoint-allowed-principles">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals`</a> is a list of principles from which an Endpoint can be attached to this Endpoint Service.
+- <a name="endpoint-allowed-principals">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals`</a> is a list of principals from which an Endpoint can be attached to this Endpoint Service.
 
 - <a name="endpoint-private-dns">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name`</a> is the private DNS name given to the Endpoint Service.  This will need to be verifies through a valid DNS record.
 

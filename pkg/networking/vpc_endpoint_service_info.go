@@ -42,20 +42,20 @@ func NewRawVPCEndpointServiceInfo(sdkES *ec2sdk.ServiceConfiguration) VPCEndpoin
 
 // VPCEndpointServiceInfo wraps necessary information about Endpoint Service Permissions.
 type VPCEndpointServicePermissionsInfo struct {
-	// The allowed principles for the endpoint service
+	// The allowed principals for the endpoint service
 	AllowedPrincipals []string
 
-	// The service these principles apply to
+	// The service these principals apply to
 	ServiceId string
 }
 
 func NewRawVPCEndpointServicePermissionsInfo(sdkPermissions *ec2sdk.DescribeVpcEndpointServicePermissionsOutput) VPCEndpointServicePermissionsInfo {
-	var principles []string
+	var principals []string
 	for _, p := range sdkPermissions.AllowedPrincipals {
-		principles = append(principles, *p.Principal)
+		principals = append(principals, *p.Principal)
 	}
 
 	return VPCEndpointServicePermissionsInfo{
-		AllowedPrincipals: principles,
+		AllowedPrincipals: principals,
 	}
 }

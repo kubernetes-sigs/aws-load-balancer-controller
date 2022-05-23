@@ -28,7 +28,7 @@ func (t *defaultModelBuildTask) buildEndpointService(ctx context.Context) error 
 		return err
 	}
 
-	allowedPrinciples := t.buildAllowedPrinciples(ctx)
+	allowedPrincipals := t.buildAllowedPrincipals(ctx)
 	privateDNSName := t.buildPrivateDNSName(ctx)
 
 	tags, err := t.buildListenerTags(ctx)
@@ -46,7 +46,7 @@ func (t *defaultModelBuildTask) buildEndpointService(ctx context.Context) error 
 	es := ec2model.NewVPCEndpointService(t.stack, "VPCEndpointService", esSpec)
 
 	espSpec := ec2model.VPCEndpointServicePermissionsSpec{
-		AllowedPrinciples: allowedPrinciples,
+		AllowedPrincipals: allowedPrincipals,
 		ServiceId:         es.ServiceID(),
 	}
 
@@ -83,12 +83,12 @@ func (t *defaultModelBuildTask) buildAcceptanceRequired(_ context.Context) (bool
 	}
 }
 
-func (t *defaultModelBuildTask) buildAllowedPrinciples(_ context.Context) []string {
-	var rawAllowedPrinciples []string
-	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEndpointServiceAllowedPrincipals, &rawAllowedPrinciples, t.service.Annotations); !exists {
+func (t *defaultModelBuildTask) buildAllowedPrincipals(_ context.Context) []string {
+	var rawAllowedPrincipals []string
+	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEndpointServiceAllowedPrincipals, &rawAllowedPrincipals, t.service.Annotations); !exists {
 		return []string{}
 	}
-	return rawAllowedPrinciples
+	return rawAllowedPrincipals
 }
 
 func (t *defaultModelBuildTask) buildPrivateDNSName(_ context.Context) *string {

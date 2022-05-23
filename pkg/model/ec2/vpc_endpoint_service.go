@@ -86,6 +86,6 @@ func NewVPCEndpointServicePermissions(stack core.Stack, id string, spec VPCEndpo
 }
 
 type VPCEndpointServicePermissionsSpec struct {
-	AllowedPrinciples []string         `json:"allowedPrinciples"`
+	AllowedPrincipals []string         `json:"allowedPrincipals"`
 	ServiceId         core.StringToken `json:"serviceID"`
 }

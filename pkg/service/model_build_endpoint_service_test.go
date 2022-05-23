@@ -117,7 +117,7 @@ func Test_defaultModelBuildTask_buildAcceptanceRequired(t *testing.T) {
 	}
 }
 
-func Test_defaultModelBuildTask_buildAllowedPrinciples(t *testing.T) {
+func Test_defaultModelBuildTask_buildAllowedPrincipals(t *testing.T) {
 	tests := []struct {
 		name string
 		svc  *corev1.Service
@@ -159,7 +159,7 @@ func Test_defaultModelBuildTask_buildAllowedPrinciples(t *testing.T) {
 				annotationParser: parser,
 				service:          tt.svc,
 			}
-			got := builder.buildAllowedPrinciples(context.Background())
+			got := builder.buildAllowedPrincipals(context.Background())
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -506,7 +506,7 @@ func Test_ReconcilePermissions(t *testing.T) {
 	ctx := context.Background()
 	tests := []struct {
 		name                                                  string
-		desiredAllowedPrinciples                              []string
+		desiredAllowedPrincipals                              []string
 		describePermissionsResponse                           DescribeVpcEndpointServicePermissionsWithContextResponse
 		ModifyVpcEndpointServicePermissionsWithContextRequest *ec2sdk.ModifyVpcEndpointServicePermissionsInput
 		ModifyVpcEndpointServicePermissionsWithContextError   error
@@ -514,7 +514,7 @@ func Test_ReconcilePermissions(t *testing.T) {
 	}{
 		{
 			name:                     "returns an error when describe permissions AWS call returns an error",
-			desiredAllowedPrinciples: []string{},
+			desiredAllowedPrincipals: []string{},
 			describePermissionsResponse: DescribeVpcEndpointServicePermissionsWithContextResponse{
 				response: &ec2sdk.DescribeVpcEndpointServicePermissionsOutput{},
 				err:      errors.New("test_error"),
@@ -524,8 +524,8 @@ func Test_ReconcilePermissions(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:                     "does not call update when there are no principles to be changed",
-			desiredAllowedPrinciples: []string{principleName},
+			name:                     "does not call update when there are no principals to be changed",
+			desiredAllowedPrincipals: []string{principleName},
 			describePermissionsResponse: DescribeVpcEndpointServicePermissionsWithContextResponse{
 				response: &ec2sdk.DescribeVpcEndpointServicePermissionsOutput{
 					AllowedPrincipals: []*ec2sdk.AllowedPrincipal{
@@ -542,7 +542,7 @@ func Test_ReconcilePermissions(t *testing.T) {
 		},
 		{
 			name:                     "returns and error when update call returns an error",
-			desiredAllowedPrinciples: []string{principleName},
+			desiredAllowedPrincipals: []string{principleName},
 			describePermissionsResponse: DescribeVpcEndpointServicePermissionsWithContextResponse{
 				response: &ec2sdk.DescribeVpcEndpointServicePermissionsOutput{
 					AllowedPrincipals: []*ec2sdk.AllowedPrincipal{},
@@ -559,7 +559,7 @@ func Test_ReconcilePermissions(t *testing.T) {
 		},
 		{
 			name:                     "calls update when a principle need to be added",
-			desiredAllowedPrinciples: []string{principleName},
+			desiredAllowedPrincipals: []string{principleName},
 			describePermissionsResponse: DescribeVpcEndpointServicePermissionsWithContextResponse{
 				response: &ec2sdk.DescribeVpcEndpointServicePermissionsOutput{
 					AllowedPrincipals: []*ec2sdk.AllowedPrincipal{},
@@ -576,7 +576,7 @@ func Test_ReconcilePermissions(t *testing.T) {
 		},
 		{
 			name:                     "calls update when a principle need to be removed",
-			desiredAllowedPrinciples: []string{},
+			desiredAllowedPrincipals: []string{},
 			describePermissionsResponse: DescribeVpcEndpointServicePermissionsWithContextResponse{
 				response: &ec2sdk.DescribeVpcEndpointServicePermissionsOutput{
 					AllowedPrincipals: []*ec2sdk.AllowedPrincipal{
@@ -612,7 +612,7 @@ func Test_ReconcilePermissions(t *testing.T) {
 
 			permissions := &ec2.VPCEndpointServicePermissions{
 				Spec: ec2.VPCEndpointServicePermissionsSpec{
-					AllowedPrinciples: tt.desiredAllowedPrinciples,
+					AllowedPrincipals: tt.desiredAllowedPrincipals,
 					ServiceId: testStringToken{
 						value: serviceID,
 					},

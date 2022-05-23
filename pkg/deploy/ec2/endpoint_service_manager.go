@@ -208,31 +208,31 @@ func (m *defaultEndpointServiceManager) ReconcilePermissions(ctx context.Context
 		return errors.Wrap(err, "failed to fetch existing VPCEndpointServicePermissions")
 	}
 
-	addPrinciples, _, removePrinciples := algorithm.DiffStringSlice(permissions.Spec.AllowedPrinciples, permissionsInfo.AllowedPrincipals)
+	addPrincipals, _, removePrincipals := algorithm.DiffStringSlice(permissions.Spec.AllowedPrincipals, permissionsInfo.AllowedPrincipals)
 	// The API call expects these to be nil if no changes are required.  An empty list returns an error
-	if len(addPrinciples) == 0 {
-		addPrinciples = nil
+	if len(addPrincipals) == 0 {
+		addPrincipals = nil
 	}
-	if len(removePrinciples) == 0 {
-		removePrinciples = nil
+	if len(removePrincipals) == 0 {
+		removePrincipals = nil
 	}
 	modReq := &ec2sdk.ModifyVpcEndpointServicePermissionsInput{
-		AddAllowedPrincipals:    addPrinciples,
-		RemoveAllowedPrincipals: removePrinciples,
+		AddAllowedPrincipals:    addPrincipals,
+		RemoveAllowedPrincipals: removePrincipals,
 		ServiceId:               &serviceId,
 	}
 
 	m.logger.Info("Build priciples",
-		"AddPrinciples", addPrinciples,
-		"RemovePrinciples", removePrinciples,
+		"AddPrincipals", addPrincipals,
+		"RemovePrincipals", removePrincipals,
 	)
 
-	if len(addPrinciples) > 0 || len(removePrinciples) > 0 {
+	if len(addPrincipals) > 0 || len(removePrincipals) > 0 {
 
 		m.logger.Info("modifying VpcEndpointService permissions",
 			"serviceID", serviceId,
-			"addPrinciples", addPrinciples,
-			"removePrinciples", removePrinciples,
+			"addPrincipals", addPrincipals,
+			"removePrincipals", removePrincipals,
 		)
 
 		_, err := m.ec2Client.ModifyVpcEndpointServicePermissionsWithContext(ctx, modReq)
