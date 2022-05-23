@@ -16,8 +16,22 @@ TargetGroupBinding CR supports TargetGroups of either `instance` or `ip` TargetT
 !!!tip ""
     If TargetType is not explicitly specified, a mutating webhook will automatically call AWS API to find the TargetType for your TargetGroup and set it to correct value.
 
+## Choosing the Target Group
+One can either use ``targetGroupARN`` of ``targetGroupName`` to identify a Target Group. Since there can be more than one Target Group with the same name, if you plan to use ``targetGroupName``, you are responsible to guarantee that there is only one Target Group with the aforemantioned name. Currently, the name is scanned whenever the ``TargetGroupBinding`` is created. So if a Target Group is created after a ``TargetGroupBinding`` is created, nothing happens. This may change in the future. AWS does not currently allow Target Group names to be changed, therefore the AWS Load Balancer Controller does not expect a name to change either.
 
-## Sample YAML
+## Sample YAMLs
+```yaml
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: my-tgb
+spec:
+  serviceRef:
+    name: awesome-service # route traffic to the awesome-service
+    port: 80
+  targetGroupName: <name-of-the-targetGroup>
+```
+
 ```yaml
 apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
