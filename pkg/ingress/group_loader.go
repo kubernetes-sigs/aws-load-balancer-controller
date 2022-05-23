@@ -45,15 +45,14 @@ type GroupLoader interface {
 }
 
 // NewDefaultGroupLoader constructs new GroupLoader instance.
-func NewDefaultGroupLoader(client client.Client, eventRecorder record.EventRecorder, annotationParser annotations.Parser, classLoader ClassLoader, classAnnotationMatcher ClassAnnotationMatcher, manageIngressesWithoutIngressClass bool) *defaultGroupLoader {
+func NewDefaultGroupLoader(client client.Client, eventRecorder record.EventRecorder, annotationParser annotations.Parser, classLoader ClassLoader, ingressClass string) *defaultGroupLoader {
 	return &defaultGroupLoader{
 		client:           client,
 		eventRecorder:    eventRecorder,
 		annotationParser: annotationParser,
 
-		classLoader:                        classLoader,
-		classAnnotationMatcher:             classAnnotationMatcher,
-		manageIngressesWithoutIngressClass: manageIngressesWithoutIngressClass,
+		classLoader:  classLoader,
+		ingressClass: ingressClass,
 	}
 }
 
@@ -68,12 +67,8 @@ type defaultGroupLoader struct {
 	// classLoader loads IngressClass configurations for Ingress.
 	classLoader ClassLoader
 
-	// classAnnotationMatcher checks whether ingresses with "kubernetes.io/ingress.class" annotation should be managed.
-	classAnnotationMatcher ClassAnnotationMatcher
-
-	// manageIngressesWithoutIngressClass specifies whether ingresses without "kubernetes.io/ingress.class" annotation
-	// and "spec.ingressClassName" should be managed or not.
-	manageIngressesWithoutIngressClass bool
+	// ingress class this loader is for
+	ingressClass string
 }
 
 func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, error) {
@@ -87,9 +82,19 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 	finalizer := buildGroupFinalizer(groupID)
 	for index := range ingList.Items {
 		ing := &ingList.Items[index]
+		// m.isGroupMember calls m.classifyIngress indirectly, but the cases of the ingress having the matching
+		// ingress class but not the matching group, and having the matching group but not the matching ingress
+		// class are conflated. There are some duplicate calls here but it seems tricky to untie.
+		classifiedIngress, isManagedIngress, err := m.isManagedIngress(ctx, ing)
+		if err != nil {
+			return Group{}, errors.Wrapf(err, "isManagedIngress - ingress: %v", k8s.NamespacedName(ing))
+		}
+		if !isManagedIngress {
+			continue
+		}
 		classifiedIngress, isGroupMember, err := m.isGroupMember(ctx, groupID, ing)
 		if err != nil {
-			return Group{}, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
+			return Group{}, errors.Wrapf(err, "isGroupMember - ingress: %v", k8s.NamespacedName(ing))
 		}
 		if isGroupMember {
 			members = append(members, classifiedIngress)
@@ -152,7 +157,7 @@ func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *ne
 	if !ing.DeletionTimestamp.IsZero() {
 		return ClassifiedIngress{}, nil, nil
 	}
-	classifiedIngress, matchesIngressClass, err := m.classifyIngress(ctx, ing)
+	classifiedIngress, matchesIngressClass, err := m.isManagedIngress(ctx, ing)
 	if err != nil {
 		return ClassifiedIngress{}, nil, err
 	}
@@ -167,20 +172,31 @@ func (m *defaultGroupLoader) loadGroupIDIfAnyHelper(ctx context.Context, ing *ne
 	return classifiedIngress, &groupID, nil
 }
 
-// classifyIngress will classify the Ingress resource and returns whether it should be managed by this controller, along with the ClassifiedIngress object.
-func (m *defaultGroupLoader) classifyIngress(ctx context.Context, ing *networking.Ingress) (ClassifiedIngress, bool, error) {
+// isManagedIngress will classify the Ingress resource and returns whether it should be managed by this controller, along with the ClassifiedIngress object.
+func (m *defaultGroupLoader) isManagedIngress(ctx context.Context, ing *networking.Ingress) (ClassifiedIngress, bool, error) {
+
+	classifiedIngress, ingressClass, err := m.classifyIngress(ctx, ing)
+
+	if err != nil {
+		return classifiedIngress, false, err
+	}
+	if classifiedIngress.IngClassConfig.IngClass != nil {
+		return classifiedIngress, classifiedIngress.IngClassConfig.IngClass.Spec.Controller == m.classLoader.ingressClassController(), nil
+	}
+	if ingressClass != "" {
+		return classifiedIngress, ingressClass == m.ingressClass, nil
+	}
+	return classifiedIngress, m.ingressClass == "", nil
+}
+
+// classifyIngress will classify the Ingress resource and returns the ClassifiedIngress object and ingress class.
+func (m *defaultGroupLoader) classifyIngress(ctx context.Context, ing *networking.Ingress) (ClassifiedIngress, string, error) {
 	// the "kubernetes.io/ingress.class" annotation takes higher priority than "ingressClassName" field
 	if ingClassAnnotation, exists := ing.Annotations[annotations.IngressClass]; exists {
-		if matchesIngressClass := m.classAnnotationMatcher.Matches(ingClassAnnotation); matchesIngressClass {
-			return ClassifiedIngress{
-				Ing:            ing,
-				IngClassConfig: ClassConfiguration{},
-			}, true, nil
-		}
 		return ClassifiedIngress{
 			Ing:            ing,
 			IngClassConfig: ClassConfiguration{},
-		}, false, nil
+		}, ingClassAnnotation, nil
 	}
 
 	if ing.Spec.IngressClassName != nil {
@@ -189,25 +205,18 @@ func (m *defaultGroupLoader) classifyIngress(ctx context.Context, ing *networkin
 			return ClassifiedIngress{
 				Ing:            ing,
 				IngClassConfig: ClassConfiguration{},
-			}, false, err
-		}
-
-		if matchesIngressClass := ingClassConfig.IngClass != nil && ingClassConfig.IngClass.Spec.Controller == ingressClassControllerALB; matchesIngressClass {
-			return ClassifiedIngress{
-				Ing:            ing,
-				IngClassConfig: ingClassConfig,
-			}, true, nil
+			}, "", err
 		}
 		return ClassifiedIngress{
 			Ing:            ing,
 			IngClassConfig: ingClassConfig,
-		}, false, nil
+		}, ingClassConfig.IngClass.Name, nil
 	}
 
 	return ClassifiedIngress{
 		Ing:            ing,
 		IngClassConfig: ClassConfiguration{},
-	}, m.manageIngressesWithoutIngressClass, nil
+	}, "", nil
 }
 
 // loadGroupID loads the groupID for classified Ingress.

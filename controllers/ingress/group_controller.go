@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -49,7 +50,6 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
 	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder)
-	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
 	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerConfig.FeatureGates, logger)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
@@ -61,11 +61,11 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		controllerConfig, ingressTagPrefix, logger)
-	classLoader := ingress.NewDefaultClassLoader(k8sClient)
-	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)
-	manageIngressesWithoutIngressClass := controllerConfig.IngressConfig.IngressClass == ""
-	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, eventRecorder, annotationParser, classLoader, classAnnotationMatcher, manageIngressesWithoutIngressClass)
+	ingressClass := controllerConfig.IngressConfig.IngressClass
+	classLoader := ingress.NewClassLoaderWithIngressClass(k8sClient, ingressClass)
+	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, eventRecorder, annotationParser, classLoader, ingressClass)
 	groupFinalizerManager := ingress.NewDefaultFinalizerManager(finalizerManager)
+	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger, classLoader)
 
 	return &groupReconciler{
 		k8sClient:         k8sClient,
@@ -81,6 +81,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		logger:                logger,
 
 		maxConcurrentReconciles: controllerConfig.IngressConfig.MaxConcurrentReconciles,
+		ingressClass:            controllerConfig.IngressConfig.IngressClass,
 	}
 }
 
@@ -100,6 +101,7 @@ type groupReconciler struct {
 	logger                logr.Logger
 
 	maxConcurrentReconciles int
+	ingressClass            string
 }
 
 // +kubebuilder:rbac:groups=elbv2.k8s.aws,resources=ingressclassparams,verbs=get;list;watch
@@ -121,7 +123,11 @@ func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error
 	if err != nil {
 		return err
 	}
-
+	// if members and inactive members are both empty, then this ingress controller
+	// is not responsible for this ingress group
+	if len(ingGroup.Members) == 0 && len(ingGroup.InactiveMembers) == 0 {
+		return nil
+	}
 	if err := r.groupFinalizerManager.AddGroupFinalizer(ctx, ingGroupID, ingGroup.Members); err != nil {
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err

@@ -9,8 +9,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -504,12 +506,17 @@ func Test_defaultReferenceIndexer_BuildIngressClassParamsRefIndexes(t *testing.T
 			want: nil,
 		},
 	}
+	k8sSchema := runtime.NewScheme()
+	k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+	classLoader := NewDefaultClassLoader(k8sClient)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
 			i := &defaultReferenceIndexer{
 				enhancedBackendBuilder: tt.fields.enhancedBackendBuilder,
 				authConfigBuilder:      tt.fields.authConfigBuilder,
 				logger:                 tt.fields.logger,
+				classLoader:            classLoader,
 			}
 			got := i.BuildIngressClassParamsRefIndexes(context.Background(), tt.args.ingClass)
 			assert.Equal(t, tt.want, got)

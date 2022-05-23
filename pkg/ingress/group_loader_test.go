@@ -622,13 +622,11 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			classLoader := NewDefaultClassLoader(k8sClient)
-			classAnnotationMatcher := NewDefaultClassAnnotationMatcher("alb")
 			m := &defaultGroupLoader{
-				client:                             k8sClient,
-				annotationParser:                   annotationParser,
-				classLoader:                        classLoader,
-				classAnnotationMatcher:             classAnnotationMatcher,
-				manageIngressesWithoutIngressClass: false,
+				client:           k8sClient,
+				annotationParser: annotationParser,
+				classLoader:      classLoader,
+				ingressClass:     "alb",
 			}
 			got, err := m.Load(context.Background(), tt.args.groupID)
 			if tt.wantErr != nil {
@@ -1298,13 +1296,11 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			classLoader := NewDefaultClassLoader(k8sClient)
-			classAnnotationMatcher := NewDefaultClassAnnotationMatcher("alb")
 			m := &defaultGroupLoader{
-				client:                             k8sClient,
-				annotationParser:                   annotationParser,
-				classLoader:                        classLoader,
-				classAnnotationMatcher:             classAnnotationMatcher,
-				manageIngressesWithoutIngressClass: false,
+				client:           k8sClient,
+				annotationParser: annotationParser,
+				classLoader:      classLoader,
+				ingressClass:     "alb",
 			}
 
 			gotClassifiedIng, gotIsGroupMember, err := m.isGroupMember(context.Background(), tt.args.groupID, tt.args.ing)
@@ -1572,13 +1568,11 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper(t *testing.T) {
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			classLoader := NewDefaultClassLoader(k8sClient)
-			classAnnotationMatcher := NewDefaultClassAnnotationMatcher("alb")
 			m := &defaultGroupLoader{
-				client:                             k8sClient,
-				annotationParser:                   annotationParser,
-				classLoader:                        classLoader,
-				classAnnotationMatcher:             classAnnotationMatcher,
-				manageIngressesWithoutIngressClass: false,
+				client:           k8sClient,
+				annotationParser: annotationParser,
+				classLoader:      classLoader,
+				ingressClass:     "alb",
 			}
 			gotClassifiedIng, gotGroupID, err := m.loadGroupIDIfAnyHelper(context.Background(), tt.args.ing)
 			if tt.wantErr != nil {
@@ -1865,60 +1859,6 @@ func Test_defaultGroupLoader_classifyIngress(t *testing.T) {
 			},
 			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"ing-class\" not found"),
 		},
-		{
-			name: "no class specified - manageIngressesWithoutIngressClass is set",
-			fields: fields{
-				ingressClass:                       "",
-				manageIngressesWithoutIngressClass: true,
-			},
-			args: args{
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace:   "ing-ns",
-						Name:        "ing-name",
-						Annotations: map[string]string{},
-					},
-				},
-			},
-			wantClassifiedIng: ClassifiedIngress{
-				Ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace:   "ing-ns",
-						Name:        "ing-name",
-						Annotations: map[string]string{},
-					},
-				},
-				IngClassConfig: ClassConfiguration{},
-			},
-			wantIngressClassMatches: true,
-		},
-		{
-			name: "no class specified - manageIngressesWithoutIngressClass isn't set",
-			fields: fields{
-				ingressClass:                       "",
-				manageIngressesWithoutIngressClass: false,
-			},
-			args: args{
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace:   "ing-ns",
-						Name:        "ing-name",
-						Annotations: map[string]string{},
-					},
-				},
-			},
-			wantClassifiedIng: ClassifiedIngress{
-				Ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace:   "ing-ns",
-						Name:        "ing-name",
-						Annotations: map[string]string{},
-					},
-				},
-				IngClassConfig: ClassConfiguration{},
-			},
-			wantIngressClassMatches: false,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1935,16 +1875,14 @@ func Test_defaultGroupLoader_classifyIngress(t *testing.T) {
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			classLoader := NewDefaultClassLoader(k8sClient)
-			classAnnotationMatcher := NewDefaultClassAnnotationMatcher(tt.fields.ingressClass)
 			m := &defaultGroupLoader{
-				client:                             k8sClient,
-				annotationParser:                   annotationParser,
-				classLoader:                        classLoader,
-				classAnnotationMatcher:             classAnnotationMatcher,
-				manageIngressesWithoutIngressClass: tt.fields.manageIngressesWithoutIngressClass,
+				client:           k8sClient,
+				annotationParser: annotationParser,
+				classLoader:      classLoader,
+				ingressClass:     "alb",
 			}
 
-			gotClassifiedIng, gotIngressClassMatches, err := m.classifyIngress(context.Background(), tt.args.ing)
+			gotClassifiedIng, gotIngressClassMatches, err := m.isManagedIngress(context.Background(), tt.args.ing)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -2133,6 +2071,7 @@ func Test_defaultGroupLoader_loadGroupID(t *testing.T) {
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			m := &defaultGroupLoader{
 				annotationParser: annotationParser,
+				ingressClass:     "alb",
 			}
 			got, err := m.loadGroupID(tt.args.classifiedIng)
 			if tt.wantErr != nil {
@@ -2310,7 +2249,9 @@ func Test_defaultGroupLoader_containsGroupFinalizer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &defaultGroupLoader{}
+			m := &defaultGroupLoader{
+				ingressClass: "alb",
+			}
 			got := m.containsGroupFinalizer(tt.args.groupID, tt.args.finalizer, tt.args.ing)
 			assert.Equal(t, tt.want, got)
 		})
@@ -2744,10 +2685,9 @@ func Test_defaultGroupLoader_sortGroupMembers(t *testing.T) {
 			client := mock_client.NewMockClient(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			m := &defaultGroupLoader{
-				client:                             client,
-				annotationParser:                   annotationParser,
-				classAnnotationMatcher:             NewDefaultClassAnnotationMatcher(ingressClassALB),
-				manageIngressesWithoutIngressClass: false,
+				client:           client,
+				annotationParser: annotationParser,
+				ingressClass:     "alb",
 			}
 			got, err := m.sortGroupMembers(tt.members)
 			assert.Equal(t, tt.want, got)

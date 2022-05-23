@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -16,8 +17,6 @@ import (
 )
 
 const (
-	// the controller name used in IngressClass for ALB.
-	ingressClassControllerALB = "ingress.k8s.aws/alb"
 	// the Kind for IngressClassParams CRD.
 	ingressClassParamsKind = "IngressClassParams"
 )
@@ -29,18 +28,30 @@ var ErrInvalidIngressClass = errors.New("invalid ingress class")
 type ClassLoader interface {
 	// Load loads the ClassConfiguration for Ingress with IngressClassName.
 	Load(ctx context.Context, ing *networking.Ingress) (ClassConfiguration, error)
+	ingressClassController() string
 }
 
 // NewDefaultClassLoader constructs new defaultClassLoader instance.
 func NewDefaultClassLoader(client client.Client) *defaultClassLoader {
+	return NewClassLoaderWithIngressClass(client, "alb")
+}
+
+// NewDefaultClassLoader constructs new defaultClassLoader instance.
+func NewClassLoaderWithIngressClass(client client.Client, ingressClass string) *defaultClassLoader {
 	return &defaultClassLoader{
-		client: client,
+		client:       client,
+		ingressClass: ingressClass,
 	}
 }
 
 // default implementation for ClassLoader
 type defaultClassLoader struct {
-	client client.Client
+	client       client.Client
+	ingressClass string
+}
+
+func (l *defaultClassLoader) ingressClassController() string {
+	return fmt.Sprintf("ingress.k8s.aws/%s", l.ingressClass)
 }
 
 func (l *defaultClassLoader) Load(ctx context.Context, ing *networking.Ingress) (ClassConfiguration, error) {
@@ -56,7 +67,7 @@ func (l *defaultClassLoader) Load(ctx context.Context, ing *networking.Ingress) 
 		}
 		return ClassConfiguration{}, err
 	}
-	if ingClass.Spec.Controller != ingressClassControllerALB || ingClass.Spec.Parameters == nil {
+	if ingClass.Spec.Controller != l.ingressClassController() || ingClass.Spec.Parameters == nil {
 		return ClassConfiguration{
 			IngClass: ingClass,
 		}, nil
