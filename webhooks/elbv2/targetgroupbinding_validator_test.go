@@ -96,8 +96,9 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &ipTargetType,
-						NodeSelector: &v1.LabelSelector{},
+						TargetGroupARN: "tg-1",
+						TargetType:     &ipTargetType,
+						NodeSelector:   &v1.LabelSelector{},
 					},
 				},
 			},
@@ -360,14 +361,16 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &ipTargetType,
-						NodeSelector: &v1.LabelSelector{},
+						TargetGroupARN: "tg-1",
+						TargetType:     &ipTargetType,
+						NodeSelector:   &v1.LabelSelector{},
 					},
 				},
 				oldObj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &ipTargetType,
-						NodeSelector: &v1.LabelSelector{},
+						TargetGroupARN: "tg-1",
+						TargetType:     &ipTargetType,
+						NodeSelector:   &v1.LabelSelector{},
 					},
 				},
 			},
@@ -448,6 +451,20 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 				},
 			},
 			wantErr: errors.New("TargetGroupBinding must specify these fields: spec.targetType"),
+		},
+		{
+			name: "either TargetGroupARN or TargetGroupName must be specified",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:  "",
+						TargetGroupName: "",
+						// TargetType:     &ipTargetType,
+						TargetType: &instanceTargetType,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding must specify these fields: either TargetGroupARN or TargetGroupName"),
 		},
 		{
 			name: "targetType is set",
@@ -807,7 +824,8 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType: &ipTargetType,
+						TargetGroupARN: "tg-4",
+						TargetType:     &ipTargetType,
 					},
 				},
 			},
@@ -818,7 +836,8 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType: &instanceTargetType,
+						TargetGroupARN: "tg-5",
+						TargetType:     &instanceTargetType,
 					},
 				},
 			},
@@ -829,8 +848,9 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &instanceTargetType,
-						NodeSelector: &nodeSelector,
+						TargetGroupARN: "tg-6",
+						TargetType:     &instanceTargetType,
+						NodeSelector:   &nodeSelector,
 					},
 				},
 			},
@@ -841,8 +861,9 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &ipTargetType,
-						NodeSelector: &nodeSelector,
+						TargetGroupARN: "tg-7",
+						TargetType:     &ipTargetType,
+						NodeSelector:   &nodeSelector,
 					},
 				},
 			},

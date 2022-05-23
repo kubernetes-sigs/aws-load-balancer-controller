@@ -93,6 +93,9 @@ func (v *targetGroupBindingValidator) ValidateDelete(ctx context.Context, obj ru
 // checkRequiredFields will check required fields are not absent.
 func (v *targetGroupBindingValidator) checkRequiredFields(tgb *elbv2api.TargetGroupBinding) error {
 	var absentRequiredFields []string
+	if tgb.Spec.TargetGroupARN == "" && tgb.Spec.TargetGroupName == "" {
+		absentRequiredFields = append(absentRequiredFields, "either TargetGroupARN or TargetGroupName")
+	}
 	if tgb.Spec.TargetType == nil {
 		absentRequiredFields = append(absentRequiredFields, "spec.targetType")
 	}
