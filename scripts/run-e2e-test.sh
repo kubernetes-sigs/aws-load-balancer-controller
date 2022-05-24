@@ -51,6 +51,30 @@ kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/
 echo "Install aws-load-balancer-controller"
 helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID
 
+echo_time() {
+    date +"%D %T $*"
+}
+
+wait_until_deployment_ready() {
+	NS=""
+	if [ ! -z $2 ]; then
+		NS="-n $2"
+	fi
+	echo_time "Checking if deployment $1 is ready"
+	for i in $(seq 1 60); do
+		desiredReplicas=$(kubectl get deployments.apps $1 $NS -ojsonpath="{.spec.replicas}")
+		availableReplicas=$(kubectl get deployments.apps $1 $NS -ojsonpath="{.status.availableReplicas}")
+		if [[ ! -z $desiredReplicas && ! -z $availableReplicas && "$desiredReplicas" -eq "$availableReplicas" ]]; then
+			break
+		fi
+		echo -n "."
+		sleep 2
+	done 
+	echo_time "Deployment $1 $NS replicas desired=$desiredReplicas available=$availableReplicas"
+}
+
+wait_until_deployment_ready aws-load-balancer-controller kube-system
+
 function run_ginkgo_test() {
   local focus=$1
   echo "Starting the ginkgo tests from generated ginkgo test binaries with focus: $focus"
