@@ -53,7 +53,7 @@ func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Ob
 
 func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
-	if err := v.checkRequiredFields(tgb); err != nil {
+	if err := v.checkRequiredFields(ctx, tgb); err != nil {
 		return err
 	}
 	if err := v.checkNodeSelector(tgb); err != nil {
@@ -74,7 +74,7 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 func (v *targetGroupBindingValidator) ValidateUpdate(ctx context.Context, obj runtime.Object, oldObj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	oldTgb := oldObj.(*elbv2api.TargetGroupBinding)
-	if err := v.checkRequiredFields(tgb); err != nil {
+	if err := v.checkRequiredFields(ctx, tgb); err != nil {
 		return err
 	}
 	if err := v.checkImmutableFields(tgb, oldTgb); err != nil {
@@ -91,10 +91,18 @@ func (v *targetGroupBindingValidator) ValidateDelete(ctx context.Context, obj ru
 }
 
 // checkRequiredFields will check required fields are not absent.
-func (v *targetGroupBindingValidator) checkRequiredFields(tgb *elbv2api.TargetGroupBinding) error {
+func (v *targetGroupBindingValidator) checkRequiredFields(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	var absentRequiredFields []string
-	if tgb.Spec.TargetGroupARN == "" && tgb.Spec.TargetGroupName == "" {
-		absentRequiredFields = append(absentRequiredFields, "either TargetGroupARN or TargetGroupName")
+	if tgb.Spec.TargetGroupARN == "" {
+		if tgb.Spec.TargetGroupName == "" {
+			absentRequiredFields = append(absentRequiredFields, "either TargetGroupARN or TargetGroupName")
+		} else if tgb.Spec.TargetGroupName != "" {
+			tgObj, err := v.getTargetGroupsByNameFromAWS(ctx, tgb.Spec.TargetGroupName)
+			if err != nil {
+				return errors.Errorf("Can't locate TargetGroup with name %s", tgb.Spec.TargetGroupName)
+			}
+			tgb.Spec.TargetGroupARN = *tgObj.TargetGroupArn
+		}
 	}
 	if tgb.Spec.TargetType == nil {
 		absentRequiredFields = append(absentRequiredFields, "spec.targetType")
@@ -228,6 +236,20 @@ func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgARN
 		return "", err
 	}
 	return awssdk.ToString(targetGroup.VpcId), nil
+}
+
+func (v *targetGroupBindingValidator) getTargetGroupsByNameFromAWS(ctx context.Context, tgName string) (*elbv2sdk.TargetGroup, error) {
+	req := &elbv2sdk.DescribeTargetGroupsInput{
+		Names: awssdk.StringSlice([]string{tgName}),
+	}
+	tgList, err := v.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if len(tgList) != 1 {
+		return nil, errors.Errorf("expecting a single targetGroup with name [%s] but got %v", tgName, len(tgList))
+	}
+	return tgList[0], nil
 }
 
 // +kubebuilder:webhook:path=/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=false,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=vtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1

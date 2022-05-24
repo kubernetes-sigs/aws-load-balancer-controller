@@ -133,6 +133,47 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "TargetGroupName can be resolved",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							Names: awssdk.StringSlice([]string{"tg-name"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn:  awssdk.String("tg-arn"),
+								TargetGroupName: awssdk.String("tg-name"),
+								TargetType:      awssdk.String("instance"),
+							},
+						},
+					},
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-arn"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn:  awssdk.String("tg-arn"),
+								TargetGroupName: awssdk.String("tg-name"),
+								TargetType:      awssdk.String("instance"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupName: "tg-name",
+						TargetType:      &instanceTargetType,
+						IPAddressType:   &targetGroupIPAddressTypeIPv4,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
 			name: "ipAddressType mismatch with TargetGroup",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
@@ -484,7 +525,7 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 			v := &targetGroupBindingValidator{
 				logger: logr.New(&log.NullLogSink{}),
 			}
-			err := v.checkRequiredFields(tt.args.tgb)
+			err := v.checkRequiredFields(context.Background(), tt.args.tgb)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
