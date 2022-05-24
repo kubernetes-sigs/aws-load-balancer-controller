@@ -29,9 +29,9 @@ CONTROLLER_IAM_POLICY_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
 CONTROLLER_IAM_POLICY_ARN="" # will be fulfilled during setup_controller_iam_sa
 
 # Cluster settings
-EKSCTL_VERSION="v0.77.0"
+EKSCTL_VERSION="v0.98.0"
 CLUSTER_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
-CLUSTER_VERSION=${CLUSTER_VERSION:-"1.19"}
+CLUSTER_VERSION=${CLUSTER_VERSION:-"1.21"}
 CLUSTER_INSTANCE_TYPE="m5.xlarge"
 CLUSTER_NODE_COUNT="4"
 CLUSTER_KUBECONFIG=${CLUSTER_KUBECONFIG:-"/tmp/lb-controller-e2e/clusters/${CLUSTER_NAME}.kubeconfig"}
@@ -235,6 +235,18 @@ test_controller_image() {
     --certificate-arns=${CERTIFICATE_ARNS}
 }
 
+
+#######################################
+# Dump controller logs
+# Globals:
+#   None
+# Arguments:
+#   None
+#######################################
+dump_controller_logs() {
+  kubectl --kubeconfig=${CLUSTER_KUBECONFIG} logs --tail=-1 -l app.kubernetes.io/name=aws-load-balancer-controller -n kube-system
+}
+
 #######################################
 # Cleanup resources
 # Globals:
@@ -244,6 +256,7 @@ test_controller_image() {
 #######################################
 cleanup() {
   sleep 60
+  dump_controller_logs || true
   cleanup_cluster
   cleanup_controller_iam_sa
 }
