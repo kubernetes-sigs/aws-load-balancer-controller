@@ -102,7 +102,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				WithIngressClassName(ingClass.Name).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
 			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ingClass, ing)
-			resStack.Setup(ctx)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			defer resStack.TearDown(ctx)
 
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
@@ -138,7 +140,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
 			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
-			resStack.Setup(ctx)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			defer resStack.TearDown(ctx)
 
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
@@ -183,7 +187,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				WithIngressClassName(ingClass.Name).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
 			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ingClass, ing)
-			resStack.Setup(ctx)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			defer resStack.TearDown(ctx)
 
 			ExpectNoLBProvisionedForIngress(ctx, tf, ing)
@@ -212,7 +218,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
 			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
-			resStack.Setup(ctx)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			defer resStack.TearDown(ctx)
 
 			ExpectNoLBProvisionedForIngress(ctx, tf, ing)
@@ -240,7 +248,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
 			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
-			resStack.Setup(ctx)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			defer resStack.TearDown(ctx)
 
 			ExpectNoLBProvisionedForIngress(ctx, tf, ing)
@@ -275,7 +285,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
 			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
-			resStack.Setup(ctx)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			defer resStack.TearDown(ctx)
 
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
@@ -318,7 +330,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
 			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
-			resStack.Setup(ctx)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			defer resStack.TearDown(ctx)
 
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
@@ -389,7 +403,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/forward-multiple-tg", PathType: &exact, Backend: ingForwardMultipleTGBackend}).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
 			resStack := fixture.NewK8SResourceStack(tf, dp1, svc1, dp2, svc2, ing)
-			resStack.Setup(ctx)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			defer resStack.TearDown(ctx)
 
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
@@ -503,7 +519,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				AddHTTPRoute("www.example.com", networking.HTTPIngressPath{Path: "/path7", PathType: &exact, Backend: ingRulePath7Backend}).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
 			resStack := fixture.NewK8SResourceStack(tf, ing)
-			resStack.Setup(ctx)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
 			defer resStack.TearDown(ctx)
 
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
