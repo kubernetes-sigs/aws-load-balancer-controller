@@ -18,27 +18,44 @@ function toggle_windows_scheduling(){
   done
 }
 
+function set_Put_Response_Hop_Limit(){
+  limit=$1
+  linux_nodes=$(kubectl get nodes -l kubernetes.io/os=linux | tail -n +2 | cut -d' ' -f1)
+  dns_name=""
+  for n in $linux_nodes
+  do
+    if [ -z "$dns_name" ];then
+      dns_name="$n"
+    else
+      dns_name="$dns_name,$n"
+    fi
+  done
+  instance_ids=$(aws ec2 describe-instances --filters Name=private-dns-name,Values=$dns_name | jq -r '.Reservations[].Instances[].InstanceId')
+  for id in $instance_ids
+  do
+    aws ec2 modify-instance-metadata-options --instance-id $id --http-put-response-hop-limit $limit
+  done
+}
+
 echo "Cordon off windows nodes"
 toggle_windows_scheduling "cordon"
 
-eksctl utils associate-iam-oidc-provider \
-    --region $REGION \
-    --cluster $CLUSTER_NAME \
-    --approve
+# This is needed so that EC2 IMDS can be accessed from aws-load-balancer-controller container
+echo "Set HttpPutResponseHopLimit to 2"
+set_Put_Response_Hop_Limit 2
+
+echo "Fetching NodeInstanceRole"
+INSTANCE_PROFILE=$(aws iam list-instance-profiles | jq -r '.InstanceProfiles[].InstanceProfileName' | grep '.*networking-prow.*linux.*-NodeInstanceProfile.*')
+ROLE_NAME=$(aws iam get-instance-profile --instance-profile-name $INSTANCE_PROFILE | jq -r '.InstanceProfile.Roles[] | .RoleName')
+echo "NodeInstanceRole: $ROLE_NAME"
 
 echo "Creating AWSLoadbalancerController IAM Policy"
 aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
     --policy-document file://"$SCRIPT_DIR"/../docs/install/iam_policy.json || true
 
-echo "Creating IAM serviceaccount"
-eksctl create iamserviceaccount \
---cluster=$CLUSTER_NAME \
---namespace=kube-system \
---name=aws-load-balancer-controller \
---attach-policy-arn=arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy \
---override-existing-serviceaccounts \
---approve || true
+echo "Attaching AWSLoadbalancerController IAM Policy to NodeInstanceRole"
+aws iam attach-role-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy --role-name $ROLE_NAME || true
 
 echo "Update helm repo eks"
 helm repo add eks https://aws.github.io/eks-charts
@@ -49,7 +66,7 @@ echo "Install TargetGroupBinding CRDs"
 kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
 
 echo "Install aws-load-balancer-controller"
-helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID
+helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set region=$REGION --set vpcId=$VPC_ID
 
 echo_time() {
     date +"%D %T $*"
@@ -100,14 +117,14 @@ kubectl logs -l app.kubernetes.io/name=aws-load-balancer-controller --container 
 echo "Delete aws-load-balancer-controller"
 helm delete aws-load-balancer-controller -n kube-system --timeout=10m || true
 
-echo "Delete iamserviceaccount"
-eksctl delete iamserviceaccount --name aws-load-balancer-controller --namespace kube-system --cluster $CLUSTER_NAME --timeout=10m || true
-
 echo "Delete TargetGroupBinding CRDs"
 kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=10m || true
 
 echo "Uncordon windows nodes"
 toggle_windows_scheduling "uncordon"
+
+echo "Detach IAM policy"
+aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
 
 # Need to do this as last step
 echo "Delete IAM Policy"
