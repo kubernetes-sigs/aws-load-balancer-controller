@@ -21,6 +21,14 @@ function toggle_windows_scheduling(){
 ROLE_NAME="AWS-LB-CONTROLLER-ROLE"
 
 function cleanUp(){
+  # Need to recreae aws-load-balancer controller if we are updating SA
+  echo "delete aws-load-balancer-controller if exists"
+  helm delete aws-load-balancer-controller -n kube-system --timeout=10m || true
+ 
+  echo "delete service account if exists"
+  kubectl delete serviceaccount aws-load-balancer-controller -n kube-system --timeout 10m || true
+  
+  # IAM role and polcies are AWS Account specific, so need to clean them up if any from previous run
   echo "detach IAM policy if it exists"
   aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
 
@@ -61,7 +69,7 @@ cat <<EOF > trust.json
 }
 EOF
 
-echo "cleanup IAM role and policies if any from previous run"
+echo "cleanup any stale resources from previous run"
 cleanUp
 
 echo "create Role with above policy document"
@@ -138,19 +146,13 @@ run_ginkgo_test
 echo "Fetch most recent aws-load-balancer-controller logs"
 kubectl logs -l app.kubernetes.io/name=aws-load-balancer-controller --container aws-load-balancer-controller --tail=-1 -n kube-system
 
-echo "Delete aws-load-balancer-controller"
-helm delete aws-load-balancer-controller -n kube-system --timeout=10m || true
-
-echo "Delete TargetGroupBinding CRDs"
-kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=10m || true
-
 echo "Uncordon windows nodes"
 toggle_windows_scheduling "uncordon"
 
-echo "delete service account"
-kubectl delete serviceaccount aws-load-balancer-controller -n kube-system --timeout 10m || true
-
-echo "clean up IAM role and attached polcies from current run"
+echo "clean up resources from current run"
 cleanUp
+
+echo "Delete TargetGroupBinding CRDs if exists"
+kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=10m || true
 
 echo "Successfully finished the test suite $(($SECONDS / 60)) minutes and $(($SECONDS % 60)) seconds"
