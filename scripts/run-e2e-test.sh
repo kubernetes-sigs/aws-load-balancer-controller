@@ -18,7 +18,9 @@ function toggle_windows_scheduling(){
   done
 }
 
-ROLE_NAME="AWS-LB-CONTROLLER-ROLE"
+TEST_ID=$RANDOM
+echo "TEST_ID: $TEST_ID"
+ROLE_NAME="aws-load-balancer-controller-$TEST_ID"
 
 function cleanUp(){
   # Need to recreae aws-load-balancer controller if we are updating SA
