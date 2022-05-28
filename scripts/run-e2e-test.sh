@@ -18,7 +18,7 @@ function toggle_windows_scheduling(){
   done
 }
 
-TEST_ID=$RANDOM
+TEST_ID=$(date +%s)
 echo "TEST_ID: $TEST_ID"
 ROLE_NAME="aws-load-balancer-controller-$TEST_ID"
 
