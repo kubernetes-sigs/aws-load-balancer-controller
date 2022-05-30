@@ -126,6 +126,66 @@
         {
             "Effect": "Allow",
             "Action": [
+                "ec2:CreateVpcEndpointServiceConfiguration"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateTags"
+            ],
+            "Resource": "arn:aws:ec2:*:*:vpc-endpoint-service/*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
+                },
+                "StringEquals": {
+                    "ec2:CreateAction": "CreateVpcEndpointServiceConfiguration"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateTags",
+                "ec2:DeleteTags"
+            ],
+            "Resource": "arn:aws:ec2:*:*:vpc-endpoint-service/*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "true",
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DeleteVpcEndpointServiceConfigurations",
+                "ec2:ModifyVpcEndpointServiceConfiguration",
+                "ec2:ModifyVpcEndpointServicePermissions",
+                "ec2:StartVpcEndpointServicePrivateDnsVerification"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "Null": {
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeVpcEndpointServiceConfigurations",
+                "ec2:DescribeVpcEndpointServicePermissions",
+                "ec2:DescribeVpcEndpointServices"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
                 "elasticloadbalancing:CreateLoadBalancer",
                 "elasticloadbalancing:CreateTargetGroup"
             ],
