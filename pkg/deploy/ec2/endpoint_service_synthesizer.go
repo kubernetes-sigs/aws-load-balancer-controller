@@ -53,8 +53,8 @@ func (s *endpointServiceSynthesizer) Synthesize(ctx context.Context) error {
 	}
 
 	// We delete before we create as we can only have a single VPC end point per LB
-	for _, sdkSG := range unmatchedSDKESs {
-		if err := s.esManager.Delete(ctx, sdkSG); err != nil {
+	for _, sdkES := range unmatchedSDKESs {
+		if err := s.esManager.Delete(ctx, sdkES); err != nil {
 			return errors.Wrap(err, "failed to delete VPCEndpointService")
 		}
 	}
@@ -110,7 +110,7 @@ type resAndSDKEndpointServicePair struct {
 	sdk networking.VPCEndpointServiceInfo
 }
 
-func matchResAndSDKEndpointServices(resSGs []*ec2model.VPCEndpointService, sdkSGs []networking.VPCEndpointServiceInfo,
+func matchResAndSDKEndpointServices(resESs []*ec2model.VPCEndpointService, sdkESs []networking.VPCEndpointServiceInfo,
 	resourceIDTagKey string) ([]resAndSDKEndpointServicePair, []*ec2model.VPCEndpointService, []networking.VPCEndpointServiceInfo, error) {
 
 	var matchedResAndSDKESs []resAndSDKEndpointServicePair
@@ -119,9 +119,9 @@ func matchResAndSDKEndpointServices(resSGs []*ec2model.VPCEndpointService, sdkSG
 
 	var unmatchedSDKESs []networking.VPCEndpointServiceInfo
 
-	resESsByID := mapResEndpointServiceByResourceID(resSGs)
+	resESsByID := mapResEndpointServiceByResourceID(resESs)
 
-	sdkESsByID, err := mapSDKEndpointServiceByResourceID(sdkSGs, resourceIDTagKey)
+	sdkESsByID, err := mapSDKEndpointServiceByResourceID(sdkESs, resourceIDTagKey)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "failed to map VPCEndpointServices by ID")
 	}
@@ -138,8 +138,8 @@ func matchResAndSDKEndpointServices(resSGs []*ec2model.VPCEndpointService, sdkSG
 			sdk: sdkESs[0],
 		})
 
-		for _, sdkSG := range sdkSGs[1:] {
-			unmatchedSDKESs = append(unmatchedSDKESs, sdkSG)
+		for _, sdkES := range sdkESs[1:] {
+			unmatchedSDKESs = append(unmatchedSDKESs, sdkES)
 		}
 	}
 

@@ -193,8 +193,8 @@ func (m *defaultTaggingManager) ListVPCEndpointServices(ctx context.Context, tag
 		if err != nil {
 			return nil, err
 		}
-		for sgID, esInfo := range esInfoByIDForTagFilter {
-			esInfoByID[sgID] = esInfo
+		for esID, esInfo := range esInfoByIDForTagFilter {
+			esInfoByID[esID] = esInfo
 		}
 	}
 

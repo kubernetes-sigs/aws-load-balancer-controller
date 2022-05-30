@@ -50,8 +50,8 @@ type defaultEndpointServiceManager struct {
 }
 
 func (m *defaultEndpointServiceManager) Create(ctx context.Context, resES *ec2model.VPCEndpointService) (ec2model.VPCEndpointServiceStatus, error) {
-	sgTags := m.trackingProvider.ResourceTags(resES.Stack(), resES, resES.Spec.Tags)
-	sdkTags := convertTagsToSDKTags(sgTags)
+	esTags := m.trackingProvider.ResourceTags(resES.Stack(), resES, resES.Spec.Tags)
+	sdkTags := convertTagsToSDKTags(esTags)
 
 	var resolvedLoadBalancerArns []string
 	for _, unresolved := range resES.Spec.NetworkLoadBalancerArns {
