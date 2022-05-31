@@ -1161,10 +1161,11 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 
 	tests := []struct {
-		testName string
-		svc      *corev1.Service
-		want     elbv2.TargetType
-		wantErr  error
+		testName           string
+		svc                *corev1.Service
+		want               elbv2.TargetType
+		enableIPTargetType *bool
+		wantErr            error
 	}{
 		{
 			testName: "empty annotation",
@@ -1246,6 +1247,29 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 				},
 			},
 			want: elbv2.TargetTypeIP,
+		},
+		{
+			testName: "enableIPTargetType is false, target ip",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			enableIPTargetType: aws.Bool(false),
+			wantErr:            errors.New("unsupported targetType: ip when EnableIPTargetType is false"),
 		},
 		{
 			testName: "external, ClusterIP with target type instance",
@@ -1336,6 +1360,11 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 				annotationParser:  parser,
 				service:           tt.svc,
 				defaultTargetType: LoadBalancerTargetTypeInstance,
+			}
+			if tt.enableIPTargetType == nil {
+				builder.enableIPTargetType = true
+			} else {
+				builder.enableIPTargetType = *tt.enableIPTargetType
 			}
 			got, err := builder.buildTargetType(context.Background(), tt.svc.Spec.Ports[0])
 			if tt.wantErr != nil {

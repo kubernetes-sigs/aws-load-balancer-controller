@@ -44,6 +44,8 @@ type SubnetsResolveOptions struct {
 	LBScheme elbv2model.LoadBalancerScheme
 	// count of available ip addresses
 	AvailableIPAddressCount int64
+	// whether to check the cluster tag
+	SubnetsClusterTagCheck bool
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -63,34 +65,42 @@ func defaultSubnetsResolveOptions() SubnetsResolveOptions {
 
 type SubnetsResolveOption func(opts *SubnetsResolveOptions)
 
-// WithSubnetsResolveLBType generates a option that configures LBType.
+// WithSubnetsResolveLBType generates an option that configures LBType.
 func WithSubnetsResolveLBType(lbType elbv2model.LoadBalancerType) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.LBType = lbType
 	}
 }
 
-// WithSubnetsResolveLBScheme generates a option that configures LBScheme.
+// WithSubnetsResolveLBScheme generates an option that configures LBScheme.
 func WithSubnetsResolveLBScheme(lbScheme elbv2model.LoadBalancerScheme) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.LBScheme = lbScheme
 	}
 }
 
-// WithSubnetsResolveAvailableIPAddressCount generates a option that configures AvailableIPAddressCount.
+// WithSubnetsResolveAvailableIPAddressCount generates an option that configures AvailableIPAddressCount.
 func WithSubnetsResolveAvailableIPAddressCount(AvailableIPAddressCount int64) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.AvailableIPAddressCount = AvailableIPAddressCount
 	}
 }
 
+// WithSubnetsClusterTagCheck generates an option that configures SubnetsClusterTagCheck.
+func WithSubnetsClusterTagCheck(SubnetsClusterTagCheck bool) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.SubnetsClusterTagCheck = SubnetsClusterTagCheck
+	}
+}
+
 // SubnetsResolver is responsible for resolve EC2 Subnets for Load Balancers.
 type SubnetsResolver interface {
 	// ResolveViaDiscovery resolve subnets by auto discover matching subnets.
-	// Discovery candidate includes all subnets within clusterVPC that contains the "kubernetes.io/cluster/<cluster-name>" tag.
-	// Additionally,
-	//   * for internet-facing Load Balancer, "kubernetes.io/role/elb" tag must presents.
-	//   * for internal Load Balancer, "kubernetes.io/role/internal-elb" tag must presents.
+	// Discovery candidate includes all subnets within the clusterVPC. Additionally,
+	//   * for internet-facing Load Balancer, "kubernetes.io/role/elb" tag must be present.
+	//   * for internal Load Balancer, "kubernetes.io/role/internal-elb" tag must be present.
+	//   * if SubnetClusterTagCheck is enabled, subnets within the clusterVPC must contain no cluster tag at all
+	//     or contain the "kubernetes.io/cluster/<cluster_name>" tag for the current cluster
 	// If multiple subnets are found for specific AZ, one subnet is chosen based on the lexical order of subnetID.
 	ResolveViaDiscovery(ctx context.Context, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
 
@@ -148,7 +158,7 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 	}
 	var subnets []*ec2sdk.Subnet
 	for _, subnet := range allSubnets {
-		if r.checkSubnetIsNotTaggedForOtherClusters(subnet) {
+		if r.checkSubnetIsNotTaggedForOtherClusters(subnet, resolveOpts.SubnetsClusterTagCheck) {
 			subnets = append(subnets, subnet)
 		}
 	}
@@ -343,7 +353,11 @@ func (r *defaultSubnetsResolver) checkSubnetHasClusterTag(subnet *ec2sdk.Subnet)
 // checkSubnetIsNotTaggedForOtherClusters checks whether the subnet is tagged for the current cluster
 // or it doesn't contain the cluster tag at all. If the subnet contains a tag for other clusters, then
 // this check returns false so that the subnet does not used for the load balancer.
-func (r *defaultSubnetsResolver) checkSubnetIsNotTaggedForOtherClusters(subnet *ec2sdk.Subnet) bool {
+// it returns true if the subnetsClusterTagCheck is disabled
+func (r *defaultSubnetsResolver) checkSubnetIsNotTaggedForOtherClusters(subnet *ec2sdk.Subnet, subnetsClusterTagCheck bool) bool {
+	if !subnetsClusterTagCheck {
+		return true
+	}
 	clusterResourceTagPrefix := "kubernetes.io/cluster"
 	clusterResourceTagKey := fmt.Sprintf("kubernetes.io/cluster/%s", r.clusterName)
 	hasClusterResourceTagPrefix := false

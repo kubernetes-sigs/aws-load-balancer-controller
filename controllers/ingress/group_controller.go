@@ -44,26 +44,26 @@ const (
 func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingSGManager networkingpkg.SecurityGroupManager,
 	networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
-	config config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider, logger logr.Logger) *groupReconciler {
+	controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider, logger logr.Logger) *groupReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
 	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder)
 	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
-	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, config.ClusterName)
-	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, logger)
+	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
+	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerConfig.FeatureGates, logger)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
 		cloud.EC2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
-		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager,
-		cloud.VpcID(), config.ClusterName, config.DefaultTags, config.ExternalManagedTags,
-		config.DefaultSSLPolicy, backendSGProvider, config.EnableBackendSecurityGroup, config.DisableRestrictedSGRules, logger)
+		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
+		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
+		controllerConfig.DefaultSSLPolicy, backendSGProvider, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
-		config, ingressTagPrefix, logger)
+		controllerConfig, ingressTagPrefix, logger)
 	classLoader := ingress.NewDefaultClassLoader(k8sClient)
-	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(config.IngressConfig.IngressClass)
-	manageIngressesWithoutIngressClass := config.IngressConfig.IngressClass == ""
+	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)
+	manageIngressesWithoutIngressClass := controllerConfig.IngressConfig.IngressClass == ""
 	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, eventRecorder, annotationParser, classLoader, classAnnotationMatcher, manageIngressesWithoutIngressClass)
 	groupFinalizerManager := ingress.NewDefaultFinalizerManager(finalizerManager)
 
@@ -80,7 +80,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		groupFinalizerManager: groupFinalizerManager,
 		logger:                logger,
 
-		maxConcurrentReconciles: config.IngressConfig.MaxConcurrentReconciles,
+		maxConcurrentReconciles: controllerConfig.IngressConfig.MaxConcurrentReconciles,
 	}
 }
 
