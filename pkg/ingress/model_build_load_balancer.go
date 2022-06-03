@@ -221,11 +221,25 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 	}
 
 	if len(sdkLBs) == 0 || (string(scheme) != awssdk.StringValue(sdkLBs[0].LoadBalancer.Scheme)) {
+		var rawSubnetsTags map[string][]string
+		for _, member := range t.ingGroup.Members {
+			var rawSubnetsTagsItem map[string][]string
+			exists, err := t.annotationParser.ParseJSONAnnotation(annotations.IngressSuffixSubnetsTags, &rawSubnetsTagsItem, member.Ing.Annotations)
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				continue
+			}
+			rawSubnetsTags = mergeRawTags(rawSubnetsTags, rawSubnetsTagsItem)
+		}
+
 		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),
 			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
+			networking.WithSubnetsTags(buildSubnetsTags(rawSubnetsTags)),
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't auto-discover subnets")
@@ -431,4 +445,29 @@ func buildLoadBalancerSubnetMappingsWithSubnetIDs(subnetIDs []string) []elbv2mod
 		})
 	}
 	return subnetMappings
+}
+
+func mergeRawTags(rawTags ...map[string][]string) map[string][]string {
+	mergedTags := make(map[string][]string)
+	for _, t := range rawTags {
+		for k, v := range t {
+			if values, ok := mergedTags[k]; ok {
+				mergedTags[k] = append(values, v...)
+			} else {
+				mergedTags[k] = v
+			}
+		}
+	}
+	return mergedTags
+}
+
+func buildSubnetsTags(rawTags map[string][]string) []*ec2sdk.Filter {
+	var subnetsTags []*ec2sdk.Filter
+	for name, values := range rawTags {
+		subnetsTags = append(subnetsTags, &ec2sdk.Filter{
+			Name:   awssdk.String(fmt.Sprintf("tag:%s", name)),
+			Values: awssdk.StringSlice(values),
+		})
+	}
+	return subnetsTags
 }

@@ -3,6 +3,9 @@ package networking
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
@@ -10,8 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sort"
-	"strings"
 )
 
 const (
@@ -46,6 +47,8 @@ type SubnetsResolveOptions struct {
 	AvailableIPAddressCount int64
 	// whether to check the cluster tag
 	SubnetsClusterTagCheck bool
+	// Extra subnets tag filter
+	SubnetsTags []*ec2sdk.Filter
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -93,6 +96,13 @@ func WithSubnetsClusterTagCheck(SubnetsClusterTagCheck bool) SubnetsResolveOptio
 	}
 }
 
+// WithSubnetsClusterTagCheck generates an option that configures SubnetsClusterTagCheck.
+func WithSubnetsTags(SubnetsTags []*ec2sdk.Filter) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.SubnetsTags = SubnetsTags
+	}
+}
+
 // SubnetsResolver is responsible for resolve EC2 Subnets for Load Balancers.
 type SubnetsResolver interface {
 	// ResolveViaDiscovery resolve subnets by auto discover matching subnets.
@@ -102,7 +112,7 @@ type SubnetsResolver interface {
 	//   * if SubnetClusterTagCheck is enabled, subnets within the clusterVPC must contain no cluster tag at all
 	//     or contain the "kubernetes.io/cluster/<cluster_name>" tag for the current cluster
 	// If multiple subnets are found for specific AZ, one subnet is chosen based on the lexical order of subnetID.
-	ResolveViaDiscovery(ctx context.Context, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
+	ResolveViaDiscovery(ctx context.Context, subnetopts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
 
 	// ResolveViaNameOrIDSlice resolve subnets using subnet name or ID.
 	ResolveViaNameOrIDSlice(ctx context.Context, subnetNameOrIDs []string, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
@@ -141,7 +151,12 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 	case elbv2model.LoadBalancerSchemeInternetFacing:
 		subnetRoleTagKey = TagKeySubnetPublicELB
 	}
-	req := &ec2sdk.DescribeSubnetsInput{Filters: []*ec2sdk.Filter{
+
+	if resolveOpts.SubnetsTags == nil {
+		resolveOpts.SubnetsTags = make([]*ec2sdk.Filter, 0)
+	}
+
+	req := &ec2sdk.DescribeSubnetsInput{Filters: append([]*ec2sdk.Filter{
 		{
 			Name:   awssdk.String("tag:" + subnetRoleTagKey),
 			Values: awssdk.StringSlice([]string{"", "1"}),
@@ -150,7 +165,7 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 			Name:   awssdk.String("vpc-id"),
 			Values: awssdk.StringSlice([]string{r.vpcID}),
 		},
-	}}
+	}, resolveOpts.SubnetsTags...)}
 
 	allSubnets, err := r.ec2Client.DescribeSubnetsAsList(ctx, req)
 	if err != nil {
