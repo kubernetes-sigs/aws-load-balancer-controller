@@ -183,19 +183,19 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
         The following `openssl` commands are a basic working example. Users can also choose to create or import certificates however they see fit. 
     
     ```
-    # Generate the private key of the root CA
-    $ openssl genrsa -out root_ca.key 4096
+    # Generate the private key of the Root Certificate Authority (CA)
+    $ openssl genpkey -algorithm ed25519 -out root_ca.key
 
-    # Generate a Self-Signed Certificate Authority using the above key
+    # Generate a Self-Signed CA using the above key
     $ openssl req -x509 -sha256 -new -nodes -key root_ca.key -days 3650 -out root_ca.crt
 
-    # Generate the Certificate Signing Request and be sure to add the required service addresses
+    # Generate the Certificate Signing Request (CSR) and be sure to add the required service addresses
     # - aws-load-balancer-webhook-service.kube-system.svc
     # - aws-load-balancer-webhook-service.kube-system.svc.cluster.local
-    $ openssl req -newkey rsa:4096 -nodes -keyout aws_lbc.key -out aws_lbc.csr
+    $ openssl req -newkey ed25519 -nodes -keyout aws_lbc.key -out aws_lbc.csr
 
-    # Generate a Self-Signed Certificate from the existing private key and CSR
-    $ openssl x509 -signkey aws_lbc.key -in aws_lbc.csr -req -days 365 -out aws_lbc.crt
+    # Generate a Self-Signed Certificate from the existing CSR and Root CA
+    $ openssl x509 -req -in aws_lbc.csr -CA root_ca.crt -CAkey root_ca.key -CAcreateserial -out aws_lbc.crt -signkey aws_lbc.key -days 365
 
     # Verify the Certificate
     $ openssl x509 -text -noout -in aws_lbc.crt
