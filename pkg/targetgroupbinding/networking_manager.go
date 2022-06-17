@@ -525,8 +525,10 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 		}
 	}
 	if len(sgIDsWithClusterTag) != 1 {
-		return "", errors.Errorf("expect exactly one securityGroup tagged with %v for eni %v, got: %v",
-			clusterResourceTagKey, eniInfo.NetworkInterfaceID, sgIDsWithClusterTag.List())
+		// user may provide incorrect `--cluster-name` at bootstrap or modify the tag key unexpectedly, it is hard to find out if no clusterName included in error message.
+		// having `clusterName` included in error message might be helpful for shorten the troubleshooting time spent.
+		return "", errors.Errorf("expect exactly one securityGroup tagged with %v for eni %v, got: %v (clusterName: %v)",
+			clusterResourceTagKey, eniInfo.NetworkInterfaceID, sgIDsWithClusterTag.List(), m.clusterName)
 	}
 	sgID, _ := sgIDsWithClusterTag.PopAny()
 	return sgID, nil
