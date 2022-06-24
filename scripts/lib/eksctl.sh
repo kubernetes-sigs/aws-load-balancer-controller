@@ -16,7 +16,7 @@ EKSCTL_TEMPLATE_IAM_SA="$(dirname "${BASH_SOURCE[0]}")/eksctl_tmpl_iam_sa.yaml"
 # Arguments:
 #   version         the version of eksctl
 #
-# sample: eksctl::init 0.34.0
+# sample: eksctl::init 0.100.0
 #######################################
 eksctl::init() {
   declare -r version="$1"
@@ -76,7 +76,7 @@ eksctl::init() {
 #   node_count          EKS cluster's node count
 #   cluster_kubeconfig  filename of cluster's kubeconfig
 #
-# sample: eksctl::create_cluster awesome-cluster us-west-2 1.18 m5.xlarge 4 awesome-cluster.kubeconfig
+# sample: eksctl::create_cluster awesome-cluster us-west-2 1.19 m5.xlarge 4 awesome-cluster.kubeconfig
 #######################################
 eksctl::create_cluster() {
   declare -r cluster_name="$1" region="$2" k8s_version="$3" instance_type="$4" node_count="$5" cluster_kubeconfig="$6"
