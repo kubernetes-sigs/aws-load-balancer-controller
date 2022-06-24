@@ -7,6 +7,7 @@
         - stringList: `"s1,s2,s3"`
         - stringMap: `"k1=v1,k2=v2"`
         - json: `"{ \"key\": \"value\" }"`
+    - The controller may not update the configuration of an *existing* load balancer if an annotation is added/updated. New load balancers will be have an appropriate configuration. 
 
 ## Annotations
 !!!warning

@@ -43,7 +43,7 @@ Ingress traffic starts at the ALB and reaches the Kubernetes nodes through each 
 #### IP mode
 Ingress traffic starts at the ALB and reaches the Kubernetes pods directly. CNIs must support directly accessible POD ip via [secondary IP addresses on ENI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html).
 
-## Lifecycle of AWS Load Balancers
+## Lifecycle of AWS Load Balancers 
 
 !!! warning 
     The controller, generally, does not update load balancers after creation. 
