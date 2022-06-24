@@ -43,3 +43,21 @@ Ingress traffic starts at the ALB and reaches the Kubernetes nodes through each 
 #### IP mode
 Ingress traffic starts at the ALB and reaches the Kubernetes pods directly. CNIs must support directly accessible POD ip via [secondary IP addresses on ENI](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html).
 
+## Lifecycle of AWS Load Balancers
+
+!!! warning 
+    The controller, generally, does not update load balancers after creation. 
+
+
+The controller updates the targets of load balancers in response to cluster workload changes. However, the controller may not update the configuration of load balancers in response to annotations added to cluster resources after the load balancer is created. 
+    
+For example, if you add the annotation `aws-load-balancer-ssl-cert` to a service after the load balancer is created, the controller will *not* update the configuration of the AWS load balancer. However, if you delete the AWS load balancer, the controller will *recreate* the load balancer with the desired configuration.
+
+Recommendations: 
+1. Assume AWS load balancers may need to be replaced.
+1. Do not manually update the configuration of load balancers provisioned by the controller. This will cause the in-cluster resource definitions and the AWS configuration to get out of sync. 
+1. If durability of a specific load balancer resource is important, consider using IAM permissions to block the controller from creating or deleting new load balancers. Use the controller only to update the targets of self-managed load balancers.
+1. Use the [ExternalDNS Controller](https://github.com/kubernetes-sigs/external-dns) to automatically update DNS records instead of relying on a specific load balancer IP address or hostname. 
+
+
+
