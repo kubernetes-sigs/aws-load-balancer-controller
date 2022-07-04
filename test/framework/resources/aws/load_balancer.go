@@ -82,9 +82,9 @@ func (m *defaultLoadBalancerManager) GetLoadBalancerListeners(ctx context.Contex
 	return listeners.Listeners, nil
 }
 
-func (m *defaultLoadBalancerManager) GetLoadBalancerListenerCertificates(ctx context.Context, listnerARN string) ([]*elbv2sdk.Certificate, error) {
+func (m *defaultLoadBalancerManager) GetLoadBalancerListenerCertificates(ctx context.Context, listenerARN string) ([]*elbv2sdk.Certificate, error) {
 	return m.elbv2Client.DescribeListenerCertificatesAsList(ctx, &elbv2sdk.DescribeListenerCertificatesInput{
-		ListenerArn: awssdk.String(listnerARN),
+		ListenerArn: awssdk.String(listenerARN),
 	})
 }
 
