@@ -631,7 +631,7 @@ Health check on target groups can be controlled with following annotations:
         alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '8'
         ```
 
-- <a name="success-codes">`alb.ingress.kubernetes.io/success-codes`</a> specifies the HTTP status code that should be expected when doing health checks against the specified health check path.
+- <a name="success-codes">`alb.ingress.kubernetes.io/success-codes`</a> specifies the HTTP or gRPC status code that should be expected when doing health checks against the specified health check path.
 
     !!!example
         - use single value
@@ -645,6 +645,18 @@ Health check on target groups can be controlled with following annotations:
         - use range of value
             ```
             alb.ingress.kubernetes.io/success-codes: 200-300
+            ```
+        - use gRPC single value
+            ```
+            alb.ingress.kubernetes.io/success-codes: '0'
+            ```
+        - use gRPC multiple value
+            ```
+            alb.ingress.kubernetes.io/success-codes: 0,1
+            ```
+        - use gRPC range of value
+            ```
+            alb.ingress.kubernetes.io/success-codes: 0-5
             ```
 
 - <a name="healthy-threshold-count">`alb.ingress.kubernetes.io/healthy-threshold-count`</a> specifies the consecutive health checks successes required before considering an unhealthy target healthy.
