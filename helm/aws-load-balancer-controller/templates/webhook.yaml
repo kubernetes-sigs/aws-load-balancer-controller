@@ -23,10 +23,14 @@ webhooks:
   - v1beta1
   namespaceSelector:
     matchExpressions:
+    {{ if .Values.webhookNamespaceSelector }}
+    {{ toYaml .Values.webhookNamespaceSelectors | nindent 4 }}
+    {{ else }}
     - key: elbv2.k8s.aws/pod-readiness-gate-inject
       operator: In
       values:
       - enabled
+    {{ end }}
   objectSelector:
     matchExpressions:
     - key: app.kubernetes.io/name
