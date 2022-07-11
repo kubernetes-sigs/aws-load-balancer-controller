@@ -182,7 +182,7 @@ Traffic Routing can be controlled with following annotations:
             - [amazon-vpc-cni-k8s](https://github.com/aws/amazon-vpc-cni-k8s)
 
         !!!note ""
-            `ip` mode is required for sticky sessions to work with Application Load Balancers. The Service type can both bother `NodePort` and `ClusterIp` when using `ip` mode.
+            `ip` mode is required for sticky sessions to work with Application Load Balancers. The Service type does not matter, when using `ip` mode.
 
     !!!example
         ```
