@@ -29,7 +29,7 @@ CONTROLLER_IAM_POLICY_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
 CONTROLLER_IAM_POLICY_ARN="" # will be fulfilled during setup_controller_iam_sa
 
 # Cluster settings
-EKSCTL_VERSION="v0.98.0"
+EKSCTL_VERSION="v0.100.0"
 CLUSTER_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
 CLUSTER_VERSION=${CLUSTER_VERSION:-"1.21"}
 CLUSTER_INSTANCE_TYPE="m5.xlarge"
