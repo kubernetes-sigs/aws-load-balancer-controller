@@ -15,5 +15,9 @@
 ~/go/bin/mockgen -package=networking -destination=./pkg/networking/node_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking NodeInfoProvider
 ~/go/bin/mockgen -package=networking -destination=./pkg/networking/vpc_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking VPCInfoProvider
 ~/go/bin/mockgen -package=networking -destination=./pkg/networking/backend_sg_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking BackendSGProvider
+~/go/bin/mockgen -package=networking -destination=./pkg/networking/vpc_endpoint_service_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking VPCEndpointServiceManager
 ~/go/bin/mockgen -package=ingress -destination=./pkg/ingress/cert_discovery_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/ingress CertDiscovery
 ~/go/bin/mockgen -package=elbv2 -destination=./pkg/deploy/elbv2/tagging_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2 TaggingManager
+~/go/bin/mockgen -package=ec2 -destination=./pkg/deploy/ec2/tagging_manager__mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/ec2 TaggingManager
+~/go/bin/mockgen -package=ec2 -destination=./pkg/deploy/ec2/endpoint_service_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/ec2 EndpointServiceManager
+~/go/bin/mockgen -package=tracking -destination=./pkg/deploy/tracking/provider.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking defaultProvider
