@@ -316,7 +316,7 @@ func (s *multiPathBackendStack) buildBackendResource(ns *corev1.Namespace, backe
 					Containers: []corev1.Container{
 						{
 							Name:  "app",
-							Image: "970805265562.dkr.ecr.us-west-2.amazonaws.com/colorteller:latest",
+							Image: utils.ColortellerImage,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: 8080,

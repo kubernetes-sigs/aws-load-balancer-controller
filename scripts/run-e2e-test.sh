@@ -32,14 +32,17 @@ function cleanUp(){
   
   # IAM role and polcies are AWS Account specific, so need to clean them up if any from previous run
   echo "detach IAM policy if it exists"
-  aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
+  aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
 
+  # wait for 10 sec to complete detaching of IAM policy
+  sleep 10
+  
   echo "delete $ROLE_NAME if it exists"
   aws iam delete-role --role-name $ROLE_NAME || true
 
   # Need to do this as last step
   echo "delete AWSLoadBalancerControllerIAMPolicy if it exists"
-  aws iam delete-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
+  aws iam delete-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
 }
 
 echo "cordon off windows nodes"
@@ -49,6 +52,23 @@ echo "fetch OIDC provider"
 OIDC_PROVIDER=$(echo $CLUSTER_INFO |  jq -r '.cluster.identity.oidc.issuer' | sed -e "s/^https:\/\///")
 echo "OIDC Provider: $OIDC_PROVIDER"
 
+AWS_PARTITION="aws"
+IAM_POLCIY_FILE="iam_policy.json"
+
+if [[ $REGION == "cn-north-1" || $REGION == "cn-northwest-1" ]];then
+  AWS_PARTITION="aws-cn"
+  IAM_POLCIY_FILE="iam_policy_cn.json"
+fi
+
+if [[ $REGION == "cn-north-1" ]];then
+  IMAGE="918309763551.dkr.ecr.cn-north-1.amazonaws.com.cn/amazon/aws-load-balancer-controller"
+elif [[ $REGION == "cn-northwest-1" ]];then
+  IMAGE="961992271922.dkr.ecr.cn-northwest-1.amazonaws.com.cn/amazon/aws-load-balancer-controller"
+else
+  IMAGE="602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller"
+fi
+
+echo "IMAGE: $IMAGE"
 echo "create IAM policy document file"
 cat <<EOF > trust.json
 {
@@ -57,7 +77,7 @@ cat <<EOF > trust.json
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::${ACCOUNT_ID}:oidc-provider/${OIDC_PROVIDER}"
+        "Federated": "arn:${AWS_PARTITION}:iam::${ACCOUNT_ID}:oidc-provider/${OIDC_PROVIDER}"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -80,27 +100,24 @@ aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://
 echo "creating AWSLoadbalancerController IAM Policy"
 aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
-    --policy-document file://"$SCRIPT_DIR"/../docs/install/iam_policy.json || true
+    --policy-document file://"$SCRIPT_DIR"/../docs/install/${IAM_POLCIY_FILE} || true
 
 echo "attaching AWSLoadbalancerController IAM Policy to $ROLE_NAME"
-aws iam attach-role-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy --role-name $ROLE_NAME || true
+aws iam attach-role-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy --role-name $ROLE_NAME || true
 
 echo "create service account"
 kubectl create serviceaccount aws-load-balancer-controller -n kube-system || true
 
 echo "annotate service account with $ROLE_NAME"
-kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller eks.amazonaws.com/role-arn=arn:aws:iam::"$ACCOUNT_ID":role/"$ROLE_NAME" --overwrite=true || true
+kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller eks.amazonaws.com/role-arn=arn:${AWS_PARTITION}:iam::"$ACCOUNT_ID":role/"$ROLE_NAME" --overwrite=true || true
 
 echo "update helm repo eks"
 helm repo add eks https://aws.github.io/eks-charts
 
 helm repo update
 
-echo "Install TargetGroupBinding CRDs"
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
-
 echo "Install aws-load-balancer-controller"
-helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID
+helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
 
 echo_time() {
     date +"%D %T $*"
@@ -146,7 +163,7 @@ run_ginkgo_test
 # tail=-1 is added so that no logs are truncated
 # https://github.com/kubernetes/kubectl/issues/812
 echo "Fetch most recent aws-load-balancer-controller logs"
-kubectl logs -l app.kubernetes.io/name=aws-load-balancer-controller --container aws-load-balancer-controller --tail=-1 -n kube-system
+kubectl logs -l app.kubernetes.io/name=aws-load-balancer-controller --container aws-load-balancer-controller --tail=-1 -n kube-system || true
 
 echo "Uncordon windows nodes"
 toggle_windows_scheduling "uncordon"
@@ -155,6 +172,6 @@ echo "clean up resources from current run"
 cleanUp
 
 echo "Delete TargetGroupBinding CRDs if exists"
-kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=10m || true
+kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30m || true
 
 echo "Successfully finished the test suite $(($SECONDS / 60)) minutes and $(($SECONDS % 60)) seconds"
