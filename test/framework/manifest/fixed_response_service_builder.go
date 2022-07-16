@@ -95,7 +95,7 @@ func (b *fixedResponseServiceBuilder) buildDeployment(namespace string, name str
 					Containers: []corev1.Container{
 						{
 							Name:  "app",
-							Image: utils.COLORTELLER_IMAGE,
+							Image: utils.ColortellerImage,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          b.targetPortName,

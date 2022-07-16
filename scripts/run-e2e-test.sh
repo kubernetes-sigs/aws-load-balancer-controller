@@ -34,6 +34,9 @@ function cleanUp(){
   echo "detach IAM policy if it exists"
   aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
 
+  # wait for 10 sec to complete detaching of IAM policy
+  sleep 10
+  
   echo "delete $ROLE_NAME if it exists"
   aws iam delete-role --role-name $ROLE_NAME || true
 
