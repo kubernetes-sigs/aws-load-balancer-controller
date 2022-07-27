@@ -67,7 +67,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |Flag                                   | Type                            | Default         | Description |
 |---------------------------------------|---------------------------------|-----------------|-------------|
 |aws-api-endpoints                      | AWS API Endpoints Config        |                 | AWS API endpoints mapping, format: serviceID1=URL1,serviceID2=URL2 |
-|aws-api-throttle                       | AWS Throttle Config             | [default value](#default-throttle-config ) | throttle settings for AWS APIs, format: serviceID1:operationRegex1=burst:rate,serviceID2:operationRegex2=burst:rate |
+|aws-api-throttle                       | AWS Throttle Config             | [default value](#default-throttle-config ) | throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst |
 |aws-max-retries                        | int                             | 10              | Maximum retries for AWS APIs |
 |aws-region                             | string                          | [instance metadata](#instance-metadata)    | AWS Region for the kubernetes cluster |
 |aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)    | AWS VPC ID for the Kubernetes cluster |
