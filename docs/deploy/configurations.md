@@ -67,7 +67,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |Flag                                   | Type                            | Default         | Description |
 |---------------------------------------|---------------------------------|-----------------|-------------|
 |aws-api-endpoints                      | AWS API Endpoints Config        |                 | AWS API endpoints mapping, format: serviceID1=URL1,serviceID2=URL2 |
-|aws-api-throttle                       | AWS Throttle Config             | [default value](#default-throttle-config ) | throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst |
+|aws-api-throttle                       | AWS Throttle Config             | [default value](#default-throttle-config ) | throttle settings for AWS APIs, format: serviceID1:operationRegex1=burst:rate,serviceID2:operationRegex2=burst:rate |
 |aws-max-retries                        | int                             | 10              | Maximum retries for AWS APIs |
 |aws-region                             | string                          | [instance metadata](#instance-metadata)    | AWS Region for the kubernetes cluster |
 |aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)    | AWS VPC ID for the Kubernetes cluster |
@@ -127,9 +127,19 @@ Once disabled:
 * you can no longer alter the value of an `alb.ingress.kubernetes.io/group.name` annotation on an existing Ingress.
 
 
-### Default throttle config
+###  throttle config
+
+The default throttle config used is.
+
 ```
 WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
+```
+Client side throttling enable gradual scaling of the api calls. Additional throttle config can be specified by `--aws-api-throttle` flag. The ServiceId used in `--aws-api-throttle` The serviceID can be obtained from the API definition in AWS SDK. For e.g, ELBv2 it is [Elastic Load Balancing v2](https://github.com/aws/aws-sdk-go/blob/main/models/apis/elasticloadbalancingv2/2015-12-01/api-2.json#L9).
+
+Here is an example of throttle config to specify client side throttling of ELBv2 calls.
+
+```
+--aws-api-throttle=Elastic Load Balancing v2:RegisterTargets|DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40
 ```
 
 ### Instance metadata
