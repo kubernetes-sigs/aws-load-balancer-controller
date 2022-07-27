@@ -436,9 +436,12 @@ Traffic Routing can be controlled with following annotations:
                           name: use-annotation
         ```
 
-    !!!note ""
-        - If you are using `alb.ingress.kubernetes.io/target-group-attributes` with `stickiness.enabled=true`, you should add `TargetGroupStickinessConfig` under `alb.ingress.kubernetes.io/actions.weighted-routing`:
-            ```yaml
+    !!!note 
+        If you are using `alb.ingress.kubernetes.io/target-group-attributes` with `stickiness.enabled=true`, you should add `TargetGroupStickinessConfig` under `alb.ingress.kubernetes.io/actions.weighted-routing`
+        
+    !!!example
+
+        ```yaml
             apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
@@ -484,7 +487,6 @@ Traffic Routing can be controlled with following annotations:
                             port:
                             name: use-annotation
         ```
-
 
 ## Access control
 Access control for LoadBalancer can be controlled with following annotations:
