@@ -157,7 +157,7 @@ eksctl delete iamserviceaccount --cluster <cluster-name> --namespace kube-system
 Chart release v1.2.0 and later enables high availability configuration by default.
 - The default number of replicas is 2. You can pass`--set replicaCount=1` flag during chart installation to disable this. Due to leader election, only one controller will actively reconcile resources.
 - The default priority class for the controller pods is `system-cluster-critical`
-- Soft pod anti-affinity is enabled for controller pods with `topologyKey: kubernetes.io/hostname` if custom affinity is not configured
+- Soft pod anti-affinity is enabled for controller pods with `topologyKey: kubernetes.io/hostname` if you don't configure custom affinity and set `configureDefaultAffinity` to `true`
 - Pod disruption budget (PDB) has not been set by default. If you plan on running at least 2 controller pods, you can pass `--set podDisruptionBudget.maxUnavailable=1` flag during chart installation
 
 ## Configuration
@@ -176,7 +176,8 @@ The default values set by the application itself can be confirmed [here](https:/
 | `priorityClassName`                            | Controller pod priority class                                                                            | system-cluster-critical                                                            |
 | `nodeSelector`                                 | Node labels for controller pod assignment                                                                | `{}`                                                                               |
 | `tolerations`                                  | Controller pod toleration for taints                                                                     | `{}`                                                                               |
-| `affinity`                                     | Affinity for pod assignment (string or map) (soft affinity if string "default", set explicitly if map)   | `default`                                                                          |
+| `affinity`                                     | Affinity for pod assignment                                                                              | `{}`                                                                               |
+| `configureDefaultAffinity`                     | Configure soft pod anti-affinity if custom affinity is not configured                                    | `true`                                                                             |
 | `topologySpreadConstraints`                    | Topology Spread Constraints for pod assignment                                                           | `{}`                                                                               |
 | `deploymentAnnotations`                        | Annotations to add to deployment                                                                         | `{}`                                                                               |
 | `podAnnotations`                               | Annotations to add to each pod                                                                           | `{}`                                                                               |
