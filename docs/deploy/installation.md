@@ -1,23 +1,42 @@
 # Load Balancer Controller Installation
+
+The Load Balancer controller (LBC) provisions AWS Network Load Balancer (NLB) and Application Load Balancer (ALB) resources. The LBC watches for new service or ingress kubernetes resources, and configures AWS resources.
+
+The LBC is supported by AWS. Some clusters may using legeacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. 
+
 !!!question "Existing AWS ALB Ingress Controller users"
     AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer controller.
     Please follow our [migration guide](upgrade/migrate_v1_v2.md) to do migration.
 
-## Kubernetes version requirements
+## Supported Kubernetes Versions 
 * AWS Load Balancer Controller v2.0.0~v2.1.3 requires Kubernetes 1.15+
 * AWS Load Balancer Controller v2.2.0~v2.3.1 requires Kubernetes 1.16-1.21
 * AWS Load Balancer Controller v2.4.0+ requires Kubernetes 1.19+
 
-Additional Requirements for non-EKS clusters:
-- Ensure subnets are tagged appropriately for auto-discovery to work
-- For IP targets, pods must have IPs from the VPC subnets. You can configure `amazon-vpc-cni-k8s` plugin for this purpose.
+## Deployment Considerations
 
-## IAM Permissions and Security
+### Additional Requirements for non-EKS clusters:
 
-#### Setup IAM role for service accounts
-The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB resources via IAM permissions.
+* Ensure subnets are tagged appropriately for auto-discovery to work
+* For IP targets, pods must have IPs from the VPC subnets. You can configure `amazon-vpc-cni-k8s` plugin for this purpose.
 
-The IAM permissions can either be setup via [IAM roles for ServiceAccount (IRSA)](https://docs.aws.amazon.com/emr/latest/EMR-on-EKS-DevelopmentGuide/setting-up-enable-IAM.html) or can be attached directly to the worker node IAM roles. If you are using kops or vanilla k8s, polices must be manually attached to node instances. 
+### Using metadata server version 2 (IMDSv2)
+If you are using the [IMDSv2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html) you must set the hop limit to 2 or higher in order to allow the AWS Load Balancer Controller to perform the metadata introspection.
+
+You can set the IMDSv2 hop limit as follows:
+```
+aws ec2 modify-instance-metadata-options --http-put-response-hop-limit 2 --region <region> --instance-id <instance-id>
+```
+
+Instead of depending on IMDSv2, you alternatively may specify the AWS region and the VPC via the controller flags `--aws-region` and `--aws-vpc-id`.
+
+## Configure IAM
+
+The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB APIs via IAM permissions.
+
+The IAM permissions can either be setup via [IAM roles for ServiceAccount (IRSA)](https://docs.aws.amazon.com/emr/latest/EMR-on-EKS-DevelopmentGuide/setting-up-enable-IAM.html) or can be attached directly to the worker node IAM roles. If you are using kops or vanilla k8s, polices must be manually attached to node instances.
+
+### Option A: IAM Roles for Service Accounts (IRSA)
 
 The reference IAM policies contain the following permissive configuration:
 ```
@@ -84,7 +103,7 @@ Example condition for resource tag:
     --approve
     ```
     
-#### Setup IAM manually
+### Option B: Attach IAM Policies to Nodes
 If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
 ```
 curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.2/docs/install/iam_policy.json
@@ -115,19 +134,11 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 }
 ```
 
-#### Using metadata server version 2 (IMDSv2)
-If you are using the [IMDSv2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html) you must set the hop limit to 2 or higher in order to allow the AWS Load Balancer Controller to perform the metadata introspection.
 
-You can set the IMDSv2 hop limit as follows:
-```
-aws ec2 modify-instance-metadata-options --http-put-response-hop-limit 2 --region <region> --instance-id <instance-id>
-```
-
-Instead of depending on IMDSv2, you alternatively may specify the AWS region and the VPC via the controller flags `--aws-region` and `--aws-vpc-id`.
 
 ## Network Configuration
 
-Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html). The node security group must permit incoming traffic on TCP port 9943 from the kubernetes control plane. This is needed for webhook access. 
+Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html) docs. The node security group must permit incoming traffic on TCP port 9943 from the kubernetes control plane. This is needed for webhook access. 
 
 If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the default configuration. 
 
