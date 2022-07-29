@@ -173,6 +173,13 @@ webhookTLS:
   cert:
   key:
 
+# array of namespace selectors for the webhook
+webhookNamespaceSelector:
+# - key: elbv2.k8s.aws/pod-readiness-gate-inject
+#   operator: In
+#   values:
+#   - enabled
+
 # keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade
 keepTLSSecret: true
 
