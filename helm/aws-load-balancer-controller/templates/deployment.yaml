@@ -71,6 +71,9 @@ spec:
         {{- if .Values.awsApiEndpoints }}
         - --aws-api-endpoints={{ .Values.awsApiEndpoints }}
         {{- end }}
+        {{- if .Values.awsApiThrottle }}
+        - --aws-api-throttle={{ join "," .Values.awsApiThrottle }}
+        {{- end }}
         {{- if .Values.awsMaxRetries }}
         - --aws-max-retries={{ .Values.awsMaxRetries }}
         {{- end }}
