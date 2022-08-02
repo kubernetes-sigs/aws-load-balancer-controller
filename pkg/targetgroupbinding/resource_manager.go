@@ -382,6 +382,10 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 	if err != nil {
 		return err
 	}
+	tgInfo, err := m.targetsManager.DescribeTargetGroup(ctx, tgARN)
+	if err != nil {
+		return err
+	}
 
 	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
@@ -395,6 +399,9 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 		}
 		if !networking.IsIPWithinCIDRs(podIP, vpcCIDRs) {
 			target.AvailabilityZone = awssdk.String("all")
+		}
+		if *tgInfo.VpcId != m.vpcID {
+		        target.AvailabilityZone = awssdk.String("all")
 		}
 		sdkTargets = append(sdkTargets, target)
 	}

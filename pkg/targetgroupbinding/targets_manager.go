@@ -27,6 +27,9 @@ type TargetsManager interface {
 
 	// List Targets from TargetGroup.
 	ListTargets(ctx context.Context, tgARN string) ([]TargetInfo, error)
+
+	// Describe TargetGroup.
+	DescribeTargetGroup(ctx context.Context, tgARN string) (*elbv2sdk.TargetGroup, error)
 }
 
 // NewCachedTargetsManager constructs new cachedTargetsManager
@@ -143,6 +146,19 @@ func (m *cachedTargetsManager) ListTargets(ctx context.Context, tgARN string) ([
 	}
 	m.targetsCache.Set(tgARN, targetsCacheItem, m.targetsCacheTTL)
 	return cloneTargetInfoSlice(refreshedTargets), nil
+}
+
+func (m *cachedTargetsManager) DescribeTargetGroup(ctx context.Context, tgARN string) (*elbv2sdk.TargetGroup, error) {
+	req := &elbv2sdk.DescribeTargetGroupsInput{
+		TargetGroupArns: []*string{
+			aws.String(tgARN),
+		},
+	}
+	targetgroups, err := m.elbv2Client.DescribeTargetGroupsWithContext(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return targetgroups.TargetGroups[0], nil
 }
 
 // refreshAllTargets will refresh all targets for targetGroup.
