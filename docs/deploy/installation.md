@@ -61,7 +61,7 @@ Example condition for VPC ID:
     }
 ```
 
-Example condition for resource tag:
+Example condition for cluster name resource tag:
 ```
     "Condition": {
         "Null": {
