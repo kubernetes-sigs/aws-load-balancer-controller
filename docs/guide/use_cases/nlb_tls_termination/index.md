@@ -16,9 +16,7 @@ The TLS implementation used by the AWS NLB is formally verified and maintained. 
 
 An external client transmits a request to the NLB. The request is encrypted with TLS using the production (e.g., client facing) certificate, and on port 443. 
 
-The NLB decrypts the request, and transmits it on to your cluster on port 80. It follows the standard request routing configured within the cluster. Notably, the request received within the cluster includes the actual origin IP address of the external client. 
-
-Alternate ports may be configured. End-to-end encryption technically requires the segment between the NLB and cluster pods be encrypted also. A follow-up post will describe the NLB originating TLS based on a cluster certificate. 
+The NLB decrypts the request, and transmits it on to your cluster on port 80. It follows the standard request routing configured within the cluster. Notably, the request received within the cluster includes the actual origin IP address of the external client. Alternate ports may be configured.  
 
 !!! note
     The NLB may be configured to maintain the source (i.e., client) IP address. However, there are some limitations. Review [Client IP Preservation](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#client-ip-preservation) in the AWS docs. 
