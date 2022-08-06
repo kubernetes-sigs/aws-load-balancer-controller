@@ -775,7 +775,7 @@ func Test_defaultGroupLoader_LoadGroupIDsPendingFinalization(t *testing.T) {
 	}
 }
 
-func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
+func Test_defaultGroupLoader_checkGroupMembershipType(t *testing.T) {
 	now := metav1.Now()
 	type env struct {
 		ingClassList       []*networking.IngressClass
@@ -786,15 +786,15 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 		ing     *networking.Ingress
 	}
 	tests := []struct {
-		name              string
-		env               env
-		args              args
-		wantClassifiedIng ClassifiedIngress
-		wantIsGroupMember bool
-		wantErr           error
+		name               string
+		env                env
+		args               args
+		wantMembershipType groupMembershipType
+		wantClassifiedIng  ClassifiedIngress
+		wantErr            error
 	}{
 		{
-			name: "ingress is member of explicit group - groupID match with groupName from IngressClassParams",
+			name: "ingress is active member of explicit group - groupID match with groupName from IngressClassParams",
 			env: env{
 				ingClassList: []*networking.IngressClass{
 					{
@@ -836,6 +836,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
+			wantMembershipType: groupMembershipTypeActiveMember,
 			wantClassifiedIng: ClassifiedIngress{
 				Ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
@@ -872,7 +873,6 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
-			wantIsGroupMember: true,
 		},
 		{
 			name: "ingress isn't member of explicit group - groupID mismatch with groupName from IngressClassParams",
@@ -899,14 +899,14 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 						},
 						Spec: elbv2api.IngressClassParamsSpec{
 							Group: &elbv2api.IngressGroup{
-								Name: "awesome-group",
+								Name: "another-group",
 							},
 						},
 					},
 				},
 			},
 			args: args{
-				groupID: GroupID{Name: "another-group"},
+				groupID: GroupID{Name: "awesome-group"},
 				ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ing-ns",
@@ -917,18 +917,14 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
-			wantClassifiedIng: ClassifiedIngress{
-				Ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "ing-ns",
-						Name:      "ing-name",
-					},
-					Spec: networking.IngressSpec{
-						IngressClassName: awssdk.String("ing-class"),
-					},
-				},
-				IngClassConfig: ClassConfiguration{
-					IngClass: &networking.IngressClass{
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
+		},
+		{
+			name: "ingress is inactive member of explicit group - groupID mismatch with groupName from IngressClassParams",
+			env: env{
+				ingClassList: []*networking.IngressClass{
+					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "ing-class",
 						},
@@ -941,22 +937,203 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 							},
 						},
 					},
-					IngClassParams: &elbv2api.IngressClassParams{
+				},
+				ingClassParamsList: []*elbv2api.IngressClassParams{
+					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "ing-class-params",
 						},
 						Spec: elbv2api.IngressClassParamsSpec{
 							Group: &elbv2api.IngressGroup{
-								Name: "awesome-group",
+								Name: "another-group",
 							},
 						},
 					},
 				},
 			},
-			wantIsGroupMember: false,
+			args: args{
+				groupID: GroupID{Name: "awesome-group"},
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:  "ing-ns",
+						Name:       "ing-name",
+						Finalizers: []string{"group.ingress.k8s.aws/awesome-group"},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("ing-class"),
+					},
+				},
+			},
+			wantMembershipType: groupMembershipTypeInactiveMember,
+			wantClassifiedIng:  ClassifiedIngress{},
 		},
 		{
-			name: "ingress is member of explicit group - groupID match with groupName from annotation",
+			name: "ingress don't hold explicit group's Finalizer - failed to Load IngressClassParams",
+			env: env{
+				ingClassList: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "ingress.k8s.aws/alb",
+							Parameters: &networking.IngressClassParametersReference{
+								APIGroup: awssdk.String("elbv2.k8s.aws"),
+								Kind:     "IngressClassParams",
+								Name:     "ing-class-params",
+							},
+						},
+					},
+				},
+				ingClassParamsList: []*elbv2api.IngressClassParams{},
+			},
+			args: args{
+				groupID: GroupID{Name: "awesome-group"},
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ing-ns",
+						Name:      "ing-name",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("ing-class"),
+					},
+				},
+			},
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
+		},
+		{
+			name: "ingress holds explicit group's Finalizer - failed to Load IngressClassParams",
+			env: env{
+				ingClassList: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "ingress.k8s.aws/alb",
+							Parameters: &networking.IngressClassParametersReference{
+								APIGroup: awssdk.String("elbv2.k8s.aws"),
+								Kind:     "IngressClassParams",
+								Name:     "ing-class-params",
+							},
+						},
+					},
+				},
+				ingClassParamsList: []*elbv2api.IngressClassParams{},
+			},
+			args: args{
+				groupID: GroupID{Name: "awesome-group"},
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:  "ing-ns",
+						Name:       "ing-name",
+						Finalizers: []string{"group.ingress.k8s.aws/awesome-group"},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("ing-class"),
+					},
+				},
+			},
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
+			wantErr:            errors.New("Ingress has invalid IngressClass configuration: invalid ingress class: ingressclassparamses.elbv2.k8s.aws \"ing-class-params\" not found"),
+		},
+		{
+			name: "ingress don't hold explicit group's Finalizer - failed to Load IngressGroup",
+			env: env{
+				ingClassList: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "ingress.k8s.aws/alb",
+							Parameters: &networking.IngressClassParametersReference{
+								APIGroup: awssdk.String("elbv2.k8s.aws"),
+								Kind:     "IngressClassParams",
+								Name:     "ing-class-params",
+							},
+						},
+					},
+				},
+				ingClassParamsList: []*elbv2api.IngressClassParams{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-class-params",
+						},
+						Spec: elbv2api.IngressClassParamsSpec{
+							Group: &elbv2api.IngressGroup{
+								Name: "$invalid/GroupName@",
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				groupID: GroupID{Name: "awesome-group"},
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ing-ns",
+						Name:      "ing-name",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("ing-class"),
+					},
+				},
+			},
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
+		},
+		{
+			name: "ingress holds explicit group's Finalizer - failed to Load IngressGroup",
+			env: env{
+				ingClassList: []*networking.IngressClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-class",
+						},
+						Spec: networking.IngressClassSpec{
+							Controller: "ingress.k8s.aws/alb",
+							Parameters: &networking.IngressClassParametersReference{
+								APIGroup: awssdk.String("elbv2.k8s.aws"),
+								Kind:     "IngressClassParams",
+								Name:     "ing-class-params",
+							},
+						},
+					},
+				},
+				ingClassParamsList: []*elbv2api.IngressClassParams{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "ing-class-params",
+						},
+						Spec: elbv2api.IngressClassParamsSpec{
+							Group: &elbv2api.IngressGroup{
+								Name: "$invalid/GroupName@",
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				groupID: GroupID{Name: "awesome-group"},
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:  "ing-ns",
+						Name:       "ing-name",
+						Finalizers: []string{"group.ingress.k8s.aws/awesome-group"},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("ing-class"),
+					},
+				},
+			},
+			wantMembershipType: groupMembershipTypeInactiveMember,
+			wantClassifiedIng:  ClassifiedIngress{},
+		},
+		{
+			name: "ingress is active member of explicit group - groupID match with groupName from annotation",
 			args: args{
 				groupID: GroupID{Name: "awesome-group"},
 				ing: &networking.Ingress{
@@ -970,6 +1147,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
+			wantMembershipType: groupMembershipTypeActiveMember,
 			wantClassifiedIng: ClassifiedIngress{
 				Ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
@@ -983,12 +1161,48 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 				},
 				IngClassConfig: ClassConfiguration{},
 			},
-			wantIsGroupMember: true,
 		},
 		{
 			name: "ingress isn't member of explicit group - groupID mismatch with groupName from annotation",
 			args: args{
-				groupID: GroupID{Name: "another-group"},
+				groupID: GroupID{Name: "awesome-group"},
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ing-ns",
+						Name:      "ing-name",
+						Annotations: map[string]string{
+							"kubernetes.io/ingress.class":          "alb",
+							"alb.ingress.kubernetes.io/group.name": "another-group",
+						},
+					},
+				},
+			},
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
+		},
+		{
+			name: "ingress is inactive member of explicit group - groupID mismatch with groupName from annotation",
+			args: args{
+				groupID: GroupID{Name: "awesome-group"},
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ing-ns",
+						Name:      "ing-name",
+						Annotations: map[string]string{
+							"kubernetes.io/ingress.class":          "alb",
+							"alb.ingress.kubernetes.io/group.name": "another-group",
+						},
+						Finalizers: []string{"group.ingress.k8s.aws/awesome-group"},
+					},
+				},
+			},
+			wantMembershipType: groupMembershipTypeInactiveMember,
+			wantClassifiedIng:  ClassifiedIngress{},
+		},
+		{
+			name: "ingress isn't member of a explicit group - ingress-been-deleted",
+			args: args{
+				groupID: GroupID{Name: "awesome-group"},
 				ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ing-ns",
@@ -997,11 +1211,18 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 							"kubernetes.io/ingress.class":          "alb",
 							"alb.ingress.kubernetes.io/group.name": "awesome-group",
 						},
+						DeletionTimestamp: &now,
 					},
 				},
 			},
-			wantClassifiedIng: ClassifiedIngress{
-				Ing: &networking.Ingress{
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
+		},
+		{
+			name: "ingress is inactive member of a explicit group - ingress-been-deleted",
+			args: args{
+				groupID: GroupID{Name: "awesome-group"},
+				ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ing-ns",
 						Name:      "ing-name",
@@ -1009,14 +1230,16 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 							"kubernetes.io/ingress.class":          "alb",
 							"alb.ingress.kubernetes.io/group.name": "awesome-group",
 						},
+						Finalizers:        []string{"group.ingress.k8s.aws/awesome-group"},
+						DeletionTimestamp: &now,
 					},
 				},
-				IngClassConfig: ClassConfiguration{},
 			},
-			wantIsGroupMember: false,
+			wantMembershipType: groupMembershipTypeInactiveMember,
+			wantClassifiedIng:  ClassifiedIngress{},
 		},
 		{
-			name: "ingress is member of implicit group - with ingressClassName",
+			name: "ingress is active member of implicit group - with ingressClassName",
 			env: env{
 				ingClassList: []*networking.IngressClass{
 					{
@@ -1056,6 +1279,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
+			wantMembershipType: groupMembershipTypeActiveMember,
 			wantClassifiedIng: ClassifiedIngress{
 				Ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1090,7 +1314,6 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
-			wantIsGroupMember: true,
 		},
 		{
 			name: "ingress isn't member of implicit group - with ingressClassName",
@@ -1133,18 +1356,14 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
-			wantClassifiedIng: ClassifiedIngress{
-				Ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "ing-ns",
-						Name:      "ing-name",
-					},
-					Spec: networking.IngressSpec{
-						IngressClassName: awssdk.String("ing-class"),
-					},
-				},
-				IngClassConfig: ClassConfiguration{
-					IngClass: &networking.IngressClass{
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
+		},
+		{
+			name: "ingress with finalizer isn't member of implicit group - with ingressClassName",
+			env: env{
+				ingClassList: []*networking.IngressClass{
+					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "ing-class",
 						},
@@ -1157,7 +1376,9 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 							},
 						},
 					},
-					IngClassParams: &elbv2api.IngressClassParams{
+				},
+				ingClassParamsList: []*elbv2api.IngressClassParams{
+					{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "ing-class-params",
 						},
@@ -1167,10 +1388,24 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
-			wantIsGroupMember: false,
+			args: args{
+				groupID: GroupID{Namespace: "ing-ns", Name: "another-ing-name"},
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace:  "ing-ns",
+						Name:       "ing-name",
+						Finalizers: []string{"ingress.k8s.aws/resources"},
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: awssdk.String("ing-class"),
+					},
+				},
+			},
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
 		},
 		{
-			name: "ingress is member of implicit group - with ingressClass annotation",
+			name: "ingress is active member of implicit group - with ingressClass annotation",
 			args: args{
 				groupID: GroupID{Namespace: "ing-ns", Name: "ing-name"},
 				ing: &networking.Ingress{
@@ -1183,6 +1418,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
+			wantMembershipType: groupMembershipTypeActiveMember,
 			wantClassifiedIng: ClassifiedIngress{
 				Ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1195,7 +1431,6 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 				},
 				IngClassConfig: ClassConfiguration{},
 			},
-			wantIsGroupMember: true,
 		},
 		{
 			name: "ingress isn't member of implicit group - with ingressClass annotation",
@@ -1211,73 +1446,26 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 					},
 				},
 			},
-			wantClassifiedIng: ClassifiedIngress{
-				Ing: &networking.Ingress{
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
+		},
+		{
+			name: "ingress with finalizer isn't member of implicit group - with ingressClass annotation",
+			args: args{
+				groupID: GroupID{Namespace: "ing-ns", Name: "another-ing-name"},
+				ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ing-ns",
 						Name:      "ing-name",
 						Annotations: map[string]string{
 							"kubernetes.io/ingress.class": "alb",
 						},
-					},
-				},
-				IngClassConfig: ClassConfiguration{},
-			},
-			wantIsGroupMember: false,
-		},
-		{
-			name: "ingress isn't member of a explicit group - invalid IngressClass",
-			args: args{
-				groupID: GroupID{Name: "awesome-group"},
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "ing-ns",
-						Name:      "ing-name",
-					},
-					Spec: networking.IngressSpec{
-						IngressClassName: awssdk.String("ingress-class-non-exists"),
+						Finalizers: []string{"ingress.k8s.aws/resources"},
 					},
 				},
 			},
-			wantClassifiedIng: ClassifiedIngress{},
-			wantIsGroupMember: false,
-		},
-		{
-			name: "ingress isn't member of a explicit group - invalid IngressGroup",
-			args: args{
-				groupID: GroupID{Name: "awesome-group"},
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "ing-ns",
-						Name:      "ing-name",
-						Annotations: map[string]string{
-							"kubernetes.io/ingress.class":          "alb",
-							"alb.ingress.kubernetes.io/group.name": "awesome-group$",
-						},
-					},
-				},
-			},
-			wantClassifiedIng: ClassifiedIngress{},
-			wantIsGroupMember: false,
-		},
-		{
-			name: "ingress isn't member of a explicit group - ingress-been-deleted",
-			args: args{
-				groupID: GroupID{Name: "awesome-group"},
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "ing-ns",
-						Name:      "ing-name",
-						Annotations: map[string]string{
-							"kubernetes.io/ingress.class":          "alb",
-							"alb.ingress.kubernetes.io/group.name": "awesome-group",
-						},
-						DeletionTimestamp: &now,
-					},
-				},
-			},
-			wantClassifiedIng: ClassifiedIngress{},
-			wantIsGroupMember: false,
+			wantMembershipType: groupMembershipTypeNone,
+			wantClassifiedIng:  ClassifiedIngress{},
 		},
 	}
 	for _, tt := range tests {
@@ -1288,7 +1476,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}
@@ -1307,7 +1495,7 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 				manageIngressesWithoutIngressClass: false,
 			}
 
-			gotClassifiedIng, gotIsGroupMember, err := m.isGroupMember(context.Background(), tt.args.groupID, tt.args.ing)
+			gotMembershipType, gotClassifiedIng, err := m.checkGroupMembershipType(context.Background(), tt.args.groupID, tt.args.ing)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1315,9 +1503,9 @@ func Test_defaultGroupLoader_isGroupMember(t *testing.T) {
 				opt := cmp.Options{
 					equality.IgnoreFakeClientPopulatedFields(),
 				}
+				assert.Equal(t, tt.wantMembershipType, gotMembershipType)
 				assert.True(t, cmp.Equal(tt.wantClassifiedIng, gotClassifiedIng, opt),
 					"diff: %v", cmp.Diff(tt.wantClassifiedIng, gotClassifiedIng, opt))
-				assert.Equal(t, tt.wantIsGroupMember, gotIsGroupMember)
 			}
 		})
 	}
