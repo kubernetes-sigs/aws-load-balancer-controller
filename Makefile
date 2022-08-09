@@ -2,7 +2,7 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= amazon/aws-alb-ingress-controller:v2.4.1
+IMG ?= amazon/aws-alb-ingress-controller:v2.4.3
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 

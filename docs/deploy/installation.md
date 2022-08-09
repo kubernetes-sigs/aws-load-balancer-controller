@@ -80,7 +80,7 @@ Example condition for cluster name resource tag:
 
 1. Download IAM policy for the AWS Load Balancer Controller
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.2/docs/install/iam_policy.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.3/docs/install/iam_policy.json
     ```
 
 1. Create an IAM policy called AWSLoadBalancerControllerIAMPolicy
@@ -106,7 +106,7 @@ Example condition for cluster name resource tag:
 ### Option B: Attach IAM Policies to Nodes
 If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
 ```
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.2/docs/install/iam_policy.json
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.3/docs/install/iam_policy.json
 ```
 
 *IAM permission subset for those who use *TargetGroupBinding* only and don't plan to use the AWS Load Balancer Controller to manage security group rules:*
@@ -160,7 +160,6 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     helm repo add eks https://aws.github.io/eks-charts
     ```
     1. Install the TargetGroupBinding CRDs if upgrading the chart via `helm upgrade`.
-
     ```
     kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
     ```
@@ -169,12 +168,12 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
             The `helm install` command automatically applies the CRDs, but `helm upgrade` doesn't.
 
 
-    Helm command for clusters with IRSA: 
+    Helm install command for clusters with IRSA: 
     ```
     helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name> --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
     ```
 
-    Helm command for clusters not using IRSA:
+    Helm install command for clusters not using IRSA:
     ```
     helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name>
     ```
@@ -191,7 +190,7 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ### Apply YAML
     1. Download spec for load balancer controller.
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.2/v2_4_1_full.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.3/v2_4_3_full.yaml
     ```
     1. Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
     ```
@@ -215,7 +214,15 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ```
     1. Apply the yaml file
     ```
-    kubectl apply -f v2_4_1_full.yaml
+    kubectl apply -f v2_4_3_full.yaml
+    ```
+    1. Optionally download the default ingressclass and ingressclass params
+    ```
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.3/v2_4_3_ingclass.yaml
+    ```
+    1. Apply the ingressclass and params
+    ```
+    kubectl apply -f v2_4_3_ingclass.yaml
     ```
 
 ## Create Update Strategy
