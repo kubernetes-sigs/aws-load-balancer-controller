@@ -807,6 +807,45 @@
   
 
           
+            
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_5" type="checkbox" id="__nav_3_5" >
+      
+      <label class="md-nav__link" for="__nav_3_5">
+        Use Cases
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Use Cases" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_5">
+          <span class="md-nav__icon md-icon"></span>
+          Use Cases
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/use_cases/nlb_tls_termination/" class="md-nav__link">
+        NLB TLS Termiation
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -999,7 +1038,8 @@ more information about the Amazon EKS AWS CloudFormation VPC templates, see <a h
 </tbody>
 </table>
 <p><code>${cluster-name}</code> is the name of the kubernetes cluster</p>
-<p>The cluster tag is not required in v2.1.2 and newer releases, unless a cluster tag for another cluster is present.</p>
+<p>The cluster tag is not required in versions from v2.1.2 to v2.4.1, unless a cluster tag for another cluster is present.</p>
+<p>Starting from v2.4.2 release, you can disable the cluster tag check completely by specifying the feature gate <code>SubnetsClusterTagCheck=false</code></p>
                 
               
               

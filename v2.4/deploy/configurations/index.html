@@ -514,8 +514,8 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#default-throttle-config" class="md-nav__link">
-    Default throttle config
+  <a href="#throttle-config" class="md-nav__link">
+    throttle config
   </a>
   
 </li>
@@ -868,6 +868,45 @@
   
 
           
+            
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_5" type="checkbox" id="__nav_3_5" >
+      
+      <label class="md-nav__link" for="__nav_3_5">
+        Use Cases
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Use Cases" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_5">
+          <span class="md-nav__icon md-icon"></span>
+          Use Cases
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/use_cases/nlb_tls_termination/" class="md-nav__link">
+        NLB TLS Termiation
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1022,8 +1061,8 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#default-throttle-config" class="md-nav__link">
-    Default throttle config
+  <a href="#throttle-config" class="md-nav__link">
+    throttle config
   </a>
   
 </li>
@@ -1378,8 +1417,13 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <li>you can no longer create Ingresses with the <code>alb.ingress.kubernetes.io/group.name</code> annotation.</li>
 <li>you can no longer alter the value of an <code>alb.ingress.kubernetes.io/group.name</code> annotation on an existing Ingress.</li>
 </ul>
-<h3 id="default-throttle-config">Default throttle config<a class="headerlink" href="#default-throttle-config" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
+<h3 id="throttle-config">throttle config<a class="headerlink" href="#throttle-config" title="Permanent link">&para;</a></h3>
+<p>The default throttle config used is.</p>
+<p><div class="highlight"><pre><span></span><code>WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
+</code></pre></div>
+Client side throttling enables gradual scaling of the api calls. Additional throttle config can be specified via the <code>--aws-api-throttle</code> flag. You can get the ServiceID from the API definition in AWS SDK. For e.g, ELBv2 it is <a href="https://github.com/aws/aws-sdk-go/blob/main/models/apis/elasticloadbalancingv2/2015-12-01/api-2.json#L9">Elastic Load Balancing v2</a>.</p>
+<p>Here is an example of throttle config to specify client side throttling of ELBv2 calls.</p>
+<div class="highlight"><pre><span></span><code>--aws-api-throttle=Elastic Load Balancing v2:RegisterTargets|DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40
 </code></pre></div>
 <h3 id="instance-metadata">Instance metadata<a class="headerlink" href="#instance-metadata" title="Permanent link">&para;</a></h3>
 <p>If running on EC2, the default values are obtained from the instance metadata service.</p>
@@ -1418,6 +1462,24 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <td>string</td>
 <td>false</td>
 <td>Enable or disable allowing endpoints with <code>ready:unknown</code> state in the target groups.</td>
+</tr>
+<tr>
+<td>EnableServiceController</td>
+<td>string</td>
+<td>true</td>
+<td>Toggles support for <code>Service</code> type resources.</td>
+</tr>
+<tr>
+<td>EnableIPTargetType</td>
+<td>string</td>
+<td>true</td>
+<td>Used to toggle support for target-type <code>ip</code> across <code>Ingress</code> and <code>Service</code> type resources.</td>
+</tr>
+<tr>
+<td>SubnetsClusterTagCheck</td>
+<td>string</td>
+<td>true</td>
+<td>Enable or disable the check for <code>kubernetes.io/cluster/${cluster-name}</code> during subnet auto-discovery</td>
 </tr>
 </tbody>
 </table>

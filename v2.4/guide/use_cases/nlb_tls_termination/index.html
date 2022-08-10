@@ -14,7 +14,7 @@
     
     
       
-        <title>Migrate v1 to v2 - AWS Load Balancer Controller</title>
+        <title>TLS Termination with Network Load Balancer - AWS Load Balancer Controller</title>
       
     
     
@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#migrate-from-v1-to-v2" class="md-skip">
+        <a href="#motivation" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
           <div class="md-header__topic" data-md-component="header-topic">
             <span class="md-ellipsis">
               
-                Migrate v1 to v2
+                TLS Termination with Network Load Balancer
               
             </span>
           </div>
@@ -230,15 +230,13 @@
         
   
   
-    
-  
 
 
   
   
   
     <li class="md-tabs__item">
-      <a href="../../installation/" class="md-tabs__link md-tabs__link--active">
+      <a href="../../../deploy/installation/" class="md-tabs__link">
         Deployment
       </a>
     </li>
@@ -248,6 +246,8 @@
         
   
   
+    
+  
 
 
   
@@ -259,7 +259,7 @@
   
   
     <li class="md-tabs__item">
-      <a href="../../../guide/ingress/annotations/" class="md-tabs__link">
+      <a href="../../ingress/annotations/" class="md-tabs__link md-tabs__link--active">
         Guide
       </a>
     </li>
@@ -388,14 +388,12 @@
 
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" type="checkbox" id="__nav_2" >
       
       <label class="md-nav__link" for="__nav_2">
         Deployment
@@ -413,7 +411,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../installation/" class="md-nav__link">
+      <a href="../../../deploy/installation/" class="md-nav__link">
         Installation Guide
       </a>
     </li>
@@ -425,7 +423,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../configurations/" class="md-nav__link">
+      <a href="../../../deploy/configurations/" class="md-nav__link">
         Configurations
       </a>
     </li>
@@ -437,7 +435,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../subnet_discovery/" class="md-nav__link">
+      <a href="../../../deploy/subnet_discovery/" class="md-nav__link">
         Subnet Discovery
       </a>
     </li>
@@ -449,7 +447,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../pod_readiness_gate/" class="md-nav__link">
+      <a href="../../../deploy/pod_readiness_gate/" class="md-nav__link">
         Pod Readiness Gate
       </a>
     </li>
@@ -459,14 +457,12 @@
             
   
   
-    
-  
   
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_5" type="checkbox" id="__nav_2_5" checked>
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_2_5" type="checkbox" id="__nav_2_5" >
       
       <label class="md-nav__link" for="__nav_2_5">
         Upgrade
@@ -482,65 +478,11 @@
             
   
   
-    
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          Migrate v1 to v2
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
         Migrate v1 to v2
       </a>
-      
-        
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    Prerequisites
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#backwards-compatibility" class="md-nav__link">
-    Backwards compatibility
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#upgrade-steps" class="md-nav__link">
-    Upgrade steps
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -563,12 +505,14 @@
 
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" >
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3" type="checkbox" id="__nav_3" checked>
       
       <label class="md-nav__link" for="__nav_3">
         Guide
@@ -607,7 +551,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/ingress/annotations/" class="md-nav__link">
+      <a href="../../ingress/annotations/" class="md-nav__link">
         Annotations
       </a>
     </li>
@@ -619,7 +563,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/ingress/spec/" class="md-nav__link">
+      <a href="../../ingress/spec/" class="md-nav__link">
         Specification
       </a>
     </li>
@@ -631,7 +575,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/ingress/ingress_class/" class="md-nav__link">
+      <a href="../../ingress/ingress_class/" class="md-nav__link">
         IngressClass
       </a>
     </li>
@@ -643,7 +587,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/ingress/cert_discovery/" class="md-nav__link">
+      <a href="../../ingress/cert_discovery/" class="md-nav__link">
         Certificate Discovery
       </a>
     </li>
@@ -682,7 +626,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/service/nlb/" class="md-nav__link">
+      <a href="../../service/nlb/" class="md-nav__link">
         NLB
       </a>
     </li>
@@ -694,7 +638,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/service/annotations/" class="md-nav__link">
+      <a href="../../service/annotations/" class="md-nav__link">
         Annotations
       </a>
     </li>
@@ -733,7 +677,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/targetgroupbinding/targetgroupbinding/" class="md-nav__link">
+      <a href="../../targetgroupbinding/targetgroupbinding/" class="md-nav__link">
         TargetGroupBinding
       </a>
     </li>
@@ -745,7 +689,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/targetgroupbinding/spec/" class="md-nav__link">
+      <a href="../../targetgroupbinding/spec/" class="md-nav__link">
         Specification
       </a>
     </li>
@@ -784,7 +728,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/tasks/cognito_authentication/" class="md-nav__link">
+      <a href="../../tasks/cognito_authentication/" class="md-nav__link">
         Cognito Authentication
       </a>
     </li>
@@ -796,7 +740,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../../guide/tasks/ssl_redirect/" class="md-nav__link">
+      <a href="../../tasks/ssl_redirect/" class="md-nav__link">
         SSL Redirect
       </a>
     </li>
@@ -812,12 +756,14 @@
             
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_5" type="checkbox" id="__nav_3_5" >
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_5" type="checkbox" id="__nav_3_5" checked>
       
       <label class="md-nav__link" for="__nav_3_5">
         Use Cases
@@ -833,11 +779,102 @@
             
   
   
+    
   
-    <li class="md-nav__item">
-      <a href="../../../guide/use_cases/nlb_tls_termination/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          NLB TLS Termiation
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         NLB TLS Termiation
       </a>
+      
+        
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#motivation" class="md-nav__link">
+    Motivation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-overview" class="md-nav__link">
+    Solution Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configure" class="md-nav__link">
+    Configure
+  </a>
+  
+    <nav class="md-nav" aria-label="Configure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generate-tls-certificate" class="md-nav__link">
+    Generate TLS Certificate
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-service-with-new-nlb" class="md-nav__link">
+    Create Service with new NLB
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-dns" class="md-nav__link">
+    Configure DNS
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify" class="md-nav__link">
+    Verify
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -936,14 +973,26 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#motivation" class="md-nav__link">
+    Motivation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#solution-overview" class="md-nav__link">
+    Solution Overview
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#prerequisites" class="md-nav__link">
@@ -953,15 +1002,42 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#backwards-compatibility" class="md-nav__link">
-    Backwards compatibility
+  <a href="#configure" class="md-nav__link">
+    Configure
   </a>
+  
+    <nav class="md-nav" aria-label="Configure">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#generate-tls-certificate" class="md-nav__link">
+    Generate TLS Certificate
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#create-service-with-new-nlb" class="md-nav__link">
+    Create Service with new NLB
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#configure-dns" class="md-nav__link">
+    Configure DNS
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#upgrade-steps" class="md-nav__link">
-    Upgrade steps
+  <a href="#verify" class="md-nav__link">
+    Verify
   </a>
   
 </li>
@@ -978,128 +1054,120 @@
             <article class="md-content__inner md-typeset">
               
                 
-                  <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/edit/main/docs/deploy/upgrade/migrate_v1_v2.md" title="Edit this page" class="md-content__button md-icon">
+                  <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/edit/main/docs/guide/use_cases/nlb_tls_termination/index.md" title="Edit this page" class="md-content__button md-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
                   </a>
                 
                 
-                <h1 id="migrate-from-v1-to-v2">Migrate from v1 to v2<a class="headerlink" href="#migrate-from-v1-to-v2" title="Permanent link">&para;</a></h1>
-<p>This document contains the information necessary to migrate from an existing installation of AWSALBIngressController(v1) to the new AWSLoadBalancerController(v2).</p>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
-<ul>
-<li>AWSALBIngressController &gt;=v1.1.3</li>
-</ul>
-<div class="admonition warning">
-<p>If you have AWSALBIngressController(&lt;1.1.3) installed, you need to upgrade to version&gt;=v1.1.3(e.g. v1.1.9) first.</p>
-</div>
-<h2 id="backwards-compatibility">Backwards compatibility<a class="headerlink" href="#backwards-compatibility" title="Permanent link">&para;</a></h2>
-<p>The AWSLoadBalancerController(v2.0.1) is backwards-compatible with AWSALBIngressController(&gt;=v1.1.3).</p>
-<p>It supports existing AWS resources provisioned by AWSALBIngressController(&gt;=v1.1.3) for Ingress resources with below caveats:</p>
-<ol>
-<li>
-<p>The AWS LoadBalancer resource created for your Ingress will be preserved. If migrating from &lt;v1.1.3, a new AWS LoadBalancer resource will be created and the old AWS LoadBalancer will remain in the account. However, the old AWS LoadBalancer will not be used for the ingress resource.</p>
-</li>
-<li>
-<p>If <a href="../../../guide/ingress/annotations/#security-groups">security-groups</a> annotation isn't used, the SecurityGroup rule on worker node's SecurityGroup that allow LoadBalancer traffic should be manually adjusted post migration.</p>
-<div class="admonition tip">
-<p class="admonition-title">details</p>
-<p>when <a href="../../../guide/ingress/annotations/#security-groups">security-groups</a> annotation isn't used:</p>
-<ul>
-<li>a managed SecurityGroup will be created and attached to ALB. This SecurityGroup will be preserved.</li>
-<li>an inbound rule will be added to your worker node securityGroups which allow traffic from the above managed SecurityGroup for ALB.<ul>
-<li>The AWSALBIngressController didn't add any description for that inbound rule.</li>
-<li>The AWSLoadBalancerController will use <code>elbv2.k8s.aws/targetGroupBinding=shared</code> for that inbound rule</li>
-</ul>
-</li>
-<li>You'll need to manually add <code>elbv2.k8s.aws/targetGroupBinding=shared</code> description to that inbound rule so that AWSLoadBalancerController can delete such rule when you delete your Ingress.<ul>
-<li>The following shell pipeline can be used to update the rules automatically. Replace <code>$REGION</code> and <code>$SG_ID</code> with your own values. After running it change <code>DryRun: true</code> to <code>DryRun: false</code> to have it actually update your security group:
-  <div class="highlight"><pre><span></span><code>aws --region $REGION ec2 update-security-group-rule-descriptions-ingress --cli-input-json &quot;$(aws --region $REGION ec2 describe-security-groups --group-ids $SG_ID | jq &#39;.SecurityGroups[0] | {DryRun: true, GroupId: .GroupId ,IpPermissions: (.IpPermissions | map(select(.FromPort==0 and .ToPort==65535) | .UserIdGroupPairs |= map(.Description=&quot;elbv2.k8s.aws/targetGroupBinding=shared&quot;))) }&#39; -M)&quot;
-</code></pre></div></li>
-</ul>
-</li>
-</ul>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">sample</p>
-<p>inbound rule on worker node securityGroups that allow traffic from the managed LB securityGroup before migration:</p>
-<table>
-<thead>
-<tr>
-<th>Type</th>
-<th>Protocol</th>
-<th>Port range</th>
-<th>Source</th>
-<th>Description - optional</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>All TCP</td>
-<td>TCP</td>
-<td>0 - 65535</td>
-<td>sg-008c920b1(managed LB SG)</td>
-<td>-</td>
-</tr>
-</tbody>
-</table>
-<p>inbound rule on worker node securityGroups that allow traffic from the managed LB securityGroup after migration:</p>
-<table>
-<thead>
-<tr>
-<th>Type</th>
-<th>Protocol</th>
-<th>Port range</th>
-<th>Source</th>
-<th>Description - optional</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>All TCP</td>
-<td>TCP</td>
-<td>0 - 65535</td>
-<td>sg-008c920b1(managed LB SG)</td>
-<td>elbv2.k8s.aws/targetGroupBinding=shared</td>
-</tr>
-</tbody>
-</table>
-</div>
-</li>
-<li>
-<p>If you have used podReadinessGate feature, please refer <a href="../../pod_readiness_gate/">PodReadinessGate</a> for the guide about new readinessGate configuration.</p>
-<div class="admonition tip">
-<p class="admonition-title">old pod readinessGate</p>
-<p>once configured properly, AWS Load Balancer Controller will automatically inject the new format of podReadinessGates into your pods, and remove old podReadinessGates if any.</p>
-<p>However, we still recommend you to remove the old podReadinessGates from your Deployments since it's not used.</p>
-</div>
-</li>
-</ol>
-<h2 id="upgrade-steps">Upgrade steps<a class="headerlink" href="#upgrade-steps" title="Permanent link">&para;</a></h2>
-<ol>
-<li>
-<p>Determine existing installed AWSALBIngressController version.
-<div class="highlight"><pre><span></span><code><span class="gp">foo@bar:~$ </span>kubectl describe deployment  -n kube-system  alb-ingress-controller <span class="p">|</span> grep Image
-<span class="go">    Image:      docker.io/amazon/aws-alb-ingress-controller:v1.1.9</span>
-</code></pre></div></p>
-</li>
-<li>
-<p>Uninstalling existing AWSALBIngressController(&gt;=v1.1.3).</p>
-<p>Existing AWSALBIngressController needs to be uninstalled first before install new AWSLoadBalancerController.</p>
+                  <h1>NLB TLS Termiation</h1>
+                
+                <h2 id="motivation">Motivation<a class="headerlink" href="#motivation" title="Permanent link">&para;</a></h2>
+<p><img alt="diagram illustrating connection between network load balancer and cluster" src="fig.jpg" /></p>
+<p>Managing TLS certificates (and related configuration) for production cluster workloads is both time consuming, and high risk. For example, storing multiple copies of a certificate secret key in the cluster may increases the chances of it being compromised. Additionally, TLS can be complicated to configure and implement properly. </p>
+<p>Traditionally, TLS termination at the load balancer step required using more expensive application load balancers (ALBs). AWS introduced TLS termination for network load balancers (NLBs) for enhanced security and cost effectiveness. </p>
+<p>The TLS implementation used by the AWS NLB is formally verified and maintained. Additionally, AWS Certificate Manager (ACM) is used, fully isolating your cluster from access to the private key. </p>
+<h2 id="solution-overview">Solution Overview<a class="headerlink" href="#solution-overview" title="Permanent link">&para;</a></h2>
+<p>An external client transmits a request to the NLB. The request is encrypted with TLS using the production (e.g., client facing) certificate, and on port 443. </p>
+<p>The NLB decrypts the request, and transmits it on to your cluster on port 80. It follows the standard request routing configured within the cluster. Notably, the request received within the cluster includes the actual origin IP address of the external client. Alternate ports may be configured.  </p>
 <div class="admonition note">
-<p>Existing Ingress resources do not need to be deleted.</p>
+<p class="admonition-title">Note</p>
+<p>The NLB may be configured to maintain the source (i.e., client) IP address. However, there are some limitations. Review <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#client-ip-preservation">Client IP Preservation</a> in the AWS docs. </p>
 </div>
-</li>
-<li>
-<p>Install new AWSLoadBalancerController</p>
-<ol>
-<li>Install AWSLoadBalancerController(v2.4.1) by following the <a href="../../installation/">installation instructions</a></li>
-<li>Grant <a href="../../../install/iam_policy_v1_to_v2_additional.json">additional IAM policy</a> needed for migration to the controller.</li>
-</ol>
-</li>
-<li>
-<p>Verify all Ingresses works as expected.</p>
-</li>
-</ol>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
+<p>✅ Access to DNS records for domain name.</p>
+<p><a href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/registrar.html">Review the docs on registering domains with AWS's Route 53.</a> Alternate DNS providers may be used, such as Google Domains or Namecheap.</p>
+<p>Later, a subdomain (e.g., demo-service.gcline.us) will be created, pointing to the NLB. Access to the DNS records is required to generate a TLS certificate for use by the NLB. </p>
+<p>✅  <a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/installation/">AWS Load Balancer Controller</a> Installed </p>
+<p>Generally, setting up the Load Balancer Controller has two steps: enabling IAM roles for service accounts, and adding the controller to the cluster. The IAM role allows the controller in the Kubernetes cluster to manage AWS resources. <a href="https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html">Learn more about IAM roles for service accounts.</a></p>
+<h2 id="configure">Configure<a class="headerlink" href="#configure" title="Permanent link">&para;</a></h2>
+<h3 id="generate-tls-certificate">Generate TLS Certificate<a class="headerlink" href="#generate-tls-certificate" title="Permanent link">&para;</a></h3>
+<p>Create a public TLS certificate for the domain using AWS Certificate Manager (ACM). This is streamlined when the domain is managed by Route 53. Review the <a href="https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html#request-public-console">AWS Certificate Manager Docs.</a></p>
+<p>The domain name on the TLS certificate must correspond to the planned domain name for the kubernetes service. The domain name may be specified explicitly (e.g., tls-demo.gcline.us), or a wildcard certificate can be used (e.g., *.gcline.us).</p>
+<p>If the domain is registered with Route53, the TLS certificate request will automatically be approved. Otherwise, follow ACM console the instructions to create a DNS record to validate the domain. </p>
+<p>After validation, the certificate will be available for use in your AWS account. </p>
+<p>Note the ARN of the certificate, which uniquely identifies it in kubernetes config files. </p>
+<p><img alt="screenshot indicating location of ARN value in web console" src="cert_arn.png" /></p>
+<h3 id="create-service-with-new-nlb">Create Service with new NLB<a class="headerlink" href="#create-service-with-new-nlb" title="Permanent link">&para;</a></h3>
+<p>Add annotations to a load balancer service to enable NLB TLS termination, before the traffic reaches Envoy. The annotations are actioned by the load balancer controller. <a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/annotations/">Review all the NLB annotations on GitHub.</a></p>
+<table>
+<thead>
+<tr>
+<th>annotation name</th>
+<th>value</th>
+<th>meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>service.beta.kubernetes.io/aws-load-balancer-type</td>
+<td>external</td>
+<td>explicitly requires an NLB, instead of an ALB</td>
+</tr>
+<tr>
+<td>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</td>
+<td>ip</td>
+<td>route traffic directly to the pod IP</td>
+</tr>
+<tr>
+<td>service.beta.kubernetes.io/aws-load-balancer-scheme</td>
+<td>internet-facing</td>
+<td>An internet-facing load balancer has a publicly resolvable DNS name</td>
+</tr>
+<tr>
+<td>service.beta.kubernetes.io/aws-load-balancer-ssl-cert</td>
+<td>"arn:aws:acm:..."</td>
+<td>identifies the TLS certificate used by the NLB</td>
+</tr>
+<tr>
+<td>service.beta.kubernetes.io/aws-load-balancer-ssl-ports</td>
+<td>443</td>
+<td>determines the port the NLB should listen for TLS traffic on</td>
+</tr>
+</tbody>
+</table>
+<p>Example: </p>
+<div class="highlight"><pre><span></span><code>apiVersion: v1
+kind: Service
+metadata:
+  name: MyAppSvc
+  namespace: dev
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: external
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+    service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: &quot;arn:aws:acm:us-east-2:185309785115:certificate/7610ed7d-5a81-4ea2-a18a-7ba1606cca3e&quot;
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: &quot;443&quot;
+spec:
+  externalTrafficPolicy: Local
+  ports:
+  - port: 443
+    targetPort: 80
+    name: http
+    protocol: TCP
+  selector:
+    app: MyApp
+  type: LoadBalancer
+</code></pre></div>
+<h3 id="configure-dns">Configure DNS<a class="headerlink" href="#configure-dns" title="Permanent link">&para;</a></h3>
+<p><strong>Get domain name using kubectl.</strong> </p>
+<p>The service name and namespace were defined above.</p>
+<div class="highlight"><pre><span></span><code>kubectl get svc MyAppSvc --namespace dev
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>NAME    TYPE           CLUSTER-IP      EXTERNAL-IP                                                                     PORT(S)        AGE
+envoy   LoadBalancer   10.100.24.154   k8s-&lt;namespace&gt;-&lt;service_name&gt;-xxxxxxxxxx-xxxxxxxxxxxxxxxx.elb.&lt;region_code&gt;.amazonaws.com   443:31606/TCP   40d
+</code></pre></div>
+<p>Note the last 4 digits of the domain name for the NLB. For example, "bb1f". </p>
+<p><strong>Setup DNS alias for NLB</strong></p>
+<p>Create a DNS record pointing from a friendly name (e.g., tls-demo.gcline.us) to the NLB domain (e.g., bb1f.elb.us-east-2.amazonaws.com). </p>
+<p>For AWS's Route 53, follow the instructions below. If you use a different DNS provider, follow their instructions for <a href="https://docs.digitalocean.com/products/networking/dns/how-to/manage-records/#cname-records">creating a CNAME record</a>. </p>
+<p>First, create a new record in Route 53. </p>
+<p>Use the "A" record type, and enable the <a href="https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resource-record-sets-values-alias.html">"alias" option.</a> This option attaches the DNS record to the AWS resource, without requiring an extra lookup step for clients. </p>
+<p>Select the NLB resource. Double check the region, and use the last 4 digits (noted earlier) to select the proper resource. </p>
+<p><img alt="screenshot of Route 53 New Record Console" src="dns_record.png" /></p>
+<h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
+<p>Attempt to access the NLB domain at port 443 with HTTPS/TLS. Is the connection successful? What certificate is used? Does it reach the expected endpoint within the cluster? </p>
+                
+                  
                 
               
               
@@ -1118,7 +1186,7 @@
   
     <nav class="md-footer__inner md-grid" aria-label="Footer">
       
-        <a href="../../pod_readiness_gate/" class="md-footer__link md-footer__link--prev" rel="prev">
+        <a href="../../tasks/ssl_redirect/" class="md-footer__link md-footer__link--prev" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
           </div>
@@ -1127,19 +1195,19 @@
               <span class="md-footer__direction">
                 Previous
               </span>
-              Pod Readiness Gate
+              SSL Redirect
             </div>
           </div>
         </a>
       
       
-        <a href="../../../guide/ingress/annotations/" class="md-footer__link md-footer__link--next" rel="next">
+        <a href="../../../examples/echo_server/" class="md-footer__link md-footer__link--next" rel="next">
           <div class="md-footer__title">
             <div class="md-ellipsis">
               <span class="md-footer__direction">
                 Next
               </span>
-              Annotations
+              EchoServer
             </div>
           </div>
           <div class="md-footer__button md-icon">

@@ -865,6 +865,45 @@
   
 
           
+            
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_3_5" type="checkbox" id="__nav_3_5" >
+      
+      <label class="md-nav__link" for="__nav_3_5">
+        Use Cases
+        <span class="md-nav__icon md-icon"></span>
+      </label>
+      <nav class="md-nav" aria-label="Use Cases" data-md-level="2">
+        <label class="md-nav__title" for="__nav_3_5">
+          <span class="md-nav__icon md-icon"></span>
+          Use Cases
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/nlb_tls_termination/" class="md-nav__link">
+        NLB TLS Termiation
+      </a>
+    </li>
+  
+
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1409,13 +1448,10 @@ other Kubernetes users may create/modify their Ingresses to belong to the same I
 <p><a name="group.order"><code>alb.ingress.kubernetes.io/group.order</code></a> specifies the order across all Ingresses within IngressGroup.</p>
 <div class="admonition note">
 <ul>
-<li>You can explicitly denote the order using a number between 1-1000</li>
+<li>You can explicitly denote the order using a number between -1000 and 1000</li>
 <li>The smaller the order, the rule will be evaluated first. All Ingresses without an explicit order setting get order value as 0</li>
-<li>By default the rule order between Ingresses within IngressGroup is determined by the lexical order of Ingress’s namespace/name.</li>
+<li>Rules with the same order are sorted lexicographically by the Ingress’s namespace/name.</li>
 </ul>
-</div>
-<div class="admonition warning">
-<p>You may not have duplicate group order explicitly defined for Ingresses within IngressGroup.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
@@ -1529,7 +1565,7 @@ other Kubernetes users may create/modify their Ingresses to belong to the same I
 </ul>
 </div>
 <div class="admonition note">
-<p><code>ip</code> mode is required for sticky sessions to work with Application Load Balancers.</p>
+<p><code>ip</code> mode is required for sticky sessions to work with Application Load Balancers. The Service type does not matter, when using <code>ip</code> mode.</p>
 </div>
 </li>
 </ul>
@@ -1557,7 +1593,7 @@ other Kubernetes users may create/modify their Ingresses to belong to the same I
 </div>
 </li>
 <li>
-<p><a name="backend-protocol-version"><code>alb.ingress.kubernetes.io/backend-protocol-version</code></a> specifies the application protocol used to route traffic to pods. Only valid when HTTP or HTTPS is used as the backend protocol. </p>
+<p><a name="backend-protocol-version"><code>alb.ingress.kubernetes.io/backend-protocol-version</code></a> specifies the application protocol used to route traffic to pods. Only valid when HTTP or HTTPS is used as the backend protocol.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
@@ -1659,8 +1695,8 @@ other Kubernetes users may create/modify their Ingresses to belong to the same I
 </div>
 </li>
 <li>
-<p><a name="conditions"><code>alb.ingress.kubernetes.io/conditions.${conditions-name}</code></a> Provides a method for specifying routing conditions <strong>in addition to original host/path condition on Ingress spec</strong>. </p>
-<p>The <code>conditions-name</code> in the annotation must match the serviceName in the Ingress rules. 
+<p><a name="conditions"><code>alb.ingress.kubernetes.io/conditions.${conditions-name}</code></a> Provides a method for specifying routing conditions <strong>in addition to original host/path condition on Ingress spec</strong>.</p>
+<p>The <code>conditions-name</code> in the annotation must match the serviceName in the Ingress rules.
 It can be a either real serviceName or an annotation based action name when servicePort is <code>use-annotation</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">limitations</p>
@@ -1681,7 +1717,7 @@ It can be a either real serviceName or an annotation based action name when serv
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
-<li>rule-path1: <ul>
+<li>rule-path1:<ul>
 <li>Host is www.example.com OR anno.example.com</li>
 <li>Path is /path1</li>
 </ul>
@@ -2043,7 +2079,7 @@ Also, the securityGroups for Node/Pod will be modified to allow inbound traffic 
 </div>
 </li>
 <li>
-<p><a name="success-codes"><code>alb.ingress.kubernetes.io/success-codes</code></a> specifies the HTTP status code that should be expected when doing health checks against the specified health check path.</p>
+<p><a name="success-codes"><code>alb.ingress.kubernetes.io/success-codes</code></a> specifies the HTTP or gRPC status code that should be expected when doing health checks against the specified health check path.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <ul>
@@ -2055,6 +2091,15 @@ Also, the securityGroups for Node/Pod will be modified to allow inbound traffic 
 </code></pre></div></li>
 <li>use range of value
     <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/success-codes: 200-300
+</code></pre></div></li>
+<li>use gRPC single value
+    <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/success-codes: &#39;0&#39;
+</code></pre></div></li>
+<li>use gRPC multiple value
+    <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/success-codes: 0,1
+</code></pre></div></li>
+<li>use gRPC range of value
+    <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/success-codes: 0-5
 </code></pre></div></li>
 </ul>
 </div>
@@ -2177,7 +2222,7 @@ alb.ingress.kubernetes.io/target-type: ip
 <ul>
 <li>
 <p><a name="tags"><code>alb.ingress.kubernetes.io/tags</code></a> specifies additional tags that will be applied to AWS resources created.
-  In case of target group, the controller will merge the tags from the ingress and the backend service giving precedence 
+  In case of target group, the controller will merge the tags from the ingress and the backend service giving precedence
   to the values specified on the service when there is conflict.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
