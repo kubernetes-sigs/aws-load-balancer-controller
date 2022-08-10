@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller
-  tag: v2.4.1
+  tag: v2.4.3
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -68,15 +68,12 @@ nodeSelector: {}
 
 tolerations: []
 
-# affinity can be either a string or map.
-#
-# if affinity is a string, and if that string is "default", set an antiAffinity policy on
-# the podSpec to prevent colocation on the same node.
-#
-# if affinity is a map, set the affinity attribute on the podSpec with this exact value (do NOT
-# use the default, as described above).
-# affinity: {}
-affinity: default
+# affinity specifies a custom affinity for the controller pods
+affinity: {}
+
+# configureDefaultAffinity specifies whether to configure a default affinity for the controller pods to prevent
+# co-location on the same node. This will get ignored if you specify a custom affinity configuration.
+configureDefaultAffinity: true
 
 # topologySpreadConstraints is a stable feature of k8s v1.19 which provides the ability to
 # control how Pods are spread across your cluster among failure-domains such as regions, zones,
@@ -140,8 +137,15 @@ vpcId:
 # Custom AWS API Endpoints (serviceID1=URL1,serviceID2=URL2)
 awsApiEndpoints:
 
+# awsApiThrottle specifies custom AWS API throttle settings (serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst)
+# example: --set awsApiThrottle="{Elastic Load Balancing v2:RegisterTargets|DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40}"
+awsApiThrottle:
+
 # Maximum retries for AWS APIs (default 10)
 awsMaxRetries:
+
+
+
 
 # If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods (default true)
 enablePodReadinessGateInject:
@@ -172,6 +176,13 @@ webhookTLS:
   caCert:
   cert:
   key:
+
+# array of namespace selectors for the webhook
+webhookNamespaceSelector:
+# - key: elbv2.k8s.aws/pod-readiness-gate-inject
+#   operator: In
+#   values:
+#   - enabled
 
 # keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade
 keepTLSSecret: true

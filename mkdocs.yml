@@ -30,6 +30,8 @@ nav:
       - Tasks:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
           - SSL Redirect: guide/tasks/ssl_redirect.md
+      - Use Cases:
+        - NLB TLS Termiation: guide/use_cases/nlb_tls_termination/index.md
   - Examples:
     - EchoServer: examples/echo_server.md
     - gRPCServer: examples/grpc_server.md

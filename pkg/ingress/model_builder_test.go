@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -194,12 +195,13 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		env           env
-		args          args
-		fields        fields
-		wantStackJSON string
-		wantErr       error
+		name               string
+		env                env
+		enableIPTargetType *bool
+		args               args
+		fields             fields
+		wantStackJSON      string
+		wantErr            error
 	}{
 		{
 			name: "Ingress - vanilla internal",
@@ -3612,6 +3614,59 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			wantErr: errors.New("ingress: ns-1/ing-1: unsupported IPv6 configuration, lb not dual-stack"),
 		},
 		{
+			name: "target type IP with enableIPTargetType set to false",
+			env: env{
+				svcs: []*corev1.Service{svcWithNamedTargetPort},
+			},
+			enableIPTargetType: awssdk.Bool(false),
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/target-type": "ip",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: svcWithNamedTargetPort.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: errors.New("ingress: ns-1/ing-1: unsupported targetType: ip when EnableIPTargetType is false"),
+		},
+		{
 			name: "target type IP with named target port",
 			env: env{
 				svcs: []*corev1.Service{svcWithNamedTargetPort},
@@ -3895,9 +3950,16 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				trackingProvider:       trackingProvider,
 				elbv2TaggingManager:    elbv2TaggingManager,
 				enableBackendSG:        tt.fields.enableBackendSG,
+				featureGates:           config.NewFeatureGates(),
 				logger:                 &log.NullLogger{},
 
 				defaultSSLPolicy: "ELBSecurityPolicy-2016-08",
+			}
+
+			if tt.enableIPTargetType == nil {
+				b.enableIPTargetType = true
+			} else {
+				b.enableIPTargetType = *tt.enableIPTargetType
 			}
 
 			gotStack, _, _, err := b.Build(context.Background(), tt.args.ingGroup)

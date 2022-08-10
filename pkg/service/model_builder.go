@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -35,20 +36,22 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
-	elbv2TaggingManager elbv2deploy.TaggingManager, clusterName string, defaultTags map[string]string,
-	externalManagedTags []string, defaultSSLPolicy string, serviceUtils ServiceUtils) *defaultModelBuilder {
+	elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
+	externalManagedTags []string, defaultSSLPolicy string, enableIPTargetType bool, serviceUtils ServiceUtils) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
 		vpcInfoProvider:     vpcInfoProvider,
 		trackingProvider:    trackingProvider,
 		elbv2TaggingManager: elbv2TaggingManager,
+		featureGates:        featureGates,
 		serviceUtils:        serviceUtils,
 		clusterName:         clusterName,
 		vpcID:               vpcID,
 		defaultTags:         defaultTags,
 		externalManagedTags: sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:    defaultSSLPolicy,
+		enableIPTargetType:  enableIPTargetType,
 	}
 }
 
@@ -60,6 +63,7 @@ type defaultModelBuilder struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	featureGates        config.FeatureGates
 	serviceUtils        ServiceUtils
 
 	clusterName         string
@@ -67,6 +71,7 @@ type defaultModelBuilder struct {
 	defaultTags         map[string]string
 	externalManagedTags sets.String
 	defaultSSLPolicy    string
+	enableIPTargetType  bool
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
@@ -79,7 +84,9 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		vpcInfoProvider:     b.vpcInfoProvider,
 		trackingProvider:    b.trackingProvider,
 		elbv2TaggingManager: b.elbv2TaggingManager,
+		featureGates:        b.featureGates,
 		serviceUtils:        b.serviceUtils,
+		enableIPTargetType:  b.enableIPTargetType,
 
 		service:   service,
 		stack:     stack,
@@ -128,7 +135,9 @@ type defaultModelBuildTask struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	trackingProvider    tracking.Provider
 	elbv2TaggingManager elbv2deploy.TaggingManager
+	featureGates        config.FeatureGates
 	serviceUtils        ServiceUtils
+	enableIPTargetType  bool
 
 	service *corev1.Service
 
