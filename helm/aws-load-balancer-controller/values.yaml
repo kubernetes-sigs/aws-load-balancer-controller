@@ -266,8 +266,8 @@ defaultTags: {}
 
 # podDisruptionBudget specifies the disruption budget for the controller pods.
 # Disruption budget will be configured only when the replicaCount is greater than 1
-podDisruptionBudget: {}
-#  maxUnavailable: 1
+podDisruptionBudget:
+  maxUnavailable: 1
 
 # externalManagedTags is the list of tag keys on AWS resources that will be managed externally
 externalManagedTags: []
