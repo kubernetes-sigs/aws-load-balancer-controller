@@ -9,7 +9,7 @@ The load balancer controller (LBC) generally creates and destroys [AWS Load Bala
 However, some cluster operators may prefer to manually manage AWS Load Balancers. This supports use cases like:
 - Preventing acciential release of key IP addresses.
 - Supporting load balancers where the Kubernetes cluster is one of multiple targets.
-- Complying with organizational requirements controlling provisioning of load balancers for security or cost reasons. 
+- Complying with organizational requirements on provisioning load balancers, for security or cost reasons. 
 
 ## Solution Overview
 
@@ -21,22 +21,23 @@ Second, a TargetGroupBinding CRD is created in a cluster. The CRD includes refer
 
 ## Prerequisites
 
-- LBC Installed
-- VPC ID of EKS Cluster
-- Subnet IDs of Pods
-- Port and Protocol of Target Service
-    - `kubectl get service -A`
+Install: 
+- [Load Balancer Controller Installed](../../../deploy/installation.md) on Cluster
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+- [Kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
 
-- AWS CLI
-- Kubectl
+Have this information available: 
+- Cluster [VPC](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html) Information
+  - ID of EKS Cluster
+  - Subnet IDs
+  - This information is avilable in the "Networking" section of the EKS Cluster Console. 
+- Port and Protocol of Target [Kubernetes Service](https://kubernetes.io/docs/concepts/services-networking/service/)
 
 ## Configure Load Balancer
 
 **Create Load Balancer: (optional)**
 
 1. Use the [create\-load\-balancer](https://docs.aws.amazon.com/cli/latest/reference/elbv2/create-load-balancer.html) command to create an IPv4 load balancer, specifying a public subnet for each Availability Zone in which you launched instances. 
-
-    [[NOTE: desc how to find your subnets]]
 
     `kubernetes.io/cluster/your-cluster-name`
 
@@ -56,8 +57,6 @@ Second, a TargetGroupBinding CRD is created in a cluster. The CRD includes refer
 
 
 1. Use the [create\-target\-group](https://docs.aws.amazon.com/cli/latest/reference/elbv2/create-target-group.html) command to create an IPv4 target group, specifying the same VPC of your EKS cluster. 
-
-[[note: advise on instance vs IP target types?]]
 
    ```
    aws elbv2 create-target-group --name my-targets --protocol TCP --port 80 --vpc-id vpc-0598c7d356EXAMPLE
@@ -96,6 +95,8 @@ spec:
   targetGroupARN: <arn-to-targetGroup>
 ```
 2. Apply the CRD
+
+Apply the TargetGroupBinding CRD CRD file to your Cluster.
 
 `kubectl apply -f my-tgb.yaml`
 
