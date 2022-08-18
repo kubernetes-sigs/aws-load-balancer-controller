@@ -80,6 +80,8 @@ kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/
 
 If you are setting `enableCertManager: true` you need to have installed cert-manager and it's CRDs before installing this chart; to install [cert-manager](https://artifacthub.io/packages/helm/cert-manager/cert-manager) follow the installation guide.
 
+Set `clusterDomain` (default: `cluster.local`) to the actual DNS domain of your cluster.
+
 #### Installing the Prometheus Operator
 
 If you are setting `serviceMonitor.enabled: true` you need to have installed the Prometheus Operator ServiceMonitor CRD before installing this chart and have the operator running to collect the metrics. The easiest way to do this is to install the [kube-prometheus-stack](https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack) Helm chart using the installation guide.
