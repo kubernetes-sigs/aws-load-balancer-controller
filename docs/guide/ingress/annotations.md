@@ -775,7 +775,7 @@ In addition, you can use annotations to specify additional tags
         ```
 
 ## Addons
-- <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amzon WAF web ACL.
+- <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amazon WAF web ACL.
 
     !!!warning ""
         Only Regional WAF is supported.
