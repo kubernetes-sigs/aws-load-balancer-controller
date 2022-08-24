@@ -284,6 +284,13 @@ backendSecurityGroup:
 # disableRestrictedSecurityGroupRules specifies whether to disable creating port-range restricted security group rules for traffic
 disableRestrictedSecurityGroupRules:
 
+# controllerConfig specifies controller configuration
+controllerConfig:
+  # featureGates set of key: value pairs that describe AWS load balance controller features
+  featureGates: {}
+  #  ServiceTypeLoadBalancerOnly: true
+  #  EndpointsFailOpen: true
+
 # objectSelector for webhook
 objectSelector:
   matchExpressions:
