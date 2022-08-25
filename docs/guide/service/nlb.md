@@ -28,9 +28,9 @@ AWS Load Balancer Controller supports reconciliation for Kubernetes Services res
 
 ## Configuration
 
-By default, Kubernetes Service resources of type `LoadBalancer` was reconciled by the Kubernetes controller built into the CloudProvider component of the kube-controller-manager or the cloud-controller-manager(a.k.a. the in-tree controller). 
+By default, Kubernetes Service resources of type `LoadBalancer` gets reconciled by the Kubernetes controller built into the CloudProvider component of the kube-controller-manager or the cloud-controller-manager(a.k.a. the in-tree controller). 
 
-In order to let AWS Load Balancer Controller manage the reconciliation for Kubernetes Services resources of type `LoadBalancer`, we must offloading the reconciliation from in-tree controller to AWS Load Balancer Controller explicitly.
+In order to let AWS Load Balancer Controller manage the reconciliation for Kubernetes Services resources of type `LoadBalancer`, you need to offload the reconciliation from in-tree controller to AWS Load Balancer Controller explicitly.
 
 
 === "With LoadBalancerClass"
@@ -41,8 +41,6 @@ In order to let AWS Load Balancer Controller manage the reconciliation for Kuber
     When you specify the `spec.loadBalancerClass` to be `service.k8s.aws/nlb` on a Kubernetes Service resource of type `LoadBalancer`, the AWS Load Balancer Controller takes charge of reconciliation by provision an NLB.
 
     !!! warning
-        - It's not recommended to modify or add the `spec.loadBalancerClass` on an existing Service resource. Instead, delete the existing Service resource and recreate a new one if a change is desired.
-
         - If you modify a Service resource with matching `spec.loadBalancerClass` by changing its `type` from `LoadBalancer` to anything else, the controller will cleanup provioned NLB for that Service.
 
         - If the `spec.loadBalancerClass` is set to a loadBalancerClass that is not recognized by this controller, it will ignore the Service resource regardless of the `service.beta.kubernetes.io/aws-load-balancer-type` annotation.
@@ -163,7 +161,7 @@ service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
 See [Subnet Discovery](../../deploy/subnet_discovery.md) for details on configuring ELB for public or private placement.
 
 ## Security group
-AWS currently does not support attach security groups to NLB. To allow inbound traffic from NLB, the controller automatically adds inbound rules to worker node security groups by default.
+AWS currently does not support attaching security groups to NLB. To allow inbound traffic from NLB, the controller automatically adds inbound rules to the worker node security groups by default.
 
 !!! tip "disable worker node security group rule management"
     You can disable the worker node security group rule management via [annotation](./annotations.md#manage-backend-sg-rules).
@@ -191,7 +189,7 @@ The controller automatically selects the worker node security groups that will b
     | Rule                 | Protocol                 | Port(s)                                                 | IpRanges(s)                                         |
     | -------------------- | ------------------------ | ------------------------------------------------------- | --------------------------------------------------- |
     | Client Traffic       | `spec.ports[*].protocol` | `spec.ports[*].port`                                    | [Traffic Source CIDRs](./annotations.md#lb-source-ranges) |
-    | Health Check Traffic | TCP                      | [Health Check Ports](./annotations.md#healthcheck-port) | Subnet CIDRs                                        |
+    | Health Check Traffic | TCP                      | [Health Check Ports](./annotations.md#healthcheck-port) | NLB Subnet CIDRs                                        |
 
 === "when Client IP preservation disabled"
 
