@@ -63,11 +63,14 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 	for _, sdkLB := range unmatchedSDKLBs {
 		if err := s.lbManager.Delete(ctx, sdkLB); err != nil {
 			errMessage := err.Error()
-			if strings.Contains(errMessage, "OperationNotPermitted") && strings.Contains(errMessage, "deletion protection") {
-				s.disableDeletionProtection(sdkLB.LoadBalancer)
-				if err = s.lbManager.Delete(ctx, sdkLB); err != nil {
-					return err
-				}
+			if !(strings.Contains(errMessage, "OperationNotPermitted") && strings.Contains(errMessage, "deletion protection")) {
+				return err
+			}
+			if err = s.disableDeletionProtection(sdkLB.LoadBalancer); err != nil {
+				return err
+			}
+			if err = s.lbManager.Delete(ctx, sdkLB); err != nil {
+				return err
 			}
 		}
 	}
