@@ -629,7 +629,7 @@
   
     <li class="md-nav__item">
       <a href="../nlb/" class="md-nav__link">
-        NLB
+        Network Load Balancer
       </a>
     </li>
   
@@ -1346,7 +1346,7 @@ documentation is not an accurate reference for the services reconciled by the in
 <code>instance</code> and <code>ip</code>.</p>
 <ul>
 <li>
-<p><code>instance</code> mode will route traffic to all EC2 instances within cluster on the <a href="https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport">NodePort</a> opened for your service.</p>
+<p><code>instance</code> mode will route traffic to all EC2 instances within cluster on the <a href="https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport">NodePort</a> opened for your service. The kube-proxy on the individual worker nodes sets up the forwarding of the traffic from the NodePort to the pods behind the service.</p>
 <div class="admonition note">
 <ul>
 <li>service must be of type <code>NodePort</code> or <code>LoadBalancer</code> for <code>instance</code> targets</li>
@@ -1357,11 +1357,18 @@ documentation is not an accurate reference for the services reconciled by the in
 <p class="admonition-title">default value</p>
 <p>If you configure <code>spec.loadBalancerClass</code>, the controller defaults to <code>instance</code> target type</p>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">NodePort allocation</p>
+<p>k8s version 1.22 and later support disabling NodePort allocation by setting the service field <code>spec.allocateLoadBalancerNodePorts</code> to <code>false</code>. If the NodePort is not allocated for a service port, the controller will fail to reconcile instance mode NLB.</p>
+</div>
 </li>
 <li>
-<p><code>ip</code> mode will route traffic directly to the pod IP.</p>
+<p><code>ip</code> mode will route traffic directly to the pod IP. In this mode, AWS NLB sends traffic directly to the Kubernetes pods behind the service, eliminating the need for an extra network hop through the worker nodes in the Kubernetes cluster.</p>
 <div class="admonition note">
-<p>network plugin must use native AWS VPC networking configuration for pod IP, for example <a href="https://github.com/aws/amazon-vpc-cni-k8s">Amazon VPC CNI plugin</a>.</p>
+<ul>
+<li><code>ip</code> target mode supports pods running on AWS EC2 instances and AWS Fargate</li>
+<li>network plugin must use native AWS VPC networking configuration for pod IP, for example <a href="https://github.com/aws/amazon-vpc-cni-k8s">Amazon VPC CNI plugin</a>.</li>
+</ul>
 </div>
 </li>
 </ul>
@@ -1584,8 +1591,9 @@ service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled
 <li>
 <p><a name="healthcheck-port"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port</code></a> specifies the TCP port to use for target group health check.</p>
 <div class="admonition note">
+<p class="admonition-title">default value</p>
 <ul>
-<li>if you do not specify the health check port, controller uses <code>traffic-port</code> as default value</li>
+<li>if you do not specify the health check port, the default value will be <code>spec.healthCheckNodePort</code> when <code>externalTrafficPolicy=local</code> or <code>traffic-port</code> otherwise.</li>
 </ul>
 </div>
 <div class="admonition example">
@@ -1789,7 +1797,7 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/cre
               <span class="md-footer__direction">
                 Previous
               </span>
-              NLB
+              Network Load Balancer
             </div>
           </div>
         </a>

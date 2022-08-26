@@ -14,7 +14,7 @@
     
     
       
-        <title>NLB - AWS Load Balancer Controller</title>
+        <title>Network Load Balancer - AWS Load Balancer Controller</title>
       
     
     
@@ -113,7 +113,7 @@
           <div class="md-header__topic" data-md-component="header-topic">
             <span class="md-ellipsis">
               
-                NLB
+                Network Load Balancer
               
             </span>
           </div>
@@ -638,12 +638,12 @@
       
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
-          NLB
+          Network Load Balancer
           <span class="md-nav__icon md-icon"></span>
         </label>
       
       <a href="./" class="md-nav__link md-nav__link--active">
-        NLB
+        Network Load Balancer
       </a>
       
         
@@ -661,20 +661,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#instance-mode" class="md-nav__link">
-    Instance mode
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ip-mode" class="md-nav__link">
-    IP mode
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#prerequisites" class="md-nav__link">
     Prerequisites
   </a>
@@ -685,26 +671,6 @@
   <a href="#configuration" class="md-nav__link">
     Configuration
   </a>
-  
-    <nav class="md-nav" aria-label="Configuration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#ip-mode_1" class="md-nav__link">
-    IP mode
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#instance-mode_1" class="md-nav__link">
-    Instance mode
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -727,12 +693,25 @@
     Security group
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#load-balancer-class" class="md-nav__link">
-    Load Balancer Class
+    <nav class="md-nav" aria-label="Security group">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#worker-node-security-groups-selection" class="md-nav__link">
+    Worker node security groups selection
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#worker-node-security-groups-rules" class="md-nav__link">
+    Worker node security groups rules
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1001,20 +980,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#instance-mode" class="md-nav__link">
-    Instance mode
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#ip-mode" class="md-nav__link">
-    IP mode
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#prerequisites" class="md-nav__link">
     Prerequisites
   </a>
@@ -1025,26 +990,6 @@
   <a href="#configuration" class="md-nav__link">
     Configuration
   </a>
-  
-    <nav class="md-nav" aria-label="Configuration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#ip-mode_1" class="md-nav__link">
-    IP mode
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#instance-mode_1" class="md-nav__link">
-    Instance mode
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1067,12 +1012,25 @@
     Security group
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#load-balancer-class" class="md-nav__link">
-    Load Balancer Class
+    <nav class="md-nav" aria-label="Security group">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#worker-node-security-groups-selection" class="md-nav__link">
+    Worker node security groups selection
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#worker-node-security-groups-rules" class="md-nav__link">
+    Worker node security groups rules
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1094,69 +1052,165 @@
                 
                 
                 <h1 id="network-load-balancer">Network Load Balancer<a class="headerlink" href="#network-load-balancer" title="Permanent link">&para;</a></h1>
-<p>AWS Load Balancer Controller supports Network Load Balancer (NLB) with instance or IP targets through Kubernetes service of type <code>LoadBalancer</code> with proper annotations.</p>
-<h3 id="instance-mode">Instance mode<a class="headerlink" href="#instance-mode" title="Permanent link">&para;</a></h3>
-<p>Instance target mode supports pods running on AWS EC2 instances. In this mode, AWS NLB sends traffic to the instances and the <code>kube-proxy</code> on the individual worker nodes forward it to the pods through one or more worker nodes in the Kubernetes cluster.</p>
-<h3 id="ip-mode">IP mode<a class="headerlink" href="#ip-mode" title="Permanent link">&para;</a></h3>
-<p>IP target mode supports pods running on AWS EC2 instances and AWS Fargate. In this mode, the AWS NLB targets traffic directly to the Kubernetes pods behind the service, eliminating the need for an extra network hop through the worker nodes in the Kubernetes cluster.</p>
+<p>AWS Load Balancer Controller supports reconciliation for Kubernetes Services resources of type <code>LoadBalancer</code> by Network Load Balancer (NLB) with <code>instance</code> or <code>ip</code> target type.</p>
+<div class="admonition info">
+<p class="admonition-title">secure by default</p>
+<p>Since <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/tag/v2.2.0"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.75 6.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5z"/><path fill-rule="evenodd" d="M2.5 1A1.5 1.5 0 0 0 1 2.5v8.44c0 .397.158.779.44 1.06l10.25 10.25a1.5 1.5 0 0 0 2.12 0l8.44-8.44a1.5 1.5 0 0 0 0-2.12L12 1.44A1.5 1.5 0 0 0 10.94 1H2.5zm0 1.5h8.44l10.25 10.25-8.44 8.44L2.5 10.94V2.5z"/></svg></span> v2.2.0</a> release, the AWS Load balancer controller provisions an <code>internal</code> NLB by default. </p>
+<p>To create an <code>internet-facing</code> NLB, following annotation is required on your service:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">service.beta.kubernetes.io/aws-load-balancer-scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+</code></pre></div>
+<div class="admonition tip">
+<p>For backwards compatibility, if the <a href="../annotations/#lb-scheme"><code>service.beta.kubernetes.io/aws-load-balancer-scheme</code></a> annotation is absent, existing NLB's scheme will remain unchanged.</p>
+</div>
+</div>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>AWS LoadBalancer Controller &gt;= v2.2.0</li>
-<li>Kubernetes &gt;= v1.16 for Service type <code>NodePort</code></li>
-<li>Kubernetes &gt;= v1.20 or EKS &gt;= 1.16 or the following patch releases for Service type <code>LoadBalancer</code><ul>
-<li>1.18.18+ for 1.18</li>
-<li>1.19.10+ for 1.19</li>
+<li>AWS Load Balancer Controller &gt;= v2.2.0</li>
+<li>For Kubernetes Services resources of type <code>LoadBalancer</code>:<ul>
+<li>Kubernetes &gt;= v1.20 or</li>
+<li>Kubernetes &gt;= v1.19.10 for 1.19 or</li>
+<li>Kubernetes &gt;= v1.18.18 for 1.18 or</li>
+<li>EKS &gt;= v1.16</li>
 </ul>
 </li>
+<li>For Kubernetes Services resources of type <code>NodePort</code>:<ul>
+<li>Kubernetes &gt;= v1.16</li>
+</ul>
+</li>
+<li>For <code>ip</code> target type:<ul>
 <li>Pods have native AWS VPC networking configured, see <a href="https://github.com/aws/amazon-vpc-cni-k8s">Amazon VPC CNI plugin</a></li>
 </ul>
-<div class="admonition note">
-<p class="admonition-title">secure by default</p>
-<p>Starting v2.2.0 release, the AWS Load balancer controller provisions an internal NLB by default. To create an internet-facing load balancer, apply the following annotation to your service:</p>
-<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-</code></pre></div>
-<p>For backwards compatibility, if this annotation is not specified, existing NLB will continue to use the scheme configured on the AWS resource.</p>
-</div>
+</li>
+</ul>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
-<p>The service resources of type <code>LoadBalancer</code> also get reconciled by the kubernetes controller built into the cloudprovider component of the <code>kube-controller-manager</code> or the <code>cloud-controller-manager</code> aka the <code>in-tree</code> controller. The AWS in-tree controller
-ignores those services resources that have the <code>service.beta.kubernetes.io/aws-load-balancer-type</code> annotation as <code>external</code>. The AWS Load balancer controller support for NLB is based on the in-tree cloud controller ignoring the service resources, so it is very important
-to apply the following annotation on the service resource during creation:</p>
-<p><div class="highlight"><pre><span></span><code><span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span> <span class="s">&quot;external&quot;</span>
-</code></pre></div>
-This <code>external</code> value to the above annotation causes the in-tree controller to not process the service resource and thus pass it on to the external controller.</p>
+<p>By default, Kubernetes Service resources of type <code>LoadBalancer</code> gets reconciled by the Kubernetes controller built into the CloudProvider component of the kube-controller-manager or the cloud-controller-manager(a.k.a. the in-tree controller). </p>
+<p>In order to let AWS Load Balancer Controller manage the reconciliation for Kubernetes Services resources of type <code>LoadBalancer</code>, you need to offload the reconciliation from in-tree controller to AWS Load Balancer Controller explicitly.</p>
+<div class="tabbed-set" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><label for="__tabbed_1_1">With LoadBalancerClass</label><div class="tabbed-content">
+<p>AWS Load Balancer Controller supports <code>LoadBalancerClass</code> feature since <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/tag/v2.4.0"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.75 6.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5z"/><path fill-rule="evenodd" d="M2.5 1A1.5 1.5 0 0 0 1 2.5v8.44c0 .397.158.779.44 1.06l10.25 10.25a1.5 1.5 0 0 0 2.12 0l8.44-8.44a1.5 1.5 0 0 0 0-2.12L12 1.44A1.5 1.5 0 0 0 10.94 1H2.5zm0 1.5h8.44l10.25 10.25-8.44 8.44L2.5 10.94V2.5z"/></svg></span> v2.4.0</a> release for Kubernetes v1.22+ clusters. </p>
+<p><code>LoadBalancerClass</code> feature provides a CloudProvider agnostic way of offloading the reconciliation for Kubernetes Services resources of type <code>LoadBalancer</code> to an external controller.</p>
+<p>When you specify the <code>spec.loadBalancerClass</code> to be <code>service.k8s.aws/nlb</code> on a Kubernetes Service resource of type <code>LoadBalancer</code>, the AWS Load Balancer Controller takes charge of reconciliation by provision an NLB.</p>
 <div class="admonition warning">
-<p class="admonition-title">annotation modification</p>
-<p>Do not modify or add the <code>service.beta.kubernetes.io/aws-load-balancer-type</code> annotation on an existing service object. If you need to make changes, for example from classic to NLB or NLB managed
-by the in-tree controller to the one managed by the AWS Load balancer controller, delete the kubernetes service first and then create again with the correct annotation. If you modify the annotation after service creation
-you will end up with leaked AWS load balancer resources.</p>
+<p class="admonition-title">Warning</p>
+<ul>
+<li>
+<p>If you modify a Service resource with matching <code>spec.loadBalancerClass</code> by changing its <code>type</code> from <code>LoadBalancer</code> to anything else, the controller will cleanup provioned NLB for that Service.</p>
+</li>
+<li>
+<p>If the <code>spec.loadBalancerClass</code> is set to a loadBalancerClass that is not recognized by this controller, it will ignore the Service resource regardless of the <code>service.beta.kubernetes.io/aws-load-balancer-type</code> annotation.</p>
+</li>
+</ul>
 </div>
-<h3 id="ip-mode_1">IP mode<a class="headerlink" href="#ip-mode_1" title="Permanent link">&para;</a></h3>
-<p>NLB IP mode is determined based on the <code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</code> annotation. If the annotation value is <code>ip</code>, then NLB will be provisioned in IP mode. Here is the manifest snippet:
-<div class="highlight"><pre><span></span><code>    <span class="nt">metadata</span><span class="p">:</span>
-      <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-service</span>
-      <span class="nt">annotations</span><span class="p">:</span>
-        <span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span> <span class="s">&quot;external&quot;</span>
-        <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="s">&quot;ip&quot;</span>
-</code></pre></div></p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<ul>
+<li>
+<p>By default, the NLB will use <code>instance</code> target-type, you can customize it via the <a href="../annotations/#nlb-target-type"><code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</code> annotation</a></p>
+</li>
+<li>
+<p>This controller uses <code>service.k8s.aws/nlb</code> as the default <code>LoadBalancerClass</code>, you can customize it to a different value via the controller flag <code>--load-balancer-class</code>.</p>
+</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example: instance mode</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+  <span class="nt">annotations</span><span class="p">:</span>
+<span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">instance</span>
+</span><span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">selector</span><span class="p">:</span>
+    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+  <span class="nt">ports</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+      <span class="nt">targetPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8080</span>
+      <span class="nt">protocol</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TCP</span>
+  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+<span class="hll">  <span class="nt">loadBalancerClass</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">service.k8s.aws/nlb</span>
+</span></code></pre></div>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example: ip mode</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+  <span class="nt">annotations</span><span class="p">:</span>
+<span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
+</span><span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">selector</span><span class="p">:</span>
+    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+  <span class="nt">ports</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+      <span class="nt">targetPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8080</span>
+      <span class="nt">protocol</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TCP</span>
+  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+<span class="hll">  <span class="nt">loadBalancerClass</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">service.k8s.aws/nlb</span>
+</span></code></pre></div>
+</div>
+</div>
+<input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><label for="__tabbed_1_2">With <code>service.beta.kubernetes.io/aws-load-balancer-type</code> annotation</label><div class="tabbed-content">
+<p>The AWS in-tree controller supports an AWS specific way of offloading the reconciliation for Kubernetes Services resources of type <code>LoadBalancer</code> to an external controller. </p>
+<p>When you specify the <a href="../annotations/#lb-type"><code>service.beta.kubernetes.io/aws-load-balancer-type</code> annotation</a> to be <code>external</code> on a Kubernetes Service resource of type <code>LoadBalancer</code>, the in-tree controller will ignore the Service resource. In addition, If you specify the <a href="../annotations/#nlb-target-type"><code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</code> annotation</a> on the Service resource, the AWS Load Balancer Controller takes charge of reconciliation by provision an NLB.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<ul>
+<li>
+<p>It's not recommended to modify or add the <code>service.beta.kubernetes.io/aws-load-balancer-type</code> annotation on an existing Service resource. Instead, delete the existing Service resource and recreate a new one if a change is desired.</p>
+</li>
+<li>
+<p>If you modify this annotation on a existing Service resource, you might end up with leaked AWS Load Balancer resources. </p>
+</li>
+</ul>
+</div>
 <div class="admonition note">
-<p class="admonition-title">backwards compatibility</p>
-<p>For backwards compatibility, controller still supports the <code>nlb-ip</code> as the type annotation. For example, if you specify</p>
-<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-type: nlb-ip
-</code></pre></div>
-<p>the controller will provision NLB in IP mode. With this, the <code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</code> annotation gets ignored.</p>
+<p class="admonition-title">backwards compatibility for <code>nlb-ip</code> type</p>
+<p>For backwards compatibility, both in-tree and AWS Load Balancer controller supports <code>nlb-ip</code> as value of <code>service.beta.kubernetes.io/aws-load-balancer-type</code> annotation. The controllers treats it as if you specified both annotation below:
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-type: external
+service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
+</code></pre></div></p>
 </div>
-<h3 id="instance-mode_1">Instance mode<a class="headerlink" href="#instance-mode_1" title="Permanent link">&para;</a></h3>
-<p>Similar to the IP mode, the instance mode is based on the annotation <code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</code> value <code>instance</code>. Here is a sample manifest snippet:</p>
-<div class="admonition warning">
-<p class="admonition-title">NodePort allocation</p>
-<p>k8s version 1.22 and later support disabling NodePort allocation by setting the service field <code>spec.allocateLoadBalancerNodePorts</code> to <code>false</code>. If the NodePort is not allocated for a service port, the controller will fail to reconcile instance mode NLB.</p>
-</div>
-<div class="highlight"><pre><span></span><code>    <span class="nt">metadata</span><span class="p">:</span>
-      <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-service</span>
-      <span class="nt">annotations</span><span class="p">:</span>
-        <span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span> <span class="s">&quot;external&quot;</span>
-        <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="s">&quot;instance&quot;</span>
+<div class="admonition example">
+<p class="admonition-title">Example: instance mode</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+  <span class="nt">annotations</span><span class="p">:</span>
+<span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">external</span>
+</span><span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">instance</span>
+</span><span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">selector</span><span class="p">:</span>
+    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+  <span class="nt">ports</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+      <span class="nt">targetPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8080</span>
+      <span class="nt">protocol</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TCP</span>
+  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
 </code></pre></div>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example: ip mode</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<span class="nt">metadata</span><span class="p">:</span>
+  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+  <span class="nt">annotations</span><span class="p">:</span>
+<span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">external</span>
+</span><span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
+</span><span class="nt">spec</span><span class="p">:</span>
+  <span class="nt">selector</span><span class="p">:</span>
+    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+  <span class="nt">ports</span><span class="p">:</span>
+    <span class="p p-Indicator">-</span> <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+      <span class="nt">targetPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8080</span>
+      <span class="nt">protocol</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TCP</span>
+  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+</code></pre></div>
+</div>
+</div>
+</div>
 <h2 id="protocols">Protocols<a class="headerlink" href="#protocols" title="Permanent link">&para;</a></h2>
 <p>Controller supports both TCP and UDP protocols. Controller also configures TLS termination on NLB if you configure service with certificate annotation. </p>
 <p>In case of TCP, NLB with IP targets does not pass the client source IP address unless specifically configured via target group attributes. Your application pods might not see the actual client IP address even if NLB passes it along, for example instance mode with <code>externalTrafficPolicy</code> set to <code>Cluster</code>.
@@ -1171,8 +1225,20 @@ the client source IP address on your application pods.</p>
 <h2 id="subnet-tagging-requirements">Subnet tagging requirements<a class="headerlink" href="#subnet-tagging-requirements" title="Permanent link">&para;</a></h2>
 <p>See <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a> for details on configuring ELB for public or private placement.</p>
 <h2 id="security-group">Security group<a class="headerlink" href="#security-group" title="Permanent link">&para;</a></h2>
-<p>NLB does not currently support managed security groups. For ingress access, the controller adds inbound rules to the node security group for the instance mode, or the ENI security group for the IP mode. In case of multiple
-security groups, the controller expects only one security group tagged with the cluster name as follows:</p>
+<p>AWS currently does not support attaching security groups to NLB. To allow inbound traffic from NLB, the controller automatically adds inbound rules to the worker node security groups by default.</p>
+<div class="admonition tip">
+<p class="admonition-title">disable worker node security group rule management</p>
+<p>You can disable the worker node security group rule management via <a href="../annotations/#manage-backend-sg-rules">annotation</a>.</p>
+</div>
+<h3 id="worker-node-security-groups-selection">Worker node security groups selection<a class="headerlink" href="#worker-node-security-groups-selection" title="Permanent link">&para;</a></h3>
+<p>The controller automatically selects the worker node security groups that will be modified to allow inbound traffic with following rules:</p>
+<ul>
+<li>for <code>instance</code> mode, the security group of the each backend worker node's primary ENI will be selected.</li>
+<li>for <code>ip</code> mode, the security group of each backend pod's ENI will be selected.</li>
+</ul>
+<div class="admonition important">
+<p class="admonition-title">multiple security groups on an ENI</p>
+<p>if there are multiple security groups attached on an ENI, the controller expects only one security group tagged with following tags:</p>
 <table>
 <thead>
 <tr>
@@ -1188,11 +1254,61 @@ security groups, the controller expects only one security group tagged with the 
 </tbody>
 </table>
 <p><code>${cluster-name}</code> is the name of the kubernetes cluster</p>
-<h2 id="load-balancer-class">Load Balancer Class<a class="headerlink" href="#load-balancer-class" title="Permanent link">&para;</a></h2>
-<p>The AWS Load Balancer Controller supports <code>LoadBalancerClass</code> starting v2.4.0 release on k8s 1.22 or later clusters. The LoadBalancerClass provides a cloudprovider agnostic way of offloading the load balancer reconciliation to an external controller. This controller uses the <code>service.k8s.aws/nlb</code> as the default class,
-you can configure it to a different value via the controller flag <code>--load-balancer-class</code>.</p>
-<p>When you specify the <code>spec.loadBalancerClass</code> on a service of type <code>LoadBalancer</code> during service creation, this controller creates an internal NLB with instance targets by default. If the LoadBalancerClass is not the configured for this controller, this controller ignores the service resource completely regardless of the annotation
-<code>service.beta.kubernetes.io/aws-load-balancer-type</code>. If you modify the service, with <code>spec.loadBalancerClass</code>, type from <code>LoadBalancer</code> to anything else, the controller will cleanup the NLB.</p>
+</div>
+<h3 id="worker-node-security-groups-rules">Worker node security groups rules<a class="headerlink" href="#worker-node-security-groups-rules" title="Permanent link">&para;</a></h3>
+<div class="tabbed-set" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><label for="__tabbed_2_1">when Client IP preservation enabled</label><div class="tabbed-content">
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Protocol</th>
+<th>Port(s)</th>
+<th>IpRanges(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Client Traffic</td>
+<td><code>spec.ports[*].protocol</code></td>
+<td><code>spec.ports[*].port</code></td>
+<td><a href="../annotations/#lb-source-ranges">Traffic Source CIDRs</a></td>
+</tr>
+<tr>
+<td>Health Check Traffic</td>
+<td>TCP</td>
+<td><a href="../annotations/#healthcheck-port">Health Check Ports</a></td>
+<td>NLB Subnet CIDRs</td>
+</tr>
+</tbody>
+</table>
+</div>
+<input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><label for="__tabbed_2_2">when Client IP preservation disabled</label><div class="tabbed-content">
+<table>
+<thead>
+<tr>
+<th>Rule</th>
+<th>Protocol</th>
+<th>Port(s)</th>
+<th>IpRange(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Client Traffic</td>
+<td><code>spec.ports[*].protocol</code></td>
+<td><code>spec.ports[*].port</code></td>
+<td>NLB Subnet CIDRs</td>
+</tr>
+<tr>
+<td>Health Check Traffic</td>
+<td>TCP</td>
+<td><a href="../annotations/#healthcheck-port">Health Check Ports</a></td>
+<td>NLB Subnet CIDRs</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
                 
               
               
