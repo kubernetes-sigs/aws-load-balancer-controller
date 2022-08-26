@@ -80,7 +80,7 @@ kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/
 
 If you are setting `enableCertManager: true` you need to have installed cert-manager and it's CRDs before installing this chart; to install [cert-manager](https://artifacthub.io/packages/helm/cert-manager/cert-manager) follow the installation guide.
 
-Set `clusterDomain` (default: `cluster.local`) to the actual DNS domain of your cluster.
+Set `cluster.dnsDomain` (default: `cluster.local`) to the actual DNS domain of your cluster to include the FQDN in requested TLS certificates.
 
 #### Installing the Prometheus Operator
 
@@ -173,6 +173,7 @@ The default values set by the application itself can be confirmed [here](https:/
 | `image.tag`                                    | image tag                                                                                                | `<VERSION>`                                                                        |
 | `image.pullPolicy`                             | image pull policy                                                                                        | `IfNotPresent`                                                                     |
 | `clusterName`                                  | Kubernetes cluster name                                                                                  | None                                                                               |
+| `cluster.dnsDomain`                            | DNS domain of the Kubernetes cluster, included in TLS certificate requests                               | `cluster.local`                                                                    |
 | `securityContext`                              | Set to security context for pod                                                                          | `{}`                                                                               |
 | `resources`                                    | Controller pod resource requests & limits                                                                | `{}`                                                                               |
 | `priorityClassName`                            | Controller pod priority class                                                                            | system-cluster-critical                                                            |

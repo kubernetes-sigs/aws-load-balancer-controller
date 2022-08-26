@@ -13,9 +13,6 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-# The name of the Kubernetes cluster. A non-empty value is required
-clusterName:
-
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
@@ -104,8 +101,13 @@ additionalLabels: {}
 # Enable cert-manager
 enableCertManager: false
 
-# Cluster DNS domain (required for generating the TLS certificates)
-clusterDomain: cluster.local
+# The name of the Kubernetes cluster. A non-empty value is required
+clusterName:
+
+# cluster contains configurations specific to the kubernetes cluster
+cluster:
+    # Cluster DNS domain (required for requesting TLS certificates)
+    dnsDomain: cluster.local
 
 # The ingress class this controller will satisfy. If not specified, controller will match all
 # ingresses without ingress class annotation and ingresses of type alb
