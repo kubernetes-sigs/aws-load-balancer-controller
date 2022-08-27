@@ -80,7 +80,7 @@ Traffic Routing can be controlled with following annotations:
 
 - <a name="nlb-target-type">`service.beta.kubernetes.io/aws-load-balancer-nlb-target-type`</a> specifies the target type to configure for NLB. You can choose between
 `instance` and `ip`.
-    - `instance` mode will route traffic to all EC2 instances within cluster on the [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) opened for your service.
+    - `instance` mode will route traffic to all EC2 instances within cluster on the [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) opened for your service. The kube-proxy on the individual worker nodes sets up the forwarding of the traffic from the NodePort to the pods behind the service.
 
         !!!note ""
             - service must be of type `NodePort` or `LoadBalancer` for `instance` targets
@@ -89,10 +89,14 @@ Traffic Routing can be controlled with following annotations:
         !!!note "default value"
             If you configure `spec.loadBalancerClass`, the controller defaults to `instance` target type
 
-      - `ip` mode will route traffic directly to the pod IP.
+        !!!warning "NodePort allocation"
+            k8s version 1.22 and later support disabling NodePort allocation by setting the service field `spec.allocateLoadBalancerNodePorts` to `false`. If the NodePort is not allocated for a service port, the controller will fail to reconcile instance mode NLB.
+
+      - `ip` mode will route traffic directly to the pod IP. In this mode, AWS NLB sends traffic directly to the Kubernetes pods behind the service, eliminating the need for an extra network hop through the worker nodes in the Kubernetes cluster.
 
         !!!note ""
-            network plugin must use native AWS VPC networking configuration for pod IP, for example [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s).
+            - `ip` target mode supports pods running on AWS EC2 instances and AWS Fargate
+            - network plugin must use native AWS VPC networking configuration for pod IP, for example [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s).
 
     !!!example
         ```
@@ -282,8 +286,8 @@ Health check on target groups can be configured with following annotations:
 
 - <a name="healthcheck-port">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-port`</a> specifies the TCP port to use for target group health check.
 
-    !!!note ""
-        - if you do not specify the health check port, controller uses `traffic-port` as default value
+    !!!note "default value"
+        - if you do not specify the health check port, the default value will be `spec.healthCheckNodePort` when `externalTrafficPolicy=local` or `traffic-port` otherwise.
 
     !!!example
         - set the health check port to `traffic-port`

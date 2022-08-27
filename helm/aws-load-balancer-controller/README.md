@@ -163,7 +163,7 @@ Chart release v1.2.0 and later enables high availability configuration by defaul
 ## Configuration
 
 The following tables lists the configurable parameters of the chart and their default values.
-The default values set by the application itself can be confirmed [here](https://kubernetes-sigs.github.io/aws-load-balancer-controller/guide/controller/configurations/).
+The default values set by the application itself can be confirmed [here](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/configurations/#controller-configuration-options).
 
 | Parameter                                      | Description                                                                                              | Default                                                                            |
 |------------------------------------------------| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -245,4 +245,5 @@ The default values set by the application itself can be confirmed [here](https:/
 | `serviceMonitor.interval`                      | Prometheus scrape interval                                                                               | `1m`                                                                               |
 | `serviceMonitor.namespace`                     | Namespace in which Prometheus is running                                                                 | None                                                                               |
 | `clusterSecretsPermissions.allowAllSecrets`    | If `true`, controller has access to all secrets in the cluster.                                          | `false`                                                                            |
-| `controller.ingressClassResource.default`    | If `true`, the ingressclass will be the default class of the cluster.                                      | `false`                                                                            |
+| `controller.ingressClassResource.default`      | If `true`, the ingressclass will be the default class of the cluster.                                    | `false`                                                                            |
+| `controllerConfig.featureGates`                | set of `key: value` pairs that describe AWS load balance controller features                             | `{}`                                                                               |

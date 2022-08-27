@@ -22,7 +22,7 @@ nav:
           - IngressClass: guide/ingress/ingress_class.md
           - Certificate Discovery: guide/ingress/cert_discovery.md
       - Service:
-          - NLB: guide/service/nlb.md
+          - Network Load Balancer: guide/service/nlb.md
           - Annotations: guide/service/annotations.md
       - TargetGroupBinding:
           - TargetGroupBinding: guide/targetgroupbinding/targetgroupbinding.md
@@ -57,12 +57,16 @@ theme:
 # Extensions
 markdown_extensions:
   - admonition
+  - attr_list
   - codehilite
   - pymdownx.inlinehilite
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.superfences
   - pymdownx.tabbed
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
   - toc:
       permalink: true
 extra_css:
