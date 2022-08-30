@@ -1,5 +1,5 @@
 ---
-title: Self Managed Load Balancers
+title: Externally Managed Load Balancers
 ---
 
 ## Motivation
@@ -13,11 +13,13 @@ However, some cluster operators may prefer to manually manage AWS Load Balancers
 
 ## Solution Overview
 
-Use the TargetGroupBinding CRD to sync a Kubernetes service with the targets of a load balancer. 
+Use the TargetGroupBinding CRD to sync a Kubernetes service with the targets of a load balancer.
 
-First, a load balancer is manually created directly with AWS. A [listener](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html) and a [target group](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html) is added to the load balancer. 
+First, a load balancer is manually created directly with AWS. This guide uses a network load balancer, but an application load balancer may be similarly configured. 
 
-Second, a TargetGroupBinding CRD is created in a cluster. The CRD includes references to a Kubernetes service and the [ARN](https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html) of the Load Balancer Target Group. The CRD configures the LBC to watch the service and automatically update the target group with the appropriate pod VPC IP addresses. 
+Second, A [listener](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html) and a [target group](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html) are then added to the load balancer. 
+
+Third, a TargetGroupBinding CRD is created in a cluster. The CRD includes references to a Kubernetes service and the [ARN](https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html) of the Load Balancer Target Group. The CRD configures the LBC to watch the service and automatically update the target group with the appropriate pod VPC IP addresses. 
 
 ## Prerequisites
 
@@ -37,9 +39,7 @@ Have this information available:
 
 **Create Load Balancer: (optional)**
 
-1. Use the [create\-load\-balancer](https://docs.aws.amazon.com/cli/latest/reference/elbv2/create-load-balancer.html) command to create an IPv4 load balancer, specifying a public subnet for each Availability Zone in which you launched instances. 
-
-    `kubernetes.io/cluster/your-cluster-name`
+1. Use the [create\-load\-balancer](https://docs.aws.amazon.com/cli/latest/reference/elbv2/create-load-balancer.html) command to create an IPv4 load balancer, specifying a public subnet for each Availability Zone in which you have instances. 
 
     You can specify only one subnet per Availability Zone. 
 
@@ -92,7 +92,7 @@ spec:
   serviceRef:
     name: awesome-service # route traffic to the awesome-service
     port: 80
-  targetGroupARN: <arn-to-targetGroup>
+  targetGroupARN: arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/my-targets/1234567890123456
 ```
 2. Apply the CRD
 
@@ -106,4 +106,4 @@ Wait approximately 30 seconds for the LBC to update the load balancer.
 
 [View all target groups](https://console.aws.amazon.com/ec2/v2/home#TargetGroups:) in the AWS console.
 
-Find the target group by the ARN noted above, and verify the EKS Cluster IP addresses have beened added.
+Find the target group by the ARN noted above, and verify the appropriate instances from the cluster have been added.
