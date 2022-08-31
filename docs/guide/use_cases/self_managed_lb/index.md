@@ -17,7 +17,7 @@ Use the TargetGroupBinding CRD to sync a Kubernetes service with the targets of 
 
 First, a load balancer is manually created directly with AWS. This guide uses a network load balancer, but an application load balancer may be similarly configured. 
 
-Second, A [listener](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html) and a [target group](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html) are then added to the load balancer. 
+Second, A [listener](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-listeners.html) and a [target group](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html) are then added to the load balancer. 
 
 Third, a TargetGroupBinding CRD is created in a cluster. The CRD includes references to a Kubernetes service and the [ARN](https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html) of the Load Balancer Target Group. The CRD configures the LBC to watch the service and automatically update the target group with the appropriate pod VPC IP addresses. 
 
