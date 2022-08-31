@@ -167,7 +167,7 @@ metadata:
 spec:
   dnsNames:
   - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc
-  - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc.{{ .Values.cluster.dnsDomain }}
   issuerRef:
     kind: Issuer
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
