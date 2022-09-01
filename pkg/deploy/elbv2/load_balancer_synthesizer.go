@@ -68,6 +68,8 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 				if err = s.lbManager.Delete(ctx, sdkLB); err != nil {
 					return err
 				}
+			} else {
+				return err
 			}
 		}
 	}
