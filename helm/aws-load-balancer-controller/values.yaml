@@ -113,6 +113,11 @@ cluster:
 # ingresses without ingress class annotation and ingresses of type alb
 ingressClass: alb
 
+# The ingress class annotations contain the annotations to be added to the Ingress class
+# Note: This can be used to create a default ingressClass
+ingressClassAnnotations: {}
+
+
 # ingressClassParams specify the IngressCLassParams that enforce settings for a set of Ingresses when using with ingress Controller.
 ingressClassParams:
   create: true
