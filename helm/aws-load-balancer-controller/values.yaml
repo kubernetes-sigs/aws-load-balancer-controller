@@ -313,7 +313,6 @@ clusterSecretsPermissions:
   # This is to get backwards compatible behavior, but *NOT* recommended for security reasons
   allowAllSecrets: false
 
-# whether or not this ingressclass is the default ingressclass inside the cluster
-controller:
-  ingressClassResource:
-    default: false
+# ingressClassConfig contains configurations specific to the ingress class
+ingressClassConfig:
+  default: false
