@@ -41,6 +41,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval](#healthcheck-interval)       | integer                 | 10                        |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-eip-allocations](#eip-allocations)                 | stringList              |                           | internet-facing lb only. Length must match the number of subnets|
 | [service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses](#private-ipv4-addresses)   | stringList              |                           | internal lb only. Length must match the number of subnets |
+| [service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses](#ipv6-addresses)                   | stringList              |                           | dualstack lb only. Length must match the number of subnets |
 | [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes) | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-subnets](#subnets)                                 | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | stringList              |                           |                                                        |
@@ -146,7 +147,7 @@ on the load balancer.
 - <a name="eip-allocations">`service.beta.kubernetes.io/aws-load-balancer-eip-allocations`</a> specifies a list of [elastic IP address](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html) configuration for an internet-facing NLB.
 
     !!!note
-        - This configuration is optional and use can use it to assign static IP addresses to your NLB
+        - This configuration is optional, and you can use it to assign static IP addresses to your NLB
         - You must specify the same number of eip allocations as load balancer subnets [annotation](#subnets)
         - NLB must be internet-facing
 
@@ -160,13 +161,26 @@ on the load balancer.
 
     !!!note
         - NLB must be internal
-        - This configuration is optional and use can use it to assign static IP addresses to your NLB
+        - This configuration is optional, and you can use it to assign static IPv4 addresses to your NLB
         - You must specify the same number of private IPv4 addresses as load balancer subnets [annotation](#subnets)
         - You must specify the IPv4 addresses from the load balancer subnet IPv4 ranges
 
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses: 192.168.10.15, 192.168.32.16
+        ```
+
+- <a name="ipv6-addresses">`service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses`</a> specifies a list of IPv6 addresses for an dualstack NLB.
+
+    !!!note
+        - NLB must be dualstack
+        - This configuration is optional, and you can use it to assign static IPv6 addresses to your NLB
+        - You must specify the same number of private IPv6 addresses as load balancer subnets [annotation](#subnets)
+        - You must specify the IPv6 addresses from the load balancer subnet IPv6 ranges
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses: 2600:1f13:837:8501::1, 2600:1f13:837:8504::1
         ```
 
 ## Traffic Listening
