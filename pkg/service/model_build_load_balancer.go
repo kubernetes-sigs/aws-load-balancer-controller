@@ -200,19 +200,19 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 	ipv4AddrConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixPrivateIpv4Addresses, &rawIPv4Addresses, t.service.Annotations)
 	if ipv4AddrConfigured {
 		if scheme != elbv2model.LoadBalancerSchemeInternal {
-			return nil, errors.Errorf("PrivateIpv4Addresses can only be set for internal load balancers")
+			return nil, errors.Errorf("private IPv4 addresses can only be set for internal load balancers")
 		}
 		// TODO: consider relax this requirement as ELBv2 API don't require every subnet to have IPv4 address specified.
 		if len(rawIPv4Addresses) != len(ec2Subnets) {
-			return nil, errors.Errorf("count of PrivateIpv4Addresses (%d) and subnets (%d) must match", len(rawIPv4Addresses), len(ec2Subnets))
+			return nil, errors.Errorf("count of private IPv4 addresses (%d) and subnets (%d) must match", len(rawIPv4Addresses), len(ec2Subnets))
 		}
 		for _, rawIPv4Address := range rawIPv4Addresses {
 			ipv4Address, err := netip.ParseAddr(rawIPv4Address)
 			if err != nil {
-				return nil, errors.Errorf("PrivateIpv4Addresses must be valid IP address: %v", rawIPv4Address)
+				return nil, errors.Errorf("private IPv4 addresses must be valid IP address: %v", rawIPv4Address)
 			}
 			if !ipv4Address.Is4() {
-				return nil, errors.Errorf("PrivateIpv4Addresses must be valid IPv4 address: %v", rawIPv4Address)
+				return nil, errors.Errorf("private IPv4 addresses must be valid IPv4 address: %v", rawIPv4Address)
 			}
 			ipv4Addresses = append(ipv4Addresses, ipv4Address)
 		}
@@ -223,19 +223,19 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 	ipv6AddrConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixIpv6Addresses, &rawIPv6Addresses, t.service.Annotations)
 	if ipv6AddrConfigured {
 		if ipAddressType != elbv2model.IPAddressTypeDualStack {
-			return nil, errors.Errorf("Ipv6Addresses can only be set for dualstack load balancers")
+			return nil, errors.Errorf("IPv6 addresses can only be set for dualstack load balancers")
 		}
 		// TODO: consider relax this requirement as ELBv2 API don't require every subnet to have IPv6 address specified.
 		if len(rawIPv6Addresses) != len(ec2Subnets) {
-			return nil, errors.Errorf("count of Ipv6Addresses (%d) and subnets (%d) must match", len(rawIPv6Addresses), len(ec2Subnets))
+			return nil, errors.Errorf("count of IPv6 addresses (%d) and subnets (%d) must match", len(rawIPv6Addresses), len(ec2Subnets))
 		}
 		for _, rawIPv6Address := range rawIPv6Addresses {
 			ipv6Address, err := netip.ParseAddr(rawIPv6Address)
 			if err != nil {
-				return nil, errors.Errorf("Ipv6Address must be valid IP address: %v", rawIPv6Address)
+				return nil, errors.Errorf("IPv6 addresses must be valid IP address: %v", rawIPv6Address)
 			}
 			if !ipv6Address.Is6() {
-				return nil, errors.Errorf("Ipv6Address must be valid IPv6 address: %v", rawIPv6Address)
+				return nil, errors.Errorf("IPv6 addresses must be valid IPv6 address: %v", rawIPv6Address)
 			}
 			ipv6Addresses = append(ipv6Addresses, ipv6Address)
 		}
@@ -256,7 +256,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 			}
 			ipv4AddressesWithinSubnet := networking.FilterIPsWithinCIDRs(ipv4Addresses, subnetIPv4CIDRs)
 			if len(ipv4AddressesWithinSubnet) != 1 {
-				return nil, errors.Errorf("expect one PrivateIpv4Address configured for subnet: %v", aws.StringValue(subnet.SubnetId))
+				return nil, errors.Errorf("expect one private IPv4 address configured for subnet: %v", aws.StringValue(subnet.SubnetId))
 			}
 			mapping.PrivateIPv4Address = aws.String(ipv4AddressesWithinSubnet[0].String())
 		}
@@ -267,7 +267,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 			}
 			ipv6AddressesWithinSubnet := networking.FilterIPsWithinCIDRs(ipv6Addresses, subnetIPv6CIDRs)
 			if len(ipv6AddressesWithinSubnet) != 1 {
-				return nil, errors.Errorf("expect one Ipv6Address configured for subnet: %v", aws.StringValue(subnet.SubnetId))
+				return nil, errors.Errorf("expect one IPv6 address configured for subnet: %v", aws.StringValue(subnet.SubnetId))
 			}
 			mapping.IPv6Address = aws.String(ipv6AddressesWithinSubnet[0].String())
 		}

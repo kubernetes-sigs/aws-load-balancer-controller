@@ -383,7 +383,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("PrivateIpv4Addresses can only be set for internal load balancers"),
+			wantErr: errors.New("private IPv4 addresses can only be set for internal load balancers"),
 		},
 		{
 			name:          "ipv4 - with PrivateIpv4Addresses: subnet count mismatch",
@@ -408,7 +408,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("count of PrivateIpv4Addresses (1) and subnets (2) must match"),
+			wantErr: errors.New("count of private IPv4 addresses (1) and subnets (2) must match"),
 		},
 		{
 			name:          "ipv4 - with PrivateIPv4Address: no matching IP for subnets",
@@ -435,7 +435,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("expect one PrivateIpv4Address configured for subnet: subnet-2"),
+			wantErr: errors.New("expect one private IPv4 address configured for subnet: subnet-2"),
 		},
 		{
 			name:          "ipv4 - with PrivateIPv4Address",
@@ -498,7 +498,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("PrivateIpv4Addresses must be valid IP address: i-am-not-an-ip"),
+			wantErr: errors.New("private IPv4 addresses must be valid IP address: i-am-not-an-ip"),
 		},
 		{
 			name:          "ipv4 - with PrivateIPv4Address: invalid ipv4 format",
@@ -525,7 +525,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("PrivateIpv4Addresses must be valid IPv4 address: 2600:1f13:837:8500::1"),
+			wantErr: errors.New("private IPv4 addresses must be valid IPv4 address: 2600:1f13:837:8500::1"),
 		},
 		{
 			name:          "dualstack - with IPv6Addresses",
@@ -620,7 +620,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("Ipv6Addresses can only be set for dualstack load balancers"),
+			wantErr: errors.New("IPv6 addresses can only be set for dualstack load balancers"),
 		},
 		{
 			name:          "dualstack - with IPv6Addresses: subnet count mismatch",
@@ -663,7 +663,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("count of Ipv6Addresses (1) and subnets (2) must match"),
+			wantErr: errors.New("count of IPv6 addresses (1) and subnets (2) must match"),
 		},
 		{
 			name:          "dualstack - with IPv6Addresses: no matching IP for subnets",
@@ -706,7 +706,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("expect one Ipv6Address configured for subnet: subnet-2"),
+			wantErr: errors.New("expect one IPv6 address configured for subnet: subnet-2"),
 		},
 		{
 			name:          "dualstack - with IPv6Addresses: invalid IP format",
@@ -749,7 +749,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("Ipv6Address must be valid IP address: i-am-not-an-ip"),
+			wantErr: errors.New("IPv6 addresses must be valid IP address: i-am-not-an-ip"),
 		},
 		{
 			name:          "dualstack - with IPv6Addresses: invalid IP format",
@@ -792,7 +792,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("Ipv6Address must be valid IPv6 address: 192.168.1.1"),
+			wantErr: errors.New("IPv6 addresses must be valid IPv6 address: 192.168.1.1"),
 		},
 		{
 			name:          "dualstack - with EIPAllocation and IPv6Addresses",
