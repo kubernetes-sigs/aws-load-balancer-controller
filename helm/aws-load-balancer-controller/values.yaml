@@ -324,3 +324,7 @@ clusterSecretsPermissions:
   # allowAllSecrets allows the controller to access all secrets in the cluster.
   # This is to get backwards compatible behavior, but *NOT* recommended for security reasons
   allowAllSecrets: false
+
+# ingressClassConfig contains configurations specific to the ingress class
+ingressClassConfig:
+  default: false
