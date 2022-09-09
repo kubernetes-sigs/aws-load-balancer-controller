@@ -138,7 +138,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 
 ## Network Configuration
 
-Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html) docs. The node security group must permit incoming traffic on TCP port 9943 from the kubernetes control plane. This is needed for webhook access. 
+Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html) docs. The node security group must permit incoming traffic on TCP port 9443 from the kubernetes control plane. This is needed for webhook access. 
 
 If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the default configuration. 
 
