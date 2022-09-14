@@ -189,7 +189,7 @@ Traffic Routing can be controlled with following annotations:
         alb.ingress.kubernetes.io/target-type: instance
         ```
 
--<a name="target-node-labels">`alb.ingress.kubernetes.io/target-node-labels`</a> specifies which nodes to include in the target group registration for `instance` target type.
+- <a name="target-node-labels">`alb.ingress.kubernetes.io/target-node-labels`</a> specifies which nodes to include in the target group registration for `instance` target type.
 
     !!!example
         ```
