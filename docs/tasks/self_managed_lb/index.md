@@ -24,7 +24,7 @@ Third, a TargetGroupBinding CRD is created in a cluster. The CRD includes refere
 ## Prerequisites
 
 Install: 
-- [Load Balancer Controller Installed](../../../deploy/installation.md) on Cluster
+- [Load Balancer Controller Installed](../../deploy/installation.md) on Cluster
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 - [Kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
 
@@ -77,7 +77,7 @@ Have this information available:
 
 ## Create TargetGroupBinding CRD
 
-1. Create the [TargetGroupBinding CRD](/guide/targetgroupbinding/targetgroupbinding.md)
+1. Create the [TargetGroupBinding CRD](/reference/targetgroupbinding/targetgroupbinding.md)
 
 Insert the ARN of the Target Group, as created above.
 

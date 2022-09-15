@@ -10,7 +10,7 @@ to route traffic at the ALB to services running outside the Kubernetes cluster.
 
 The actions annotation allows the definition of a forward rule to a previously configured target group.
 Learn more about the actions annotation at
-[`alb.ingress.kubernetes.io/actions.${action-name}`](../ingress/annotations.md#actions)
+[`alb.ingress.kubernetes.io/actions.${action-name}`](../reference/ingress/annotations.md#actions)
 
 ## Example Ingress Manifest
 ```yaml

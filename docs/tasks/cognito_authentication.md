@@ -6,7 +6,7 @@ This document describes how to install AWS Load Balancer Controller with AWS Cog
 
 The following assumptions are observed regarding this procedure.
 
-* ExternalDNS is installed to the cluster and will provide a custom URL for your ALB. To setup ExternalDNS refer to the [install instructions](../integrations/external_dns.md).
+* ExternalDNS is installed to the cluster and will provide a custom URL for your ALB. To setup ExternalDNS refer to the [install instructions](../reference/integrations/external_dns.md).
 
 ## Cognito Configuration
 
@@ -19,10 +19,10 @@ Configure Cognito for use with AWS Load Balancer Controller using the following 
 
 ## AWS Load Balancer Controller Setup
 
-Install the AWS Load Balancer Controller using the [install instructions](../../deploy/installation.md) with the following caveats.
+Install the AWS Load Balancer Controller using the [install instructions](../deploy/installation.md) with the following caveats.
 
 * When setting up IAM Role Permissions, add the `cognito-idp:DescribeUserPoolClient` permission to the example policy.
 
 ## Deploying an Ingress
 
-Using the [cognito-ingress-template](../../examples/cognito-ingress-template.yaml) you can fill in the `<required>` variables to create an ALB ingress connected to your Cognito user pool for authentication.
+Using the [cognito-ingress-template](cognito-ingress-template.yaml) you can fill in the `<required>` variables to create an ALB ingress connected to your Cognito user pool for authentication.

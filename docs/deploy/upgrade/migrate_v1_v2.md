@@ -15,10 +15,10 @@ It supports existing AWS resources provisioned by AWSALBIngressController(>=v1.1
 
 1. The AWS LoadBalancer resource created for your Ingress will be preserved. If migrating from <v1.1.3, a new AWS LoadBalancer resource will be created and the old AWS LoadBalancer will remain in the account. However, the old AWS LoadBalancer will not be used for the ingress resource.
 
-2. If [security-groups](../../guide/ingress/annotations.md#security-groups) annotation isn't used, the SecurityGroup rule on worker node's SecurityGroup that allow LoadBalancer traffic should be manually adjusted post migration.
+2. If [security-groups](../../reference/ingress/annotations.md#security-groups) annotation isn't used, the SecurityGroup rule on worker node's SecurityGroup that allow LoadBalancer traffic should be manually adjusted post migration.
     
     !!!tip "details"
-        when [security-groups](../../guide/ingress/annotations.md#security-groups) annotation isn't used:
+        when [security-groups](../../reference/ingress/annotations.md#security-groups) annotation isn't used:
         
         * a managed SecurityGroup will be created and attached to ALB. This SecurityGroup will be preserved.
         * an inbound rule will be added to your worker node securityGroups which allow traffic from the above managed SecurityGroup for ALB.

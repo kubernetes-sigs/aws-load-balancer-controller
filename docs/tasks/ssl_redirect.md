@@ -1,6 +1,6 @@
 # Redirect Traffic from HTTP to HTTPS
 
-You can use the [`alb.ingress.kubernetes.io/ssl-redirect`](../ingress/annotations.md#ssl-redirect) annotation to setup an ingress to redirect http traffic to https
+You can use the [`alb.ingress.kubernetes.io/ssl-redirect`](../reference/ingress/annotations.md#ssl-redirect) annotation to setup an ingress to redirect http traffic to https
 
 
 ## Example Ingress Manifest

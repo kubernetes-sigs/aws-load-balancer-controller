@@ -8,35 +8,33 @@ nav:
   - Home:
     - Welcome: index.md
     - How it works: how-it-works.md
-  - Deployment:
-    - Installation Guide: deploy/installation.md
-    - Configurations: deploy/configurations.md
-    - Subnet Discovery: deploy/subnet_discovery.md
-    - Pod Readiness Gate: deploy/pod_readiness_gate.md
-    - Upgrade:
-          - Migrate v1 to v2: deploy/upgrade/migrate_v1_v2.md
-  - Guide:
-      - Ingress:
-          - Annotations: guide/ingress/annotations.md
-          - Specification: guide/ingress/spec.md
-          - IngressClass: guide/ingress/ingress_class.md
-          - Certificate Discovery: guide/ingress/cert_discovery.md
-      - Service:
-          - Network Load Balancer: guide/service/nlb.md
-          - Annotations: guide/service/annotations.md
-      - TargetGroupBinding:
-          - TargetGroupBinding: guide/targetgroupbinding/targetgroupbinding.md
-          - Specification: guide/targetgroupbinding/spec.md
-      - Tasks:
-          - Cognito Authentication: guide/tasks/cognito_authentication.md
-          - SSL Redirect: guide/tasks/ssl_redirect.md
-      - Use Cases:
-        - NLB TLS Termiation: guide/use_cases/nlb_tls_termination/index.md
-        - Externally Managed Load Balancer: guide/use_cases/self_managed_lb/index.md
-  - Examples:
-    - EchoServer: examples/echo_server.md
-    - gRPCServer: examples/grpc_server.md
-    - RBAC to access OIDC Secret: examples/secrets_access.md
+  - Documentation:
+    - Deployment:
+      - Installation Guide: deploy/installation.md
+      - Configurations: deploy/configurations.md
+      - Subnet Discovery: deploy/subnet_discovery.md
+      - Pod Readiness Gate: deploy/pod_readiness_gate.md
+      - Migrate v1 to v2: deploy/upgrade/migrate_v1_v2.md
+    - Reference:
+        - Ingress:
+            - Annotations: reference/ingress/annotations.md
+            - Specification: reference/ingress/spec.md
+            - IngressClass: reference/ingress/ingress_class.md
+            - Certificate Discovery: reference/ingress/cert_discovery.md
+        - Service:
+            - Network Load Balancer: reference/service/nlb.md
+            - Annotations: reference/service/annotations.md
+        - TargetGroupBinding:
+            - TargetGroupBinding: reference/targetgroupbinding/targetgroupbinding.md
+            - Specification: reference/targetgroupbinding/spec.md
+    - Tasks:
+      - Example EchoServer: tasks/echo_server.md
+      - Example gRPCServer: tasks/grpc_server.md
+      - RBAC to access OIDC Secret: tasks/secrets_access.md
+      - Cognito Authentication: tasks/cognito_authentication.md
+      - SSL Redirect: tasks/ssl_redirect.md
+      - NLB TLS Termiation: tasks/nlb_tls_termination/index.md
+      - Externally Managed Load Balancer: tasks/self_managed_lb/index.md
 
 
 

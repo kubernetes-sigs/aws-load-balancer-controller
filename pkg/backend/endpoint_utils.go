@@ -17,7 +17,7 @@ const (
 )
 
 var (
-	// Remember to update docs/guide/targetgroupbinding/targetgroupbinding.md if changing
+	// Remember to update docs/reference/targetgroupbinding/targetgroupbinding.md if changing
 	defaultTrafficProxyNodeLabelSelector = metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{

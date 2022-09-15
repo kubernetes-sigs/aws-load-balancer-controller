@@ -51,7 +51,7 @@ Note the ARN of the certificate, which uniquely identifies it in kubernetes conf
 
 ### Create Service with new NLB
 
-Add annotations to a load balancer service to enable NLB TLS termination, before the traffic reaches Envoy. The annotations are actioned by the load balancer controller. [Review all the NLB annotations on GitHub.](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/service/annotations/)
+Add annotations to a load balancer service to enable NLB TLS termination, before the traffic reaches Envoy. The annotations are actioned by the load balancer controller. [Review all the NLB annotations on GitHub.](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/reference/service/annotations/)
 
 | annotation name | value | meaning | 
 | ----- | --- | ----- |
