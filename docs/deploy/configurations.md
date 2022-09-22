@@ -129,10 +129,10 @@ Once disabled:
 
 ###  throttle config
 
-The default throttle config used is.
+Controller uses the following default throttle config:
 
 ```
-WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
+WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1,Elastic Load Balancing v2:^RegisterTargets|^DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40
 ```
 Client side throttling enables gradual scaling of the api calls. Additional throttle config can be specified via the `--aws-api-throttle` flag. You can get the ServiceID from the API definition in AWS SDK. For e.g, ELBv2 it is [Elastic Load Balancing v2](https://github.com/aws/aws-sdk-go/blob/main/models/apis/elasticloadbalancingv2/2015-12-01/api-2.json#L9).
 

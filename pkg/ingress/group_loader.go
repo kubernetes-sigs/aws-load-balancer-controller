@@ -152,7 +152,7 @@ func (m *defaultGroupLoader) checkGroupMembershipType(ctx context.Context, group
 			}
 			return groupMembershipTypeNone, ClassifiedIngress{}, nil
 		}
-		
+
 		// tolerate errInvalidIngressGroup error since an Ingress with a wrong IngressGroup name means to leave the IngressGroup anyway.
 		if errors.Is(err, errInvalidIngressGroup) {
 			if hasGroupFinalizer {
