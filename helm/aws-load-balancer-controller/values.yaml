@@ -183,7 +183,7 @@ webhookTLS:
   key:
 
 # array of namespace selectors for the webhook
-webhookNamespaceSelector:
+webhookNamespaceSelectors:
 # - key: elbv2.k8s.aws/pod-readiness-gate-inject
 #   operator: In
 #   values:
