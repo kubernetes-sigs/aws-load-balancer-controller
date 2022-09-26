@@ -2,7 +2,7 @@
 
 The Load Balancer controller (LBC) provisions AWS Network Load Balancer (NLB) and Application Load Balancer (ALB) resources. The LBC watches for new service or ingress kubernetes resources, and configures AWS resources.
 
-The LBC is supported by AWS. Some clusters may using legeacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. 
+The LBC is supported by AWS. Some clusters may using legacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. 
 
 !!!question "Existing AWS ALB Ingress Controller users"
     AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer controller.
