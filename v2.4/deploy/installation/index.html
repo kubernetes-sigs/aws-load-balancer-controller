@@ -935,6 +935,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/use_cases/self_managed_lb/" class="md-nav__link">
+        Externally Managed Load Balancer
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1173,7 +1185,7 @@
                 
                 <h1 id="load-balancer-controller-installation">Load Balancer Controller Installation<a class="headerlink" href="#load-balancer-controller-installation" title="Permanent link">&para;</a></h1>
 <p>The Load Balancer controller (LBC) provisions AWS Network Load Balancer (NLB) and Application Load Balancer (ALB) resources. The LBC watches for new service or ingress kubernetes resources, and configures AWS resources.</p>
-<p>The LBC is supported by AWS. Some clusters may using legeacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. </p>
+<p>The LBC is supported by AWS. Some clusters may using legacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. </p>
 <div class="admonition question">
 <p class="admonition-title">Existing AWS ALB Ingress Controller users</p>
 <p>AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer controller.
@@ -1237,7 +1249,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 </li>
 <li>
 <p>Download IAM policy for the AWS Load Balancer Controller
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.3/docs/install/iam_policy.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.4/docs/install/iam_policy.json
 </code></pre></div></p>
 </li>
 <li>
@@ -1263,7 +1275,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 </ol>
 <h3 id="option-b-attach-iam-policies-to-nodes">Option B: Attach IAM Policies to Nodes<a class="headerlink" href="#option-b-attach-iam-policies-to-nodes" title="Permanent link">&para;</a></h3>
 <p>If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
-<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.3/docs/install/iam_policy.json
+<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.4/docs/install/iam_policy.json
 </code></pre></div></p>
 <p><em>IAM permission subset for those who use </em>TargetGroupBinding<em> only and don't plan to use the AWS Load Balancer Controller to manage security group rules:</em></p>
 <div class="highlight"><pre><span></span><code>{
@@ -1288,7 +1300,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 }
 </code></pre></div>
 <h2 id="network-configuration">Network Configuration<a class="headerlink" href="#network-configuration" title="Permanent link">&para;</a></h2>
-<p>Review the <a href="https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html">worker nodes security group</a> docs. The node security group must permit incoming traffic on TCP port 9943 from the kubernetes control plane. This is needed for webhook access. </p>
+<p>Review the <a href="https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html">worker nodes security group</a> docs. The node security group must permit incoming traffic on TCP port 9443 from the kubernetes control plane. This is needed for webhook access. </p>
 <p>If you use <a href="https://eksctl.io/usage/vpc-networking/">eksctl</a>, this is the default configuration. </p>
 <h2 id="add-controller-to-cluster">Add Controller to Cluster<a class="headerlink" href="#add-controller-to-cluster" title="Permanent link">&para;</a></h2>
 <p>We recommend using the Helm chart. This supports Fargate and facilitates updating the controller.</p>
@@ -1325,7 +1337,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 <h3 id="apply-yaml">Apply YAML<a class="headerlink" href="#apply-yaml" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Download spec for load balancer controller.
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.3/v2_4_3_full.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.4/v2_4_4_full.yaml
 </code></pre></div></li>
 <li>Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
 <div class="highlight"><pre><span></span><code>apiVersion: apps/v1
@@ -1346,13 +1358,13 @@ spec:
 kind: ServiceAccount
 </code></pre></div></li>
 <li>Apply the yaml file
-<div class="highlight"><pre><span></span><code>kubectl apply -f v2_4_3_full.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f v2_4_4_full.yaml
 </code></pre></div></li>
 <li>Optionally download the default ingressclass and ingressclass params
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.3/v2_4_3_ingclass.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.4/v2_4_4_ingclass.yaml
 </code></pre></div></li>
 <li>Apply the ingressclass and params
-<div class="highlight"><pre><span></span><code>kubectl apply -f v2_4_3_ingclass.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f v2_4_4_ingclass.yaml
 </code></pre></div></li>
 </ol>
 </div>

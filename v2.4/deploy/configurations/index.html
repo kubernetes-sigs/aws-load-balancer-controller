@@ -901,6 +901,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/use_cases/self_managed_lb/" class="md-nav__link">
+        Externally Managed Load Balancer
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1418,8 +1430,8 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <li>you can no longer alter the value of an <code>alb.ingress.kubernetes.io/group.name</code> annotation on an existing Ingress.</li>
 </ul>
 <h3 id="throttle-config">throttle config<a class="headerlink" href="#throttle-config" title="Permanent link">&para;</a></h3>
-<p>The default throttle config used is.</p>
-<p><div class="highlight"><pre><span></span><code>WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
+<p>Controller uses the following default throttle config:</p>
+<p><div class="highlight"><pre><span></span><code>WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1,Elastic Load Balancing v2:^RegisterTargets|^DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40
 </code></pre></div>
 Client side throttling enables gradual scaling of the api calls. Additional throttle config can be specified via the <code>--aws-api-throttle</code> flag. You can get the ServiceID from the API definition in AWS SDK. For e.g, ELBv2 it is <a href="https://github.com/aws/aws-sdk-go/blob/main/models/apis/elasticloadbalancingv2/2015-12-01/api-2.json#L9">Elastic Load Balancing v2</a>.</p>
 <p>Here is an example of throttle config to specify client side throttling of ELBv2 calls.</p>

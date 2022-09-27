@@ -898,6 +898,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/self_managed_lb/" class="md-nav__link">
+        Externally Managed Load Balancer
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1575,15 +1587,14 @@ other Kubernetes users may create/modify their Ingresses to belong to the same I
 </code></pre></div>
 </div>
 </li>
-</ul>
-<p>-<a name="target-node-labels"><code>alb.ingress.kubernetes.io/target-node-labels</code></a> specifies which nodes to include in the target group registration for <code>instance</code> target type.</p>
-<div class="codehilite"><pre><span></span><code>!!!example
-    ```
-    alb.ingress.kubernetes.io/target-node-labels: label1=value1, label2=value2
-    ```
+<li>
+<p><a name="target-node-labels"><code>alb.ingress.kubernetes.io/target-node-labels</code></a> specifies which nodes to include in the target group registration for <code>instance</code> target type.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/target-node-labels: label1=value1, label2=value2
 </code></pre></div>
-
-<ul>
+</div>
+</li>
 <li>
 <p><a name="backend-protocol"><code>alb.ingress.kubernetes.io/backend-protocol</code></a> specifies the protocol used when route traffic to pods.</p>
 <div class="admonition example">
@@ -1850,6 +1861,58 @@ It can be a either real serviceName or an annotation based action name when serv
                 <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path7</span>
                 <span class="nt">port</span><span class="p">:</span>
                   <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+</code></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If you are using <code>alb.ingress.kubernetes.io/target-group-attributes</code> with <code>stickiness.enabled=true</code>, you should add <code>TargetGroupStickinessConfig</code> under <code>alb.ingress.kubernetes.io/actions.weighted-routing</code></p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>    <span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+    <span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+    <span class="nt">metadata</span><span class="p">:</span>
+    <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
+    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
+    <span class="nt">annotations</span><span class="p">:</span>
+        <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+        <span class="nt">alb.ingress.kubernetes.io/target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
+        <span class="nt">alb.ingress.kubernetes.io/target-group-attributes</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60</span>
+        <span class="nt">alb.ingress.kubernetes.io/actions.weighted-routing</span><span class="p">:</span> <span class="p p-Indicator">|</span>
+        <span class="p p-Indicator">{</span>
+            <span class="s">&quot;type&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;forward&quot;</span><span class="p p-Indicator">,</span>
+            <span class="s">&quot;forwardConfig&quot;</span><span class="p p-Indicator">:{</span>
+            <span class="s">&quot;targetGroups&quot;</span><span class="p p-Indicator">:[</span>
+                <span class="p p-Indicator">{</span>
+                <span class="s">&quot;serviceName&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;service-1&quot;</span><span class="p p-Indicator">,</span>
+                <span class="s">&quot;servicePort&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;80&quot;</span><span class="p p-Indicator">,</span>
+                <span class="s">&quot;weight&quot;</span><span class="p p-Indicator">:</span><span class="nv">50</span>
+                <span class="p p-Indicator">},</span>
+                <span class="p p-Indicator">{</span>
+                <span class="s">&quot;serviceName&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;service-2&quot;</span><span class="p p-Indicator">,</span>
+                <span class="s">&quot;servicePort&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;80&quot;</span><span class="p p-Indicator">,</span>
+                <span class="s">&quot;weight&quot;</span><span class="p p-Indicator">:</span><span class="nv">50</span>
+                <span class="p p-Indicator">}</span>
+            <span class="p p-Indicator">],</span>
+            <span class="s">&quot;TargetGroupStickinessConfig&quot;</span><span class="p p-Indicator">:</span> <span class="p p-Indicator">{</span>
+                <span class="s">&quot;Enabled&quot;</span><span class="p p-Indicator">:</span> <span class="nv">true</span><span class="p p-Indicator">,</span>
+                <span class="s">&quot;DurationSeconds&quot;</span><span class="p p-Indicator">:</span> <span class="nv">120</span>
+            <span class="p p-Indicator">}</span>
+            <span class="p p-Indicator">}</span>
+        <span class="p p-Indicator">}</span>
+    <span class="nt">spec</span><span class="p">:</span>
+    <span class="nt">ingressClassName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+    <span class="nt">rules</span><span class="p">:</span>
+        <span class="p p-Indicator">-</span> <span class="nt">host</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">www.example.com</span>
+        <span class="nt">http</span><span class="p">:</span>
+            <span class="nt">paths</span><span class="p">:</span>
+            <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/</span>
+                <span class="l l-Scalar l-Scalar-Plain">pathType</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Prefix</span>
+                <span class="l l-Scalar l-Scalar-Plain">backend</span><span class="p p-Indicator">:</span>
+                <span class="nt">service</span><span class="p">:</span>
+                    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">weighted-routing</span>
+                    <span class="nt">port</span><span class="p">:</span>
+                    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
 </code></pre></div>
 </div>
 </li>
