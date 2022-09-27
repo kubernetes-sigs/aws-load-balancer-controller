@@ -25,7 +25,7 @@ webhooks:
   - v1beta1
   namespaceSelector:
     matchExpressions:
-    {{ if .Values.webhookNamespaceSelector }}
+    {{ if .Values.webhookNamespaceSelectors }}
     {{ toYaml .Values.webhookNamespaceSelectors | nindent 4 }}
     {{ else }}
     - key: elbv2.k8s.aws/pod-readiness-gate-inject
