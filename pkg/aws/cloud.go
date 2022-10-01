@@ -1,12 +1,15 @@
 package aws
 
 import (
+	"net"
+	"os"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"os"
 	epresolver "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/metrics"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -44,9 +47,28 @@ type Cloud interface {
 
 // NewCloud constructs new Cloud implementation.
 func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
+	hasIPv4 := true
+	addrs, err := net.InterfaceAddrs()
+	if err == nil {
+		hasIPv4 = false
+		for _, addr := range addrs {
+			str := addr.String()
+			if !strings.HasPrefix(str, "127.") && !strings.Contains(str, ":") {
+				hasIPv4 = true
+				break
+			}
+		}
+	}
+
 	endpointsResolver := epresolver.NewResolver(cfg.AWSEndpoints)
 	metadataCFG := aws.NewConfig().WithEndpointResolver(endpointsResolver)
-	metadataSess := session.Must(session.NewSession(metadataCFG))
+	opts := session.Options{}
+	opts.Config.MergeIn(metadataCFG)
+	if !hasIPv4 {
+		opts.EC2IMDSEndpointMode = endpoints.EC2IMDSEndpointModeStateIPv6
+	}
+
+	metadataSess := session.Must(session.NewSessionWithOptions(opts))
 	metadata := services.NewEC2Metadata(metadataSess)
 	if len(cfg.VpcID) == 0 {
 		vpcId, err := metadata.VpcID()
@@ -72,7 +94,12 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		cfg.Region = region
 	}
 	awsCFG := aws.NewConfig().WithRegion(cfg.Region).WithSTSRegionalEndpoint(endpoints.RegionalSTSEndpoint).WithMaxRetries(cfg.MaxRetries).WithEndpointResolver(endpointsResolver)
-	sess := session.Must(session.NewSession(awsCFG))
+	opts = session.Options{}
+	opts.Config.MergeIn(awsCFG)
+	if !hasIPv4 {
+		opts.EC2IMDSEndpointMode = endpoints.EC2IMDSEndpointModeStateIPv6
+	}
+	sess := session.Must(session.NewSessionWithOptions(opts))
 	injectUserAgent(&sess.Handlers)
 
 	if cfg.ThrottleConfig != nil {
