@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -8,8 +9,10 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
+	amerrors "k8s.io/apimachinery/pkg/util/errors"
 	epresolver "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/metrics"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -70,13 +73,6 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 
 	metadataSess := session.Must(session.NewSessionWithOptions(opts))
 	metadata := services.NewEC2Metadata(metadataSess)
-	if len(cfg.VpcID) == 0 {
-		vpcId, err := metadata.VpcID()
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to introspect vpcID from EC2Metadata, specify --aws-vpc-id instead if EC2Metadata is unavailable")
-		}
-		cfg.VpcID = vpcId
-	}
 
 	if len(cfg.Region) == 0 {
 		region := os.Getenv("AWS_DEFAULT_REGION")
@@ -114,9 +110,19 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		metricsCollector.InjectHandlers(&sess.Handlers)
 	}
 
+	ec2Service := services.NewEC2(sess)
+
+	if len(cfg.VpcID) == 0 {
+		vpcID, err := inferVPCID(metadata, ec2Service)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to introspect vpcID from EC2Metadata or Node name, specify --aws-vpc-id instead if EC2Metadata is unavailable")
+		}
+		cfg.VpcID = vpcID
+	}
+
 	return &defaultCloud{
 		cfg:         cfg,
-		ec2:         services.NewEC2(sess),
+		ec2:         ec2Service,
 		elbv2:       services.NewELBV2(sess),
 		acm:         services.NewACM(sess),
 		wafv2:       services.NewWAFv2(sess),
@@ -124,6 +130,42 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		shield:      services.NewShield(sess),
 		rgt:         services.NewRGT(sess),
 	}, nil
+}
+
+func inferVPCID(metadata services.EC2Metadata, ec2Service services.EC2) (string, error) {
+	var errList []error
+	vpcId, err := metadata.VpcID()
+	if err == nil {
+		return vpcId, nil
+	} else {
+		errList = append(errList, errors.Wrap(err, "failed to fetch VPC ID from instance metadata"))
+	}
+
+	nodeName := os.Getenv("NODENAME")
+	if strings.HasPrefix(nodeName, "i-") {
+		output, err := ec2Service.DescribeInstances(&ec2.DescribeInstancesInput{
+			InstanceIds: []*string{&nodeName},
+		})
+		if err != nil {
+			errList = append(errList, errors.Wrapf(err, "failed to describe instance %q", nodeName))
+			return "", amerrors.NewAggregate(errList)
+		}
+		if len(output.Reservations) != 1 {
+			errList = append(errList, fmt.Errorf("found more than one reservation for instance %q", nodeName))
+			return "", amerrors.NewAggregate(errList)
+		}
+		if len(output.Reservations[0].Instances) != 1 {
+			errList = append(errList, fmt.Errorf("found more than one instance with instance ID %q", nodeName))
+			return "", amerrors.NewAggregate(errList)
+		}
+
+		vpcID := output.Reservations[0].Instances[0].VpcId
+		if vpcID != nil {
+			return *vpcID, nil
+		}
+
+	}
+	return "", amerrors.NewAggregate(errList)
 }
 
 var _ Cloud = &defaultCloud{}
