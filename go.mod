@@ -14,16 +14,16 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.0
-	go.uber.org/zap v1.17.0
-	golang.org/x/time v0.0.0-20210611083556-38a9dc6acbc6
+	go.uber.org/zap v1.19.0
+	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	gomodules.xyz/jsonpatch/v2 v2.2.0
 	helm.sh/helm/v3 v3.6.1
 	inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6
-	k8s.io/api v0.21.2
-	k8s.io/apimachinery v0.21.2
+	k8s.io/api v0.21.4
+	k8s.io/apimachinery v0.21.4
 	k8s.io/cli-runtime v0.21.2
-	k8s.io/client-go v0.21.2
-	sigs.k8s.io/controller-runtime v0.9.2
+	k8s.io/client-go v0.21.4
+	sigs.k8s.io/controller-runtime v0.9.7
 )
 
 require (
@@ -155,17 +155,17 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.21.2 // indirect
-	k8s.io/apiserver v0.21.2 // indirect
-	k8s.io/component-base v0.21.2 // indirect
+	k8s.io/apiextensions-apiserver v0.21.4 // indirect
+	k8s.io/apiserver v0.21.4 // indirect
+	k8s.io/component-base v0.21.4 // indirect
 	k8s.io/klog/v2 v2.8.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7 // indirect
 	k8s.io/kubectl v0.21.0 // indirect
-	k8s.io/utils v0.0.0-20210527160623-6fdb442a123b // indirect
+	k8s.io/utils v0.0.0-20210802155522-efc7438f0176 // indirect
 	moul.io/http2curl v1.0.1-0.20190925090545-5cd742060b0e // indirect
 	sigs.k8s.io/kustomize/api v0.8.8 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.10.17 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.1.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.1.2 // indirect
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
