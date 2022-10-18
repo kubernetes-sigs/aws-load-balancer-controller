@@ -17,5 +17,6 @@ $MOCKGEN -package=networking -destination=./pkg/networking/az_info_provider_mock
 $MOCKGEN -package=networking -destination=./pkg/networking/node_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking NodeInfoProvider
 $MOCKGEN -package=networking -destination=./pkg/networking/vpc_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking VPCInfoProvider
 $MOCKGEN -package=networking -destination=./pkg/networking/backend_sg_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking BackendSGProvider
+$MOCKGEN -package=networking -destination=./pkg/networking/security_group_resolver_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SecurityGroupResolver
 $MOCKGEN -package=ingress -destination=./pkg/ingress/cert_discovery_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/ingress CertDiscovery
 $MOCKGEN -package=elbv2 -destination=./pkg/deploy/elbv2/tagging_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2 TaggingManager
