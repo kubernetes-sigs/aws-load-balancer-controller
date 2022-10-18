@@ -36,9 +36,9 @@ var _ RuleOptimizer = &defaultRuleOptimizer{}
 // also, we omit additional rules after the redirect rule on the HTTP listener to reduce elbv2 rule usage.
 //
 // The semantic of this rule optimizer is intended to be generic while supports above use case.
-//   * It will omit any redirect rules that would result in a infinite redirect loop.
-//   * it will omit any rules that take priority by a redirect rule with a super set of conditions
-//  	(ideally this could applies to other action type as well, but we only consider redirect action for now)
+//   - It will omit any redirect rules that would result in a infinite redirect loop.
+//   - it will omit any rules that take priority by a redirect rule with a super set of conditions
+//     (ideally this could applies to other action type as well, but we only consider redirect action for now)
 type defaultRuleOptimizer struct {
 	logger logr.Logger
 }
