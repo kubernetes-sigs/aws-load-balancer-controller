@@ -168,6 +168,10 @@ require (
 	sigs.k8s.io/yaml v1.2.0 // indirect
 )
 
-require rsc.io/letsencrypt v0.0.3 // indirect
+require (
+	github.com/go-task/slim-sprig v0.0.0-20210107165309-348f09dbbbc0 // indirect
+	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
+	rsc.io/letsencrypt v0.0.3 // indirect
+)
 
 replace golang.org/x/sys => golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40
