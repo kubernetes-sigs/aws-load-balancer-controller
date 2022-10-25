@@ -20,15 +20,14 @@ The LBC is supported by AWS. Some clusters may using legacy "in-tree" functional
 * Ensure subnets are tagged appropriately for auto-discovery to work
 * For IP targets, pods must have IPs from the VPC subnets. You can configure `amazon-vpc-cni-k8s` plugin for this purpose.
 
-### Using metadata server version 2 (IMDSv2)
-If you are using the [IMDSv2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html) you must set the hop limit to 2 or higher in order to allow the AWS Load Balancer Controller to perform the metadata introspection.
+### Determining VPC and Region
 
-You can set the IMDSv2 hop limit as follows:
-```
-aws ec2 modify-instance-metadata-options --http-put-response-hop-limit 2 --region <region> --instance-id <instance-id>
-```
+The controller must be able to determine the AWS Region and VPC ID. There are several options:
 
-Instead of depending on IMDSv2, you alternatively may specify the AWS region and the VPC via the controller flags `--aws-region` and `--aws-vpc-id`.
+1. You may specify either or both using the controller flags `--aws-region` and/or `--aws-vpc-id`.
+2. The region may be specified with either the `AWS_DEFAULT_REGION` or `AWS_REGION` environment variables.
+3. As of version 2.5.0, if Kubernetes nodes use their instance IDs as their node names then the controller can determine the VPC ID by querying the EC2 API. 
+4. The controller can determine these by querying the instance metadata. In order to query the instance metadata, the controller pod must use host networking.
 
 ## Configure IAM
 
