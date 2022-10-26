@@ -120,7 +120,7 @@ In this walkthrough, you'll
     !!!tip
         If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53.
 
-    - Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets.
+    - Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets. Note that one Availability Zone (ex: us-west-2a) can only have at most 1 subnet.
         ```bash
         eksctl get cluster exciting-gopher-1534270749
         ```
