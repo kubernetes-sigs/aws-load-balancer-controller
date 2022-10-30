@@ -170,12 +170,12 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
 
     Helm install command for clusters with IRSA: 
     ```
-    helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name> --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set replicaCount=1
+    helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name> --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
     ```
 
     Helm install command for clusters not using IRSA:
     ```
-    helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name> --set replicaCount=1
+    helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name>
     ```
 
 
