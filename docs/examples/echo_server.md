@@ -45,7 +45,7 @@ In this walkthrough, you'll
 1.  Verify the deployment was successful and the controller started.
 
     ```bash
-    kubectl logs -n kube-system -l app.kubernetes.io/instance=aws-load-balancer-controller
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=aws-load-balancer-controller
     ```
 
     Should display output similar to the following.
@@ -169,7 +169,7 @@ In this walkthrough, you'll
 1.  Verify the aws-load-balancer-controller creates the resources
 
     ```bash
-    kubectl logs -n kube-system -l app.kubernetes.io/instance=aws-load-balancer-controller | grep 'echoserver\/echoserver'
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=aws-load-balancer-controller | grep 'echoserver\/echoserver'
     ```
 
     You should see similar to the following.
