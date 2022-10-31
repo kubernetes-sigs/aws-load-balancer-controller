@@ -34,11 +34,17 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 		resp *ec2sdk.CreateSecurityGroupOutput
 		err  error
 	}
+	type createTagsWithContextCall struct {
+		req  *ec2sdk.CreateTagsInput
+		resp *ec2sdk.CreateTagsOutput
+		err  error
+	}
 	type fields struct {
 		backendSG       string
 		defaultTags     map[string]string
 		describeSGCalls []describeSecurityGroupsAsListCall
 		createSGCalls   []createSecurityGroupWithContexCall
+		createTagsCalls []createTagsWithContextCall
 	}
 	defaultEC2Filters := []*ec2sdk.Filter{
 		{
@@ -81,6 +87,141 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+			want: "sg-autogen",
+		},
+		{
+			name: "backend sg enabled, auto-gen, SG exists, all default tags out of sync",
+			fields: fields{
+				describeSGCalls: []describeSecurityGroupsAsListCall{
+					{
+						req: &ec2sdk.DescribeSecurityGroupsInput{
+							Filters: defaultEC2Filters,
+						},
+						resp: []*ec2sdk.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-autogen"),
+							},
+						},
+					},
+				},
+				createTagsCalls: []createTagsWithContextCall{
+					{
+						req: &ec2sdk.CreateTagsInput{
+							Resources: awssdk.StringSlice([]string{"sg-autogen"}),
+							Tags: []*ec2sdk.Tag{
+								{
+									Key:   awssdk.String("KubernetesCluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("defaultTag"),
+									Value: awssdk.String("specified"),
+								},
+								{
+									Key:   awssdk.String("zzzKey"),
+									Value: awssdk.String("value"),
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"zzzKey":            "value",
+					"KubernetesCluster": defaultClusterName,
+					"defaultTag":        "specified",
+				},
+			},
+			want: "sg-autogen",
+		},
+		{
+			name: "backend sg enabled, auto-gen, SG exists, all default tags out of sync, create tags returns error",
+			fields: fields{
+				describeSGCalls: []describeSecurityGroupsAsListCall{
+					{
+						req: &ec2sdk.DescribeSecurityGroupsInput{
+							Filters: defaultEC2Filters,
+						},
+						resp: []*ec2sdk.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-autogen"),
+							},
+						},
+					},
+				},
+				createTagsCalls: []createTagsWithContextCall{
+					{
+						req: &ec2sdk.CreateTagsInput{
+							Resources: awssdk.StringSlice([]string{"sg-autogen"}),
+							Tags: []*ec2sdk.Tag{
+								{
+									Key:   awssdk.String("KubernetesCluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("defaultTag"),
+									Value: awssdk.String("specified"),
+								},
+								{
+									Key:   awssdk.String("zzzKey"),
+									Value: awssdk.String("value"),
+								},
+							},
+						},
+						err: awserr.New("Some.Error", "create tags error", nil),
+					},
+				},
+				defaultTags: map[string]string{
+					"zzzKey":            "value",
+					"KubernetesCluster": defaultClusterName,
+					"defaultTag":        "specified",
+				},
+			},
+			want: "sg-autogen",
+		},
+		{
+			name: "backend sg enabled, auto-gen, SG exists, some tags out of sync",
+			fields: fields{
+				describeSGCalls: []describeSecurityGroupsAsListCall{
+					{
+						req: &ec2sdk.DescribeSecurityGroupsInput{
+							Filters: defaultEC2Filters,
+						},
+						resp: []*ec2sdk.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-autogen"),
+								Tags: []*ec2sdk.Tag{
+									{
+										Key:   awssdk.String("KubernetesCluster"),
+										Value: awssdk.String(defaultClusterName),
+									},
+									{
+										Key:   awssdk.String("zzzKey"),
+										Value: awssdk.String("value"),
+									},
+								},
+							},
+						},
+					},
+				},
+				createTagsCalls: []createTagsWithContextCall{
+					{
+						req: &ec2sdk.CreateTagsInput{
+							Resources: awssdk.StringSlice([]string{"sg-autogen"}),
+							Tags: []*ec2sdk.Tag{
+								{
+									Key:   awssdk.String("defaultTag"),
+									Value: awssdk.String("specified"),
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"zzzKey":            "value",
+					"KubernetesCluster": defaultClusterName,
+					"defaultTag":        "specified",
 				},
 			},
 			want: "sg-autogen",
@@ -249,6 +390,9 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			}
 			for _, call := range tt.fields.createSGCalls {
 				ec2Client.EXPECT().CreateSecurityGroupWithContext(context.Background(), call.req).Return(call.resp, call.err)
+			}
+			for _, call := range tt.fields.createTagsCalls {
+				ec2Client.EXPECT().CreateTagsWithContext(context.Background(), call.req).Return(call.resp, call.err)
 			}
 			k8sClient := mock_client.NewMockClient(ctrl)
 			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.backendSG,
