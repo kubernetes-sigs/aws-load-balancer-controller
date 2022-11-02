@@ -103,6 +103,7 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 }
 
 func (r *serviceReconciler) buildModel(ctx context.Context, svc *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, error) {
+    r.logger.Info("in ServiceController.buildModel", "-", "-")
 	stack, lb, err := r.modelBuilder.Build(ctx, svc)
 	if err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
