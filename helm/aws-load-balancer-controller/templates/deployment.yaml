@@ -149,8 +149,16 @@ spec:
         {{- if .Values.env }}
         env:
         {{- range $key, $value := .Values.env }}
+        {{- if kindIs "map" $value }}
+        - name: {{ $key }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ $value.secretName }}
+              key: "{{ $value.secretKey }}"
+        {{- else }}
         - name: {{ $key }}
           value: "{{ $value }}"
+        {{- end }}
         {{- end }}
         {{- end }}
         command:
