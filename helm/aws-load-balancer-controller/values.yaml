@@ -232,6 +232,9 @@ livenessProbe:
 env:
   # ENV_1: ""
   # ENV_2: ""
+  # ENV_3:
+  #   secretName: ""
+  #   secretKey: ""
 
 # Specifies if aws-load-balancer-controller should be started in hostNetwork mode.
 #
