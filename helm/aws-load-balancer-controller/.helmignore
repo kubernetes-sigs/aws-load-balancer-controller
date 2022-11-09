@@ -22,3 +22,4 @@
 *.tmproj
 .vscode/
 crds/kustomization.yaml
+test.yaml
