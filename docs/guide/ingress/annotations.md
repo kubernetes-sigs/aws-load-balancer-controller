@@ -635,7 +635,8 @@ Health check on target groups can be controlled with following annotations:
 - <a name="healthcheck-protocol">`alb.ingress.kubernetes.io/healthcheck-protocol`</a> specifies the protocol used when performing health check on targets.
 
     !!!example
-        ```alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
+        ```
+        alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
         ```
 
 - <a name="healthcheck-port">`alb.ingress.kubernetes.io/healthcheck-port`</a> specifies the port used when performing health check on targets.
