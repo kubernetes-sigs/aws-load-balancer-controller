@@ -130,6 +130,14 @@ docs-dependencies:
 lint:
 	echo "TODO"
 
+.PHONY: quick-ci
+quick-ci: verify-versions
+	echo "Done!"
+
+.PHONY: verify-versions
+verify-versions:
+	hack/verify-versions.sh
+
 unit-test:
 	./scripts/ci_unit_test.sh
 

@@ -26,3 +26,12 @@ jobs:
       uses: codecov/codecov-action@v1
       with:
         file: ./cover.out # optional
+
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: make quick-ci
+        run: |
+          make quick-ci
