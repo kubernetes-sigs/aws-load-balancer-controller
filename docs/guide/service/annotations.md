@@ -415,6 +415,10 @@ Load balancer access can be controlled via following annotations:
         This annotation will be ignored in case preserve client IP is not enabled.
         - preserve client IP is disabled by default for `IP` targets
         - preserve client IP is enabled by default for `instance` targets
+    
+    !!!warning ""
+        Preserve client IP has no effect on traffic converted from IPv4 to IPv6 and on traffic converted from IPv6 to IPv4. The source IP of this type of traffic is always the private IP address of the Network Load Balancer.
+        - This could cause the clients that have their traffic converted to bypass the specified CIDRs that are allowed to access the NLB.
 
     !!!example
         ```
