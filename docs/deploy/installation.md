@@ -190,7 +190,7 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ### Apply YAML
     1. Download spec for load balancer controller.
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_4_full.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_5_full.yaml
     ```
     1. Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
     ```
@@ -218,7 +218,7 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ```
     1. Optionally download the default ingressclass and ingressclass params
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_4_ingclass.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_5_ingclass.yaml
     ```
     1. Apply the ingressclass and params
     ```
