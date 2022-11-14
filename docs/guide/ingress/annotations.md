@@ -54,6 +54,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/auth-scope](#auth-scope)|string|openid|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/auth-session-cookie](#auth-session-cookie)|string|AWSELBAuthSessionCookie|Ingress,Service|N/A|
 |[alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)|integer|'604800'|Ingress,Service|N/A|
+|[alb.ingress.kubernetes.io/ignore-host-header](#ignore-host-header)|boolean|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/actions.${action-name}](#actions)|json|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)|json|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)|stringMap|N/A|Ingress,Service|N/A|
@@ -227,6 +228,12 @@ Traffic Routing can be controlled with following annotations:
         ```
         alb.ingress.kubernetes.io/subnets: subnet-xxxx, mySubnet
         ```
+
+- <a name="ignore-host-header">`alb.ingress.kubernetes.io/ignore-host-header`</a> Creates routing rules without [Host Header Checks](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#host-conditions).
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/ignore-host-header: 'true'
 
 - <a name="actions">`alb.ingress.kubernetes.io/actions.${action-name}`</a> Provides a method for configuring custom actions on a listener, such as Redirect Actions.
 
