@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"inet.af/netaddr"
+	"net/netip"
 	"time"
 
 	"k8s.io/client-go/tools/record"
@@ -389,7 +389,7 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 			Id:   awssdk.String(endpoint.IP),
 			Port: awssdk.Int64(endpoint.Port),
 		}
-		podIP, err := netaddr.ParseIP(endpoint.IP)
+		podIP, err := netip.ParseAddr(endpoint.IP)
 		if err != nil {
 			return err
 		}
