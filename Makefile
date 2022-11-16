@@ -2,7 +2,7 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= amazon/aws-alb-ingress-controller:v2.4.4
+IMG ?= amazon/aws-alb-ingress-controller:v2.4.5
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
@@ -129,6 +129,14 @@ docs-dependencies:
 
 lint:
 	echo "TODO"
+
+.PHONY: quick-ci
+quick-ci: verify-versions
+	echo "Done!"
+
+.PHONY: verify-versions
+verify-versions:
+	hack/verify-versions.sh
 
 unit-test:
 	./scripts/ci_unit_test.sh
