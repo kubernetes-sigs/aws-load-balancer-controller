@@ -45,7 +45,7 @@ In this walkthrough, you'll
 1.  Verify the deployment was successful and the controller started.
 
     ```bash
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'aws-load-balancer-controller[a-zA-Z0-9-]+')
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=aws-load-balancer-controller
     ```
 
     Should display output similar to the following.
@@ -120,7 +120,7 @@ In this walkthrough, you'll
     !!!tip
         If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53.
 
-    - Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets.
+    - Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets. Subnets must be from different Availability Zones.
         ```bash
         eksctl get cluster exciting-gopher-1534270749
         ```
@@ -169,7 +169,7 @@ In this walkthrough, you'll
 1.  Verify the aws-load-balancer-controller creates the resources
 
     ```bash
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'aws-load-balancer-controller[a-zA-Z0-9-]+') | grep 'echoserver\/echoserver'
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=aws-load-balancer-controller | grep 'echoserver\/echoserver'
     ```
 
     You should see similar to the following.
