@@ -274,8 +274,7 @@ main() {
   build_push_controller_image
 
   go install github.com/mikefarah/yq/v4@v4.6.1
-  # Install ginkgo version specified in go.mod
-  go install github.com/onsi/ginkgo/v2/ginkgo
+  go install github.com/onsi/ginkgo/v2/ginkgo@v2.3.1
   trap "cleanup" EXIT
   setup_cluster
   setup_controller_iam_sa
