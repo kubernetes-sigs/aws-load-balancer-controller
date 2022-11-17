@@ -1249,7 +1249,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 </li>
 <li>
 <p>Download IAM policy for the AWS Load Balancer Controller
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.4/docs/install/iam_policy.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json
 </code></pre></div></p>
 </li>
 <li>
@@ -1275,7 +1275,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 </ol>
 <h3 id="option-b-attach-iam-policies-to-nodes">Option B: Attach IAM Policies to Nodes<a class="headerlink" href="#option-b-attach-iam-policies-to-nodes" title="Permanent link">&para;</a></h3>
 <p>If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
-<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.4/docs/install/iam_policy.json
+<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json
 </code></pre></div></p>
 <p><em>IAM permission subset for those who use </em>TargetGroupBinding<em> only and don't plan to use the AWS Load Balancer Controller to manage security group rules:</em></p>
 <div class="highlight"><pre><span></span><code>{
@@ -1337,7 +1337,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 <h3 id="apply-yaml">Apply YAML<a class="headerlink" href="#apply-yaml" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Download spec for load balancer controller.
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.4/v2_4_4_full.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_5_full.yaml
 </code></pre></div></li>
 <li>Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
 <div class="highlight"><pre><span></span><code>apiVersion: apps/v1
@@ -1361,7 +1361,7 @@ kind: ServiceAccount
 <div class="highlight"><pre><span></span><code>kubectl apply -f v2_4_4_full.yaml
 </code></pre></div></li>
 <li>Optionally download the default ingressclass and ingressclass params
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.4/v2_4_4_ingclass.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_5_ingclass.yaml
 </code></pre></div></li>
 <li>Apply the ingressclass and params
 <div class="highlight"><pre><span></span><code>kubectl apply -f v2_4_4_ingclass.yaml

@@ -1084,7 +1084,7 @@
 </li>
 <li>
 <p>Verify the deployment was successful and the controller started.</p>
-<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system <span class="k">$(</span>kubectl get po -n kube-system <span class="p">|</span> egrep -o <span class="s1">&#39;aws-load-balancer-controller[a-zA-Z0-9-]+&#39;</span><span class="k">)</span>
+<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name<span class="o">=</span>aws-load-balancer-controller
 </code></pre></div>
 <p>Should display output similar to the following.</p>
 <div class="highlight"><pre><span></span><code>{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602778062.2588625,&quot;logger&quot;:&quot;setup&quot;,&quot;msg&quot;:&quot;version&quot;,&quot;GitVersion&quot;:&quot;v2.0.0-rc3-13-gcdc8f715-dirty&quot;,&quot;GitCommit&quot;:&quot;cdc8f715919cc65ca8161b6083c4091222632d6b&quot;,&quot;BuildDate&quot;:&quot;2020-10-15T15:58:31+0000&quot;}
@@ -1122,9 +1122,9 @@ I1015 16:08:03.662023       1 leaderelection.go:252] successfully acquired lease
 <ol>
 <li>
 <p>Deploy all the echoserver resources (namespace, service, deployment)</p>
-<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/echoservice/echoserver-deployment.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/echoservice/echoserver-deployment.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1144,7 +1144,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <ol>
 <li>
 <p>Download the echoserver ingress manifest locally.</p>
-<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/echoservice/echoserver-ingress.yaml
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/echoservice/echoserver-ingress.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1155,7 +1155,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 </div>
 <ul>
 <li>
-<p>Edit the <code>alb.ingress.kubernetes.io/subnets</code> annotation to include at least two subnets.
+<p>Edit the <code>alb.ingress.kubernetes.io/subnets</code> annotation to include at least two subnets. Subnets must be from different Availability Zones.
     <div class="highlight"><pre><span></span><code>eksctl get cluster exciting-gopher-1534270749
 </code></pre></div></p>
 <div class="highlight"><pre><span></span><code><span class="go">NAME                        VERSION STATUS         CREATED          VPC                     SUBNETS                             SECURITYGROUPS</span>
@@ -1198,7 +1198,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 </li>
 <li>
 <p>Verify the aws-load-balancer-controller creates the resources</p>
-<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system <span class="k">$(</span>kubectl get po -n kube-system <span class="p">|</span> egrep -o <span class="s1">&#39;aws-load-balancer-controller[a-zA-Z0-9-]+&#39;</span><span class="k">)</span> <span class="p">|</span> grep <span class="s1">&#39;echoserver\/echoserver&#39;</span>
+<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name<span class="o">=</span>aws-load-balancer-controller <span class="p">|</span> grep <span class="s1">&#39;echoserver\/echoserver&#39;</span>
 </code></pre></div>
 <p>You should see similar to the following.</p>
 <div class="highlight"><pre><span></span><code><span class="go">{&quot;level&quot;:&quot;info&quot;,&quot;ts&quot;:1602803965.264764,&quot;logger&quot;:&quot;controllers.ingress&quot;,&quot;msg&quot;:&quot;successfully built model&quot;,&quot;model&quot;:&quot;{\&quot;id\&quot;:\&quot;echoserver/echoserver\&quot;,\&quot;resources\&quot;:{\&quot;AWS::EC2::SecurityGroup\&quot;:{\&quot;ManagedLBSecurityGroup\&quot;:{\&quot;spec\&quot;:{\&quot;groupName\&quot;:\&quot;k8s-echoserv-echoserv-4e1e34cae5\&quot;,\&quot;description\&quot;:\&quot;[k8s] Managed SecurityGroup for LoadBalancer\&quot;,\&quot;tags\&quot;:{\&quot;Environment\&quot;:\&quot;dev\&quot;,\&quot;Team\&quot;:\&quot;test\&quot;},\&quot;ingress\&quot;:[{\&quot;ipProtocol\&quot;:\&quot;tcp\&quot;,\&quot;fromPort\&quot;:80,\&quot;toPort\&quot;:80,\&quot;ipRanges\&quot;:[{\&quot;cidrIP\&quot;:\&quot;0.0.0.0/0\&quot;}]}]}}},\&quot;AWS::ElasticLoadBalancingV2::Listener\&quot;:{\&quot;80\&quot;:{\&quot;spec\&quot;:{\&quot;loadBalancerARN\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN\&quot;},\&quot;port\&quot;:80,\&quot;protocol\&quot;:\&quot;HTTP\&quot;,\&quot;defaultActions\&quot;:[{\&quot;type\&quot;:\&quot;fixed-response\&quot;,\&quot;fixedResponseConfig\&quot;:{\&quot;contentType\&quot;:\&quot;text/plain\&quot;,\&quot;statusCode\&quot;:\&quot;404\&quot;}}]}}},\&quot;AWS::ElasticLoadBalancingV2::ListenerRule\&quot;:{\&quot;80:1\&quot;:{\&quot;spec\&quot;:{\&quot;listenerARN\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN\&quot;},\&quot;priority\&quot;:1,\&quot;actions\&quot;:[{\&quot;type\&quot;:\&quot;forward\&quot;,\&quot;forwardConfig\&quot;:{\&quot;targetGroups\&quot;:[{\&quot;targetGroupARN\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/echoserver/echoserver-echoserver:80/status/targetGroupARN\&quot;}}]}}],\&quot;conditions\&quot;:[{\&quot;field\&quot;:\&quot;host-header\&quot;,\&quot;hostHeaderConfig\&quot;:{\&quot;values\&quot;:[\&quot;echoserver.example.com\&quot;]}},{\&quot;field\&quot;:\&quot;path-pattern\&quot;,\&quot;pathPatternConfig\&quot;:{\&quot;values\&quot;:[\&quot;/\&quot;]}}]}}},\&quot;AWS::ElasticLoadBalancingV2::LoadBalancer\&quot;:{\&quot;LoadBalancer\&quot;:{\&quot;spec\&quot;:{\&quot;name\&quot;:\&quot;k8s-echoserv-echoserv-d4d6bd65d0\&quot;,\&quot;type\&quot;:\&quot;application\&quot;,\&quot;scheme\&quot;:\&quot;internet-facing\&quot;,\&quot;ipAddressType\&quot;:\&quot;ipv4\&quot;,\&quot;subnetMapping\&quot;:[{\&quot;subnetID\&quot;:\&quot;subnet-01b35707c23b0a43b\&quot;},{\&quot;subnetID\&quot;:\&quot;subnet-0f7814a7ab4dfcc2c\&quot;}],\&quot;securityGroups\&quot;:[{\&quot;$ref\&quot;:\&quot;#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID\&quot;}],\&quot;tags\&quot;:{\&quot;Environment\&quot;:\&quot;dev\&quot;,\&quot;Team\&quot;:\&quot;test\&quot;}}}},\&quot;AWS::ElasticLoadBalancingV2::TargetGroup\&quot;:{\&quot;echoserver/echoserver-echoserver:80\&quot;:{\&quot;spec\&quot;:{\&quot;name\&quot;:\&quot;k8s-echoserv-echoserv-d989093207\&quot;,\&quot;targetType\&quot;:\&quot;instance\&quot;,\&quot;port\&quot;:1,\&quot;protocol\&quot;:\&quot;HTTP\&quot;,\&quot;healthCheckConfig\&quot;:{\&quot;port\&quot;:\&quot;traffic-port\&quot;,\&quot;protocol\&quot;:\&quot;HTTP\&quot;,\&quot;path\&quot;:\&quot;/\&quot;,\&quot;matcher\&quot;:{\&quot;httpCode\&quot;:\&quot;200\&quot;},\&quot;intervalSeconds\&quot;:15,\&quot;timeoutSeconds\&quot;:5,\&quot;healthyThresholdCount\&quot;:2,\&quot;unhealthyThresholdCount\&quot;:2},\&quot;tags\&quot;:{\&quot;Environment\&quot;:\&quot;dev\&quot;,\&quot;Team\&quot;:\&quot;test\&quot;}}}},\&quot;K8S::ElasticLoadBalancingV2::TargetGroupBinding\&quot;:{\&quot;echoserver/echoserver-echoserver:80\&quot;:{\&quot;spec\&quot;:{\&quot;template\&quot;:{\&quot;metadata\&quot;:{\&quot;name\&quot;:\&quot;k8s-echoserv-echoserv-d989093207\&quot;,\&quot;namespace\&quot;:\&quot;echoserver\&quot;,\&quot;creationTimestamp\&quot;:null},\&quot;spec\&quot;:{\&quot;targetGroupARN\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/echoserver/echoserver-echoserver:80/status/targetGroupARN\&quot;},\&quot;targetType\&quot;:\&quot;instance\&quot;,\&quot;serviceRef\&quot;:{\&quot;name\&quot;:\&quot;echoserver\&quot;,\&quot;port\&quot;:80},\&quot;networking\&quot;:{\&quot;ingress\&quot;:[{\&quot;from\&quot;:[{\&quot;securityGroup\&quot;:{\&quot;groupID\&quot;:{\&quot;$ref\&quot;:\&quot;#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID\&quot;}}}],\&quot;ports\&quot;:[{\&quot;protocol\&quot;:\&quot;TCP\&quot;}]}]}}}}}}}}&quot;}</span>
@@ -1244,7 +1244,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 </li>
 <li>
 <p>Download external-dns to manage Route 53.</p>
-<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/external-dns.yaml
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/external-dns.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1308,7 +1308,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <ol>
 <li>
 <p>configure the proper policy
-    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/install/iam_policy.json</p>
+    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json</p>
 </li>
 <li>
 <p>configure the proper role and create the trust relationship

@@ -1294,7 +1294,7 @@ documentation is not an accurate reference for the services reconciled by the in
 </tr>
 <tr>
 <td><a href="#alpn-policy">service.beta.kubernetes.io/aws-load-balancer-alpn-policy</a></td>
-<td>stringList</td>
+<td>string</td>
 <td></td>
 <td></td>
 </tr>
@@ -1763,6 +1763,10 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/cre
 <p>This annotation will be ignored in case preserve client IP is not enabled.
 - preserve client IP is disabled by default for <code>IP</code> targets
 - preserve client IP is enabled by default for <code>instance</code> targets</p>
+</div>
+<div class="admonition warning">
+<p>Preserve client IP has no effect on traffic converted from IPv4 to IPv6 and on traffic converted from IPv6 to IPv4. The source IP of this type of traffic is always the private IP address of the Network Load Balancer.
+- This could cause the clients that have their traffic converted to bypass the specified CIDRs that are allowed to access the NLB.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
