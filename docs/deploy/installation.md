@@ -214,7 +214,7 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ```
     1. Apply the yaml file
     ```
-    kubectl apply -f v2_4_4_full.yaml
+    kubectl apply -f v2_4_5_full.yaml
     ```
     1. Optionally download the default ingressclass and ingressclass params
     ```
@@ -222,7 +222,7 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ```
     1. Apply the ingressclass and params
     ```
-    kubectl apply -f v2_4_4_ingclass.yaml
+    kubectl apply -f v2_4_5_ingclass.yaml
     ```
 
 ## Create Update Strategy
