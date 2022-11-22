@@ -9,7 +9,7 @@ Adequate roles and policies must be configured in AWS and available to the node(
 1. Download sample `external-dns` manifest
 
     ```bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.0.0/docs/examples/external-dns.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/external-dns.yaml
     ```
 
 2. Edit the `--domain-filter` flag to include your hosted zone(s)
