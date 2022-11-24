@@ -3,13 +3,13 @@
 
 ## Prerequisites
 ### Role Permissions
-Adequate roles and policies must be configured in AWS and available to the node(s) running the external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
+Adequate roles and policies must be configured in AWS and available to the node(s) running the external-dns. See https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
 
 ## Installation
 1. Download sample `external-dns` manifest
 
     ```bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/external-dns.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/external-dns.yaml
     ```
 
 2. Edit the `--domain-filter` flag to include your hosted zone(s)
@@ -47,21 +47,31 @@ Adequate roles and policies must be configured in AWS and available to the node(
     ```
 
 ## Usage
-1. To create a record set in the subdomain, from your ingress which has been created by the ingress-controller, simply add the following annotation in the ingress object specification and apply the manifest:
+1. To create a record set in the subdomain, from your ingress which has been created by the ingress-controller, add the following annotation in the ingress objectresource:
 
     ```yaml
     annotations:
       kubernetes.io/ingress.class: alb
       alb.ingress.kubernetes.io/scheme: internet-facing
 
-      # for creating record-set
+      # external-dns specific configuration for creating route53 record-set
       external-dns.alpha.kubernetes.io/hostname: my-app.test-dns.com # give your domain name here
     ```
 
-2. Similar entries should appear in the ExternalDNS pod log:
+2. A snippet of the external-dns pod log indicating route53 update:
 
     ```
     time="2019-12-11T10:26:08Z" level=info msg="Desired change: CREATE my-app.test-dns.com A"
     time="2019-12-11T10:26:08Z" level=info msg="Desired change: CREATE my-app.test-dns.com TXT"
     time="2019-12-11T10:26:08Z" level=info msg="2 record(s) in zone my-app.test-dns.com. were successfully updated"
     ```
+
+3. External DNS configures `Simple` routing policy for the route53 records. You can configure `Weighted` policy by specifying the weight and the identifier via annotation. `Weighted` policy allows you to split the traffic between multiple load balancers. Here is an example to specify weight and identifier:
+   ```yaml
+    annotations:
+      # For creating weighted route53 records
+      external-dns.alpha.kubernetes.io/hostname: my-app.test-dns.com
+      external-dns.alpha.kubernetes.io/aws-weight: "100"
+      external-dns.alpha.kubernetes.io/set-identifier: "3"
+   ```
+   You can refer to the External DNS documentation for further details [[link](https://kubernetes-sigs.github.io/external-dns/latest/tutorials/aws/#routing-policies)]. 
