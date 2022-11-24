@@ -938,6 +938,18 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guide/integrations/external_dns/" class="md-nav__link">
+        Setup External DNS
+      </a>
+    </li>
+  
+
+          
+            
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../secrets_access/" class="md-nav__link">
         RBAC to access OIDC Secret
       </a>
@@ -1240,11 +1252,11 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <h2 id="setup-external-dns-to-manage-dns-automatically">Setup external-DNS to manage DNS automatically<a class="headerlink" href="#setup-external-dns-to-manage-dns-automatically" title="Permanent link">&para;</a></h2>
 <ol>
 <li>
-<p>Ensure your nodes (on which External DNS runs) have the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.</p>
+<p>Ensure your nodes (on which External DNS runs) have the correct IAM permission required for external-dns. See https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.</p>
 </li>
 <li>
-<p>Download external-dns to manage Route 53.</p>
-<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/external-dns.yaml
+<p>Download the sample external-dns manifest</p>
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/external-dns.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1261,6 +1273,16 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <li>
 <p>Deploy external-dns</p>
 <div class="highlight"><pre><span></span><code>kubectl apply -f external-dns.yaml
+</code></pre></div>
+</li>
+<li>
+<p>Annotate the ingress with the external-dns specific configuration</p>
+<div class="highlight"><pre><span></span><code><span class="nt">annotations</span><span class="p">:</span>
+  <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
+  <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+
+  <span class="c1"># external-dns specific configuration for creating route53 record-set</span>
+  <span class="nt">external-dns.alpha.kubernetes.io/hostname</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-app.test-dns.com</span> <span class="c1"># give your domain name here</span>
 </code></pre></div>
 </li>
 <li>

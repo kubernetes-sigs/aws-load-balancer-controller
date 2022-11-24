@@ -269,13 +269,15 @@
         
   
   
+    
+  
 
 
   
   
   
     <li class="md-tabs__item">
-      <a href="../../../examples/echo_server/" class="md-tabs__link">
+      <a href="../../../examples/echo_server/" class="md-tabs__link md-tabs__link--active">
         Examples
       </a>
     </li>
@@ -812,12 +814,14 @@
 
   
   
+    
+  
   
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
       
-        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle" data-md-toggle="__nav_4" type="checkbox" id="__nav_4" checked>
       
       <label class="md-nav__link" for="__nav_4">
         Examples
@@ -850,6 +854,85 @@
       <a href="../../../examples/grpc_server/" class="md-nav__link">
         gRPCServer
       </a>
+    </li>
+  
+
+          
+            
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Setup External DNS
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Setup External DNS
+      </a>
+      
+        
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+    <nav class="md-nav" aria-label="Prerequisites">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#role-permissions" class="md-nav__link">
+    Role Permissions
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#installation" class="md-nav__link">
+    Installation
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    Usage
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -952,12 +1035,12 @@
 <p><a href="https://github.com/kubernetes-incubator/external-dns">external-dns</a> provisions DNS records based on the host information. This project will setup and manage records in Route 53 that point to controller deployed ALBs.</p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <h3 id="role-permissions">Role Permissions<a class="headerlink" href="#role-permissions" title="Permanent link">&para;</a></h3>
-<p>Adequate roles and policies must be configured in AWS and available to the node(s) running the external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.</p>
+<p>Adequate roles and policies must be configured in AWS and available to the node(s) running the external-dns. See https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.</p>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
 <ol>
 <li>
 <p>Download sample <code>external-dns</code> manifest</p>
-<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.0.0/docs/examples/external-dns.yaml
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/external-dns.yaml
 </code></pre></div>
 </li>
 <li>
@@ -992,21 +1075,31 @@ time=&quot;2019-12-11T10:26:05Z&quot; level=info msg=&quot;Created Kubernetes cl
 <h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h2>
 <ol>
 <li>
-<p>To create a record set in the subdomain, from your ingress which has been created by the ingress-controller, simply add the following annotation in the ingress object specification and apply the manifest:</p>
+<p>To create a record set in the subdomain, from your ingress which has been created by the ingress-controller, add the following annotation in the ingress objectresource:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">annotations</span><span class="p">:</span>
   <span class="nt">kubernetes.io/ingress.class</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
   <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
 
-  <span class="c1"># for creating record-set</span>
+  <span class="c1"># external-dns specific configuration for creating route53 record-set</span>
   <span class="nt">external-dns.alpha.kubernetes.io/hostname</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-app.test-dns.com</span> <span class="c1"># give your domain name here</span>
 </code></pre></div>
 </li>
 <li>
-<p>Similar entries should appear in the ExternalDNS pod log:</p>
+<p>A snippet of the external-dns pod log indicating route53 update:</p>
 <div class="highlight"><pre><span></span><code>time=&quot;2019-12-11T10:26:08Z&quot; level=info msg=&quot;Desired change: CREATE my-app.test-dns.com A&quot;
 time=&quot;2019-12-11T10:26:08Z&quot; level=info msg=&quot;Desired change: CREATE my-app.test-dns.com TXT&quot;
 time=&quot;2019-12-11T10:26:08Z&quot; level=info msg=&quot;2 record(s) in zone my-app.test-dns.com. were successfully updated&quot;
 </code></pre></div>
+</li>
+<li>
+<p>External DNS configures <code>Simple</code> routing policy for the route53 records. You can configure <code>Weighted</code> policy by specifying the weight and the identifier via annotation. <code>Weighted</code> policy allows you to split the traffic between multiple load balancers. Here is an example to specify weight and identifier:
+   <div class="highlight"><pre><span></span><code> <span class="nt">annotations</span><span class="p">:</span>
+   <span class="c1"># For creating weighted route53 records</span>
+   <span class="nt">external-dns.alpha.kubernetes.io/hostname</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-app.test-dns.com</span>
+   <span class="nt">external-dns.alpha.kubernetes.io/aws-weight</span><span class="p">:</span> <span class="s">&quot;100&quot;</span>
+   <span class="nt">external-dns.alpha.kubernetes.io/set-identifier</span><span class="p">:</span> <span class="s">&quot;3&quot;</span>
+</code></pre></div>
+   You can refer to the External DNS documentation for further details [<a href="https://kubernetes-sigs.github.io/external-dns/latest/tutorials/aws/#routing-policies">link</a>]. </p>
 </li>
 </ol>
                 
@@ -1024,6 +1117,39 @@ time=&quot;2019-12-11T10:26:08Z&quot; level=info msg=&quot;2 record(s) in zone m
       
         
 <footer class="md-footer">
+  
+    <nav class="md-footer__inner md-grid" aria-label="Footer">
+      
+        <a href="../../../examples/grpc_server/" class="md-footer__link md-footer__link--prev" rel="prev">
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
+          </div>
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              gRPCServer
+            </div>
+          </div>
+        </a>
+      
+      
+        <a href="../../../examples/secrets_access/" class="md-footer__link md-footer__link--next" rel="next">
+          <div class="md-footer__title">
+            <div class="md-ellipsis">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              RBAC to access OIDC Secret
+            </div>
+          </div>
+          <div class="md-footer__button md-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg>
+          </div>
+        </a>
+      
+    </nav>
   
   <div class="md-footer-meta md-typeset">
     <div class="md-footer-meta__inner md-grid">
