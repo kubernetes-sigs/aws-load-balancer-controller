@@ -218,12 +218,12 @@ In this walkthrough, you'll
 
 ## Setup external-DNS to manage DNS automatically
 
-1.  Ensure your nodes (on which External DNS runs) have the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
+1.  Ensure your nodes (on which External DNS runs) have the correct IAM permission required for external-dns. See https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
 
-1.  Download external-dns to manage Route 53.
+1.  Download the sample external-dns manifest
 
     ```bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/external-dns.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/external-dns.yaml
     ```
 
 1.  Edit the `--domain-filter` flag to include your hosted zone(s)
@@ -243,6 +243,17 @@ In this walkthrough, you'll
 
     ```bash
     kubectl apply -f external-dns.yaml
+    ```
+
+1. Annotate the ingress with the external-dns specific configuration
+
+    ```yaml
+    annotations:
+      kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/scheme: internet-facing
+
+      # external-dns specific configuration for creating route53 record-set
+      external-dns.alpha.kubernetes.io/hostname: my-app.test-dns.com # give your domain name here
     ```
 
 1.  Verify the DNS has propagated

@@ -36,6 +36,7 @@ nav:
   - Examples:
     - EchoServer: examples/echo_server.md
     - gRPCServer: examples/grpc_server.md
+    - Setup External DNS: guide/integrations/external_dns.md
     - RBAC to access OIDC Secret: examples/secrets_access.md
 
 
