@@ -113,6 +113,10 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 	if err != nil {
 		return nil, err
 	}
+	healthCheckTimeoutSeconds, err := t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeout)
+	if err != nil {
+		return nil, err
+	}
 	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThreshold)
 	if err != nil {
 		return nil, err
@@ -126,6 +130,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 		Protocol:                &healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
 		IntervalSeconds:         &intervalSeconds,
+		TimeoutSeconds:          &healthCheckTimeoutSeconds,
 		HealthyThresholdCount:   &healthyThresholdCount,
 		UnhealthyThresholdCount: &unhealthyThresholdCount,
 	}, nil
@@ -148,6 +153,10 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 	if err != nil {
 		return nil, err
 	}
+	healthCheckTimeoutSeconds, err := t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeoutForInstanceModeLocal)
+	if err != nil {
+		return nil, err
+	}
 	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThresholdForInstanceModeLocal)
 	if err != nil {
 		return nil, err
@@ -161,6 +170,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 		Protocol:                &healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
 		IntervalSeconds:         &intervalSeconds,
+		TimeoutSeconds:          &healthCheckTimeoutSeconds,
 		HealthyThresholdCount:   &healthyThresholdCount,
 		UnhealthyThresholdCount: &unhealthyThresholdCount,
 	}, nil

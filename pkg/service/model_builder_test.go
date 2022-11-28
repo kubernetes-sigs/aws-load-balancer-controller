@@ -190,6 +190,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -334,6 +335,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -518,6 +520,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -541,6 +544,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -852,6 +856,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -875,6 +880,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -1180,6 +1186,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port": "traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -1202,6 +1209,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -1448,8 +1456,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-				"path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":6,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -1471,8 +1480,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-				"path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":6,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -1729,6 +1739,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -1941,7 +1952,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "unhealthyThresholdCount": 3,
             "protocol": "TCP",
             "port": "traffic-port",
-            "intervalSeconds": 10
+            "intervalSeconds": 10,
+            "timeoutSeconds":10
           },
           "targetGroupAttributes": [
             {
@@ -2210,6 +2222,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
+            "timeoutSeconds":10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -2355,6 +2368,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
+            "timeoutSeconds":10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -2551,6 +2565,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
+            "timeoutSeconds":10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -2693,6 +2708,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
