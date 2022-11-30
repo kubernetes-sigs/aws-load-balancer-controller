@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -319,6 +320,9 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ con
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int64) (int64, error) {
+	if !t.featureGates.Enabled(config.ServiceHealthCheckTimeout) {
+		return 0, nil
+	}
 	timeoutSeconds := defaultHealthCheckTimeout
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
 		return 0, err

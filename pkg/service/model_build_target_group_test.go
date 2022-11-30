@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
@@ -351,6 +352,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			builder := &defaultModelBuildTask{
 				service:                              tt.svc,
 				annotationParser:                     parser,
+				featureGates:                         config.NewFeatureGates(),
 				defaultAccessLogsS3Bucket:            "",
 				defaultAccessLogsS3Prefix:            "",
 				defaultLoadBalancingCrossZoneEnabled: false,
