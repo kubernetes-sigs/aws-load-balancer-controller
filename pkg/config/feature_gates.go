@@ -18,7 +18,7 @@ const (
 	EnableServiceController     Feature = "EnableServiceController"
 	EnableIPTargetType          Feature = "EnableIPTargetType"
 	SubnetsClusterTagCheck      Feature = "SubnetsClusterTagCheck"
-	ServiceHealthCheckTimeout   Feature = "ServiceHealthCheckTimeout"
+	NLBHealthCheckTimeout       Feature = "NLBHealthCheckTimeout"
 )
 
 type FeatureGates interface {
@@ -53,7 +53,7 @@ func NewFeatureGates() FeatureGates {
 			EnableServiceController:     true,
 			EnableIPTargetType:          true,
 			SubnetsClusterTagCheck:      true,
-			ServiceHealthCheckTimeout:   true,
+			NLBHealthCheckTimeout:       true,
 		},
 	}
 }

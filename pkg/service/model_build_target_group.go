@@ -114,9 +114,12 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 	if err != nil {
 		return nil, err
 	}
-	healthCheckTimeoutSeconds, err := t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeout)
-	if err != nil {
-		return nil, err
+	var healthCheckTimeoutSeconds *int64
+	if t.featureGates.Enabled(config.NLBHealthCheckTimeout) {
+		healthCheckTimeoutSeconds, err = t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeout)
+		if err != nil {
+			return nil, err
+		}
 	}
 	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThreshold)
 	if err != nil {
@@ -131,7 +134,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 		Protocol:                &healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
 		IntervalSeconds:         &intervalSeconds,
-		TimeoutSeconds:          &healthCheckTimeoutSeconds,
+		TimeoutSeconds:          healthCheckTimeoutSeconds,
 		HealthyThresholdCount:   &healthyThresholdCount,
 		UnhealthyThresholdCount: &unhealthyThresholdCount,
 	}, nil
@@ -154,9 +157,12 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 	if err != nil {
 		return nil, err
 	}
-	healthCheckTimeoutSeconds, err := t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeoutForInstanceModeLocal)
-	if err != nil {
-		return nil, err
+	var healthCheckTimeoutSeconds *int64
+	if t.featureGates.Enabled(config.NLBHealthCheckTimeout) {
+		healthCheckTimeoutSeconds, err = t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeoutForInstanceModeLocal)
+		if err != nil {
+			return nil, err
+		}
 	}
 	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThresholdForInstanceModeLocal)
 	if err != nil {
@@ -171,7 +177,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 		Protocol:                &healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
 		IntervalSeconds:         &intervalSeconds,
-		TimeoutSeconds:          &healthCheckTimeoutSeconds,
+		TimeoutSeconds:          healthCheckTimeoutSeconds,
 		HealthyThresholdCount:   &healthyThresholdCount,
 		UnhealthyThresholdCount: &unhealthyThresholdCount,
 	}, nil
@@ -319,15 +325,12 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ con
 	return intervalSeconds, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int64) (int64, error) {
-	if !t.featureGates.Enabled(config.ServiceHealthCheckTimeout) {
-		return 0, nil
-	}
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int64) (*int64, error) {
 	timeoutSeconds := defaultHealthCheckTimeout
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
-		return 0, err
+		return nil, err
 	}
-	return timeoutSeconds, nil
+	return &timeoutSeconds, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount(_ context.Context, defaultHealthCheckHealthyThreshold int64) (int64, error) {
