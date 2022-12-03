@@ -169,7 +169,7 @@ The default values set by the application itself can be confirmed [here](https:/
 
 | Parameter                                      | Description                                                                                              | Default                                                                            |
 |------------------------------------------------| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `image.repository`                             | image repository                                                                                         | `602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller` |
+| `image.repository`                             | image repository                                                                                         | `public.ecr.aws/eks/aws-load-balancer-controller` |
 | `image.tag`                                    | image tag                                                                                                | `<VERSION>`                                                                        |
 | `image.pullPolicy`                             | image pull policy                                                                                        | `IfNotPresent`                                                                     |
 | `clusterName`                                  | Kubernetes cluster name                                                                                  | None                                                                               |
