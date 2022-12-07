@@ -325,6 +325,12 @@ clusterSecretsPermissions:
   # This is to get backwards compatible behavior, but *NOT* recommended for security reasons
   allowAllSecrets: false
 
+# ingressClassConfig contains configurations specific to the ingress class
+networkPolicy:
+ingressClassConfig:
+  # Specifies whether network policies should be created
+  default: false
+
 networkPolicy:
   # Specifies whether network policies should be created
   # By default the following connectivity is opened:
