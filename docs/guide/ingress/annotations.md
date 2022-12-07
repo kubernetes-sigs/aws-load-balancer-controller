@@ -189,7 +189,7 @@ Traffic Routing can be controlled with following annotations:
         alb.ingress.kubernetes.io/target-type: instance
         ```
 
--<a name="target-node-labels">`alb.ingress.kubernetes.io/target-node-labels`</a> specifies which nodes to include in the target group registration for `instance` target type.
+- <a name="target-node-labels">`alb.ingress.kubernetes.io/target-node-labels`</a> specifies which nodes to include in the target group registration for `instance` target type.
 
     !!!example
         ```
@@ -436,6 +436,58 @@ Traffic Routing can be controlled with following annotations:
                           name: use-annotation
         ```
 
+    !!!note 
+        If you are using `alb.ingress.kubernetes.io/target-group-attributes` with `stickiness.enabled=true`, you should add `TargetGroupStickinessConfig` under `alb.ingress.kubernetes.io/actions.weighted-routing`
+        
+    !!!example
+
+        ```yaml
+            apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+            namespace: default
+            name: ingress
+            annotations:
+                alb.ingress.kubernetes.io/scheme: internet-facing
+                alb.ingress.kubernetes.io/target-type: ip
+                alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60
+                alb.ingress.kubernetes.io/actions.weighted-routing: |
+                {
+                    "type":"forward",
+                    "forwardConfig":{
+                    "targetGroups":[
+                        {
+                        "serviceName":"service-1",
+                        "servicePort":"80",
+                        "weight":50
+                        },
+                        {
+                        "serviceName":"service-2",
+                        "servicePort":"80",
+                        "weight":50
+                        }
+                    ],
+                    "TargetGroupStickinessConfig": {
+                        "Enabled": true,
+                        "DurationSeconds": 120
+                    }
+                    }
+                }
+            spec:
+            ingressClassName: alb
+            rules:
+                - host: www.example.com
+                http:
+                    paths:
+                    - path: /
+                        pathType: Prefix
+                        backend:
+                        service:
+                            name: weighted-routing
+                            port:
+                            name: use-annotation
+        ```
+
 ## Access control
 Access control for LoadBalancer can be controlled with following annotations:
 
@@ -583,7 +635,8 @@ Health check on target groups can be controlled with following annotations:
 - <a name="healthcheck-protocol">`alb.ingress.kubernetes.io/healthcheck-protocol`</a> specifies the protocol used when performing health check on targets.
 
     !!!example
-        ```alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
+        ```
+        alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
         ```
 
 - <a name="healthcheck-port">`alb.ingress.kubernetes.io/healthcheck-port`</a> specifies the port used when performing health check on targets.
@@ -775,7 +828,7 @@ In addition, you can use annotations to specify additional tags
         ```
 
 ## Addons
-- <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amzon WAF web ACL.
+- <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amazon WAF web ACL.
 
     !!!warning ""
         Only Regional WAF is supported.

@@ -2,7 +2,7 @@
 
 The Load Balancer controller (LBC) provisions AWS Network Load Balancer (NLB) and Application Load Balancer (ALB) resources. The LBC watches for new service or ingress kubernetes resources, and configures AWS resources.
 
-The LBC is supported by AWS. Some clusters may using legeacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. 
+The LBC is supported by AWS. Some clusters may using legacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. 
 
 !!!question "Existing AWS ALB Ingress Controller users"
     AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer controller.
@@ -80,7 +80,7 @@ Example condition for cluster name resource tag:
 
 1. Download IAM policy for the AWS Load Balancer Controller
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.3/docs/install/iam_policy.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json
     ```
 
 1. Create an IAM policy called AWSLoadBalancerControllerIAMPolicy
@@ -106,7 +106,7 @@ Example condition for cluster name resource tag:
 ### Option B: Attach IAM Policies to Nodes
 If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
 ```
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.3/docs/install/iam_policy.json
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json
 ```
 
 *IAM permission subset for those who use *TargetGroupBinding* only and don't plan to use the AWS Load Balancer Controller to manage security group rules:*
@@ -138,7 +138,7 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 
 ## Network Configuration
 
-Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html) docs. The node security group must permit incoming traffic on TCP port 9943 from the kubernetes control plane. This is needed for webhook access. 
+Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html) docs. The node security group must permit incoming traffic on TCP port 9443 from the kubernetes control plane. This is needed for webhook access. 
 
 If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the default configuration. 
 
@@ -190,7 +190,7 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ### Apply YAML
     1. Download spec for load balancer controller.
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.3/v2_4_3_full.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_5_full.yaml
     ```
     1. Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
     ```
@@ -214,15 +214,15 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ```
     1. Apply the yaml file
     ```
-    kubectl apply -f v2_4_3_full.yaml
+    kubectl apply -f v2_4_5_full.yaml
     ```
     1. Optionally download the default ingressclass and ingressclass params
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.3/v2_4_3_ingclass.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_5_ingclass.yaml
     ```
     1. Apply the ingressclass and params
     ```
-    kubectl apply -f v2_4_3_ingclass.yaml
+    kubectl apply -f v2_4_5_ingclass.yaml
     ```
 
 ## Create Update Strategy

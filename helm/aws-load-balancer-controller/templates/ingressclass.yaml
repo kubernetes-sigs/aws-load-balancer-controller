@@ -26,6 +26,10 @@ items:
     name: {{ .Values.ingressClass }}
     labels:
       {{- include "aws-load-balancer-controller.labels" . | nindent 6 }}
+    {{- if .Values.ingressClassConfig.default }}
+    annotations:
+      ingressclass.kubernetes.io/is-default-class: "true"
+    {{- end }}
   spec:
     controller: ingress.k8s.aws/alb
     {{- if or .Values.ingressClassParams.name (and .Values.ingressClassParams.create .Values.ingressClassParams.spec) }}

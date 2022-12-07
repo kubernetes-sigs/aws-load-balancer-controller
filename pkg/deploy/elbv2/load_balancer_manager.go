@@ -287,6 +287,7 @@ func buildSDKSubnetMapping(modelSubnetMapping elbv2model.SubnetMapping) *elbv2sd
 	return &elbv2sdk.SubnetMapping{
 		AllocationId:       modelSubnetMapping.AllocationID,
 		PrivateIPv4Address: modelSubnetMapping.PrivateIPv4Address,
+		IPv6Address:        modelSubnetMapping.IPv6Address,
 		SubnetId:           awssdk.String(modelSubnetMapping.SubnetID),
 	}
 }

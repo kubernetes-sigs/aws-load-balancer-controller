@@ -3,9 +3,9 @@ This document covers configuration of the AWS Load Balancer controller
 
 !!!warning "limitation"
     The v2.0.0+ version of AWSLoadBalancerController currently only support one controller deployment(with one or multiple replicas) per cluster.
-    
+
     The AWSLoadBalancerController assumes it's the solo owner of worker node security group rules with `elbv2.k8s.aws/targetGroupBinding=shared` description, running multiple controller deployment will cause these controllers compete with each other updating worker node security group rules.
-    
+
     We will remove this limitation in future versions: [tracking issue](https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2185)
 
 ## AWS API Access
@@ -129,10 +129,10 @@ Once disabled:
 
 ###  throttle config
 
-The default throttle config used is.
+Controller uses the following default throttle config:
 
 ```
-WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
+WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1,Elastic Load Balancing v2:^RegisterTargets|^DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40
 ```
 Client side throttling enables gradual scaling of the api calls. Additional throttle config can be specified via the `--aws-api-throttle` flag. You can get the ServiceID from the API definition in AWS SDK. For e.g, ELBv2 it is [Elastic Load Balancing v2](https://github.com/aws/aws-sdk-go/blob/main/models/apis/elasticloadbalancingv2/2015-12-01/api-2.json#L9).
 
@@ -158,3 +158,4 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 | EnableServiceController               | string                          | true           | Toggles support for `Service` type resources. |
 | EnableIPTargetType                    | string                          | true           | Used to toggle support for target-type `ip` across `Ingress` and `Service` type resources. |
 | SubnetsClusterTagCheck                | string                          | true           | Enable or disable the check for `kubernetes.io/cluster/${cluster-name}` during subnet auto-discovery |
+| NLBHealthCheckTimeout                 | string                          | true           | Enable or disable the use of `service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout` for `Service` type resources (NLB) |

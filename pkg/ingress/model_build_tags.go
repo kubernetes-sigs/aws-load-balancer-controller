@@ -49,8 +49,9 @@ func (t *defaultModelBuildTask) buildIngressResourceTags(ing ClassifiedIngress) 
 
 // buildIngressBackendResourceTags builds the AWS Tags used for a single Ingress and Backend. e.g. TargetGroup.
 // Note: the Tags specified via IngressClass takes higher priority than tags specified via annotation on Ingress or Service.
-//		 the target group will have the merged tags specified by the annotations of both Ingress and Service
-// 		 the Tags annotation of Service takes higher priority if there is conflict between the tags of Ingress and Service
+//
+//	the target group will have the merged tags specified by the annotations of both Ingress and Service
+//	the Tags annotation of Service takes higher priority if there is conflict between the tags of Ingress and Service
 func (t *defaultModelBuildTask) buildIngressBackendResourceTags(ing ClassifiedIngress, backend *corev1.Service) (map[string]string, error) {
 	var backendAnnotationTags map[string]string
 	var ingressAnnotationTags map[string]string

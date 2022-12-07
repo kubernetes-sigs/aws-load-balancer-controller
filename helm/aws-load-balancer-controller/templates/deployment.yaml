@@ -143,6 +143,9 @@ spec:
         {{- if kindIs "bool" .Values.disableRestrictedSecurityGroupRules }}
         - --disable-restricted-sg-rules={{ .Values.disableRestrictedSecurityGroupRules }}
         {{- end }}
+        {{- if .Values.controllerConfig.featureGates }}
+        - --feature-gates={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.controllerConfig.featureGates | trimSuffix "," }}
+        {{- end }}
         {{- if .Values.env }}
         env:
         {{- range $key, $value := .Values.env }}

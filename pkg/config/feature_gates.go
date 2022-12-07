@@ -2,9 +2,10 @@ package config
 
 import (
 	"fmt"
-	"github.com/spf13/pflag"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/pflag"
 )
 
 type Feature string
@@ -17,6 +18,7 @@ const (
 	EnableServiceController     Feature = "EnableServiceController"
 	EnableIPTargetType          Feature = "EnableIPTargetType"
 	SubnetsClusterTagCheck      Feature = "SubnetsClusterTagCheck"
+	NLBHealthCheckTimeout       Feature = "NLBHealthCheckTimeout"
 )
 
 type FeatureGates interface {
@@ -51,6 +53,7 @@ func NewFeatureGates() FeatureGates {
 			EnableServiceController:     true,
 			EnableIPTargetType:          true,
 			SubnetsClusterTagCheck:      true,
+			NLBHealthCheckTimeout:       true,
 		},
 	}
 }

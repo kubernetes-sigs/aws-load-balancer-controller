@@ -5,16 +5,13 @@
 replicaCount: 2
 
 image:
-  repository: 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller
-  tag: v2.4.3
+  repository: public.ecr.aws/eks/aws-load-balancer-controller
+  tag: v2.4.5
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-
-# The name of the Kubernetes cluster. A non-empty value is required
-clusterName:
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -78,7 +75,7 @@ configureDefaultAffinity: true
 # topologySpreadConstraints is a stable feature of k8s v1.19 which provides the ability to
 # control how Pods are spread across your cluster among failure-domains such as regions, zones,
 # nodes, and other user-defined topology domains.
-# 
+#
 # more details here: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
 topologySpreadConstraints: {}
 
@@ -103,6 +100,14 @@ additionalLabels: {}
 
 # Enable cert-manager
 enableCertManager: false
+
+# The name of the Kubernetes cluster. A non-empty value is required
+clusterName:
+
+# cluster contains configurations specific to the kubernetes cluster
+cluster:
+    # Cluster DNS domain (required for requesting TLS certificates)
+    dnsDomain: cluster.local
 
 # The ingress class this controller will satisfy. If not specified, controller will match all
 # ingresses without ingress class annotation and ingresses of type alb
@@ -178,7 +183,7 @@ webhookTLS:
   key:
 
 # array of namespace selectors for the webhook
-webhookNamespaceSelector:
+webhookNamespaceSelectors:
 # - key: elbv2.k8s.aws/pod-readiness-gate-inject
 #   operator: In
 #   values:
@@ -283,6 +288,13 @@ backendSecurityGroup:
 
 # disableRestrictedSecurityGroupRules specifies whether to disable creating port-range restricted security group rules for traffic
 disableRestrictedSecurityGroupRules:
+
+# controllerConfig specifies controller configuration
+controllerConfig:
+  # featureGates set of key: value pairs that describe AWS load balance controller features
+  featureGates: {}
+  #  ServiceTypeLoadBalancerOnly: true
+  #  EndpointsFailOpen: true
 
 # objectSelector for webhook
 objectSelector:

@@ -80,6 +80,8 @@ kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/
 
 If you are setting `enableCertManager: true` you need to have installed cert-manager and it's CRDs before installing this chart; to install [cert-manager](https://artifacthub.io/packages/helm/cert-manager/cert-manager) follow the installation guide.
 
+Set `cluster.dnsDomain` (default: `cluster.local`) to the actual DNS domain of your cluster to include the FQDN in requested TLS certificates.
+
 #### Installing the Prometheus Operator
 
 If you are setting `serviceMonitor.enabled: true` you need to have installed the Prometheus Operator ServiceMonitor CRD before installing this chart and have the operator running to collect the metrics. The easiest way to do this is to install the [kube-prometheus-stack](https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack) Helm chart using the installation guide.
@@ -163,14 +165,15 @@ Chart release v1.2.0 and later enables high availability configuration by defaul
 ## Configuration
 
 The following tables lists the configurable parameters of the chart and their default values.
-The default values set by the application itself can be confirmed [here](https://kubernetes-sigs.github.io/aws-load-balancer-controller/guide/controller/configurations/).
+The default values set by the application itself can be confirmed [here](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/configurations/#controller-configuration-options).
 
 | Parameter                                      | Description                                                                                              | Default                                                                            |
 |------------------------------------------------| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `image.repository`                             | image repository                                                                                         | `602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller` |
+| `image.repository`                             | image repository                                                                                         | `public.ecr.aws/eks/aws-load-balancer-controller` |
 | `image.tag`                                    | image tag                                                                                                | `<VERSION>`                                                                        |
 | `image.pullPolicy`                             | image pull policy                                                                                        | `IfNotPresent`                                                                     |
 | `clusterName`                                  | Kubernetes cluster name                                                                                  | None                                                                               |
+| `cluster.dnsDomain`                            | DNS domain of the Kubernetes cluster, included in TLS certificate requests                               | `cluster.local`                                                                    |
 | `securityContext`                              | Set to security context for pod                                                                          | `{}`                                                                               |
 | `resources`                                    | Controller pod resource requests & limits                                                                | `{}`                                                                               |
 | `priorityClassName`                            | Controller pod priority class                                                                            | system-cluster-critical                                                            |
@@ -245,6 +248,8 @@ The default values set by the application itself can be confirmed [here](https:/
 | `serviceMonitor.interval`                      | Prometheus scrape interval                                                                               | `1m`                                                                               |
 | `serviceMonitor.namespace`                     | Namespace in which Prometheus is running                                                                 | None                                                                               |
 | `clusterSecretsPermissions.allowAllSecrets`    | If `true`, controller has access to all secrets in the cluster.                                          | `false`                                                                            |
+| `controllerConfig.featureGates`                | set of `key: value` pairs that describe AWS load balance controller features                             | `{}`                                                                               |
+| `ingressClassConfig.default`                   | If `true`, the ingressclass will be the default class of the cluster.                                    | `false`                                                                            |
 | `networkPolicy.enabled`                        | If `true`, creates a NetworkPolicy with minimal connectivity opened                                      | `false`                                                                            |
 | `networkPolicy.annotations`                    | Annotations to add to NetworkPolicy                                                                      | `{}`                                                                               |
 | `networkPolicy.egressRules`                    | Define additional egress network policy rules                                                            | `[]`                                                                               |

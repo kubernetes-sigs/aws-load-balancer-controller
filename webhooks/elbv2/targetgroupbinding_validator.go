@@ -128,7 +128,7 @@ func (v *targetGroupBindingValidator) checkExistingTargetGroups(tgb *elbv2api.Ta
 	return nil
 }
 
-//checkNodeSelector ensures that NodeSelector is only set when TargetType is ip
+// checkNodeSelector ensures that NodeSelector is only set when TargetType is ip
 func (v *targetGroupBindingValidator) checkNodeSelector(tgb *elbv2api.TargetGroupBinding) error {
 	if (*tgb.Spec.TargetType == elbv2api.TargetTypeIP) && (tgb.Spec.NodeSelector != nil) {
 		return errors.Errorf("TargetGroupBinding cannot set NodeSelector when TargetType is ip")
