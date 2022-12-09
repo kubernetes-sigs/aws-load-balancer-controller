@@ -19,6 +19,7 @@ const (
 	EnableIPTargetType          Feature = "EnableIPTargetType"
 	SubnetsClusterTagCheck      Feature = "SubnetsClusterTagCheck"
 	NLBHealthCheckTimeout       Feature = "NLBHealthCheckTimeout"
+	ManageSecurityGroups		Feature = "ManageSecurityGroups"
 )
 
 type FeatureGates interface {
@@ -54,6 +55,7 @@ func NewFeatureGates() FeatureGates {
 			EnableIPTargetType:          true,
 			SubnetsClusterTagCheck:      true,
 			NLBHealthCheckTimeout:       true,
+			ManageSecurityGroups:		 true,
 		},
 	}
 }

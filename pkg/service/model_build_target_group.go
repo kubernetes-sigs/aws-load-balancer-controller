@@ -603,6 +603,9 @@ func (t *defaultModelBuildTask) buildHealthCheckNetworkingIngressRules(trafficSo
 
 func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Context) (bool, error) {
 	var rawEnabled bool
+	if !t.featureGates.Enabled(config.ManageSecurityGroups) {
+		return false, nil
+	}
 	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixManageSGRules, &rawEnabled, t.service.Annotations)
 	if err != nil {
 		return true, err
