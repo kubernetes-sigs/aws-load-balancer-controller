@@ -1,5 +1,5 @@
 package utils
 
 const (
-	ColortellerImage = "chinmay5j/colorteller:latest"
+	ColortellerImage = "public.ecr.aws/l6m2t8p7/colorteller:latest"
 )
