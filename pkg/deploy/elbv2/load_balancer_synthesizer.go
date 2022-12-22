@@ -51,7 +51,7 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 		return err
 	}
 
-	matchedResAndSDKLBs, unmatchedResLBs, unmatchedSDKLBs, err := matchResAndSDKLoadBalancers(resLBs, sdkLBs, s.trackingProvider.ResourceIDTagKey())
+	matchedResAndSDKLBs, unmatchedResLBs, unmatchedSDKLBs, err := matchResAndSDKLoadBalancers(s.logger, resLBs, sdkLBs, s.trackingProvider.ResourceIDTagKey())
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ type resAndSDKLoadBalancerPair struct {
 	sdkLB LoadBalancerWithTags
 }
 
-func matchResAndSDKLoadBalancers(resLBs []*elbv2model.LoadBalancer, sdkLBs []LoadBalancerWithTags,
+func matchResAndSDKLoadBalancers(logger logr.Logger, resLBs []*elbv2model.LoadBalancer, sdkLBs []LoadBalancerWithTags,
 	resourceIDTagKey string) ([]resAndSDKLoadBalancerPair, []*elbv2model.LoadBalancer, []LoadBalancerWithTags, error) {
 	var matchedResAndSDKLBs []resAndSDKLoadBalancerPair
 	var unmatchedResLBs []*elbv2model.LoadBalancer
@@ -142,7 +142,7 @@ func matchResAndSDKLoadBalancers(resLBs []*elbv2model.LoadBalancer, sdkLBs []Loa
 		sdkLBs := sdkLBsByID[resID]
 		foundMatch := false
 		for _, sdkLB := range sdkLBs {
-			if isSDKLoadBalancerRequiresReplacement(sdkLB, resLB) {
+			if isSDKLoadBalancerRequiresReplacement(logger, sdkLB, resLB) {
 				unmatchedSDKLBs = append(unmatchedSDKLBs, sdkLB)
 				continue
 			}
@@ -186,13 +186,26 @@ func mapSDKLoadBalancerByResourceID(sdkLBs []LoadBalancerWithTags, resourceIDTag
 	return sdkLBsByID, nil
 }
 
-// isSDKLoadBalancerRequiresReplacement checks whether a sdk LoadBalancer requires replacement to fulfill a LoadBalancer resource.
-func isSDKLoadBalancerRequiresReplacement(sdkLB LoadBalancerWithTags, resLB *elbv2model.LoadBalancer) bool {
-	if string(resLB.Spec.Type) != awssdk.StringValue(sdkLB.LoadBalancer.Type) {
-		return true
+func isSDKLoadBalancerRequiresReplacement(logger logr.Logger, sdkLB LoadBalancerWithTags, resLB *elbv2model.LoadBalancer) bool {
+	// Check if the LoadBalancer type or scheme has changed
+	if string(resLB.Spec.Type) != awssdk.StringValue(sdkLB.LoadBalancer.Type) ||
+		(resLB.Spec.Scheme != nil && string(*resLB.Spec.Scheme) != awssdk.StringValue(sdkLB.LoadBalancer.Scheme)) {
+		// Check if the deletion_protection.enabled field is set to false
+		if !isDeletionProtectionEnabled(logger, resLB) {
+			return true
+		}
 	}
-	if resLB.Spec.Scheme != nil && string(*resLB.Spec.Scheme) != awssdk.StringValue(sdkLB.LoadBalancer.Scheme) {
-		return true
+
+	return false
+}
+
+// Helper function to check if the deletion_protection.enabled field is set to true in the resLB LoadBalancer object
+func isDeletionProtectionEnabled(logger logr.Logger, resLB *elbv2model.LoadBalancer) bool {
+	for _, attribute := range resLB.Spec.LoadBalancerAttributes {
+		if attribute.Key == "deletion_protection.enabled" && attribute.Value == "true" {
+			logger.Error(errors.New("LoadBalancer has deletion protection enabled"), "")
+			return true
+		}
 	}
 	return false
 }
