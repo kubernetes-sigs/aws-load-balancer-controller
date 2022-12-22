@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	defaultTestImage   = "kishorj/hello-multi:v1"
+	defaultTestImage   = "public.ecr.aws/l6m2t8p7/hello-multi:latest"
 	appContainerPort   = 80
 	defaultNumReplicas = 3
 	defaultName        = "instance-e2e"
