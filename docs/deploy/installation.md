@@ -5,7 +5,7 @@ The Load Balancer controller (LBC) provisions AWS Network Load Balancer (NLB) an
 The LBC is supported by AWS. Some clusters may using legacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. 
 
 !!!question "Existing AWS ALB Ingress Controller users"
-    AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer controller.
+    AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer Controller.
     Please follow our [migration guide](upgrade/migrate_v1_v2.md) to do migration.
 
 ## Supported Kubernetes Versions 
