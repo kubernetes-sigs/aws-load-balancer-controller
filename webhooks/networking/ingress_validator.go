@@ -3,6 +3,7 @@ package networking
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
@@ -20,6 +21,8 @@ import (
 
 const (
 	apiPathValidateNetworkingIngress = "/validate-networking-v1-ingress"
+	lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
+	defaultScheme                    = "internal"
 )
 
 // NewIngressValidator returns a validator for Ingress API.
@@ -81,7 +84,94 @@ func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Objec
 	if err := v.checkIngressAnnotationConditions(ing); err != nil {
 		return err
 	}
+	if err := v.validateDeletionProtectionAnnotation(ctx, ing, oldIng); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (v *ingressValidator) validateDeletionProtectionAnnotation(ctx context.Context, ing *networking.Ingress, oldIng *networking.Ingress) error {
+	// Get the values of the scheme and ingressClass for the old and new Ingress objects
+	var rawSchemaOld, rawSchema string
+	var controllerPartOld, controllerPart string
+	var ingClassConfig ingress.ClassConfiguration
+	var err error
+	if controller, exists := ing.Annotations[annotations.IngressClass]; exists {
+		// Parse the ingress suffix scheme and ingress class from annotations
+		_ = v.annotationParser.ParseStringAnnotation(annotations.IngressSuffixScheme, &rawSchema, ing.Annotations)
+		controllerPart = controller
+	} else if ing.Spec.IngressClassName != nil {
+		ingClassConfig, err = v.classLoader.Load(ctx, ing)
+		if err != nil {
+			return err
+		}
+		if ingClassConfig.IngClassParams != nil && ingClassConfig.IngClassParams.Spec.Scheme != nil {
+			rawSchema = string(*ingClassConfig.IngClassParams.Spec.Scheme)
+		} else {
+			_ = v.annotationParser.ParseStringAnnotation(annotations.IngressSuffixScheme, &rawSchema, ing.Annotations)
+		}
+		controller := ingClassConfig.IngClass.Spec.Controller
+		controllerPart = strings.Split(controller, "/")[1]
+	}
+	// Use default scheme if no scheme is specified
+	if rawSchema == "" {
+		rawSchema = defaultScheme
+	}
+	if controllerOld, exists := oldIng.Annotations[annotations.IngressClass]; exists {
+		// Parse the ingress suffix scheme and ingress class from annotations
+		_ = v.annotationParser.ParseStringAnnotation(annotations.IngressSuffixScheme, &rawSchemaOld, oldIng.Annotations)
+		controllerPartOld = controllerOld
+	} else if oldIng.Spec.IngressClassName != nil {
+		oldIngClassConfig, err := v.classLoader.Load(ctx, oldIng)
+		if err != nil {
+			return err
+		}
+		if oldIngClassConfig.IngClassParams != nil && oldIngClassConfig.IngClassParams.Spec.Scheme != nil {
+			rawSchemaOld = string(*oldIngClassConfig.IngClassParams.Spec.Scheme)
+		} else {
+			_ = v.annotationParser.ParseStringAnnotation(annotations.IngressSuffixScheme, &rawSchemaOld, oldIng.Annotations)
+		}
+		controllerOld := oldIngClassConfig.IngClass.Spec.Controller
+		controllerPartOld = strings.Split(controllerOld, "/")[1]
+	}
+	// Use default scheme if no scheme is specified
+	if rawSchemaOld == "" {
+		rawSchemaOld = defaultScheme
+	}
+	// Check if the scheme or type of the load balancer changed in the new Ingress object
+	if rawSchemaOld != rawSchema || controllerPart != controllerPartOld {
+		// Check if the Ingress object had the deletion protection annotation enabled
+		enabled, err := v.getDeletionProtectionEnabled(ing, ingClassConfig)
+		if err != nil {
+			return err
+		}
+		if enabled == "true" {
+			return errors.Errorf("cannot change the scheme or type of ingress %s/%s with deletion protection enabled", ing.Namespace, ing.Name)
+		}
+	}
+	return nil
+}
+
+// getDeletionProtectionEnabled extracts the value of the "deletion_protection.enabled" attribute from the "alb.ingress.kubernetes.io/load-balancer-attributes" annotation of the given Ingress object.
+// If the annotation or the attribute is not present, it returns an empty string.
+func (v *ingressValidator) getDeletionProtectionEnabled(ing *networking.Ingress, ingClassConfig ingress.ClassConfiguration) (string, error) {
+	var lbAttributes map[string]string
+	_, err := v.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixLoadBalancerAttributes, &lbAttributes, ing.Annotations)
+	if err != nil {
+		return "", err
+	}
+	if lbAttributes[lbAttrsDeletionProtectionEnabled] != "" {
+		return lbAttributes[lbAttrsDeletionProtectionEnabled], nil
+	}
+	if ing.Spec.IngressClassName != nil && ingClassConfig.IngClassParams != nil && len(ingClassConfig.IngClassParams.Spec.LoadBalancerAttributes) != 0 {
+		for _, attr := range ingClassConfig.IngClassParams.Spec.LoadBalancerAttributes {
+			if attr.Key == "deletion_protection.enabled" {
+				deletionProtectionEnabled := attr.Value
+				return deletionProtectionEnabled, nil
+			}
+		}
+	}
+	return "", nil
 }
 
 func (v *ingressValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_matchResAndSDKLoadBalancers(t *testing.T) {
@@ -22,7 +21,6 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		logger  log.NullLogger
 		want    []resAndSDKLoadBalancerPair
 		want1   []*elbv2model.LoadBalancer
 		want2   []LoadBalancerWithTags
@@ -285,7 +283,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, got2, err := matchResAndSDKLoadBalancers(tt.logger, tt.args.resLBs, tt.args.sdkLBs, tt.args.resourceIDTagKey)
+			got, got1, got2, err := matchResAndSDKLoadBalancers(tt.args.resLBs, tt.args.sdkLBs, tt.args.resourceIDTagKey)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -505,10 +503,9 @@ func Test_isSDKLoadBalancerRequiresReplacement(t *testing.T) {
 		resLB *elbv2model.LoadBalancer
 	}
 	tests := []struct {
-		logger log.NullLogger
-		name   string
-		args   args
-		want   bool
+		name string
+		args args
+		want bool
 	}{
 		{
 			name: "don't need replacement",
@@ -590,35 +587,10 @@ func Test_isSDKLoadBalancerRequiresReplacement(t *testing.T) {
 			},
 			want: true,
 		},
-		{
-			name: "scheme doesn't need replacement because deletion_protection is enabled ",
-			args: args{
-				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
-						Type:             awssdk.String("application"),
-						Scheme:           awssdk.String("internal"),
-						LoadBalancerName: awssdk.String("my-lb"),
-					},
-				},
-				resLB: &elbv2model.LoadBalancer{
-					Spec: elbv2model.LoadBalancerSpec{
-						Type:   elbv2model.LoadBalancerTypeApplication,
-						Scheme: &schemaInternetFacing,
-						Name:   "my-lb",
-						LoadBalancerAttributes: []elbv2model.LoadBalancerAttribute{
-							{
-								Key:   "deletion_protection.enabled",
-								Value: "true",
-							}},
-					},
-				},
-			},
-			want: false,
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isSDKLoadBalancerRequiresReplacement(tt.logger, tt.args.sdkLB, tt.args.resLB)
+			got := isSDKLoadBalancerRequiresReplacement(tt.args.sdkLB, tt.args.resLB)
 			assert.Equal(t, tt.want, got)
 		})
 	}
