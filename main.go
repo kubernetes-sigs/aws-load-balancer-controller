@@ -113,10 +113,10 @@ func main() {
 		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, ctrl.Log.WithName("backend-sg-provider"))
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver,
-		controllerCFG, backendSGProvider, ctrl.Log.WithName("controllers").WithName("ingress"))
+		controllerCFG, backendSGProvider, ctrl.Log.WithName("controllers").WithName("ingress"), metrics.Registry)
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider,
-		controllerCFG, ctrl.Log.WithName("controllers").WithName("service"))
+		controllerCFG, ctrl.Log.WithName("controllers").WithName("service"), metrics.Registry)
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
 		finalizerManager, tgbResManager,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))

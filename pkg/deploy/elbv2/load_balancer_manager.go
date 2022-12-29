@@ -3,14 +3,24 @@ package elbv2
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+)
+
+const (
+	lbGaugeLabelK8sResourceName      = "k8s_resource_name"
+	lbGaugeLabelK8sResourceNamespace = "k8s_resource_namespace"
+	lbGaugeLabelAWSLoadBalancerName  = "aws_load_balancer_name"
+	lbGaugeLabelAWSLoadBalancerType  = "aws_load_balancer_type"
 )
 
 // LoadBalancerManager is responsible for create/update/delete LoadBalancer resources.
@@ -24,7 +34,24 @@ type LoadBalancerManager interface {
 
 // NewDefaultLoadBalancerManager constructs new defaultLoadBalancerManager.
 func NewDefaultLoadBalancerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger) *defaultLoadBalancerManager {
+	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger, metricsRegisterer prometheus.Registerer) *defaultLoadBalancerManager {
+
+	loadBalancerGauge := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "managed_aws_load_balancers",
+			Help: "Metric to track what Kubernetes resources that created AWS resources",
+		},
+		[]string{
+			lbGaugeLabelK8sResourceName,
+			lbGaugeLabelK8sResourceNamespace,
+			lbGaugeLabelAWSLoadBalancerName,
+			lbGaugeLabelAWSLoadBalancerType,
+		},
+	)
+	if err := metricsRegisterer.Register(loadBalancerGauge); err != nil {
+		logger.Error(err, "could not create load balancer metrics")
+	}
+
 	return &defaultLoadBalancerManager{
 		elbv2Client:          elbv2Client,
 		trackingProvider:     trackingProvider,
@@ -32,6 +59,7 @@ func NewDefaultLoadBalancerManager(elbv2Client services.ELBV2, trackingProvider 
 		attributesReconciler: NewDefaultLoadBalancerAttributeReconciler(elbv2Client, logger),
 		externalManagedTags:  externalManagedTags,
 		logger:               logger,
+		awsLoadBalancerGauge: loadBalancerGauge,
 	}
 }
 
@@ -45,7 +73,8 @@ type defaultLoadBalancerManager struct {
 	attributesReconciler LoadBalancerAttributeReconciler
 	externalManagedTags  []string
 
-	logger logr.Logger
+	logger               logr.Logger
+	awsLoadBalancerGauge *prometheus.GaugeVec
 }
 
 func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, error) {
@@ -59,6 +88,7 @@ func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2mod
 	m.logger.Info("creating loadBalancer",
 		"stackID", resLB.Stack().StackID(),
 		"resourceID", resLB.ID())
+	m.SetAWSLoadBalancerGauge(resLB.Stack().StackID().Name, resLB.Stack().StackID().Namespace, resLB.Spec.Name, string(resLB.Spec.Type), true)
 	resp, err := m.elbv2Client.CreateLoadBalancerWithContext(ctx, req)
 	if err != nil {
 		return elbv2model.LoadBalancerStatus{}, err
@@ -97,6 +127,7 @@ func (m *defaultLoadBalancerManager) Update(ctx context.Context, resLB *elbv2mod
 	if err := m.checkSDKLoadBalancerWithCOIPv4Pool(ctx, resLB, sdkLB); err != nil {
 		return elbv2model.LoadBalancerStatus{}, err
 	}
+	m.SetAWSLoadBalancerGauge(resLB.Stack().StackID().Name, resLB.Stack().StackID().Namespace, resLB.Spec.Name, string(resLB.Spec.Type), true)
 	return buildResLoadBalancerStatus(sdkLB), nil
 }
 
@@ -111,6 +142,12 @@ func (m *defaultLoadBalancerManager) Delete(ctx context.Context, sdkLB LoadBalan
 	}
 	m.logger.Info("deleted loadBalancer",
 		"arn", awssdk.StringValue(req.LoadBalancerArn))
+	stackName, stackNamespace, err := getNameFromTags(sdkLB.Tags)
+	if err != nil {
+		// This should be a warning
+		m.logger.Error(err, "could not parse stack from load balancer tags")
+	}
+	m.SetAWSLoadBalancerGauge(stackName, stackNamespace, *sdkLB.LoadBalancer.LoadBalancerName, *sdkLB.LoadBalancer.Type, true)
 	return nil
 }
 
@@ -297,4 +334,45 @@ func buildResLoadBalancerStatus(sdkLB LoadBalancerWithTags) elbv2model.LoadBalan
 		LoadBalancerARN: awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
 		DNSName:         awssdk.StringValue(sdkLB.LoadBalancer.DNSName),
 	}
+}
+
+func (m *defaultLoadBalancerManager) SetAWSLoadBalancerGauge(resName string, resNamespace string, awsLoadBalancerName string, awsLoadBalancerType string, exists bool) {
+	labels := prometheus.Labels{
+		lbGaugeLabelK8sResourceName:      resName,
+		lbGaugeLabelK8sResourceNamespace: resNamespace,
+		lbGaugeLabelAWSLoadBalancerName:  awsLoadBalancerName,
+		lbGaugeLabelAWSLoadBalancerType:  awsLoadBalancerType,
+	}
+
+	g, err := m.awsLoadBalancerGauge.GetMetricWith(labels)
+	if err != nil {
+		m.logger.Error(err, "could not find metric")
+	}
+
+	value := float64(0)
+	if exists {
+		value = 1
+	}
+	g.Set(value)
+}
+
+func getNameFromTags(tags map[string]string) (string, string, error) {
+	stack, ok := tags["ingress.k8s.aws/stack"]
+	if ok {
+		parts := strings.Split(stack, "/")
+		if len(parts) != 2 {
+			return "", "", fmt.Errorf("could not parse value of ingress.k8s.aws/stack")
+		}
+		return parts[0], parts[1], nil
+	}
+	stack, ok = tags["service.k8s.aws/stack"]
+	if ok {
+		parts := strings.Split(stack, "/")
+		if len(parts) != 2 {
+			return "", "", fmt.Errorf("could not parse value of service.k8s.aws/stack")
+		}
+		return parts[0], parts[1], nil
+	}
+
+	return "", "", fmt.Errorf("could not find stack tag")
 }
