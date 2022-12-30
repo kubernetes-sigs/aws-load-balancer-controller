@@ -6,7 +6,7 @@ In this walkthrough, you'll
 - Deploy an aws-load-balancer-controller
 - Create deployments and ingress resources in the cluster
 - Verify access to the service
-- (Optional) Use [external-dns](https://github.com/kubernetes-incubator/external-dns) to create a DNS record pointing to the load balancer created by the aws-load-balancer-controller.
+- (Optional) Use [external-dns](https://github.com/kubernetes-sigs/external-dns) to create a DNS record pointing to the load balancer created by the aws-load-balancer-controller.
     - This assumes you have a route53 hosted zone available. Otherwise you can access the service using the load balancer DNS.
 
 ## Create the EKS cluster
