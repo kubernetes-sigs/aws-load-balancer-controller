@@ -30,8 +30,8 @@ type PodInfoRepo interface {
 
 // NewDefaultPodInfoRepo constructs new defaultPodInfoRepo.
 // * watchNamespace is the namespace to monitor pod spec.
-// 		* if watchNamespace is "", this repo monitors pods in all namespaces
-// 		* if watchNamespace is not "", this repo monitors pods in specific namespace
+//   - if watchNamespace is "", this repo monitors pods in all namespaces
+//   - if watchNamespace is not "", this repo monitors pods in specific namespace
 func NewDefaultPodInfoRepo(getter cache.Getter, watchNamespace string, logger logr.Logger) *defaultPodInfoRepo {
 	store := NewConversionStore(podInfoConversionFunc, podInfoKeyFunc)
 	lw := cache.NewListWatchFromClient(getter, resourceTypePods, watchNamespace, fields.Everything())

@@ -2,9 +2,10 @@ package utils
 
 import (
 	"fmt"
-	"github.com/gavv/httpexpect/v2"
+
+	httpexpectv2 "github.com/gavv/httpexpect/v2"
 	"github.com/go-logr/logr"
-	"github.com/onsi/ginkgo"
+	ginkgov2 "github.com/onsi/ginkgo/v2"
 	zapraw "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -12,7 +13,7 @@ import (
 
 type GinkgoLogger interface {
 	logr.Logger
-	httpexpect.LoggerReporter
+	httpexpectv2.LoggerReporter
 }
 
 var _ GinkgoLogger = &defaultGinkgoLogger{}
@@ -28,7 +29,7 @@ func (l *defaultGinkgoLogger) Logf(format string, args ...interface{}) {
 
 func (l *defaultGinkgoLogger) Errorf(format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
-	ginkgo.Fail(message)
+	ginkgov2.Fail(message)
 }
 
 // NewGinkgoLogger returns new logger with ginkgo backend.
@@ -37,7 +38,7 @@ func NewGinkgoLogger() GinkgoLogger {
 
 	logger := zap.New(zap.UseDevMode(false),
 		zap.Level(zapraw.InfoLevel),
-		zap.WriteTo(ginkgo.GinkgoWriter),
+		zap.WriteTo(ginkgov2.GinkgoWriter),
 		zap.Encoder(encoder))
 	return &defaultGinkgoLogger{Logger: logger}
 }

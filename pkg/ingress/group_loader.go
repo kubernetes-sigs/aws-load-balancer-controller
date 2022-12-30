@@ -3,21 +3,21 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"sort"
+	"strings"
+
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
-	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sort"
-	"strings"
 )
 
 const (
 	defaultGroupOrder  int64 = 0
-	minGroupOrder      int64 = 1
+	minGroupOrder      int64 = -1000
 	maxGroupOder       int64 = 1000
 	maxGroupNameLength int   = 63
 )
@@ -84,16 +84,16 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 
 	var members []ClassifiedIngress
 	var inactiveMembers []*networking.Ingress
-	finalizer := buildGroupFinalizer(groupID)
 	for index := range ingList.Items {
 		ing := &ingList.Items[index]
-		classifiedIngress, isGroupMember, err := m.isGroupMember(ctx, groupID, ing)
+		membershipType, classifiedIng, err := m.checkGroupMembershipType(ctx, groupID, ing)
 		if err != nil {
-			return Group{}, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing))
+			return Group{}, errors.Wrapf(err, "Ingress: %v", k8s.NamespacedName(ing))
 		}
-		if isGroupMember {
-			members = append(members, classifiedIngress)
-		} else if m.containsGroupFinalizer(groupID, finalizer, ing) {
+		switch membershipType {
+		case groupMembershipTypeActiveMember:
+			members = append(members, classifiedIng)
+		case groupMembershipTypeInactiveMember:
 			inactiveMembers = append(inactiveMembers, ing)
 		}
 	}
@@ -128,22 +128,47 @@ func (m *defaultGroupLoader) LoadGroupIDsPendingFinalization(_ context.Context, 
 	return groupIDs
 }
 
-// isGroupMember checks whether specified Ingress is member of specific IngressGroup.
-// If it's group member, a valid ClassifiedIngress will be returned as well.
-// NOTE: this function should only error out when it's not certain whether the specified ingress is group member. (e.g. due to APIServer failures).
-func (m *defaultGroupLoader) isGroupMember(ctx context.Context, groupID GroupID, ing *networking.Ingress) (ClassifiedIngress, bool, error) {
-	classifiedIngress, ingGroupID, err := m.loadGroupIDIfAnyHelper(ctx, ing)
+type groupMembershipType int
+
+const (
+	groupMembershipTypeNone = iota
+	groupMembershipTypeActiveMember
+	groupMembershipTypeInactiveMember
+)
+
+// checkGroupMembership checks whether specified Ingress is members of specific IngressGroup.
+// If it's active group member, a valid ClassifiedIngress will be returned as well.
+func (m *defaultGroupLoader) checkGroupMembershipType(ctx context.Context, groupID GroupID, ing *networking.Ingress) (groupMembershipType, ClassifiedIngress, error) {
+	groupFinalizer := buildGroupFinalizer(groupID)
+	hasGroupFinalizer := m.containsGroupFinalizer(groupID, groupFinalizer, ing)
+	classifiedIng, ingGroupID, err := m.loadGroupIDIfAnyHelper(ctx, ing)
 	if err != nil {
-		if errors.Is(err, ErrInvalidIngressClass) || errors.Is(err, errInvalidIngressGroup) {
-			return ClassifiedIngress{}, false, nil
+		// tolerate ErrInvalidIngressClass for Ingresses that hasn't belongs to the group yet.
+		// for Ingresses that was belongs to the group, we error out to avoid remove the Ingress from IngressGroup since the IngressClass might be accidentally modified.
+		// see https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2731
+		if errors.Is(err, ErrInvalidIngressClass) {
+			if hasGroupFinalizer {
+				return groupMembershipTypeNone, ClassifiedIngress{}, errors.Wrapf(err, "Ingress has invalid IngressClass configuration")
+			}
+			return groupMembershipTypeNone, ClassifiedIngress{}, nil
 		}
-		return ClassifiedIngress{}, false, err
+
+		// tolerate errInvalidIngressGroup error since an Ingress with a wrong IngressGroup name means to leave the IngressGroup anyway.
+		if errors.Is(err, errInvalidIngressGroup) {
+			if hasGroupFinalizer {
+				return groupMembershipTypeInactiveMember, ClassifiedIngress{}, nil
+			}
+			return groupMembershipTypeNone, ClassifiedIngress{}, nil
+		}
+		return groupMembershipTypeNone, ClassifiedIngress{}, err
 	}
-	if ingGroupID == nil {
-		return ClassifiedIngress{}, false, nil
+
+	if ingGroupID != nil && *ingGroupID == groupID {
+		return groupMembershipTypeActiveMember, classifiedIng, nil
+	} else if hasGroupFinalizer {
+		return groupMembershipTypeInactiveMember, ClassifiedIngress{}, nil
 	}
-	groupIDMatches := groupID == *ingGroupID
-	return classifiedIngress, groupIDMatches, nil
+	return groupMembershipTypeNone, ClassifiedIngress{}, nil
 }
 
 // loadGroupIDIfAnyHelper loads the groupID for Ingress if Ingress belong to any IngressGroup, along with the ClassifiedIngress object.
@@ -251,7 +276,7 @@ type groupMemberWithOrder struct {
 
 // sortGroupMembers will sort Ingresses within Ingress group in ascending order.
 // the order for an ingress can be set as below:
-// * explicit denote the order via "group.order" annotation.(It's an error if two Ingress have same explicit order)
+// * explicit denote the order via "group.order" annotation.
 // * implicit denote the order of ${defaultGroupOrder}.
 // If two Ingress are of same order, they are sorted by lexical order of their full-qualified name.
 func (m *defaultGroupLoader) sortGroupMembers(members []ClassifiedIngress) ([]ClassifiedIngress, error) {
@@ -260,7 +285,6 @@ func (m *defaultGroupLoader) sortGroupMembers(members []ClassifiedIngress) ([]Cl
 	}
 
 	groupMemberWithOrderList := make([]groupMemberWithOrder, 0, len(members))
-	explicitOrders := sets.NewInt64()
 	for _, member := range members {
 		var order = defaultGroupOrder
 		exists, err := m.annotationParser.ParseInt64Annotation(annotations.IngressSuffixGroupOrder, &order, member.Ing.Annotations)
@@ -272,10 +296,6 @@ func (m *defaultGroupLoader) sortGroupMembers(members []ClassifiedIngress) ([]Cl
 				return nil, errors.Errorf("explicit Ingress group order must be within [%v:%v], Ingress: %v, order: %v",
 					minGroupOrder, maxGroupOder, k8s.NamespacedName(member.Ing), order)
 			}
-			if explicitOrders.Has(order) {
-				return nil, errors.Errorf("conflict Ingress group order: %v", order)
-			}
-			explicitOrders.Insert(order)
 		}
 
 		groupMemberWithOrderList = append(groupMemberWithOrderList, groupMemberWithOrder{member: member, order: order})

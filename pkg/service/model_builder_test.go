@@ -101,6 +101,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		resolveViaNameOrIDSliceCalls []resolveViaNameOrIDSliceCall
 		listLoadBalancerCalls        []listLoadBalancerCall
 		fetchVPCInfoCalls            []fetchVPCInfoCall
+		enableIPTargetType           *bool
 		svc                          *corev1.Service
 		wantError                    bool
 		wantValue                    string
@@ -189,6 +190,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -333,6 +335,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -517,6 +520,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -540,6 +544,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -851,6 +856,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -874,6 +880,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -1179,6 +1186,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port": "traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -1201,6 +1209,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -1447,8 +1456,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-				"path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":6,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -1470,8 +1480,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-				"path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":6,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2
              },
@@ -1728,6 +1739,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -1940,7 +1952,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "unhealthyThresholdCount": 3,
             "protocol": "TCP",
             "port": "traffic-port",
-            "intervalSeconds": 10
+            "intervalSeconds": 10,
+            "timeoutSeconds":10
           },
           "targetGroupAttributes": [
             {
@@ -1959,6 +1972,36 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
   }
 }
 `,
+		},
+		{
+			testName:           "service with enableIPTargetType set to false and type IP",
+			enableIPTargetType: aws.Bool(false),
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "traffic-local",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:       corev1.ServiceTypeLoadBalancer,
+					Selector:   map[string]string{"app": "hello"},
+					IPFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   32332,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			wantError:                true,
 		},
 		{
 			testName: "list load balancers error",
@@ -2179,6 +2222,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
+            "timeoutSeconds":10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -2324,6 +2368,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
+            "timeoutSeconds":10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -2520,6 +2565,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
+            "timeoutSeconds":10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -2662,6 +2708,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -2733,8 +2780,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
 			}
 			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates)
-			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", serviceUtils)
+			var enableIPTargetType bool
+			if tt.enableIPTargetType == nil {
+				enableIPTargetType = true
+			} else {
+				enableIPTargetType = *tt.enableIPTargetType
+			}
+			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, featureGates,
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", enableIPTargetType, serviceUtils)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

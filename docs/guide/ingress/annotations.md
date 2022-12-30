@@ -61,22 +61,22 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
 The controller will automatically merge Ingress rules for all Ingresses within IngressGroup and support them with a single ALB.
-In addition, most annotations defined on a Ingress only applies to the paths defined by that Ingress.
+In addition, most annotations defined on an Ingress only apply to the paths defined by that Ingress.
 
-By default, Ingresses don't belong to any IngressGroup, and we treat it as a "implicit IngressGroup" consisted of the Ingress itself.
+By default, Ingresses don't belong to any IngressGroup, and we treat it as a "implicit IngressGroup" consisting of the Ingress itself.
 
 - <a name="group.name">`alb.ingress.kubernetes.io/group.name`</a> specifies the group name that this Ingress belongs to.
 
     !!!note ""
-        - Ingresses with same `group.name` annotation will form as a "explicit IngressGroup".
+        - Ingresses with same `group.name` annotation will form an "explicit IngressGroup".
         - groupName must consist of lower case alphanumeric characters, `-` or `.`, and must start and end with an alphanumeric character.
         - groupName must be no more than 63 character.
 
     !!!warning "Security Risk"
         IngressGroup feature should only be used when all Kubernetes users with RBAC permission to create/modify Ingress resources are within trust boundary.
-        
+
         If you turn your Ingress to belong a "explicit IngressGroup" by adding `group.name` annotation,
-        other Kubernetes user may create/modify their Ingresses to belong same IngressGroup, thus can add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.
+        other Kubernetes users may create/modify their Ingresses to belong to the same IngressGroup, and can thus add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.
 
         We'll add more fine-grained access-control in future versions.
 
@@ -86,14 +86,11 @@ By default, Ingresses don't belong to any IngressGroup, and we treat it as a "im
         ```
 
 - <a name="group.order">`alb.ingress.kubernetes.io/group.order`</a> specifies the order across all Ingresses within IngressGroup.
-    
-    !!!note ""
-        - You can explicitly denote the order using a number between 1-1000
-        - The smaller the order, the rule will be evaluated first. All Ingresses without explicit order setting get order value as 0
-        - By default the rule order between Ingresses within IngressGroup are determined by the lexical order of Ingress’s namespace/name.
 
-    !!!warning "" 
-        You may not have duplicate group order explicitly defined for Ingresses within IngressGroup.
+    !!!note ""
+        - You can explicitly denote the order using a number between -1000 and 1000
+        - The smaller the order, the rule will be evaluated first. All Ingresses without an explicit order setting get order value as 0
+        - Rules with the same order are sorted lexicographically by the Ingress’s namespace/name.
 
     !!!example
         ```
@@ -101,36 +98,36 @@ By default, Ingresses don't belong to any IngressGroup, and we treat it as a "im
         ```
 
 ## Traffic Listening
-Traffic Listening can be controlled with following annotations:
+Traffic Listening can be controlled with the following annotations:
 
-- <a name="listen-ports">`alb.ingress.kubernetes.io/listen-ports`</a> specifies the ports that ALB used to listen on.
-    
+- <a name="listen-ports">`alb.ingress.kubernetes.io/listen-ports`</a> specifies the ports that ALB listens on.
+
     !!!note "Merge Behavior"
         `listen-ports` is merged across all Ingresses in IngressGroup.
-            
+
         - You can define different listen-ports per Ingress, Ingress rules will only impact the ports defined for that Ingress.
         - If same listen-port is defined by multiple Ingress within IngressGroup, Ingress rules will be merged with respect to their group order within IngressGroup.
 
     !!!note "Default"
-        - defaults to `'[{"HTTP": 80}]'` or `'[{"HTTPS": 443}]'` depends on whether `certificate-arn` is specified.
+        - defaults to `'[{"HTTP": 80}]'` or `'[{"HTTPS": 443}]'` depending on whether `certificate-arn` is specified.
 
-    !!!warning "" 
+    !!!warning ""
         You may not have duplicate load balancer ports defined.
-    
+
     !!!example
         ```
         alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}, {"HTTP": 8080}, {"HTTPS": 8443}]'
         ```
-  
+
 - <a name="ssl-redirect">`alb.ingress.kubernetes.io/ssl-redirect`</a> enables SSLRedirect and specifies the SSL port that redirects to.
-  
+
     !!!note "Merge Behavior"
         `ssl-redirect` is exclusive across all Ingresses in IngressGroup.
 
         - Once defined on a single Ingress, it impacts every Ingress within IngressGroup.
 
     !!!note ""
-        - Once enabled SSLRedirect, every HTTP listener will be configured with default action which redirects to HTTPS, other rules will be ignored.
+        - Once enabled SSLRedirect, every HTTP listener will be configured with a default action which redirects to HTTPS, other rules will be ignored.
         - The SSL port that redirects to must exists on LoadBalancer. See [alb.ingress.kubernetes.io/listen-ports](#listen-ports) for the listen ports configuration.
 
     !!!example
@@ -146,7 +143,7 @@ Traffic Listening can be controlled with following annotations:
         ```
 
 - <a name="customer-owned-ipv4-pool">`alb.ingress.kubernetes.io/customer-owned-ipv4-pool`</a> specifies the customer-owned IPv4 address pool for ALB on Outpost.
-    
+
     !!!warning ""
         This annotation should be treated as immutable. To remove or change coIPv4Pool, you need to recreate Ingress.
 
@@ -159,6 +156,7 @@ Traffic Listening can be controlled with following annotations:
 Traffic Routing can be controlled with following annotations:
 
 - <a name="load-balancer-name">`alb.ingress.kubernetes.io/load-balancer-name`</a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be treated as an error.
+
     !!!note "Merge Behavior"
         `name` is exclusive across all Ingresses in an IngressGroup.
 
@@ -184,13 +182,14 @@ Traffic Routing can be controlled with following annotations:
             - [amazon-vpc-cni-k8s](https://github.com/aws/amazon-vpc-cni-k8s)
 
         !!!note ""
-            `ip` mode is required for sticky sessions to work with Application Load Balancers.
+            `ip` mode is required for sticky sessions to work with Application Load Balancers. The Service type does not matter, when using `ip` mode.
 
     !!!example
         ```
         alb.ingress.kubernetes.io/target-type: instance
         ```
--<a name="target-node-labels">`alb.ingress.kubernetes.io/target-node-labels`</a> specifies which nodes to include in the target group registration for `instance` target type.
+
+- <a name="target-node-labels">`alb.ingress.kubernetes.io/target-node-labels`</a> specifies which nodes to include in the target group registration for `instance` target type.
 
     !!!example
         ```
@@ -204,7 +203,7 @@ Traffic Routing can be controlled with following annotations:
         alb.ingress.kubernetes.io/backend-protocol: HTTPS
         ```
 
-- <a name="backend-protocol-version">`alb.ingress.kubernetes.io/backend-protocol-version`</a> specifies the application protocol used to route traffic to pods. Only valid when HTTP or HTTPS is used as the backend protocol. 
+- <a name="backend-protocol-version">`alb.ingress.kubernetes.io/backend-protocol-version`</a> specifies the application protocol used to route traffic to pods. Only valid when HTTP or HTTPS is used as the backend protocol.
 
     !!!example
         - HTTP2
@@ -216,13 +215,13 @@ Traffic Routing can be controlled with following annotations:
             alb.ingress.kubernetes.io/backend-protocol-version: GRPC
             ```
 
-- <a name="subnets">`alb.ingress.kubernetes.io/subnets`</a> specifies the [Availability Zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html) that ALB will route traffic to. See [Load Balancer subnets](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html) for more details.
+- <a name="subnets">`alb.ingress.kubernetes.io/subnets`</a> specifies the [Availability Zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)s that the ALB will route traffic to. See [Load Balancer subnets](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html) for more details.
 
     !!!note ""
-        You must specify at least two subnets in different AZ. both subnetID or subnetName(Name tag on subnets) can be used.
+        You must specify at least two subnets in different AZs. Either subnetID or subnetName(Name tag on subnets) can be used.
 
     !!!tip
-        You can enable subnet auto discovery to avoid specify this annotation on every Ingress. See [Subnet Discovery](../../deploy/subnet_discovery.md) for instructions.
+        You can enable subnet auto discovery to avoid specifying this annotation on every Ingress. See [Subnet Discovery](../../deploy/subnet_discovery.md) for instructions.
 
     !!!example
         ```
@@ -237,7 +236,7 @@ Traffic Routing can be controlled with following annotations:
         ARN can be used in forward action(both simplified schema and advanced schema), it must be an targetGroup created outside of k8s, typically an targetGroup for legacy application.
     !!!note "use ServiceName/ServicePort in forward Action"
         ServiceName/ServicePort can be used in forward action(advanced schema only).
-    
+
     !!!warning ""
         [Auth related annotations](#authentication) on Service object will only be respected if a single TargetGroup in is used.
 
@@ -298,24 +297,24 @@ Traffic Routing can be controlled with following annotations:
                           name: use-annotation
         ```
 
-- <a name="conditions">`alb.ingress.kubernetes.io/conditions.${conditions-name}`</a> Provides a method for specifying routing conditions **in addition to original host/path condition on Ingress spec**. 
-    
-    The `conditions-name` in the annotation must match the serviceName in the Ingress rules. 
+- <a name="conditions">`alb.ingress.kubernetes.io/conditions.${conditions-name}`</a> Provides a method for specifying routing conditions **in addition to original host/path condition on Ingress spec**.
+
+    The `conditions-name` in the annotation must match the serviceName in the Ingress rules.
     It can be a either real serviceName or an annotation based action name when servicePort is `use-annotation`.
-    
+
     !!!warning "limitations"
         General ALB limitations applies:
 
         1. Each rule can optionally include up to one of each of the following conditions: host-header, http-request-method, path-pattern, and source-ip. Each rule can also optionally include one or more of each of the following conditions: http-header and query-string.
-            
+
         2. You can specify up to three match evaluations per condition.
-            
+
         3. You can specify up to five match evaluations per rule.
-        
+
         Refer [ALB documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#rule-condition-types) for more details.
 
     !!!example
-        - rule-path1: 
+        - rule-path1:
             - Host is www.example.com OR anno.example.com
             - Path is /path1
         - rule-path2:
@@ -437,6 +436,58 @@ Traffic Routing can be controlled with following annotations:
                           name: use-annotation
         ```
 
+    !!!note 
+        If you are using `alb.ingress.kubernetes.io/target-group-attributes` with `stickiness.enabled=true`, you should add `TargetGroupStickinessConfig` under `alb.ingress.kubernetes.io/actions.weighted-routing`
+        
+    !!!example
+
+        ```yaml
+            apiVersion: networking.k8s.io/v1
+            kind: Ingress
+            metadata:
+            namespace: default
+            name: ingress
+            annotations:
+                alb.ingress.kubernetes.io/scheme: internet-facing
+                alb.ingress.kubernetes.io/target-type: ip
+                alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60
+                alb.ingress.kubernetes.io/actions.weighted-routing: |
+                {
+                    "type":"forward",
+                    "forwardConfig":{
+                    "targetGroups":[
+                        {
+                        "serviceName":"service-1",
+                        "servicePort":"80",
+                        "weight":50
+                        },
+                        {
+                        "serviceName":"service-2",
+                        "servicePort":"80",
+                        "weight":50
+                        }
+                    ],
+                    "TargetGroupStickinessConfig": {
+                        "Enabled": true,
+                        "DurationSeconds": 120
+                    }
+                    }
+                }
+            spec:
+            ingressClassName: alb
+            rules:
+                - host: www.example.com
+                http:
+                    paths:
+                    - path: /
+                        pathType: Prefix
+                        backend:
+                        service:
+                            name: weighted-routing
+                            port:
+                            name: use-annotation
+        ```
+
 ## Access control
 Access control for LoadBalancer can be controlled with following annotations:
 
@@ -456,7 +507,7 @@ Access control for LoadBalancer can be controlled with following annotations:
         - if same listen-port is defined by multiple Ingress within IngressGroup, inbound-cidrs should only be defined on one of the Ingress.
 
     !!!note "Default"
-        
+
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"
         - `0.0.0.0/0` and `::/0` will be used if the IPAddressType is "dualstack"
 
@@ -507,7 +558,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
         ```
         alb.ingress.kubernetes.io/auth-type: cognito
         ```
-        
+
 - <a name="auth-idp-cognito">`alb.ingress.kubernetes.io/auth-idp-cognito`</a> specifies the cognito idp configuration.
 
     !!!tip ""
@@ -519,7 +570,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
         ```
 
 - <a name="auth-idp-oidc">`alb.ingress.kubernetes.io/auth-idp-oidc`</a> specifies the oidc idp configuration.
-    
+
     !!!tip ""
         You need to create an [secret](https://kubernetes.io/docs/concepts/configuration/secret/) within the same namespace as Ingress to hold your OIDC clientID and clientSecret. The format of secret is as below:
         ```yaml
@@ -539,12 +590,12 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
         ```
 
 - <a name="auth-on-unauthenticated-request">`alb.ingress.kubernetes.io/auth-on-unauthenticated-request`</a> specifies the behavior if the user is not authenticated.
-	
+
 	!!!info "options:"
         * **authenticate**: try authenticate with configured IDP.
         * **deny**: return an HTTP 401 Unauthorized error.
         * **allow**: allow the request to be forwarded to the target.
-    
+
     !!!example
         ```
         alb.ingress.kubernetes.io/auth-on-unauthenticated-request: authenticate
@@ -558,7 +609,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
 	    * **profile**
 	    * **openid**
 	    * **aws.cognito.signin.user.admin**
-	
+
     !!!example
         ```
         alb.ingress.kubernetes.io/auth-scope: 'email openid'
@@ -570,7 +621,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
         ```
         alb.ingress.kubernetes.io/auth-session-cookie: custom-cookie
         ```
-        
+
 - <a name="auth-session-timeout">`alb.ingress.kubernetes.io/auth-session-timeout`</a> specifies the maximum duration of the authentication session, in seconds
 
     !!!example
@@ -584,7 +635,8 @@ Health check on target groups can be controlled with following annotations:
 - <a name="healthcheck-protocol">`alb.ingress.kubernetes.io/healthcheck-protocol`</a> specifies the protocol used when performing health check on targets.
 
     !!!example
-        ```alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
+        ```
+        alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
         ```
 
 - <a name="healthcheck-port">`alb.ingress.kubernetes.io/healthcheck-port`</a> specifies the port used when performing health check on targets.
@@ -632,7 +684,7 @@ Health check on target groups can be controlled with following annotations:
         alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '8'
         ```
 
-- <a name="success-codes">`alb.ingress.kubernetes.io/success-codes`</a> specifies the HTTP status code that should be expected when doing health checks against the specified health check path.
+- <a name="success-codes">`alb.ingress.kubernetes.io/success-codes`</a> specifies the HTTP or gRPC status code that should be expected when doing health checks against the specified health check path.
 
     !!!example
         - use single value
@@ -646,6 +698,18 @@ Health check on target groups can be controlled with following annotations:
         - use range of value
             ```
             alb.ingress.kubernetes.io/success-codes: 200-300
+            ```
+        - use gRPC single value
+            ```
+            alb.ingress.kubernetes.io/success-codes: '0'
+            ```
+        - use gRPC multiple value
+            ```
+            alb.ingress.kubernetes.io/success-codes: 0,1
+            ```
+        - use gRPC range of value
+            ```
+            alb.ingress.kubernetes.io/success-codes: 0-5
             ```
 
 - <a name="healthy-threshold-count">`alb.ingress.kubernetes.io/healthy-threshold-count`</a> specifies the consecutive health checks successes required before considering an unhealthy target healthy.
@@ -669,7 +733,7 @@ SSL support can be controlled with following annotations:
     !!!tip ""
         The first certificate in the list will be added as default certificate. And remaining certificate will be added to the optional certificate list.
         See [SSL Certificates](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#https-listener-certificates) for more details.
-   
+
     !!!tip "Certificate Discovery"
         TLS certificates for ALB Listeners can be automatically discovered with hostnames from Ingress resources. See [Certificate Discovery](cert_discovery.md) for instructions.
 
@@ -682,7 +746,7 @@ SSL support can be controlled with following annotations:
             ```
             alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3
             ```
-        
+
 - <a name="ssl-policy">`alb.ingress.kubernetes.io/ssl-policy`</a> specifies the [Security Policy](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#describe-ssl-policies) that should be assigned to the ALB, allowing you to control the protocol and ciphers.
 
     !!!example
@@ -701,7 +765,7 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
     !!!note ""
         - If `deletion_protection.enabled=true` is in annotation, the controller will not be able to delete the ALB during reconciliation. Once the attribute gets edited to `deletion_protection.enabled=false` during reconciliation, the deployer will force delete the resource.
         - Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.
-    
+
     !!!example
         - enable access log to s3
             ```
@@ -755,7 +819,7 @@ The AWS Load Balancer Controller automatically applies following tags to the AWS
 In addition, you can use annotations to specify additional tags
 
 - <a name="tags">`alb.ingress.kubernetes.io/tags`</a> specifies additional tags that will be applied to AWS resources created.
-  In case of target group, the controller will merge the tags from the ingress and the backend service giving precedence 
+  In case of target group, the controller will merge the tags from the ingress and the backend service giving precedence
   to the values specified on the service when there is conflict.
 
     !!!example
@@ -764,7 +828,7 @@ In addition, you can use annotations to specify additional tags
         ```
 
 ## Addons
-- <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amzon WAF web ACL.
+- <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amazon WAF web ACL.
 
     !!!warning ""
         Only Regional WAF is supported.
@@ -790,3 +854,4 @@ In addition, you can use annotations to specify additional tags
     !!!example
         ```alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
         ```
+

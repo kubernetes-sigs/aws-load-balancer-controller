@@ -31,4 +31,6 @@ In version v2.1.1 and older, both the public and private subnets must be tagged 
 
  `${cluster-name}` is the name of the kubernetes cluster
  
- The cluster tag is not required in v2.1.2 and newer releases, unless a cluster tag for another cluster is present.
+The cluster tag is not required in versions from v2.1.2 to v2.4.1, unless a cluster tag for another cluster is present.
+
+Starting from v2.4.2 release, you can disable the cluster tag check completely by specifying the feature gate `SubnetsClusterTagCheck=false`

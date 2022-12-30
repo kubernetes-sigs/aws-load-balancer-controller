@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -113,6 +114,13 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 	if err != nil {
 		return nil, err
 	}
+	var healthCheckTimeoutSeconds *int64
+	if t.featureGates.Enabled(config.NLBHealthCheckTimeout) {
+		healthCheckTimeoutSeconds, err = t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeout)
+		if err != nil {
+			return nil, err
+		}
+	}
 	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThreshold)
 	if err != nil {
 		return nil, err
@@ -126,6 +134,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 		Protocol:                &healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
 		IntervalSeconds:         &intervalSeconds,
+		TimeoutSeconds:          healthCheckTimeoutSeconds,
 		HealthyThresholdCount:   &healthyThresholdCount,
 		UnhealthyThresholdCount: &unhealthyThresholdCount,
 	}, nil
@@ -148,6 +157,13 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 	if err != nil {
 		return nil, err
 	}
+	var healthCheckTimeoutSeconds *int64
+	if t.featureGates.Enabled(config.NLBHealthCheckTimeout) {
+		healthCheckTimeoutSeconds, err = t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeoutForInstanceModeLocal)
+		if err != nil {
+			return nil, err
+		}
+	}
 	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThresholdForInstanceModeLocal)
 	if err != nil {
 		return nil, err
@@ -161,6 +177,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 		Protocol:                &healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
 		IntervalSeconds:         &intervalSeconds,
+		TimeoutSeconds:          healthCheckTimeoutSeconds,
 		HealthyThresholdCount:   &healthyThresholdCount,
 		UnhealthyThresholdCount: &unhealthyThresholdCount,
 	}, nil
@@ -308,12 +325,12 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ con
 	return intervalSeconds, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int64) (int64, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int64) (*int64, error) {
 	timeoutSeconds := defaultHealthCheckTimeout
 	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
-		return 0, err
+		return nil, err
 	}
-	return timeoutSeconds, nil
+	return &timeoutSeconds, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount(_ context.Context, defaultHealthCheckHealthyThreshold int64) (int64, error) {
@@ -339,6 +356,9 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context, port corev1.S
 	var lbTargetType string
 	lbTargetType = string(t.defaultTargetType)
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, t.service.Annotations)
+	if lbTargetType == LoadBalancerTargetTypeIP && !t.enableIPTargetType {
+		return "", errors.Errorf("unsupported targetType: %v when EnableIPTargetType is %v", lbTargetType, t.enableIPTargetType)
+	}
 	if lbType == LoadBalancerTypeNLBIP || lbTargetType == LoadBalancerTargetTypeIP {
 		return elbv2model.TargetTypeIP, nil
 	}

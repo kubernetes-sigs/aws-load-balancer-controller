@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -38,9 +39,9 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	ec2Client services.EC2, acmClient services.ACM,
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
-	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager,
+	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
-	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
+	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, disableRestrictedSGRules bool, enableIPTargetType bool, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
@@ -58,11 +59,13 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		ruleOptimizer:            ruleOptimizer,
 		trackingProvider:         trackingProvider,
 		elbv2TaggingManager:      elbv2TaggingManager,
+		featureGates:             featureGates,
 		defaultTags:              defaultTags,
 		externalManagedTags:      sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:         defaultSSLPolicy,
 		enableBackendSG:          enableBackendSG,
 		disableRestrictedSGRules: disableRestrictedSGRules,
+		enableIPTargetType:       enableIPTargetType,
 		logger:                   logger,
 	}
 }
@@ -87,11 +90,13 @@ type defaultModelBuilder struct {
 	ruleOptimizer            RuleOptimizer
 	trackingProvider         tracking.Provider
 	elbv2TaggingManager      elbv2deploy.TaggingManager
+	featureGates             config.FeatureGates
 	defaultTags              map[string]string
 	externalManagedTags      sets.String
 	defaultSSLPolicy         string
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
+	enableIPTargetType       bool
 
 	logger logr.Logger
 }
@@ -113,10 +118,12 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		ruleOptimizer:            b.ruleOptimizer,
 		trackingProvider:         b.trackingProvider,
 		elbv2TaggingManager:      b.elbv2TaggingManager,
+		featureGates:             b.featureGates,
 		backendSGProvider:        b.backendSGProvider,
 		logger:                   b.logger,
 		enableBackendSG:          b.enableBackendSG,
 		disableRestrictedSGRules: b.disableRestrictedSGRules,
+		enableIPTargetType:       b.enableIPTargetType,
 
 		ingGroup: ingGroup,
 		stack:    stack,
@@ -164,6 +171,7 @@ type defaultModelBuildTask struct {
 	ruleOptimizer          RuleOptimizer
 	trackingProvider       tracking.Provider
 	elbv2TaggingManager    elbv2deploy.TaggingManager
+	featureGates           config.FeatureGates
 	logger                 logr.Logger
 
 	ingGroup                 Group
@@ -172,6 +180,7 @@ type defaultModelBuildTask struct {
 	backendSGIDToken         core.StringToken
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
+	enableIPTargetType       bool
 
 	defaultTags                               map[string]string
 	externalManagedTags                       sets.String

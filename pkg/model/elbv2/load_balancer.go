@@ -102,6 +102,9 @@ type SubnetMapping struct {
 	// [Network Load Balancers] The private IPv4 address for an internal load balancer.
 	PrivateIPv4Address *string `json:"privateIPv4Address,omitempty"`
 
+	// [Network Load Balancers] The IPv6 address.
+	IPv6Address *string `json:"ipv6Address,omitempty"`
+
 	// The ID of the subnet.
 	SubnetID string `json:"subnetID"`
 }

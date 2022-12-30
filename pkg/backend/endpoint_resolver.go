@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -165,7 +166,7 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 					return nil, false, err
 				}
 				if !exists {
-					r.logger.Error(err, "ignore pod Endpoint without non-exist podInfo", "podKey", podKey.String())
+					r.logger.Info("ignore pod Endpoint with non-existent podInfo", "podKey", podKey.String())
 					continue
 				}
 				podEndpoint := buildPodEndpoint(pod, epAddr, epPort)

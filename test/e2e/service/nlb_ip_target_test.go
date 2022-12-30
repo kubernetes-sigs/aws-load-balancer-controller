@@ -2,7 +2,8 @@ package service
 
 import (
 	"context"
-	. "github.com/onsi/ginkgo"
+
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -74,13 +75,17 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 			svc *corev1.Service
 		)
 		BeforeEach(func() {
+			annotation := map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
+				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
 			svc = &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: name,
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
-						"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
-					},
+					Name:        name,
+					Annotations: annotation,
 				},
 				Spec: corev1.ServiceSpec{
 					Type:     corev1.ServiceTypeLoadBalancer,
@@ -189,14 +194,18 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 			svc *corev1.Service
 		)
 		BeforeEach(func() {
+			annotation := map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-type":     "nlb-ip",
+				"service.beta.kubernetes.io/aws-load-balancer-scheme":   "internet-facing",
+				"service.beta.kubernetes.io/aws-load-balancer-ssl-cert": tf.Options.CertificateARNs,
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
 			svc = &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: name + "-tls",
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":     "nlb-ip",
-						"service.beta.kubernetes.io/aws-load-balancer-scheme":   "internet-facing",
-						"service.beta.kubernetes.io/aws-load-balancer-ssl-cert": tf.Options.CertificateARNs,
-					},
+					Name:        name + "-tls",
+					Annotations: annotation,
 				},
 				Spec: corev1.ServiceSpec{
 					Type:     corev1.ServiceTypeLoadBalancer,
@@ -308,16 +317,20 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 			svc    *corev1.Service
 			lbName string
 		)
+		lbName = utils.RandomDNS1123Label(20)
 		BeforeEach(func() {
-			lbName = utils.RandomDNS1123Label(20)
+			annotation := map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-name":   lbName,
+				"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
+				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
 			svc = &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: name,
-					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-name":   lbName,
-						"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
-						"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
-					},
+					Name:        name,
+					Annotations: annotation,
 				},
 				Spec: corev1.ServiceSpec{
 					Type:     corev1.ServiceTypeLoadBalancer,

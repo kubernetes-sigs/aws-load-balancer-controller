@@ -51,6 +51,9 @@ helm.sh/chart: {{ include "aws-load-balancer-controller.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- if .Values.additionalLabels }}
+{{ toYaml .Values.additionalLabels }}
+{{- end -}}
 {{- end -}}
 
 {{/*
@@ -102,7 +105,7 @@ caCert: {{ index $secret.data "ca.crt" }}
 clientCert: {{ index $secret.data "tls.crt" }}
 clientKey: {{ index $secret.data "tls.key" }}
 {{- else -}}
-{{- $altNames := list (printf "%s.%s" $serviceName .Release.Namespace) (printf "%s.%s.svc" $serviceName .Release.Namespace) (printf "%s.%s.svc.cluster.local" $serviceName .Release.Namespace) -}}
+{{- $altNames := list (printf "%s.%s" $serviceName .Release.Namespace) (printf "%s.%s.svc" $serviceName .Release.Namespace) (printf "%s.%s.svc.%s" $serviceName .Release.Namespace .Values.cluster.dnsDomain) -}}
 {{- $ca := genCA "aws-load-balancer-controller-ca" 3650 -}}
 {{- $cert := genSignedCert (include "aws-load-balancer-controller.fullname" .) nil $altNames 3650 $ca -}}
 caCert: {{ $ca.Cert | b64enc }}

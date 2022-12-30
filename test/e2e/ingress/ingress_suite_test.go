@@ -3,7 +3,7 @@ package ingress
 import (
 	"testing"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	framework "sigs.k8s.io/aws-load-balancer-controller/test/framework"
 )

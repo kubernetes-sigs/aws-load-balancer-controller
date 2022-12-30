@@ -2,7 +2,7 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= amazon/aws-alb-ingress-controller:v2.4.1
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.5
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
@@ -32,21 +32,25 @@ run: generate fmt vet manifests
 
 # Install CRDs into a cluster
 install: manifests
-	kustomize build config/crd | kubectl apply -f -
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from a cluster
 uninstall: manifests
-	kustomize build config/crd | kubectl delete -f -
+	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests
-	cd config/controller && kustomize edit set image controller=${IMG}
-	kustomize build config/default | kubectl apply -f -
+	cd config/controller && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
+manifests: controller-gen kustomize
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=controller-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	yq eval '.metadata.name = "webhook"' -i config/webhook/manifests.yaml
+
+crds: manifests
+	$(KUSTOMIZE) build config/crd > helm/aws-load-balancer-controller/crds/crds.yaml
+
 
 # Run go fmt against code
 fmt:
@@ -95,6 +99,22 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
+# install kustomize if not found
+kustomize:
+ifeq (, $(shell which kustomize))
+	@{ \
+	set -e ;\
+	KUSTOMIZE_TMP_DIR=$$(mktemp -d) ;\
+	cd $$KUSTOMIZE_TMP_DIR ;\
+	go mod init tmp ;\
+	GO111MODULE=on go get sigs.k8s.io/kustomize/kustomize/v3 ;\
+	rm -rf $$KUSTOMIZE_TMP_DIR ;\
+	}
+KUSTOMIZE=$(GOBIN)/kustomize
+else
+KUSTOMIZE=$(shell which kustomize)
+endif
+
 # preview docs
 docs-preview: docs-dependencies
 	pipenv run mkdocs serve
@@ -109,6 +129,14 @@ docs-dependencies:
 
 lint:
 	echo "TODO"
+
+.PHONY: quick-ci
+quick-ci: verify-versions
+	echo "Done!"
+
+.PHONY: verify-versions
+verify-versions:
+	hack/verify-versions.sh
 
 unit-test:
 	./scripts/ci_unit_test.sh

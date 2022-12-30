@@ -80,13 +80,15 @@ kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/
 
 If you are setting `enableCertManager: true` you need to have installed cert-manager and it's CRDs before installing this chart; to install [cert-manager](https://artifacthub.io/packages/helm/cert-manager/cert-manager) follow the installation guide.
 
+Set `cluster.dnsDomain` (default: `cluster.local`) to the actual DNS domain of your cluster to include the FQDN in requested TLS certificates.
+
 #### Installing the Prometheus Operator
 
 If you are setting `serviceMonitor.enabled: true` you need to have installed the Prometheus Operator ServiceMonitor CRD before installing this chart and have the operator running to collect the metrics. The easiest way to do this is to install the [kube-prometheus-stack](https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack) Helm chart using the installation guide.
 
 ## Installing the Chart
 **Note**: You need to uninstall aws-alb-ingress-controller. Please refer to the [upgrade](#Upgrade) section below before you proceed.
-**Note**: Starting chart version 1.4.1, you need to explicitly set clusterSecretsPermissions.allowAllSecrets to true to grant the controller permission to access all secrets for OIDC feature. We recommend configuring access to individual secrets resource separately [[link](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/examples/secrets_access/)].
+**Note**: Starting chart version 1.4.1, you need to explicitly set `clusterSecretsPermissions.allowAllSecrets` to true to grant the controller permission to access all secrets for OIDC feature. We recommend configuring access to individual secrets resource separately [[link](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/examples/secrets_access/)].
 
 Add the EKS repository to Helm:
 ```shell script
@@ -157,31 +159,37 @@ eksctl delete iamserviceaccount --cluster <cluster-name> --namespace kube-system
 Chart release v1.2.0 and later enables high availability configuration by default.
 - The default number of replicas is 2. You can pass`--set replicaCount=1` flag during chart installation to disable this. Due to leader election, only one controller will actively reconcile resources.
 - The default priority class for the controller pods is `system-cluster-critical`
-- Soft pod anti-affinity is enabled for controller pods with `topologyKey: kubernetes.io/hostname` if custom affinity is not configured
+- Soft pod anti-affinity is enabled for controller pods with `topologyKey: kubernetes.io/hostname` if you don't configure custom affinity and set `configureDefaultAffinity` to `true`
 - Pod disruption budget (PDB) has not been set by default. If you plan on running at least 2 controller pods, you can pass `--set podDisruptionBudget.maxUnavailable=1` flag during chart installation
 
 ## Configuration
 
 The following tables lists the configurable parameters of the chart and their default values.
-The default values set by the application itself can be confirmed [here](https://kubernetes-sigs.github.io/aws-load-balancer-controller/guide/controller/configurations/).
+The default values set by the application itself can be confirmed [here](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.4/deploy/configurations/#controller-configuration-options).
 
 | Parameter                                      | Description                                                                                              | Default                                                                            |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `image.repository`                             | image repository                                                                                         | `602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller` |
+|------------------------------------------------| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `image.repository`                             | image repository                                                                                         | `public.ecr.aws/eks/aws-load-balancer-controller` |
 | `image.tag`                                    | image tag                                                                                                | `<VERSION>`                                                                        |
 | `image.pullPolicy`                             | image pull policy                                                                                        | `IfNotPresent`                                                                     |
 | `clusterName`                                  | Kubernetes cluster name                                                                                  | None                                                                               |
+| `cluster.dnsDomain`                            | DNS domain of the Kubernetes cluster, included in TLS certificate requests                               | `cluster.local`                                                                    |
 | `securityContext`                              | Set to security context for pod                                                                          | `{}`                                                                               |
 | `resources`                                    | Controller pod resource requests & limits                                                                | `{}`                                                                               |
 | `priorityClassName`                            | Controller pod priority class                                                                            | system-cluster-critical                                                            |
 | `nodeSelector`                                 | Node labels for controller pod assignment                                                                | `{}`                                                                               |
 | `tolerations`                                  | Controller pod toleration for taints                                                                     | `{}`                                                                               |
 | `affinity`                                     | Affinity for pod assignment                                                                              | `{}`                                                                               |
+| `configureDefaultAffinity`                     | Configure soft pod anti-affinity if custom affinity is not configured                                    | `true`                                                                             |
+| `topologySpreadConstraints`                    | Topology Spread Constraints for pod assignment                                                           | `{}`                                                                               |
+| `deploymentAnnotations`                        | Annotations to add to deployment                                                                         | `{}`                                                                               |
 | `podAnnotations`                               | Annotations to add to each pod                                                                           | `{}`                                                                               |
 | `podLabels`                                    | Labels to add to each pod                                                                                | `{}`                                                                               |
+| `additionalLabels`                             | Labels to add to all components                                                                          | `{}`                                                                               |
 | `rbac.create`                                  | if `true`, create and use RBAC resources                                                                 | `true`                                                                             |
 | `serviceAccount.annotations`                   | optional annotations to add to service account                                                           | None                                                                               |
 | `serviceAccount.automountServiceAccountToken`  | Automount API credentials for a Service Account                                                          | `true`                                                                             |
+| `serviceAccount.imagePullSecrets`              | List of image pull secrets to add to the Service Account                                                 | `[]`                                                                               |
 | `serviceAccount.create`                        | If `true`, create a new service account                                                                  | `true`                                                                             |
 | `serviceAccount.name`                          | Service account to be used                                                                               | None                                                                               |
 | `terminationGracePeriodSeconds`                | Time period for controller pod to do a graceful shutdown                                                 | 10                                                                                 |
@@ -192,6 +200,8 @@ The default values set by the application itself can be confirmed [here](https:/
 | `ingressClassParams.spec`                      | IngressClassParams defined ingress specifications                                                        | {}                                                                                 |
 | `region`                                       | The AWS region for the kubernetes cluster                                                                | None                                                                               |
 | `vpcId`                                        | The VPC ID for the Kubernetes cluster                                                                    | None                                                                               |
+| `awsApiEndpoints`                              | Custom AWS API Endpoints                                                                                 | None                                                                               |
+| `awsApiThrottle`                               | Custom AWS API throttle settings                                                                         | None                                                                               |
 | `awsMaxRetries`                                | Maximum retries for AWS APIs                                                                             | None                                                                               |
 | `enablePodReadinessGateInject`                 | If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods | None                                                                               |
 | `enableShield`                                 | Enable Shield addon for ALB                                                                              | None                                                                               |
@@ -204,6 +214,7 @@ The default values set by the application itself can be confirmed [here](https:/
 | `webhookTLS.caCert`                            | TLS CA certificate for webhook (auto-generated if not provided)                                          | ""                                                                                 |
 | `webhookTLS.cert`                              | TLS certificate for webhook (auto-generated if not provided)                                             | ""                                                                                 |
 | `webhookTLS.key`                               | TLS private key for webhook (auto-generated if not provided)                                             | ""                                                                                 |
+| `webhookNamespaceSelectors`                    | Namespace selectors for the wekbook | None
 | `keepTLSSecret`                                | Reuse existing TLS Secret during chart upgrade                                                           | `true`                                                                             |
 | `serviceAnnotations`                           | Annotations to be added to the provisioned webhook service resource                                      | `{}`                                                                               |
 | `serviceMaxConcurrentReconciles`               | Maximum number of concurrently running reconcile loops for service                                       | None                                                                               |
@@ -235,4 +246,7 @@ The default values set by the application itself can be confirmed [here](https:/
 | `serviceMonitor.enabled`                       | Specifies whether a service monitor should be created, requires the ServiceMonitor CRD to be installed   | `false`                                                                            |
 | `serviceMonitor.additionalLabels`              | Labels to add to the service account                                                                     | `{}`                                                                               |
 | `serviceMonitor.interval`                      | Prometheus scrape interval                                                                               | `1m`                                                                               |
+| `serviceMonitor.namespace`                     | Namespace in which Prometheus is running                                                                 | None                                                                               |
 | `clusterSecretsPermissions.allowAllSecrets`    | If `true`, controller has access to all secrets in the cluster.                                          | `false`                                                                            |
+| `controllerConfig.featureGates`                | set of `key: value` pairs that describe AWS load balance controller features                             | `{}`                                                                               |
+| `ingressClassConfig.default`                   | If `true`, the ingressclass will be the default class of the cluster.                                    | `false`                                                                            |

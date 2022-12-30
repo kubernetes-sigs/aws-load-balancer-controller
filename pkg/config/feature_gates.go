@@ -2,9 +2,10 @@ package config
 
 import (
 	"fmt"
-	"github.com/spf13/pflag"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/pflag"
 )
 
 type Feature string
@@ -14,6 +15,10 @@ const (
 	WeightedTargetGroups        Feature = "WeightedTargetGroups"
 	ServiceTypeLoadBalancerOnly Feature = "ServiceTypeLoadBalancerOnly"
 	EndpointsFailOpen           Feature = "EndpointsFailOpen"
+	EnableServiceController     Feature = "EnableServiceController"
+	EnableIPTargetType          Feature = "EnableIPTargetType"
+	SubnetsClusterTagCheck      Feature = "SubnetsClusterTagCheck"
+	NLBHealthCheckTimeout       Feature = "NLBHealthCheckTimeout"
 )
 
 type FeatureGates interface {
@@ -45,6 +50,10 @@ func NewFeatureGates() FeatureGates {
 			WeightedTargetGroups:        true,
 			ServiceTypeLoadBalancerOnly: false,
 			EndpointsFailOpen:           false,
+			EnableServiceController:     true,
+			EnableIPTargetType:          true,
+			SubnetsClusterTagCheck:      true,
+			NLBHealthCheckTimeout:       true,
 		},
 	}
 }
