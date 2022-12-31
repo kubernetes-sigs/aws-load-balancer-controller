@@ -98,6 +98,29 @@ webhooks:
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
+      path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
+  failurePolicy: Fail
+  name: vingressclassparams.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingressclassparams
+  sideEffects: None
+- clientConfig:
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
+      namespace: {{ $.Release.Namespace }}
       path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
   failurePolicy: Fail
   name: vtargetgroupbinding.elbv2.k8s.aws

@@ -56,6 +56,26 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
+        path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
+    failurePolicy: Fail
+    name: vingressclassparams.elbv2.k8s.aws
+    rules:
+      - apiGroups:
+          - elbv2.k8s.aws
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - ingressclassparams
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
         path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
     failurePolicy: Fail
     name: vtargetgroupbinding.elbv2.k8s.aws
