@@ -126,8 +126,12 @@ ingressClassParams:
     #   matchLabels:
     # group:
     # scheme:
+    # subnets:
     # ipAddressType:
     # tags:
+    # loadBalancerAttributes:
+    # - key:
+    #   value:
 
 # To use IngressClass resource instead of annotation, before you need to install the IngressClass resource pointing to controller.
 # If specified as true, the IngressClass resource will be created.
