@@ -75,11 +75,11 @@ If you already have an ACM certificate (including wildcard certificates) for the
 
 1. Wait a few minutes for the ALB to provision and for DNS to update.
 
-1.  Check the logs for `external-dns` and `aws-load-balancer-controller` to ensure the ALB is created and external-dns creates the record and points your domain to the ALB.
+1.  Check the `aws-load-balancer-controller` logs to ensure the ALB is created. Also ensure that `external-dns` creates a DNS record that points your domain to the ALB.
 
     ```bash
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'aws-load-balancer-controller[a-zA-Z0-9-]+') | grep 'grpcserver\/grpcserver'
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'aws-load-balancer-controller[a-zA-Z0-9-]+') | grep 'YOUR_DOMAIN_NAME'
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=aws-load-balancer-controller | grep 'grpcserver\/grpcserver'
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=external-dns | grep 'YOUR_DOMAIN_NAME'
     ```
 
 1.  Next check that your ingress shows the correct ALB address and custom domain name.
