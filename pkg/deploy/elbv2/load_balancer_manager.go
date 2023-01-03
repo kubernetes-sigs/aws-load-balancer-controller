@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
@@ -14,13 +13,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-)
-
-const (
-	lbGaugeLabelK8sResourceName      = "k8s_resource_name"
-	lbGaugeLabelK8sResourceNamespace = "k8s_resource_namespace"
-	lbGaugeLabelAWSLoadBalancerName  = "aws_load_balancer_name"
-	lbGaugeLabelAWSLoadBalancerType  = "aws_load_balancer_type"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 )
 
 // LoadBalancerManager is responsible for create/update/delete LoadBalancer resources.
@@ -34,23 +27,7 @@ type LoadBalancerManager interface {
 
 // NewDefaultLoadBalancerManager constructs new defaultLoadBalancerManager.
 func NewDefaultLoadBalancerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger, metricsRegisterer prometheus.Registerer) *defaultLoadBalancerManager {
-
-	loadBalancerGauge := prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "managed_aws_load_balancers",
-			Help: "Metric to track what Kubernetes resources that created AWS resources",
-		},
-		[]string{
-			lbGaugeLabelK8sResourceName,
-			lbGaugeLabelK8sResourceNamespace,
-			lbGaugeLabelAWSLoadBalancerName,
-			lbGaugeLabelAWSLoadBalancerType,
-		},
-	)
-	if err := metricsRegisterer.Register(loadBalancerGauge); err != nil {
-		logger.Error(err, "could not create load balancer metrics")
-	}
+	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger, loadBalancerGauge *prometheus.GaugeVec) *defaultLoadBalancerManager {
 
 	return &defaultLoadBalancerManager{
 		elbv2Client:          elbv2Client,
@@ -88,6 +65,7 @@ func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2mod
 	m.logger.Info("creating loadBalancer",
 		"stackID", resLB.Stack().StackID(),
 		"resourceID", resLB.ID())
+
 	m.SetAWSLoadBalancerGauge(resLB.Stack().StackID().Name, resLB.Stack().StackID().Namespace, resLB.Spec.Name, string(resLB.Spec.Type), true)
 	resp, err := m.elbv2Client.CreateLoadBalancerWithContext(ctx, req)
 	if err != nil {
@@ -144,10 +122,9 @@ func (m *defaultLoadBalancerManager) Delete(ctx context.Context, sdkLB LoadBalan
 		"arn", awssdk.StringValue(req.LoadBalancerArn))
 	stackName, stackNamespace, err := getNameFromTags(sdkLB.Tags)
 	if err != nil {
-		// This should be a warning
-		m.logger.Error(err, "could not parse stack from load balancer tags")
+		m.logger.Info("could not parse stack from load balancer tags", "error", err)
 	}
-	m.SetAWSLoadBalancerGauge(stackName, stackNamespace, *sdkLB.LoadBalancer.LoadBalancerName, *sdkLB.LoadBalancer.Type, true)
+	m.SetAWSLoadBalancerGauge(stackName, stackNamespace, *sdkLB.LoadBalancer.LoadBalancerName, *sdkLB.LoadBalancer.Type, false)
 	return nil
 }
 
@@ -338,16 +315,12 @@ func buildResLoadBalancerStatus(sdkLB LoadBalancerWithTags) elbv2model.LoadBalan
 
 func (m *defaultLoadBalancerManager) SetAWSLoadBalancerGauge(resName string, resNamespace string, awsLoadBalancerName string, awsLoadBalancerType string, exists bool) {
 	labels := prometheus.Labels{
-		lbGaugeLabelK8sResourceName:      resName,
-		lbGaugeLabelK8sResourceNamespace: resNamespace,
-		lbGaugeLabelAWSLoadBalancerName:  awsLoadBalancerName,
-		lbGaugeLabelAWSLoadBalancerType:  awsLoadBalancerType,
+		runtime.LbGaugeLabelK8sResourceName:      resName,
+		runtime.LbGaugeLabelK8sResourceNamespace: resNamespace,
+		runtime.LbGaugeLabelAWSLoadBalancerName:  awsLoadBalancerName,
+		runtime.LbGaugeLabelAWSLoadBalancerType:  awsLoadBalancerType,
 	}
-
-	g, err := m.awsLoadBalancerGauge.GetMetricWith(labels)
-	if err != nil {
-		m.logger.Error(err, "could not find metric")
-	}
+	g := m.awsLoadBalancerGauge.With(labels)
 
 	value := float64(0)
 	if exists {
@@ -360,11 +333,13 @@ func getNameFromTags(tags map[string]string) (string, string, error) {
 	stack, ok := tags["ingress.k8s.aws/stack"]
 	if ok {
 		parts := strings.Split(stack, "/")
+		// Implicit ingressGroups will return the ingress groupname.
 		if len(parts) != 2 {
-			return "", "", fmt.Errorf("could not parse value of ingress.k8s.aws/stack")
+			return stack, "", nil
 		}
 		return parts[0], parts[1], nil
 	}
+
 	stack, ok = tags["service.k8s.aws/stack"]
 	if ok {
 		parts := strings.Split(stack, "/")

@@ -98,6 +98,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	managedResourcesCollector, err := runtime.NewMetricsCollector(metrics.Registry)
+	if err != nil {
+		setupLog.Error(err, "unable to initialize runtime metrics collector")
+		os.Exit(1)
+	}
+
 	podInfoRepo := k8s.NewDefaultPodInfoRepo(clientSet.CoreV1().RESTClient(), rtOpts.Namespace, ctrl.Log)
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient(), ctrl.Log)
 	sgManager := networking.NewDefaultSecurityGroupManager(cloud.EC2(), ctrl.Log)
@@ -113,10 +119,10 @@ func main() {
 		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, ctrl.Log.WithName("backend-sg-provider"))
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver,
-		controllerCFG, backendSGProvider, ctrl.Log.WithName("controllers").WithName("ingress"), metrics.Registry)
+		controllerCFG, backendSGProvider, ctrl.Log.WithName("controllers").WithName("ingress"), managedResourcesCollector)
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider,
-		controllerCFG, ctrl.Log.WithName("controllers").WithName("service"), metrics.Registry)
+		controllerCFG, ctrl.Log.WithName("controllers").WithName("service"), managedResourcesCollector)
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
 		finalizerManager, tgbResManager,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
