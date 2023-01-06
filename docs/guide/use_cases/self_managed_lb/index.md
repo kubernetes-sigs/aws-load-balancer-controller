@@ -7,6 +7,7 @@ title: Externally Managed Load Balancers
 The load balancer controller (LBC) generally creates and destroys [AWS Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/index.html) in response to Kubernetes resources. 
 
 However, some cluster operators may prefer to manually manage AWS Load Balancers. This supports use cases like:
+
 - Preventing accidental release of key IP addresses.
 - Supporting load balancers where the Kubernetes cluster is one of multiple targets.
 - Complying with organizational requirements on provisioning load balancers, for security or cost reasons. 
@@ -23,12 +24,14 @@ Third, a TargetGroupBinding CRD is created in a cluster. The CRD includes refere
 
 ## Prerequisites
 
-Install: 
+Install:
+
 - [Load Balancer Controller Installed](../../../deploy/installation.md) on Cluster
 - [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 - [Kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
 
-Have this information available: 
+Have this information available:
+
 - Cluster [VPC](https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html) Information
   - ID of EKS Cluster
   - Subnet IDs
