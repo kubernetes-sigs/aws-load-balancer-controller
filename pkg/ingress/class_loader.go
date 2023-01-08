@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -20,6 +21,8 @@ const (
 	ingressClassControllerALB = "ingress.k8s.aws/alb"
 	// the Kind for IngressClassParams CRD.
 	ingressClassParamsKind = "IngressClassParams"
+	// default class from ingressClass
+	defaultClassAnnotation = "ingressclass.kubernetes.io/is-default-class"
 )
 
 // ErrInvalidIngressClass is an sentinel error that represents the IngressClass configuration for Ingress is invalid.
@@ -43,9 +46,40 @@ type defaultClassLoader struct {
 	client client.Client
 }
 
+// GetDefaultIngressClass returns the default IngressClass from the list of IngressClasses.
+// If multiple IngressClasses are marked as the default, it returns an error.
+func (l *defaultClassLoader) GetDefaultIngressClass(ctx context.Context) (string, error) {
+	var defaultClass string
+	var defaultClassFound bool
+	ingClassList := &networking.IngressClassList{}
+	if err := l.client.List(ctx, ingClassList); err != nil {
+		return "", fmt.Errorf("failed to fetch ingressClasses, %v", err.Error())
+	}
+	for _, ingressClass := range ingClassList.Items {
+		if ingressClass.Annotations[defaultClassAnnotation] == "true" {
+			if defaultClassFound {
+				return "", errors.Errorf("multiple default IngressClasses found")
+			}
+			defaultClass = ingressClass.GetName()
+			defaultClassFound = true
+		}
+	}
+
+	return defaultClass, nil
+}
+
 func (l *defaultClassLoader) Load(ctx context.Context, ing *networking.Ingress) (ClassConfiguration, error) {
+
 	if ing.Spec.IngressClassName == nil {
-		return ClassConfiguration{}, fmt.Errorf("%w: %v", ErrInvalidIngressClass, "spec.ingressClassName is nil")
+		defaultClass, err := l.GetDefaultIngressClass(ctx)
+		if err != nil {
+			return ClassConfiguration{}, err
+		}
+		if defaultClass != "" {
+			ing.Spec.IngressClassName = &defaultClass
+		} else {
+			return ClassConfiguration{}, err
+		}
 	}
 
 	ingClassKey := types.NamespacedName{Name: *ing.Spec.IngressClassName}
