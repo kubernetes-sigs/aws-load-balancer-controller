@@ -78,7 +78,7 @@ func (l *defaultClassLoader) Load(ctx context.Context, ing *networking.Ingress) 
 		if defaultClass != "" {
 			ing.Spec.IngressClassName = &defaultClass
 		} else {
-			return ClassConfiguration{}, err
+			return ClassConfiguration{}, nil
 		}
 	}
 

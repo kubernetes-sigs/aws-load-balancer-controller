@@ -206,6 +206,7 @@ func (m *defaultGroupLoader) classifyIngress(ctx context.Context, ing *networkin
 			IngClassConfig: ClassConfiguration{},
 		}, false, nil
 	}
+
 	ingClassConfig, err := m.classLoader.Load(ctx, ing)
 	if err != nil {
 		return ClassifiedIngress{
@@ -213,22 +214,17 @@ func (m *defaultGroupLoader) classifyIngress(ctx context.Context, ing *networkin
 			IngClassConfig: ClassConfiguration{},
 		}, false, err
 	}
-	if matchesIngressClass := ingClassConfig.IngClass != nil; matchesIngressClass {
-		if ingClassConfig.IngClass.Spec.Controller == ingressClassControllerALB {
-			return ClassifiedIngress{
-				Ing:            ing,
-				IngClassConfig: ingClassConfig,
-			}, true, nil
-		}
+
+	if matchesIngressClass := ingClassConfig.IngClass != nil && ingClassConfig.IngClass.Spec.Controller == ingressClassControllerALB; matchesIngressClass {
 		return ClassifiedIngress{
 			Ing:            ing,
 			IngClassConfig: ingClassConfig,
-		}, false, nil
+		}, true, nil
 	}
 
 	return ClassifiedIngress{
 		Ing:            ing,
-		IngClassConfig: ClassConfiguration{},
+		IngClassConfig: ingClassConfig,
 	}, m.manageIngressesWithoutIngressClass, nil
 }
 

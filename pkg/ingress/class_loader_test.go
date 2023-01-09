@@ -2,6 +2,8 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
@@ -18,7 +20,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"testing"
 )
 
 func Test_defaultClassLoader_Load(t *testing.T) {
@@ -59,7 +60,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("invalid ingress class: spec.ingressClassName is nil"),
+			wantErr: nil,
 		},
 		{
 			name: "when IngressClass not found",
