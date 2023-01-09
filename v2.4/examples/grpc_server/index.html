@@ -1032,14 +1032,14 @@
 <li>aws-load-balancer-controller</li>
 <li>external-dns</li>
 </ul>
-<p>See <a href="../echo_server/">echo_server.md</a> for setup instructions for those resources.</p>
+<p>See <a href="../echo_server/">echo_server.md</a> and <a href="/guide/integrations/external_dns">external_dns.md</a> for setup instructions for those resources.</p>
 <h2 id="create-an-acm-certificate">Create an ACM certificate<a class="headerlink" href="#create-an-acm-certificate" title="Permanent link">&para;</a></h2>
 <blockquote>
 <p>NOTE: An ACM certificate is required for this demo as the application uses the <code>grpc.secure_channel</code> method.</p>
 </blockquote>
 <p>If you already have an ACM certificate (including wildcard certificates) for the domain you would like to use in this example, you can skip this step.</p>
 <ul>
-<li>Request a certificate for a domain you own using the steps described in the official AWS <a href="https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html">documentation</a>.</li>
+<li>Request a certificate for a domain you own using the steps described in the official <a href="https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html">AWS ACM documentation</a>.</li>
 <li>Once the status for the certificate is "Issued" continue to the next step.</li>
 </ul>
 <h2 id="deploy-the-grpcserver-manifests">Deploy the grpcserver manifests<a class="headerlink" href="#deploy-the-grpcserver-manifests" title="Permanent link">&para;</a></h2>
@@ -1080,11 +1080,9 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <li>
 <p>Change the domain name from <code>grpcserver.example.com</code> to your desired domain.</p>
 </li>
-</ol>
-<blockquote>
-<p>NOTE: This example manifest assumes that you have tagged your subnets for the aws-load-balancer-controller. Otherwise add your subnets using the annotations described in ingress annotations documentation.</p>
-</blockquote>
-<ol>
+<li>
+<p>The example manifest assumes that you have tagged your subnets for the aws-load-balancer-controller. Otherwise add your subnets using the <a href="/guide/ingress/annotations/#subnets">alb.ingress.kubernetes.io/subnets</a> annotation.</p>
+</li>
 <li>
 <p>Deploy the ingress resource for grpcserver.</p>
 <div class="highlight"><pre><span></span><code>kubectl apply -f grpcserver-ingress.yaml
@@ -1094,9 +1092,9 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <p>Wait a few minutes for the ALB to provision and for DNS to update.</p>
 </li>
 <li>
-<p>Check the logs for <code>external-dns</code> and <code>aws-load-balancer-controller</code> to ensure the ALB is created and external-dns creates the record and points your domain to the ALB.</p>
-<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system <span class="k">$(</span>kubectl get po -n kube-system <span class="p">|</span> egrep -o <span class="s1">&#39;aws-load-balancer-controller[a-zA-Z0-9-]+&#39;</span><span class="k">)</span> <span class="p">|</span> grep <span class="s1">&#39;grpcserver\/grpcserver&#39;</span>
-kubectl logs -n kube-system <span class="k">$(</span>kubectl get po -n kube-system <span class="p">|</span> egrep -o <span class="s1">&#39;aws-load-balancer-controller[a-zA-Z0-9-]+&#39;</span><span class="k">)</span> <span class="p">|</span> grep <span class="s1">&#39;YOUR_DOMAIN_NAME&#39;</span>
+<p>Check the <code>aws-load-balancer-controller</code> logs to ensure the ALB is created. Also ensure that <code>external-dns</code> creates a DNS record that points your domain to the ALB.</p>
+<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name<span class="o">=</span>aws-load-balancer-controller <span class="p">|</span> grep <span class="s1">&#39;grpcserver\/grpcserver&#39;</span>
+kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name<span class="o">=</span>external-dns <span class="p">|</span> grep <span class="s1">&#39;YOUR_DOMAIN_NAME&#39;</span>
 </code></pre></div>
 </li>
 <li>
@@ -1104,9 +1102,9 @@ kubectl logs -n kube-system <span class="k">$(</span>kubectl get po -n kube-syst
 <div class="highlight"><pre><span></span><code>kubectl get ingress -n grpcserver grpcserver
 </code></pre></div>
 <p>You should see similar to the following.</p>
-<p><code>console
-NNAME         CLASS    HOSTS                       ADDRESS                                                                 PORTS   AGE
-grpcserver   &lt;none&gt;   YOUR_DOMAIN_NAME   ALB-NAME.us-east-1.elb.amazonaws.com   80      90m</code></p>
+<div class="highlight"><pre><span></span><code><span class="go">NNAME         CLASS    HOSTS              ADDRESS     PORTS    AGE</span>
+<span class="go">grpcserver     alb   YOUR_DOMAIN_NAME   ALB-DNS-NAME   80      90m</span>
+</code></pre></div>
 </li>
 <li>
 <p>Finally, test your secure gRPC service by running the greeter client, substituting <code>YOUR_DOMAIN_NAME</code> for the domain you used in the ingress manifest.</p>

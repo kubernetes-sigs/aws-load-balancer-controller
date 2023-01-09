@@ -1505,6 +1505,12 @@ Client side throttling enables gradual scaling of the api calls. Additional thro
 <td>true</td>
 <td>Enable or disable the check for <code>kubernetes.io/cluster/${cluster-name}</code> during subnet auto-discovery</td>
 </tr>
+<tr>
+<td>NLBHealthCheckTimeout</td>
+<td>string</td>
+<td>true</td>
+<td>Enable or disable the use of <code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout</code> for <code>Service</code> type resources (NLB)</td>
+</tr>
 </tbody>
 </table>
                 

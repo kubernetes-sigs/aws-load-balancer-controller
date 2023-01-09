@@ -1047,26 +1047,32 @@
                 
                 <h2 id="motivation">Motivation<a class="headerlink" href="#motivation" title="Permanent link">&para;</a></h2>
 <p>The load balancer controller (LBC) generally creates and destroys <a href="https://docs.aws.amazon.com/elasticloadbalancing/index.html">AWS Load Balancers</a> in response to Kubernetes resources. </p>
-<p>However, some cluster operators may prefer to manually manage AWS Load Balancers. This supports use cases like:
-- Preventing acciential release of key IP addresses.
-- Supporting load balancers where the Kubernetes cluster is one of multiple targets.
-- Complying with organizational requirements on provisioning load balancers, for security or cost reasons. </p>
+<p>However, some cluster operators may prefer to manually manage AWS Load Balancers. This supports use cases like:</p>
+<ul>
+<li>Preventing accidental release of key IP addresses.</li>
+<li>Supporting load balancers where the Kubernetes cluster is one of multiple targets.</li>
+<li>Complying with organizational requirements on provisioning load balancers, for security or cost reasons. </li>
+</ul>
 <h2 id="solution-overview">Solution Overview<a class="headerlink" href="#solution-overview" title="Permanent link">&para;</a></h2>
 <p>Use the TargetGroupBinding CRD to sync a Kubernetes service with the targets of a load balancer.</p>
 <p>First, a load balancer is manually created directly with AWS. This guide uses a network load balancer, but an application load balancer may be similarly configured. </p>
 <p>Second, A <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-listeners.html">listener</a> and a <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html">target group</a> are then added to the load balancer. </p>
 <p>Third, a TargetGroupBinding CRD is created in a cluster. The CRD includes references to a Kubernetes service and the <a href="https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html">ARN</a> of the Load Balancer Target Group. The CRD configures the LBC to watch the service and automatically update the target group with the appropriate pod VPC IP addresses. </p>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
-<p>Install: 
-- <a href="../../../deploy/installation/">Load Balancer Controller Installed</a> on Cluster
-- <a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a>
-- <a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">Kubectl</a></p>
-<p>Have this information available: 
-- Cluster <a href="https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html">VPC</a> Information
-  - ID of EKS Cluster
-  - Subnet IDs
-  - This information is avilable in the "Networking" section of the EKS Cluster Console. 
-- Port and Protocol of Target <a href="https://kubernetes.io/docs/concepts/services-networking/service/">Kubernetes Service</a></p>
+<p>Install:</p>
+<ul>
+<li><a href="../../../deploy/installation/">Load Balancer Controller Installed</a> on Cluster</li>
+<li><a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">AWS CLI</a></li>
+<li><a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">Kubectl</a></li>
+</ul>
+<p>Have this information available:</p>
+<ul>
+<li>Cluster <a href="https://docs.aws.amazon.com/vpc/latest/userguide/what-is-amazon-vpc.html">VPC</a> Information</li>
+<li>ID of EKS Cluster</li>
+<li>Subnet IDs</li>
+<li>This information is available in the "Networking" section of the EKS Cluster Console. </li>
+<li>Port and Protocol of Target <a href="https://kubernetes.io/docs/concepts/services-networking/service/">Kubernetes Service</a></li>
+</ul>
 <h2 id="configure-load-balancer">Configure Load Balancer<a class="headerlink" href="#configure-load-balancer" title="Permanent link">&para;</a></h2>
 <p><strong>Create Load Balancer: (optional)</strong></p>
 <ol>
