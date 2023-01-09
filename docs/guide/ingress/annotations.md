@@ -550,7 +550,7 @@ Access control for LoadBalancer can be controlled with following annotations:
 ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using an Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html) for more details.
 
 !!!warning "HTTPS only"
-    Authentication is only supported for HTTPS listeners, see [SSL](#ssl) for configure HTTPS listener.
+    Authentication is only supported for HTTPS listeners. See [TLS](#tls) for configuring HTTPS listeners.
 
 - <a name="auth-type">`alb.ingress.kubernetes.io/auth-type`</a> specifies the authentication type on targets.
 
@@ -725,8 +725,8 @@ Health check on target groups can be controlled with following annotations:
         ```alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
         ```
 
-## SSL
-SSL support can be controlled with following annotations:
+## TLS
+TLS support can be controlled with the following annotations:
 
 - <a name="certificate-arn">`alb.ingress.kubernetes.io/certificate-arn`</a> specifies the ARN of one or more certificate managed by [AWS Certificate Manager](https://aws.amazon.com/certificate-manager)
 
