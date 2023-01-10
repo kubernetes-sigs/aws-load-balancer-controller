@@ -89,6 +89,30 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "when IngressClassName unspecified - Default class unspecified",
+			env: env{
+				nsList: []*corev1.Namespace{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "awesome-ns",
+						},
+					},
+				},
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "awesome-ing",
+					},
+					Spec: networking.IngressSpec{
+						IngressClassName: nil,
+					},
+				},
+			},
+			want: ClassConfiguration{},
+		},
+		{
 			name: "when IngressClassName unspecified - Multiple default classes specified",
 			env: env{
 				nsList: []*corev1.Namespace{
