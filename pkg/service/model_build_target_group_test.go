@@ -202,6 +202,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":             "30",
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":   "2",
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold": "2",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes":       "200-220,231,250-300,301,302",
 					},
 				},
 			},
@@ -214,11 +215,14 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				TimeoutSeconds:          aws.Int64(30),
 				HealthyThresholdCount:   aws.Int64(2),
 				UnhealthyThresholdCount: aws.Int64(2),
+				Matcher: &elbv2.HealthCheckMatcher{
+					HTTPCode: aws.String("200-220,231,250-300,301,302"),
+				},
 			},
 			targetType: elbv2.TargetTypeInstance,
 		},
 		{
-			testName: "default path",
+			testName: "default path and matcher code",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -235,6 +239,9 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				TimeoutSeconds:          aws.Int64(10),
 				HealthyThresholdCount:   aws.Int64(3),
 				UnhealthyThresholdCount: aws.Int64(3),
+				Matcher: &elbv2.HealthCheckMatcher{
+					HTTPCode: aws.String("200-399"),
+				},
 			},
 			targetType: elbv2.TargetTypeIP,
 		},
@@ -312,6 +319,9 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				TimeoutSeconds:          aws.Int64(6),
 				HealthyThresholdCount:   aws.Int64(2),
 				UnhealthyThresholdCount: aws.Int64(2),
+				Matcher: &elbv2.HealthCheckMatcher{
+					HTTPCode: aws.String("200-399"),
+				},
 			},
 			targetType: elbv2.TargetTypeInstance,
 		},
@@ -364,6 +374,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultHealthCheckTimeout:            10,
 				defaultHealthCheckHealthyThreshold:   3,
 				defaultHealthCheckUnhealthyThreshold: 3,
+				defaultHealthCheckMatcherHTTPCode:    "200-399",
 
 				defaultHealthCheckProtocolForInstanceModeLocal:           elbv2.ProtocolHTTP,
 				defaultHealthCheckPortForInstanceModeLocal:               strconv.FormatInt(int64(int(tt.svc.Spec.HealthCheckNodePort)), 10),

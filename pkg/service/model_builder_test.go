@@ -522,7 +522,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "intervalSeconds":10,
                 "timeoutSeconds":30,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -546,7 +549,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "intervalSeconds":10,
                 "timeoutSeconds":30,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -858,7 +864,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "intervalSeconds":10,
                 "timeoutSeconds":30,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -882,7 +891,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "intervalSeconds":10,
                 "timeoutSeconds":30,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -1460,7 +1472,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "intervalSeconds":10,
                 "timeoutSeconds":6,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -1484,7 +1499,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "intervalSeconds":10,
                 "timeoutSeconds":6,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {

@@ -316,10 +316,8 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Con
 	if hcProtocol == elbv2model.ProtocolTCP || !t.featureGates.Enabled(config.NLBHealthCheckAdvancedConfig) {
 		return nil
 	}
-	var rawHealthCheckMatcherSuccessCodes string
-	if !t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCSuccessCodes, &rawHealthCheckMatcherSuccessCodes, t.service.Annotations) {
-		return nil
-	}
+	rawHealthCheckMatcherSuccessCodes := t.defaultHealthCheckMatcherHTTPCode
+	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCSuccessCodes, &rawHealthCheckMatcherSuccessCodes, t.service.Annotations)
 	return &elbv2model.HealthCheckMatcher{
 		HTTPCode: &rawHealthCheckMatcherSuccessCodes,
 	}
