@@ -48,12 +48,13 @@ type defaultClassLoader struct {
 
 // GetDefaultIngressClass returns the default IngressClass from the list of IngressClasses.
 // If multiple IngressClasses are marked as the default, it returns an error.
+// If no IngressClass is marked as the default, it returns an empty string.
 func (l *defaultClassLoader) GetDefaultIngressClass(ctx context.Context) (string, error) {
 	var defaultClass string
 	var defaultClassFound bool
 	ingClassList := &networking.IngressClassList{}
 	if err := l.client.List(ctx, ingClassList); err != nil {
-		return "", fmt.Errorf("failed to fetch ingressClasses, %v", err.Error())
+		return "", fmt.Errorf("%w: fetching ingressClasses: %v", ErrInvalidIngressClass, err.Error())
 	}
 	for _, ingressClass := range ingClassList.Items {
 		if ingressClass.Annotations[defaultClassAnnotation] == "true" {
