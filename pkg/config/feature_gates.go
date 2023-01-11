@@ -11,14 +11,14 @@ import (
 type Feature string
 
 const (
-	ListenerRulesTagging        Feature = "ListenerRulesTagging"
-	WeightedTargetGroups        Feature = "WeightedTargetGroups"
-	ServiceTypeLoadBalancerOnly Feature = "ServiceTypeLoadBalancerOnly"
-	EndpointsFailOpen           Feature = "EndpointsFailOpen"
-	EnableServiceController     Feature = "EnableServiceController"
-	EnableIPTargetType          Feature = "EnableIPTargetType"
-	SubnetsClusterTagCheck      Feature = "SubnetsClusterTagCheck"
-	NLBHealthCheckTimeout       Feature = "NLBHealthCheckTimeout"
+	ListenerRulesTagging         Feature = "ListenerRulesTagging"
+	WeightedTargetGroups         Feature = "WeightedTargetGroups"
+	ServiceTypeLoadBalancerOnly  Feature = "ServiceTypeLoadBalancerOnly"
+	EndpointsFailOpen            Feature = "EndpointsFailOpen"
+	EnableServiceController      Feature = "EnableServiceController"
+	EnableIPTargetType           Feature = "EnableIPTargetType"
+	SubnetsClusterTagCheck       Feature = "SubnetsClusterTagCheck"
+	NLBHealthCheckAdvancedConfig Feature = "NLBHealthCheckAdvancedConfig"
 )
 
 type FeatureGates interface {
@@ -46,14 +46,14 @@ type defaultFeatureGates struct {
 func NewFeatureGates() FeatureGates {
 	return &defaultFeatureGates{
 		featureState: map[Feature]bool{
-			ListenerRulesTagging:        true,
-			WeightedTargetGroups:        true,
-			ServiceTypeLoadBalancerOnly: false,
-			EndpointsFailOpen:           false,
-			EnableServiceController:     true,
-			EnableIPTargetType:          true,
-			SubnetsClusterTagCheck:      true,
-			NLBHealthCheckTimeout:       true,
+			ListenerRulesTagging:         true,
+			WeightedTargetGroups:         true,
+			ServiceTypeLoadBalancerOnly:  false,
+			EndpointsFailOpen:            false,
+			EnableServiceController:      true,
+			EnableIPTargetType:           true,
+			SubnetsClusterTagCheck:       true,
+			NLBHealthCheckAdvancedConfig: true,
 		},
 	}
 }

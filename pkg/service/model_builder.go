@@ -109,6 +109,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckTimeout:            10,
 		defaultHealthCheckHealthyThreshold:   3,
 		defaultHealthCheckUnhealthyThreshold: 3,
+		defaultHealthCheckMatcherHTTPCode:    "200-399",
 		defaultIPv4SourceRanges:              []string{"0.0.0.0/0"},
 		defaultIPv6SourceRanges:              []string{"::/0"},
 
@@ -166,6 +167,7 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckTimeout            int64
 	defaultHealthCheckHealthyThreshold   int64
 	defaultHealthCheckUnhealthyThreshold int64
+	defaultHealthCheckMatcherHTTPCode    string
 	defaultDeletionProtectionEnabled     bool
 	defaultIPv4SourceRanges              []string
 	defaultIPv6SourceRanges              []string
