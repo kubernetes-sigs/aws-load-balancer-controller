@@ -80,7 +80,7 @@ Example condition for cluster name resource tag:
 
 1. Download IAM policy for the AWS Load Balancer Controller
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/install/iam_policy.json
     ```
 
 1. Create an IAM policy called AWSLoadBalancerControllerIAMPolicy
@@ -106,7 +106,7 @@ Example condition for cluster name resource tag:
 ### Option B: Attach IAM Policies to Nodes
 If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
 ```
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/install/iam_policy.json
 ```
 
 *IAM permission subset for those who use *TargetGroupBinding* only and don't plan to use the AWS Load Balancer Controller to manage security group rules:*
@@ -190,7 +190,7 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ### Apply YAML
     1. Download spec for load balancer controller.
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_5_full.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.6/v2_4_6_full.yaml
     ```
     1. Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
     ```
@@ -214,15 +214,15 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ```
     1. Apply the yaml file
     ```
-    kubectl apply -f v2_4_5_full.yaml
+    kubectl apply -f v2_4_6_full.yaml
     ```
     1. Optionally download the default ingressclass and ingressclass params
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.5/v2_4_5_ingclass.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.6/v2_4_6_ingclass.yaml
     ```
     1. Apply the ingressclass and params
     ```
-    kubectl apply -f v2_4_5_ingclass.yaml
+    kubectl apply -f v2_4_6_ingclass.yaml
     ```
 
 ## Create Update Strategy
