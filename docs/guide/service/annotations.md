@@ -39,6 +39,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold](#healthcheck-unhealthy-threshold) | integer | 3                         |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout](#healthcheck-timeout)         | integer                 | 10                        |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval](#healthcheck-interval)       | integer                 | 10                        |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes](#healthcheck-success-codes)       | string        | 200-399                   |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-eip-allocations](#eip-allocations)                 | stringList              |                           | internet-facing lb only. Length must match the number of subnets|
 | [service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses](#private-ipv4-addresses)   | stringList              |                           | internal lb only. Length must match the number of subnets |
 | [service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses](#ipv6-addresses)                   | stringList              |                           | dualstack lb only. Length must match the number of subnets |
@@ -341,6 +342,12 @@ Health check on target groups can be configured with following annotations:
         service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: "10"
         ```
 
+- <a name="healthcheck-success-codes">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes`</a> specifies the http success codes for the health check in case of http/https protocol.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes: "200-399"
+        ```
 
 - <a name="healthcheck-timeout">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout`</a> specifies the target group health check timeout. The target has to respond within the timeout for a successful health check.
 

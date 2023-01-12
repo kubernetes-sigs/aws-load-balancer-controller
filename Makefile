@@ -2,7 +2,7 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.5
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.6
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
@@ -91,7 +91,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.11.1 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen

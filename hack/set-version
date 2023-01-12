@@ -48,7 +48,7 @@ PREV_STABLE_VERSION=$(cat version-stable.txt)
 
 echo "$NEW_RELEASE_VERSION" > version.txt
 
-sed -i.bak -e "s@amazon/aws-alb-ingress-controller:v${PREV_RELEASE_VERSION}@amazon/aws-alb-ingress-controller:v${NEW_RELEASE_VERSION}@g" Makefile
+sed -i.bak -e "s@public.ecr.aws/eks/aws-load-balancer-controller:v${PREV_RELEASE_VERSION}@public.ecr.aws/eks/aws-load-balancer-controller:v${NEW_RELEASE_VERSION}@g" Makefile
 
 if [[ -z "$PRERELEASE" ]]; then
   echo "$NEW_RELEASE_VERSION" > version-stable.txt
