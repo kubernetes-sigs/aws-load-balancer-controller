@@ -1275,6 +1275,12 @@ documentation is not an accurate reference for the services reconciled by the in
 <td></td>
 </tr>
 <tr>
+<td><a href="#healthcheck-success-codes">service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes</a></td>
+<td>string</td>
+<td>200-399</td>
+<td></td>
+</tr>
+<tr>
 <td><a href="#eip-allocations">service.beta.kubernetes.io/aws-load-balancer-eip-allocations</a></td>
 <td>stringList</td>
 <td></td>
@@ -1684,6 +1690,14 @@ service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: &quot;10&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-success-codes"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes</code></a> specifies the http success codes for the health check in case of http/https protocol.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes: &quot;200-399&quot;
 </code></pre></div>
 </div>
 </li>

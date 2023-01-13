@@ -635,8 +635,8 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ssl" class="md-nav__link">
-    SSL
+  <a href="#tls" class="md-nav__link">
+    TLS
   </a>
   
 </li>
@@ -1075,8 +1075,8 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#ssl" class="md-nav__link">
-    SSL
+  <a href="#tls" class="md-nav__link">
+    TLS
   </a>
   
 </li>
@@ -2000,7 +2000,7 @@ Also, the securityGroups for Node/Pod will be modified to allow inbound traffic 
 <p>ALB supports authentication with Cognito or OIDC. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html">Authenticate Users Using an Application Load Balancer</a> for more details.</p>
 <div class="admonition warning">
 <p class="admonition-title">HTTPS only</p>
-<p>Authentication is only supported for HTTPS listeners, see <a href="#ssl">SSL</a> for configure HTTPS listener.</p>
+<p>Authentication is only supported for HTTPS listeners. See <a href="#tls">TLS</a> for configuring HTTPS listeners.</p>
 </div>
 <ul>
 <li>
@@ -2196,8 +2196,8 @@ Also, the securityGroups for Node/Pod will be modified to allow inbound traffic 
 </div>
 </li>
 </ul>
-<h2 id="ssl">SSL<a class="headerlink" href="#ssl" title="Permanent link">&para;</a></h2>
-<p>SSL support can be controlled with following annotations:</p>
+<h2 id="tls">TLS<a class="headerlink" href="#tls" title="Permanent link">&para;</a></h2>
+<p>TLS support can be controlled with the following annotations:</p>
 <ul>
 <li>
 <p><a name="certificate-arn"><code>alb.ingress.kubernetes.io/certificate-arn</code></a> specifies the ARN of one or more certificate managed by <a href="https://aws.amazon.com/certificate-manager">AWS Certificate Manager</a></p>

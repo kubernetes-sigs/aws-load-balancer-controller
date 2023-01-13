@@ -46,12 +46,12 @@ metadata:
     # The subdomain name only is sufficient for `UserPoolDomain`
     # e.g. if `FQDN=app.auth.ap-northeast-1.amazoncognito.com` then `UserPoolDomain=app`
     alb.ingress.kubernetes.io/auth-idp-cognito: '{"UserPoolArn": "arn:aws:cognito-idp:<region>:<account-id>:userpool/<region><cognito-id>","UserPoolClientId":"<user-pool-client-id>","UserPoolDomain":"<user-pool-authentication-domain>"}'
-    # ACM certificate ARN for your SSL domain
+    # ACM certificate ARN for your TLS domain
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>
 spec:
   ingressClassName: alb
   rules:
-    # If you are using ExternalDNS, this will become your applications FQDN
+    # If you are using ExternalDNS, this will become your application's FQDN
     - host: <FQDN>
       http:
         paths:

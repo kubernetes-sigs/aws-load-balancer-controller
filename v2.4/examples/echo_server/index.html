@@ -1149,9 +1149,9 @@ I1015 16:08:03.662023       1 leaderelection.go:252] successfully acquired lease
 <ol>
 <li>
 <p>Deploy all the echoserver resources (namespace, service, deployment)</p>
-<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/echoservice/echoserver-deployment.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/examples/echoservice/echoserver-deployment.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1171,7 +1171,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <ol>
 <li>
 <p>Download the echoserver ingress manifest locally.</p>
-<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/examples/echoservice/echoserver-ingress.yaml
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/examples/echoservice/echoserver-ingress.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1343,7 +1343,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <ol>
 <li>
 <p>configure the proper policy
-    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.5/docs/install/iam_policy.json</p>
+    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/install/iam_policy.json</p>
 </li>
 <li>
 <p>configure the proper role and create the trust relationship
