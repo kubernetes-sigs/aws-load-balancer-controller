@@ -358,7 +358,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 	pathTypePrefix := networking.PathTypePrefix
 	pathTypeUnknown := networking.PathType("unknown")
 	type args struct {
-		path     string
+		paths    []string
 		pathType *networking.PathType
 	}
 	tests := []struct {
@@ -370,7 +370,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 		{
 			name: "/* with empty pathType",
 			args: args{
-				path:     "/*",
+				paths:    []string{"/*"},
 				pathType: nil,
 			},
 			want: []string{"/*"},
@@ -378,7 +378,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 		{
 			name: "/* with implementationSpecific pathType",
 			args: args{
-				path:     "/*",
+				paths:    []string{"/*"},
 				pathType: &pathTypeImplementationSpecific,
 			},
 			want: []string{"/*"},
@@ -386,7 +386,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 		{
 			name: "/* with exact pathType",
 			args: args{
-				path:     "/*",
+				paths:    []string{"/*"},
 				pathType: &pathTypeExact,
 			},
 			wantErr: errors.New("exact path shouldn't contain wildcards: /*"),
@@ -394,7 +394,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 		{
 			name: "/* with prefix pathType",
 			args: args{
-				path:     "/*",
+				paths:    []string{"/*"},
 				pathType: &pathTypePrefix,
 			},
 			wantErr: errors.New("prefix path shouldn't contain wildcards: /*"),
@@ -402,7 +402,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 		{
 			name: "/abc/ with empty pathType",
 			args: args{
-				path:     "/abc/",
+				paths:    []string{"/abc/"},
 				pathType: nil,
 			},
 			want: []string{"/abc/"},
@@ -410,7 +410,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 		{
 			name: "/abc/ with implementationSpecific pathType",
 			args: args{
-				path:     "/abc/",
+				paths:    []string{"/abc/"},
 				pathType: &pathTypeImplementationSpecific,
 			},
 			want: []string{"/abc/"},
@@ -418,7 +418,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 		{
 			name: "/abc/ with exact pathType",
 			args: args{
-				path:     "/abc/",
+				paths:    []string{"/abc/"},
 				pathType: &pathTypeExact,
 			},
 			want: []string{"/abc/"},
@@ -426,7 +426,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 		{
 			name: "/abc/ with prefix pathType",
 			args: args{
-				path:     "/abc/",
+				paths:    []string{"/abc/"},
 				pathType: &pathTypePrefix,
 			},
 			want: []string{"/abc", "/abc/*"},
@@ -434,7 +434,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 		{
 			name: "/abc/ with unknown pathType",
 			args: args{
-				path:     "/abc/",
+				paths:    []string{"/abc/"},
 				pathType: &pathTypeUnknown,
 			},
 			wantErr: errors.New("unsupported pathType: unknown"),
@@ -443,7 +443,7 @@ func Test_defaultModelBuildTask_buildPathPatterns(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &defaultModelBuildTask{}
-			got, err := task.buildPathPatterns(tt.args.path, tt.args.pathType)
+			got, err := task.buildPathPatterns(tt.args.paths, tt.args.pathType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
