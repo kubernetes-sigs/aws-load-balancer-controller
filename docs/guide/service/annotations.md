@@ -411,7 +411,7 @@ Load balancer access can be controlled via following annotations:
 - <a name="lb-source-ranges">`service.beta.kubernetes.io/load-balancer-source-ranges`</a> specifies the CIDRs that are allowed to access the NLB.
 
     !!!tip
-        we recommend specifying CIDRs in the service `Spec.LoadBalancerSourceRanges` instead
+        we recommend specifying CIDRs in the service `Spec.loadBalancerSourceRanges` instead. preserve client IP is disabled by default for `IP` targets. if you want to enable client IP preservation, add `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true`.
 
     !!!note "Default"
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"
@@ -420,7 +420,7 @@ Load balancer access can be controlled via following annotations:
 
     !!!warning ""
         This annotation will be ignored in case preserve client IP is not enabled.
-        - preserve client IP is disabled by default for `IP` targets
+        - preserve client IP is disabled by default for `IP` targets.  
         - preserve client IP is enabled by default for `instance` targets
     
     !!!warning ""
