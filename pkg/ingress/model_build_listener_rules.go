@@ -6,6 +6,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -83,7 +84,7 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 	}
 	var rules []Rule
 	for _, ing := range ingList {
-		mergedRules, err := t.mergeRulesPerIngress(ing.Ing.Spec.Rules)
+		mergedRules, err := t.buildMergedRules(ing.Ing.Spec.Rules)
 		if err != nil {
 			return err
 		}
@@ -149,16 +150,42 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 		})
 		priority += 1
 	}
-
 	return nil
 }
 
-func (t *defaultModelBuildTask) mergeRulesPerIngress(rules []networking.IngressRule) ([]networking.IngressRule, error) {
-	// use a map to help merge rules by host, pathType and service
+// getRulesToMerge classifies rules into two categories - rules with unique host, rules with replicate hosts
+// only rules with replicate hosts need merge
+func (t *defaultModelBuildTask) getRulesToMerge(rules []networking.IngressRule) ([]networking.IngressRule, []networking.IngressRule, error) {
+	var rulesWithReplicateHosts []networking.IngressRule
+	var rulesWithUniqueHost []networking.IngressRule
+	hostToRulesMap := make(map[string][]networking.IngressRule)
+	for _, rule := range rules {
+		host := rule.Host
+		_, exists := hostToRulesMap[host]
+		if exists {
+			hostToRulesMap[host] = append(hostToRulesMap[host], rule)
+		} else {
+			hostToRulesMap[host] = []networking.IngressRule{rule}
+		}
+	}
+	for host, rules := range hostToRulesMap {
+		if len(rules) == 1 {
+			rulesWithUniqueHost = append(rulesWithUniqueHost, rules...)
+		} else if len(rules) > 1 {
+			rulesWithReplicateHosts = append(rulesWithReplicateHosts, rules...)
+		} else {
+			return nil, nil, errors.Errorf("no rules for Host %s", host)
+		}
+	}
+	return rulesWithReplicateHosts, rulesWithUniqueHost, nil
+}
+
+func (t *defaultModelBuildTask) getMergeRuleRefMaps(rules []networking.IngressRule) (map[[4]string][]networking.HTTPIngressPath, map[networking.HTTPIngressPath]int) {
+	// use a map to help merge paths of rules by host, pathType and service
 	// e.g. {(hostA, pathTypeA, serviceNameA, PortNumberA): [path1, path2,...],
 	//  	 (hostB, pathTypeB, serviceNameB, PortNumberB): [path3, path4,...],
 	//   	...}
-	mergeRefMap := make(map[[4]string][]networking.HTTPIngressPath)
+	mergePathsRefMap := make(map[[4]string][]networking.HTTPIngressPath)
 	// pathToRuleMap stores {path: ruleIdx} relationship
 	pathToRuleMap := make(map[networking.HTTPIngressPath]int)
 
@@ -176,29 +203,17 @@ func (t *defaultModelBuildTask) mergeRulesPerIngress(rules []networking.IngressR
 			pathToRuleMap[path] = idx
 			pathType := string(*path.PathType)
 			serviceName := path.Backend.Service.Name
-			portNumber := string(path.Backend.Service.Port.Number)
-			_, exist := mergeRefMap[[4]string{host, pathType, serviceName, portNumber}]
+			portNumber := strconv.Itoa(int(path.Backend.Service.Port.Number))
+			_, exist := mergePathsRefMap[[4]string{host, pathType, serviceName, portNumber}]
 			if !exist {
-				mergeRefMap[[4]string{host, pathType, serviceName, portNumber}] = []networking.HTTPIngressPath{path}
+				mergePathsRefMap[[4]string{host, pathType, serviceName, portNumber}] = []networking.HTTPIngressPath{path}
 			} else {
-				mergeRefMap[[4]string{host, pathType, serviceName, portNumber}] = append(mergeRefMap[[4]string{host, pathType, serviceName, portNumber}],
+				mergePathsRefMap[[4]string{host, pathType, serviceName, portNumber}] = append(mergePathsRefMap[[4]string{host, pathType, serviceName, portNumber}],
 					path)
 			}
 		}
 	}
-	// iterate the mergeRefMap and append all paths in a group to the rule of the min ruleIdx
-	var mergedRules []networking.IngressRule
-	for _, mergedPaths := range mergeRefMap {
-		minIdx := pathToRuleMap[mergedPaths[0]]
-		for _, path := range mergedPaths {
-			currIdx := pathToRuleMap[path]
-			minIdx = algorithm.GetMin(minIdx, currIdx)
-		}
-		mergedRule := rules[minIdx]
-		mergedRule.HTTP.Paths = append(mergedRule.HTTP.Paths, mergedPaths...)
-		mergedRules = append(mergedRules, mergedRule)
-	}
-	return mergedRules, nil
+	return mergePathsRefMap, pathToRuleMap
 }
 
 // sortIngressPaths will sort the paths following the strategy:
@@ -308,6 +323,54 @@ func (t *defaultModelBuildTask) classifyIngressPathsByType(paths []networking.HT
 //		}
 //		return conditions, nil
 //	}
+func (t *defaultModelBuildTask) buildMergedRulesWithReplicateHosts(rules []networking.IngressRule) []networking.IngressRule {
+	// iterate the mergeRefMap and append all paths in a group to the rule of the min ruleIdx
+	mergePathsRefMap, pathToRuleMap := t.getMergeRuleRefMaps(rules)
+	var mergedRules []networking.IngressRule
+	// mergedRulesIdxMap store the {oldIdx: newIdx in mergedRules} reference once a rule gets merged into mergedRules
+	mergedRulesIdxMap := make(map[int]int)
+	for _, mergedPaths := range mergePathsRefMap {
+		minIdx := pathToRuleMap[mergedPaths[0]]
+		if len(mergedPaths) > 1 {
+			for _, path := range mergedPaths {
+				currIdx := pathToRuleMap[path]
+				minIdx = algorithm.GetMin(minIdx, currIdx)
+			}
+		}
+		// check if the rule has already been processed
+		var mergedRule *networking.IngressRule
+		_, exists := mergedRulesIdxMap[minIdx]
+		if !exists {
+			mergedRule = &networking.IngressRule{
+				Host: rules[minIdx].Host,
+				IngressRuleValue: networking.IngressRuleValue{
+					HTTP: &networking.HTTPIngressRuleValue{
+						Paths: []networking.HTTPIngressPath{},
+					},
+				},
+			}
+			mergedRulesIdxMap[minIdx] = len(mergedRules)
+		} else {
+			mergedRule = &mergedRules[mergedRulesIdxMap[minIdx]]
+		}
+		mergedRule.HTTP.Paths = append(mergedRule.HTTP.Paths, mergedPaths...)
+		if !exists {
+			mergedRules = append(mergedRules, *mergedRule)
+		}
+	}
+	return mergedRules
+}
+
+func (t *defaultModelBuildTask) buildMergedRules(rules []networking.IngressRule) ([]networking.IngressRule, error) {
+	rulesWithReplicateHosts, rulesWithUniqueHost, err := t.getRulesToMerge(rules)
+	if err != nil {
+		return nil, err
+	}
+	mergedRules := t.buildMergedRulesWithReplicateHosts(rulesWithReplicateHosts)
+	mergedRules = append(mergedRules, rulesWithUniqueHost...)
+	return mergedRules, nil
+}
+
 func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, host string,
 	classfiedPaths []string, backend EnhancedBackend, pathType networking.PathType) ([]elbv2model.RuleCondition, error) {
 	var hosts []string
