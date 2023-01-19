@@ -3,8 +3,6 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,125 +10,38 @@ import (
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-//func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []ClassifiedIngress) error {
-//	if t.sslRedirectConfig != nil && protocol == elbv2model.ProtocolHTTP {
-//		return nil
-//	}
-//
-//	var rules []Rule
-//	for _, ing := range ingList {
-//		for _, rule := range ing.Ing.Spec.Rules {
-//			if rule.HTTP == nil {
-//				continue
-//			}
-//			paths, err := t.sortIngressPaths(rule.HTTP.Paths)
-//			if err != nil {
-//				return err
-//			}
-//			for _, path := range paths {
-//				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, path.Backend,
-//					WithLoadBackendServices(true, t.backendServices),
-//					WithLoadAuthConfig(true))
-//				if err != nil {
-//					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
-//				}
-//				conditions, err := t.buildRuleConditions(ctx, rule, path, enhancedBackend)
-//				if err != nil {
-//					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
-//				}
-//				actions, err := t.buildActions(ctx, protocol, ing, enhancedBackend)
-//				if err != nil {
-//					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
-//				}
-//				tags, err := t.buildListenerRuleTags(ctx, ing)
-//				if err != nil {
-//					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
-//				}
-//				rules = append(rules, Rule{
-//					Conditions: conditions,
-//					Actions:    actions,
-//					Tags:       tags,
-//				})
-//			}
-//		}
-//	}
-//	optimizedRules, err := t.ruleOptimizer.Optimize(ctx, port, protocol, rules)
-//	if err != nil {
-//		return err
-//	}
-//
-//	priority := int64(1)
-//	for _, rule := range optimizedRules {
-//		ruleResID := fmt.Sprintf("%v:%v", port, priority)
-//		_ = elbv2model.NewListenerRule(t.stack, ruleResID, elbv2model.ListenerRuleSpec{
-//			ListenerARN: lsARN,
-//			Priority:    priority,
-//			Conditions:  rule.Conditions,
-//			Actions:     rule.Actions,
-//			Tags:        rule.Tags,
-//		})
-//		priority += 1
-//	}
-//
-//	return nil
-//}
+const maxConditionValuesCount = int(5)
 
 func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []ClassifiedIngress) error {
 	if t.sslRedirectConfig != nil && protocol == elbv2model.ProtocolHTTP {
 		return nil
 	}
+
 	var rules []Rule
 	for _, ing := range ingList {
-		mergedRules, err := t.buildMergedRules(ing.Ing.Spec.Rules)
+		rulesWithReplicateHosts, rulesWithUniqueHost, err := t.classifyRulesByHost(ing.Ing.Spec.Rules)
 		if err != nil {
 			return err
 		}
-		for _, mergedRule := range mergedRules {
-			host := mergedRule.Host
-			mergedExactPaths, mergedPrefixPaths, mergedImplementationSpecificPaths, err := t.classifyIngressPathsByType(mergedRule.HTTP.Paths)
+		if len(rulesWithReplicateHosts) != 0 {
+			mergedRules := t.mergePathsAcrossRules(rulesWithReplicateHosts)
+			builtMergedRules, err := t.buildMergedListenerRules(ctx, protocol, ing, mergedRules)
 			if err != nil {
 				return err
 			}
-			for _, mergedPaths := range [][]networking.HTTPIngressPath{mergedExactPaths, mergedPrefixPaths, mergedImplementationSpecificPaths} {
-				if len(mergedPaths) == 0 {
-					continue
-				}
-				// all the paths in the mergedPaths have the same backend and pathType
-				currPathType := mergedPaths[0].PathType
-				currBackend := mergedRule.HTTP.Paths[0].Backend
-				var paths []string
-				for _, path := range mergedPaths {
-					if path.Path != "" {
-						paths = append(paths, path.Path)
-					}
-				}
-				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, currBackend,
-					WithLoadBackendServices(true, t.backendServices),
-					WithLoadAuthConfig(true))
-				conditions, err := t.buildRuleConditions(ctx, host, paths, enhancedBackend, *currPathType)
-				if err != nil {
-					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
-				}
-				if err != nil {
-					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
-				}
-				actions, err := t.buildActions(ctx, protocol, ing, enhancedBackend)
-				if err != nil {
-					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
-				}
-				tags, err := t.buildListenerRuleTags(ctx, ing)
-				if err != nil {
-					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
-				}
-				rules = append(rules, Rule{
-					Conditions: conditions,
-					Actions:    actions,
-					Tags:       tags,
-				})
+			rules = append(rules, builtMergedRules...)
+		}
+		if len(rulesWithUniqueHost) != 0 {
+			builtUnmergedRules, err := t.buildUnmergedListenerRules(ctx, protocol, ing, rulesWithUniqueHost)
+			if err != nil {
+				return err
 			}
+			rules = append(rules, builtUnmergedRules...)
 		}
 	}
 	optimizedRules, err := t.ruleOptimizer.Optimize(ctx, port, protocol, rules)
@@ -153,9 +64,9 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 	return nil
 }
 
-// getRulesToMerge classifies rules into two categories - rules with unique host, rules with replicate hosts
-// only rules with replicate hosts need merge
-func (t *defaultModelBuildTask) getRulesToMerge(rules []networking.IngressRule) ([]networking.IngressRule, []networking.IngressRule, error) {
+// classifyRulesByHost classifies rules based on whether the rule has a unique host
+// only the rules with replicate hosts need merge
+func (t *defaultModelBuildTask) classifyRulesByHost(rules []networking.IngressRule) ([]networking.IngressRule, []networking.IngressRule, error) {
 	var rulesWithReplicateHosts []networking.IngressRule
 	var rulesWithUniqueHost []networking.IngressRule
 	hostToRulesMap := make(map[string][]networking.IngressRule)
@@ -180,40 +91,60 @@ func (t *defaultModelBuildTask) getRulesToMerge(rules []networking.IngressRule) 
 	return rulesWithReplicateHosts, rulesWithUniqueHost, nil
 }
 
-func (t *defaultModelBuildTask) getMergeRuleRefMaps(rules []networking.IngressRule) (map[[4]string][]networking.HTTPIngressPath, map[networking.HTTPIngressPath]int) {
-	// use a map to help merge paths of rules by host, pathType and service
-	// e.g. {(hostA, pathTypeA, serviceNameA, PortNumberA): [path1, path2,...],
-	//  	 (hostB, pathTypeB, serviceNameB, PortNumberB): [path3, path4,...],
-	//   	...}
-	mergePathsRefMap := make(map[[4]string][]networking.HTTPIngressPath)
-	// pathToRuleMap stores {path: ruleIdx} relationship
-	pathToRuleMap := make(map[networking.HTTPIngressPath]int)
+// mergePathsAcrossRules generates new rules with paths merged
+func (t *defaultModelBuildTask) mergePathsAcrossRules(rules []networking.IngressRule) []networking.IngressRule {
+	// iterate the mergeRefMap and append all paths in a group to the rule of the min ruleIdx
+	mergePathsRefMap := t.getMergeRuleRefMaps(rules)
+	var mergedRule networking.IngressRule
+	var mergedRules []networking.IngressRule
+	for k, paths := range mergePathsRefMap {
+		mergedRule = networking.IngressRule{
+			Host: k[0],
+			IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: paths,
+				},
+			},
+		}
+		mergedRules = append(mergedRules, mergedRule)
+	}
+	return mergedRules
+}
 
-	for idx, rule := range rules {
+// getMergeRuleRefMaps gets a map to help merge paths of rules by host, pathType and backend
+// e.g. {(hostA, pathTypeA, serviceNameA, PortNameA, PortNumberA): [path1, path2,...],
+//
+//		 (hostB, pathTypeB, serviceNameB, PortNameB, PortNumberB): [path3, path4,...],
+//	 	...}
+func (t *defaultModelBuildTask) getMergeRuleRefMaps(rules []networking.IngressRule) map[[5]string][]networking.HTTPIngressPath {
+	mergePathsRefMap := make(map[[5]string][]networking.HTTPIngressPath)
+	//// pathToRuleMap stores {path: ruleIdx} relationship
+	//pathToRuleMap := make(map[networking.HTTPIngressPath]int)
+
+	for _, rule := range rules {
 		if rule.HTTP == nil {
 			continue
 		}
 		host := rule.Host
 		for _, path := range rule.HTTP.Paths {
-			//if path.PathType != nil && (*path.PathType != networking.PathTypePrefix ||
-			//	*path.PathType != networking.PathTypeExact ||
-			//	*path.PathType != networking.PathTypeImplementationSpecific) {
-			//	return nil, errors.Errorf("unknown pathType for path %s", path.Path)
-			//}
-			pathToRuleMap[path] = idx
-			pathType := string(*path.PathType)
+			//pathToRuleMap[path] = idx
+			pathType := ""
+			if path.PathType != nil {
+				pathType = string(*path.PathType)
+			}
 			serviceName := path.Backend.Service.Name
+			portName := path.Backend.Service.Port.Name
 			portNumber := strconv.Itoa(int(path.Backend.Service.Port.Number))
-			_, exist := mergePathsRefMap[[4]string{host, pathType, serviceName, portNumber}]
+			_, exist := mergePathsRefMap[[5]string{host, pathType, serviceName, portName, portNumber}]
 			if !exist {
-				mergePathsRefMap[[4]string{host, pathType, serviceName, portNumber}] = []networking.HTTPIngressPath{path}
+				mergePathsRefMap[[5]string{host, pathType, serviceName, portName, portNumber}] = []networking.HTTPIngressPath{path}
 			} else {
-				mergePathsRefMap[[4]string{host, pathType, serviceName, portNumber}] = append(mergePathsRefMap[[4]string{host, pathType, serviceName, portNumber}],
+				mergePathsRefMap[[5]string{host, pathType, serviceName, portName, portNumber}] = append(mergePathsRefMap[[5]string{host, pathType, serviceName, portName, portNumber}],
 					path)
 			}
 		}
 	}
-	return mergePathsRefMap, pathToRuleMap
+	return mergePathsRefMap
 }
 
 // sortIngressPaths will sort the paths following the strategy:
@@ -258,127 +189,112 @@ func (t *defaultModelBuildTask) classifyIngressPathsByType(paths []networking.HT
 	return exactPaths, prefixPaths, implementationSpecificPaths, nil
 }
 
-// func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, rule networking.IngressRule,
-//
-//		path networking.HTTPIngressPath, backend EnhancedBackend) ([]elbv2model.RuleCondition, error) {
-//		var hosts []string
-//		if rule.Host != "" {
-//			hosts = append(hosts, rule.Host)
-//		}
-//		var paths []string
-//		if path.Path != "" {
-//			pathPatterns, err := t.buildPathPatterns(path.Path, path.PathType)
-//			if err != nil {
-//				return nil, err
-//			}
-//			paths = append(paths, pathPatterns...)
-//		}
-//		var conditions []elbv2model.RuleCondition
-//		for _, condition := range backend.Conditions {
-//			switch condition.Field {
-//			case RuleConditionFieldHostHeader:
-//				if condition.HostHeaderConfig == nil {
-//					return nil, errors.New("missing HostHeaderConfig")
-//				}
-//				hosts = append(hosts, condition.HostHeaderConfig.Values...)
-//			case RuleConditionFieldPathPattern:
-//				if condition.PathPatternConfig == nil {
-//					return nil, errors.New("missing PathPatternConfig")
-//				}
-//				paths = append(paths, condition.PathPatternConfig.Values...)
-//			case RuleConditionFieldHTTPHeader:
-//				httpHeaderCondition, err := t.buildHTTPHeaderCondition(ctx, condition)
-//				if err != nil {
-//					return nil, err
-//				}
-//				conditions = append(conditions, httpHeaderCondition)
-//			case RuleConditionFieldHTTPRequestMethod:
-//				httpRequestMethodCondition, err := t.buildHTTPRequestMethodCondition(ctx, condition)
-//				if err != nil {
-//					return nil, err
-//				}
-//				conditions = append(conditions, httpRequestMethodCondition)
-//			case RuleConditionFieldQueryString:
-//				queryStringCondition, err := t.buildQueryStringCondition(ctx, condition)
-//				if err != nil {
-//					return nil, err
-//				}
-//				conditions = append(conditions, queryStringCondition)
-//			case RuleConditionFieldSourceIP:
-//				sourceIPCondition, err := t.buildSourceIPCondition(ctx, condition)
-//				if err != nil {
-//					return nil, err
-//				}
-//				conditions = append(conditions, sourceIPCondition)
-//			}
-//		}
-//		if len(hosts) != 0 {
-//			conditions = append(conditions, t.buildHostHeaderCondition(ctx, hosts))
-//		}
-//		if len(paths) != 0 {
-//			conditions = append(conditions, t.buildPathPatternCondition(ctx, paths))
-//		}
-//		if len(conditions) == 0 {
-//			conditions = append(conditions, t.buildPathPatternCondition(ctx, []string{"/*"}))
-//		}
-//		return conditions, nil
-//	}
-func (t *defaultModelBuildTask) buildMergedRulesWithReplicateHosts(rules []networking.IngressRule) []networking.IngressRule {
-	// iterate the mergeRefMap and append all paths in a group to the rule of the min ruleIdx
-	mergePathsRefMap, pathToRuleMap := t.getMergeRuleRefMaps(rules)
-	var mergedRules []networking.IngressRule
-	// mergedRulesIdxMap store the {oldIdx: newIdx in mergedRules} reference once a rule gets merged into mergedRules
-	mergedRulesIdxMap := make(map[int]int)
-	for _, mergedPaths := range mergePathsRefMap {
-		minIdx := pathToRuleMap[mergedPaths[0]]
-		if len(mergedPaths) > 1 {
-			for _, path := range mergedPaths {
-				currIdx := pathToRuleMap[path]
-				minIdx = algorithm.GetMin(minIdx, currIdx)
+func (t *defaultModelBuildTask) buildMergedListenerRules(ctx context.Context, protocol elbv2model.Protocol, ing ClassifiedIngress, rulesToMerge []networking.IngressRule) ([]Rule, error) {
+	var rules []Rule
+	for _, ruleToMerge := range rulesToMerge {
+		if ruleToMerge.HTTP == nil {
+			continue
+		}
+		host := ruleToMerge.Host
+		// all the paths in one mergedRule should have the same backend and pathType
+		mergedPaths := ruleToMerge.HTTP.Paths
+		if len(mergedPaths) == 0 {
+			continue
+		}
+		currPathType := networking.PathTypeImplementationSpecific
+		if mergedPaths[0].PathType != nil {
+			currPathType = *mergedPaths[0].PathType
+		}
+		currBackend := ruleToMerge.HTTP.Paths[0].Backend
+		var paths []string
+		for _, path := range mergedPaths {
+			if path.Path != "" {
+				paths = append(paths, path.Path)
 			}
 		}
-		// check if the rule has already been processed
-		var mergedRule *networking.IngressRule
-		_, exists := mergedRulesIdxMap[minIdx]
-		if !exists {
-			mergedRule = &networking.IngressRule{
-				Host: rules[minIdx].Host,
-				IngressRuleValue: networking.IngressRuleValue{
-					HTTP: &networking.HTTPIngressRuleValue{
-						Paths: []networking.HTTPIngressPath{},
-					},
-				},
-			}
-			mergedRulesIdxMap[minIdx] = len(mergedRules)
-		} else {
-			mergedRule = &mergedRules[mergedRulesIdxMap[minIdx]]
+		enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, currBackend,
+			WithLoadBackendServices(true, t.backendServices),
+			WithLoadAuthConfig(true))
+		conditions, err := t.buildRuleConditions(ctx, host, paths, enhancedBackend, currPathType)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
 		}
-		mergedRule.HTTP.Paths = append(mergedRule.HTTP.Paths, mergedPaths...)
-		if !exists {
-			mergedRules = append(mergedRules, *mergedRule)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
+		}
+		actions, err := t.buildActions(ctx, protocol, ing, enhancedBackend)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
+		}
+		tags, err := t.buildListenerRuleTags(ctx, ing)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
+		}
+		for _, condition := range conditions {
+			rules = append(rules, Rule{
+				Conditions: condition,
+				Actions:    actions,
+				Tags:       tags,
+			})
 		}
 	}
-	return mergedRules
+	return rules, nil
 }
 
-func (t *defaultModelBuildTask) buildMergedRules(rules []networking.IngressRule) ([]networking.IngressRule, error) {
-	rulesWithReplicateHosts, rulesWithUniqueHost, err := t.getRulesToMerge(rules)
-	if err != nil {
-		return nil, err
+func (t *defaultModelBuildTask) buildUnmergedListenerRules(ctx context.Context, protocol elbv2model.Protocol, ing ClassifiedIngress, rulesToBuild []networking.IngressRule) ([]Rule, error) {
+	var rules []Rule
+	for _, ruleToBuild := range rulesToBuild {
+		if ruleToBuild.HTTP == nil {
+			continue
+		}
+		paths, err := t.sortIngressPaths(ruleToBuild.HTTP.Paths)
+		if err != nil {
+			return nil, err
+		}
+		for _, path := range paths {
+			enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, path.Backend,
+				WithLoadBackendServices(true, t.backendServices),
+				WithLoadAuthConfig(true))
+			if err != nil {
+				return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
+			}
+			pathType := networking.PathTypeImplementationSpecific
+			if path.PathType != nil {
+				pathType = *path.PathType
+			}
+			conditions, err := t.buildRuleConditions(ctx, ruleToBuild.Host, []string{path.Path}, enhancedBackend, pathType)
+			if err != nil {
+				return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
+			}
+			actions, err := t.buildActions(ctx, protocol, ing, enhancedBackend)
+			if err != nil {
+				return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
+			}
+			tags, err := t.buildListenerRuleTags(ctx, ing)
+			if err != nil {
+				return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
+			}
+			for _, condition := range conditions {
+				rules = append(rules, Rule{
+					Conditions: condition,
+					Actions:    actions,
+					Tags:       tags,
+				})
+			}
+
+		}
 	}
-	mergedRules := t.buildMergedRulesWithReplicateHosts(rulesWithReplicateHosts)
-	mergedRules = append(mergedRules, rulesWithUniqueHost...)
-	return mergedRules, nil
+	return rules, nil
 }
 
 func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, host string,
-	classfiedPaths []string, backend EnhancedBackend, pathType networking.PathType) ([]elbv2model.RuleCondition, error) {
+	pathsToBuild []string, backend EnhancedBackend, pathType networking.PathType) ([][]elbv2model.RuleCondition, error) {
 	var hosts []string
 	if host != "" {
 		hosts = append(hosts, host)
 	}
 	var paths []string
-	pathPatterns, err := t.buildPathPatterns(classfiedPaths, &pathType)
+	pathPatterns, err := t.buildPathPatterns(pathsToBuild, &pathType)
 	if err != nil {
 		return nil, err
 	}
@@ -425,33 +341,27 @@ func (t *defaultModelBuildTask) buildRuleConditions(ctx context.Context, host st
 	if len(hosts) != 0 {
 		conditions = append(conditions, t.buildHostHeaderCondition(ctx, hosts))
 	}
-	if len(paths) != 0 {
-		conditions = append(conditions, t.buildPathPatternCondition(ctx, paths))
+	if len(conditions) > 5 {
+		return nil, errors.New("A rule can only have at most 5 condition values.")
 	}
-	if len(conditions) == 0 {
-		conditions = append(conditions, t.buildPathPatternCondition(ctx, []string{"/*"}))
+	// flow over the path values to new conditions if the total count of values exceeds 5
+	var builtConditions [][]elbv2model.RuleCondition
+	if len(paths) == 0 {
+		if len(conditions) == 0 {
+			conditions = append(conditions, t.buildPathPatternCondition(ctx, []string{"/*"}))
+		}
+		builtConditions = append(builtConditions, conditions)
+	} else {
+		step := maxConditionValuesCount - len(conditions)
+		for i := 0; i < len(paths); i += step {
+			end := algorithm.GetMin(i+step, len(paths))
+			conditionsWithPathPattern := append(conditions, t.buildPathPatternCondition(ctx, paths[i:end]))
+			builtConditions = append(builtConditions, conditionsWithPathPattern)
+		}
 	}
-	return conditions, nil
+	return builtConditions, nil
 }
 
-// buildPathPatterns will build ELBv2's path patterns for given path and pathType.
-//
-//	func (t *defaultModelBuildTask) buildPathPatterns(path string, pathType *networking.PathType) ([]string, error) {
-//		normalizedPathType := networking.PathTypeImplementationSpecific
-//		if pathType != nil {
-//			normalizedPathType = *pathType
-//		}
-//		switch normalizedPathType {
-//		case networking.PathTypeImplementationSpecific:
-//			return t.buildPathPatternsForImplementationSpecificPathType(path)
-//		case networking.PathTypeExact:
-//			return t.buildPathPatternsForExactPathType(path)
-//		case networking.PathTypePrefix:
-//			return t.buildPathPatternsForPrefixPathType(path)
-//		default:
-//			return nil, errors.Errorf("unsupported pathType: %v", normalizedPathType)
-//		}
-//	}
 func (t *defaultModelBuildTask) buildPathPatterns(paths []string, pathType *networking.PathType) ([]string, error) {
 	normalizedPathType := networking.PathTypeImplementationSpecific
 	if pathType != nil {
@@ -497,7 +407,7 @@ func (t *defaultModelBuildTask) buildPathPatternsForImplementationSpecificPathTy
 }
 
 // buildPathPatternsForExactPathType will build path patterns for exact pathType.
-// exact path shouldn't contains any wildcards.
+// exact path shouldn't contain any wildcards.
 func (t *defaultModelBuildTask) buildPathPatternsForExactPathType(path string) ([]string, error) {
 	if strings.ContainsAny(path, "*?") {
 		return nil, errors.Errorf("exact path shouldn't contain wildcards: %v", path)
@@ -506,8 +416,8 @@ func (t *defaultModelBuildTask) buildPathPatternsForExactPathType(path string) (
 }
 
 // buildPathPatternsForPrefixPathType will build path patterns for prefix pathType.
-// prefix path shouldn't contains any wildcards.
-// with prefixType type, both "/foo" or "/foo/" should matches path like "/foo" or "/foo/" or "/foo/bar".
+// prefix path shouldn't contain any wildcards.
+// with prefixType type, both "/foo" or "/foo/" should match path like "/foo" or "/foo/" or "/foo/bar".
 // for above case, we'll generate two path pattern: "/foo/" and "/foo/*".
 // an special case is "/", which matches all paths, thus we generate the path pattern as "/*"
 func (t *defaultModelBuildTask) buildPathPatternsForPrefixPathType(path string) ([]string, error) {

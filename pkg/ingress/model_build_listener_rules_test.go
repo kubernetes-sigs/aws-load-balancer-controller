@@ -8,387 +8,7 @@ import (
 	"testing"
 )
 
-func Test_defaultModelBuildTask_getMergeRuleRefMaps(t *testing.T) {
-	type args struct {
-		rules []networking.IngressRule
-	}
-	tests := []struct {
-		name                 string
-		args                 args
-		wantMergePathsRefMap map[[4]string][]networking.HTTPIngressPath
-		wantPathToRuleMap    map[networking.HTTPIngressPath]int
-	}{
-		{
-			name: "2 rules with no host",
-			args: args{
-				rules: []networking.IngressRule{
-					{
-						Host: "",
-						IngressRuleValue: networking.IngressRuleValue{
-							HTTP: &networking.HTTPIngressRuleValue{
-								Paths: []networking.HTTPIngressPath{
-									{
-										Path:     "/pathA",
-										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-										Backend: networking.IngressBackend{
-											Service: &networking.IngressServiceBackend{
-												Name: "svc-1",
-												Port: networking.ServiceBackendPort{
-													Number: 80,
-												},
-											},
-										},
-									},
-									{
-										Path:     "/pathB",
-										PathType: (*networking.PathType)(awssdk.String("Exact")),
-										Backend: networking.IngressBackend{
-											Service: &networking.IngressServiceBackend{
-												Name: "svc-2",
-												Port: networking.ServiceBackendPort{
-													Number: 80,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					{
-						Host: "",
-						IngressRuleValue: networking.IngressRuleValue{
-							HTTP: &networking.HTTPIngressRuleValue{
-								Paths: []networking.HTTPIngressPath{
-									{
-										Path:     "/pathC",
-										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-										Backend: networking.IngressBackend{
-											Service: &networking.IngressServiceBackend{
-												Name: "svc-1",
-												Port: networking.ServiceBackendPort{
-													Number: 80,
-												},
-											},
-										},
-									},
-									{
-										Path:     "/pathD",
-										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-										Backend: networking.IngressBackend{
-											Service: &networking.IngressServiceBackend{
-												Name: "svc-2",
-												Port: networking.ServiceBackendPort{
-													Number: 80,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantMergePathsRefMap: map[[4]string][]networking.HTTPIngressPath{
-				{"", "Prefix", "svc-1", "80"}: {
-					{
-						Path:     "/pathA",
-						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: "svc-1",
-								Port: networking.ServiceBackendPort{
-									Number: 80,
-								},
-							},
-						},
-					},
-					{
-						Path:     "/pathC",
-						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: "svc-1",
-								Port: networking.ServiceBackendPort{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-				{"", "Prefix", "svc-2", "80"}: {
-					{
-						Path:     "/pathD",
-						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: "svc-2",
-								Port: networking.ServiceBackendPort{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-				{"", "Exact", "svc-2", "80"}: {
-					{
-						Path:     "/pathB",
-						PathType: (*networking.PathType)(awssdk.String("Exact")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: "svc-2",
-								Port: networking.ServiceBackendPort{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-			wantPathToRuleMap: map[networking.HTTPIngressPath]int{
-				{
-					Path:     "/pathA",
-					PathType: (*networking.PathType)(awssdk.String("Prefix")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: "svc-1",
-							Port: networking.ServiceBackendPort{
-								Number: 80,
-							},
-						},
-					},
-				}: 0,
-				{
-					Path:     "/pathB",
-					PathType: (*networking.PathType)(awssdk.String("Exact")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: "svc-2",
-							Port: networking.ServiceBackendPort{
-								Number: 80,
-							},
-						},
-					},
-				}: 0,
-				{
-					Path:     "/pathC",
-					PathType: (*networking.PathType)(awssdk.String("Prefix")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: "svc-1",
-							Port: networking.ServiceBackendPort{
-								Number: 80,
-							},
-						},
-					},
-				}: 1,
-				{
-					Path:     "/pathD",
-					PathType: (*networking.PathType)(awssdk.String("Prefix")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: "svc-2",
-							Port: networking.ServiceBackendPort{
-								Number: 80,
-							},
-						},
-					},
-				}: 1,
-			},
-		},
-		{
-			name: "2 rules with different hosts",
-			args: args{
-				rules: []networking.IngressRule{
-					{
-						Host: "",
-						IngressRuleValue: networking.IngressRuleValue{
-							HTTP: &networking.HTTPIngressRuleValue{
-								Paths: []networking.HTTPIngressPath{
-									{
-										Path:     "/pathA",
-										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-										Backend: networking.IngressBackend{
-											Service: &networking.IngressServiceBackend{
-												Name: "svc-1",
-												Port: networking.ServiceBackendPort{
-													Number: 80,
-												},
-											},
-										},
-									},
-									{
-										Path:     "/pathB",
-										PathType: (*networking.PathType)(awssdk.String("Exact")),
-										Backend: networking.IngressBackend{
-											Service: &networking.IngressServiceBackend{
-												Name: "svc-2",
-												Port: networking.ServiceBackendPort{
-													Number: 80,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-					{
-						Host: "example.com",
-						IngressRuleValue: networking.IngressRuleValue{
-							HTTP: &networking.HTTPIngressRuleValue{
-								Paths: []networking.HTTPIngressPath{
-									{
-										Path:     "/pathC",
-										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-										Backend: networking.IngressBackend{
-											Service: &networking.IngressServiceBackend{
-												Name: "svc-1",
-												Port: networking.ServiceBackendPort{
-													Number: 80,
-												},
-											},
-										},
-									},
-									{
-										Path:     "/pathD",
-										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-										Backend: networking.IngressBackend{
-											Service: &networking.IngressServiceBackend{
-												Name: "svc-2",
-												Port: networking.ServiceBackendPort{
-													Number: 80,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantMergePathsRefMap: map[[4]string][]networking.HTTPIngressPath{
-				{"", "Prefix", "svc-1", "80"}: {
-					{
-						Path:     "/pathA",
-						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: "svc-1",
-								Port: networking.ServiceBackendPort{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-				{"", "Exact", "svc-2", "80"}: {
-					{
-						Path:     "/pathB",
-						PathType: (*networking.PathType)(awssdk.String("Exact")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: "svc-2",
-								Port: networking.ServiceBackendPort{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-				{"example.com", "Prefix", "svc-1", "80"}: {
-					{
-						Path:     "/pathC",
-						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: "svc-1",
-								Port: networking.ServiceBackendPort{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-				{"example.com", "Prefix", "svc-2", "80"}: {
-					{
-						Path:     "/pathD",
-						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-						Backend: networking.IngressBackend{
-							Service: &networking.IngressServiceBackend{
-								Name: "svc-2",
-								Port: networking.ServiceBackendPort{
-									Number: 80,
-								},
-							},
-						},
-					},
-				},
-			},
-			wantPathToRuleMap: map[networking.HTTPIngressPath]int{
-				{
-					Path:     "/pathA",
-					PathType: (*networking.PathType)(awssdk.String("Prefix")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: "svc-1",
-							Port: networking.ServiceBackendPort{
-								Number: 80,
-							},
-						},
-					},
-				}: 0,
-				{
-					Path:     "/pathB",
-					PathType: (*networking.PathType)(awssdk.String("Exact")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: "svc-2",
-							Port: networking.ServiceBackendPort{
-								Number: 80,
-							},
-						},
-					},
-				}: 0,
-				{
-					Path:     "/pathC",
-					PathType: (*networking.PathType)(awssdk.String("Prefix")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: "svc-1",
-							Port: networking.ServiceBackendPort{
-								Number: 80,
-							},
-						},
-					},
-				}: 1,
-				{
-					Path:     "/pathD",
-					PathType: (*networking.PathType)(awssdk.String("Prefix")),
-					Backend: networking.IngressBackend{
-						Service: &networking.IngressServiceBackend{
-							Name: "svc-2",
-							Port: networking.ServiceBackendPort{
-								Number: 80,
-							},
-						},
-					},
-				}: 1,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			task := &defaultModelBuildTask{}
-			got, _ := task.getMergeRuleRefMaps(tt.args.rules)
-			assert.Equal(t, got, tt.wantMergePathsRefMap, tt.wantPathToRuleMap)
-		})
-	}
-}
-
-func Test_defaultModelBuildTask_getRulesToMerge(t *testing.T) {
+func Test_defaultModelBuildTask_classifyRulesByHost(t *testing.T) {
 	type args struct {
 		rules []networking.IngressRule
 	}
@@ -732,7 +352,7 @@ func Test_defaultModelBuildTask_getRulesToMerge(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &defaultModelBuildTask{}
-			gotRulesWithReplicateHosts, gotRulesWithUniquetHost, err := task.getRulesToMerge(tt.args.rules)
+			gotRulesWithReplicateHosts, gotRulesWithUniquetHost, err := task.classifyRulesByHost(tt.args.rules)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -744,18 +364,18 @@ func Test_defaultModelBuildTask_getRulesToMerge(t *testing.T) {
 	}
 }
 
-func Test_defaultModelBuildTask_buildMergedRules(t *testing.T) {
+func Test_defaultModelBuildTask_getMergeRuleRefMaps(t *testing.T) {
 	type args struct {
 		rules []networking.IngressRule
 	}
 	tests := []struct {
-		name            string
-		args            args
-		wantMergedRules []networking.IngressRule
-		wantErr         error
+		name                 string
+		args                 args
+		wantMergePathsRefMap map[[5]string][]networking.HTTPIngressPath
+		//wantPathToRuleMap    map[networking.HTTPIngressPath]int
 	}{
 		{
-			name: "2 rules with no host",
+			name: "2 rules with no host, different svc name and same port number",
 			args: args{
 				rules: []networking.IngressRule{
 					{
@@ -826,78 +446,115 @@ func Test_defaultModelBuildTask_buildMergedRules(t *testing.T) {
 					},
 				},
 			},
-			wantMergedRules: []networking.IngressRule{
-				{
-					Host: "",
-					IngressRuleValue: networking.IngressRuleValue{
-						HTTP: &networking.HTTPIngressRuleValue{
-							Paths: []networking.HTTPIngressPath{
-								{
-									Path:     "/pathA",
-									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-									Backend: networking.IngressBackend{
-										Service: &networking.IngressServiceBackend{
-											Name: "svc-1",
-											Port: networking.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
+			wantMergePathsRefMap: map[[5]string][]networking.HTTPIngressPath{
+				{"", "Prefix", "svc-1", "", "80"}: {
+					{
+						Path:     "/pathA",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-1",
+								Port: networking.ServiceBackendPort{
+									Number: 80,
 								},
-								{
-									Path:     "/pathC",
-									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-									Backend: networking.IngressBackend{
-										Service: &networking.IngressServiceBackend{
-											Name: "svc-1",
-											Port: networking.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
-								},
-								{
-									Path:     "/pathB",
-									PathType: (*networking.PathType)(awssdk.String("Exact")),
-									Backend: networking.IngressBackend{
-										Service: &networking.IngressServiceBackend{
-											Name: "svc-2",
-											Port: networking.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
+							},
+						},
+					},
+					{
+						Path:     "/pathC",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-1",
+								Port: networking.ServiceBackendPort{
+									Number: 80,
 								},
 							},
 						},
 					},
 				},
-				{
-					Host: "",
-					IngressRuleValue: networking.IngressRuleValue{
-						HTTP: &networking.HTTPIngressRuleValue{
-							Paths: []networking.HTTPIngressPath{
-								{
-									Path:     "/pathD",
-									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-									Backend: networking.IngressBackend{
-										Service: &networking.IngressServiceBackend{
-											Name: "svc-2",
-											Port: networking.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
+				{"", "Prefix", "svc-2", "", "80"}: {
+					{
+						Path:     "/pathD",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-2",
+								Port: networking.ServiceBackendPort{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+				{"", "Exact", "svc-2", "", "80"}: {
+					{
+						Path:     "/pathB",
+						PathType: (*networking.PathType)(awssdk.String("Exact")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-2",
+								Port: networking.ServiceBackendPort{
+									Number: 80,
 								},
 							},
 						},
 					},
 				},
 			},
-			wantErr: nil,
+			//wantPathToRuleMap: map[networking.HTTPIngressPath]int{
+			//	{
+			//		Path:     "/pathA",
+			//		PathType: (*networking.PathType)(awssdk.String("Prefix")),
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-1",
+			//				Port: networking.ServiceBackendPort{
+			//					Number: 80,
+			//				},
+			//			},
+			//		},
+			//	}: 0,
+			//	{
+			//		Path:     "/pathB",
+			//		PathType: (*networking.PathType)(awssdk.String("Exact")),
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-2",
+			//				Port: networking.ServiceBackendPort{
+			//					Number: 80,
+			//				},
+			//			},
+			//		},
+			//	}: 0,
+			//	{
+			//		Path:     "/pathC",
+			//		PathType: (*networking.PathType)(awssdk.String("Prefix")),
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-1",
+			//				Port: networking.ServiceBackendPort{
+			//					Number: 80,
+			//				},
+			//			},
+			//		},
+			//	}: 1,
+			//	{
+			//		Path:     "/pathD",
+			//		PathType: (*networking.PathType)(awssdk.String("Prefix")),
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-2",
+			//				Port: networking.ServiceBackendPort{
+			//					Number: 80,
+			//				},
+			//			},
+			//		},
+			//	}: 1,
+			//},
 		},
 		{
-			name: "3 rules with 2 hosts",
+			name: "2 rules with different hosts",
 			args: args{
 				rules: []networking.IngressRule{
 					{
@@ -966,19 +623,164 @@ func Test_defaultModelBuildTask_buildMergedRules(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+			wantMergePathsRefMap: map[[5]string][]networking.HTTPIngressPath{
+				{"", "Prefix", "svc-1", "", "80"}: {
 					{
-						Host: "example.com",
+						Path:     "/pathA",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-1",
+								Port: networking.ServiceBackendPort{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+				{"", "Exact", "svc-2", "", "80"}: {
+					{
+						Path:     "/pathB",
+						PathType: (*networking.PathType)(awssdk.String("Exact")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-2",
+								Port: networking.ServiceBackendPort{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+				{"example.com", "Prefix", "svc-1", "", "80"}: {
+					{
+						Path:     "/pathC",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-1",
+								Port: networking.ServiceBackendPort{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+				{"example.com", "Prefix", "svc-2", "", "80"}: {
+					{
+						Path:     "/pathD",
+						PathType: (*networking.PathType)(awssdk.String("Prefix")),
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-2",
+								Port: networking.ServiceBackendPort{
+									Number: 80,
+								},
+							},
+						},
+					},
+				},
+			},
+			//wantPathToRuleMap: map[networking.HTTPIngressPath]int{
+			//	{
+			//		Path:     "/pathA",
+			//		PathType: (*networking.PathType)(awssdk.String("Prefix")),
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-1",
+			//				Port: networking.ServiceBackendPort{
+			//					Number: 80,
+			//				},
+			//			},
+			//		},
+			//	}: 0,
+			//	{
+			//		Path:     "/pathB",
+			//		PathType: (*networking.PathType)(awssdk.String("Exact")),
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-2",
+			//				Port: networking.ServiceBackendPort{
+			//					Number: 80,
+			//				},
+			//			},
+			//		},
+			//	}: 0,
+			//	{
+			//		Path:     "/pathC",
+			//		PathType: (*networking.PathType)(awssdk.String("Prefix")),
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-1",
+			//				Port: networking.ServiceBackendPort{
+			//					Number: 80,
+			//				},
+			//			},
+			//		},
+			//	}: 1,
+			//	{
+			//		Path:     "/pathD",
+			//		PathType: (*networking.PathType)(awssdk.String("Prefix")),
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-2",
+			//				Port: networking.ServiceBackendPort{
+			//					Number: 80,
+			//				},
+			//			},
+			//		},
+			//	}: 1,
+			//},
+		},
+		{
+			name: "2 rules with different hosts, different svc name and different port name",
+			args: args{
+				rules: []networking.IngressRule{
+					{
+						Host: "example1.com",
 						IngressRuleValue: networking.IngressRuleValue{
 							HTTP: &networking.HTTPIngressRuleValue{
 								Paths: []networking.HTTPIngressPath{
 									{
-										Path:     "/pathE",
-										PathType: (*networking.PathType)(awssdk.String("Prefix")),
+										Path: "/pathA",
 										Backend: networking.IngressBackend{
 											Service: &networking.IngressServiceBackend{
 												Name: "svc-1",
 												Port: networking.ServiceBackendPort{
-													Number: 80,
+													Name: "http",
+												},
+											},
+										},
+									},
+									{
+										Path: "/pathB",
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "svc-2",
+												Port: networking.ServiceBackendPort{
+													Name: "http",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						Host: "example2.com",
+						IngressRuleValue: networking.IngressRuleValue{
+							HTTP: &networking.HTTPIngressRuleValue{
+								Paths: []networking.HTTPIngressPath{
+									{
+										Path: "/pathC",
+										Backend: networking.IngressBackend{
+											Service: &networking.IngressServiceBackend{
+												Name: "svc-3",
+												Port: networking.ServiceBackendPort{
+													Name: "https",
 												},
 											},
 										},
@@ -989,552 +791,92 @@ func Test_defaultModelBuildTask_buildMergedRules(t *testing.T) {
 					},
 				},
 			},
-			wantMergedRules: []networking.IngressRule{
-				{
-					Host: "example.com",
-					IngressRuleValue: networking.IngressRuleValue{
-						HTTP: &networking.HTTPIngressRuleValue{
-							Paths: []networking.HTTPIngressPath{
-								{
-									Path:     "/pathC",
-									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-									Backend: networking.IngressBackend{
-										Service: &networking.IngressServiceBackend{
-											Name: "svc-1",
-											Port: networking.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
-								},
-								{
-									Path:     "/pathE",
-									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-									Backend: networking.IngressBackend{
-										Service: &networking.IngressServiceBackend{
-											Name: "svc-1",
-											Port: networking.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
-								},
-								{
-									Path:     "/pathD",
-									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-									Backend: networking.IngressBackend{
-										Service: &networking.IngressServiceBackend{
-											Name: "svc-2",
-											Port: networking.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
+			wantMergePathsRefMap: map[[5]string][]networking.HTTPIngressPath{
+				{"example1.com", "", "svc-1", "http", "0"}: {
+					{
+						Path: "/pathA",
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-1",
+								Port: networking.ServiceBackendPort{
+									Name: "http",
 								},
 							},
 						},
 					},
 				},
-				{
-					Host: "",
-					IngressRuleValue: networking.IngressRuleValue{
-						HTTP: &networking.HTTPIngressRuleValue{
-							Paths: []networking.HTTPIngressPath{
-								{
-									Path:     "/pathA",
-									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-									Backend: networking.IngressBackend{
-										Service: &networking.IngressServiceBackend{
-											Name: "svc-1",
-											Port: networking.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
+				{"example1.com", "", "svc-2", "http", "0"}: {
+					{
+						Path: "/pathB",
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-2",
+								Port: networking.ServiceBackendPort{
+									Name: "http",
 								},
-								{
-									Path:     "/pathB",
-									PathType: (*networking.PathType)(awssdk.String("Exact")),
-									Backend: networking.IngressBackend{
-										Service: &networking.IngressServiceBackend{
-											Name: "svc-2",
-											Port: networking.ServiceBackendPort{
-												Number: 80,
-											},
-										},
-									},
+							},
+						},
+					},
+				},
+				{"example2.com", "", "svc-3", "https", "0"}: {
+					{
+						Path: "/pathC",
+						Backend: networking.IngressBackend{
+							Service: &networking.IngressServiceBackend{
+								Name: "svc-3",
+								Port: networking.ServiceBackendPort{
+									Name: "https",
 								},
 							},
 						},
 					},
 				},
 			},
-			wantErr: nil,
+			//wantPathToRuleMap: map[networking.HTTPIngressPath]int{
+			//	{
+			//		Path: "/pathA",
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-1",
+			//				Port: networking.ServiceBackendPort{
+			//					Name: "http",
+			//				},
+			//			},
+			//		},
+			//	}: 0,
+			//	{
+			//		Path: "/pathB",
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-2",
+			//				Port: networking.ServiceBackendPort{
+			//					Name: "http",
+			//				},
+			//			},
+			//		},
+			//	}: 0,
+			//	{
+			//		Path: "/pathC",
+			//		Backend: networking.IngressBackend{
+			//			Service: &networking.IngressServiceBackend{
+			//				Name: "svc-3",
+			//				Port: networking.ServiceBackendPort{
+			//					Name: "https",
+			//				},
+			//			},
+			//		},
+			//	}: 1,
+			//},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &defaultModelBuildTask{}
-			gotMergedRules, err := task.buildMergedRules(tt.args.rules)
-			if tt.wantErr != nil {
-				assert.EqualError(t, err, tt.wantErr.Error())
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, gotMergedRules, tt.wantMergedRules)
-			}
+			got := task.getMergeRuleRefMaps(tt.args.rules)
+			assert.Equal(t, got, tt.wantMergePathsRefMap)
 		})
 	}
 }
-
-//func Test_defaultModelBuildTask_buildMergedRules(t *testing.T) {
-//	type args struct {
-//		rules []networking.IngressRule
-//		mergePathsRefMap map[[4]string][]networking.HTTPIngressPath
-//		pathToRuleMap map[networking.HTTPIngressPath]int
-//	}
-//	tests := []struct {
-//		name string
-//		args args
-//		wantMergedRules []networking.IngressRule
-//	}{
-//		{
-//			name: "2 rules with no host",
-//			args: args{
-//				rules: []networking.IngressRule{
-//					{
-//						Host: "",
-//						IngressRuleValue: networking.IngressRuleValue{
-//							HTTP: &networking.HTTPIngressRuleValue{
-//								Paths: []networking.HTTPIngressPath{
-//									{
-//										Path: "/pathA",
-//										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//										Backend: networking.IngressBackend{
-//											Service: &networking.IngressServiceBackend{
-//												Name: "svc-1",
-//												Port: networking.ServiceBackendPort{
-//													Number: 80,
-//												},
-//											},
-//										},
-//									},
-//									{
-//										Path: "/pathB",
-//										PathType: (*networking.PathType)(awssdk.String("Exact")),
-//										Backend: networking.IngressBackend{
-//											Service: &networking.IngressServiceBackend{
-//												Name: "svc-2",
-//												Port: networking.ServiceBackendPort{
-//													Number: 80,
-//												},
-//											},
-//										},
-//									},
-//								},
-//							},
-//						},
-//					},
-//					{
-//						Host: "",
-//						IngressRuleValue: networking.IngressRuleValue{
-//							HTTP: &networking.HTTPIngressRuleValue{
-//								Paths: []networking.HTTPIngressPath{
-//									{
-//										Path: "/pathC",
-//										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//										Backend: networking.IngressBackend{
-//											Service: &networking.IngressServiceBackend{
-//												Name: "svc-1",
-//												Port: networking.ServiceBackendPort{
-//													Number: 80,
-//												},
-//											},
-//										},
-//									},
-//									{
-//										Path: "/pathD",
-//										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//										Backend: networking.IngressBackend{
-//											Service: &networking.IngressServiceBackend{
-//												Name: "svc-2",
-//												Port: networking.ServiceBackendPort{
-//													Number: 80,
-//												},
-//											},
-//										},
-//									},
-//								},
-//							},
-//						},
-//					},
-//				},
-//				mergePathsRefMap: map[[4]string][]networking.HTTPIngressPath{
-//					{"", "Prefix", "svc-1", "80"}: {
-//						{
-//							Path: "/pathA",
-//							PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//							Backend: networking.IngressBackend{
-//								Service: &networking.IngressServiceBackend{
-//									Name: "svc-1",
-//									Port: networking.ServiceBackendPort{
-//										Number: 80,
-//									},
-//								},
-//							},
-//						},
-//						{
-//							Path: "/pathC",
-//							PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//							Backend: networking.IngressBackend{
-//								Service: &networking.IngressServiceBackend{
-//									Name: "svc-1",
-//									Port: networking.ServiceBackendPort{
-//										Number: 80,
-//									},
-//								},
-//							},
-//						},
-//					},
-//					{"", "Prefix", "svc-2", "80"}: {
-//						{
-//							Path: "/pathD",
-//							PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//							Backend: networking.IngressBackend{
-//								Service: &networking.IngressServiceBackend{
-//									Name: "svc-2",
-//									Port: networking.ServiceBackendPort{
-//										Number: 80,
-//									},
-//								},
-//							},
-//						},
-//					},
-//					{"", "Exact", "svc-2", "80"}: {
-//						{
-//							Path: "/pathB",
-//							PathType: (*networking.PathType)(awssdk.String("Exact")),
-//							Backend: networking.IngressBackend{
-//								Service: &networking.IngressServiceBackend{
-//									Name: "svc-2",
-//									Port: networking.ServiceBackendPort{
-//										Number: 80,
-//									},
-//								},
-//							},
-//						},
-//					},
-//				},
-//				pathToRuleMap: map[networking.HTTPIngressPath]int{
-//					{
-//						Path: "/pathA",
-//						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//						Backend: networking.IngressBackend{
-//							Service: &networking.IngressServiceBackend{
-//								Name: "svc-1",
-//								Port: networking.ServiceBackendPort{
-//									Number: 80,
-//								},
-//							},
-//						},
-//					}: 0,
-//					{
-//						Path: "/pathB",
-//						PathType: (*networking.PathType)(awssdk.String("Exact")),
-//						Backend: networking.IngressBackend{
-//							Service: &networking.IngressServiceBackend{
-//								Name: "svc-2",
-//								Port: networking.ServiceBackendPort{
-//									Number: 80,
-//								},
-//							},
-//						},
-//					}: 0,
-//					{
-//						Path: "/pathC",
-//						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//						Backend: networking.IngressBackend{
-//							Service: &networking.IngressServiceBackend{
-//								Name: "svc-1",
-//								Port: networking.ServiceBackendPort{
-//									Number: 80,
-//								},
-//							},
-//						},
-//					}: 1,
-//					{
-//						Path: "/pathD",
-//						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//						Backend: networking.IngressBackend{
-//							Service: &networking.IngressServiceBackend{
-//								Name: "svc-2",
-//								Port: networking.ServiceBackendPort{
-//									Number: 80,
-//								},
-//							},
-//						},
-//					}: 1,
-//				},
-//			},
-//			wantMergedRules: []networking.IngressRule{
-//				{
-//					Host: "",
-//					IngressRuleValue: networking.IngressRuleValue{
-//						HTTP: &networking.HTTPIngressRuleValue{
-//							Paths: []networking.HTTPIngressPath{
-//								{
-//									Path: "/pathA",
-//									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//									Backend: networking.IngressBackend{
-//										Service: &networking.IngressServiceBackend{
-//											Name: "svc-1",
-//											Port: networking.ServiceBackendPort{
-//												Number: 80,
-//											},
-//										},
-//									},
-//								},
-//								{
-//									Path: "/pathC",
-//									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//									Backend: networking.IngressBackend{
-//										Service: &networking.IngressServiceBackend{
-//											Name: "svc-1",
-//											Port: networking.ServiceBackendPort{
-//												Number: 80,
-//											},
-//										},
-//									},
-//								},
-//								{
-//									Path: "/pathB",
-//									PathType: (*networking.PathType)(awssdk.String("Exact")),
-//									Backend: networking.IngressBackend{
-//										Service: &networking.IngressServiceBackend{
-//											Name: "svc-2",
-//											Port: networking.ServiceBackendPort{
-//												Number: 80,
-//											},
-//										},
-//									},
-//								},
-//							},
-//						},
-//					},
-//				},
-//				{
-//					Host: "",
-//					IngressRuleValue: networking.IngressRuleValue{
-//						HTTP: &networking.HTTPIngressRuleValue{
-//							Paths: []networking.HTTPIngressPath{
-//								{
-//									Path: "/pathD",
-//									PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//									Backend: networking.IngressBackend{
-//										Service: &networking.IngressServiceBackend{
-//											Name: "svc-2",
-//											Port: networking.ServiceBackendPort{
-//												Number: 80,
-//											},
-//										},
-//									},
-//								},
-//							},
-//						},
-//					},
-//				},
-//			},
-//		},
-//		{
-//			name: "2 rules with different hosts",
-//			args: args{
-//				rules: []networking.IngressRule{
-//					{
-//						Host: "",
-//						IngressRuleValue: networking.IngressRuleValue{
-//							HTTP: &networking.HTTPIngressRuleValue{
-//								Paths: []networking.HTTPIngressPath{
-//									{
-//										Path: "/pathA",
-//										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//										Backend: networking.IngressBackend{
-//											Service: &networking.IngressServiceBackend{
-//												Name: "svc-1",
-//												Port: networking.ServiceBackendPort{
-//													Number: 80,
-//												},
-//											},
-//										},
-//									},
-//									{
-//										Path: "/pathB",
-//										PathType: (*networking.PathType)(awssdk.String("Exact")),
-//										Backend: networking.IngressBackend{
-//											Service: &networking.IngressServiceBackend{
-//												Name: "svc-2",
-//												Port: networking.ServiceBackendPort{
-//													Number: 80,
-//												},
-//											},
-//										},
-//									},
-//								},
-//							},
-//						},
-//					},
-//					{
-//						Host: "example.com",
-//						IngressRuleValue: networking.IngressRuleValue{
-//							HTTP: &networking.HTTPIngressRuleValue{
-//								Paths: []networking.HTTPIngressPath{
-//									{
-//										Path: "/pathC",
-//										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//										Backend: networking.IngressBackend{
-//											Service: &networking.IngressServiceBackend{
-//												Name: "svc-1",
-//												Port: networking.ServiceBackendPort{
-//													Number: 80,
-//												},
-//											},
-//										},
-//									},
-//									{
-//										Path: "/pathD",
-//										PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//										Backend: networking.IngressBackend{
-//											Service: &networking.IngressServiceBackend{
-//												Name: "svc-2",
-//												Port: networking.ServiceBackendPort{
-//													Number: 80,
-//												},
-//											},
-//										},
-//									},
-//								},
-//							},
-//						},
-//					},
-//				},
-//				mergePathsRefMap: map[[4]string][]networking.HTTPIngressPath{
-//					{"", "Prefix", "svc-1", "80"}: {
-//						{
-//							Path: "/pathA",
-//							PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//							Backend: networking.IngressBackend{
-//								Service: &networking.IngressServiceBackend{
-//									Name: "svc-1",
-//									Port: networking.ServiceBackendPort{
-//										Number: 80,
-//									},
-//								},
-//							},
-//						},
-//					},
-//					{"", "Exact", "svc-2", "80"}: {
-//						{
-//							Path: "/pathB",
-//							PathType: (*networking.PathType)(awssdk.String("Exact")),
-//							Backend: networking.IngressBackend{
-//								Service: &networking.IngressServiceBackend{
-//									Name: "svc-2",
-//									Port: networking.ServiceBackendPort{
-//										Number: 80,
-//									},
-//								},
-//							},
-//						},
-//					},
-//					{"example.com", "Prefix", "svc-1", "80"}: {
-//						{
-//							Path: "/pathC",
-//							PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//							Backend: networking.IngressBackend{
-//								Service: &networking.IngressServiceBackend{
-//									Name: "svc-1",
-//									Port: networking.ServiceBackendPort{
-//										Number: 80,
-//									},
-//								},
-//							},
-//						},
-//					},
-//					{"example.com", "Prefix", "svc-2", "80"}: {
-//						{
-//							Path: "/pathD",
-//							PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//							Backend: networking.IngressBackend{
-//								Service: &networking.IngressServiceBackend{
-//									Name: "svc-2",
-//									Port: networking.ServiceBackendPort{
-//										Number: 80,
-//									},
-//								},
-//							},
-//						},
-//					},
-//				},
-//				pathToRuleMap: map[networking.HTTPIngressPath]int{
-//					{
-//						Path: "/pathA",
-//						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//						Backend: networking.IngressBackend{
-//							Service: &networking.IngressServiceBackend{
-//								Name: "svc-1",
-//								Port: networking.ServiceBackendPort{
-//									Number: 80,
-//								},
-//							},
-//						},
-//					}: 0,
-//					{
-//						Path: "/pathB",
-//						PathType: (*networking.PathType)(awssdk.String("Exact")),
-//						Backend: networking.IngressBackend{
-//							Service: &networking.IngressServiceBackend{
-//								Name: "svc-2",
-//								Port: networking.ServiceBackendPort{
-//									Number: 80,
-//								},
-//							},
-//						},
-//					}: 0,
-//					{
-//						Path: "/pathC",
-//						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//						Backend: networking.IngressBackend{
-//							Service: &networking.IngressServiceBackend{
-//								Name: "svc-1",
-//								Port: networking.ServiceBackendPort{
-//									Number: 80,
-//								},
-//							},
-//						},
-//					}: 1,
-//					{
-//						Path: "/pathD",
-//						PathType: (*networking.PathType)(awssdk.String("Prefix")),
-//						Backend: networking.IngressBackend{
-//							Service: &networking.IngressServiceBackend{
-//								Name: "svc-2",
-//								Port: networking.ServiceBackendPort{
-//									Number: 80,
-//								},
-//							},
-//						},
-//					}: 1,
-//				},
-//			},
-//			wantMergedRules
-//		},
-//	}
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			task := &defaultModelBuildTask{}
-//			got, _ := task.buildMergedRules(tt.args.rules, tt.args.mergePathsRefMap, tt.args.pathToRuleMap)
-//			assert.Equal(t, got, tt.wantMergedRules)
-//		})
-//	}
-//}
 
 func Test_defaultModelBuildTask_sortIngressPath(t *testing.T) {
 	type args struct {
