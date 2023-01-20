@@ -75,6 +75,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all Ingresses or Services that do not have the SSL Policy annotation |
 |default-tags                           | stringMap                       |                 | AWS Tags that will be applied to all AWS resources managed by this controller. Specified Tags takes highest priority |
+|default-target-type                    | string                          | instance        | Default target type for Ingresses and Services - ip, instance |
 |[disable-ingress-class-annotation](#disable-ingress-class-annotation)       | boolean                         | false           | Disable new usage of the `kubernetes.io/ingress.class` annotation |
 |[disable-ingress-group-name-annotation](#disable-ingress-group-name-annotation)  | boolean                         | false           | Disallow new use of the `alb.ingress.kubernetes.io/group.name` annotation |
 |disable-restricted-sg-rules            | boolean                         | false            | Disable the usage of restricted security group rules |
