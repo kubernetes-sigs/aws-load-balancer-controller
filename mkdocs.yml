@@ -12,6 +12,7 @@ nav:
     - Installation Guide: deploy/installation.md
     - Configurations: deploy/configurations.md
     - Subnet Discovery: deploy/subnet_discovery.md
+    - Security Group Management: deploy/security_group_management.md
     - Pod Readiness Gate: deploy/pod_readiness_gate.md
     - Upgrade:
           - Migrate v1 to v2: deploy/upgrade/migrate_v1_v2.md
