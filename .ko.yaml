@@ -1,0 +1,1 @@
+defaultBaseImage: public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2022-07-27-1658910674.2
