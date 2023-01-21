@@ -225,6 +225,88 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     kubectl apply -f v2_4_6_ingclass.yaml
     ```
 
+=== "Via Install script"
+
+
+    If you are installing a aws load balancer controller for testing, you can install the aws load balancer controller as a simple installation script.
+
+
+    this script is install AWS load balancer controller using YAML manifest
+
+
+    1. create install script
+    ```
+    cat<<EOF > install.sh
+    #!/bin/bash
+
+    # this script simple-installing load balancer controller
+
+    REGION=$(aws configure get region)
+    ACCOUNT=$(aws sts get-caller-identity | jq -r '.Account')
+    read -p "Please enter the cluster name : " CLUSTERNAME
+    oidc_id=$(aws eks describe-cluster --name $CLUSTERNAME --query "cluster.identity.oidc.issuer" --output text | cut -d '/' -f 5)
+
+
+    if ! [[ -v $(aws iam list-open-id-connect-providers | grep $oidc_id) ]]; 
+    then
+    eksctl utils associate-iam-oidc-provider --cluster $CLUSTERNAME --approve
+    fi
+
+    if ! [[ -v REGION ]]; 
+    then
+    echo "Please setting default region"
+    exit
+    fi
+
+    if [ ${REGION:0:2} == "us" ]; 
+    then
+    curl -o iam_policy_us-gov.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.4/docs/install/iam_policy_us-gov.json
+    else
+    curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.4/docs/install/iam_policy.json
+    fi
+
+    aws iam create-policy \
+        --policy-name AWSLoadBalancerControllerIAMPolicy \
+        --policy-document file://iam_policy.json
+
+    eksctl create iamserviceaccount   --cluster=$CLUSTERNAME   --namespace=kube-system   --name=aws-load-balancer-controller   --role-name "AmazonEKSLoadBalancerControllerRole"   --attach-policy-arn=arn:aws:iam::$ACCOUNT:policy/AWSLoadBalancerControllerIAMPolicy  --approve
+
+    kubectl apply \
+    --validate=false \
+    -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml
+
+    curl -Lo v2_4_4_full.yaml https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.4/v2_4_4_full.yaml
+
+    sed -i.bak -e '480,488d' ./v2_4_4_full.yaml
+
+    sed -i.bak -e "s|your-cluster-name|$CLUSTERNAME|" ./v2_4_4_full.yaml
+
+    kubectl apply -f v2_4_4_full.yaml
+
+    curl -Lo v2_4_4_ingclass.yaml https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.4/v2_4_4_ingclass.yaml
+
+    kubectl apply -f v2_4_4_ingclass.yaml
+
+    kubectl get -n kube-system deployment
+    EOF
+    ```
+    2. Change the load-balancer-controller version to the version you want. (default : v2_4_4)
+    ```
+    sed -i 's/v2_4_4/change-version/g' ./install.sh
+    ```
+    3. add running permission to script.sh
+    ```
+    chmod +x install.sh 
+    ```
+    4. running script
+
+    
+        after running install.sh, need enter the eks cluster name
+        ```
+        ./install.sh
+        Please enter the cluster name : your-cluster-name
+        ```
+
 ## Create Update Strategy
 
 The controller doesn't receive security updates automatically. You need to manually upgrade to a newer version when it becomes available.
