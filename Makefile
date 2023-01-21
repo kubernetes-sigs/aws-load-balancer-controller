@@ -83,7 +83,11 @@ docker-push: aws-load-balancer-controller-push
 
 .PHONY: aws-load-balancer-controller-push
 aws-load-balancer-controller-push: ko
-	KO_DOCKER_REPO=$(firstword $(subst :, ,${IMG})) ko build --tags $(word 2,$(subst :, ,${IMG})) --platform=${IMG_PLATFORM} --bare --sbom ${IMG_SBOM} .
+	KO_DOCKER_REPO=$(firstword $(subst :, ,${IMG})) \
+    GIT_VERSION=$(shell git describe --tags --dirty --always) \
+    GIT_COMMIT=$(shell git rev-parse HEAD)  \
+    BUILD_DATE=$(shell date +%Y-%m-%dT%H:%M:%S%z) \
+    ko build --tags $(word 2,$(subst :, ,${IMG})) --platform=${IMG_PLATFORM} --bare --sbom ${IMG_SBOM} .
 
 # find or download controller-gen
 # download controller-gen if necessary
