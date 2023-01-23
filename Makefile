@@ -64,8 +64,9 @@ helm-lint:
 	${MAKEFILE_PATH}/test/helm/helm-lint.sh
 
 # Generate code
-generate: aws-sdk-model-override controller-gen
+generate: aws-sdk-model-override controller-gen mockgen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	MOCKGEN=$(MOCKGEN) ./scripts/gen_mocks.sh
 
 aws-sdk-model-override:
 	@if [ "$(AWS_SDK_MODEL_OVERRIDE)" = "y" ] ; then \
@@ -97,6 +98,24 @@ ifeq (, $(shell which controller-gen))
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
+endif
+
+# find or download mockgen
+# download mockgen if necessary
+.PHONY: mockgen
+mockgen:
+ifeq (, $(shell which mockgen))
+	@{ \
+	set -e ;\
+	MOCKGEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$MOCKGEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go install github.com/golang/mock/mockgen@v1.6.0 ;\
+	rm -rf $$MOCKGEN_TMP_DIR ;\
+	}
+MOCKGEN=$(GOBIN)/mockgen
+else
+MOCKGEN=$(shell which mockgen)
 endif
 
 # install kustomize if not found
