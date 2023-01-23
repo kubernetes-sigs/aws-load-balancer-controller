@@ -2,6 +2,9 @@ package k8s
 
 import (
 	"context"
+	"testing"
+
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
@@ -12,7 +15,6 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func TestHasFinalizer(t *testing.T) {
@@ -189,7 +191,7 @@ func Test_defaultFinalizerManager_AddFinalizers(t *testing.T) {
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
-			m := NewDefaultFinalizerManager(k8sClient, &log.NullLogger{})
+			m := NewDefaultFinalizerManager(k8sClient, logr.New(&log.NullLogSink{}))
 
 			err := k8sClient.Create(ctx, tt.args.obj.DeepCopy())
 			assert.NoError(t, err)
@@ -328,7 +330,7 @@ func Test_defaultFinalizerManager_RemoveFinalizers(t *testing.T) {
 			elbv2api.AddToScheme(k8sSchema)
 
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
-			m := NewDefaultFinalizerManager(k8sClient, &log.NullLogger{})
+			m := NewDefaultFinalizerManager(k8sClient, logr.New(&log.NullLogSink{}))
 
 			err := k8sClient.Create(ctx, tt.args.obj.DeepCopy())
 			assert.NoError(t, err)

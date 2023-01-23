@@ -318,7 +318,7 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 			i := &defaultReferenceIndexer{
 				enhancedBackendBuilder: enhancedBackendBuilder,
 				authConfigBuilder:      authConfigBuilder,
-				logger:                 &log.NullLogger{},
+				logger:                 logr.New(&log.NullLogSink{}),
 			}
 			got := i.BuildServiceRefIndexes(context.Background(), tt.args.ing)
 			assert.Equal(t, tt.want, got)
@@ -369,7 +369,7 @@ func Test_defaultReferenceIndexer_BuildSecretRefIndexes(t *testing.T) {
 			i := &defaultReferenceIndexer{
 				enhancedBackendBuilder: enhancedBackendBuilder,
 				authConfigBuilder:      authConfigBuilder,
-				logger:                 &log.NullLogger{},
+				logger:                 logr.New(&log.NullLogSink{}),
 			}
 			got := i.BuildSecretRefIndexes(context.Background(), tt.args.ingOrSvc)
 			assert.Equal(t, tt.want, got)

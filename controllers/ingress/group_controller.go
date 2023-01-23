@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -202,7 +203,7 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 		ing.Status.LoadBalancer.Ingress[0].IP != "" ||
 		ing.Status.LoadBalancer.Ingress[0].Hostname != lbDNS {
 		ingOld := ing.DeepCopy()
-		ing.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
+		ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
 			{
 				Hostname: lbDNS,
 			},

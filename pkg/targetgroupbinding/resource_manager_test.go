@@ -6,6 +6,7 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
@@ -378,7 +379,7 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 
 			m := &defaultResourceManager{
 				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				logger:    logr.New(&log.NullLogSink{}),
 			}
 
 			ctx := context.Background()
