@@ -72,21 +72,7 @@ build_push_controller_image() {
   fi
 
   echo "build and push docker image ${CONTROLLER_IMAGE_NAME}"
-  DOCKER_CLI_EXPERIMENTAL=enabled docker buildx create --use
-  DOCKER_CLI_EXPERIMENTAL=enabled docker buildx inspect --bootstrap
-
-  # TODO: the first buildx build sometimes fails on new created builder instance.
-  #  figure out why and remove this retry.
-  n=0
-  until [ "$n" -ge 2 ]; do
-    DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build . --target bin \
-      --tag "${CONTROLLER_IMAGE_NAME}" \
-      --push \
-      --progress plain \
-      --platform linux/amd64 && break
-    n=$((n + 1))
-    sleep 2
-  done
+  make docker-push IMG=${CONTROLLER_IMAGE_NAME} IMG_PLATFORM=linux/amd64
 
   if [[ $? -ne 0 ]]; then
     echo "unable to build and push docker image" >&2

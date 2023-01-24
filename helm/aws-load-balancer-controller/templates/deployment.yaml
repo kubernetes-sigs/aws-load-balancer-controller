@@ -153,8 +153,6 @@ spec:
           value: "{{ $value }}"
         {{- end }}
         {{- end }}
-        command:
-        - /controller
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

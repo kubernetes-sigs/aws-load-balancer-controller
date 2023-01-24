@@ -3,6 +3,10 @@ MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
 IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.6
+IMG_PLATFORM ?= linux/amd64,linux/arm64
+# ECR doesn't appear to support SPDX SBOM
+IMG_SBOM ?= none
+
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
@@ -75,13 +79,16 @@ aws-sdk-model-override:
 		./scripts/aws_sdk_model_override/cleanup.sh ; \
 	fi
 
+.PHONY: docker-push
+docker-push: aws-load-balancer-controller-push
 
-# Push the docker image
-docker-push:
-	docker buildx build . --target bin \
-        		--tag $(IMG) \
-        		--push \
-        		--platform linux/amd64,linux/arm64
+.PHONY: aws-load-balancer-controller-push
+aws-load-balancer-controller-push: ko
+	KO_DOCKER_REPO=$(firstword $(subst :, ,${IMG})) \
+    GIT_VERSION=$(shell git describe --tags --dirty --always) \
+    GIT_COMMIT=$(shell git rev-parse HEAD)  \
+    BUILD_DATE=$(shell date +%Y-%m-%dT%H:%M:%S%z) \
+    ko build --tags $(word 2,$(subst :, ,${IMG})) --platform=${IMG_PLATFORM} --bare --sbom ${IMG_SBOM} .
 
 # find or download controller-gen
 # download controller-gen if necessary
@@ -133,6 +140,10 @@ KUSTOMIZE=$(GOBIN)/kustomize
 else
 KUSTOMIZE=$(shell which kustomize)
 endif
+
+.PHONY: ko
+ko:
+	hack/install-ko.sh
 
 # preview docs
 docs-preview: docs-dependencies
