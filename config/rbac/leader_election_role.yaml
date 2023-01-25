@@ -20,3 +20,19 @@ rules:
       - get
       - update
       - patch
+  - apiGroups:
+    - "coordination.k8s.io"
+    resources:
+    - leases
+    verbs:
+    - create
+  - apiGroups:
+    - "coordination.k8s.io"
+    resources:
+    - leases
+    resourceNames:
+      - aws-load-balancer-controller-leader
+    verbs:
+      - get
+      - update
+      - patch

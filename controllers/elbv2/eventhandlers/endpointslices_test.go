@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -171,7 +172,7 @@ func Test_enqueueRequestsForEndpointSlicesEvent_enqueueImpactedTargetGroupBindin
 
 			h := &enqueueRequestsForEndpointSlicesEvent{
 				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				logger:    logr.New(&log.NullLogSink{}),
 			}
 			queue := controllertest.Queue{Interface: workqueue.New()}
 			h.enqueueImpactedTargetGroupBindings(queue, tt.args.epslice)

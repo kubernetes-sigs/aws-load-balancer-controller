@@ -75,6 +75,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all Ingresses or Services that do not have the SSL Policy annotation |
 |default-tags                           | stringMap                       |                 | AWS Tags that will be applied to all AWS resources managed by this controller. Specified Tags takes highest priority |
+|default-target-type                    | string                          | instance        | Default target type for Ingresses and Services - ip, instance |
 |[disable-ingress-class-annotation](#disable-ingress-class-annotation)       | boolean                         | false           | Disable new usage of the `kubernetes.io/ingress.class` annotation |
 |[disable-ingress-group-name-annotation](#disable-ingress-group-name-annotation)  | boolean                         | false           | Disallow new use of the `alb.ingress.kubernetes.io/group.name` annotation |
 |disable-restricted-sg-rules            | boolean                         | false            | Disable the usage of restricted security group rules |
@@ -158,4 +159,4 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 | EnableServiceController               | string                          | true           | Toggles support for `Service` type resources. |
 | EnableIPTargetType                    | string                          | true           | Used to toggle support for target-type `ip` across `Ingress` and `Service` type resources. |
 | SubnetsClusterTagCheck                | string                          | true           | Enable or disable the check for `kubernetes.io/cluster/${cluster-name}` during subnet auto-discovery |
-| NLBHealthCheckTimeout                 | string                          | true           | Enable or disable the use of `service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout` for `Service` type resources (NLB) |
+| NLBHealthCheckAdvancedConfiguration   | string                          | true           | Enable or disable advanced health check configuration for NLB, for example health check timeout |

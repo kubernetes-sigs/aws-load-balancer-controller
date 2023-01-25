@@ -8,6 +8,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -197,6 +198,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 	tests := []struct {
 		name               string
 		env                env
+		defaultTargetType  string
 		enableIPTargetType *bool
 		args               args
 		fields             fields
@@ -3888,6 +3890,226 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
     }
 }`,
 		},
+		{
+			name: "default target type IP with named target port",
+			env: env{
+				svcs: []*corev1.Service{svcWithNamedTargetPort},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: svcWithNamedTargetPort.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			defaultTargetType: "ip",
+			wantStackJSON: `
+{
+    "id":"ns-1/ing-1",
+    "resources":{
+        "AWS::EC2::SecurityGroup":{
+            "ManagedLBSecurityGroup":{
+                "spec":{
+                    "groupName":"k8s-ns1-ing1-bd83176788",
+                    "description":"[k8s] Managed SecurityGroup for LoadBalancer",
+                    "ingress":[
+                        {
+                            "ipProtocol":"tcp",
+                            "fromPort":80,
+                            "toPort":80,
+                            "ipRanges":[
+                                {
+                                    "cidrIP":"0.0.0.0/0"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::Listener":{
+            "80":{
+                "spec":{
+                    "loadBalancerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+                    },
+                    "port":80,
+                    "protocol":"HTTP",
+                    "defaultActions":[
+                        {
+                            "type":"fixed-response",
+                            "fixedResponseConfig":{
+                                "contentType":"text/plain",
+                                "statusCode":"404"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::ListenerRule":{
+            "80:1":{
+                "spec":{
+                    "listenerARN":{
+                        "$ref":"#/resources/AWS::ElasticLoadBalancingV2::Listener/80/status/listenerARN"
+                    },
+                    "priority":1,
+                    "actions":[
+                        {
+                            "type":"forward",
+                            "forwardConfig":{
+                                "targetGroups":[
+                                    {
+                                        "targetGroupARN":{
+                                            "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-named-targetport:https/status/targetGroupARN"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "conditions":[
+                        {
+                            "field":"path-pattern",
+                            "pathPatternConfig":{
+                                "values":[
+                                    "/"
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+            "LoadBalancer":{
+                "spec":{
+                    "name":"k8s-ns1-ing1-b7e914000d",
+                    "type":"application",
+                    "scheme":"internal",
+                    "ipAddressType":"ipv4",
+                    "subnetMapping":[
+                        {
+                            "subnetID":"subnet-a"
+                        },
+                        {
+                            "subnetID":"subnet-b"
+                        }
+                    ],
+                    "securityGroups":[
+                        {
+                            "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                        },
+						"sg-auto"
+                    ]
+                }
+            }
+        },
+        "AWS::ElasticLoadBalancingV2::TargetGroup":{
+            "ns-1/ing-1-svc-named-targetport:https":{
+                "spec":{
+                    "name":"k8s-ns1-svcnamed-3430e53ee8",
+                    "targetType":"ip",
+                    "ipAddressType":"ipv4",
+                    "port":1,
+                    "protocol":"HTTP",
+					"protocolVersion":"HTTP1",
+                    "healthCheckConfig":{
+                        "port":"traffic-port",
+                        "protocol":"HTTP",
+                        "path":"/",
+                        "matcher":{
+                            "httpCode":"200"
+                        },
+                        "intervalSeconds":15,
+                        "timeoutSeconds":5,
+                        "healthyThresholdCount":2,
+                        "unhealthyThresholdCount":2
+                    }
+                }
+            }
+        },
+        "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+            "ns-1/ing-1-svc-named-targetport:https":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svcnamed-3430e53ee8",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-named-targetport:https/status/targetGroupARN"
+                            },
+                            "targetType":"ip",
+                            "ipAddressType":"ipv4",
+                            "serviceRef":{
+                                "name":"svc-named-targetport",
+                                "port":"https"
+                            },
+                            "networking":{
+                                "ingress":[
+                                    {
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": "target-port",
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -3921,7 +4143,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
 			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder)
-			ruleOptimizer := NewDefaultRuleOptimizer(&log.NullLogger{})
+			ruleOptimizer := NewDefaultRuleOptimizer(logr.New(&log.NullLogSink{}))
 			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
 			stackMarshaller := deploy.NewDefaultStackMarshaller()
 			backendSGProvider := networkingpkg.NewMockBackendSGProvider(ctrl)
@@ -3932,6 +4154,10 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					backendSGProvider.EXPECT().Get(gomock.Any()).Return("sg-auto", nil).AnyTimes()
 				}
 				backendSGProvider.EXPECT().Release(gomock.Any()).Return(nil).AnyTimes()
+			}
+			defaultTargetType := tt.defaultTargetType
+			if defaultTargetType == "" {
+				defaultTargetType = "instance"
 			}
 
 			b := &defaultModelBuilder{
@@ -3951,9 +4177,10 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				elbv2TaggingManager:    elbv2TaggingManager,
 				enableBackendSG:        tt.fields.enableBackendSG,
 				featureGates:           config.NewFeatureGates(),
-				logger:                 &log.NullLogger{},
+				logger:                 logr.New(&log.NullLogSink{}),
 
-				defaultSSLPolicy: "ELBSecurityPolicy-2016-08",
+				defaultSSLPolicy:  "ELBSecurityPolicy-2016-08",
+				defaultTargetType: elbv2model.TargetType(defaultTargetType),
 			}
 
 			if tt.enableIPTargetType == nil {

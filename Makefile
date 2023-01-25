@@ -2,7 +2,11 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.5
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.6
+IMG_PLATFORM ?= linux/amd64,linux/arm64
+# ECR doesn't appear to support SPDX SBOM
+IMG_SBOM ?= none
+
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
@@ -64,8 +68,9 @@ helm-lint:
 	${MAKEFILE_PATH}/test/helm/helm-lint.sh
 
 # Generate code
-generate: aws-sdk-model-override controller-gen
+generate: aws-sdk-model-override controller-gen mockgen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	MOCKGEN=$(MOCKGEN) ./scripts/gen_mocks.sh
 
 aws-sdk-model-override:
 	@if [ "$(AWS_SDK_MODEL_OVERRIDE)" = "y" ] ; then \
@@ -74,13 +79,16 @@ aws-sdk-model-override:
 		./scripts/aws_sdk_model_override/cleanup.sh ; \
 	fi
 
+.PHONY: docker-push
+docker-push: aws-load-balancer-controller-push
 
-# Push the docker image
-docker-push:
-	docker buildx build . --target bin \
-        		--tag $(IMG) \
-        		--push \
-        		--platform linux/amd64,linux/arm64
+.PHONY: aws-load-balancer-controller-push
+aws-load-balancer-controller-push: ko
+	KO_DOCKER_REPO=$(firstword $(subst :, ,${IMG})) \
+    GIT_VERSION=$(shell git describe --tags --dirty --always) \
+    GIT_COMMIT=$(shell git rev-parse HEAD)  \
+    BUILD_DATE=$(shell date +%Y-%m-%dT%H:%M:%S%z) \
+    ko build --tags $(word 2,$(subst :, ,${IMG})) --platform=${IMG_PLATFORM} --bare --sbom ${IMG_SBOM} .
 
 # find or download controller-gen
 # download controller-gen if necessary
@@ -91,12 +99,30 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.11.1 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
 CONTROLLER_GEN=$(shell which controller-gen)
+endif
+
+# find or download mockgen
+# download mockgen if necessary
+.PHONY: mockgen
+mockgen:
+ifeq (, $(shell which mockgen))
+	@{ \
+	set -e ;\
+	MOCKGEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$MOCKGEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go install github.com/golang/mock/mockgen@v1.6.0 ;\
+	rm -rf $$MOCKGEN_TMP_DIR ;\
+	}
+MOCKGEN=$(GOBIN)/mockgen
+else
+MOCKGEN=$(shell which mockgen)
 endif
 
 # install kustomize if not found
@@ -114,6 +140,10 @@ KUSTOMIZE=$(GOBIN)/kustomize
 else
 KUSTOMIZE=$(shell which kustomize)
 endif
+
+.PHONY: ko
+ko:
+	hack/install-ko.sh
 
 # preview docs
 docs-preview: docs-dependencies

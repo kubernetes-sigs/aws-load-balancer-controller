@@ -146,6 +146,9 @@ spec:
         {{- if .Values.controllerConfig.featureGates }}
         - --feature-gates={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.controllerConfig.featureGates | trimSuffix "," }}
         {{- end }}
+        {{- if ne .Values.defaultTargetType "instance" }}
+        - --default-target-type={{ .Values.defaultTargetType }}
+        {{- end }}
         {{- if .Values.env }}
         env:
         {{- range $key, $value := .Values.env }}
@@ -153,8 +156,6 @@ spec:
           value: "{{ $value }}"
         {{- end }}
         {{- end }}
-        command:
-        - /controller
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

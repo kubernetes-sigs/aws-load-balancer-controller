@@ -1,13 +1,14 @@
 package elbv2
 
 import (
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
 )
 
 func Test_matchResAndSDKLoadBalancers(t *testing.T) {
@@ -567,7 +568,7 @@ func Test_isSDKLoadBalancerRequiresReplacement(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "scheme need replacement",
+			name: "scheme change need replacement",
 			args: args{
 				sdkLB: LoadBalancerWithTags{
 					LoadBalancer: &elbv2sdk.LoadBalancer{

@@ -110,7 +110,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
-			httpExp := httpexpect.New(tf.Logger, fmt.Sprintf("http://%v", lbDNS))
+			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
 			httpExp.GET("/path").Expect().
 				Status(http.StatusOK).
 				Body().Equal("Hello World!")
@@ -148,7 +148,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
-			httpExp := httpexpect.New(tf.Logger, fmt.Sprintf("http://%v", lbDNS))
+			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
 			httpExp.GET("/path").Expect().
 				Status(http.StatusOK).
 				Body().Equal("Hello World!")
@@ -298,7 +298,7 @@ var _ = Describe("vanilla ingress tests", func() {
 
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
-			httpExp := httpexpect.New(tf.Logger, fmt.Sprintf("http://%v", lbDNS))
+			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
 			httpExp.GET("/path").Expect().
 				Status(http.StatusOK).
 				Body().Equal("Hello World!")
@@ -339,7 +339,7 @@ var _ = Describe("vanilla ingress tests", func() {
 
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
-			httpExp := httpexpect.New(tf.Logger, fmt.Sprintf("http://%v", lbDNS))
+			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
 			httpExp.GET("/path").Expect().
 				Status(http.StatusOK).
 				Body().Equal("Hello World!")
@@ -411,7 +411,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
-			httpExp := httpexpect.New(tf.Logger, fmt.Sprintf("http://%v", lbDNS))
+			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
 			httpExp.GET("/response-503").Expect().
 				Status(http.StatusServiceUnavailable).
 				Body().Equal("503 error text")
@@ -527,7 +527,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
-			httpExp := httpexpect.New(tf.Logger, fmt.Sprintf("http://%v", lbDNS))
+			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
 			httpExp.GET("/path1").WithHost("www.example.com").Expect().
 				Status(http.StatusOK).
 				Body().Equal("Host is www.example.com OR anno.example.com")
