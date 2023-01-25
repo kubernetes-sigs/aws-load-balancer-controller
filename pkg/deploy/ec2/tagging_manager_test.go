@@ -2,8 +2,11 @@ package ec2
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -12,7 +15,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
@@ -163,7 +165,7 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 
 			m := &defaultTaggingManager{
 				ec2Client: ec2Client,
-				logger:    &log.NullLogger{},
+				logger:    logr.New(&log.NullLogSink{}),
 			}
 			err := m.ReconcileTags(context.Background(), tt.args.resID, tt.args.desiredTags, tt.args.opts...)
 			if tt.wantErr != nil {

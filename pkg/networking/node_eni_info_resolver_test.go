@@ -2,8 +2,11 @@ package networking
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -11,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
@@ -334,7 +336,7 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 			for _, call := range tt.fields.fetchNodeInstancesCalls {
 				nodeInfoProvider.EXPECT().FetchNodeInstances(gomock.Any(), call.nodes).Return(call.nodeInstanceByNodeKey, call.err)
 			}
-			r := NewDefaultNodeENIInfoResolver(nodeInfoProvider, &log.NullLogger{})
+			r := NewDefaultNodeENIInfoResolver(nodeInfoProvider, logr.New(&log.NullLogSink{}))
 			for _, call := range tt.wantResolveCalls {
 				got, err := r.Resolve(context.Background(), call.args.nodes)
 				if call.wantErr != nil {
@@ -525,7 +527,7 @@ func Test_defaultNodeENIInfoResolver_resolveViaInstanceID(t *testing.T) {
 			}
 			r := &defaultNodeENIInfoResolver{
 				nodeInfoProvider: nodeInfoProvider,
-				logger:           &log.NullLogger{},
+				logger:           logr.New(&log.NullLogSink{}),
 			}
 			got, err := r.resolveViaInstanceID(context.Background(), tt.args.nodes)
 			if tt.wantErr != nil {
