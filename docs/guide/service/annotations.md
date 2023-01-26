@@ -427,6 +427,9 @@ Load balancer access can be controlled via following annotations:
         Preserve client IP has no effect on traffic converted from IPv4 to IPv6 and on traffic converted from IPv6 to IPv4. The source IP of this type of traffic is always the private IP address of the Network Load Balancer.
         - This could cause the clients that have their traffic converted to bypass the specified CIDRs that are allowed to access the NLB.
 
+    !!!warning ""
+        Donot make manual changes to the controller created Security Group used by Load Balancer. The Security Group Rule, which is manually changed will be revoked by the kubernetes controller and original rule created by controller will be reinstated.
+
     !!!example
         ```
         service.beta.kubernetes.io/load-balancer-source-ranges: 10.0.0.0/24
