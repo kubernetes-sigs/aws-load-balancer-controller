@@ -2,6 +2,9 @@
 
 AWS Load Balancer controller Helm chart for Kubernetes
 
+**Note**: Please make sure to upgrade helm chart before upgrading the controller version, since a specific helm chart version
+is not always compatible with new controller image versions.
+
 ## TL;DR:
 ```sh
 helm repo add eks https://aws.github.io/eks-charts

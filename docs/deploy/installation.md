@@ -144,7 +144,9 @@ If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the defaul
 
 ## Add Controller to Cluster
 
-We recommend using the Helm chart. This supports Fargate and facilitates updating the controller.
+We recommend using the Helm chart. This supports Fargate and facilitates updating the controller. Please upgrade Helm chart
+before upgrading the controller image version, since a specific helm chart version is not always compatible with new controller
+image versions.
 
 === "Via Helm"
 
