@@ -68,6 +68,7 @@ helm-lint:
 	${MAKEFILE_PATH}/test/helm/helm-lint.sh
 
 # Generate code
+.PHONY: generate
 generate: aws-sdk-model-override controller-gen mockgen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 	MOCKGEN=$(MOCKGEN) ./scripts/gen_mocks.sh
@@ -161,8 +162,12 @@ lint:
 	echo "TODO"
 
 .PHONY: quick-ci
-quick-ci: verify-versions
+quick-ci: verify-versions verify-generate
 	echo "Done!"
+
+.PHONY: verify-generate
+verify-generate:
+	hack/verify-generate.sh
 
 .PHONY: verify-versions
 verify-versions:
