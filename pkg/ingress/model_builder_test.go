@@ -31,260 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func Test_defaultModelBuilder_Build(t *testing.T) {
-	type resolveViaDiscoveryCall struct {
-		subnets []*ec2sdk.Subnet
-		err     error
-	}
-	type env struct {
-		svcs []*corev1.Service
-	}
-	type listLoadBalancersCall struct {
-		matchedLBs []elbv2.LoadBalancerWithTags
-		err        error
-	}
-	type describeSecurityGroupsResult struct {
-		securityGroups []*ec2sdk.SecurityGroup
-		err            error
-	}
-	type fields struct {
-		resolveViaDiscoveryCalls     []resolveViaDiscoveryCall
-		listLoadBalancersCalls       []listLoadBalancersCall
-		describeSecurityGroupsResult []describeSecurityGroupsResult
-		backendSecurityGroup         string
-		enableBackendSG              bool
-	}
-	type args struct {
-		ingGroup Group
-	}
-
-	ns_1_svc_1 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "ns-1",
-			Name:      "svc-1",
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       80,
-					TargetPort: intstr.FromInt(8080),
-					NodePort:   32768,
-				},
-			},
-		},
-	}
-	ns_1_svc_2 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "ns-1",
-			Name:      "svc-2",
-			Annotations: map[string]string{
-				"alb.ingress.kubernetes.io/target-type":                  "instance",
-				"alb.ingress.kubernetes.io/backend-protocol":             "HTTP",
-				"alb.ingress.kubernetes.io/healthcheck-protocol":         "HTTP",
-				"alb.ingress.kubernetes.io/healthcheck-port":             "traffic-port",
-				"alb.ingress.kubernetes.io/healthcheck-path":             "/",
-				"alb.ingress.kubernetes.io/healthcheck-interval-seconds": "15",
-				"alb.ingress.kubernetes.io/healthcheck-timeout-seconds":  "5",
-				"alb.ingress.kubernetes.io/healthy-threshold-count":      "2",
-				"alb.ingress.kubernetes.io/unhealthy-threshold-count":    "2",
-				"alb.ingress.kubernetes.io/success-codes":                "200",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       80,
-					TargetPort: intstr.FromInt(8080),
-					NodePort:   32768,
-				},
-			},
-		},
-	}
-	ns_1_svc_3 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "ns-1",
-			Name:      "svc-3",
-			Annotations: map[string]string{
-				"alb.ingress.kubernetes.io/target-type":                  "ip",
-				"alb.ingress.kubernetes.io/backend-protocol":             "HTTPS",
-				"alb.ingress.kubernetes.io/healthcheck-protocol":         "HTTPS",
-				"alb.ingress.kubernetes.io/healthcheck-port":             "9090",
-				"alb.ingress.kubernetes.io/healthcheck-path":             "/health-check",
-				"alb.ingress.kubernetes.io/healthcheck-interval-seconds": "20",
-				"alb.ingress.kubernetes.io/healthcheck-timeout-seconds":  "10",
-				"alb.ingress.kubernetes.io/healthy-threshold-count":      "7",
-				"alb.ingress.kubernetes.io/unhealthy-threshold-count":    "5",
-				"alb.ingress.kubernetes.io/success-codes":                "200-300",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "https",
-					Port:       443,
-					TargetPort: intstr.FromInt(8443),
-					NodePort:   32768,
-				},
-			},
-		},
-	}
-
-	ns_1_svc_ipv6 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "ns-1",
-			Name:      "svc-ipv6",
-		},
-		Spec: corev1.ServiceSpec{
-			IPFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "https",
-					Port:       443,
-					TargetPort: intstr.FromInt(8443),
-					NodePort:   32768,
-				},
-			},
-		},
-	}
-
-	svcWithNamedTargetPort := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "ns-1",
-			Name:      "svc-named-targetport",
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "https",
-					Port:       443,
-					TargetPort: intstr.FromString("target-port"),
-					NodePort:   32768,
-				},
-			},
-		},
-	}
-
-	resolveViaDiscoveryCallForInternalLB := resolveViaDiscoveryCall{
-		subnets: []*ec2sdk.Subnet{
-			{
-				SubnetId:  awssdk.String("subnet-a"),
-				CidrBlock: awssdk.String("192.168.0.0/19"),
-			},
-			{
-				SubnetId:  awssdk.String("subnet-b"),
-				CidrBlock: awssdk.String("192.168.32.0/19"),
-			},
-		},
-	}
-	resolveViaDiscoveryCallForInternetFacingLB := resolveViaDiscoveryCall{
-		subnets: []*ec2sdk.Subnet{
-			{
-				SubnetId:  awssdk.String("subnet-c"),
-				CidrBlock: awssdk.String("192.168.64.0/19"),
-			},
-			{
-				SubnetId:  awssdk.String("subnet-d"),
-				CidrBlock: awssdk.String("192.168.96.0/19"),
-			},
-		},
-	}
-
-	listLoadBalancerCallForEmptyLB := listLoadBalancersCall{
-		matchedLBs: []elbv2.LoadBalancerWithTags{},
-	}
-
-	tests := []struct {
-		name               string
-		env                env
-		defaultTargetType  string
-		enableIPTargetType *bool
-		args               args
-		fields             fields
-		wantStackJSON      string
-		wantErr            error
-	}{
-		{
-			name: "Ingress - vanilla internal",
-			env: env{
-				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
-			},
-			fields: fields{
-				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:          true,
-			},
-			args: args{
-				ingGroup: Group{
-					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
-					Members: []ClassifiedIngress{
-						{
-							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
-								Namespace: "ns-1",
-								Name:      "ing-1",
-							},
-								Spec: networking.IngressSpec{
-									Rules: []networking.IngressRule{
-										{
-											Host: "app-1.example.com",
-											IngressRuleValue: networking.IngressRuleValue{
-												HTTP: &networking.HTTPIngressRuleValue{
-													Paths: []networking.HTTPIngressPath{
-														{
-															Path: "/svc-1",
-															Backend: networking.IngressBackend{
-																Service: &networking.IngressServiceBackend{
-																	Name: ns_1_svc_1.Name,
-																	Port: networking.ServiceBackendPort{
-																		Name: "http",
-																	},
-																},
-															},
-														},
-														{
-															Path: "/svc-2",
-															Backend: networking.IngressBackend{
-																Service: &networking.IngressServiceBackend{
-																	Name: ns_1_svc_2.Name,
-																	Port: networking.ServiceBackendPort{
-																		Name: "http",
-																	},
-																},
-															},
-														},
-													},
-												},
-											},
-										},
-										{
-											Host: "app-2.example.com",
-											IngressRuleValue: networking.IngressRuleValue{
-												HTTP: &networking.HTTPIngressRuleValue{
-													Paths: []networking.HTTPIngressPath{
-														{
-															Path: "/svc-3",
-															Backend: networking.IngressBackend{
-																Service: &networking.IngressServiceBackend{
-																	Name: ns_1_svc_3.Name,
-																	Port: networking.ServiceBackendPort{
-																		Name: "https",
-																	},
-																},
-															},
-														},
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantStackJSON: `
+const baseStackJSON = `
 {
     "id":"ns-1/ing-1",
     "resources":{
@@ -683,7 +430,262 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
             }
         }
     }
-}`,
+}`
+
+func Test_defaultModelBuilder_Build(t *testing.T) {
+	type resolveViaDiscoveryCall struct {
+		subnets []*ec2sdk.Subnet
+		err     error
+	}
+	type env struct {
+		svcs []*corev1.Service
+	}
+	type listLoadBalancersCall struct {
+		matchedLBs []elbv2.LoadBalancerWithTags
+		err        error
+	}
+	type describeSecurityGroupsResult struct {
+		securityGroups []*ec2sdk.SecurityGroup
+		err            error
+	}
+	type fields struct {
+		resolveViaDiscoveryCalls     []resolveViaDiscoveryCall
+		listLoadBalancersCalls       []listLoadBalancersCall
+		describeSecurityGroupsResult []describeSecurityGroupsResult
+		backendSecurityGroup         string
+		enableBackendSG              bool
+	}
+	type args struct {
+		ingGroup Group
+	}
+
+	ns_1_svc_1 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns-1",
+			Name:      "svc-1",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       80,
+					TargetPort: intstr.FromInt(8080),
+					NodePort:   32768,
+				},
+			},
+		},
+	}
+	ns_1_svc_2 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns-1",
+			Name:      "svc-2",
+			Annotations: map[string]string{
+				"alb.ingress.kubernetes.io/target-type":                  "instance",
+				"alb.ingress.kubernetes.io/backend-protocol":             "HTTP",
+				"alb.ingress.kubernetes.io/healthcheck-protocol":         "HTTP",
+				"alb.ingress.kubernetes.io/healthcheck-port":             "traffic-port",
+				"alb.ingress.kubernetes.io/healthcheck-path":             "/",
+				"alb.ingress.kubernetes.io/healthcheck-interval-seconds": "15",
+				"alb.ingress.kubernetes.io/healthcheck-timeout-seconds":  "5",
+				"alb.ingress.kubernetes.io/healthy-threshold-count":      "2",
+				"alb.ingress.kubernetes.io/unhealthy-threshold-count":    "2",
+				"alb.ingress.kubernetes.io/success-codes":                "200",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       80,
+					TargetPort: intstr.FromInt(8080),
+					NodePort:   32768,
+				},
+			},
+		},
+	}
+	ns_1_svc_3 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns-1",
+			Name:      "svc-3",
+			Annotations: map[string]string{
+				"alb.ingress.kubernetes.io/target-type":                  "ip",
+				"alb.ingress.kubernetes.io/backend-protocol":             "HTTPS",
+				"alb.ingress.kubernetes.io/healthcheck-protocol":         "HTTPS",
+				"alb.ingress.kubernetes.io/healthcheck-port":             "9090",
+				"alb.ingress.kubernetes.io/healthcheck-path":             "/health-check",
+				"alb.ingress.kubernetes.io/healthcheck-interval-seconds": "20",
+				"alb.ingress.kubernetes.io/healthcheck-timeout-seconds":  "10",
+				"alb.ingress.kubernetes.io/healthy-threshold-count":      "7",
+				"alb.ingress.kubernetes.io/unhealthy-threshold-count":    "5",
+				"alb.ingress.kubernetes.io/success-codes":                "200-300",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "https",
+					Port:       443,
+					TargetPort: intstr.FromInt(8443),
+					NodePort:   32768,
+				},
+			},
+		},
+	}
+
+	ns_1_svc_ipv6 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns-1",
+			Name:      "svc-ipv6",
+		},
+		Spec: corev1.ServiceSpec{
+			IPFamilies: []corev1.IPFamily{corev1.IPv6Protocol},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "https",
+					Port:       443,
+					TargetPort: intstr.FromInt(8443),
+					NodePort:   32768,
+				},
+			},
+		},
+	}
+
+	svcWithNamedTargetPort := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns-1",
+			Name:      "svc-named-targetport",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "https",
+					Port:       443,
+					TargetPort: intstr.FromString("target-port"),
+					NodePort:   32768,
+				},
+			},
+		},
+	}
+
+	resolveViaDiscoveryCallForInternalLB := resolveViaDiscoveryCall{
+		subnets: []*ec2sdk.Subnet{
+			{
+				SubnetId:  awssdk.String("subnet-a"),
+				CidrBlock: awssdk.String("192.168.0.0/19"),
+			},
+			{
+				SubnetId:  awssdk.String("subnet-b"),
+				CidrBlock: awssdk.String("192.168.32.0/19"),
+			},
+		},
+	}
+	resolveViaDiscoveryCallForInternetFacingLB := resolveViaDiscoveryCall{
+		subnets: []*ec2sdk.Subnet{
+			{
+				SubnetId:  awssdk.String("subnet-c"),
+				CidrBlock: awssdk.String("192.168.64.0/19"),
+			},
+			{
+				SubnetId:  awssdk.String("subnet-d"),
+				CidrBlock: awssdk.String("192.168.96.0/19"),
+			},
+		},
+	}
+
+	listLoadBalancerCallForEmptyLB := listLoadBalancersCall{
+		matchedLBs: []elbv2.LoadBalancerWithTags{},
+	}
+
+	tests := []struct {
+		name               string
+		env                env
+		defaultTargetType  string
+		enableIPTargetType *bool
+		args               args
+		fields             fields
+		wantStackJSON      string
+		wantErr            error
+	}{
+		{
+			name: "Ingress - vanilla internal",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackJSON: baseStackJSON,
 		},
 		{
 			name: "Ingress - backend SG feature disabled",
