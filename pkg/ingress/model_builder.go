@@ -2,6 +2,8 @@ package ingress
 
 import (
 	"context"
+	"strconv"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
@@ -21,7 +23,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 )
 
 const (
@@ -227,7 +228,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	listenPortConfigsByPort := make(map[int64][]listenPortConfigWithIngress)
 	for _, member := range t.ingGroup.Members {
 		ingKey := k8s.NamespacedName(member.Ing)
-		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, member.Ing)
+		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, &member)
 		if err != nil {
 			return errors.Wrapf(err, "ingress: %v", ingKey.String())
 		}
