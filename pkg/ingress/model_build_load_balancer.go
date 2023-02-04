@@ -13,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -187,13 +188,39 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
+	var explicitSubnetSelectorList []*v1beta1.SubnetSelector
 	var explicitSubnetNameOrIDsList [][]string
 	for _, member := range t.ingGroup.Members {
+		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.Subnets != nil {
+			explicitSubnetSelectorList = append(explicitSubnetSelectorList, member.IngClassConfig.IngClassParams.Spec.Subnets)
+			continue
+		}
 		var rawSubnetNameOrIDs []string
 		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSubnets, &rawSubnetNameOrIDs, member.Ing.Annotations); !exists {
 			continue
 		}
 		explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
+	}
+
+	if len(explicitSubnetSelectorList) != 0 {
+		if len(explicitSubnetNameOrIDsList) != 0 {
+			return nil, errors.Errorf("conflicting subnet specifications: IngressClassParams versus annotation")
+		}
+		chosenSubnetSelector := explicitSubnetSelectorList[0]
+		for _, subnetSelector := range explicitSubnetSelectorList[1:] {
+			if !cmp.Equal(*chosenSubnetSelector, *subnetSelector) {
+				return nil, errors.Errorf("conflicting IngressClassParams subnet specifications")
+			}
+		}
+		chosenSubnets, err := t.subnetsResolver.ResolveViaSelector(ctx, chosenSubnetSelector,
+			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return buildLoadBalancerSubnetMappingsWithSubnets(chosenSubnets), nil
 	}
 
 	if len(explicitSubnetNameOrIDsList) != 0 {
