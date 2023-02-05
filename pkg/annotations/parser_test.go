@@ -2,8 +2,9 @@ package annotations
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_annotationParser_ParseStringAnnotation(t *testing.T) {
@@ -379,7 +380,7 @@ func Test_serviceAnnotationParser_ParseJSONAnnotation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := NewSuffixAnnotationParser(tt.prefix)
 			value := objStruct{}
-			exists, err := parser.ParseJSONAnnotation(tt.suffix, &value, tt.annotations, tt.opts...)
+			exists, _, err := parser.ParseJSONAnnotation(tt.suffix, &value, tt.annotations, tt.opts...)
 			if tt.wantError {
 				assert.True(t, err != nil)
 			} else {
@@ -434,7 +435,7 @@ func Test_serviceAnnotationParser_ParseBoolAnnotation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := NewSuffixAnnotationParser(tt.prefix)
 			value := false
-			exists, err := parser.ParseJSONAnnotation(tt.suffix, &value, tt.annotations, tt.opts...)
+			exists, _, err := parser.ParseJSONAnnotation(tt.suffix, &value, tt.annotations, tt.opts...)
 			if tt.wantError {
 				assert.True(t, err != nil)
 			} else {

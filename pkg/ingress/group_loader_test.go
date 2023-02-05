@@ -1704,7 +1704,7 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper(t *testing.T) {
 			},
 			wantClassifiedIng: ClassifiedIngress{},
 			wantGroupID:       nil,
-			wantErr:           errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"ing-class\" not found"),
+			wantErr:           errors.New("ingress class not found: ingressclasses.networking.k8s.io \"ing-class\" not found"),
 		},
 		{
 			name: "ingress isn't matched by controller's class",
@@ -2051,7 +2051,7 @@ func Test_defaultGroupLoader_classifyIngress(t *testing.T) {
 				},
 				IngClassConfig: ClassConfiguration{},
 			},
-			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"ing-class\" not found"),
+			wantErr: errors.New("ingress class not found: ingressclasses.networking.k8s.io \"ing-class\" not found"),
 		},
 		{
 			name: "no class specified - manageIngressesWithoutIngressClass is set",

@@ -160,7 +160,7 @@ func (b *defaultEnhancedBackendBuilder) Build(ctx context.Context, ing *networki
 func (b *defaultEnhancedBackendBuilder) buildConditions(_ context.Context, ingAnnotation map[string]string, svcName string) ([]RuleCondition, error) {
 	var conditions []RuleCondition
 	annotationKey := fmt.Sprintf("conditions.%v", svcName)
-	_, err := b.annotationParser.ParseJSONAnnotation(annotationKey, &conditions, ingAnnotation)
+	_, _, err := b.annotationParser.ParseJSONAnnotation(annotationKey, &conditions, ingAnnotation)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func (b *defaultEnhancedBackendBuilder) buildConditions(_ context.Context, ingAn
 func (b *defaultEnhancedBackendBuilder) buildActionViaAnnotation(ctx context.Context, ingAnnotation map[string]string, svcName string) (Action, error) {
 	action := Action{}
 	annotationKey := fmt.Sprintf("actions.%v", svcName)
-	exists, err := b.annotationParser.ParseJSONAnnotation(annotationKey, &action, ingAnnotation)
+	exists, _, err := b.annotationParser.ParseJSONAnnotation(annotationKey, &action, ingAnnotation)
 	if err != nil {
 		return Action{}, err
 	}

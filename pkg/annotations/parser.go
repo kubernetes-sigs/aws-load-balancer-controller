@@ -3,9 +3,10 @@ package annotations
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type ParseOptions struct {
@@ -49,8 +50,8 @@ type Parser interface {
 	ParseStringSliceAnnotation(annotation string, value *[]string, annotations map[string]string, opts ...ParseOption) bool
 
 	// ParseJSONAnnotation parses json value into the given interface
-	// returns true if the annotation exists and parser error if any
-	ParseJSONAnnotation(annotation string, value interface{}, annotations map[string]string, opts ...ParseOption) (bool, error)
+	// returns true and the matched annotation key if the annotation exists and parser error if any
+	ParseJSONAnnotation(annotation string, value interface{}, annotations map[string]string, opts ...ParseOption) (bool, string, error)
 
 	// ParseStringMapAnnotation parses comma separated key=value pairs into a map
 	// returns true if the annotation exists
@@ -115,16 +116,16 @@ func (p *suffixAnnotationParser) ParseStringSliceAnnotation(annotation string, v
 	return true
 }
 
-func (p *suffixAnnotationParser) ParseJSONAnnotation(annotation string, value interface{}, annotations map[string]string, opts ...ParseOption) (bool, error) {
+func (p *suffixAnnotationParser) ParseJSONAnnotation(annotation string, value interface{}, annotations map[string]string, opts ...ParseOption) (bool, string, error) {
 	raw := ""
 	exists, matchedKey := p.parseStringAnnotation(annotation, &raw, annotations, opts...)
 	if !exists {
-		return false, nil
+		return false, "", nil
 	}
 	if err := json.Unmarshal([]byte(raw), value); err != nil {
-		return true, errors.Wrapf(err, "failed to parse json annotation, %v: %v", matchedKey, raw)
+		return true, matchedKey, errors.Wrapf(err, "failed to parse json annotation, %v: %v", matchedKey, raw)
 	}
-	return true, nil
+	return true, matchedKey, nil
 }
 
 func (p *suffixAnnotationParser) ParseStringMapAnnotation(annotation string, value *map[string]string, annotations map[string]string, opts ...ParseOption) (bool, error) {

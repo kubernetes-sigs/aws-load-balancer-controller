@@ -7,7 +7,6 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -99,7 +98,7 @@ func Test_ingressValidator_checkIngressClass(t *testing.T) {
 					IngressClassName: awssdk.String("awesome-class"),
 				},
 			},
-			expectedErr: "invalid ingress class: ingressclasses.networking.k8s.io \"awesome-class\" not found",
+			expectedErr: "spec.ingressClassName: Not found: \"awesome-class\"",
 		},
 		{
 			name: "ingress with IngressClassName that refers to IngressClass with non-matching controller",
@@ -271,7 +270,7 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		wantErr error
+		wantErr string
 	}{
 		{
 			name: "ingress creation with matching ingress.class annotation - when new usage enabled",
@@ -289,7 +288,6 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress creation with matching ingress.class annotation - when new usage disabled",
@@ -307,7 +305,7 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("new usage of `kubernetes.io/ingress.class` annotation is forbidden"),
+			wantErr: "metadata.annotations[kubernetes.io/ingress.class]: Forbidden: new usage is forbidden",
 		},
 		{
 			name: "ingress creation with not-matching ingress.class annotation - when new usage disabled",
@@ -325,7 +323,6 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress creation with non ingress.class annotation - when new usage disabled",
@@ -341,7 +338,6 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with matching ingress.class annotation - when new usage enabled",
@@ -368,7 +364,6 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with matching ingress.class annotation - when new usage disabled",
@@ -395,7 +390,7 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("new usage of `kubernetes.io/ingress.class` annotation is forbidden"),
+			wantErr: "metadata.annotations[kubernetes.io/ingress.class]: Forbidden: new usage is forbidden",
 		},
 		{
 			name: "ingress updates with not-matching ingress.class annotation - when new usage disabled",
@@ -422,7 +417,6 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with non ingress.class annotation - when new usage disabled",
@@ -447,7 +441,6 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with matching ingress.class annotation unchanged - when new usage disabled",
@@ -474,7 +467,6 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -488,10 +480,11 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 				logger:                        logr.New(&log.NullLogSink{}),
 			}
 			err := v.checkIngressClassAnnotationUsage(tt.args.ing, tt.args.oldIng)
-			if tt.wantErr != nil {
-				assert.EqualError(t, err, tt.wantErr.Error())
+			if tt.wantErr != "" {
+				assert.Len(t, err, 1)
+				assert.EqualError(t, err[0], tt.wantErr)
 			} else {
-				assert.NoError(t, err)
+				assert.Nil(t, err)
 			}
 		})
 	}
@@ -509,7 +502,7 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		wantErr error
+		wantErr string
 	}{
 		{
 			name: "ingress creation with group.name annotation - when new usage enabled",
@@ -527,7 +520,6 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress creation with group.name annotation - when new usage disabled",
@@ -545,7 +537,7 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("new usage of `alb.ingress.kubernetes.io/group.name` annotation is forbidden"),
+			wantErr: "metadata.annotations[alb.ingress.kubernetes.io/group.name]: Forbidden: new usage is forbidden",
 		},
 		{
 			name: "ingress creation with non group.name annotation - when new usage disabled",
@@ -561,7 +553,6 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with group.name annotation - when new usage enabled",
@@ -586,7 +577,6 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with group.name annotation - when new usage disabled",
@@ -611,7 +601,7 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("new usage of `alb.ingress.kubernetes.io/group.name` annotation is forbidden"),
+			wantErr: "metadata.annotations[alb.ingress.kubernetes.io/group.name]: Forbidden: new usage is forbidden",
 		},
 		{
 			name: "ingress updates with non group.name annotation - when new usage disabled",
@@ -634,7 +624,6 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with matching group.name annotation unchanged - when new usage disabled",
@@ -661,7 +650,6 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with matching group.name annotation changed - when new usage disabled",
@@ -688,7 +676,7 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("new usage of `alb.ingress.kubernetes.io/group.name` annotation is forbidden"),
+			wantErr: "metadata.annotations[alb.ingress.kubernetes.io/group.name]: Forbidden: new usage is forbidden",
 		},
 	}
 	for _, tt := range tests {
@@ -702,10 +690,11 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 				logger:                        logr.New(&log.NullLogSink{}),
 			}
 			err := v.checkGroupNameAnnotationUsage(tt.args.ing, tt.args.oldIng)
-			if tt.wantErr != nil {
-				assert.EqualError(t, err, tt.wantErr.Error())
+			if tt.wantErr != "" {
+				assert.Len(t, err, 1)
+				assert.EqualError(t, err[0], tt.wantErr)
 			} else {
-				assert.NoError(t, err)
+				assert.Nil(t, err)
 			}
 		})
 	}
@@ -726,7 +715,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 		name    string
 		env     env
 		args    args
-		wantErr error
+		wantErr string
 	}{
 		{
 			name: "ingress creation without IngressClassName",
@@ -742,7 +731,6 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress creation with IngressClassName that refers to non-existent IngressClass",
@@ -758,7 +746,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"awesome-class\" not found"),
+			wantErr: "spec.ingressClassName: Not found: \"awesome-class\"",
 		},
 		{
 			name: "ingress creation with IngressClassName that refers to IngressClass without params",
@@ -782,7 +770,6 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress creation with IngressClassName that refers to IngressClass with IngressClassParams with mismatch namespaceSelector",
@@ -838,7 +825,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("invalid ingress class: namespaceSelector of IngressClassParams awesome-class-params mismatch"),
+			wantErr: "spec.ingressClassName: Forbidden: invalid ingress class: namespaceSelector of IngressClassParams awesome-class-params mismatch",
 		},
 		{
 			name: "ingress creation with IngressClassName that refers to IngressClass with IngressClassParams with matches namespaceSelector",
@@ -890,7 +877,6 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with removed IngressClassName",
@@ -915,7 +901,6 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress updates with changed IngressClassName that refers to non-existent IngressClass",
@@ -940,7 +925,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"awesome-class\" not found"),
+			wantErr: "spec.ingressClassName: Not found: \"awesome-class\"",
 		},
 		{
 			name: "ingress updates with added IngressClassName that refers to non-existent IngressClass",
@@ -965,32 +950,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"awesome-class\" not found"),
-		},
-		{
-			name: "ingress updates with unchanged IngressClassName that refers to non-existent IngressClass",
-			env:  env{},
-			args: args{
-				ing: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "awesome-ns",
-						Name:      "awesome-ing",
-					},
-					Spec: networking.IngressSpec{
-						IngressClassName: awssdk.String("awesome-class"),
-					},
-				},
-				oldIng: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "awesome-ns",
-						Name:      "awesome-ing",
-					},
-					Spec: networking.IngressSpec{
-						IngressClassName: awssdk.String("awesome-class"),
-					},
-				},
-			},
-			wantErr: nil,
+			wantErr: "spec.ingressClassName: Not found: \"awesome-class\"",
 		},
 	}
 	for _, tt := range tests {
@@ -1018,11 +978,16 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			v := &ingressValidator{
 				classLoader: ingress.NewDefaultClassLoader(k8sClient, true),
 			}
-			err := v.checkIngressClassUsage(ctx, tt.args.ing, tt.args.oldIng)
-			if tt.wantErr != nil {
-				assert.EqualError(t, err, tt.wantErr.Error())
+			var err error
+			if tt.args.oldIng == nil {
+				err = v.ValidateCreate(ctx, tt.args.ing)
 			} else {
-				assert.NoError(t, err)
+				err = v.ValidateUpdate(ctx, tt.args.ing, tt.args.oldIng)
+			}
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			} else {
+				assert.Nil(t, err)
 			}
 		})
 	}
@@ -1039,7 +1004,7 @@ func Test_ingressValidator_checkIngressAnnotationConditions(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		wantErr error
+		wantErr string
 	}{
 		{
 			name: "ingress has valid condition",
@@ -1080,7 +1045,6 @@ func Test_ingressValidator_checkIngressAnnotationConditions(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "ingress has invalid condition",
@@ -1121,7 +1085,7 @@ func Test_ingressValidator_checkIngressAnnotationConditions(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("ignoring Ingress ns-1/ing-1 since invalid alb.ingress.kubernetes.io/conditions.svc-1 annotation: invalid queryStringConfig: value cannot be empty"),
+			wantErr: "metadata.annotations[alb.ingress.kubernetes.io/conditions.svc-1]: Invalid value: \"[{\\\"field\\\":\\\"query-string\\\",\\\"queryStringConfig\\\":{\\\"values\\\":[{\\\"key\\\":\\\"paramA\\\",\\\"value\\\":\\\"\\\"}]}}]\": invalid queryStringConfig: value cannot be empty",
 		},
 		{
 			name: "ingress rule without HTTP path",
@@ -1146,7 +1110,6 @@ func Test_ingressValidator_checkIngressAnnotationConditions(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -1160,10 +1123,10 @@ func Test_ingressValidator_checkIngressAnnotationConditions(t *testing.T) {
 				logger:                        logr.Discard(),
 			}
 			err := v.checkIngressAnnotationConditions(tt.args.ing)
-			if tt.wantErr != nil {
-				assert.EqualError(t, err, tt.wantErr.Error())
+			if tt.wantErr != "" {
+				assert.EqualError(t, err[0], tt.wantErr)
 			} else {
-				assert.NoError(t, err)
+				assert.Nil(t, err)
 			}
 		})
 	}

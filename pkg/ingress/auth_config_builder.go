@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 )
@@ -95,7 +96,7 @@ func (b *defaultAuthConfigBuilder) buildAuthType(_ context.Context, svcAndIngAnn
 
 func (b *defaultAuthConfigBuilder) buildAuthIDPConfigCognito(_ context.Context, svcAndIngAnnotations map[string]string) (*AuthIDPConfigCognito, error) {
 	authIDP := AuthIDPConfigCognito{}
-	exists, err := b.annotationParser.ParseJSONAnnotation(annotations.IngressSuffixAuthIDPCognito, &authIDP, svcAndIngAnnotations)
+	exists, _, err := b.annotationParser.ParseJSONAnnotation(annotations.IngressSuffixAuthIDPCognito, &authIDP, svcAndIngAnnotations)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +108,7 @@ func (b *defaultAuthConfigBuilder) buildAuthIDPConfigCognito(_ context.Context, 
 
 func (b *defaultAuthConfigBuilder) buildAuthIDPConfigOIDC(_ context.Context, svcAndIngAnnotations map[string]string) (*AuthIDPConfigOIDC, error) {
 	authIDP := AuthIDPConfigOIDC{}
-	exists, err := b.annotationParser.ParseJSONAnnotation(annotations.IngressSuffixAuthIDPOIDC, &authIDP, svcAndIngAnnotations)
+	exists, _, err := b.annotationParser.ParseJSONAnnotation(annotations.IngressSuffixAuthIDPOIDC, &authIDP, svcAndIngAnnotations)
 	if err != nil {
 		return nil, err
 	}

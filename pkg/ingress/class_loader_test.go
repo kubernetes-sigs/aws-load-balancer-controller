@@ -243,7 +243,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("invalid ingress class: ingressclasses.networking.k8s.io \"awesome-class\" not found"),
+			wantErr: errors.New("ingress class not found: ingressclasses.networking.k8s.io \"awesome-class\" not found"),
 		},
 		{
 			name: "when IngressClass found and belong to other controller",

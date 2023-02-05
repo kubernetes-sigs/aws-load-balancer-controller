@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
@@ -58,19 +58,12 @@ func (v *ingressValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 	if skip, err := v.checkIngressClass(ctx, ing); skip || err != nil {
 		return err
 	}
-	if err := v.checkIngressClassAnnotationUsage(ing, nil); err != nil {
-		return err
-	}
-	if err := v.checkGroupNameAnnotationUsage(ing, nil); err != nil {
-		return err
-	}
-	if err := v.checkIngressClassUsage(ctx, ing, nil); err != nil {
-		return err
-	}
-	if err := v.checkIngressAnnotationConditions(ing); err != nil {
-		return err
-	}
-	return nil
+	allErrs := field.ErrorList{}
+	allErrs = append(allErrs, v.checkIngressClassAnnotationUsage(ing, nil)...)
+	allErrs = append(allErrs, v.checkGroupNameAnnotationUsage(ing, nil)...)
+	allErrs = append(allErrs, v.checkIngressAnnotationConditions(ing)...)
+
+	return allErrs.ToAggregate()
 }
 
 func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Object, oldObj runtime.Object) error {
@@ -79,19 +72,11 @@ func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Objec
 	if skip, err := v.checkIngressClass(ctx, ing); skip || err != nil {
 		return err
 	}
-	if err := v.checkIngressClassAnnotationUsage(ing, oldIng); err != nil {
-		return err
-	}
-	if err := v.checkGroupNameAnnotationUsage(ing, oldIng); err != nil {
-		return err
-	}
-	if err := v.checkIngressClassUsage(ctx, ing, oldIng); err != nil {
-		return err
-	}
-	if err := v.checkIngressAnnotationConditions(ing); err != nil {
-		return err
-	}
-	return nil
+	allErrs := field.ErrorList{}
+	allErrs = append(allErrs, v.checkIngressClassAnnotationUsage(ing, oldIng)...)
+	allErrs = append(allErrs, v.checkGroupNameAnnotationUsage(ing, oldIng)...)
+	allErrs = append(allErrs, v.checkIngressAnnotationConditions(ing)...)
+	return allErrs.ToAggregate()
 }
 
 func (v *ingressValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
@@ -105,7 +90,10 @@ func (v *ingressValidator) checkIngressClass(ctx context.Context, ing *networkin
 	}
 	classConfiguration, err := v.classLoader.Load(ctx, ing)
 	if err != nil {
-		return false, err
+		if errors.Is(err, ingress.ErrIngressClassNotFound) {
+			return false, field.NotFound(field.NewPath("spec", "ingressClassName"), ing.Spec.IngressClassName)
+		}
+		return false, field.Forbidden(field.NewPath("spec", "ingressClassName"), err.Error())
 	}
 	if classConfiguration.IngClass != nil {
 		return classConfiguration.IngClass.Spec.Controller != ingress.IngressClassControllerALB, nil
@@ -116,7 +104,7 @@ func (v *ingressValidator) checkIngressClass(ctx context.Context, ing *networkin
 // checkIngressClassAnnotationUsage checks the usage of kubernetes.io/ingress.class annotation.
 // kubernetes.io/ingress.class annotation cannot be set to the ingress class for this controller once disabled,
 // so that we enforce users to use spec.ingressClassName in Ingress and IngressClass resource instead.
-func (v *ingressValidator) checkIngressClassAnnotationUsage(ing *networking.Ingress, oldIng *networking.Ingress) error {
+func (v *ingressValidator) checkIngressClassAnnotationUsage(ing *networking.Ingress, oldIng *networking.Ingress) (allErrs field.ErrorList) {
 	if !v.disableIngressClassAnnotation {
 		return nil
 	}
@@ -135,15 +123,17 @@ func (v *ingressValidator) checkIngressClassAnnotationUsage(ing *networking.Ingr
 		}
 	}
 	if !usedInOldIng && usedInNewIng {
-		return errors.Errorf("new usage of `%s` annotation is forbidden", annotations.IngressClass)
+		fieldPath := field.NewPath("metadata", "annotations").Key(annotations.IngressClass)
+		allErrs = append(allErrs, field.Forbidden(fieldPath, "new usage is forbidden"))
 	}
-	return nil
+
+	return allErrs
 }
 
 // checkGroupNameAnnotationUsage checks the usage of "group.name" annotation.
 // "group.name" annotation cannot be set once disabled,
 // so that we enforce users to use spec.group in IngressClassParams resource instead.
-func (v *ingressValidator) checkGroupNameAnnotationUsage(ing *networking.Ingress, oldIng *networking.Ingress) error {
+func (v *ingressValidator) checkGroupNameAnnotationUsage(ing *networking.Ingress, oldIng *networking.Ingress) (allErrs field.ErrorList) {
 	if !v.disableIngressGroupAnnotation {
 		return nil
 	}
@@ -162,42 +152,15 @@ func (v *ingressValidator) checkGroupNameAnnotationUsage(ing *networking.Ingress
 
 	if usedInNewIng {
 		if !usedInOldIng || (newGroupName != oldGroupName) {
-			return errors.Errorf("new usage of `%s/%s` annotation is forbidden", annotations.AnnotationPrefixIngress, annotations.IngressSuffixGroupName)
+			fieldPath := field.NewPath("metadata", "annotations").Key(annotations.AnnotationPrefixIngress + "/" + annotations.IngressSuffixGroupName)
+			allErrs = append(allErrs, field.Forbidden(fieldPath, "new usage is forbidden"))
 		}
 	}
-	return nil
-}
-
-// checkIngressClassUsage checks the usage of "ingressClassName" field.
-// if ingressClassName is mutated, it must refer to a existing & valid IngressClass.
-func (v *ingressValidator) checkIngressClassUsage(ctx context.Context, ing *networking.Ingress, oldIng *networking.Ingress) error {
-	usedInNewIng := false
-	usedInOldIng := false
-	newIngressClassName := ""
-	oldIngressClassName := ""
-
-	if ing.Spec.IngressClassName != nil {
-		usedInNewIng = true
-		newIngressClassName = awssdk.StringValue(ing.Spec.IngressClassName)
-	}
-	if oldIng != nil && oldIng.Spec.IngressClassName != nil {
-		usedInOldIng = true
-		oldIngressClassName = awssdk.StringValue(oldIng.Spec.IngressClassName)
-	}
-
-	if usedInNewIng {
-		if !usedInOldIng || (newIngressClassName != oldIngressClassName) {
-			_, err := v.classLoader.Load(ctx, ing)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return allErrs
 }
 
 // checkGroupNameAnnotationUsage checks the validity of "conditions.${conditions-name}" annotation.
-func (v *ingressValidator) checkIngressAnnotationConditions(ing *networking.Ingress) error {
+func (v *ingressValidator) checkIngressAnnotationConditions(ing *networking.Ingress) (allErrs field.ErrorList) {
 	for _, rule := range ing.Spec.Rules {
 		if rule.HTTP == nil {
 			continue
@@ -205,25 +168,23 @@ func (v *ingressValidator) checkIngressAnnotationConditions(ing *networking.Ingr
 		for _, path := range rule.HTTP.Paths {
 			var conditions []ingress.RuleCondition
 			annotationKey := fmt.Sprintf("conditions.%v", path.Backend.Service.Name)
-			_, err := v.annotationParser.ParseJSONAnnotation(annotationKey, &conditions, ing.Annotations)
+			_, matchedKey, err := v.annotationParser.ParseJSONAnnotation(annotationKey, &conditions, ing.Annotations)
+			fieldPath := field.NewPath("metadata", "annotations").Key(matchedKey)
 			if err != nil {
-				return err
+				allErrs = append(allErrs, field.Invalid(fieldPath, ing.Annotations[matchedKey], err.Error()))
+				continue
 			}
 
 			for _, condition := range conditions {
 				if err := condition.Validate(); err != nil {
-					return fmt.Errorf("ignoring Ingress %s/%s since invalid alb.ingress.kubernetes.io/conditions.%s annotation: %w",
-						ing.Namespace,
-						ing.Name,
-						path.Backend.Service.Name,
-						err,
-					)
+					allErrs = append(allErrs, field.Invalid(fieldPath, ing.Annotations[matchedKey], err.Error()))
+					continue
 				}
 			}
 		}
 	}
 
-	return nil
+	return allErrs
 }
 
 // +kubebuilder:webhook:path=/validate-networking-v1-ingress,mutating=false,failurePolicy=fail,groups=networking.k8s.io,resources=ingresses,verbs=create;update,versions=v1,name=vingress.elbv2.k8s.aws,sideEffects=None,matchPolicy=Equivalent,webhookVersions=v1,admissionReviewVersions=v1beta1

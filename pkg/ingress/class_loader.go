@@ -25,8 +25,11 @@ const (
 	defaultClassAnnotation = "ingressclass.kubernetes.io/is-default-class"
 )
 
-// ErrInvalidIngressClass is an sentinel error that represents the IngressClass configuration for Ingress is invalid.
+// ErrInvalidIngressClass is a sentinel error that represents the IngressClass configuration for Ingress is invalid.
 var ErrInvalidIngressClass = errors.New("invalid ingress class")
+
+// ErrIngressClassNotFound is a sentinel error that indicates the IngressClass for an Ingress is not found.
+var ErrIngressClassNotFound = errors.New("ingress class not found")
 
 // ClassLoader loads IngressClass configurations for Ingress.
 type ClassLoader interface {
@@ -89,7 +92,7 @@ func (l *defaultClassLoader) Load(ctx context.Context, ing *networking.Ingress) 
 	ingClass := &networking.IngressClass{}
 	if err := l.client.Get(ctx, ingClassKey, ingClass); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ClassConfiguration{}, fmt.Errorf("%w: %v", ErrInvalidIngressClass, err.Error())
+			return ClassConfiguration{}, fmt.Errorf("%w: %v", ErrIngressClassNotFound, err.Error())
 		}
 		return ClassConfiguration{}, err
 	}

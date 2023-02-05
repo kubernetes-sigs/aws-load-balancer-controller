@@ -145,7 +145,7 @@ func (m *defaultGroupLoader) checkGroupMembershipType(ctx context.Context, group
 		// tolerate ErrInvalidIngressClass for Ingresses that hasn't belongs to the group yet.
 		// for Ingresses that was belongs to the group, we error out to avoid remove the Ingress from IngressGroup since the IngressClass might be accidentally modified.
 		// see https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2731
-		if errors.Is(err, ErrInvalidIngressClass) {
+		if errors.Is(err, ErrInvalidIngressClass) || errors.Is(err, ErrIngressClassNotFound) {
 			if hasGroupFinalizer {
 				return groupMembershipTypeNone, ClassifiedIngress{}, errors.Wrapf(err, "Ingress has invalid IngressClass configuration")
 			}
