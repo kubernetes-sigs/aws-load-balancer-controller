@@ -6,6 +6,7 @@ SECONDS=0
 
 # Set IP Family
 IP_FAMILY="${IP_FAMILY:-IPv4}"
+USE_EKSCTL="${USE_EKSCTL:-true}"
 
 echo "Running AWS Load Balancer Controller e2e tests with the following variables
 KUBE_CONFIG_PATH: $KUBE_CONFIG_PATH
@@ -13,7 +14,8 @@ CLUSTER_NAME: $CLUSTER_NAME
 REGION: $REGION
 IP_FAMILY: $IP_FAMILY
 OS_OVERRIDE: $OS_OVERRIDE
-ENDPOINT: $ENDPOINT"
+ENDPOINT: $ENDPOINT
+USE_EKSCTL: $USE_EKSCTL"
 
 if [[ -z "${OS_OVERRIDE}" ]]; then
   OS_OVERRIDE=linux
@@ -32,15 +34,18 @@ if [[ $REGION == "cn-north-1" || $REGION == "cn-northwest-1" ]]; then
   go env -w GOSUMDB=sum.golang.google.cn
 fi
 
-GET_CLUSTER_INFO_CMD="aws eks describe-cluster --name $CLUSTER_NAME --region $REGION"
+if [[ $USE_EKSCTL == true ]]; then
+  GET_CLUSTER_INFO_CMD="aws eks describe-cluster --name $CLUSTER_NAME --region $REGION"
 
-if [[ -z "${ENDPOINT}" ]]; then
-  CLUSTER_INFO=$($GET_CLUSTER_INFO_CMD)
-else
-  CLUSTER_INFO=$($GET_CLUSTER_INFO_CMD --endpoint $ENDPOINT)
+  if [[ -z "${ENDPOINT}" ]]; then
+    CLUSTER_INFO=$($GET_CLUSTER_INFO_CMD)
+  else
+    CLUSTER_INFO=$($GET_CLUSTER_INFO_CMD --endpoint $ENDPOINT)
+  fi
+
+  VPC_ID=$(echo $CLUSTER_INFO | jq -r '.cluster.resourcesVpcConfig.vpcId')
+
+  echo "VPC ID: $VPC_ID"
 fi
 
-VPC_ID=$(echo $CLUSTER_INFO | jq -r '.cluster.resourcesVpcConfig.vpcId')
 ACCOUNT_ID=$(aws sts get-caller-identity | jq -r '.Account')
-
-echo "VPC ID: $VPC_ID"

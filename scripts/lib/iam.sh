@@ -37,3 +37,19 @@ iam::delete_policy() {
     --region "${region}" \
     --policy-arn "${policy_arn}"
 }
+
+attach_policy_to_role() {
+  declare -r policy_arn="$1" role_name="$2"
+
+  aws iam attach-role-policy \
+    --role-name "${role_name}" \
+    --policy-arn "${policy_arn}"
+}
+
+detach_policy_to_role(){
+  declare -r policy_arn="$1" role_name="$2"
+
+  aws iam detach-role-policy \
+    --role-name "${role_name}" \
+    --policy-arn "${policy_arn}"
+}
