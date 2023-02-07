@@ -183,6 +183,10 @@ logLevel:
 # The address the metric endpoint binds to. (default ":8080")
 metricsBindAddr: ""
 
+webhookConfig:
+  # disableIngressValidation disables the validation of resources of kind Ingress, false by default
+  disableIngressValidation:
+
 # The TCP port the Webhook server binds to. (default 9443)
 webhookBindPort:
 
