@@ -183,9 +183,9 @@
                 "elasticloadbalancing:AddTags"
             ],
             "Resource": [
-                "arn:aws:elasticloadbalancing:*:*:targetgroup/*/*",
-                "arn:aws:elasticloadbalancing:*:*:loadbalancer/net/*/*",
-                "arn:aws:elasticloadbalancing:*:*:loadbalancer/app/*/*"
+                "arn:aws-cn:elasticloadbalancing:*:*:targetgroup/*/*",
+                "arn:aws-cn:elasticloadbalancing:*:*:loadbalancer/net/*/*",
+                "arn:aws-cn:elasticloadbalancing:*:*:loadbalancer/app/*/*"
             ],
             "Condition": {
                 "StringEquals": {
