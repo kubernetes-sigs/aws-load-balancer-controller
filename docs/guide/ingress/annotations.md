@@ -58,6 +58,15 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)|json|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)|stringMap|N/A|Ingress,Service|N/A|
 
+##Minimum Annotations Required
+The following annotations are required at the minimum to have a Load Balancer created:
+
+- <a name="">`alb.ingress.kubernetes.io/scheme: internet-facing`</a>
+- <a name="">`kubernetes.io/ingress.class: alb`</a> or via [Ingress Class](ingress_class.md) 
+- <a name="">`alb.ingress.kubernetes.io/subnets`</a> or see [Subnet Discovery](../../deploy/subnet_discovery.md) for alternate instructions.
+
+
+
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
 The controller will automatically merge Ingress rules for all Ingresses within IngressGroup and support them with a single ALB.
@@ -108,8 +117,10 @@ Traffic Listening can be controlled with the following annotations:
         - You can define different listen-ports per Ingress, Ingress rules will only impact the ports defined for that Ingress.
         - If same listen-port is defined by multiple Ingress within IngressGroup, Ingress rules will be merged with respect to their group order within IngressGroup.
 
-    !!!note "Default"
-        - defaults to `'[{"HTTP": 80}]'` or `'[{"HTTPS": 443}]'` depending on whether `certificate-arn` is specified.
+    !!!note "Default Listener Ports"
+        - defaults to `'[{"HTTP": 80}]'` if `certificate-arn` is not specified.
+        - defaults to `'[{"HTTPS": 443}]'` if `certificate-arn` is specified.
+        - error if HTTPS is defined without `certificate-arn` specified.   
 
     !!!warning ""
         You may not have duplicate load balancer ports defined.
@@ -119,7 +130,7 @@ Traffic Listening can be controlled with the following annotations:
         alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}, {"HTTP": 8080}, {"HTTPS": 8443}]'
         ```
 
-- <a name="ssl-redirect">`alb.ingress.kubernetes.io/ssl-redirect`</a> enables SSLRedirect and specifies the SSL port that redirects to.
+- <a name="ssl-redirect">`alb.ingress.kubernetes.io/ssl-redirect`</a> enables SSLRedirect and specifies the SSL port that it redirects to.
 
     !!!note "Merge Behavior"
         `ssl-redirect` is exclusive across all Ingresses in IngressGroup.
@@ -127,8 +138,8 @@ Traffic Listening can be controlled with the following annotations:
         - Once defined on a single Ingress, it impacts every Ingress within IngressGroup.
 
     !!!note ""
-        - Once enabled SSLRedirect, every HTTP listener will be configured with a default action which redirects to HTTPS, other rules will be ignored.
-        - The SSL port that redirects to must exists on LoadBalancer. See [alb.ingress.kubernetes.io/listen-ports](#listen-ports) for the listen ports configuration.
+        - Once enabled SSLRedirect, every HTTP listener will be configured with a default action which redirects to the specified port, other rules will be ignored.
+        - The SSL port that it redirects to must be an HTTPS listening-port on LoadBalancer otherwise will error. See [alb.ingress.kubernetes.io/listen-ports](#listen-ports) for the listen ports configuration.
 
     !!!example
         ```
@@ -519,14 +530,14 @@ Access control for LoadBalancer can be controlled with following annotations:
         alb.ingress.kubernetes.io/inbound-cidrs: 10.0.0.0/24
         ```
 
-- <a name="security-groups">`alb.ingress.kubernetes.io/security-groups`</a> specifies the securityGroups you want to attach to LoadBalancer.
+- <a name="security-groups">`alb.ingress.kubernetes.io/security-groups`</a> specifies the securityGroups you want to attach to LoadBalancer.  
+  <br />
+    !!!note "" When this annotation is not present, the controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from [`inbound-cidrs`](#inbound-cidrs) to the [`listen-ports`](#listen-ports).
+        Additionally, the securityGroups for Node/Pod instances will be automatically modified to allow inbound traffic from this load balancer securityGroup.
+        
 
     !!!note ""
-        When this annotation is not present, the controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from [`inbound-cidrs`](#inbound-cidrs) to the [`listen-ports`](#listen-ports).
-        Also, the securityGroups for Node/Pod will be modified to allow inbound traffic from this securityGroup.
-
-    !!!note ""
-        If you specify this annotation, you need to configure the security groups on your Node/Pod to allow inbound traffic from the load balancer. You could also set the [`manage-backend-security-group-rules`](#manage-backend-security-group-rules) if you want the controller to manage the access rules.
+        If you specify this annotation, you need to configure the security groups on your Node/Pod instances to allow inbound traffic from the load balancer. You could also set the [`manage-backend-security-group-rules: "true"`](#manage-backend-security-group-rules) if you want the controller to manage the Node/Pod instance rules.
 
     !!!tip ""
         Both name or ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
@@ -537,9 +548,11 @@ Access control for LoadBalancer can be controlled with following annotations:
         ```
 
 - <a name="manage-backend-security-group-rules">`alb.ingress.kubernetes.io/manage-backend-security-group-rules`</a> specifies whether you want the controller to configure security group rules on Node/Pod for traffic access when you specify [`security-groups`](#security-groups).
-
+  <br />                       
     !!!note ""
-        This annotation applies only in case you specify the security groups via [`security-groups`](#security-groups) annotation. If set to true, controller attaches an additional shared backend security group to your load balancer. This backend security group is used in the Node/Pod security group rules.
+        This annotation applies only in case you specify the security groups via [`security-groups`](#security-groups) annotation. If set to true, controller attaches an additional shared backend security group as specified to your load balancer. This backend security group is used in the Node/Pod security group rules.
+        If security groups are not specified then this annotation is ignored, even if set to "false" and the usual default functionality applies. See: [`security-groups`](#security-groups) note #1.        
+
 
     !!!example
         ```
