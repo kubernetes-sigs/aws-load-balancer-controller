@@ -15,7 +15,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 
 ## Annotations
 |Name                       | Type |Default|Location|MergeBehavior|
-|---------------------------|------|-------|--------|------|
+|---------------------------|------|-------|--|------|
 |[alb.ingress.kubernetes.io/load-balancer-name](#load-balancer-name)|string|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/group.name](#group.name)|string|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/group.order](#group.order)|integer|0|Ingress|N/A|
@@ -30,7 +30,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/wafv2-acl-arn](#wafv2-acl-arn)|string|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/waf-acl-id](#waf-acl-id)|string|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/shield-advanced-protection](#shield-advanced-protection)|boolean|N/A|Ingress|Exclusive|
-|[alb.ingress.kubernetes.io/listen-ports](#listen-ports)|json|'[{"HTTP": 80}]' \| '[{"HTTPS": 443}]'|Ingress|Merge|
+|[alb.ingress.kubernetes.io/listen-ports](#listen-ports)|json|'[{"HTTP": 80}]'|Ingress|Merge|
 |[alb.ingress.kubernetes.io/ssl-redirect](#ssl-redirect)|integer|N/A|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/inbound-cidrs](#inbound-cidrs)|stringList|0.0.0.0/0, ::/0|Ingress|Exclusive|
 |[alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)|stringList|N/A|Ingress|Merge|
@@ -58,7 +58,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 |[alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)|json|N/A|Ingress|N/A|
 |[alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)|stringMap|N/A|Ingress,Service|N/A|
 
-##Minimum Annotations Required
+## Minimum Annotations Required
 The following annotations are required at the minimum to have a Load Balancer created:
 
 - <a name="">`alb.ingress.kubernetes.io/scheme: internet-facing`</a>
@@ -117,9 +117,9 @@ Traffic Listening can be controlled with the following annotations:
         - You can define different listen-ports per Ingress, Ingress rules will only impact the ports defined for that Ingress.
         - If same listen-port is defined by multiple Ingress within IngressGroup, Ingress rules will be merged with respect to their group order within IngressGroup.
 
-    !!!note "Default Listener Ports"
-        - defaults to `'[{"HTTP": 80}]'` if `certificate-arn` is not specified.
-        - defaults to `'[{"HTTPS": 443}]'` if `certificate-arn` is specified.
+    !!!note "Default Listener Ports"  
+        - defaults to `'[{"HTTP": 80}]'` if `certificate-arn` is not specified.  
+        - defaults to `'[{"HTTPS": 443}]'` if `certificate-arn` is specified.  
         - error if HTTPS is defined without `certificate-arn` specified.   
 
     !!!warning ""
@@ -138,8 +138,10 @@ Traffic Listening can be controlled with the following annotations:
         - Once defined on a single Ingress, it impacts every Ingress within IngressGroup.
 
     !!!note ""
-        - Once enabled SSLRedirect, every HTTP listener will be configured with a default action which redirects to the specified port, other rules will be ignored.
-        - The SSL port that it redirects to must be an HTTPS listening-port on LoadBalancer otherwise will error. See [alb.ingress.kubernetes.io/listen-ports](#listen-ports) for the listen ports configuration.
+        - Once SSL-Redirect is enabled, every HTTP listener will be configured with a default action which redirects to the specified port, other rules will be ignored.  
+          The SSL port that it redirects to must be an HTTPS listening-port on LoadBalancer otherwise will error.  
+          See [alb.ingress.kubernetes.io/listen-ports](#listen-ports) for the listen ports configuration.
+
 
     !!!example
         ```
