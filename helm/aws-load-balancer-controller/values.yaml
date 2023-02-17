@@ -326,6 +326,10 @@ serviceMonitor:
   # Namespace to create the service monitor in
   namespace:
 
+#prometheusScrapping enable Promehteus Scrapping configuration in annotation section
+prometheusScrapping:
+  enabled: false
+
 # clusterSecretsPermissions lets you configure RBAC permissions for secret resources
 # Access to secrets resource is required only if you use the OIDC feature, and instead of
 # enabling access to all secrets, we recommend configuring namespaced role/rolebinding.
