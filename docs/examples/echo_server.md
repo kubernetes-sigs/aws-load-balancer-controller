@@ -227,7 +227,7 @@ You should get back a valid response.
 
 ## (Optional) Use external-dns to create a DNS record
 
-1. Deploy external-dns to your cluster using these instructions - [Setup external-dns](/guide/integrations/external_dns)
+1. Deploy external-dns to your cluster using these instructions - [Setup external-dns](/docs/guide/integrations/external_dns.md)
 
 1. Update your ingress resource and add `spec.rules[0].host` and set the value to your domain name. The example below uses `echoserver.example.org`.
 
