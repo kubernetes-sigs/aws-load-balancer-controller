@@ -162,12 +162,16 @@ lint:
 	echo "TODO"
 
 .PHONY: quick-ci
-quick-ci: verify-versions verify-generate
+quick-ci: verify-versions verify-generate verify-crds
 	echo "Done!"
 
 .PHONY: verify-generate
 verify-generate:
 	hack/verify-generate.sh
+
+.PHONY: verify-crds
+verify-crds:
+	hack/verify-crds.sh
 
 .PHONY: verify-versions
 verify-versions:
