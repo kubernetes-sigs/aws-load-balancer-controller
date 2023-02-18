@@ -218,11 +218,11 @@ We recommend using the Helm chart. This supports Fargate and facilitates updatin
     ```
     1. Optionally download the default ingressclass and ingressclass params
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.6/v2_4_6_ingclass.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.6/v2_4_6_ingress_class.yaml
     ```
     1. Apply the ingressclass and params
     ```
-    kubectl apply -f v2_4_6_ingclass.yaml
+    kubectl apply -f v2_4_6_ingress_class.yaml
     ```
 
 ## Create Update Strategy
