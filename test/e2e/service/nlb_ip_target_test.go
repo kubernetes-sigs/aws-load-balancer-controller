@@ -217,6 +217,18 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 							TargetPort: intstr.FromInt(80),
 							Protocol:   corev1.ProtocolTCP,
 						},
+						{
+							Port:       443,
+							Name:       "https",
+							TargetPort: intstr.FromInt(443),
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Port:       333,
+							Name:       "arbitrary-port",
+							TargetPort: intstr.FromInt(333),
+							Protocol:   corev1.ProtocolTCP,
+						},
 					},
 				},
 			}
@@ -245,10 +257,14 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Scheme:     "internet-facing",
 					TargetType: "ip",
 					Listeners: map[string]string{
-						"80": "TLS",
+						"80":  "TLS",
+						"443": "TLS",
+						"333": "TLS",
 					},
 					TargetGroups: map[string]string{
-						"80": "TCP",
+						"80":  "TCP",
+						"443": "TCP",
+						"333": "TCP",
 					},
 					NumTargets: int(numReplicas),
 				})
@@ -272,10 +288,14 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Scheme:     "internet-facing",
 					TargetType: "ip",
 					Listeners: map[string]string{
-						"80": "TCP",
+						"80":  "TCP",
+						"443": "TLS",
+						"333": "TLS",
 					},
 					TargetGroups: map[string]string{
-						"80": "TCP",
+						"80":  "TCP",
+						"443": "TCP",
+						"333": "TCP",
 					},
 					NumTargets: int(numReplicas),
 				})
