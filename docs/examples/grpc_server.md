@@ -13,7 +13,7 @@ The following resources are required prior to deployment:
 - aws-load-balancer-controller
 - external-dns
 
-See [echo_server.md](echo_server.md) and [external_dns.md](/docs/guide/integrations/external_dns.md) for setup instructions for those resources.
+See [echo_server.md](echo_server.md) and [external_dns.md](/../../guide/integrations/external_dns) for setup instructions for those resources.
 
 ## Create an ACM certificate
 > NOTE: An ACM certificate is required for this demo as the application uses the `grpc.secure_channel` method.

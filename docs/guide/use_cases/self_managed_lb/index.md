@@ -80,7 +80,7 @@ Have this information available:
 
 ## Create TargetGroupBinding CRD
 
-1. Create the [TargetGroupBinding CRD](/docs/guide/targetgroupbinding/targetgroupbinding.md)
+1. Create the [TargetGroupBinding CRD](/../guide/targetgroupbinding/targetgroupbinding)
 
 Insert the ARN of the Target Group, as created above.
 
