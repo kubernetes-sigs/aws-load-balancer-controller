@@ -17,7 +17,7 @@ type conciseLogger struct {
 }
 
 func (r *conciseLogger) WithValues(keysAndValues ...interface{}) logr.LogSink {
-	return &conciseLogger{r.LogSink.WithValues(keysAndValues)}
+	return &conciseLogger{r.LogSink.WithValues(keysAndValues...)}
 }
 
 func (r *conciseLogger) WithName(name string) logr.LogSink {
