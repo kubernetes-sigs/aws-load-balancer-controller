@@ -322,7 +322,7 @@ type RuleCondition struct {
 	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig"`
 }
 
-func (c *RuleCondition) validate() error {
+func (c *RuleCondition) Validate() error {
 	switch c.Field {
 	case RuleConditionFieldHostHeader:
 		if c.HostHeaderConfig == nil {

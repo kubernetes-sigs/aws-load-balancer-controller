@@ -787,3 +787,119 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 		})
 	}
 }
+
+func Test_ingressValidator_checkIngressAnnotationConditions(t *testing.T) {
+	type fields struct {
+		disableIngressGroupAnnotation bool
+	}
+	type args struct {
+		ing *networking.Ingress
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr error
+	}{
+		{
+			name: "ingress has valid condition",
+			fields: fields{
+				disableIngressGroupAnnotation: false,
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "ing-1",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/condition.svc-1": `[{"field":"query-string","queryStringConfig":{"values":[{"key":"paramA","value":"paramAValue"}]}}]`,
+						},
+					},
+					Spec: networking.IngressSpec{
+						Rules: []networking.IngressRule{
+							{
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{
+											{
+												Path: "/ing-1-path",
+												Backend: networking.IngressBackend{
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-1",
+														Port: networking.ServiceBackendPort{
+															Name: "https",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "ingress has invalid condition",
+			fields: fields{
+				disableIngressGroupAnnotation: false,
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "ing-1",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/conditions.svc-1": `[{"field":"query-string","queryStringConfig":{"values":[{"key":"paramA","value":""}]}}]`,
+						},
+					},
+					Spec: networking.IngressSpec{
+						Rules: []networking.IngressRule{
+							{
+								IngressRuleValue: networking.IngressRuleValue{
+									HTTP: &networking.HTTPIngressRuleValue{
+										Paths: []networking.HTTPIngressPath{
+											{
+												Path: "/ing-1-path",
+												Backend: networking.IngressBackend{
+													Service: &networking.IngressServiceBackend{
+														Name: "svc-1",
+														Port: networking.ServiceBackendPort{
+															Name: "https",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: errors.New("ignoring Ingress ns-1/ing-1 since invalid alb.ingress.kubernetes.io/conditions.svc-1 annotation: invalid queryStringConfig: value cannot be empty"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+			classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher("alb")
+			v := &ingressValidator{
+				annotationParser:              annotationParser,
+				classAnnotationMatcher:        classAnnotationMatcher,
+				disableIngressGroupAnnotation: tt.fields.disableIngressGroupAnnotation,
+				logger:                        logr.Discard(),
+			}
+			err := v.checkIngressAnnotationConditions(tt.args.ing)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

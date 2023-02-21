@@ -165,7 +165,7 @@ func (b *defaultEnhancedBackendBuilder) buildConditions(_ context.Context, ingAn
 		return nil, err
 	}
 	for _, condition := range conditions {
-		if err := condition.validate(); err != nil {
+		if err := condition.Validate(); err != nil {
 			return nil, err
 		}
 	}
