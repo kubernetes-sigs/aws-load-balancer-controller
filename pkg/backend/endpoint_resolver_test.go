@@ -25,7 +25,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
+	discovery "k8s.io/api/discovery/v1"
 )
 
 func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
