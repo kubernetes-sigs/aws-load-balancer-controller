@@ -138,7 +138,7 @@ Cluster administrators can use the `scheme` field to restrict the scheme for all
 #### spec.sslPolicy
 
 Cluster administrators can use the optional `sslPolicy` field to specify the SSL policy for the load balancers that belong to this IngressClass.
-If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/ssl-policy annotation` annotation.
+If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/ssl-policy` annotation.
 
 #### spec.subnets
 
