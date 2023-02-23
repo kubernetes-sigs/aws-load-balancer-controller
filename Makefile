@@ -2,7 +2,7 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.6
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.7
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
