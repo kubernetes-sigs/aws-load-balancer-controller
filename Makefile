@@ -20,7 +20,7 @@ all: controller
 
 # Run tests
 test: generate fmt vet manifests helm-lint
-	go test -race ./pkg/... ./webhooks/... -coverprofile cover.out
+	ASSUME_NO_MOVING_GC_UNSAFE_RISK_IT_WITH=go1.20 go test -race ./pkg/... ./webhooks/... -coverprofile cover.out
 
 # Build controller binary
 controller: generate fmt vet
