@@ -2,9 +2,16 @@ package targetgroupbinding
 
 import (
 	"fmt"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 )
+
+// TargetGroupInfo contains information about a TargetGroup.
+type TargetGroupInfo struct {
+	// TargetGroup is the target group with information about it.
+	TargetGroup *elbv2sdk.TargetGroup
+}
 
 // TargetInfo contains information about a TargetGroup target.
 type TargetInfo struct {

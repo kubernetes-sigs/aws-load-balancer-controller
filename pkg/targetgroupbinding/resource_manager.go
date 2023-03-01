@@ -42,7 +42,8 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
 	vpcInfoProvider networking.VPCInfoProvider,
 	vpcID string, clusterName string, failOpenEnabled bool, endpointSliceEnabled bool, disabledRestrictedSGRulesFlag bool,
-	eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
+	eventRecorder record.EventRecorder, logger logr.Logger,
+) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, failOpenEnabled, endpointSliceEnabled, logger)
 
@@ -235,7 +236,8 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 // updateTargetHealthPodCondition will updates pod's targetHealth condition for matchedEndpointAndTargets and unmatchedEndpoints.
 // returns whether further probe is needed or not
 func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Context, targetHealthCondType corev1.PodConditionType,
-	matchedEndpointAndTargets []podEndpointAndTargetPair, unmatchedEndpoints []backend.PodEndpoint) (bool, error) {
+	matchedEndpointAndTargets []podEndpointAndTargetPair, unmatchedEndpoints []backend.PodEndpoint,
+) (bool, error) {
 	anyPodNeedFurtherProbe := false
 
 	for _, endpointAndTarget := range matchedEndpointAndTargets {
@@ -271,7 +273,8 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 // updateTargetHealthPodConditionForPod updates pod's targetHealth condition for a single pod and its matched target.
 // returns whether further probe is needed or not.
 func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx context.Context, pod k8s.PodInfo,
-	targetHealth *elbv2sdk.TargetHealth, targetHealthCondType corev1.PodConditionType) (bool, error) {
+	targetHealth *elbv2sdk.TargetHealth, targetHealthCondType corev1.PodConditionType,
+) (bool, error) {
 	if !pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
 		return false, nil
 	}
@@ -371,14 +374,19 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN st
 }
 
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN string, endpoints []backend.PodEndpoint) error {
-	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, m.vpcID)
+	tg, err := m.targetsManager.DescribeTargetGroup(ctx, tgARN)
 	if err != nil {
 		return err
 	}
-	var vpcRawCIDRs []string
-	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
-	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
-	vpcCIDRs, err := networking.ParseCIDRs(vpcRawCIDRs)
+	tgVpcCIDRs, err := m.getCIDRBlocksForVPC(ctx, awssdk.StringValue(tg.TargetGroup.VpcId))
+	if err != nil {
+		return err
+	}
+	hostVpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, m.vpcID)
+	if err != nil {
+		return err
+	}
+	hostVpcCIDRs, err := m.getCIDRBlocksForVPC(ctx, awssdk.StringValue(hostVpcInfo.VpcId))
 	if err != nil {
 		return err
 	}
@@ -393,7 +401,7 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 		if err != nil {
 			return err
 		}
-		if !networking.IsIPWithinCIDRs(podIP, vpcCIDRs) {
+		if !networking.IsIPWithinCIDRs(podIP, tgVpcCIDRs) || !networking.IsIPWithinCIDRs(podIP, hostVpcCIDRs) {
 			target.AvailabilityZone = awssdk.String("all")
 		}
 		sdkTargets = append(sdkTargets, target)
@@ -410,6 +418,17 @@ func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, 
 		})
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
+}
+
+func (m *defaultResourceManager) getCIDRBlocksForVPC(ctx context.Context, vpcID string) ([]netip.Prefix, error) {
+	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
+	if err != nil {
+		return nil, err
+	}
+	var rawCIDRs []string
+	rawCIDRs = append(rawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
+	rawCIDRs = append(rawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
+	return networking.ParseCIDRs(rawCIDRs)
 }
 
 type podEndpointAndTargetPair struct {

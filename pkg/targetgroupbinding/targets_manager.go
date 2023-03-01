@@ -2,17 +2,20 @@ package targetgroupbinding
 
 import (
 	"context"
+	"fmt"
+	"sync"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sync"
-	"time"
 )
 
 const (
 	defaultTargetsCacheTTL            = 5 * time.Minute
+	defaultTargetGroupCacheTTL        = 5 * time.Minute
 	defaultRegisterTargetsChunkSize   = 200
 	defaultDeregisterTargetsChunkSize = 200
 )
@@ -27,6 +30,9 @@ type TargetsManager interface {
 
 	// List Targets from TargetGroup.
 	ListTargets(ctx context.Context, tgARN string) ([]TargetInfo, error)
+
+	// DescribeTargetGroup gets information about a target group
+	DescribeTargetGroup(ctx context.Context, tgARN string) (TargetGroupInfo, error)
 }
 
 // NewCachedTargetsManager constructs new cachedTargetsManager
@@ -35,6 +41,8 @@ func NewCachedTargetsManager(elbv2Client services.ELBV2, logger logr.Logger) *ca
 		elbv2Client:                elbv2Client,
 		targetsCache:               cache.NewExpiring(),
 		targetsCacheTTL:            defaultTargetsCacheTTL,
+		targetGroupCache:           cache.NewExpiring(),
+		targetGroupCacheTTL:        defaultTargetGroupCacheTTL,
 		registerTargetsChunkSize:   defaultRegisterTargetsChunkSize,
 		deregisterTargetsChunkSize: defaultDeregisterTargetsChunkSize,
 		logger:                     logger,
@@ -59,6 +67,10 @@ type cachedTargetsManager struct {
 	// targetsCacheMutex protects targetsCache
 	targetsCacheMutex sync.RWMutex
 
+	targetGroupCache      *cache.Expiring
+	targetGroupCacheTTL   time.Duration
+	targetGroupCacheMutex sync.RWMutex
+
 	// chunk size for registerTargets API call.
 	registerTargetsChunkSize int
 	// chunk size for deregisterTargets API call.
@@ -73,6 +85,13 @@ type targetsCacheItem struct {
 	mutex sync.RWMutex
 	// targets is the targets for TargetGroup
 	targets []TargetInfo
+}
+
+type targetGroupCacheItem struct {
+	// mutex protects below fields
+	mutex sync.RWMutex
+	// targetGroup is info about a target group
+	targetGroup TargetGroupInfo
 }
 
 func (m *cachedTargetsManager) RegisterTargets(ctx context.Context, tgARN string, targets []elbv2sdk.TargetDescription) error {
@@ -143,6 +162,39 @@ func (m *cachedTargetsManager) ListTargets(ctx context.Context, tgARN string) ([
 	}
 	m.targetsCache.Set(tgARN, targetsCacheItem, m.targetsCacheTTL)
 	return cloneTargetInfoSlice(refreshedTargets), nil
+}
+
+func (m *cachedTargetsManager) DescribeTargetGroup(ctx context.Context, tgARN string) (TargetGroupInfo, error) {
+	var targetGroup TargetGroupInfo
+	m.targetGroupCacheMutex.Lock()
+	defer m.targetGroupCacheMutex.Unlock()
+
+	if rawTargetGroupCacheItem, exists := m.targetGroupCache.Get(tgARN); exists {
+		targetGroupCacheItem := rawTargetGroupCacheItem.(*targetGroupCacheItem)
+		targetGroupCacheItem.mutex.RLock()
+		defer targetGroupCacheItem.mutex.RUnlock()
+		return targetGroupCacheItem.targetGroup, nil
+	}
+
+	req := &elbv2sdk.DescribeTargetGroupsInput{
+		TargetGroupArns: []*string{aws.String(tgARN)},
+	}
+	describe, err := m.elbv2Client.DescribeTargetGroupsWithContext(ctx, req)
+	if err != nil {
+		return targetGroup, err
+	}
+	if len(describe.TargetGroups) != 1 {
+		return targetGroup, fmt.Errorf("unexpected number of target groups returned: %d", len(describe.TargetGroups))
+	}
+	tg := describe.TargetGroups[0]
+	targetGroupCacheItem := &targetGroupCacheItem{
+		mutex: sync.RWMutex{},
+		targetGroup: TargetGroupInfo{
+			TargetGroup: tg,
+		},
+	}
+	m.targetGroupCache.Set(tgARN, targetGroupCacheItem, m.targetGroupCacheTTL)
+	return targetGroupCacheItem.targetGroup, nil
 }
 
 // refreshAllTargets will refresh all targets for targetGroup.
