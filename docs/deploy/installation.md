@@ -140,7 +140,9 @@ curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-lo
 
 Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html) docs. The node security group must permit incoming traffic on TCP port 9443 from the kubernetes control plane. This is needed for webhook access. 
 
-If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the default configuration. 
+If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the default configuration.
+
+Ensure the worker nodes can access the Elastic Load Balancing API endpoints via the internet, or via the [VPC endpoint](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/load-balancer-vpc-endpoints.html) for the region.
 
 ## Add Controller to Cluster
 
