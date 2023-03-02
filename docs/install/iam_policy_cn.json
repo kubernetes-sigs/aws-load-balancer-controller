@@ -190,6 +190,7 @@
             "Condition": {
                 "StringEquals": {
                     "elasticloadbalancing:CreateAction": [
+                        "CreateListener",
                         "CreateTargetGroup",
                         "CreateLoadBalancer"
                     ]
