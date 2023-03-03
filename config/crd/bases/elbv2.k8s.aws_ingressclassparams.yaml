@@ -140,6 +140,10 @@ spec:
                 - internal
                 - internet-facing
                 type: string
+              sslPolicy:
+                description: SSLPolicy specifies the SSL Policy for all Ingresses
+                  that belong to IngressClass with this IngressClassParams.
+                type: string
               subnets:
                 description: Subnets defines the subnets for all Ingresses that belong
                   to IngressClass with this IngressClassParams.

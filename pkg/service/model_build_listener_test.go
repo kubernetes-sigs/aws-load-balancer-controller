@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,7 +15,7 @@ func Test_defaultModelBuilderTask_buildListenerALPNPolicy(t *testing.T) {
 	tests := []struct {
 		name             string
 		svc              *corev1.Service
-		wantErr          error
+		wantErr          string
 		want             []string
 		listenerProtocol elbv2model.Protocol
 		targetProtocol   elbv2model.Protocol
@@ -66,7 +65,7 @@ func Test_defaultModelBuilderTask_buildListenerALPNPolicy(t *testing.T) {
 					},
 				},
 			},
-			wantErr:          errors.New("invalid ALPN policy unknown, policy must be one of [None, HTTP1Only, HTTP2Only, HTTP2Optional, HTTP2Preferred]"),
+			wantErr:          "invalid ALPN policy unknown, policy must be one of [None, HTTP1Only, HTTP2Only, HTTP2Optional, HTTP2Preferred]",
 			listenerProtocol: elbv2model.ProtocolTLS,
 			targetProtocol:   elbv2model.ProtocolTLS,
 		},
@@ -80,9 +79,10 @@ func Test_defaultModelBuilderTask_buildListenerALPNPolicy(t *testing.T) {
 				service:          tt.svc,
 			}
 			got, err := builder.buildListenerALPNPolicy(context.Background(), tt.listenerProtocol, tt.targetProtocol)
-			if tt.wantErr != nil {
-				assert.EqualError(t, err, tt.wantErr.Error())
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
 			} else {
+				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
 		})

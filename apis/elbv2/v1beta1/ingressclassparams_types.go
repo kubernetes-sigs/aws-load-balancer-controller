@@ -99,6 +99,10 @@ type IngressClassParamsSpec struct {
 	// +optional
 	Scheme *LoadBalancerScheme `json:"scheme,omitempty"`
 
+	// SSLPolicy specifies the SSL Policy for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
+	SSLPolicy string `json:"sslPolicy,omitEmpty"`
+
 	// Subnets defines the subnets for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
 	Subnets *SubnetSelector `json:"subnets,omitempty"`
