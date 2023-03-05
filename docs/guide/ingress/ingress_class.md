@@ -135,6 +135,11 @@ Cluster administrators can use the `scheme` field to restrict the scheme for all
 1. If `scheme` specified, all Ingresses with this IngressClass will have the specified scheme.
 2. If `scheme` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/scheme annotation` to specify scheme.
 
+#### spec.inboundCIDRs
+
+Cluster administrators can use the optional `inboundCIDRs` field to specify the CIDRs that are allowed to access the load balancers that belong to this IngressClass.
+If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/inbound-cidrs` annotation.
+
 #### spec.sslPolicy
 
 Cluster administrators can use the optional `sslPolicy` field to specify the SSL policy for the load balancers that belong to this IngressClass.

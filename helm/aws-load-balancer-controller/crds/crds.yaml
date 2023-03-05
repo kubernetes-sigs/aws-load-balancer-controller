@@ -60,6 +60,12 @@ spec:
                 required:
                 - name
                 type: object
+              inboundCIDRs:
+                description: InboundCIDRs specifies the CIDRs that are allowed to
+                  access the Ingresses that belong to IngressClass with this IngressClassParams.
+                items:
+                  type: string
+                type: array
               ipAddressType:
                 description: IPAddressType defines the ip address type for all Ingresses
                   that belong to IngressClass with this IngressClassParams.
