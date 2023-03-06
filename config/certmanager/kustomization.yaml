@@ -1,6 +1,21 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
 configurations:
   - kustomizeconfig.yaml
 resources:
   - certificate.yaml
+patches:
+  # patches here are for enabling the CA injection for each CRD
+  - path: cainjection_in_targetgroupbindings_patch.yaml
+  - path: cainjection_in_ingressclassparams_patch.yaml
+  # This patch add annotation to admission webhook config and
+  # the variables $(CERTIFICATE_NAMESPACE) and $(CERTIFICATE_NAME) will be substituted by kustomize.
+  - target:
+      kind: (MutatingWebhookConfiguration|ValidatingWebhookConfiguration)
+    patch: |-
+      apiVersion: admissionregistration.k8s.io/v1
+      kind: dummy
+      metadata:
+        name: webhook
+        annotations:
+          cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
