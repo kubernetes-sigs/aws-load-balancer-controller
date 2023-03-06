@@ -1,3 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 # Adds namespace to all resources.
 namespace: kube-system
 
@@ -12,7 +15,7 @@ namePrefix: aws-load-balancer-
 commonLabels:
   app.kubernetes.io/name: aws-load-balancer-controller
 
-bases:
+resources:
   - ../crd
   - ../rbac
   - ../controller
@@ -24,15 +27,25 @@ bases:
 # [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
 #- ../prometheus
 
-patchesStrategicMerge:
+patches:
   # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
   # crd/kustomization.yaml
-  - controller_webhook_patch.yaml
+  - path: controller_webhook_patch.yaml
 
   # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'.
   # Uncomment 'CERTMANAGER' sections in crd/kustomization.yaml to enable the CA injection in the admission webhooks.
   # 'CERTMANAGER' needs to be enabled to use ca injection
-  - webhookcainjection_patch.yaml
+  # This patch add annotation to admission webhook config and
+  # the variables $(CERTIFICATE_NAMESPACE) and $(CERTIFICATE_NAME) will be substituted by kustomize.
+  - target:
+      kind: (MutatingWebhookConfiguration|ValidatingWebhookConfiguration)
+    patch: |-
+      apiVersion: admissionregistration.k8s.io/v1
+      kind: dummy
+      metadata:
+        name: webhook
+        annotations:
+          cert-manager.io/inject-ca-from: $(CERTIFICATE_NAMESPACE)/$(CERTIFICATE_NAME)
 
 # the following config is for teaching kustomize how to do var substitution
 vars:
