@@ -1,11 +1,14 @@
-resources:
-  - manifests.yaml
-  - service.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
 
 configurations:
   - kustomizeconfig.yaml
 
-patchesStrategicMerge:
-  - pod_mutator_patch.yaml
-  - service_mutator_patch.yaml
-  - ingressclassparams_validator_patch.yaml
+resources:
+  - manifests.yaml
+  - service.yaml
+
+patches:
+  - path: pod_mutator_patch.yaml
+  - path: service_mutator_patch.yaml
+  - path: ingressclassparams_validator_patch.yaml
