@@ -1,4 +1,4 @@
-# This file is for teaching kustomize how to substitute name and namespace reference in CRD
+# This file is for teaching kustomize how to modify name and namespace references in CRD
 nameReference:
   - kind: Service
     version: v1
@@ -12,6 +12,3 @@ namespace:
     group: apiextensions.k8s.io
     path: spec/conversion/webhookClientConfig/service/namespace
     create: false
-
-varReference:
-  - path: metadata/annotations
