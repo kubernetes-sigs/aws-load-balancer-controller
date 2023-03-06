@@ -12,10 +12,3 @@ resources:
   - bases/elbv2.k8s.aws_targetgroupbindings.yaml
   - bases/elbv2.k8s.aws_ingressclassparams.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
-
-patches:
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
-# patches here are for enabling the conversion webhook for each CRD
-#- path: patches/webhook_in_targetgroupbindings.yaml
-#- path: patches/webhook_in_ingressclassparams.yaml
-# +kubebuilder:scaffold:crdkustomizewebhookpatch
