@@ -24,6 +24,16 @@ spec:
             requests:
               cpu: 100m
               memory: 200Mi
+          ports:
+            - containerPort: 9443
+              name: webhook
+              protocol: TCP
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
+            - containerPort: 61779
+              name: healthprobe
+              protocol: TCP
           livenessProbe:
             failureThreshold: 2
             httpGet:
