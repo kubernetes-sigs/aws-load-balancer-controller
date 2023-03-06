@@ -26,7 +26,7 @@ spec:
         {{- toYaml .Values.podLabels | nindent 8 }}
         {{- end }}
       annotations:
-        {{- if .Values.prometheusScrapping.enabled }}
+        {{- if and (.Values.prometheusScrapping.enabled) (not .Values.serviceMonitor.enabled) }}
         prometheus.io/scrape: "true"
         prometheus.io/port: "{{ (split ":" .Values.metricsBindAddr)._1 | default 8080 }}"
         {{- end}}
