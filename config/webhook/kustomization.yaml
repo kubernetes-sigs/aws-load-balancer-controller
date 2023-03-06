@@ -1,5 +1,5 @@
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
 
 configurations:
   - kustomizeconfig.yaml
@@ -12,3 +12,7 @@ patches:
   - path: pod_mutator_patch.yaml
   - path: service_mutator_patch.yaml
   - path: ingressclassparams_validator_patch.yaml
+  - path: controller_webhook_patch.yaml
+  # patches here are for enabling the conversion webhook for each CRD
+  - path: targetgroupbindings_patch.yaml
+  - path: ingressclassparams_patch.yaml
