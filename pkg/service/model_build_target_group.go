@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -101,10 +102,8 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 	if err != nil {
 		return nil, err
 	}
-	var healthCheckPathPtr *string
-	if healthCheckProtocol != elbv2model.ProtocolTCP {
-		healthCheckPathPtr = t.buildTargetGroupHealthCheckPath(ctx, t.defaultHealthCheckPath)
-	}
+	healthCheckPathPtr := t.buildTargetGroupHealthCheckPath(ctx, t.defaultHealthCheckPath, healthCheckProtocol)
+	healthCheckMatcherPtr := t.buildTargetGroupHealthCheckMatcher(ctx, healthCheckProtocol)
 	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, t.defaultHealthCheckPort)
 	if err != nil {
 		return nil, err
@@ -113,6 +112,11 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 	if err != nil {
 		return nil, err
 	}
+	healthCheckTimeoutSecondsPtr, err := t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeout)
+	if err != nil {
+		return nil, err
+	}
+
 	healthyThresholdCount, err := t.buildTargetGroupHealthCheckHealthyThresholdCount(ctx, t.defaultHealthCheckHealthyThreshold)
 	if err != nil {
 		return nil, err
@@ -125,7 +129,9 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 		Port:                    &healthCheckPort,
 		Protocol:                &healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
+		Matcher:                 healthCheckMatcherPtr,
 		IntervalSeconds:         &intervalSeconds,
+		TimeoutSeconds:          healthCheckTimeoutSecondsPtr,
 		HealthyThresholdCount:   &healthyThresholdCount,
 		UnhealthyThresholdCount: &unhealthyThresholdCount,
 	}, nil
@@ -136,15 +142,17 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 	if err != nil {
 		return nil, err
 	}
-	var healthCheckPathPtr *string
-	if healthCheckProtocol != elbv2model.ProtocolTCP {
-		healthCheckPathPtr = t.buildTargetGroupHealthCheckPath(ctx, t.defaultHealthCheckPathForInstanceModeLocal)
-	}
+	healthCheckPathPtr := t.buildTargetGroupHealthCheckPath(ctx, t.defaultHealthCheckPathForInstanceModeLocal, healthCheckProtocol)
+	healthCheckMatcherPtr := t.buildTargetGroupHealthCheckMatcher(ctx, healthCheckProtocol)
 	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, t.defaultHealthCheckPortForInstanceModeLocal)
 	if err != nil {
 		return nil, err
 	}
 	intervalSeconds, err := t.buildTargetGroupHealthCheckIntervalSeconds(ctx, t.defaultHealthCheckIntervalForInstanceModeLocal)
+	if err != nil {
+		return nil, err
+	}
+	healthCheckTimeoutSecondsPtr, err := t.buildTargetGroupHealthCheckTimeoutSeconds(ctx, t.defaultHealthCheckTimeoutForInstanceModeLocal)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +168,9 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 		Port:                    &healthCheckPort,
 		Protocol:                &healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
+		Matcher:                 healthCheckMatcherPtr,
 		IntervalSeconds:         &intervalSeconds,
+		TimeoutSeconds:          healthCheckTimeoutSecondsPtr,
 		HealthyThresholdCount:   &healthyThresholdCount,
 		UnhealthyThresholdCount: &unhealthyThresholdCount,
 	}, nil
@@ -294,10 +304,23 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckProtocol(_ context.Co
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPath(_ context.Context, defaultHealthCheckPath string) *string {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPath(_ context.Context, defaultHealthCheckPath string, hcProtocol elbv2model.Protocol) *string {
+	if hcProtocol == elbv2model.ProtocolTCP {
+		return nil
+	}
 	healthCheckPath := defaultHealthCheckPath
 	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPath, &healthCheckPath, t.service.Annotations)
 	return &healthCheckPath
+}
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Context, hcProtocol elbv2model.Protocol) *elbv2model.HealthCheckMatcher {
+	if hcProtocol == elbv2model.ProtocolTCP || !t.featureGates.Enabled(config.NLBHealthCheckAdvancedConfig) {
+		return nil
+	}
+	rawHealthCheckMatcherSuccessCodes := t.defaultHealthCheckMatcherHTTPCode
+	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCSuccessCodes, &rawHealthCheckMatcherSuccessCodes, t.service.Annotations)
+	return &elbv2model.HealthCheckMatcher{
+		HTTPCode: &rawHealthCheckMatcherSuccessCodes,
+	}
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ context.Context, defaultHealthCheckInterval int64) (int64, error) {
@@ -308,12 +331,15 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ con
 	return intervalSeconds, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int64) (int64, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int64) (*int64, error) {
 	timeoutSeconds := defaultHealthCheckTimeout
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
-		return 0, err
+	if !t.featureGates.Enabled(config.NLBHealthCheckAdvancedConfig) {
+		return &timeoutSeconds, nil
 	}
-	return timeoutSeconds, nil
+	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
+		return nil, err
+	}
+	return &timeoutSeconds, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount(_ context.Context, defaultHealthCheckHealthyThreshold int64) (int64, error) {

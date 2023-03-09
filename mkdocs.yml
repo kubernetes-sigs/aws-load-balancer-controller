@@ -22,7 +22,7 @@ nav:
           - IngressClass: guide/ingress/ingress_class.md
           - Certificate Discovery: guide/ingress/cert_discovery.md
       - Service:
-          - NLB: guide/service/nlb.md
+          - Network Load Balancer: guide/service/nlb.md
           - Annotations: guide/service/annotations.md
       - TargetGroupBinding:
           - TargetGroupBinding: guide/targetgroupbinding/targetgroupbinding.md
@@ -30,9 +30,13 @@ nav:
       - Tasks:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
           - SSL Redirect: guide/tasks/ssl_redirect.md
+      - Use Cases:
+        - NLB TLS Termiation: guide/use_cases/nlb_tls_termination/index.md
+        - Externally Managed Load Balancer: guide/use_cases/self_managed_lb/index.md
   - Examples:
     - EchoServer: examples/echo_server.md
     - gRPCServer: examples/grpc_server.md
+    - Setup External DNS: guide/integrations/external_dns.md
     - RBAC to access OIDC Secret: examples/secrets_access.md
 
 
@@ -55,12 +59,16 @@ theme:
 # Extensions
 markdown_extensions:
   - admonition
+  - attr_list
   - codehilite
   - pymdownx.inlinehilite
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.superfences
   - pymdownx.tabbed
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
   - toc:
       permalink: true
 extra_css:

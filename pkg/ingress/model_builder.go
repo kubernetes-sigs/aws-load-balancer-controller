@@ -2,6 +2,8 @@ package ingress
 
 import (
 	"context"
+	"strconv"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
@@ -21,7 +23,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 )
 
 const (
@@ -40,7 +41,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
-	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
+	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string,
 	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, disableRestrictedSGRules bool, enableIPTargetType bool, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
@@ -63,6 +64,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		defaultTags:              defaultTags,
 		externalManagedTags:      sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:         defaultSSLPolicy,
+		defaultTargetType:        elbv2model.TargetType(defaultTargetType),
 		enableBackendSG:          enableBackendSG,
 		disableRestrictedSGRules: disableRestrictedSGRules,
 		enableIPTargetType:       enableIPTargetType,
@@ -94,6 +96,7 @@ type defaultModelBuilder struct {
 	defaultTags              map[string]string
 	externalManagedTags      sets.String
 	defaultSSLPolicy         string
+	defaultTargetType        elbv2model.TargetType
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
 	enableIPTargetType       bool
@@ -133,7 +136,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		defaultIPAddressType:                      elbv2model.IPAddressTypeIPV4,
 		defaultScheme:                             elbv2model.LoadBalancerSchemeInternal,
 		defaultSSLPolicy:                          b.defaultSSLPolicy,
-		defaultTargetType:                         elbv2model.TargetTypeInstance,
+		defaultTargetType:                         b.defaultTargetType,
 		defaultBackendProtocol:                    elbv2model.ProtocolHTTP,
 		defaultBackendProtocolVersion:             elbv2model.ProtocolVersionHTTP1,
 		defaultHealthCheckPathHTTP:                "/",
@@ -225,7 +228,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	listenPortConfigsByPort := make(map[int64][]listenPortConfigWithIngress)
 	for _, member := range t.ingGroup.Members {
 		ingKey := k8s.NamespacedName(member.Ing)
-		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, member.Ing)
+		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, &member)
 		if err != nil {
 			return errors.Wrapf(err, "ingress: %v", ingKey.String())
 		}

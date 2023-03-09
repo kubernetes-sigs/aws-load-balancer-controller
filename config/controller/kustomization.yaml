@@ -8,5 +8,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: amazon/aws-alb-ingress-controller
-  newTag: v2.4.1
+  newName: public.ecr.aws/eks/aws-load-balancer-controller
+  newTag: v2.4.6

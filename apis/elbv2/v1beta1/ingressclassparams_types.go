@@ -41,6 +41,25 @@ const (
 	LoadBalancerSchemeInternetFacing LoadBalancerScheme = "internet-facing"
 )
 
+// SubnetID specifies a subnet ID.
+// +kubebuilder:validation:Pattern=subnet-[0-9a-f]+
+type SubnetID string
+
+// SubnetSelector selects one or more existing subnets.
+type SubnetSelector struct {
+	// IDs specify the resource IDs of subnets. Exactly one of this or `tags` must be specified.
+	// +kubebuilder:validation:MinItems=1
+	// +optional
+	IDs []SubnetID `json:"ids,omitempty"`
+
+	// Tags specifies subnets in the load balancer's VPC where each
+	// tag specified in the map key contains one of the values in the corresponding
+	// value list.
+	// Exactly one of this or `ids` must be specified.
+	// +optional
+	Tags map[string][]string `json:"tags,omitempty"`
+}
+
 // IngressGroup defines IngressGroup configuration.
 type IngressGroup struct {
 	// Name is the name of IngressGroup.
@@ -79,6 +98,14 @@ type IngressClassParamsSpec struct {
 	// Scheme defines the scheme for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
 	Scheme *LoadBalancerScheme `json:"scheme,omitempty"`
+
+	// SSLPolicy specifies the SSL Policy for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
+	SSLPolicy string `json:"sslPolicy,omitEmpty"`
+
+	// Subnets defines the subnets for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
+	Subnets *SubnetSelector `json:"subnets,omitempty"`
 
 	// IPAddressType defines the ip address type for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional

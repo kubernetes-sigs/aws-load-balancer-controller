@@ -101,6 +101,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		resolveViaNameOrIDSliceCalls []resolveViaNameOrIDSliceCall
 		listLoadBalancerCalls        []listLoadBalancerCall
 		fetchVPCInfoCalls            []fetchVPCInfoCall
+		defaultTargetType            string
 		enableIPTargetType           *bool
 		svc                          *corev1.Service
 		wantError                    bool
@@ -190,6 +191,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -334,6 +336,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -518,8 +521,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -541,8 +548,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -852,8 +863,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -875,8 +890,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "protocol":"HTTP",
                 "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":30,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -1180,6 +1199,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port": "traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -1202,6 +1222,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -1448,10 +1469,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-				"path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":6,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -1471,10 +1496,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-				"path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
+                "timeoutSeconds":6,
                 "healthyThresholdCount":2,
-                "unhealthyThresholdCount":2
+                "unhealthyThresholdCount":2,
+                "matcher":{
+					"httpCode": "200-399"
+				}
              },
              "targetGroupAttributes":[
                 {
@@ -1729,6 +1758,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -1941,13 +1971,175 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "unhealthyThresholdCount": 3,
             "protocol": "TCP",
             "port": "traffic-port",
-            "intervalSeconds": 10
+            "intervalSeconds": 10,
+            "timeoutSeconds":10
           },
           "targetGroupAttributes": [
             {
               "value": "true",
               "key": "preserve_client_ip.enabled"
             },
+            {
+              "value": "false",
+              "key": "proxy_protocol_v2.enabled"
+            }
+          ],
+          "port": 80
+        }
+      }
+    }
+  }
+}
+`,
+		},
+		{
+			testName: "default ip target",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-ip-target",
+					Namespace: "default",
+					UID:       "7ab4be33-11c2-4a7b-b622-7add8affab36",
+				},
+				Spec: corev1.ServiceSpec{
+					Type:              corev1.ServiceTypeLoadBalancer,
+					LoadBalancerClass: aws.String("service.k8s.aws/nlb"),
+					Selector:          map[string]string{"app": "hello"},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			defaultTargetType:        "ip",
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("192.160.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+							{
+								CidrBlock: aws.String("100.64.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			wantNumResources:      4,
+			wantValue: `
+{
+  "id": "default/default-ip-target",
+  "resources": {
+    "AWS::ElasticLoadBalancingV2::Listener": {
+      "80": {
+        "spec": {
+          "protocol": "TCP",
+          "defaultActions": [
+            {
+              "forwardConfig": {
+                "targetGroups": [
+                  {
+                    "targetGroupARN": {
+                      "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/default-ip-target:80/status/targetGroupARN"
+                    }
+                  }
+                ]
+              },
+              "type": "forward"
+            }
+          ],
+          "loadBalancerARN": {
+            "$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+          },
+          "port": 80
+        }
+      }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
+      "default/default-ip-target:80": {
+        "spec": {
+          "template": {
+            "spec": {
+              "targetType": "ip",
+              "ipAddressType":"ipv4",
+              "targetGroupARN": {
+                "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/default-ip-target:80/status/targetGroupARN"
+              },
+              "networking": {
+                "ingress": [
+				 {
+					"from":[
+					   {
+						  "ipBlock":{
+							 "cidr":"192.168.0.0/19"
+						  }
+					   }
+					],
+					"ports":[
+					   {
+						  "protocol":"TCP",
+						  "port":80
+					   }
+					]
+				 }
+                ]
+              },
+              "serviceRef": {
+                "name": "default-ip-target",
+                "port": 80
+              }
+            },
+            "metadata": {
+              "creationTimestamp": null,
+              "namespace": "default",
+              "name": "k8s-default-defaulti-cc40ce9c73"
+            }
+          }
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer": {
+      "LoadBalancer": {
+        "spec": {
+          "ipAddressType": "ipv4",
+          "name": "k8s-default-defaulti-b44ef5a42d",
+          "subnetMapping": [
+            {
+              "subnetID": "subnet-1"
+            }
+          ],
+          "scheme": "internal",
+          "type": "network"
+        }
+      }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup": {
+      "default/default-ip-target:80": {
+        "spec": {
+          "targetType": "ip",
+          "ipAddressType":"ipv4",
+          "protocol": "TCP",
+          "name": "k8s-default-defaulti-cc40ce9c73",
+          "healthCheckConfig": {
+            "healthyThresholdCount": 3,
+            "unhealthyThresholdCount": 3,
+            "protocol": "TCP",
+            "port": "traffic-port",
+            "intervalSeconds": 10,
+            "timeoutSeconds":10
+          },
+          "targetGroupAttributes": [
             {
               "value": "false",
               "key": "proxy_protocol_v2.enabled"
@@ -2210,6 +2402,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
+            "timeoutSeconds":10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -2355,6 +2548,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
+            "timeoutSeconds":10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -2551,6 +2745,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
+            "timeoutSeconds":10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -2693,6 +2888,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
+                "timeoutSeconds":10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -2764,6 +2960,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
 			}
 			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates)
+			defaultTargetType := tt.defaultTargetType
+			if defaultTargetType == "" {
+				defaultTargetType = "instance"
+			}
 			var enableIPTargetType bool
 			if tt.enableIPTargetType == nil {
 				enableIPTargetType = true
@@ -2771,7 +2971,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				enableIPTargetType = *tt.enableIPTargetType
 			}
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, featureGates,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", enableIPTargetType, serviceUtils)
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, enableIPTargetType, serviceUtils)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

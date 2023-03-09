@@ -3,9 +3,9 @@ This document covers configuration of the AWS Load Balancer controller
 
 !!!warning "limitation"
     The v2.0.0+ version of AWSLoadBalancerController currently only support one controller deployment(with one or multiple replicas) per cluster.
-    
+
     The AWSLoadBalancerController assumes it's the solo owner of worker node security group rules with `elbv2.k8s.aws/targetGroupBinding=shared` description, running multiple controller deployment will cause these controllers compete with each other updating worker node security group rules.
-    
+
     We will remove this limitation in future versions: [tracking issue](https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2185)
 
 ## AWS API Access
@@ -75,6 +75,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all Ingresses or Services that do not have the SSL Policy annotation |
 |default-tags                           | stringMap                       |                 | AWS Tags that will be applied to all AWS resources managed by this controller. Specified Tags takes highest priority |
+|default-target-type                    | string                          | instance        | Default target type for Ingresses and Services - ip, instance |
 |[disable-ingress-class-annotation](#disable-ingress-class-annotation)       | boolean                         | false           | Disable new usage of the `kubernetes.io/ingress.class` annotation |
 |[disable-ingress-group-name-annotation](#disable-ingress-group-name-annotation)  | boolean                         | false           | Disallow new use of the `alb.ingress.kubernetes.io/group.name` annotation |
 |disable-restricted-sg-rules            | boolean                         | false            | Disable the usage of restricted security group rules |
@@ -127,9 +128,19 @@ Once disabled:
 * you can no longer alter the value of an `alb.ingress.kubernetes.io/group.name` annotation on an existing Ingress.
 
 
-### Default throttle config
+###  throttle config
+
+Controller uses the following default throttle config:
+
 ```
-WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1
+WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1,Elastic Load Balancing v2:^RegisterTargets|^DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40
+```
+Client side throttling enables gradual scaling of the api calls. Additional throttle config can be specified via the `--aws-api-throttle` flag. You can get the ServiceID from the API definition in AWS SDK. For e.g, ELBv2 it is [Elastic Load Balancing v2](https://github.com/aws/aws-sdk-go/blob/main/models/apis/elasticloadbalancingv2/2015-12-01/api-2.json#L9).
+
+Here is an example of throttle config to specify client side throttling of ELBv2 calls.
+
+```
+--aws-api-throttle=Elastic Load Balancing v2:RegisterTargets|DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40
 ```
 
 ### Instance metadata
@@ -144,7 +155,8 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 | ListenerRulesTagging                  | string                          | true           | Enable or disable tagging AWS load balancer listeners and rules |
 | WeightedTargetGroups                  | string                          | true           | Enable or disable weighted target groups |
 | ServiceTypeLoadBalancerOnly           | string                          | false          | If enabled, controller will be limited to reconciling service of type `LoadBalancer`|
-| EndpointsFailOpen                     | string                          | false          | Enable or disable allowing endpoints with `ready:unknown` state in the target groups. |
+| EndpointsFailOpen                     | string                          | true           | Enable or disable allowing endpoints with `ready:unknown` state in the target groups. |
 | EnableServiceController               | string                          | true           | Toggles support for `Service` type resources. |
 | EnableIPTargetType                    | string                          | true           | Used to toggle support for target-type `ip` across `Ingress` and `Service` type resources. |
 | SubnetsClusterTagCheck                | string                          | true           | Enable or disable the check for `kubernetes.io/cluster/${cluster-name}` during subnet auto-discovery |
+| NLBHealthCheckAdvancedConfiguration   | string                          | true           | Enable or disable advanced health check configuration for NLB, for example health check timeout |

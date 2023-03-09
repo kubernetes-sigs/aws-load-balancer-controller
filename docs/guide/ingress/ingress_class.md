@@ -135,6 +135,29 @@ Cluster administrators can use the `scheme` field to restrict the scheme for all
 1. If `scheme` specified, all Ingresses with this IngressClass will have the specified scheme.
 2. If `scheme` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/scheme annotation` to specify scheme.
 
+#### spec.sslPolicy
+
+Cluster administrators can use the optional `sslPolicy` field to specify the SSL policy for the load balancers that belong to this IngressClass.
+If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/ssl-policy` annotation.
+
+#### spec.subnets
+
+Cluster administrators can use the optional `subnets` field to specify the subnets for the load balancers that belong to this IngressClass.
+They may specify either `ids` or `tags`. If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/subnets annotation` annotation.
+
+##### spec.subnets.ids
+
+If `ids` is specified, it must be a set of at least one resource ID of a subnet in the VPC. No two subnets may be in the same availability zone.
+
+##### spec.subnets.tags
+
+If `tags` is specified, it is a map of tag filters. The filters will match subnets in the VPC for which
+each listed tag key is present and has one of the corresponding tag values.
+
+Unless the `SubnetsClusterTagCheck` feature gate is disabled, subnets without a cluster tag and with the cluster tag for another cluster will be excluded.
+
+Within any given availability zone, subnets with a cluster tag will be chosen over subnets without, then the subnet with the lowest-sorting resource ID will be chosen.
+
 #### spec.ipAddressType
 
 `ipAddressType` is an optional setting. The available options are `ipv4` or `dualstack`.

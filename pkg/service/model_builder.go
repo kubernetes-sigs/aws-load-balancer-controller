@@ -2,12 +2,10 @@ package service
 
 import (
 	"context"
-	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"strconv"
-	"sync"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
@@ -16,6 +14,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"strconv"
+	"sync"
 )
 
 const (
@@ -36,7 +36,7 @@ type ModelBuilder interface {
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
 	elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
-	externalManagedTags []string, defaultSSLPolicy string, enableIPTargetType bool, serviceUtils ServiceUtils) *defaultModelBuilder {
+	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, enableIPTargetType bool, serviceUtils ServiceUtils) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:    annotationParser,
 		subnetsResolver:     subnetsResolver,
@@ -50,6 +50,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		defaultTags:         defaultTags,
 		externalManagedTags: sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:    defaultSSLPolicy,
+		defaultTargetType:   elbv2model.TargetType(defaultTargetType),
 		enableIPTargetType:  enableIPTargetType,
 	}
 }
@@ -70,6 +71,7 @@ type defaultModelBuilder struct {
 	defaultTags         map[string]string
 	externalManagedTags sets.String
 	defaultSSLPolicy    string
+	defaultTargetType   elbv2model.TargetType
 	enableIPTargetType  bool
 }
 
@@ -100,7 +102,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultIPAddressType:                 elbv2model.IPAddressTypeIPV4,
 		defaultLoadBalancingCrossZoneEnabled: false,
 		defaultProxyProtocolV2Enabled:        false,
-		defaultTargetType:                    elbv2model.TargetTypeInstance,
+		defaultTargetType:                    b.defaultTargetType,
 		defaultHealthCheckProtocol:           elbv2model.ProtocolTCP,
 		defaultHealthCheckPort:               healthCheckPortTrafficPort,
 		defaultHealthCheckPath:               "/",
@@ -108,6 +110,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckTimeout:            10,
 		defaultHealthCheckHealthyThreshold:   3,
 		defaultHealthCheckUnhealthyThreshold: 3,
+		defaultHealthCheckMatcherHTTPCode:    "200-399",
 		defaultIPv4SourceRanges:              []string{"0.0.0.0/0"},
 		defaultIPv6SourceRanges:              []string{"::/0"},
 
@@ -168,6 +171,7 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckTimeout            int64
 	defaultHealthCheckHealthyThreshold   int64
 	defaultHealthCheckUnhealthyThreshold int64
+	defaultHealthCheckMatcherHTTPCode    string
 	defaultDeletionProtectionEnabled     bool
 	defaultIPv4SourceRanges              []string
 	defaultIPv6SourceRanges              []string

@@ -5,8 +5,9 @@ In this walkthrough, you'll
 - Create a cluster with EKS
 - Deploy an aws-load-balancer-controller
 - Create deployments and ingress resources in the cluster
-- Use [external-dns](https://github.com/kubernetes-incubator/external-dns) to create a DNS record
-    - This assumes you have a route53 hosted zone available. Otherwise you can skip this, but you'll only be able to address the service from the ALB's DNS.
+- Verify access to the service
+- (Optional) Use [external-dns](https://github.com/kubernetes-sigs/external-dns) to create a DNS record pointing to the load balancer created by the aws-load-balancer-controller.
+    - This assumes you have a route53 hosted zone available. Otherwise you can access the service using the load balancer DNS.
 
 ## Create the EKS cluster
 1. Install `eksctl`: https://eksctl.io
@@ -45,7 +46,7 @@ In this walkthrough, you'll
 1.  Verify the deployment was successful and the controller started.
 
     ```bash
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'aws-load-balancer-controller[a-zA-Z0-9-]+')
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=aws-load-balancer-controller
     ```
 
     Should display output similar to the following.
@@ -86,9 +87,9 @@ In this walkthrough, you'll
 1.  Deploy all the echoserver resources (namespace, service, deployment)
 
     ```bash
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/echoservice/echoserver-namespace.yaml &&\
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/echoservice/echoserver-service.yaml &&\
-    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/echoservice/echoserver-deployment.yaml
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/examples/echoservice/echoserver-namespace.yaml &&\
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/examples/echoservice/echoserver-service.yaml &&\
+    kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/examples/echoservice/echoserver-deployment.yaml
     ```
 
 1.  List all the resources to ensure they were created.
@@ -112,7 +113,7 @@ In this walkthrough, you'll
 1.  Download the echoserver ingress manifest locally.
 
     ```bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/echoservice/echoserver-ingress.yaml
+    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/examples/echoservice/echoserver-ingress.yaml
     ```
 
 1.  Configure the subnets, either by add annotation to the ingress or add tags to subnets. This step is optional in lieu of auto-discovery.
@@ -120,7 +121,7 @@ In this walkthrough, you'll
     !!!tip
         If you'd like to use external dns, alter the host field to a domain that you own in Route 53. Assuming you managed `example.com` in Route 53.
 
-    - Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets.
+    - Edit the `alb.ingress.kubernetes.io/subnets` annotation to include at least two subnets. Subnets must be from different Availability Zones.
         ```bash
         eksctl get cluster exciting-gopher-1534270749
         ```
@@ -143,8 +144,7 @@ In this walkthrough, you'll
                 alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
         spec:
             rules:
-            - host: echoserver.example.com
-                http:
+            - http:
                 paths:
         ```
 
@@ -169,7 +169,7 @@ In this walkthrough, you'll
 1.  Verify the aws-load-balancer-controller creates the resources
 
     ```bash
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'aws-load-balancer-controller[a-zA-Z0-9-]+') | grep 'echoserver\/echoserver'
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=aws-load-balancer-controller | grep 'echoserver\/echoserver'
     ```
 
     You should see similar to the following.
@@ -203,7 +203,7 @@ In this walkthrough, you'll
     Rules:
       Host                          Path    Backends
       ----                          ----    --------
-      echoserver.joshrosso.com
+      *
     								/       echoserver:80 (<none>)
     Annotations:
     Events:
@@ -213,58 +213,64 @@ In this walkthrough, you'll
       3m            32s             3       ingress-controller                      Normal          UPDATE  Ingress echoserver/echoserver
     ```
 
-    The address seen above is the ALB's DNS record. This will be referenced via records created by external-dns.
+    The address seen above is the ALB's DNS name. This will be referenced via records created by external-dns if you choose to set it up.
 
+## Verify that you can access the service
 
-## Setup external-DNS to manage DNS automatically
-
-1.  Ensure your nodes (on which External DNS runs) have the correct IAM permission required for external-dns. See https://github.com/kubernetes-incubator/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
-
-1.  Download external-dns to manage Route 53.
+Make a curl request to the echoserver service and verify that it returns a response payload. Use the address from the output of `kubectl describe ing` command above.
 
     ```bash
-    wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/examples/external-dns.yaml
+    curl <load-balancer-dns-name>
     ```
 
-1.  Edit the `--domain-filter` flag to include your hosted zone(s)
+You should get back a valid response.
 
-    The following example is for a hosted zone test-dns.com
+## (Optional) Use external-dns to create a DNS record
+
+1. Deploy external-dns to your cluster using these instructions - [Setup external-dns](/guide/integrations/external_dns)
+
+1. Update your ingress resource and add `spec.rules[0].host` and set the value to your domain name. The example below uses `echoserver.example.org`.
+
+   ```yaml
+        spec:
+            rules:
+            - host: echoserver.example.org
+              http:
+                paths:
+   ```
+1. external-dns will then create a DNS record for the host you specified. This assumes you have the hosted zone corresponding to the domain you are trying to create a record in.
+
+1. Annotate the ingress with the external-dns specific configuration
 
     ```yaml
-    args:
-    - --source=service
-    - --source=ingress
-    - --domain-filter=test-dns.com # will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones
-    - --provider=aws
-    - --policy=upsert-only # would prevent ExternalDNS from deleting any records, omit to enable full synchronization
-    ```
+    annotations:
+      kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/scheme: internet-facing
 
-1.  Deploy external-dns
-
-    ```bash
-    kubectl apply -f external-dns.yaml
+      # external-dns specific configuration for creating route53 record-set
+      external-dns.alpha.kubernetes.io/hostname: my-app.test-dns.com # give your domain name here
     ```
 
 1.  Verify the DNS has propagated
 
     ```bash
-    dig echoserver.josh-test-dns.com
+    dig echoserver.example.org
     ```
 
     ```console
     ;; QUESTION SECTION:
-    ;echoserver.josh-test-dns.com.  IN      A
+    ;echoserver.example.org.  IN      A
 
     ;; ANSWER SECTION:
-    echoserver.josh-test-dns.com. 60 IN     A       13.59.147.105
-    echoserver.josh-test-dns.com. 60 IN     A       18.221.65.39
-    echoserver.josh-test-dns.com. 60 IN     A       52.15.186.25
+    echoserver.example.org. 60 IN     A       13.59.147.105
+    echoserver.example.org. 60 IN     A       18.221.65.39
+    echoserver.example.org. 60 IN     A       52.15.186.25
     ```
 
 1.  Once it has, you can make a call to echoserver and it should return a response payload.
 
     ```bash
-    curl echoserver.josh-test-dns.com
+    curl echoserver.example.org
     ```
 
     ```console
@@ -274,14 +280,14 @@ In this walkthrough, you'll
     real path=/
     query=nil
     request_version=1.1
-    request_uri=http://echoserver.josh-test-dns.com:8080/
+    request_uri=http://echoserver.example.org:8080/
 
     SERVER VALUES:
     server_version=nginx: 1.10.0 - lua: 10001
 
     HEADERS RECEIVED:
     accept=*/*
-    host=echoserver.josh-test-dns.com
+    host=echoserver.example.org
     user-agent=curl/7.54.0
     x-amzn-trace-id=Root=1-59c08da5-113347df69640735312371bd
     x-forwarded-for=67.173.237.250
@@ -294,7 +300,7 @@ In this walkthrough, you'll
 follow below steps if you want to use kube2iam to provide the AWS credentials
 
 1. configure the proper policy
-    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.0/docs/install/iam_policy.json
+    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.6/docs/install/iam_policy.json
 
 1. configure the proper role and create the trust relationship
     You have to find which role is associated with your K8S nodes. Once you found take note of the full arn:

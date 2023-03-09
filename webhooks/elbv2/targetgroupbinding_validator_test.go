@@ -2,11 +2,13 @@ package elbv2
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -195,7 +197,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			v := &targetGroupBindingValidator{
 				k8sClient:   k8sClient,
 				elbv2Client: elbv2Client,
-				logger:      &log.NullLogger{},
+				logger:      logr.New(&log.NullLogSink{}),
 			}
 			err := v.ValidateCreate(context.Background(), tt.args.obj)
 			if tt.wantErr != nil {
@@ -318,7 +320,7 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &targetGroupBindingValidator{
-				logger: &log.NullLogger{},
+				logger: logr.New(&log.NullLogSink{}),
 			}
 			err := v.ValidateUpdate(context.Background(), tt.args.obj, tt.args.oldObj)
 			if tt.wantErr != nil {
@@ -368,7 +370,7 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &targetGroupBindingValidator{
-				logger: &log.NullLogger{},
+				logger: logr.New(&log.NullLogSink{}),
 			}
 			err := v.checkRequiredFields(tt.args.tgb)
 			if tt.wantErr != nil {
@@ -602,7 +604,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &targetGroupBindingValidator{
-				logger: &log.NullLogger{},
+				logger: logr.New(&log.NullLogSink{}),
 			}
 			err := v.checkImmutableFields(tt.args.tgb, tt.args.oldTGB)
 			if tt.wantErr != nil {
@@ -676,7 +678,7 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &targetGroupBindingValidator{
-				logger: &log.NullLogger{},
+				logger: logr.New(&log.NullLogSink{}),
 			}
 			err := v.checkNodeSelector(tt.args.tgb)
 			if tt.wantErr != nil {
@@ -890,7 +892,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			v := &targetGroupBindingValidator{
 				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				logger:    logr.New(&log.NullLogSink{}),
 			}
 			for _, tgb := range tt.env.existingTGBs {
 				assert.NoError(t, k8sClient.Create(context.Background(), tgb.DeepCopy()))

@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	ec20 "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
+	ec2 "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	networking "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
@@ -37,10 +37,10 @@ func (m *MockEndpointServiceManager) EXPECT() *MockEndpointServiceManagerMockRec
 }
 
 // Create mocks base method.
-func (m *MockEndpointServiceManager) Create(arg0 context.Context, arg1 *ec20.VPCEndpointService) (ec20.VPCEndpointServiceStatus, error) {
+func (m *MockEndpointServiceManager) Create(arg0 context.Context, arg1 *ec2.VPCEndpointService) (ec2.VPCEndpointServiceStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", arg0, arg1)
-	ret0, _ := ret[0].(ec20.VPCEndpointServiceStatus)
+	ret0, _ := ret[0].(ec2.VPCEndpointServiceStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -66,7 +66,7 @@ func (mr *MockEndpointServiceManagerMockRecorder) Delete(arg0, arg1 interface{})
 }
 
 // ReconcilePermissions mocks base method.
-func (m *MockEndpointServiceManager) ReconcilePermissions(arg0 context.Context, arg1 *ec20.VPCEndpointServicePermissions) error {
+func (m *MockEndpointServiceManager) ReconcilePermissions(arg0 context.Context, arg1 *ec2.VPCEndpointServicePermissions) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReconcilePermissions", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -79,30 +79,11 @@ func (mr *MockEndpointServiceManagerMockRecorder) ReconcilePermissions(arg0, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcilePermissions", reflect.TypeOf((*MockEndpointServiceManager)(nil).ReconcilePermissions), arg0, arg1)
 }
 
-// ReconcileTags mocks base method.
-func (m *MockEndpointServiceManager) ReconcileTags(arg0 context.Context, arg1 string, arg2 map[string]string, arg3 ...ReconcileTagsOption) error {
-	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "ReconcileTags", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ReconcileTags indicates an expected call of ReconcileTags.
-func (mr *MockEndpointServiceManagerMockRecorder) ReconcileTags(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReconcileTags", reflect.TypeOf((*MockEndpointServiceManager)(nil).ReconcileTags), varargs...)
-}
-
 // Update mocks base method.
-func (m *MockEndpointServiceManager) Update(arg0 context.Context, arg1 *ec20.VPCEndpointService, arg2 networking.VPCEndpointServiceInfo) (ec20.VPCEndpointServiceStatus, error) {
+func (m *MockEndpointServiceManager) Update(arg0 context.Context, arg1 *ec2.VPCEndpointService, arg2 networking.VPCEndpointServiceInfo) (ec2.VPCEndpointServiceStatus, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Update", arg0, arg1, arg2)
-	ret0, _ := ret[0].(ec20.VPCEndpointServiceStatus)
+	ret0, _ := ret[0].(ec2.VPCEndpointServiceStatus)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

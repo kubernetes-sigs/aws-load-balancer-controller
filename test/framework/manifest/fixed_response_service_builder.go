@@ -2,11 +2,13 @@ package manifest
 
 import (
 	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
 
 // NewFixedResponseServiceBuilder constructs a builder that capable to build manifest for an HTTP service with fixed response.
@@ -93,7 +95,7 @@ func (b *fixedResponseServiceBuilder) buildDeployment(namespace string, name str
 					Containers: []corev1.Container{
 						{
 							Name:  "app",
-							Image: "970805265562.dkr.ecr.us-west-2.amazonaws.com/colorteller:latest",
+							Image: utils.ColortellerImage,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          b.targetPortName,

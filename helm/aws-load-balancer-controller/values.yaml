@@ -5,16 +5,13 @@
 replicaCount: 2
 
 image:
-  repository: 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller
-  tag: v2.4.2
+  repository: public.ecr.aws/eks/aws-load-balancer-controller
+  tag: v2.4.6
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
-
-# The name of the Kubernetes cluster. A non-empty value is required
-clusterName:
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -68,20 +65,17 @@ nodeSelector: {}
 
 tolerations: []
 
-# affinity can be either a string or map.
-#
-# if affinity is a string, and if that string is "default", set an antiAffinity policy on
-# the podSpec to prevent colocation on the same node.
-#
-# if affinity is a map, set the affinity attribute on the podSpec with this exact value (do NOT
-# use the default, as described above).
-# affinity: {}
-affinity: default
+# affinity specifies a custom affinity for the controller pods
+affinity: {}
+
+# configureDefaultAffinity specifies whether to configure a default affinity for the controller pods to prevent
+# co-location on the same node. This will get ignored if you specify a custom affinity configuration.
+configureDefaultAffinity: true
 
 # topologySpreadConstraints is a stable feature of k8s v1.19 which provides the ability to
 # control how Pods are spread across your cluster among failure-domains such as regions, zones,
 # nodes, and other user-defined topology domains.
-# 
+#
 # more details here: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
 topologySpreadConstraints: {}
 
@@ -107,6 +101,14 @@ additionalLabels: {}
 # Enable cert-manager
 enableCertManager: false
 
+# The name of the Kubernetes cluster. A non-empty value is required
+clusterName:
+
+# cluster contains configurations specific to the kubernetes cluster
+cluster:
+    # Cluster DNS domain (required for requesting TLS certificates)
+    dnsDomain: cluster.local
+
 # The ingress class this controller will satisfy. If not specified, controller will match all
 # ingresses without ingress class annotation and ingresses of type alb
 ingressClass: alb
@@ -124,8 +126,12 @@ ingressClassParams:
     #   matchLabels:
     # group:
     # scheme:
+    # subnets:
     # ipAddressType:
     # tags:
+    # loadBalancerAttributes:
+    # - key:
+    #   value:
 
 # To use IngressClass resource instead of annotation, before you need to install the IngressClass resource pointing to controller.
 # If specified as true, the IngressClass resource will be created.
@@ -140,8 +146,21 @@ vpcId:
 # Custom AWS API Endpoints (serviceID1=URL1,serviceID2=URL2)
 awsApiEndpoints:
 
+# awsApiThrottle specifies custom AWS API throttle settings (serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst)
+# example: --set awsApiThrottle="{Elastic Load Balancing v2:RegisterTargets|DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40}"
+awsApiThrottle:
+
 # Maximum retries for AWS APIs (default 10)
 awsMaxRetries:
+
+# Default target type. Used as the default value of the "alb.ingress.kubernetes.io/target-type" and
+# "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type" annotations.
+# Possible values are "ip" and "instance"
+# The value "ip" should be used for ENI-based CNIs, such as the Amazon VPC CNI,
+# Calico with encapsulation disabled, or Cilium with masquerading disabled.
+# The value "instance" should be used for overlay-based CNIs, such as Calico in VXLAN or IPIP mode or
+# Cilium with masquerading enabled.
+defaultTargetType: instance
 
 # If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods (default true)
 enablePodReadinessGateInject:
@@ -172,6 +191,13 @@ webhookTLS:
   caCert:
   cert:
   key:
+
+# array of namespace selectors for the webhook
+webhookNamespaceSelectors:
+# - key: elbv2.k8s.aws/pod-readiness-gate-inject
+#   operator: In
+#   values:
+#   - enabled
 
 # keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade
 keepTLSSecret: true
@@ -273,6 +299,13 @@ backendSecurityGroup:
 # disableRestrictedSecurityGroupRules specifies whether to disable creating port-range restricted security group rules for traffic
 disableRestrictedSecurityGroupRules:
 
+# controllerConfig specifies controller configuration
+controllerConfig:
+  # featureGates set of key: value pairs that describe AWS load balance controller features
+  featureGates: {}
+  #  ServiceTypeLoadBalancerOnly: true
+  #  EndpointsFailOpen: true
+
 # objectSelector for webhook
 objectSelector:
   matchExpressions:
@@ -301,3 +334,7 @@ clusterSecretsPermissions:
   # allowAllSecrets allows the controller to access all secrets in the cluster.
   # This is to get backwards compatible behavior, but *NOT* recommended for security reasons
   allowAllSecrets: false
+
+# ingressClassConfig contains configurations specific to the ingress class
+ingressClassConfig:
+  default: false

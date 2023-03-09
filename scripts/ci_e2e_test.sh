@@ -29,9 +29,9 @@ CONTROLLER_IAM_POLICY_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
 CONTROLLER_IAM_POLICY_ARN="" # will be fulfilled during setup_controller_iam_sa
 
 # Cluster settings
-EKSCTL_VERSION="v0.100.0"
+EKSCTL_VERSION="v0.124.0"
 CLUSTER_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
-CLUSTER_VERSION=${CLUSTER_VERSION:-"1.19"}
+CLUSTER_VERSION=${CLUSTER_VERSION:-"1.24"}
 CLUSTER_INSTANCE_TYPE="m5.xlarge"
 CLUSTER_NODE_COUNT="4"
 CLUSTER_KUBECONFIG=${CLUSTER_KUBECONFIG:-"/tmp/lb-controller-e2e/clusters/${CLUSTER_NAME}.kubeconfig"}
@@ -72,21 +72,7 @@ build_push_controller_image() {
   fi
 
   echo "build and push docker image ${CONTROLLER_IMAGE_NAME}"
-  DOCKER_CLI_EXPERIMENTAL=enabled docker buildx create --use
-  DOCKER_CLI_EXPERIMENTAL=enabled docker buildx inspect --bootstrap
-
-  # TODO: the first buildx build sometimes fails on new created builder instance.
-  #  figure out why and remove this retry.
-  n=0
-  until [ "$n" -ge 2 ]; do
-    DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build . --target bin \
-      --tag "${CONTROLLER_IMAGE_NAME}" \
-      --push \
-      --progress plain \
-      --platform linux/amd64 && break
-    n=$((n + 1))
-    sleep 2
-  done
+  make docker-push IMG=${CONTROLLER_IMAGE_NAME} IMG_PLATFORM=linux/amd64
 
   if [[ $? -ne 0 ]]; then
     echo "unable to build and push docker image" >&2
@@ -235,6 +221,18 @@ test_controller_image() {
     --certificate-arns=${CERTIFICATE_ARNS}
 }
 
+
+#######################################
+# Dump controller logs
+# Globals:
+#   None
+# Arguments:
+#   None
+#######################################
+dump_controller_logs() {
+  kubectl --kubeconfig=${CLUSTER_KUBECONFIG} logs --tail=-1 -l app.kubernetes.io/name=aws-load-balancer-controller -n kube-system
+}
+
 #######################################
 # Cleanup resources
 # Globals:
@@ -244,6 +242,7 @@ test_controller_image() {
 #######################################
 cleanup() {
   sleep 60
+  dump_controller_logs || true
   cleanup_cluster
   cleanup_controller_iam_sa
 }
@@ -261,7 +260,7 @@ main() {
   build_push_controller_image
 
   go install github.com/mikefarah/yq/v4@v4.6.1
-  go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
+  go install github.com/onsi/ginkgo/v2/ginkgo@v2.3.1
   trap "cleanup" EXIT
   setup_cluster
   setup_controller_iam_sa

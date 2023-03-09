@@ -2,6 +2,7 @@ package networking
 
 import (
 	"context"
+	"fmt"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
@@ -59,6 +60,9 @@ func (v *ingressValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 	if err := v.checkIngressClassUsage(ctx, ing, nil); err != nil {
 		return err
 	}
+	if err := v.checkIngressAnnotationConditions(ing); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -72,6 +76,9 @@ func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Objec
 		return err
 	}
 	if err := v.checkIngressClassUsage(ctx, ing, oldIng); err != nil {
+		return err
+	}
+	if err := v.checkIngressAnnotationConditions(ing); err != nil {
 		return err
 	}
 	return nil
@@ -161,6 +168,33 @@ func (v *ingressValidator) checkIngressClassUsage(ctx context.Context, ing *netw
 			}
 		}
 	}
+	return nil
+}
+
+// checkGroupNameAnnotationUsage checks the validity of "conditions.${conditions-name}" annotation.
+func (v *ingressValidator) checkIngressAnnotationConditions(ing *networking.Ingress) error {
+	for _, rule := range ing.Spec.Rules {
+		for _, path := range rule.HTTP.Paths {
+			var conditions []ingress.RuleCondition
+			annotationKey := fmt.Sprintf("conditions.%v", path.Backend.Service.Name)
+			_, err := v.annotationParser.ParseJSONAnnotation(annotationKey, &conditions, ing.Annotations)
+			if err != nil {
+				return err
+			}
+
+			for _, condition := range conditions {
+				if err := condition.Validate(); err != nil {
+					return fmt.Errorf("ignoring Ingress %s/%s since invalid alb.ingress.kubernetes.io/conditions.%s annotation: %w",
+						ing.Namespace,
+						ing.Name,
+						path.Backend.Service.Name,
+						err,
+					)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 

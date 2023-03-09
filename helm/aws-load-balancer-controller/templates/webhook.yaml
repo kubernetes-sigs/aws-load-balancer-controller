@@ -12,7 +12,9 @@ metadata:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 webhooks:
 - clientConfig:
-    caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -23,10 +25,14 @@ webhooks:
   - v1beta1
   namespaceSelector:
     matchExpressions:
+    {{ if .Values.webhookNamespaceSelectors }}
+    {{ toYaml .Values.webhookNamespaceSelectors | nindent 4 }}
+    {{ else }}
     - key: elbv2.k8s.aws/pod-readiness-gate-inject
       operator: In
       values:
       - enabled
+    {{ end }}
   objectSelector:
     matchExpressions:
     - key: app.kubernetes.io/name
@@ -51,7 +57,9 @@ webhooks:
     - pods
   sideEffects: None
 - clientConfig:
-    caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -84,7 +92,32 @@ metadata:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 webhooks:
 - clientConfig:
-    caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
+      namespace: {{ $.Release.Namespace }}
+      path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
+  failurePolicy: Fail
+  name: vingressclassparams.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingressclassparams
+  sideEffects: None
+- clientConfig:
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -105,7 +138,9 @@ webhooks:
     - targetgroupbindings
   sideEffects: None
 - clientConfig:
-    caBundle: {{ if not $.Values.enableCertManager -}}{{ $tls.caCert }}{{- else -}}Cg=={{ end }}
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -155,7 +190,7 @@ metadata:
 spec:
   dnsNames:
   - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc
-  - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc.{{ .Values.cluster.dnsDomain }}
   issuerRef:
     kind: Issuer
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer

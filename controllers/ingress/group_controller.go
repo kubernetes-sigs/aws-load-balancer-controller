@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -58,7 +59,8 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
-		controllerConfig.DefaultSSLPolicy, backendSGProvider, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger)
+		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, backendSGProvider,
+		controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		vpcEndpointServiceManager, controllerConfig, ingressTagPrefix, logger)
@@ -202,7 +204,7 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 		ing.Status.LoadBalancer.Ingress[0].IP != "" ||
 		ing.Status.LoadBalancer.Ingress[0].Hostname != lbDNS {
 		ingOld := ing.DeepCopy()
-		ing.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
+		ing.Status.LoadBalancer.Ingress = []networking.IngressLoadBalancerIngress{
 			{
 				Hostname: lbDNS,
 			},

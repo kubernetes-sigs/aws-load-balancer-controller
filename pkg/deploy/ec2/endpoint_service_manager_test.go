@@ -136,7 +136,7 @@ func Test_Create(t *testing.T) {
 			manager := NewDefaultEndpointServiceManager(
 				mockEC2,
 				"vpcID",
-				logr.DiscardLogger{},
+				logr.Discard(),
 				&mockProvider{},
 				mockTaggingManager,
 				[]string{},
@@ -249,7 +249,7 @@ func Test_Update_responses(t *testing.T) {
 			manager := NewDefaultEndpointServiceManager(
 				mockEC2,
 				"vpcID",
-				logr.DiscardLogger{},
+				logr.Discard(),
 				tracking.NewDefaultProvider("service.k8s.aws", "clusterName"),
 				mockTaggingManager,
 				[]string{},
@@ -416,7 +416,7 @@ func Test_Update_modifyVPCEndpointServiceConfigurationInput(t *testing.T) {
 			manager := NewDefaultEndpointServiceManager(
 				mockEC2,
 				"vpcID",
-				logr.DiscardLogger{},
+				logr.Discard(),
 				tracking.NewDefaultProvider("service.k8s.aws", "clusterName"),
 				mockTaggingManager,
 				[]string{},
@@ -464,7 +464,7 @@ func Test_Delete(t *testing.T) {
 			manager := NewDefaultEndpointServiceManager(
 				mockEC2,
 				"vpcID",
-				logr.DiscardLogger{},
+				logr.Discard(),
 				tracking.NewDefaultProvider("", ""),
 				mockTaggingManager,
 				[]string{},
@@ -604,7 +604,7 @@ func Test_ReconcilePermissions(t *testing.T) {
 			manager := NewDefaultEndpointServiceManager(
 				mockEC2,
 				"vpcID",
-				logr.DiscardLogger{},
+				logr.Discard(),
 				tracking.NewDefaultProvider("", ""),
 				mockTaggingManager,
 				[]string{},
@@ -696,7 +696,7 @@ func Test_fetchESPermissionInfosFromAWS(t *testing.T) {
 			manager := NewDefaultEndpointServiceManager(
 				mockEC2,
 				"vpcID",
-				logr.DiscardLogger{},
+				logr.Discard(),
 				tracking.NewDefaultProvider("", ""),
 				mockTaggingManager,
 				[]string{},
