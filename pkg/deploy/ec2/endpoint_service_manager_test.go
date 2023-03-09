@@ -29,16 +29,6 @@ func (t testStringToken) Resolve(ctx context.Context) (string, error) {
 	return t.value, t.err
 }
 
-type mockProvider struct {
-	tracking.Provider
-}
-
-func (p *mockProvider) ResourceTags(_ core.Stack, _ core.Resource, _ map[string]string) map[string]string {
-	return map[string]string{
-		"key": "value",
-	}
-}
-
 type DescribeVpcEndpointServicePermissionsWithContextResponse struct {
 	response *ec2sdk.DescribeVpcEndpointServicePermissionsOutput
 	err      error
@@ -133,11 +123,19 @@ func Test_Create(t *testing.T) {
 
 			mockTaggingManager := NewMockTaggingManager(mockCtrl)
 
+			mockProvider := tracking.NewMockProvider(mockCtrl)
+
+			mockProvider.EXPECT().ResourceTags(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+				map[string]string{
+					"key": "value",
+				},
+			).AnyTimes()
+
 			manager := NewDefaultEndpointServiceManager(
 				mockEC2,
 				"vpcID",
 				logr.Discard(),
-				&mockProvider{},
+				mockProvider,
 				mockTaggingManager,
 				[]string{},
 			)
