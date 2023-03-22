@@ -33,3 +33,19 @@ jobs:
       - name: make quick-ci
         run: |
           make quick-ci
+
+  deprecated-apigroups:
+    name: Detect deprecated apiGroups
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout latest commit
+        uses: actions/checkout@v3
+      - name: Download Pluto
+        run: |
+          version=$(curl -sL https://api.github.com/repos/FairwindsOps/pluto/releases/latest | jq -r ".tag_name")
+          number=${version:1}
+          wget https://github.com/FairwindsOps/pluto/releases/download/${version}/pluto_${number}_linux_amd64.tar.gz
+          sudo tar -C /usr/local -xzf pluto_${number}_linux_amd64.tar.gz
+      - name: Use pluto
+        run: |
+          /usr/local/pluto detect-files -d .
