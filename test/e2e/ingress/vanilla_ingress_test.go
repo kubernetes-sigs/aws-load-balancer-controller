@@ -35,7 +35,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		ctx = context.Background()
 		if tf.Options.ControllerImage != "" {
 			By(fmt.Sprintf("ensure cluster installed with controller: %s", tf.Options.ControllerImage), func() {
-				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage)
+				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(60 * time.Second)
 			})
@@ -307,6 +307,57 @@ var _ = Describe("vanilla ingress tests", func() {
 
 	Context("with ALB IP targets and named target port", func() {
 		It("with 'alb.ingress.kubernetes.io/target-type' annotation explicitly specified, one ALB shall be created and functional", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder().WithTargetPortName("e2e-targetport")
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			annotation := map[string]string{
+				"kubernetes.io/ingress.class":           "alb",
+				"alb.ingress.kubernetes.io/scheme":      "internet-facing",
+				"alb.ingress.kubernetes.io/target-type": "ip",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+			}
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+
+			// test traffic
+			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
+			httpExp.GET("/path").Expect().
+				Status(http.StatusOK).
+				Body().Equal("Hello World!")
+		})
+	})
+
+	Context("with ALB IP targets, named target port and endPointSlices enabled", func() {
+		BeforeEach(func() {
+			ctx = context.Background()
+			if tf.Options.ControllerImage != "" {
+				By(fmt.Sprintf("upgrade controller with endPointSlices enabled."), func() {
+					err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true)
+					Expect(err).NotTo(HaveOccurred())
+					time.Sleep(60 * time.Second)
+				})
+			}
+		})
+		It("with 'alb.ingress.kubernetes.io/target-type' annotation explicitly specified, and endPointSlices enabled, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder().WithTargetPortName("e2e-targetport")
 			ingBuilder := manifest.NewIngressBuilder()
 			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
