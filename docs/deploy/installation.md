@@ -2,13 +2,13 @@
 
 The AWS Load Balancer controller (LBC) provisions AWS Network Load Balancer (NLB) and Application Load Balancer (ALB) resources. The LBC watches for new `service` or `ingress` Kubernetes resources and configures AWS resources.
 
-The LBC is supported by AWS. Some clusters may be using the legacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. 
+The LBC is supported by AWS. Some clusters may be using the legacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead.
 
 !!!question "Existing AWS ALB Ingress Controller users"
     The AWS ALB Ingress controller must be uninstalled before installing the AWS Load Balancer Controller.
     Please follow our [migration guide](upgrade/migrate_v1_v2.md) to do a migration.
 
-## Supported Kubernetes versions 
+## Supported Kubernetes versions
 * AWS Load Balancer Controller v2.0.0~v2.1.3 requires Kubernetes 1.15+
 * AWS Load Balancer Controller v2.2.0~v2.3.1 requires Kubernetes 1.16-1.21
 * AWS Load Balancer Controller v2.4.0+ requires Kubernetes 1.19+
@@ -50,7 +50,7 @@ The reference IAM policies contain the following permissive configuration:
 },
 ```
 
-We recommend further scoping down this configuration based on the VPC ID or cluster name resource tag. 
+We recommend further scoping down this configuration based on the VPC ID or cluster name resource tag.
 
 Example condition for VPC ID:
 ```
@@ -92,7 +92,7 @@ Example condition for cluster name resource tag:
     curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.7/docs/install/iam_policy.json
     ```
 
-3. Create an IAM policy named `AWSLoadBalancerControllerIAMPolicy`. If you downloaded a different policy, replace `iam-policy` with the name of the policy that you downloaded. 
+3. Create an IAM policy named `AWSLoadBalancerControllerIAMPolicy`. If you downloaded a different policy, replace `iam-policy` with the name of the policy that you downloaded.
     ```
     aws iam create-policy \
         --policy-name AWSLoadBalancerControllerIAMPolicy \
@@ -111,7 +111,7 @@ Example condition for cluster name resource tag:
     --region <region-code> \
     --approve
     ```
-    
+
 ### Option B: Attach IAM policies to nodes
 If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum.
 ```
@@ -145,9 +145,9 @@ The following IAM permissions subset is for those using `TargetGroupBinding` onl
 
 ## Network configuration
 
-Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html) docs. Your node security group must permit incoming traffic on TCP port 9443 from the Kubernetes control plane. This is needed for webhook access. 
+Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html) docs. Your node security group must permit incoming traffic on TCP port 9443 from the Kubernetes control plane. This is needed for webhook access.
 
-If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the default configuration. 
+If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the default configuration.
 
 ## Add controller to cluster
 
@@ -175,7 +175,7 @@ We recommend using the Helm chart to install the controller. The chart supports 
             The `helm install` command automatically applies the CRDs, but `helm upgrade` doesn't.
 
 
-    Helm install command for clusters with IRSA: 
+    Helm install command for clusters with IRSA:
     ```
     helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name> --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
     ```
@@ -187,8 +187,8 @@ We recommend using the Helm chart to install the controller. The chart supports 
 
 
 
-=== "YAML manifests"<p>
-    
+=== "YAML manifests"
+
     ### Install `cert-manager`
 
     ```
