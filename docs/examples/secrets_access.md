@@ -2,7 +2,7 @@
 
 In this walkthrough, you will
 
-- configure RBAC permissions for the controller to access specific secrets resource in a particular namespace.
+- configure RBAC permissions for the controller to access specific secrets resource in a particular namespace. One particular use case would be to give the controller access to the secret holding the OIDC clientID and clientSecret.
 
 # Create Role
 1. Prepare the role manifest with the appropriate name, namespace, and secretName, for example:
