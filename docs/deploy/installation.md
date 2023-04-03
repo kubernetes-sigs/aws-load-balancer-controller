@@ -21,11 +21,11 @@ The LBC is supported by AWS. Some clusters may be using the legacy "in-tree" fun
 * For IP targets, pods must have IPs from the VPC subnets. You can configure the [`amazon-vpc-cni-k8s`](https://github.com/aws/amazon-vpc-cni-k8s#readme) plugin for this purpose.
 
 ### Using the Amazon EC2 instance metadata server version 2 (IMDSv2)
-If you are using the [IMDSv2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html), set the hop limit to 2 or higher in order to allow the LBC to perform the metadata introspection.
+We recommend blocking the access to instance metadata by requiring the instance to use [IMDSv2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html) only. For more information, please refer to the AWS guidance [here](https://aws.github.io/aws-eks-best-practices/security/docs/iam/#restrict-access-to-the-instance-profile-assigned-to-the-worker-node). If you are using the IMDSv2, set the hop limit to 2 or higher in order to allow the LBC to perform the metadata introspection. 
 
-You can set the IMDSv2 hop limit as follows:
+You can set the IMDSv2 as follows:
 ```
-aws ec2 modify-instance-metadata-options --http-put-response-hop-limit 2 --region <region> --instance-id <instance-id>
+aws ec2 modify-instance-metadata-options --http-put-response-hop-limit 2 --http-tokens required --region <region> --instance-id <instance-id>
 ```
 
 Instead of depending on IMDSv2, you can specify the AWS Region and the VPC via the controller flags `--aws-region` and `--aws-vpc-id`.
@@ -34,9 +34,9 @@ Instead of depending on IMDSv2, you can specify the AWS Region and the VPC via t
 
 The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB APIs with IAM permissions.
 
-The IAM permissions can either be setup using [IAM roles for service accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) or can be attached directly to the worker node IAM roles. This is the recommended method if you're using Amazon EKS. If you're using kOps or self-hosted Kubernetes, you must manually attach polices to node instances.
+The IAM permissions can either be setup using [IAM roles for service accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) or can be attached directly to the worker node IAM roles. The best practice is using IRSA if you're using Amazon EKS. If you're using kOps or self-hosted Kubernetes, you must manually attach polices to node instances.
 
-### Option A: IAM roles for service accounts (IRSA)
+### Option A: Recommended, IAM roles for service accounts (IRSA)
 
 The reference IAM policies contain the following permissive configuration:
 ```
@@ -113,7 +113,7 @@ Example condition for cluster name resource tag:
     ```
 
 ### Option B: Attach IAM policies to nodes
-If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum.
+If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum. Please be aware of the possibility that the controller permissions may be assumed by other users in a pod after retrieving the node role credentials, so the best practice would be using IRSA instead of attaching IAM policy directly.
 ```
 curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.7/docs/install/iam_policy.json
 ```
