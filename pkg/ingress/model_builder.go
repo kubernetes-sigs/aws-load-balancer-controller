@@ -31,7 +31,7 @@ const (
 
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
 type ModelBuilder interface {
-	// build mode stack for a IngressGroup.
+	// build mode stack for an IngressGroup.
 	Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, error)
 }
 
@@ -104,7 +104,7 @@ type defaultModelBuilder struct {
 	logger logr.Logger
 }
 
-// build mode stack for a IngressGroup.
+// Build mode stack for a IngressGroup.
 func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, error) {
 	stack := core.NewDefaultStack(core.StackID(ingGroup.ID))
 	task := &defaultModelBuildTask{

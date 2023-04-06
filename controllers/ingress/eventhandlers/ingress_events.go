@@ -54,7 +54,7 @@ func (h *enqueueRequestsForIngressEvent) Update(e event.UpdateEvent, queue workq
 }
 
 func (h *enqueueRequestsForIngressEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	// since we'll always attach an finalizer before doing any reconcile action,
+	// since we'll always attach a finalizer before doing any reconcile action,
 	// user triggered delete action will actually be an update action with deletionTimestamp set,
 	// which will be handled by update event handler.
 	// so we'll just ignore delete events to avoid unnecessary reconcile call.

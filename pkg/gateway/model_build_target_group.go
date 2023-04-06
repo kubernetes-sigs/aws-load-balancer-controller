@@ -1,10 +1,11 @@
-package service
+package gateway
 
 import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
 	"regexp"
 	"sort"
 	"strconv"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 const (
@@ -30,13 +31,13 @@ const (
 	healthCheckPortTrafficPort     = "traffic-port"
 )
 
-func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
-	svcPort := intstr.FromInt(int(port.Port))
-	tgResourceID := t.buildTargetGroupResourceID(k8s.NamespacedName(t.service), svcPort)
+func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, listener *v1beta1.Listener, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
+	svcPort := intstr.FromInt(int(listener.Port))
+	tgResourceID := t.buildTargetGroupResourceID(k8s.NamespacedName(t.gateway), svcPort)
 	if targetGroup, exists := t.tgByResID[tgResourceID]; exists {
 		return targetGroup, nil
 	}
-	targetType, err := t.buildTargetType(ctx, port)
+	targetType, err := t.buildTargetType(ctx, listener)
 	if err != nil {
 		return nil, err
 	}
@@ -52,12 +53,12 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 	if err != nil {
 		return nil, err
 	}
-	tgSpec, err := t.buildTargetGroupSpec(ctx, tgProtocol, targetType, port, healthCheckConfig, tgAttrs)
+	tgSpec, err := t.buildTargetGroupSpec(ctx, tgProtocol, targetType, listener, healthCheckConfig, tgAttrs)
 	if err != nil {
 		return nil, err
 	}
 	targetGroup := elbv2model.NewTargetGroup(t.stack, tgResourceID, tgSpec)
-	_, err = t.buildTargetGroupBinding(ctx, targetGroup, preserveClientIP, port, healthCheckConfig, scheme)
+	_, err = t.buildTargetGroupBinding(ctx, targetGroup, preserveClientIP, listener, healthCheckConfig, scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -66,14 +67,18 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProtocol elbv2model.Protocol, targetType elbv2model.TargetType,
-	port corev1.ServicePort, healthCheckConfig *elbv2model.TargetGroupHealthCheckConfig, tgAttrs []elbv2model.TargetGroupAttribute) (elbv2model.TargetGroupSpec, error) {
+	listener *v1beta1.Listener, healthCheckConfig *elbv2model.TargetGroupHealthCheckConfig, tgAttrs []elbv2model.TargetGroupAttribute) (elbv2model.TargetGroupSpec, error) {
 	tags, err := t.buildTargetGroupTags(ctx)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	targetPort := t.buildTargetGroupPort(ctx, targetType, port)
-	tgName := t.buildTargetGroupName(ctx, intstr.FromInt(int(port.Port)), targetPort, targetType, tgProtocol, healthCheckConfig)
-	ipAddressType, err := t.buildTargetGroupIPAddressType(ctx, t.service)
+	targetPort := t.buildTargetGroupPort(ctx, targetType, listener)
+	tgName := t.buildTargetGroupName(ctx, intstr.FromInt(int(listener.Port)), targetPort, targetType, tgProtocol, healthCheckConfig)
+
+	// Get the service for the listener
+
+	ipAddressType, err := t.buildTargetGroupIPAddressType(ctx, t.gateway)
+	t.gateway.Spec.Listeners[0].
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
@@ -90,8 +95,8 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Context, targetType elbv2model.TargetType) (*elbv2model.TargetGroupHealthCheckConfig, error) {
-	if targetType == elbv2model.TargetTypeInstance && t.service.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal &&
-		t.service.Spec.Type == corev1.ServiceTypeLoadBalancer {
+	if targetType == elbv2model.TargetTypeInstance && t.gateway.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal &&
+		t.gateway.Spec.Type == corev1.ServiceTypeLoadBalancer {
 		return t.buildTargetGroupHealthCheckConfigForInstanceModeLocal(ctx)
 	}
 	return t.buildTargetGroupHealthCheckConfigDefault(ctx)
@@ -190,7 +195,7 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort 
 	}
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
-	_, _ = uuidHash.Write([]byte(t.service.UID))
+	_, _ = uuidHash.Write([]byte(t.gateway.UID))
 	_, _ = uuidHash.Write([]byte(strconv.Itoa(int(tgPort))))
 	_, _ = uuidHash.Write([]byte(svcPort.String()))
 	_, _ = uuidHash.Write([]byte(targetType))
@@ -199,14 +204,14 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort 
 	_, _ = uuidHash.Write([]byte(healthCheckInterval))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
-	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Namespace, "")
-	sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Name, "")
+	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(t.gateway.Namespace, "")
+	sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(t.gateway.Name, "")
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([]elbv2model.TargetGroupAttribute, error) {
 	var rawAttributes map[string]string
-	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetGroupAttributes, &rawAttributes, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetGroupAttributes, &rawAttributes, t.gateway.Annotations); err != nil {
 		return nil, err
 	}
 	if rawAttributes == nil {
@@ -216,7 +221,7 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([
 		rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
 	}
 	proxyV2Annotation := ""
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations); exists {
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.gateway.Annotations); exists {
 		if proxyV2Annotation != "*" {
 			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
 		}
@@ -263,7 +268,7 @@ func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, tar
 // buildTargetGroupPort constructs the TargetGroup's port.
 // Note: TargetGroup's port is not in the data path as we always register targets with port specified.
 // so this settings don't really matter to our controller, and we do our best to use the most appropriate port as targetGroup's port to avoid UX confusing.
-func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetType elbv2model.TargetType, svcPort corev1.ServicePort) int64 {
+func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetType elbv2model.TargetType, listener *v1beta1.Listener) int64 {
 	if targetType == elbv2model.TargetTypeInstance {
 		return int64(svcPort.NodePort)
 	}
@@ -278,7 +283,7 @@ func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetTy
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Context, defaultHealthCheckPort string) (intstr.IntOrString, error) {
 	rawHealthCheckPort := defaultHealthCheckPort
-	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPort, &rawHealthCheckPort, t.service.Annotations)
+	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPort, &rawHealthCheckPort, t.gateway.Annotations)
 	if rawHealthCheckPort == healthCheckPortTrafficPort {
 		return intstr.FromString(rawHealthCheckPort), nil
 	}
@@ -291,7 +296,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Contex
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckProtocol(_ context.Context, defaultHealthCheckProtocol elbv2model.Protocol) (elbv2model.Protocol, error) {
 	rawHealthCheckProtocol := string(defaultHealthCheckProtocol)
-	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCProtocol, &rawHealthCheckProtocol, t.service.Annotations)
+	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCProtocol, &rawHealthCheckProtocol, t.gateway.Annotations)
 	switch strings.ToUpper(rawHealthCheckProtocol) {
 	case string(elbv2model.ProtocolTCP):
 		return elbv2model.ProtocolTCP, nil
@@ -309,7 +314,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPath(_ context.Contex
 		return nil
 	}
 	healthCheckPath := defaultHealthCheckPath
-	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPath, &healthCheckPath, t.service.Annotations)
+	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPath, &healthCheckPath, t.gateway.Annotations)
 	return &healthCheckPath
 }
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Context, hcProtocol elbv2model.Protocol) *elbv2model.HealthCheckMatcher {
@@ -317,7 +322,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Con
 		return nil
 	}
 	rawHealthCheckMatcherSuccessCodes := t.defaultHealthCheckMatcherHTTPCode
-	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCSuccessCodes, &rawHealthCheckMatcherSuccessCodes, t.service.Annotations)
+	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCSuccessCodes, &rawHealthCheckMatcherSuccessCodes, t.gateway.Annotations)
 	return &elbv2model.HealthCheckMatcher{
 		HTTPCode: &rawHealthCheckMatcherSuccessCodes,
 	}
@@ -325,7 +330,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Con
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ context.Context, defaultHealthCheckInterval int64) (int64, error) {
 	intervalSeconds := defaultHealthCheckInterval
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCInterval, &intervalSeconds, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCInterval, &intervalSeconds, t.gateway.Annotations); err != nil {
 		return 0, err
 	}
 	return intervalSeconds, nil
@@ -336,7 +341,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ cont
 	if !t.featureGates.Enabled(config.NLBHealthCheckAdvancedConfig) {
 		return &timeoutSeconds, nil
 	}
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.gateway.Annotations); err != nil {
 		return nil, err
 	}
 	return &timeoutSeconds, nil
@@ -344,7 +349,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ cont
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount(_ context.Context, defaultHealthCheckHealthyThreshold int64) (int64, error) {
 	healthyThresholdCount := defaultHealthCheckHealthyThreshold
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCHealthyThreshold, &healthyThresholdCount, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCHealthyThreshold, &healthyThresholdCount, t.gateway.Annotations); err != nil {
 		return 0, err
 	}
 	return healthyThresholdCount, nil
@@ -352,19 +357,19 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCount(_ context.Context, defaultHealthCheckUnhealthyThreshold int64) (int64, error) {
 	unhealthyThresholdCount := defaultHealthCheckUnhealthyThreshold
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCUnhealthyThreshold, &unhealthyThresholdCount, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCUnhealthyThreshold, &unhealthyThresholdCount, t.gateway.Annotations); err != nil {
 		return 0, err
 	}
 	return unhealthyThresholdCount, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetType(_ context.Context, port corev1.ServicePort) (elbv2model.TargetType, error) {
-	svcType := t.service.Spec.Type
+func (t *defaultModelBuildTask) buildTargetType(_ context.Context, listener *v1beta1.Listener) (elbv2model.TargetType, error) {
+	svcType := t.gateway.Spec.Type
 	var lbType string
-	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.service.Annotations)
+	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixLoadBalancerType, &lbType, t.gateway.Annotations)
 	var lbTargetType string
 	lbTargetType = string(t.defaultTargetType)
-	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, t.service.Annotations)
+	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetType, &lbTargetType, t.gateway.Annotations)
 	if lbTargetType == LoadBalancerTargetTypeIP && !t.enableIPTargetType {
 		return "", errors.Errorf("unsupported targetType: %v when EnableIPTargetType is %v", lbTargetType, t.enableIPTargetType)
 	}
@@ -374,7 +379,7 @@ func (t *defaultModelBuildTask) buildTargetType(_ context.Context, port corev1.S
 	if svcType == corev1.ServiceTypeClusterIP {
 		return "", errors.Errorf("unsupported service type \"%v\" for load balancer target type \"%v\"", svcType, lbTargetType)
 	}
-	if port.NodePort == 0 && t.service.Spec.AllocateLoadBalancerNodePorts != nil && !*t.service.Spec.AllocateLoadBalancerNodePorts {
+	if port.NodePort == 0 && t.gateway.Spec.AllocateLoadBalancerNodePorts != nil && !*t.gateway.Spec.AllocateLoadBalancerNodePorts {
 		return "", errors.New("unable to support instance target type with an unallocated NodePort")
 	}
 	return elbv2model.TargetTypeInstance, nil
@@ -389,8 +394,8 @@ func (t *defaultModelBuildTask) buildTargetGroupTags(ctx context.Context) (map[s
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, targetGroup *elbv2model.TargetGroup, preserveClientIP bool,
-	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroupBindingResource, error) {
-	tgbSpec, err := t.buildTargetGroupBindingSpec(ctx, targetGroup, preserveClientIP, port, hc, scheme)
+	listener *v1beta1.Listener, hc *elbv2model.TargetGroupHealthCheckConfig, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroupBindingResource, error) {
+	tgbSpec, err := t.buildTargetGroupBindingSpec(ctx, targetGroup, preserveClientIP, listener, hc, scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -398,13 +403,14 @@ func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tar
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, targetGroup *elbv2model.TargetGroup, preserveClientIP bool,
-	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig, scheme elbv2model.LoadBalancerScheme) (elbv2model.TargetGroupBindingResourceSpec, error) {
+	listener v1beta1.Listener, hc *elbv2model.TargetGroupHealthCheckConfig, scheme elbv2model.LoadBalancerScheme) (elbv2model.TargetGroupBindingResourceSpec, error) {
 	nodeSelector, err := t.buildTargetGroupBindingNodeSelector(ctx, targetGroup.Spec.TargetType)
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceSpec{}, err
 	}
-	targetPort := port.TargetPort
+	targetPort := listener.Port
 	targetType := elbv2api.TargetType(targetGroup.Spec.TargetType)
+	// TODO: We must look up the node port for the associated service
 	if targetType == elbv2api.TargetTypeInstance {
 		targetPort = intstr.FromInt(int(port.NodePort))
 	}
@@ -419,14 +425,14 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: t.service.Namespace,
+				Namespace: t.gateway.Namespace,
 				Name:      targetGroup.Spec.Name,
 			},
 			Spec: elbv2model.TargetGroupBindingSpec{
 				TargetGroupARN: targetGroup.TargetGroupARN(),
 				TargetType:     &targetType,
 				ServiceRef: elbv2api.ServiceReference{
-					Name: t.service.Name,
+					Name: t.gateway.Name,
 					Port: intstr.FromInt(int(port.Port)),
 				},
 				Networking:    tgbNetworking,
@@ -445,7 +451,7 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRangesConfiguration(_ contex
 		sourceRanges = append(sourceRanges, cidr)
 	}
 	if len(sourceRanges) == 0 {
-		t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSourceRanges, &sourceRanges, t.service.Annotations)
+		t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSourceRanges, &sourceRanges, t.gateway.Annotations)
 	}
 	if len(sourceRanges) == 0 {
 		sourceRanges = defaultSourceRanges
@@ -567,7 +573,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 		return nil, nil
 	}
 	var targetNodeLabels map[string]string
-	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetNodeLabels, &targetNodeLabels, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetNodeLabels, &targetNodeLabels, t.gateway.Annotations); err != nil {
 		return nil, err
 	}
 	if len(targetNodeLabels) == 0 {
@@ -612,7 +618,7 @@ func (t *defaultModelBuildTask) buildHealthCheckNetworkingIngressRules(trafficSo
 
 func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Context) (bool, error) {
 	var rawEnabled bool
-	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixManageSGRules, &rawEnabled, t.service.Annotations)
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixManageSGRules, &rawEnabled, t.gateway.Annotations)
 	if err != nil {
 		return true, err
 	}

@@ -118,7 +118,7 @@ type IngressClassParamsSpec struct {
 	// Tags defines list of Tags on AWS resources provisioned for Ingresses that belong to IngressClass with this IngressClassParams.
 	Tags []Tag `json:"tags,omitempty"`
 
-	// LoadBalancerAttributes define the custom attributes to LoadBalancers for all Ingress that that belong to IngressClass with this IngressClassParams.
+	// LoadBalancerAttributes define the custom attributes to LoadBalancers for all Ingress that belong to IngressClass with this IngressClassParams.
 	// +optional
 	LoadBalancerAttributes []Attribute `json:"loadBalancerAttributes,omitempty"`
 }
