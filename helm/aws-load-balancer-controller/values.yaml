@@ -338,3 +338,6 @@ clusterSecretsPermissions:
 # ingressClassConfig contains configurations specific to the ingress class
 ingressClassConfig:
   default: false
+
+# disable MutatorWebhook for NLB (default false)
+disableServiceMutatorWebhook: false
