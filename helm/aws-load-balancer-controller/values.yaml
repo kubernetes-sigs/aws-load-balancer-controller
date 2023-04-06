@@ -339,5 +339,5 @@ clusterSecretsPermissions:
 ingressClassConfig:
   default: false
 
-# disable MutatorWebhook for NLB (default false)
-disableServiceMutatorWebhook: false
+# disableServiceMutatorWebhook allows you disable the webhook which makes this controller the default for all new services of type LoadBalancer
+disableServiceMutatorWebhook: true
