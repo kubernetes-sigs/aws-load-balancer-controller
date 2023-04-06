@@ -338,3 +338,6 @@ clusterSecretsPermissions:
 # ingressClassConfig contains configurations specific to the ingress class
 ingressClassConfig:
   default: false
+
+# disableServiceMutatorWebhook allows you disable the webhook which makes this controller the default for all new services of type LoadBalancer
+disableServiceMutatorWebhook: true

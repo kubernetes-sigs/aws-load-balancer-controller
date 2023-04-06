@@ -56,6 +56,30 @@ webhooks:
     resources:
     - pods
   sideEffects: None
+{{- if .Values.disableServiceMutatorWebhook }}
+- clientConfig:
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-v1-service
+  failurePolicy: Fail
+  name: mservice.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - services
+  sideEffects: None
+{{- end }}
 - clientConfig:
     {{ if not $.Values.enableCertManager -}}
     caBundle: {{ $tls.caCert }}
