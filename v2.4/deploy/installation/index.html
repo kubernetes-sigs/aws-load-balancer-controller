@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#load-balancer-controller-installation" class="md-skip">
+        <a href="#aws-load-balancer-controller-installation" class="md-skip">
           Skip to content
         </a>
       
@@ -447,29 +447,29 @@
       
         <li class="md-nav__item">
   <a href="#supported-kubernetes-versions" class="md-nav__link">
-    Supported Kubernetes Versions
+    Supported Kubernetes versions
   </a>
   
 </li>
       
         <li class="md-nav__item">
   <a href="#deployment-considerations" class="md-nav__link">
-    Deployment Considerations
+    Deployment considerations
   </a>
   
-    <nav class="md-nav" aria-label="Deployment Considerations">
+    <nav class="md-nav" aria-label="Deployment considerations">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#additional-requirements-for-non-eks-clusters" class="md-nav__link">
-    Additional Requirements for non-EKS clusters:
+    Additional requirements for non-EKS clusters:
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#using-metadata-server-version-2-imdsv2" class="md-nav__link">
-    Using metadata server version 2 (IMDSv2)
+  <a href="#using-the-amazon-ec2-instance-metadata-server-version-2-imdsv2" class="md-nav__link">
+    Using the Amazon EC2 instance metadata server version 2 (IMDSv2)
   </a>
   
 </li>
@@ -489,14 +489,14 @@
         
           <li class="md-nav__item">
   <a href="#option-a-iam-roles-for-service-accounts-irsa" class="md-nav__link">
-    Option A: IAM Roles for Service Accounts (IRSA)
+    Option A: IAM roles for service accounts (IRSA)
   </a>
   
 </li>
         
           <li class="md-nav__item">
   <a href="#option-b-attach-iam-policies-to-nodes" class="md-nav__link">
-    Option B: Attach IAM Policies to Nodes
+    Option B: Attach IAM policies to nodes
   </a>
   
 </li>
@@ -508,22 +508,22 @@
       
         <li class="md-nav__item">
   <a href="#network-configuration" class="md-nav__link">
-    Network Configuration
+    Network configuration
   </a>
   
 </li>
       
         <li class="md-nav__item">
   <a href="#add-controller-to-cluster" class="md-nav__link">
-    Add Controller to Cluster
+    Add controller to cluster
   </a>
   
-    <nav class="md-nav" aria-label="Add Controller to Cluster">
+    <nav class="md-nav" aria-label="Add controller to cluster">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#detailed-instructions" class="md-nav__link">
-    Detailed Instructions
+    Detailed instructions
   </a>
   
 </li>
@@ -1064,29 +1064,29 @@
       
         <li class="md-nav__item">
   <a href="#supported-kubernetes-versions" class="md-nav__link">
-    Supported Kubernetes Versions
+    Supported Kubernetes versions
   </a>
   
 </li>
       
         <li class="md-nav__item">
   <a href="#deployment-considerations" class="md-nav__link">
-    Deployment Considerations
+    Deployment considerations
   </a>
   
-    <nav class="md-nav" aria-label="Deployment Considerations">
+    <nav class="md-nav" aria-label="Deployment considerations">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#additional-requirements-for-non-eks-clusters" class="md-nav__link">
-    Additional Requirements for non-EKS clusters:
+    Additional requirements for non-EKS clusters:
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#using-metadata-server-version-2-imdsv2" class="md-nav__link">
-    Using metadata server version 2 (IMDSv2)
+  <a href="#using-the-amazon-ec2-instance-metadata-server-version-2-imdsv2" class="md-nav__link">
+    Using the Amazon EC2 instance metadata server version 2 (IMDSv2)
   </a>
   
 </li>
@@ -1106,14 +1106,14 @@
         
           <li class="md-nav__item">
   <a href="#option-a-iam-roles-for-service-accounts-irsa" class="md-nav__link">
-    Option A: IAM Roles for Service Accounts (IRSA)
+    Option A: IAM roles for service accounts (IRSA)
   </a>
   
 </li>
         
           <li class="md-nav__item">
   <a href="#option-b-attach-iam-policies-to-nodes" class="md-nav__link">
-    Option B: Attach IAM Policies to Nodes
+    Option B: Attach IAM policies to nodes
   </a>
   
 </li>
@@ -1125,22 +1125,22 @@
       
         <li class="md-nav__item">
   <a href="#network-configuration" class="md-nav__link">
-    Network Configuration
+    Network configuration
   </a>
   
 </li>
       
         <li class="md-nav__item">
   <a href="#add-controller-to-cluster" class="md-nav__link">
-    Add Controller to Cluster
+    Add controller to cluster
   </a>
   
-    <nav class="md-nav" aria-label="Add Controller to Cluster">
+    <nav class="md-nav" aria-label="Add controller to cluster">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
   <a href="#detailed-instructions" class="md-nav__link">
-    Detailed Instructions
+    Detailed instructions
   </a>
   
 </li>
@@ -1195,36 +1195,36 @@
                   </a>
                 
                 
-                <h1 id="load-balancer-controller-installation">Load Balancer Controller Installation<a class="headerlink" href="#load-balancer-controller-installation" title="Permanent link">&para;</a></h1>
-<p>The Load Balancer controller (LBC) provisions AWS Network Load Balancer (NLB) and Application Load Balancer (ALB) resources. The LBC watches for new service or ingress kubernetes resources, and configures AWS resources.</p>
-<p>The LBC is supported by AWS. Some clusters may using legacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead. </p>
+                <h1 id="aws-load-balancer-controller-installation">AWS Load Balancer Controller installation<a class="headerlink" href="#aws-load-balancer-controller-installation" title="Permanent link">&para;</a></h1>
+<p>The AWS Load Balancer controller (LBC) provisions AWS Network Load Balancer (NLB) and Application Load Balancer (ALB) resources. The LBC watches for new <code>service</code> or <code>ingress</code> Kubernetes resources and configures AWS resources.</p>
+<p>The LBC is supported by AWS. Some clusters may be using the legacy "in-tree" functionality to provision AWS load balancers. The AWS Load Balancer Controller should be installed instead.</p>
 <div class="admonition question">
 <p class="admonition-title">Existing AWS ALB Ingress Controller users</p>
-<p>AWS ALB Ingress controller must be uninstalled before installing AWS Load Balancer Controller.
-Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do migration.</p>
+<p>The AWS ALB Ingress controller must be uninstalled before installing the AWS Load Balancer Controller.
+Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do a migration.</p>
 </div>
-<h2 id="supported-kubernetes-versions">Supported Kubernetes Versions<a class="headerlink" href="#supported-kubernetes-versions" title="Permanent link">&para;</a></h2>
+<h2 id="supported-kubernetes-versions">Supported Kubernetes versions<a class="headerlink" href="#supported-kubernetes-versions" title="Permanent link">&para;</a></h2>
 <ul>
 <li>AWS Load Balancer Controller v2.0.0~v2.1.3 requires Kubernetes 1.15+</li>
 <li>AWS Load Balancer Controller v2.2.0~v2.3.1 requires Kubernetes 1.16-1.21</li>
 <li>AWS Load Balancer Controller v2.4.0+ requires Kubernetes 1.19+</li>
 </ul>
-<h2 id="deployment-considerations">Deployment Considerations<a class="headerlink" href="#deployment-considerations" title="Permanent link">&para;</a></h2>
-<h3 id="additional-requirements-for-non-eks-clusters">Additional Requirements for non-EKS clusters:<a class="headerlink" href="#additional-requirements-for-non-eks-clusters" title="Permanent link">&para;</a></h3>
+<h2 id="deployment-considerations">Deployment considerations<a class="headerlink" href="#deployment-considerations" title="Permanent link">&para;</a></h2>
+<h3 id="additional-requirements-for-non-eks-clusters">Additional requirements for non-EKS clusters:<a class="headerlink" href="#additional-requirements-for-non-eks-clusters" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Ensure subnets are tagged appropriately for auto-discovery to work</li>
-<li>For IP targets, pods must have IPs from the VPC subnets. You can configure <code>amazon-vpc-cni-k8s</code> plugin for this purpose.</li>
+<li>For IP targets, pods must have IPs from the VPC subnets. You can configure the <a href="https://github.com/aws/amazon-vpc-cni-k8s#readme"><code>amazon-vpc-cni-k8s</code></a> plugin for this purpose.</li>
 </ul>
-<h3 id="using-metadata-server-version-2-imdsv2">Using metadata server version 2 (IMDSv2)<a class="headerlink" href="#using-metadata-server-version-2-imdsv2" title="Permanent link">&para;</a></h3>
-<p>If you are using the <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html">IMDSv2</a> you must set the hop limit to 2 or higher in order to allow the AWS Load Balancer Controller to perform the metadata introspection.</p>
+<h3 id="using-the-amazon-ec2-instance-metadata-server-version-2-imdsv2">Using the Amazon EC2 instance metadata server version 2 (IMDSv2)<a class="headerlink" href="#using-the-amazon-ec2-instance-metadata-server-version-2-imdsv2" title="Permanent link">&para;</a></h3>
+<p>If you are using the <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html">IMDSv2</a>, set the hop limit to 2 or higher in order to allow the LBC to perform the metadata introspection.</p>
 <p>You can set the IMDSv2 hop limit as follows:
 <div class="highlight"><pre><span></span><code>aws ec2 modify-instance-metadata-options --http-put-response-hop-limit 2 --region &lt;region&gt; --instance-id &lt;instance-id&gt;
 </code></pre></div></p>
-<p>Instead of depending on IMDSv2, you alternatively may specify the AWS region and the VPC via the controller flags <code>--aws-region</code> and <code>--aws-vpc-id</code>.</p>
+<p>Instead of depending on IMDSv2, you can specify the AWS Region and the VPC via the controller flags <code>--aws-region</code> and <code>--aws-vpc-id</code>.</p>
 <h2 id="configure-iam">Configure IAM<a class="headerlink" href="#configure-iam" title="Permanent link">&para;</a></h2>
-<p>The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB APIs via IAM permissions.</p>
-<p>The IAM permissions can either be setup via <a href="https://docs.aws.amazon.com/emr/latest/EMR-on-EKS-DevelopmentGuide/setting-up-enable-IAM.html">IAM roles for ServiceAccount (IRSA)</a> or can be attached directly to the worker node IAM roles. If you are using kops or vanilla k8s, polices must be manually attached to node instances.</p>
-<h3 id="option-a-iam-roles-for-service-accounts-irsa">Option A: IAM Roles for Service Accounts (IRSA)<a class="headerlink" href="#option-a-iam-roles-for-service-accounts-irsa" title="Permanent link">&para;</a></h3>
+<p>The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB APIs with IAM permissions.</p>
+<p>The IAM permissions can either be setup using <a href="https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html">IAM roles for service accounts (IRSA)</a> or can be attached directly to the worker node IAM roles. This is the recommended method if you're using Amazon EKS. If you're using kOps or self-hosted Kubernetes, you must manually attach polices to node instances.</p>
+<h3 id="option-a-iam-roles-for-service-accounts-irsa">Option A: IAM roles for service accounts (IRSA)<a class="headerlink" href="#option-a-iam-roles-for-service-accounts-irsa" title="Permanent link">&para;</a></h3>
 <p>The reference IAM policies contain the following permissive configuration:
 <div class="highlight"><pre><span></span><code>{
     &quot;Effect&quot;: &quot;Allow&quot;,
@@ -1235,7 +1235,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
     &quot;Resource&quot;: &quot;*&quot;
 },
 </code></pre></div></p>
-<p>We recommend to further scope down this configuration based on the VPC ID or cluster name resource tag. </p>
+<p>We recommend further scoping down this configuration based on the VPC ID or cluster name resource tag.</p>
 <p>Example condition for VPC ID:
 <div class="highlight"><pre><span></span><code>    &quot;Condition&quot;: {
         &quot;ArnEquals&quot;: {
@@ -1252,7 +1252,7 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 </code></pre></div></p>
 <ol>
 <li>
-<p>Create IAM OIDC provider
+<p>Create an IAM OIDC provider. You can skip this step if you already have one for your cluster.
     <div class="highlight"><pre><span></span><code>eksctl utils associate-iam-oidc-provider \
     --region &lt;region-code&gt; \
     --cluster &lt;your-cluster-name&gt; \
@@ -1260,20 +1260,27 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 </code></pre></div></p>
 </li>
 <li>
-<p>Download IAM policy for the AWS Load Balancer Controller
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.7/docs/install/iam_policy.json
+<p>Download an IAM policy for the LBC using one of the following commands:<p>
+    If your cluster is in a US Gov Cloud region:
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.7/docs/install/iam_policy_us-gov.json
+</code></pre></div>
+    If your cluster is in a China region:
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.7/docs/install/iam_policy_cn.json 
+</code></pre></div>
+    If your cluster is in any other region:
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.7/docs/install/iam_policy.json  
 </code></pre></div></p>
 </li>
 <li>
-<p>Create an IAM policy called AWSLoadBalancerControllerIAMPolicy
+<p>Create an IAM policy named <code>AWSLoadBalancerControllerIAMPolicy</code>. If you downloaded a different policy, replace <code>iam-policy</code> with the name of the policy that you downloaded.
     <div class="highlight"><pre><span></span><code>aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
     --policy-document file://iam-policy.json
 </code></pre></div>
-    Take note of the policy ARN that is returned</p>
+    Take note of the policy ARN that's returned.</p>
 </li>
 <li>
-<p>Create a IAM role and ServiceAccount for the AWS Load Balancer controller, use the ARN from the step above
+<p>Create an IAM role and Kubernetes <code>ServiceAccount</code> for the LBC. Use the ARN from the previous step.
     <div class="highlight"><pre><span></span><code>eksctl create iamserviceaccount \
 --cluster=&lt;cluster-name&gt; \
 --namespace=kube-system \
@@ -1285,11 +1292,11 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 </code></pre></div></p>
 </li>
 </ol>
-<h3 id="option-b-attach-iam-policies-to-nodes">Option B: Attach IAM Policies to Nodes<a class="headerlink" href="#option-b-attach-iam-policies-to-nodes" title="Permanent link">&para;</a></h3>
-<p>If not setting up IAM for ServiceAccount, apply the IAM policies from the following URL at minimum.
+<h3 id="option-b-attach-iam-policies-to-nodes">Option B: Attach IAM policies to nodes<a class="headerlink" href="#option-b-attach-iam-policies-to-nodes" title="Permanent link">&para;</a></h3>
+<p>If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum.
 <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.4.7/docs/install/iam_policy.json
 </code></pre></div></p>
-<p><em>IAM permission subset for those who use </em>TargetGroupBinding<em> only and don't plan to use the AWS Load Balancer Controller to manage security group rules:</em></p>
+<p>The following IAM permissions subset is for those using <code>TargetGroupBinding</code> only and don't plan to use the LBC to manage security group rules:</p>
 <div class="highlight"><pre><span></span><code>{
     &quot;Statement&quot;: [
         {
@@ -1311,22 +1318,22 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
     &quot;Version&quot;: &quot;2012-10-17&quot;
 }
 </code></pre></div>
-<h2 id="network-configuration">Network Configuration<a class="headerlink" href="#network-configuration" title="Permanent link">&para;</a></h2>
-<p>Review the <a href="https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html">worker nodes security group</a> docs. The node security group must permit incoming traffic on TCP port 9443 from the kubernetes control plane. This is needed for webhook access. </p>
-<p>If you use <a href="https://eksctl.io/usage/vpc-networking/">eksctl</a>, this is the default configuration. </p>
-<h2 id="add-controller-to-cluster">Add Controller to Cluster<a class="headerlink" href="#add-controller-to-cluster" title="Permanent link">&para;</a></h2>
-<p>We recommend using the Helm chart. This supports Fargate and facilitates updating the controller.</p>
-<div class="tabbed-set" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><label for="__tabbed_1_1">Via Helm</label><div class="tabbed-content">
-<p>If you want to run the controller on Fargate, use the Helm chart since it does not depend on the cert-manager.</p>
-<h3 id="detailed-instructions">Detailed Instructions<a class="headerlink" href="#detailed-instructions" title="Permanent link">&para;</a></h3>
-<p>Follow the instructions in <a href="https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller">aws-load-balancer-controller</a> helm chart.</p>
+<h2 id="network-configuration">Network configuration<a class="headerlink" href="#network-configuration" title="Permanent link">&para;</a></h2>
+<p>Review the <a href="https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html">worker nodes security group</a> docs. Your node security group must permit incoming traffic on TCP port 9443 from the Kubernetes control plane. This is needed for webhook access.</p>
+<p>If you use <a href="https://eksctl.io/usage/vpc-networking/">eksctl</a>, this is the default configuration.</p>
+<h2 id="add-controller-to-cluster">Add controller to cluster<a class="headerlink" href="#add-controller-to-cluster" title="Permanent link">&para;</a></h2>
+<p>We recommend using the Helm chart to install the controller. The chart supports Fargate and facilitates updating the controller.</p>
+<div class="tabbed-set" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><label for="__tabbed_1_1">Helm</label><div class="tabbed-content">
+<p>If you want to run the controller on Fargate, use the Helm chart, since it doesn't depend on the <code>cert-manager</code>.</p>
+<h3 id="detailed-instructions">Detailed instructions<a class="headerlink" href="#detailed-instructions" title="Permanent link">&para;</a></h3>
+<p>Follow the instructions in the <a href="https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller">aws-load-balancer-controller</a> Helm chart.</p>
 <h3 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Add the EKS chart repo to helm
+<li>Add the EKS chart repo to Helm
 <div class="highlight"><pre><span></span><code>helm repo add eks https://aws.github.io/eks-charts
 </code></pre></div></li>
 <li>
-<p>Install the TargetGroupBinding CRDs if upgrading the chart via <code>helm upgrade</code>.
+<p>If upgrading the chart via <code>helm upgrade</code>, install the <code>TargetGroupBinding</code> CRDs.
 <div class="highlight"><pre><span></span><code>kubectl apply -k &quot;github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master&quot;
 </code></pre></div></p>
 <div class="admonition tip">
@@ -1335,23 +1342,23 @@ Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do 
 </div>
 </li>
 </ol>
-<p>Helm install command for clusters with IRSA: 
+<p>Helm install command for clusters with IRSA:
 <div class="highlight"><pre><span></span><code>helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=&lt;cluster-name&gt; --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller
 </code></pre></div></p>
 <p>Helm install command for clusters not using IRSA:
 <div class="highlight"><pre><span></span><code>helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=&lt;cluster-name&gt;
 </code></pre></div></p>
 </div>
-<input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><label for="__tabbed_1_2">Via YAML manifests</label><div class="tabbed-content">
-<h3 id="install-cert-manager">Install cert-manager<a class="headerlink" href="#install-cert-manager" title="Permanent link">&para;</a></h3>
+<input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><label for="__tabbed_1_2">YAML manifests</label><div class="tabbed-content">
+<h3 id="install-cert-manager">Install <code>cert-manager</code><a class="headerlink" href="#install-cert-manager" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code>kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.4/cert-manager.yaml
 </code></pre></div>
 <h3 id="apply-yaml">Apply YAML<a class="headerlink" href="#apply-yaml" title="Permanent link">&para;</a></h3>
 <ol>
-<li>Download spec for load balancer controller.
+<li>Download the spec for the LBC.
 <div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.4.7/v2_4_7_full.yaml
 </code></pre></div></li>
-<li>Edit the saved yaml file, go to the Deployment spec, and set the controller --cluster-name arg value to your EKS cluster name
+<li>Edit the saved yaml file, go to the Deployment spec, and set the controller <code>--cluster-name</code> arg value to your EKS cluster name
 <div class="highlight"><pre><span></span><code>apiVersion: apps/v1
 kind: Deployment
 . . .
@@ -1365,7 +1372,7 @@ spec:
                 - args:
                     - --cluster-name=&lt;INSERT_CLUSTER_NAME&gt;
 </code></pre></div></li>
-<li>If you use IAM roles for service accounts, we recommend that you delete the ServiceAccount from the yaml spec. This will preserve the eksctl created iamserviceaccount if you delete the installation section from the yaml spec.
+<li>If you use IAM roles for service accounts, we recommend that you delete the <code>ServiceAccount</code> from the yaml spec. If you delete the installation section from the yaml spec, deleting the <code>ServiceAccount</code> preserves the <code>eksctl</code> created <code>iamserviceaccount</code>.
 <div class="highlight"><pre><span></span><code>apiVersion: v1
 kind: ServiceAccount
 </code></pre></div></li>
@@ -1383,7 +1390,7 @@ kind: ServiceAccount
 </div>
 <h2 id="create-update-strategy">Create Update Strategy<a class="headerlink" href="#create-update-strategy" title="Permanent link">&para;</a></h2>
 <p>The controller doesn't receive security updates automatically. You need to manually upgrade to a newer version when it becomes available.</p>
-<p>This can be done using <a href="https://helm.sh/docs/helm/helm_upgrade/"><code>helm upgrade</code></a> or another strategy to manage the controller deployment.</p>
+<p>You can upgrade using <a href="https://helm.sh/docs/helm/helm_upgrade/"><code>helm upgrade</code></a> or another strategy to manage the controller deployment.</p>
                 
               
               
