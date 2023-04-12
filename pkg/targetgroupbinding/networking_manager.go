@@ -45,7 +45,7 @@ type NetworkingManager interface {
 
 // NewDefaultNetworkingManager constructs defaultNetworkingManager.
 func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver networking.PodENIInfoResolver, nodeENIResolver networking.NodeENIInfoResolver,
-	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler, vpcID string, clusterName string, logger logr.Logger, disabledRestrictedSGRulesFlag bool) *defaultNetworkingManager {
+	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler, vpcID string, clusterName string, endpointSGTags map[string]string, logger logr.Logger, disabledRestrictedSGRulesFlag bool) *defaultNetworkingManager {
 
 	return &defaultNetworkingManager{
 		k8sClient:       k8sClient,
@@ -55,6 +55,7 @@ func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver network
 		sgReconciler:    sgReconciler,
 		vpcID:           vpcID,
 		clusterName:     clusterName,
+		endpointSGTags:  endpointSGTags,
 		logger:          logger,
 
 		mutex:                         sync.Mutex{},
@@ -74,6 +75,7 @@ type defaultNetworkingManager struct {
 	sgReconciler    networking.SecurityGroupReconciler
 	vpcID           string
 	clusterName     string
+	endpointSGTags  map[string]string
 	logger          logr.Logger
 
 	// mutex will serialize our TargetGroup's networking reconcile requests.
@@ -518,19 +520,36 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 		return "", err
 	}
 	clusterResourceTagKey := fmt.Sprintf("kubernetes.io/cluster/%s", m.clusterName)
-	sgIDsWithClusterTag := sets.NewString()
+	sgIDsWithMatchingEndpointSGTags := sets.NewString()
 	for sgID, sgInfo := range sgInfoByID {
+		isMatch := true
 		if _, ok := sgInfo.Tags[clusterResourceTagKey]; ok {
-			sgIDsWithClusterTag.Insert(sgID)
+			for endpointSGTagKey, endpointSGTagValue := range m.endpointSGTags {
+				if sgInfo.Tags[endpointSGTagKey] != endpointSGTagValue {
+					isMatch = false
+					break
+				}
+			}
+		} else {
+			continue
+		}
+
+		if isMatch {
+			sgIDsWithMatchingEndpointSGTags.Insert(sgID)
 		}
 	}
-	if len(sgIDsWithClusterTag) != 1 {
+
+	if len(sgIDsWithMatchingEndpointSGTags) != 1 {
 		// user may provide incorrect `--cluster-name` at bootstrap or modify the tag key unexpectedly, it is hard to find out if no clusterName included in error message.
 		// having `clusterName` included in error message might be helpful for shorten the troubleshooting time spent.
-		return "", errors.Errorf("expect exactly one securityGroup tagged with %v for eni %v, got: %v (clusterName: %v)",
-			clusterResourceTagKey, eniInfo.NetworkInterfaceID, sgIDsWithClusterTag.List(), m.clusterName)
+		if len(m.endpointSGTags) == 0 {
+			return "", errors.Errorf("expect exactly one securityGroup tagged with %v for eni %v, got: %v (clusterName: %v)",
+				clusterResourceTagKey, eniInfo.NetworkInterfaceID, sgIDsWithMatchingEndpointSGTags.List(), m.clusterName)
+		}
+		return "", errors.Errorf("expect exactly one securityGroup tagged with %v and %v for eni %v, got: %v (clusterName: %v)",
+			clusterResourceTagKey, m.endpointSGTags, eniInfo.NetworkInterfaceID, sgIDsWithMatchingEndpointSGTags.List(), m.clusterName)
 	}
-	sgID, _ := sgIDsWithClusterTag.PopAny()
+	sgID, _ := sgIDsWithMatchingEndpointSGTags.PopAny()
 	return sgID, nil
 }
 
