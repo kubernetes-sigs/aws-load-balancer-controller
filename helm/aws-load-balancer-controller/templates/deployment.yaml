@@ -131,6 +131,9 @@ spec:
         {{- if .Values.defaultTags }}
         - --default-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.defaultTags | trimSuffix "," }}
         {{- end }}
+        {{- if .Values.endpointSGTags }}
+        - --endpoint-security-group-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.endpointSGTags | trimSuffix "," }}
+        {{- end }}
         {{- if kindIs "bool" .Values.enableEndpointSlices }}
         - --enable-endpoint-slices={{ .Values.enableEndpointSlices }}
         {{- end }}
