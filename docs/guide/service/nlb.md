@@ -4,7 +4,6 @@ The AWS Load Balancer Controller (LBC) supports reconciliation for Kubernetes Se
 
 !!! info "Secure by default"
     Since the [:octicons-tag-24: v2.2.0](https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/tag/v2.2.0) release, the LBC provisions an `internal` NLB by default.
-
     To create an `internet-facing` NLB, the following annotation is required on your service:
 
     ```yaml
@@ -37,9 +36,7 @@ In order for the LBC to manage the reconciliation of Kubernetes Service resource
     The LBC supports the `LoadBalancerClass` feature since the [:octicons-tag-24: v2.4.0](https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/tag/v2.4.0) release for Kubernetes v1.22+ clusters.
 
     The `LoadBalancerClass` feature provides a `CloudProvider` agnostic way of offloading the reconciliation for Kubernetes Service resources of type `LoadBalancer` to an external controller.
-
     When you specify the `spec.loadBalancerClass` to be `service.k8s.aws/nlb` on a Kubernetes Service resource of type `LoadBalancer`, the LBC takes charge of reconciliation by provisioning an NLB.
-
     !!! warning
         - If you modify a Service resource with matching `spec.loadBalancerClass` by changing its `type` from `LoadBalancer` to anything else, the controller will cleanup the provisioned NLB for that Service.
 
@@ -104,7 +101,6 @@ In order for the LBC to manage the reconciliation of Kubernetes Service resource
         service.beta.kubernetes.io/aws-load-balancer-type: external
         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
         ```
-
     !!! example "Example: instance mode"
         ```yaml hl_lines="6 7"
         apiVersion: v1
