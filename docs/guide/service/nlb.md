@@ -3,8 +3,8 @@
 The AWS Load Balancer Controller (LBC) supports reconciliation for Kubernetes Service resources of type `LoadBalancer` by provisioning an AWS Network Load Balancer (NLB) with an `instance` or `ip` [target type](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#target-type).
 
 !!! info "Secure by default"
-    Since the [:octicons-tag-24: v2.2.0](https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/tag/v2.2.0) release, the LBC provisions an `internal` NLB by default. 
-    
+    Since the [:octicons-tag-24: v2.2.0](https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/tag/v2.2.0) release, the LBC provisions an `internal` NLB by default.
+
     To create an `internet-facing` NLB, the following annotation is required on your service:
 
     ```yaml
@@ -28,20 +28,20 @@ The AWS Load Balancer Controller (LBC) supports reconciliation for Kubernetes Se
 
 ## Configuration
 
-By default, Kubernetes Service resources of type `LoadBalancer` get reconciled by the Kubernetes controller built into the `CloudProvider` component of the `kube-controller-manager` or the `cloud-controller-manager`(also known as the in-tree controller). 
+By default, Kubernetes Service resources of type `LoadBalancer` get reconciled by the Kubernetes controller built into the `CloudProvider` component of the `kube-controller-manager` or the `cloud-controller-manager`(also known as the in-tree controller).
 
 In order for the LBC to manage the reconciliation of Kubernetes Service resources of type `LoadBalancer`, you need to offload the reconciliation from the in-tree controller to the LBC, explicitly.
 
 
 === "With LoadBalancerClass"
-    The LBC supports the `LoadBalancerClass` feature since the [:octicons-tag-24: v2.4.0](https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/tag/v2.4.0) release for Kubernetes v1.22+ clusters. 
-     
+    The LBC supports the `LoadBalancerClass` feature since the [:octicons-tag-24: v2.4.0](https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/tag/v2.4.0) release for Kubernetes v1.22+ clusters.
+
     The `LoadBalancerClass` feature provides a `CloudProvider` agnostic way of offloading the reconciliation for Kubernetes Service resources of type `LoadBalancer` to an external controller.
-    
+
     When you specify the `spec.loadBalancerClass` to be `service.k8s.aws/nlb` on a Kubernetes Service resource of type `LoadBalancer`, the LBC takes charge of reconciliation by provisioning an NLB.
 
     !!! warning
-        - If you modify a Service resource with matching `spec.loadBalancerClass` by changing its `type` from `LoadBalancer` to anything else, the controller will cleanup the provioned NLB for that Service.
+        - If you modify a Service resource with matching `spec.loadBalancerClass` by changing its `type` from `LoadBalancer` to anything else, the controller will cleanup the provisioned NLB for that Service.
 
         - If the `spec.loadBalancerClass` is set to a `loadBalancerClass` that isn't recognized by the LBC, it ignores the Service resource, regardless of the `service.beta.kubernetes.io/aws-load-balancer-type` annotation.
 
@@ -89,14 +89,14 @@ In order for the LBC to manage the reconciliation of Kubernetes Service resource
         ```
 
 === "With `service.beta.kubernetes.io/aws-load-balancer-type` annotation"
-    The AWS in-tree controller supports an AWS specific way of offloading the reconciliation for Kubernetes Service resources of type `LoadBalancer` to an external controller. 
+    The AWS in-tree controller supports an AWS specific way of offloading the reconciliation for Kubernetes Service resources of type `LoadBalancer` to an external controller.
 
     When you specify the [`service.beta.kubernetes.io/aws-load-balancer-type` annotation](./annotations.md#lb-type) to be `external` on a Kubernetes Service resource of type `LoadBalancer`, the in-tree controller ignores the Service resource. In addition, if you specify the [`service.beta.kubernetes.io/aws-load-balancer-nlb-target-type` annotation](./annotations.md#nlb-target-type) on the Service resource, the LBC takes charge of reconciliation by provisioning an NLB.
 
     !!! warning
         - It's not recommended to modify or add the `service.beta.kubernetes.io/aws-load-balancer-type` annotation on an existing Service resource. If a change is desired, delete the existing Service resource and create a new one instead of modifying an existing Service.
 
-        - If you modify this annotation on an existing Service resource, you might end up with leaked LBC resources. 
+        - If you modify this annotation on an existing Service resource, you might end up with leaked LBC resources.
 
     !!! note "backwards compatibility for `nlb-ip` type"
         For backwards compatibility, both the in-tree and LBC controller supports `nlb-ip` as a value for the `service.beta.kubernetes.io/aws-load-balancer-type` annotation. The controllers treats it as if you specified both of the following annotations:
@@ -104,7 +104,7 @@ In order for the LBC to manage the reconciliation of Kubernetes Service resource
         service.beta.kubernetes.io/aws-load-balancer-type: external
         service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
         ```
-    
+
     !!! example "Example: instance mode"
         ```yaml hl_lines="6 7"
         apiVersion: v1
@@ -144,7 +144,7 @@ In order for the LBC to manage the reconciliation of Kubernetes Service resource
         ```
 
 ## Protocols
-The LBC supports both TCP and UDP protocols. The controller also configures TLS termination on your NLB if you configure the Service with a certificate annotation. 
+The LBC supports both TCP and UDP protocols. The controller also configures TLS termination on your NLB if you configure the Service with a certificate annotation.
 
 In the case of TCP, an NLB with IP targets doesn't pass the client source IP address, unless you specifically configure it to using target group attributes. Your application pods might not see the actual client IP address, even if the NLB passes it along. For example, if you're using instance mode with `externalTrafficPolicy` set to `Cluster`.
 In such cases, you can configure [NLB proxy protocol v2](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#proxy-protocol) using an [annotation](https://kubernetes.io/docs/concepts/services-networking/service/#proxy-protocol-support-on-aws) if you need visibility into
@@ -181,6 +181,8 @@ The controller automatically selects the worker node security groups that it mod
     | `kubernetes.io/cluster/${cluster-name}` | `owned` or `shared` |
 
     `${cluster-name}` is the name of the Kubernetes cluster.
+
+In the case that you have more than one matching security group with the tag `kubernetes.io/cluster/${cluster-name}`, you may specify additional tags with the `endpoint-security-group-tags` to further specify the security group that should be used.
 
 ### Worker node security groups rules
 
