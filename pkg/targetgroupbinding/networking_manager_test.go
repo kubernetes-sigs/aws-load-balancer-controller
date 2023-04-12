@@ -3,8 +3,11 @@ package targetgroupbinding
 import (
 	"context"
 	"errors"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,7 +15,6 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"testing"
 )
 
 func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *testing.T) {
@@ -1409,6 +1411,291 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 			}
 			got := m.computeRestrictedIngressPermissionsPerSG(context.Background())
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
+	type fetchSGInfosByIDCall struct {
+		req  []string
+		resp map[string]networking.SecurityGroupInfo
+		err  error
+	}
+
+	type fields struct {
+		fetchSGInfosByRequestCalls []fetchSGInfosByIDCall
+		endpointSGTags             map[string]string
+	}
+	type args struct {
+		ctx     context.Context
+		eniInfo networking.ENIInfo
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "Only one security group in eniInfo returns early",
+			fields: fields{
+				endpointSGTags: map[string]string{},
+			},
+			args: args{
+				ctx: context.Background(),
+				eniInfo: networking.ENIInfo{
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a"},
+				},
+			},
+			want:    "sg-a",
+			wantErr: false,
+		},
+		{
+			name: "No security group in eniInfo returns error",
+			fields: fields{
+				endpointSGTags: map[string]string{},
+				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
+					{
+						req:  []string{},
+						resp: map[string]networking.SecurityGroupInfo{},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				eniInfo: networking.ENIInfo{
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{},
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "A single security group with cluster name tag and no endpoint tags set",
+			fields: fields{
+				endpointSGTags: map[string]string{},
+				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
+					{
+						req: []string{"sg-a", "sg-b"},
+						resp: map[string]networking.SecurityGroupInfo{
+							"sg-a": {
+								SecurityGroupID: "sg-a",
+								Tags: map[string]string{
+									"kubernetes.io/cluster/cluster-a": "owned",
+								},
+							},
+							"sg-b": {
+								SecurityGroupID: "sg-b",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB2",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				eniInfo: networking.ENIInfo{
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a", "sg-b"},
+				},
+			},
+			want:    "sg-a",
+			wantErr: false,
+		},
+		{
+			name: "A single security group with cluster name tag and one endpoint tag set",
+			fields: fields{
+				endpointSGTags: map[string]string{
+					"keyA": "valueA",
+				},
+				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
+					{
+						req: []string{"sg-a", "sg-b"},
+						resp: map[string]networking.SecurityGroupInfo{
+							"sg-a": {
+								SecurityGroupID: "sg-a",
+								Tags: map[string]string{
+									"kubernetes.io/cluster/cluster-a": "owned",
+								},
+							},
+							"sg-b": {
+								SecurityGroupID: "sg-b",
+								Tags: map[string]string{
+									"kubernetes.io/cluster/cluster-a": "owned",
+									"keyA":                            "valueA",
+									"keyB":                            "valueB2",
+									"keyC":                            "valueC",
+									"keyD":                            "valueD",
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				eniInfo: networking.ENIInfo{
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a", "sg-b"},
+				},
+			},
+			want:    "sg-b",
+			wantErr: false,
+		},
+		{
+			name: "A single security group with cluster name tag and one endpoint tag set with no matches",
+			fields: fields{
+				endpointSGTags: map[string]string{
+					"keyA": "valueNotA",
+				},
+				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
+					{
+						req: []string{"sg-a", "sg-b"},
+						resp: map[string]networking.SecurityGroupInfo{
+							"sg-a": {
+								SecurityGroupID: "sg-a",
+								Tags: map[string]string{
+									"kubernetes.io/cluster/cluster-a": "owned",
+								},
+							},
+							"sg-b": {
+								SecurityGroupID: "sg-b",
+								Tags: map[string]string{
+									"kubernetes.io/cluster/cluster-a": "owned",
+									"keyA":                            "valueA",
+									"keyB":                            "valueB2",
+									"keyC":                            "valueC",
+									"keyD":                            "valueD",
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				eniInfo: networking.ENIInfo{
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a", "sg-b"},
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "A single security group with cluster name tag and multiple endpoint tags set",
+			fields: fields{
+				endpointSGTags: map[string]string{
+					"keyA": "valueA",
+					"keyB": "valueB2",
+				},
+				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
+					{
+						req: []string{"sg-a", "sg-b"},
+						resp: map[string]networking.SecurityGroupInfo{
+							"sg-a": {
+								SecurityGroupID: "sg-a",
+								Tags: map[string]string{
+									"kubernetes.io/cluster/cluster-a": "owned",
+								},
+							},
+							"sg-b": {
+								SecurityGroupID: "sg-b",
+								Tags: map[string]string{
+									"kubernetes.io/cluster/cluster-a": "owned",
+									"keyA":                            "valueA",
+									"keyB":                            "valueB2",
+									"keyC":                            "valueC",
+									"keyD":                            "valueD",
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				eniInfo: networking.ENIInfo{
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a", "sg-b"},
+				},
+			},
+			want:    "sg-b",
+			wantErr: false,
+		},
+		{
+			name: "A single security group with cluster name tag and multiple endpoint tags set with no matches",
+			fields: fields{
+				endpointSGTags: map[string]string{
+					"keyA": "valueA",
+					"keyB": "valueNotB2",
+				},
+				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
+					{
+						req: []string{"sg-a", "sg-b"},
+						resp: map[string]networking.SecurityGroupInfo{
+							"sg-a": {
+								SecurityGroupID: "sg-a",
+								Tags: map[string]string{
+									"kubernetes.io/cluster/cluster-a": "owned",
+								},
+							},
+							"sg-b": {
+								SecurityGroupID: "sg-b",
+								Tags: map[string]string{
+									"kubernetes.io/cluster/cluster-a": "owned",
+									"keyA":                            "valueA",
+									"keyB":                            "valueB2",
+									"keyC":                            "valueC",
+									"keyD":                            "valueD",
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				ctx: context.Background(),
+				eniInfo: networking.ENIInfo{
+					NetworkInterfaceID: "eni-a",
+					SecurityGroups:     []string{"sg-a", "sg-b"},
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+
+		sgManager := networking.NewMockSecurityGroupManager(ctrl)
+		for _, call := range tt.fields.fetchSGInfosByRequestCalls {
+			sgManager.EXPECT().FetchSGInfosByID(gomock.Any(), call.req).Return(call.resp, call.err)
+		}
+
+		t.Run(tt.name, func(t *testing.T) {
+			m := &defaultNetworkingManager{
+				sgManager:      sgManager,
+				clusterName:    "cluster-a",
+				endpointSGTags: tt.fields.endpointSGTags,
+			}
+			got, err := m.resolveEndpointSGForENI(tt.args.ctx, tt.args.eniInfo)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("defaultNetworkingManager.resolveEndpointSGForENI() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("defaultNetworkingManager.resolveEndpointSGForENI() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
