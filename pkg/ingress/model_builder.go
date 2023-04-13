@@ -62,7 +62,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		elbv2TaggingManager:      elbv2TaggingManager,
 		featureGates:             featureGates,
 		defaultTags:              defaultTags,
-		externalManagedTags:      sets.NewString(externalManagedTags...),
+		externalManagedTags:      sets.New(externalManagedTags...),
 		defaultSSLPolicy:         defaultSSLPolicy,
 		defaultTargetType:        elbv2model.TargetType(defaultTargetType),
 		enableBackendSG:          enableBackendSG,
@@ -94,7 +94,7 @@ type defaultModelBuilder struct {
 	elbv2TaggingManager      elbv2deploy.TaggingManager
 	featureGates             config.FeatureGates
 	defaultTags              map[string]string
-	externalManagedTags      sets.String
+	externalManagedTags      sets.Set[string]
 	defaultSSLPolicy         string
 	defaultTargetType        elbv2model.TargetType
 	enableBackendSG          bool
@@ -186,7 +186,7 @@ type defaultModelBuildTask struct {
 	enableIPTargetType       bool
 
 	defaultTags                               map[string]string
-	externalManagedTags                       sets.String
+	externalManagedTags                       sets.Set[string]
 	defaultIPAddressType                      elbv2model.IPAddressType
 	defaultScheme                             elbv2model.LoadBalancerScheme
 	defaultSSLPolicy                          string
@@ -353,7 +353,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 
 // buildSSLRedirectConfig computes the SSLRedirect config for the IngressGroup. Returns nil if there is no SSLRedirect configured.
 func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig) (*SSLRedirectConfig, error) {
-	explicitSSLRedirectPorts := sets.Int64{}
+	explicitSSLRedirectPorts := sets.Set[int64]{}
 	for _, member := range t.ingGroup.Members {
 		var rawSSLRedirectPort int64
 		exists, err := t.annotationParser.ParseInt64Annotation(annotations.IngressSuffixSSLRedirect, &rawSSLRedirectPort, member.Ing.Annotations)
@@ -369,7 +369,7 @@ func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, list
 		return nil, nil
 	}
 	if len(explicitSSLRedirectPorts) > 1 {
-		return nil, errors.Errorf("conflicting sslRedirect port: %v", explicitSSLRedirectPorts.List())
+		return nil, errors.Errorf("conflicting sslRedirect port: %v", sets.List(explicitSSLRedirectPorts))
 	}
 	rawSSLRedirectPort, _ := explicitSSLRedirectPorts.PopAny()
 	if listenPortConfig, ok := listenPortConfigByPort[rawSSLRedirectPort]; !ok {

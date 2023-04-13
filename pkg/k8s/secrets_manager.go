@@ -50,7 +50,7 @@ type defaultSecretsManager struct {
 type secretItem struct {
 	store     cache.Store
 	rt        *cache.Reflector
-	ingresses sets.String
+	ingresses sets.Set[string]
 
 	stopCh chan struct{}
 }
@@ -60,7 +60,7 @@ func (m *defaultSecretsManager) MonitorSecrets(ingressGroupID string, secrets []
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	inputSecrets := make(sets.String)
+	inputSecrets := make(sets.Set[string])
 	for _, secret := range secrets {
 		inputSecrets.Insert(secret.String())
 		item, exists := m.secretMap[secret]
@@ -113,7 +113,7 @@ func (m *defaultSecretsManager) newReflector(namespace, name string) *secretItem
 	item := &secretItem{
 		store:     store,
 		rt:        rt,
-		ingresses: make(sets.String),
+		ingresses: sets.New[string](),
 		stopCh:    make(chan struct{}),
 	}
 	go item.startReflector()

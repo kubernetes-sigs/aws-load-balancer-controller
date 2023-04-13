@@ -88,7 +88,7 @@ func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string) ([]s
 	return certARNs.List(), nil
 }
 
-func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context) (map[string]sets.String, error) {
+func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context) (map[string]sets.Set[string], error) {
 	d.loadDomainsByCertARNMutex.Lock()
 	defer d.loadDomainsByCertARNMutex.Unlock()
 
@@ -96,7 +96,7 @@ func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context) (m
 	if err != nil {
 		return nil, err
 	}
-	domainsByCertARN := make(map[string]sets.String, len(certARNs))
+	domainsByCertARN := make(map[string]sets.Set[string], len(certARNs))
 	for _, certARN := range certARNs {
 		certDomains, err := d.loadDomainsForCertificate(ctx, certARN)
 		if err != nil {
@@ -128,9 +128,9 @@ func (d *acmCertDiscovery) loadAllCertificateARNs(ctx context.Context) ([]string
 	return certARNs, nil
 }
 
-func (d *acmCertDiscovery) loadDomainsForCertificate(ctx context.Context, certARN string) (sets.String, error) {
+func (d *acmCertDiscovery) loadDomainsForCertificate(ctx context.Context, certARN string) (sets.Set[string], error) {
 	if rawCacheItem, ok := d.certDomainsCache.Get(certARN); ok {
-		return rawCacheItem.(sets.String), nil
+		return rawCacheItem.(sets.Set[string]), nil
 	}
 	req := &acm.DescribeCertificateInput{
 		CertificateArn: aws.String(certARN),
@@ -140,7 +140,7 @@ func (d *acmCertDiscovery) loadDomainsForCertificate(ctx context.Context, certAR
 		return nil, err
 	}
 	certDetail := resp.Certificate
-	domains := sets.NewString(aws.StringValueSlice(certDetail.SubjectAlternativeNames)...)
+	domains := sets.New[string](aws.StringValueSlice(certDetail.SubjectAlternativeNames)...)
 	switch aws.StringValue(certDetail.Type) {
 	case acm.CertificateTypeImported:
 		d.certDomainsCache.Set(certARN, domains, d.importedCertDomainsCacheTTL)

@@ -89,7 +89,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) (string, error) {
-	explicitNames := sets.String{}
+	explicitNames := sets.Set[string]{}
 	for _, member := range t.ingGroup.Members {
 		rawName := ""
 		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixLoadBalancerName, &rawName, member.Ing.Annotations); !exists {
@@ -125,7 +125,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
-	explicitSchemes := sets.String{}
+	explicitSchemes := sets.Set[string]{}
 	for _, member := range t.ingGroup.Members {
 		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.Scheme != nil {
 			scheme := string(*member.IngClassConfig.IngClassParams.Spec.Scheme)

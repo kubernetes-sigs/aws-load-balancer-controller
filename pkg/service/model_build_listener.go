@@ -144,7 +144,7 @@ func validateTLSPortsSet(rawTLSPorts []string, ports []corev1.ServicePort) error
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.String, error) {
+func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.Set[string], error) {
 	var rawTLSPorts []string
 
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLPorts, &rawTLSPorts, t.service.Annotations)
@@ -155,7 +155,7 @@ func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.String
 		return nil, err
 	}
 
-	return sets.NewString(rawTLSPorts...), nil
+	return sets.New(rawTLSPorts...), nil
 }
 
 func (t *defaultModelBuildTask) buildBackendProtocol(_ context.Context) string {
@@ -186,7 +186,7 @@ func (t *defaultModelBuildTask) buildListenerALPNPolicy(ctx context.Context, lis
 
 type listenerConfig struct {
 	certificates    []elbv2model.Certificate
-	tlsPortsSet     sets.String
+	tlsPortsSet     sets.Set[string]
 	sslPolicy       *string
 	backendProtocol string
 }

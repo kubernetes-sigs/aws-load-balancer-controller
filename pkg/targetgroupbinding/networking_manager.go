@@ -59,7 +59,7 @@ func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver network
 
 		mutex:                         sync.Mutex{},
 		ingressPermissionsPerSGByTGB:  make(map[types.NamespacedName]map[string][]networking.IPPermissionInfo),
-		trackedEndpointSGs:            sets.NewString(),
+		trackedEndpointSGs:            sets.New[string](),
 		trackedEndpointSGsInitialized: false,
 		disableRestrictedSGRules:      disabledRestrictedSGRulesFlag,
 	}
@@ -83,7 +83,7 @@ type defaultNetworkingManager struct {
 	// trackedEndpointSGs are the full set of endpoint securityGroups that we have managed inbound rules to satisfying
 	// targetGroupBinding's network requirements.
 	// we'll GC inbound rules from these securityGroups if it's no longer needed by TargetGroupBindings.
-	trackedEndpointSGs sets.String
+	trackedEndpointSGs sets.Set[string]
 	// whether we have initialized trackedEndpointSGs from AWS.
 	// we discovery endpointSGs from VPC using clusterTags once, so we can still GC rules if some SGs are no longer referenced.
 	// a SG/nodeGroup might be removed from cluster while this controller is not running.
@@ -471,7 +471,7 @@ func (m *defaultNetworkingManager) gcIngressPermissionsFromUnusedEndpointSGs(ctx
 		return err
 	}
 	usedEndpointSGs := sets.StringKeySet(ingressPermissionsPerSG)
-	unusedEndpointSGs := endpointSGs.Difference(usedEndpointSGs)
+	unusedEndpointSGs := endpointSGs.Difference(sets.Set[string](usedEndpointSGs))
 
 	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
 	for sgID := range unusedEndpointSGs {
@@ -535,7 +535,7 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 }
 
 // fetchEndpointSGs will return tracked endpoint SecurityGroups.
-func (m *defaultNetworkingManager) fetchEndpointSGs(ctx context.Context) (sets.String, error) {
+func (m *defaultNetworkingManager) fetchEndpointSGs(ctx context.Context) (sets.Set[string], error) {
 	if !m.trackedEndpointSGsInitialized {
 		endpointSGs, err := m.fetchEndpointSGsFromAWS(ctx)
 		if err != nil {

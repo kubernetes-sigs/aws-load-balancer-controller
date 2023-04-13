@@ -198,7 +198,7 @@ func Test_defaultModelBuildTask_buildTargetGroupPort(t *testing.T) {
 func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 	type fields struct {
 		defaultTags         map[string]string
-		externalManagedTags sets.String
+		externalManagedTags sets.Set[string]
 	}
 	type args struct {
 		ing ClassifiedIngress

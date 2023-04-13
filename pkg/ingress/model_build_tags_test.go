@@ -14,7 +14,7 @@ import (
 
 func Test_defaultModelBuildTask_buildIngressGroupResourceTags(t *testing.T) {
 	type fields struct {
-		externalManagedTags sets.String
+		externalManagedTags sets.Set[string]
 	}
 	type args struct {
 		ingList []ClassifiedIngress
@@ -29,7 +29,7 @@ func Test_defaultModelBuildTask_buildIngressGroupResourceTags(t *testing.T) {
 		{
 			name: "tags from multiple Ingress didn't collision",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ingList: []ClassifiedIngress{
@@ -66,7 +66,7 @@ func Test_defaultModelBuildTask_buildIngressGroupResourceTags(t *testing.T) {
 		{
 			name: "tags from multiple Ingress has collision",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ingList: []ClassifiedIngress{
@@ -117,7 +117,7 @@ func Test_defaultModelBuildTask_buildIngressGroupResourceTags(t *testing.T) {
 
 func Test_defaultModelBuildTask_buildIngressResourceTags(t *testing.T) {
 	type fields struct {
-		externalManagedTags sets.String
+		externalManagedTags sets.Set[string]
 	}
 	type args struct {
 		ing ClassifiedIngress
@@ -132,7 +132,7 @@ func Test_defaultModelBuildTask_buildIngressResourceTags(t *testing.T) {
 		{
 			name: "non-empty annotation tags from Ingress - collision with external-managed tags",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ing: ClassifiedIngress{
@@ -153,7 +153,7 @@ func Test_defaultModelBuildTask_buildIngressResourceTags(t *testing.T) {
 		{
 			name: "non-empty annotation tags from Ingress, non-empty IngressClass tags",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ing: ClassifiedIngress{
@@ -196,7 +196,7 @@ func Test_defaultModelBuildTask_buildIngressResourceTags(t *testing.T) {
 		{
 			name: "empty tags from Ingress, empty tags from IngressClass",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ing: ClassifiedIngress{
@@ -232,7 +232,7 @@ func Test_defaultModelBuildTask_buildIngressResourceTags(t *testing.T) {
 
 func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 	type fields struct {
-		externalManagedTags sets.String
+		externalManagedTags sets.Set[string]
 	}
 	type args struct {
 		ing     ClassifiedIngress
@@ -248,7 +248,7 @@ func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 		{
 			name: "non-empty annotation tags from Ingress & Service - Service tags takes priority",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ing: ClassifiedIngress{
@@ -282,7 +282,7 @@ func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 		{
 			name: "non-empty annotation tags from Ingress - collision with external-managed tags",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ing: ClassifiedIngress{
@@ -309,7 +309,7 @@ func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 		{
 			name: "non-empty annotation tags from Ingress, non-empty IngressClass tags",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ing: ClassifiedIngress{
@@ -358,7 +358,7 @@ func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 		{
 			name: "non-empty annotation tags from Service, non-empty IngressClass tags",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ing: ClassifiedIngress{
@@ -407,7 +407,7 @@ func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 		{
 			name: "non-empty annotation tags from Ingress and Service, non-empty IngressClass tags",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ing: ClassifiedIngress{
@@ -460,7 +460,7 @@ func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 		{
 			name: "empty tags from Ingress & Service, empty tags from IngressClass",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ing: ClassifiedIngress{
@@ -502,7 +502,7 @@ func Test_defaultModelBuildTask_buildIngressBackendResourceTags(t *testing.T) {
 
 func Test_defaultModelBuildTask_buildIngressClassResourceTags(t *testing.T) {
 	type fields struct {
-		externalManagedTags sets.String
+		externalManagedTags sets.Set[string]
 	}
 	type args struct {
 		ingClassConfig ClassConfiguration
@@ -517,7 +517,7 @@ func Test_defaultModelBuildTask_buildIngressClassResourceTags(t *testing.T) {
 		{
 			name: "non-empty ingressClassParams, non-empty tags - no collision",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ingClassConfig: ClassConfiguration{
@@ -548,7 +548,7 @@ func Test_defaultModelBuildTask_buildIngressClassResourceTags(t *testing.T) {
 		{
 			name: "non-empty ingressClassParams, non-empty tags - has collision",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ingClassConfig: ClassConfiguration{
@@ -576,7 +576,7 @@ func Test_defaultModelBuildTask_buildIngressClassResourceTags(t *testing.T) {
 		{
 			name: "non-empty ingressClassParams, empty tags",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ingClassConfig: ClassConfiguration{
@@ -595,7 +595,7 @@ func Test_defaultModelBuildTask_buildIngressClassResourceTags(t *testing.T) {
 		{
 			name: "empty ingressClassParams",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				ingClassConfig: ClassConfiguration{
@@ -623,7 +623,7 @@ func Test_defaultModelBuildTask_buildIngressClassResourceTags(t *testing.T) {
 
 func Test_defaultModelBuildTask_validateTagCollisionWithExternalManagedTags(t *testing.T) {
 	type fields struct {
-		externalManagedTags sets.String
+		externalManagedTags sets.Set[string]
 	}
 	type args struct {
 		tags map[string]string
@@ -637,7 +637,7 @@ func Test_defaultModelBuildTask_validateTagCollisionWithExternalManagedTags(t *t
 		{
 			name: "non-empty externalManagedTags, non-empty tags - no collision",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				tags: map[string]string{
@@ -650,7 +650,7 @@ func Test_defaultModelBuildTask_validateTagCollisionWithExternalManagedTags(t *t
 		{
 			name: "non-empty externalManagedTags, non-empty tags - has collision",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				tags: map[string]string{
@@ -663,7 +663,7 @@ func Test_defaultModelBuildTask_validateTagCollisionWithExternalManagedTags(t *t
 		{
 			name: "non-empty externalManagedTags, empty tags",
 			fields: fields{
-				externalManagedTags: sets.NewString("tag-a", "tag-b"),
+				externalManagedTags: sets.New("tag-a", "tag-b"),
 			},
 			args: args{
 				tags: nil,
@@ -673,7 +673,7 @@ func Test_defaultModelBuildTask_validateTagCollisionWithExternalManagedTags(t *t
 		{
 			name: "empty externalManagedTags, non-empty tags",
 			fields: fields{
-				externalManagedTags: sets.NewString(),
+				externalManagedTags: sets.New[string](),
 			},
 			args: args{
 				tags: map[string]string{

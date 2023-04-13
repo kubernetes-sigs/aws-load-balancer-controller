@@ -1247,7 +1247,7 @@ func Test_defaultModelBuildTask_buildAdditionalResourceTags(t *testing.T) {
 	type fields struct {
 		service             *corev1.Service
 		defaultTags         map[string]string
-		externalManagedTags sets.String
+		externalManagedTags sets.Set[string]
 	}
 	tests := []struct {
 		name    string
@@ -1334,7 +1334,7 @@ func Test_defaultModelBuildTask_buildAdditionalResourceTags(t *testing.T) {
 						},
 					},
 				},
-				externalManagedTags: sets.NewString("k4"),
+				externalManagedTags: sets.New("k4"),
 			},
 			want: map[string]string{
 				"k1": "v1",
@@ -1352,7 +1352,7 @@ func Test_defaultModelBuildTask_buildAdditionalResourceTags(t *testing.T) {
 						},
 					},
 				},
-				externalManagedTags: sets.NewString("k3", "k4"),
+				externalManagedTags: sets.New("k3", "k4"),
 			},
 			wantErr: errors.New("external managed tag key k3 cannot be specified on Service"),
 		},

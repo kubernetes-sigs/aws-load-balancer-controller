@@ -243,7 +243,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 	type fields struct {
 		ingGroup            Group
 		defaultTags         map[string]string
-		externalManagedTags sets.String
+		externalManagedTags sets.Set[string]
 	}
 	tests := []struct {
 		name    string
@@ -434,7 +434,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 						},
 					},
 				},
-				externalManagedTags: sets.NewString("k3"),
+				externalManagedTags: sets.New("k3"),
 			},
 			want: map[string]string{
 				"k1": "v1",
@@ -470,7 +470,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
 						},
 					},
 				},
-				externalManagedTags: sets.NewString("k2"),
+				externalManagedTags: sets.New("k2"),
 			},
 			wantErr: errors.New("failed build tags for Ingress awesome-ns/ing-2: external managed tag key k2 cannot be specified"),
 		},

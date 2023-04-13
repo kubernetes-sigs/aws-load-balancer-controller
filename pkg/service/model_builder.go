@@ -49,7 +49,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		clusterName:         clusterName,
 		vpcID:               vpcID,
 		defaultTags:         defaultTags,
-		externalManagedTags: sets.NewString(externalManagedTags...),
+		externalManagedTags: sets.New(externalManagedTags...),
 		defaultSSLPolicy:    defaultSSLPolicy,
 		defaultTargetType:   elbv2model.TargetType(defaultTargetType),
 		enableIPTargetType:  enableIPTargetType,
@@ -70,7 +70,7 @@ type defaultModelBuilder struct {
 	clusterName         string
 	vpcID               string
 	defaultTags         map[string]string
-	externalManagedTags sets.String
+	externalManagedTags sets.Set[string]
 	defaultSSLPolicy    string
 	defaultTargetType   elbv2model.TargetType
 	enableIPTargetType  bool
@@ -153,7 +153,7 @@ type defaultModelBuildTask struct {
 	existingLoadBalancer          *elbv2deploy.LoadBalancerWithTags
 
 	defaultTags                          map[string]string
-	externalManagedTags                  sets.String
+	externalManagedTags                  sets.Set[string]
 	defaultSSLPolicy                     string
 	defaultAccessLogS3Enabled            bool
 	defaultAccessLogsS3Bucket            string
