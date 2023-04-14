@@ -10,6 +10,7 @@ The controller will attempt to discover TLS certificates from the `tls` field in
 
 !!!example
         - attaches certs for `www.example.com` to the ALB
+        
             ```yaml
             apiVersion: networking.k8s.io/v1
             kind: Ingress
@@ -40,6 +41,7 @@ The controller will attempt to discover TLS certificates from the `tls` field in
 
 !!!example
         - attaches a cert for `dev.example.com` or `*.example.com` to the ALB
+        
             ```yaml
             apiVersion: networking.k8s.io/v1
             kind: Ingress
