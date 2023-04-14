@@ -65,7 +65,7 @@ foo@bar:~$ kubectl describe deployment  -n kube-system  alb-ingress-controller |
         Existing Ingress resources do not need to be deleted.
 
 3. Install new AWSLoadBalancerController
-    1. Install AWSLoadBalancerController(v2.4.1) by following the [installation instructions](../installation.md)
+    1. Install AWSLoadBalancerController(v2.5.0) by following the [installation instructions](../installation.md)
     2. Grant [additional IAM policy](../../install/iam_policy_v1_to_v2_additional.json) needed for migration to the controller.
 
 4. Verify all Ingresses works as expected.
