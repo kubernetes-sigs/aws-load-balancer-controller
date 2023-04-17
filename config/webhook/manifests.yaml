@@ -9,7 +9,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /mutate-alb-target-control-namespace-v1-pod
     failurePolicy: Fail
     name: alb-target-control.namespace.elbv2.k8s.aws
@@ -28,7 +27,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /mutate-alb-target-control-object-v1-pod
     failurePolicy: Fail
     name: alb-target-control.object.elbv2.k8s.aws
@@ -47,7 +45,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /mutate-v1-pod
     failurePolicy: Ignore
     name: mpod.elbv2.k8s.aws
@@ -66,7 +63,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /mutate-v1-service
     failurePolicy: Fail
     name: mservice.elbv2.k8s.aws
@@ -85,7 +81,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /mutate-v1-pod-server-id
     failurePolicy: Fail
     name: quicid.elbv2.k8s.aws
@@ -104,7 +99,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
     failurePolicy: Fail
     name: mtargetgroupbinding.elbv2.k8s.aws
@@ -130,7 +124,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /validate-aga-k8s-aws-v1beta1-globalaccelerator
     failurePolicy: Fail
     matchPolicy: Equivalent
@@ -151,7 +144,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
     failurePolicy: Fail
     name: vingressclassparams.elbv2.k8s.aws
@@ -171,7 +163,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
     failurePolicy: Fail
     name: vtargetgroupbinding.elbv2.k8s.aws
@@ -191,7 +182,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /validate-networking-v1-ingress
     failurePolicy: Fail
     matchPolicy: Equivalent
