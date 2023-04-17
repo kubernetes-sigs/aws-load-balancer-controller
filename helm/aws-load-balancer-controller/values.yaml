@@ -306,7 +306,7 @@ controllerConfig:
   # ListenerRulesTagging: false
   # WeightedTargetGroups: false
   # ServiceTypeLoadBalancerOnly: false
-  # EndpointsFailOpen: false
+  # EndpointsFailOpen: true
   # EnableServiceController: false
   # EnableIPTargetType: false
   # SubnetsClusterTagCheck: false
