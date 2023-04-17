@@ -9,7 +9,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /mutate-v1-pod
     failurePolicy: Fail
     name: mpod.elbv2.k8s.aws
@@ -28,7 +27,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /mutate-v1-service
     failurePolicy: Fail
     name: mservice.elbv2.k8s.aws
@@ -47,7 +45,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
     failurePolicy: Fail
     name: mtargetgroupbinding.elbv2.k8s.aws
@@ -73,7 +70,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
     failurePolicy: Fail
     name: vingressclassparams.elbv2.k8s.aws
@@ -93,7 +89,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
     failurePolicy: Fail
     name: vtargetgroupbinding.elbv2.k8s.aws
@@ -113,7 +108,6 @@ webhooks:
     clientConfig:
       service:
         name: webhook-service
-        namespace: system
         path: /validate-networking-v1-ingress
     failurePolicy: Fail
     matchPolicy: Equivalent
