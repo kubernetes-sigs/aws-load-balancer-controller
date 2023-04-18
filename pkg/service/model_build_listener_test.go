@@ -159,7 +159,7 @@ func Test_defaultModelBuilderTask_buildListenerConfig(t *testing.T) {
 			},
 			want: &listenerConfig{
 				certificates:    ([]elbv2model.Certificate)(nil),
-				tlsPortsSet:     sets.NewString("83"),
+				tlsPortsSet:     sets.New[string]("83"),
 				sslPolicy:       new(string),
 				backendProtocol: "",
 			},
