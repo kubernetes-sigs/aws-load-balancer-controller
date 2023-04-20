@@ -119,14 +119,18 @@ ingressClassParams:
   # The name of ingressClassParams resource will be referred in ingressClass
   name:
   spec: {}
-    # You always can set specifications in `helm install` command through `--set` or `--set-string`
-    # If you do want to specify specifications in values.yaml, uncomment the following
-    # lines, adjust them as necessary, and remove the curly braces after 'spec:'.
+    # Due to dependency issue, the validation webhook ignores this particular ingressClassParams resource.
+    # We recommend creating ingressClassParams resources separately after installing this chart and the
+    # controller is functional.
+    #
+    # You can set the specifications in the `helm install` command through `--set` or `--set-string`
+    # If you do want to specify in the values.yaml, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'spec:'
+    #
     # namespaceSelector:
     #   matchLabels:
     # group:
     # scheme:
-    # subnets:
     # ipAddressType:
     # tags:
     # loadBalancerAttributes:

@@ -69,6 +69,12 @@ webhooks:
   name: mservice.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
   rules:
   - apiGroups:
     - ""
@@ -127,6 +133,12 @@ webhooks:
   name: vingressclassparams.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
   rules:
   - apiGroups:
     - elbv2.k8s.aws
