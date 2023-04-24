@@ -175,7 +175,7 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	}
 	r.logger.Info("successfully deployed model", "ingressGroup", ingGroup.ID)
 	r.secretsManager.MonitorSecrets(ingGroup.ID.String(), secrets)
-	if err := r.backendSGProvider.Release(ctx, k8s.ToSliceOfMetaObject(ingress.ExtractIngresses(ingGroup.Members)),
+	if err := r.backendSGProvider.Release(ctx, k8s.ToSliceOfMetaObject(ingGroup.Members),
 		k8s.ToSliceOfMetaObject(ingGroup.InactiveMembers), backendSGRequired); err != nil {
 		return nil, nil, err
 	}

@@ -283,7 +283,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if !t.enableBackendSG {
 			t.backendSGIDToken = managedSG.GroupID()
 		} else {
-			backendSGID, err := t.backendSGProvider.Get(ctx, k8s.ToSliceOfMetaObject(ExtractIngresses(t.ingGroup.Members)))
+			backendSGID, err := t.backendSGProvider.Get(ctx, k8s.ToSliceOfMetaObject(t.ingGroup.Members))
 			if err != nil {
 				return nil, err
 			}
@@ -309,7 +309,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 			if !t.enableBackendSG {
 				return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified")
 			}
-			backendSGID, err := t.backendSGProvider.Get(ctx, k8s.ToSliceOfMetaObject(ExtractIngresses(t.ingGroup.Members)))
+			backendSGID, err := t.backendSGProvider.Get(ctx, k8s.ToSliceOfMetaObject(t.ingGroup.Members))
 			if err != nil {
 				return nil, err
 			}
