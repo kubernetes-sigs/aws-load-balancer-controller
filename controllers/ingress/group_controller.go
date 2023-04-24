@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
@@ -175,8 +176,12 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	}
 	r.logger.Info("successfully deployed model", "ingressGroup", ingGroup.ID)
 	r.secretsManager.MonitorSecrets(ingGroup.ID.String(), secrets)
-	if err := r.backendSGProvider.Release(ctx, k8s.ToSliceOfMetaObject(ingGroup.Members),
-		k8s.ToSliceOfMetaObject(ingGroup.InactiveMembers), backendSGRequired); err != nil {
+	var inactiveResources []types.NamespacedName
+	inactiveResources = append(inactiveResources, k8s.ToSliceOfNamespacedNames(ingGroup.InactiveMembers)...)
+	if !backendSGRequired {
+		inactiveResources = append(inactiveResources, k8s.ToSliceOfNamespacedNames(ingGroup.Members)...)
+	}
+	if err := r.backendSGProvider.Release(ctx, networkingpkg.ResourceTypeIngress, inactiveResources); err != nil {
 		return nil, nil, err
 	}
 	return stack, lb, nil

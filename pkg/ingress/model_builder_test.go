@@ -2923,11 +2923,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			sgResolver := networkingpkg.NewDefaultSecurityGroupResolver(ec2Client, vpcID)
 			if tt.fields.enableBackendSG {
 				if len(tt.fields.backendSecurityGroup) > 0 {
-					backendSGProvider.EXPECT().Get(gomock.Any(), gomock.Any()).Return(tt.fields.backendSecurityGroup, nil).AnyTimes()
+					backendSGProvider.EXPECT().Get(gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return(tt.fields.backendSecurityGroup, nil).AnyTimes()
 				} else {
-					backendSGProvider.EXPECT().Get(gomock.Any(), gomock.Any()).Return("sg-auto", nil).AnyTimes()
+					backendSGProvider.EXPECT().Get(gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return("sg-auto", nil).AnyTimes()
 				}
-				backendSGProvider.EXPECT().Release(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+				backendSGProvider.EXPECT().Release(gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return(nil).AnyTimes()
 			}
 			defaultTargetType := tt.defaultTargetType
 			if defaultTargetType == "" {
