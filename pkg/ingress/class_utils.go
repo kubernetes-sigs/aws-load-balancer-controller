@@ -7,8 +7,8 @@ import (
 // ExtractIngresses returns the list of *networking.Ingress contained in the list of classifiedIngresses
 func ExtractIngresses(classifiedIngresses []ClassifiedIngress) []*networking.Ingress {
 	result := make([]*networking.Ingress, len(classifiedIngresses))
-	for _, v := range classifiedIngresses {
-		result = append(result, v.Ing)
+	for i, v := range classifiedIngresses {
+		result[i] = v.Ing
 	}
 	return result
 }
