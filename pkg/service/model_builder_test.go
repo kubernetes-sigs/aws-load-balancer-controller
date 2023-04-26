@@ -2278,7 +2278,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			wantError:             true,
+			featureGates: map[config.Feature]bool{
+				config.NLBSecurityGroup: false,
+			},
+			wantError: true,
 		},
 		{
 			testName: "deletion protection enabled error",
@@ -4920,10 +4923,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                }
                             ],
                             "ports":[
-                               {
-								  "port": 31223,
-                                  "protocol":"TCP"
-                               },
 							   {
 								  "port": 31223,
                                   "protocol":"UDP"
@@ -4971,10 +4970,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                }
                             ],
                             "ports":[
-                               {
-								  "port": 32323,
-                                  "protocol":"TCP"
-                               },
 							   {
 								  "port": 32323,
                                   "protocol":"UDP"

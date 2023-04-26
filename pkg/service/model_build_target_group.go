@@ -262,7 +262,7 @@ func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, tar
 
 // buildTargetGroupPort constructs the TargetGroup's port.
 // Note: TargetGroup's port is not in the data path as we always register targets with port specified.
-// so this settings don't really matter to our controller, and we do our best to use the most appropriate port as targetGroup's port to avoid UX confusing.
+// so this setting don't really matter to our controller, and we do our best to use the most appropriate port as targetGroup's port to avoid UX confusion.
 func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetType elbv2model.TargetType, svcPort corev1.ServicePort) int64 {
 	if targetType == elbv2model.TargetTypeInstance {
 		return int64(svcPort.NodePort)
@@ -408,15 +408,11 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	if targetType == elbv2api.TargetTypeInstance {
 		targetPort = intstr.FromInt(int(port.NodePort))
 	}
-	defaultSourceRanges, err := t.getDefaultIPSourceRanges(ctx, *targetGroup.Spec.IPAddressType, port.Protocol, scheme)
-	if err != nil {
-		return elbv2model.TargetGroupBindingResourceSpec{}, err
-	}
 	var tgbNetworking *elbv2model.TargetGroupBindingNetworking
 	if len(t.loadBalancer.Spec.SecurityGroups) == 0 {
-		tgbNetworking, err = t.buildTargetGroupBindingNetworkingLegacy(ctx, targetPort, *hc.Port, port, defaultSourceRanges, *targetGroup.Spec.IPAddressType)
+		tgbNetworking, err = t.buildTargetGroupBindingNetworkingLegacy(ctx, targetPort, *hc.Port, port, scheme, *targetGroup.Spec.IPAddressType)
 	} else {
-		tgbNetworking, err = t.buildTargetGroupBindingNetworking(ctx, port.Protocol, targetGroup.Spec.Port, *targetGroup.Spec.HealthCheckConfig.Port)
+		tgbNetworking, err = t.buildTargetGroupBindingNetworking(ctx, targetPort, *hc.Port, port)
 	}
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceSpec{}, err
@@ -442,60 +438,52 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, tgProtocol corev1.Protocol, tgPort int64, healthCheckPort intstr.IntOrString) (*elbv2model.TargetGroupBindingNetworking, error) {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, tgPort intstr.IntOrString,
+	hcPort intstr.IntOrString, port corev1.ServicePort) (*elbv2model.TargetGroupBindingNetworking, error) {
 	if t.backendSGIDToken == nil {
 		return nil, nil
 	}
 	protocolTCP := elbv2api.NetworkingProtocolTCP
 	protocolUDP := elbv2api.NetworkingProtocolUDP
 
+	var ports []elbv2api.NetworkingPort
 	if t.disableRestrictedSGRules {
-		ports := []elbv2api.NetworkingPort{
-			{
-				Protocol: &protocolTCP,
-				Port:     nil,
-			},
-		}
-		if tgProtocol == corev1.ProtocolUDP {
+		ports = append(ports, elbv2api.NetworkingPort{
+			Protocol: &protocolTCP,
+			Port:     nil,
+		})
+		if port.Protocol == corev1.ProtocolUDP {
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolUDP,
 				Port:     nil,
 			})
 		}
-		return &elbv2model.TargetGroupBindingNetworking{
-			Ingress: []elbv2model.NetworkingIngressRule{
-				{
-					From: []elbv2model.NetworkingPeer{
-						{
-							SecurityGroup: &elbv2model.SecurityGroup{
-								GroupID: t.backendSGIDToken,
-							},
-						},
-					},
-					Ports: ports,
-				},
-			},
-		}, nil
-	}
+	} else {
+		switch port.Protocol {
+		case corev1.ProtocolTCP:
+			ports = append(ports, elbv2api.NetworkingPort{
+				Protocol: &protocolTCP,
+				Port:     &tgPort,
+			})
+		case corev1.ProtocolUDP:
+			ports = append(ports, elbv2api.NetworkingPort{
+				Protocol: &protocolUDP,
+				Port:     &tgPort,
+			})
+			if hcPort.String() == healthCheckPortTrafficPort || (hcPort.Type == intstr.Int && hcPort.IntValue() == tgPort.IntValue()) {
+				ports = append(ports, elbv2api.NetworkingPort{
+					Protocol: &protocolTCP,
+					Port:     &tgPort,
+				})
+			}
+		}
 
-	targetGroupPort := intstr.FromInt(int(tgPort))
-	ports := []elbv2api.NetworkingPort{
-		{
-			Protocol: &protocolTCP,
-			Port:     &targetGroupPort,
-		},
-	}
-	if tgProtocol == corev1.ProtocolUDP {
-		ports = append(ports, elbv2api.NetworkingPort{
-			Protocol: &protocolUDP,
-			Port:     &targetGroupPort,
-		})
-	}
-	if healthCheckPort.String() != healthCheckPortTrafficPort && (healthCheckPort.Type == intstr.Int && healthCheckPort.IntVal != int32(tgPort)) {
-		ports = append(ports, elbv2api.NetworkingPort{
-			Protocol: &protocolTCP,
-			Port:     &healthCheckPort,
-		})
+		if hcPort.String() != healthCheckPortTrafficPort && (hcPort.Type == intstr.Int && hcPort.IntValue() != tgPort.IntValue()) {
+			ports = append(ports, elbv2api.NetworkingPort{
+				Protocol: &protocolTCP,
+				Port:     &hcPort,
+			})
+		}
 	}
 	return &elbv2model.TargetGroupBindingNetworking{
 		Ingress: []elbv2model.NetworkingIngressRule{
@@ -513,20 +501,19 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildPeersFromSourceRangesConfiguration(_ context.Context, defaultSourceRanges []string) ([]elbv2model.NetworkingPeer, bool) {
+func (t *defaultModelBuildTask) getLoadBalancerSourceRanges(_ context.Context) []string {
 	var sourceRanges []string
-	var peers []elbv2model.NetworkingPeer
-	customSourceRangesConfigured := true
 	for _, cidr := range t.service.Spec.LoadBalancerSourceRanges {
 		sourceRanges = append(sourceRanges, cidr)
 	}
 	if len(sourceRanges) == 0 {
 		t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSourceRanges, &sourceRanges, t.service.Annotations)
 	}
-	if len(sourceRanges) == 0 {
-		sourceRanges = defaultSourceRanges
-		customSourceRangesConfigured = false
-	}
+	return sourceRanges
+}
+
+func (t *defaultModelBuildTask) buildPeersFromSourceRangeCIDRs(_ context.Context, sourceRanges []string) []elbv2model.NetworkingPeer {
+	var peers []elbv2model.NetworkingPeer
 	for _, cidr := range sourceRanges {
 		peers = append(peers, elbv2model.NetworkingPeer{
 			IPBlock: &elbv2api.IPBlock{
@@ -534,11 +521,11 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRangesConfiguration(_ contex
 			},
 		})
 	}
-	return peers, customSourceRangesConfigured
+	return peers
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx context.Context, tgPort intstr.IntOrString,
-	hcPort intstr.IntOrString, port corev1.ServicePort, defaultSourceRanges []string, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) (*elbv2model.TargetGroupBindingNetworking, error) {
+	hcPort intstr.IntOrString, port corev1.ServicePort, scheme elbv2model.LoadBalancerScheme, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) (*elbv2model.TargetGroupBindingNetworking, error) {
 	manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlagLegacy(ctx)
 	if err != nil {
 		return nil, err
@@ -547,20 +534,28 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 		return nil, nil
 	}
 	tgProtocol := port.Protocol
-	loadBalancerSubnetsSourceRanges := t.getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType)
 	networkingProtocol := elbv2api.NetworkingProtocolTCP
+	healthCheckProtocol := elbv2api.NetworkingProtocolTCP
 	if tgProtocol == corev1.ProtocolUDP {
 		networkingProtocol = elbv2api.NetworkingProtocolUDP
 	}
-	trafficSource := loadBalancerSubnetsSourceRanges
-	customSourceRangesConfigured := false
+	loadBalancerSubnetCIDRs := t.getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType)
+	trafficSource := loadBalancerSubnetCIDRs
+	defaultRangeUsed := false
 	if networkingProtocol == elbv2api.NetworkingProtocolUDP || t.preserveClientIP {
-		trafficSource, customSourceRangesConfigured = t.buildPeersFromSourceRangesConfiguration(ctx, defaultSourceRanges)
+		trafficSource = t.getLoadBalancerSourceRanges(ctx)
+		if len(trafficSource) == 0 {
+			trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, port.Protocol, scheme)
+			if err != nil {
+				return nil, err
+			}
+			defaultRangeUsed = true
+		}
 	}
 	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
 		Ingress: []elbv2model.NetworkingIngressRule{
 			{
-				From: trafficSource,
+				From: t.buildPeersFromSourceRangeCIDRs(ctx, trafficSource),
 				Ports: []elbv2api.NetworkingPort{
 					{
 						Port:     &tgPort,
@@ -570,9 +565,21 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 			},
 		},
 	}
-	if hcIngressRules := t.buildHealthCheckNetworkingIngressRules(trafficSource, loadBalancerSubnetsSourceRanges, tgPort, hcPort, tgProtocol,
-		customSourceRangesConfigured); len(hcIngressRules) > 0 {
-		tgbNetworking.Ingress = append(tgbNetworking.Ingress, hcIngressRules...)
+	if healthCheckSourceCIDRs := t.buildHealthCheckSourceCIDRs(trafficSource, loadBalancerSubnetCIDRs, tgPort, hcPort,
+		tgProtocol, defaultRangeUsed); len(healthCheckSourceCIDRs) > 0 {
+		networkingHealthCheckPort := hcPort
+		if hcPort.String() == healthCheckPortTrafficPort {
+			networkingHealthCheckPort = tgPort
+		}
+		tgbNetworking.Ingress = append(tgbNetworking.Ingress, elbv2model.NetworkingIngressRule{
+			From: t.buildPeersFromSourceRangeCIDRs(ctx, healthCheckSourceCIDRs),
+			Ports: []elbv2api.NetworkingPort{
+				{
+					Port:     &networkingHealthCheckPort,
+					Protocol: &healthCheckProtocol,
+				},
+			},
+		})
 	}
 	return tgbNetworking, nil
 }
@@ -597,28 +604,18 @@ func (t *defaultModelBuildTask) getDefaultIPSourceRanges(ctx context.Context, ta
 	return defaultSourceRanges, nil
 }
 
-func (t *defaultModelBuildTask) getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) []elbv2model.NetworkingPeer {
-	var subnetCIDRRanges []elbv2model.NetworkingPeer
+func (t *defaultModelBuildTask) getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) []string {
+	var subnetCIDRs []string
 	for _, subnet := range t.ec2Subnets {
 		if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv4 {
-			subnetCIDRRanges = append(subnetCIDRRanges, elbv2model.NetworkingPeer{
-				IPBlock: &elbv2api.IPBlock{
-					CIDR: aws.StringValue(subnet.CidrBlock),
-				},
-			})
+			subnetCIDRs = append(subnetCIDRs, aws.StringValue(subnet.CidrBlock))
 		} else {
 			for _, ipv6CIDRBlockAssoc := range subnet.Ipv6CidrBlockAssociationSet {
-				subnetCIDRRanges = append(subnetCIDRRanges, elbv2model.NetworkingPeer{
-					IPBlock: &elbv2api.IPBlock{
-						CIDR: aws.StringValue(ipv6CIDRBlockAssoc.Ipv6CidrBlock),
-					},
-				})
-
+				subnetCIDRs = append(subnetCIDRs, aws.StringValue(ipv6CIDRBlockAssoc.Ipv6CidrBlock))
 			}
 		}
 	}
-
-	return subnetCIDRRanges
+	return subnetCIDRs
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupIPAddressType(_ context.Context, svc *corev1.Service) (elbv2model.TargetGroupIPAddressType, error) {
@@ -654,36 +651,23 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildHealthCheckNetworkingIngressRules(trafficSource, hcSource []elbv2model.NetworkingPeer, tgPort, hcPort intstr.IntOrString,
-	tgProtocol corev1.Protocol, customSourceRanges bool) []elbv2model.NetworkingIngressRule {
+func (t *defaultModelBuildTask) buildHealthCheckSourceCIDRs(trafficSource, subnetCIDRs []string, tgPort, hcPort intstr.IntOrString,
+	tgProtocol corev1.Protocol, defaultRangeUsed bool) []string {
 	if tgProtocol != corev1.ProtocolUDP &&
 		(hcPort.String() == healthCheckPortTrafficPort || hcPort.IntValue() == tgPort.IntValue()) {
 		if !t.preserveClientIP {
-			return []elbv2model.NetworkingIngressRule{}
+			return nil
 		}
-		if !customSourceRanges {
-			return []elbv2model.NetworkingIngressRule{}
+		if defaultRangeUsed {
+			return nil
 		}
 		for _, src := range trafficSource {
-			if src.IPBlock.CIDR == "0.0.0.0/0" || src.IPBlock.CIDR == "::/0" {
-				return []elbv2model.NetworkingIngressRule{}
+			if src == "0.0.0.0/0" || src == "::/0" {
+				return nil
 			}
 		}
 	}
-	var healthCheckPorts []elbv2api.NetworkingPort
-	networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
-	networkingHealthCheckPort := hcPort
-	if hcPort.String() == healthCheckPortTrafficPort {
-		networkingHealthCheckPort = tgPort
-	}
-	healthCheckPorts = append(healthCheckPorts, elbv2api.NetworkingPort{
-		Port:     &networkingHealthCheckPort,
-		Protocol: &networkingProtocolTCP,
-	})
-	return []elbv2model.NetworkingIngressRule{{
-		From:  hcSource,
-		Ports: healthCheckPorts,
-	}}
+	return subnetCIDRs
 }
 
 func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlagLegacy(_ context.Context) (bool, error) {

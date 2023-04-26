@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/golang/mock/gomock"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sort"
 	"strconv"
 	"testing"
@@ -394,24 +397,30 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 	}
 }
 
-func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T) {
+func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *testing.T) {
 	networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
 	networkingProtocolUDP := elbv2api.NetworkingProtocolUDP
 	port80 := intstr.FromInt(80)
 	port808 := intstr.FromInt(808)
 	trafficPort := intstr.FromString("traffic-port")
+	cidrBlockStateAssociated := ec2.VpcCidrBlockStateCodeAssociated
+	type fetchVPCInfoCall struct {
+		wantVPCInfo networking.VPCInfo
+		err         error
+	}
 
 	tests := []struct {
-		name                string
-		svc                 *corev1.Service
-		tgPort              intstr.IntOrString
-		hcPort              intstr.IntOrString
-		subnets             []*ec2.Subnet
-		tgProtocol          corev1.Protocol
-		ipAddressType       elbv2.TargetGroupIPAddressType
-		preserveClientIP    bool
-		defaultSourceRanges []string
-		want                *elbv2.TargetGroupBindingNetworking
+		name              string
+		svc               *corev1.Service
+		tgPort            intstr.IntOrString
+		hcPort            intstr.IntOrString
+		subnets           []*ec2.Subnet
+		tgProtocol        corev1.Protocol
+		ipAddressType     elbv2.TargetGroupIPAddressType
+		preserveClientIP  bool
+		scheme            elbv2.LoadBalancerScheme
+		fetchVPCInfoCalls []fetchVPCInfoCall
+		want              *elbv2.TargetGroupBindingNetworking
 	}{
 		{
 			name: "udp-service with source ranges",
@@ -420,6 +429,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					LoadBalancerSourceRanges: []string{"10.0.0.0/16", "1.2.3.4/24"},
 				},
 			},
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			tgPort: port80,
 			hcPort: trafficPort,
 			subnets: []*ec2.Subnet{{
@@ -477,6 +487,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					},
 				},
 			},
+			scheme: elbv2.LoadBalancerSchemeInternal,
 			tgPort: port80,
 			hcPort: port808,
 			subnets: []*ec2.Subnet{{
@@ -526,11 +537,11 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:                "udp-service with no source ranges configuration",
-			svc:                 &corev1.Service{},
-			tgPort:              port80,
-			hcPort:              port808,
-			defaultSourceRanges: []string{"0.0.0.0/0"},
+			name:   "udp-service with no source ranges configuration",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port808,
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			subnets: []*ec2.Subnet{{
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
@@ -573,10 +584,83 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
+			name:   "udp-service with no source ranges configuration, internal",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port808,
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{{
+				CidrBlock: aws.String("172.16.0.0/19"),
+				SubnetId:  aws.String("az-1"),
+			}},
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("172.16.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+							{
+								CidrBlock: aws.String("1.2.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			tgProtocol:    corev1.ProtocolUDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/16",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.0.0/16",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:   "tcp-service with traffic-port hc",
 			svc:    &corev1.Service{},
 			tgPort: port80,
 			hcPort: trafficPort,
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			subnets: []*ec2.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
@@ -615,7 +699,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:   "tcp-service with preserveClient IP, traffic-port hc",
+			name:   "tcp-service with preserveClient IP, traffic-port hc, scheme internet-facing",
 			svc:    &corev1.Service{},
 			tgPort: port80,
 			hcPort: trafficPort,
@@ -629,10 +713,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					SubnetId:  aws.String("sn-2"),
 				},
 			},
-			defaultSourceRanges: []string{"0.0.0.0/0"},
-			tgProtocol:          corev1.ProtocolTCP,
-			ipAddressType:       elbv2.TargetGroupIPAddressTypeIPv4,
-			preserveClientIP:    true,
+			scheme:           elbv2.LoadBalancerSchemeInternetFacing,
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
+			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -640,6 +724,70 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "0.0.0.0/0",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "tcp-service with preserveClient IP, traffic-port hc, scheme internal",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: trafficPort,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					SubnetId:  aws.String("sn-2"),
+				},
+			},
+			scheme:           elbv2.LoadBalancerSchemeInternal,
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
+			preserveClientIP: true,
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("172.16.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+							{
+								CidrBlock: aws.String("1.2.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/16",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.0.0/16",
 								},
 							},
 						},
@@ -668,10 +816,9 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					SubnetId:  aws.String("sn-2"),
 				},
 			},
-			tgProtocol:          corev1.ProtocolTCP,
-			ipAddressType:       elbv2.TargetGroupIPAddressTypeIPv4,
-			preserveClientIP:    true,
-			defaultSourceRanges: []string{"0.0.0.0/0"},
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
+			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -899,11 +1046,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:                "ipv6 preserve client IP enabled",
-			svc:                 &corev1.Service{},
-			defaultSourceRanges: []string{"::/0"},
-			tgPort:              port80,
-			hcPort:              port80,
+			name:   "ipv6 preserve client IP enabled",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port80,
 			subnets: []*ec2.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
@@ -948,11 +1094,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:                "ipv6 preserve client IP disabled",
-			svc:                 &corev1.Service{},
-			defaultSourceRanges: []string{"::/0"},
-			tgPort:              port80,
-			hcPort:              port80,
+			name:   "ipv6 preserve client IP disabled",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port80,
 			subnets: []*ec2.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
@@ -1002,11 +1147,25 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:                "ipv6 preserve client IP enabled, vpc range default",
-			svc:                 &corev1.Service{},
-			defaultSourceRanges: []string{"2300:1ab3:ab0:1900::/56"},
-			tgPort:              port80,
-			hcPort:              port80,
+			name:   "ipv6 preserve client IP enabled, vpc range default",
+			svc:    &corev1.Service{},
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						Ipv6CidrBlockAssociationSet: []*ec2.VpcIpv6CidrBlockAssociation{
+							{
+								Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/56"),
+								Ipv6CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			tgPort: port80,
+			hcPort: port80,
 			subnets: []*ec2.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
@@ -1072,15 +1231,219 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+			for _, call := range tt.fetchVPCInfoCalls {
+				vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
+			}
+
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets, preserveClientIP: tt.preserveClientIP}
+			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets, preserveClientIP: tt.preserveClientIP,
+				defaultIPv4SourceRanges: []string{"0.0.0.0/0"}, defaultIPv6SourceRanges: []string{"::/0"}, vpcInfoProvider: vpcInfoProvider}
 			port := corev1.ServicePort{
 				Protocol: tt.tgProtocol,
 			}
-			got, _ := builder.buildTargetGroupBindingNetworkingLegacy(context.Background(), tt.tgPort, tt.hcPort, port, tt.defaultSourceRanges, tt.ipAddressType)
+			got, _ := builder.buildTargetGroupBindingNetworkingLegacy(context.Background(), tt.tgPort, tt.hcPort, port, tt.scheme, tt.ipAddressType)
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T) {
+	networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
+	networkingProtocolUDP := elbv2api.NetworkingProtocolUDP
+	port80 := intstr.FromInt(80)
+	port808 := intstr.FromInt(808)
+	trafficPort := intstr.FromString("traffic-port")
+	sgBackend := "sg-backend"
+
+	tests := []struct {
+		name                   string
+		tgPort                 intstr.IntOrString
+		hcPort                 intstr.IntOrString
+		tgProtocol             corev1.Protocol
+		disableRestrictedRules bool
+		backendSGIDToken       core.StringToken
+		want                   *elbv2.TargetGroupBindingNetworking
+	}{
+		{
+			name:                   "tcp with restricted rules disabled",
+			tgPort:                 port80,
+			hcPort:                 trafficPort,
+			tgProtocol:             corev1.ProtocolTCP,
+			backendSGIDToken:       core.LiteralStringToken(sgBackend),
+			disableRestrictedRules: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:                   "udp with restricted rules disabled",
+			tgPort:                 port80,
+			hcPort:                 trafficPort,
+			tgProtocol:             corev1.ProtocolUDP,
+			backendSGIDToken:       core.LiteralStringToken(sgBackend),
+			disableRestrictedRules: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+							},
+							{
+								Protocol: &networkingProtocolUDP,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "tcp with port restricted rules",
+			tgPort:           port80,
+			hcPort:           trafficPort,
+			tgProtocol:       corev1.ProtocolTCP,
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "udp with port restricted rules",
+			tgPort:           port80,
+			hcPort:           trafficPort,
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			tgProtocol:       corev1.ProtocolUDP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "tcp with port restricted rules, different hc",
+			tgPort:           port80,
+			hcPort:           port808,
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			tgProtocol:       corev1.ProtocolTCP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "udp with port restricted rules, different hc",
+			tgPort:           port80,
+			hcPort:           port808,
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			tgProtocol:       corev1.ProtocolUDP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:       "no backend SG configured",
+			tgPort:     port80,
+			hcPort:     port808,
+			tgProtocol: corev1.ProtocolUDP,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := &defaultModelBuildTask{disableRestrictedSGRules: tt.disableRestrictedRules, backendSGIDToken: tt.backendSGIDToken}
+			port := corev1.ServicePort{
+				Protocol: tt.tgProtocol,
+			}
+			got, _ := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.hcPort, port)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
 }
 
 func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
