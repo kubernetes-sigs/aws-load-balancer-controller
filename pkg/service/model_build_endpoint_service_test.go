@@ -28,7 +28,7 @@ func Test_defaultModelBuildTask_buildEnabled(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-endpoint-service-enabled": "true",
+						"service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-enabled": "true",
 					},
 				},
 			},
@@ -39,7 +39,7 @@ func Test_defaultModelBuildTask_buildEnabled(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-endpoint-service-enabled": "True",
+						"service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-enabled": "True",
 					},
 				},
 			},
@@ -81,7 +81,7 @@ func Test_defaultModelBuildTask_buildAcceptanceRequired(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required": "true",
+						"service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required": "true",
 					},
 				},
 			},
@@ -92,7 +92,7 @@ func Test_defaultModelBuildTask_buildAcceptanceRequired(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required": "True",
+						"service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required": "True",
 					},
 				},
 			},
@@ -133,7 +133,7 @@ func Test_defaultModelBuildTask_buildAllowedPrincipals(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals": "arn1",
+						"service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals": "arn1",
 					},
 				},
 			},
@@ -144,7 +144,7 @@ func Test_defaultModelBuildTask_buildAllowedPrincipals(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals": "arn1,arn2",
+						"service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals": "arn1,arn2",
 					},
 				},
 			},
@@ -181,7 +181,7 @@ func Test_defaultModelBuildTask_buildPrivateDNSName(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name": "privateDnsName",
+						"service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name": "privateDnsName",
 					},
 				},
 			},

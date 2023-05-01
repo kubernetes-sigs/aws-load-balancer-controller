@@ -49,10 +49,10 @@
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-endpoint-service-enabled](#endpoint-service-enable)| boolean                 | false                     |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required](#endpoint-service-acceptance)| boolean |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals](#endpoint-allowed-principals)| stringList |                         |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name](#endpoint-private-dns)| string            |                           |                                                        |
+| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-enabled](#endpoint-service-enable)| boolean                 | false                     |                                                        |
+| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required](#endpoint-service-acceptance)| boolean |                           |                                                        |
+| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals](#endpoint-allowed-principals)| stringList |                         |                                                        |
+| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name](#endpoint-private-dns)| string            |                           |                                                        |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -466,13 +466,13 @@ Load balancer access can be controlled via following annotations:
 ## VPC Endpoint Service
 A VPC Endpoint Service can be attached to a controlled loadbalancer via the following annotations:
 
-- <a name="endpoint-service-enable">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-enabled`</a> specifies whether to create a VPC Endpoint Service or not.  The `--enable-endpoint-service` flag must also be set.
+- <a name="endpoint-service-enable">`service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-enabled`</a> specifies whether to create a VPC Endpoint Service or not.  The `--enable-endpoint-service` flag must also be set.
 
-- <a name="endpoint-service-acceptance">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required`</a> specifies whether requests to attach an Endpoint to the Endpoint Service require manual acceptance.
+- <a name="endpoint-service-acceptance">`service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required`</a> specifies whether requests to attach an Endpoint to the Endpoint Service require manual acceptance.
 
-- <a name="endpoint-allowed-principals">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals`</a> is a list of principals from which an Endpoint can be attached to this Endpoint Service.
+- <a name="endpoint-allowed-principals">`service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals`</a> is a list of principals from which an Endpoint can be attached to this Endpoint Service.
 
-- <a name="endpoint-private-dns">`service.beta.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name`</a> is the private DNS name given to the Endpoint Service.  This will need to be verified through a valid DNS record.
+- <a name="endpoint-private-dns">`service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name`</a> is the private DNS name given to the Endpoint Service.  This will need to be verified through a valid DNS record.
 
 ## Legacy Cloud Provider
 The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the legacy aws cloud provider. The annotation `service.beta.kubernetes.io/aws-load-balancer-type` is used to determine which controller reconciles the service. If the annotation value is `nlb-ip` or `external`, legacy cloud provider ignores the service resource (provided it has the correct patch) so that the AWS Load Balancer controller can take over. For all other values of the annotation, the legacy cloud provider will handle the service. Note that this annotation should be specified during service creation and not edited later.

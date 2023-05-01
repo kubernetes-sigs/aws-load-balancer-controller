@@ -57,7 +57,7 @@ func (t *defaultModelBuildTask) buildEndpointService(ctx context.Context) error 
 
 func (t *defaultModelBuildTask) buildEnabled(_ context.Context) (bool, error) {
 	rawEnabled := defaultRawEnabled
-	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEndpointServiceEnabled, &rawEnabled, t.service.Annotations)
+	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEndpointServiceEnabled, &rawEnabled, t.service.Annotations, annotations.WithAlternativePrefixes("service.alpha.kubernetes.io"))
 	// We could use strconv here but we want to be explicit
 	switch rawEnabled {
 	case "true":
@@ -71,7 +71,7 @@ func (t *defaultModelBuildTask) buildEnabled(_ context.Context) (bool, error) {
 
 func (t *defaultModelBuildTask) buildAcceptanceRequired(_ context.Context) (bool, error) {
 	rawAcceptanceRequired := ""
-	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEndpointServiceAcceptanceRequired, &rawAcceptanceRequired, t.service.Annotations)
+	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEndpointServiceAcceptanceRequired, &rawAcceptanceRequired, t.service.Annotations, annotations.WithAlternativePrefixes("service.alpha.kubernetes.io"))
 	// We could use strconv here but we want to be explicit
 	switch rawAcceptanceRequired {
 	case "true":
@@ -85,7 +85,7 @@ func (t *defaultModelBuildTask) buildAcceptanceRequired(_ context.Context) (bool
 
 func (t *defaultModelBuildTask) buildAllowedPrincipals(_ context.Context) []string {
 	var rawAllowedPrincipals []string
-	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEndpointServiceAllowedPrincipals, &rawAllowedPrincipals, t.service.Annotations); !exists {
+	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEndpointServiceAllowedPrincipals, &rawAllowedPrincipals, t.service.Annotations, annotations.WithAlternativePrefixes("service.alpha.kubernetes.io")); !exists {
 		return []string{}
 	}
 	return rawAllowedPrincipals
@@ -93,7 +93,7 @@ func (t *defaultModelBuildTask) buildAllowedPrincipals(_ context.Context) []stri
 
 func (t *defaultModelBuildTask) buildPrivateDNSName(_ context.Context) *string {
 	rawPrivateDNSName := ""
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEndpointServicePrivateDNSName, &rawPrivateDNSName, t.service.Annotations); !exists {
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEndpointServicePrivateDNSName, &rawPrivateDNSName, t.service.Annotations, annotations.WithAlternativePrefixes("service.alpha.kubernetes.io")); !exists {
 		return nil
 	}
 	return &rawPrivateDNSName
