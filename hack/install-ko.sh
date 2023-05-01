@@ -20,5 +20,5 @@ set -o pipefail
 
 if ! command -v ko &> /dev/null; then
   cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
-  go install github.com/google/ko@v0.11.2
+  go install github.com/google/ko@v0.13.0
 fi

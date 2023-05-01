@@ -112,9 +112,10 @@ func main() {
 		mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
 	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
 		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, ctrl.Log.WithName("backend-sg-provider"))
+	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, esManager, sgReconciler, subnetResolver,
-		controllerCFG, backendSGProvider, ctrl.Log.WithName("controllers").WithName("ingress"))
+		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"))
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, sgManager, esManager, sgReconciler, subnetResolver, vpcInfoProvider,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("service"))
@@ -152,6 +153,7 @@ func main() {
 	podReadinessGateInjector := inject.NewPodReadinessGate(controllerCFG.PodWebhookConfig,
 		mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
 	corewebhook.NewPodMutator(podReadinessGateInjector).SetupWithManager(mgr)
+	corewebhook.NewServiceMutator(controllerCFG.ServiceConfig.LoadBalancerClass, ctrl.Log).SetupWithManager(mgr)
 	elbv2webhook.NewIngressClassParamsValidator().SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)

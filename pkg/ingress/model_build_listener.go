@@ -107,7 +107,7 @@ type listenPortConfig struct {
 func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int64]listenPortConfig, error) {
 	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing.Ing)
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
-	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing.Ing)
+	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
 	if err != nil {
 		return nil, err
 	}
@@ -209,15 +209,24 @@ func (t *defaultModelBuildTask) computeIngressListenPorts(_ context.Context, ing
 	return portAndProtocols, nil
 }
 
-func (t *defaultModelBuildTask) computeIngressExplicitInboundCIDRs(_ context.Context, ing *networking.Ingress) ([]string, []string, error) {
+func (t *defaultModelBuildTask) computeIngressExplicitInboundCIDRs(_ context.Context, ing *ClassifiedIngress) ([]string, []string, error) {
 	var rawInboundCIDRs []string
-	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixInboundCIDRs, &rawInboundCIDRs, ing.Annotations)
+	fromIngressClassParams := false
+	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.InboundCIDRs) != 0 {
+		rawInboundCIDRs = ing.IngClassConfig.IngClassParams.Spec.InboundCIDRs
+		fromIngressClassParams = true
+	} else {
+		_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixInboundCIDRs, &rawInboundCIDRs, ing.Ing.Annotations)
+	}
 
 	var inboundCIDRv4s, inboundCIDRv6s []string
 	for _, cidr := range rawInboundCIDRs {
 		_, _, err := net.ParseCIDR(cidr)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "invalid %v settings on Ingress: %v", annotations.IngressSuffixInboundCIDRs, k8s.NamespacedName(ing))
+			if fromIngressClassParams {
+				return nil, nil, fmt.Errorf("invalid CIDR in IngressClassParams InboundCIDR %s: %w", cidr, err)
+			}
+			return nil, nil, fmt.Errorf("invalid %v settings on Ingress: %v: %w", annotations.IngressSuffixInboundCIDRs, k8s.NamespacedName(ing.Ing), err)
 		}
 		if strings.Contains(cidr, ":") {
 			inboundCIDRv6s = append(inboundCIDRv6s, cidr)

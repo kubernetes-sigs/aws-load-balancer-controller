@@ -133,6 +133,11 @@ func (in *IngressClassParamsSpec) DeepCopyInto(out *IngressClassParamsSpec) {
 		*out = new(LoadBalancerScheme)
 		**out = **in
 	}
+	if in.InboundCIDRs != nil {
+		in, out := &in.InboundCIDRs, &out.InboundCIDRs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Subnets != nil {
 		in, out := &in.Subnets, &out.Subnets
 		*out = new(SubnetSelector)

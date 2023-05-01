@@ -99,6 +99,10 @@ type IngressClassParamsSpec struct {
 	// +optional
 	Scheme *LoadBalancerScheme `json:"scheme,omitempty"`
 
+	// InboundCIDRs specifies the CIDRs that are allowed to access the Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
+	InboundCIDRs []string `json:"inboundCIDRs,omitempty"`
+
 	// SSLPolicy specifies the SSL Policy for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
 	SSLPolicy string `json:"sslPolicy,omitEmpty"`

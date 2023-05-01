@@ -1477,6 +1477,132 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 }`,
 		},
 		{
+			name: "Ingress - inboundCIDRs in IngressClassParams",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										InboundCIDRs: []string{
+											"10.0.0.0/8",
+											"172.16.0.0/12",
+										},
+									},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/inbound-cidrs": "20.0.0.0/8",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::EC2::SecurityGroup": {
+			"ManagedLBSecurityGroup": {
+				"spec": {
+					"ingress": [
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"ipRanges": [
+								{
+									"cidrIP": "10.0.0.0/8"
+								}
+							],
+							"toPort": 80
+						},
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"ipRanges": [
+								{
+									"cidrIP": "172.16.0.0/12"
+								}
+							],
+							"toPort": 80
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
+		},
+		{
 			name: "Ingress - ssl-policy in IngressClassParams",
 			env: env{
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
@@ -2794,13 +2920,14 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
 			stackMarshaller := deploy.NewDefaultStackMarshaller()
 			backendSGProvider := networkingpkg.NewMockBackendSGProvider(ctrl)
+			sgResolver := networkingpkg.NewDefaultSecurityGroupResolver(ec2Client, vpcID)
 			if tt.fields.enableBackendSG {
 				if len(tt.fields.backendSecurityGroup) > 0 {
-					backendSGProvider.EXPECT().Get(gomock.Any()).Return(tt.fields.backendSecurityGroup, nil).AnyTimes()
+					backendSGProvider.EXPECT().Get(gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return(tt.fields.backendSecurityGroup, nil).AnyTimes()
 				} else {
-					backendSGProvider.EXPECT().Get(gomock.Any()).Return("sg-auto", nil).AnyTimes()
+					backendSGProvider.EXPECT().Get(gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return("sg-auto", nil).AnyTimes()
 				}
-				backendSGProvider.EXPECT().Release(gomock.Any()).Return(nil).AnyTimes()
+				backendSGProvider.EXPECT().Release(gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return(nil).AnyTimes()
 			}
 			defaultTargetType := tt.defaultTargetType
 			if defaultTargetType == "" {
@@ -2815,6 +2942,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				clusterName:            clusterName,
 				annotationParser:       annotationParser,
 				subnetsResolver:        subnetsResolver,
+				sgResolver:             sgResolver,
 				backendSGProvider:      backendSGProvider,
 				certDiscovery:          certDiscovery,
 				authConfigBuilder:      authConfigBuilder,
@@ -2836,7 +2964,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				b.enableIPTargetType = *tt.enableIPTargetType
 			}
 
-			gotStack, _, _, err := b.Build(context.Background(), tt.args.ingGroup)
+			gotStack, _, _, _, err := b.Build(context.Background(), tt.args.ingGroup)
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {

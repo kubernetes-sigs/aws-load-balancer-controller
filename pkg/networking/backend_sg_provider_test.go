@@ -2,9 +2,13 @@ package networking
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
+	"reflect"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"testing"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
@@ -38,6 +42,8 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 	}
 	type fields struct {
 		backendSG       string
+		ingResources    []*networking.Ingress
+		svcResource     *corev1.Service
 		defaultTags     map[string]string
 		describeSGCalls []describeSecurityGroupsAsListCall
 		createSGCalls   []createSecurityGroupWithContexCall
@@ -56,6 +62,24 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			Values: awssdk.StringSlice([]string{"backend-sg"}),
 		},
 	}
+	ing := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "awesome-ns",
+			Name:      "awesome-ing",
+		},
+	}
+	ing1 := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns",
+			Name:      "name",
+		},
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "awesome-ns",
+			Name:      "awesome-svc",
+		},
+	}
 	tests := []struct {
 		name    string
 		want    string
@@ -65,7 +89,8 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 		{
 			name: "backend sg enabled",
 			fields: fields{
-				backendSG: "sg-xxx",
+				backendSG:    "sg-xxx",
+				ingResources: []*networking.Ingress{ing},
 			},
 			want: "sg-xxx",
 		},
@@ -84,6 +109,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 						},
 					},
 				},
+				ingResources: []*networking.Ingress{ing, ing1},
 			},
 			want: "sg-autogen",
 		},
@@ -125,6 +151,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 						},
 					},
 				},
+				ingResources: []*networking.Ingress{ing, ing1},
 			},
 			want: "sg-newauto",
 		},
@@ -183,6 +210,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 					"KubernetesCluster": defaultClusterName,
 					"defaultTag":        "specified",
 				},
+				svcResource: svc,
 			},
 			want: "sg-newauto",
 		},
@@ -197,6 +225,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 						err: awserr.New("Some.Other.Error", "describe security group as list error", nil),
 					},
 				},
+				ingResources: []*networking.Ingress{ing},
 			},
 			wantErr: errors.New("Some.Other.Error: describe security group as list error"),
 		},
@@ -236,6 +265,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 						err: awserr.New("Create.Error", "unable to create security group", nil),
 					},
 				},
+				ingResources: []*networking.Ingress{ing1},
 			},
 			wantErr: errors.New("Create.Error: unable to create security group"),
 		},
@@ -256,7 +286,14 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.backendSG,
 				defaultVPCID, ec2Client, k8sClient, tt.fields.defaultTags, logr.New(&log.NullLogSink{}))
 
-			got, err := sgProvider.Get(context.Background())
+			resourceType := ResourceTypeIngress
+			var activeResources []types.NamespacedName
+			if len(tt.fields.ingResources) > 0 {
+				activeResources = k8s.ToSliceOfNamespacedNames(tt.fields.ingResources)
+			} else {
+				activeResources = k8s.ToSliceOfNamespacedNames([]*corev1.Service{tt.fields.svcResource})
+			}
+			got, err := sgProvider.Get(context.Background(), ResourceType(resourceType), activeResources)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -275,17 +312,61 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		ingresses []*networking.Ingress
 		err       error
 	}
+	type listServicesCall struct {
+		services []*corev1.Service
+		err      error
+	}
 	type deleteSecurityGroupWithContextCall struct {
 		req  *ec2sdk.DeleteSecurityGroupInput
 		resp *ec2sdk.DeleteSecurityGroupOutput
 		err  error
 	}
+	type mapItem struct {
+		key   metav1.Object
+		value bool
+	}
 	type fields struct {
-		autogenSG        string
-		backendSG        string
-		defaultTags      map[string]string
-		listIngressCalls []listIngressCall
-		deleteSGCalls    []deleteSecurityGroupWithContextCall
+		autogenSG                  string
+		backendSG                  string
+		defaultTags                map[string]string
+		listIngressCalls           []listIngressCall
+		deleteSGCalls              []deleteSecurityGroupWithContextCall
+		listServicesCalls          []listServicesCall
+		activeIngresses            []*networking.Ingress
+		inactiveIngresses          []*networking.Ingress
+		svcResource                *corev1.Service
+		resourceMapItems           []mapItem
+		backendSGRequiredForActive bool
+	}
+	ing := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "awesome-ns",
+			Name:      "awesome-ing",
+		},
+	}
+	ing1 := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns",
+			Name:      "name",
+		},
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "awesome-ns",
+			Name:      "awesome-svc",
+		},
+	}
+	svc1 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns",
+			Name:      "svc-1",
+		},
+	}
+	svc2 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ns",
+			Name:      "svc-2",
+		},
 	}
 	tests := []struct {
 		name    string
@@ -296,7 +377,8 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		{
 			name: "backend sg specified via flags",
 			fields: fields{
-				backendSG: "sg-first",
+				backendSG:         "sg-first",
+				inactiveIngresses: []*networking.Ingress{ing},
 			},
 		},
 		{
@@ -306,6 +388,81 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 				listIngressCalls: []listIngressCall{
 					{
 						ingresses: []*networking.Ingress{},
+					},
+				},
+				listServicesCalls: []listServicesCall{
+					{
+						services: []*corev1.Service{},
+					},
+				},
+				deleteSGCalls: []deleteSecurityGroupWithContextCall{
+					{
+						req: &ec2sdk.DeleteSecurityGroupInput{
+							GroupId: awssdk.String("sg-autogen"),
+						},
+						resp: &ec2sdk.DeleteSecurityGroupOutput{},
+					},
+				},
+				inactiveIngresses: []*networking.Ingress{ing},
+			},
+		},
+		{
+			name: "backend sg required true, for ingress",
+			fields: fields{
+				autogenSG: "sg-autogen",
+				resourceMapItems: []mapItem{
+					{
+						key:   svc2,
+						value: true,
+					},
+				},
+				activeIngresses: []*networking.Ingress{ing},
+			},
+		},
+		{
+			name: "backend sg required true, for service",
+			fields: fields{
+				autogenSG: "sg-autogen",
+				resourceMapItems: []mapItem{
+					{
+						key:   svc2,
+						value: true,
+					},
+				},
+				svcResource: svc,
+			},
+		},
+		{
+			name: "backend sg requirement true for active resource",
+			fields: fields{
+				listIngressCalls: []listIngressCall{
+					{},
+				},
+				listServicesCalls: []listServicesCall{
+					{},
+				},
+				resourceMapItems: []mapItem{
+					{
+						key:   ing,
+						value: true,
+					},
+				},
+				backendSGRequiredForActive: true,
+			},
+		},
+		{
+			name: "backend sg not required for active ingress",
+			fields: fields{
+				autogenSG:       "sg-autogen",
+				activeIngresses: []*networking.Ingress{ing},
+				listIngressCalls: []listIngressCall{
+					{
+						ingresses: []*networking.Ingress{},
+					},
+				},
+				listServicesCalls: []listServicesCall{
+					{
+						services: []*corev1.Service{},
 					},
 				},
 				deleteSGCalls: []deleteSecurityGroupWithContextCall{
@@ -341,6 +498,7 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 						},
 					},
 				},
+				inactiveIngresses: []*networking.Ingress{ing},
 			},
 		},
 		{
@@ -360,6 +518,134 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 						},
 					},
 				},
+				inactiveIngresses: []*networking.Ingress{ing},
+			},
+		},
+		{
+			name: "backend sg required for svc",
+			fields: fields{
+				autogenSG: "sg-autogen",
+				listIngressCalls: []listIngressCall{
+					{},
+				},
+				listServicesCalls: []listServicesCall{
+					{
+						services: []*corev1.Service{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:  "awesome-ns",
+									Name:       "svc-1",
+									Finalizers: []string{"service.k8s.aws/resources"},
+								},
+							},
+						},
+					},
+				},
+				inactiveIngresses: []*networking.Ingress{ing},
+				deleteSGCalls: []deleteSecurityGroupWithContextCall{
+					{
+						req: &ec2sdk.DeleteSecurityGroupInput{
+							GroupId: awssdk.String("sg-autogen"),
+						},
+						resp: &ec2sdk.DeleteSecurityGroupOutput{},
+					},
+				},
+			},
+		},
+		{
+			name: "backend sg requirement for service already known",
+			fields: fields{
+				autogenSG:         "sg-autogen",
+				inactiveIngresses: []*networking.Ingress{ing},
+				resourceMapItems: []mapItem{
+					{
+						key:   svc2,
+						value: true,
+					},
+				},
+			},
+		},
+		{
+			name: "backend sg requirement for ingress already known",
+			fields: fields{
+				autogenSG:         "sg-autogen",
+				inactiveIngresses: []*networking.Ingress{ing},
+				resourceMapItems: []mapItem{
+					{
+						key:   ing1,
+						value: true,
+					},
+					{
+						key:   svc1,
+						value: false,
+					},
+					{
+						key:   svc2,
+						value: false,
+					},
+				},
+			},
+		},
+		{
+			name: "backend sg requirement all known, requires delete",
+			fields: fields{
+				autogenSG: "sg-autogen",
+				listIngressCalls: []listIngressCall{
+					{
+						ingresses: []*networking.Ingress{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:  "ns",
+									Name:       "name",
+									Finalizers: []string{"ingress.k8s.aws/resources"},
+								},
+							},
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:  "awesome-ns",
+									Name:       "awesome-ing",
+									Finalizers: []string{"group.ingress.k8s.aws/awesome-group"},
+								},
+							},
+						},
+					},
+				},
+				listServicesCalls: []listServicesCall{
+					{
+						services: []*corev1.Service{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:  "awesome-ns",
+									Name:       "awesome-svc",
+									Finalizers: []string{"service.k8s.aws/resources"},
+								},
+							},
+						},
+					},
+				},
+				deleteSGCalls: []deleteSecurityGroupWithContextCall{
+					{
+						req: &ec2sdk.DeleteSecurityGroupInput{
+							GroupId: awssdk.String("sg-autogen"),
+						},
+						resp: &ec2sdk.DeleteSecurityGroupOutput{},
+					},
+				},
+				svcResource: svc,
+				resourceMapItems: []mapItem{
+					{
+						key:   ing,
+						value: false,
+					},
+					{
+						key:   ing1,
+						value: false,
+					},
+					{
+						key:   svc,
+						value: false,
+					},
+				},
 			},
 		},
 		{
@@ -369,6 +655,11 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 				listIngressCalls: []listIngressCall{
 					{
 						ingresses: []*networking.Ingress{},
+					},
+				},
+				listServicesCalls: []listServicesCall{
+					{
+						services: []*corev1.Service{},
 					},
 				},
 				deleteSGCalls: []deleteSecurityGroupWithContextCall{
@@ -385,6 +676,7 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 						resp: &ec2sdk.DeleteSecurityGroupOutput{},
 					},
 				},
+				inactiveIngresses: []*networking.Ingress{ing},
 			},
 		},
 		{
@@ -393,6 +685,8 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 				autogenSG: "sg-autogen",
 				listIngressCalls: []listIngressCall{
 					{},
+				},
+				listServicesCalls: []listServicesCall{
 					{},
 				},
 				deleteSGCalls: []deleteSecurityGroupWithContextCall{
@@ -403,11 +697,12 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 						err: awserr.New("Something.Else", "unable to delete SG", nil),
 					},
 				},
+				inactiveIngresses: []*networking.Ingress{ing},
 			},
 			wantErr: errors.New("failed to delete securityGroup: Something.Else: unable to delete SG"),
 		},
 		{
-			name: "k8s list returns error",
+			name: "k8s ingress list returns error",
 			fields: fields{
 				autogenSG: "sg-autogen",
 				listIngressCalls: []listIngressCall{
@@ -415,8 +710,32 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 						err: errors.New("failed"),
 					},
 				},
+				inactiveIngresses: []*networking.Ingress{ing},
 			},
 			wantErr: errors.New("unable to list ingresses: failed"),
+		},
+		{
+			name: "k8s service list returns error",
+			fields: fields{
+				autogenSG: "sg-autogen",
+				listIngressCalls: []listIngressCall{
+					{},
+				},
+				listServicesCalls: []listServicesCall{
+					{
+						err: errors.New("failed"),
+					},
+				},
+				inactiveIngresses: []*networking.Ingress{ing},
+				deleteSGCalls: []deleteSecurityGroupWithContextCall{
+					{
+						req: &ec2sdk.DeleteSecurityGroupInput{
+							GroupId: awssdk.String("sg-autogen"),
+						},
+						resp: &ec2sdk.DeleteSecurityGroupOutput{},
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -431,6 +750,13 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 			if len(tt.fields.autogenSG) > 0 {
 				sgProvider.backendSG = ""
 				sgProvider.autoGeneratedSG = tt.fields.autogenSG
+			}
+			for _, item := range tt.fields.resourceMapItems {
+				var resourceType ResourceType = ResourceTypeIngress
+				if reflect.TypeOf(item).String() == "service" {
+					resourceType = ResourceTypeService
+				}
+				sgProvider.objectsMap.Store(getObjectKey(resourceType, k8s.NamespacedName(item.key)), item.value)
 			}
 			var deleteCalls []*gomock.Call
 			for _, call := range tt.fields.deleteSGCalls {
@@ -449,10 +775,31 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 					},
 				).AnyTimes()
 			}
+			for _, call := range tt.fields.listServicesCalls {
+				k8sClient.EXPECT().List(gomock.Any(), &corev1.ServiceList{}, gomock.Any()).DoAndReturn(
+					func(ctx context.Context, svcList *corev1.ServiceList, opts ...client.ListOption) error {
+						for _, svc := range call.services {
+							svcList.Items = append(svcList.Items, *(svc.DeepCopy()))
+						}
+						return call.err
+					},
+				).AnyTimes()
+			}
 			for _, ing := range tt.env.ingresses {
 				assert.NoError(t, k8sClient.Create(context.Background(), ing.DeepCopy()))
 			}
-			gotErr := sgProvider.Release(context.Background())
+			var inactiveResources []types.NamespacedName
+			var resourceType ResourceType = ResourceTypeIngress
+			if tt.fields.svcResource != nil {
+				resourceType = ResourceTypeService
+				inactiveResources = append(inactiveResources, k8s.NamespacedName(tt.fields.svcResource))
+			} else {
+				inactiveResources = append(inactiveResources, k8s.ToSliceOfNamespacedNames(tt.fields.inactiveIngresses)...)
+				if !tt.fields.backendSGRequiredForActive {
+					inactiveResources = append(inactiveResources, k8s.ToSliceOfNamespacedNames(tt.fields.activeIngresses)...)
+				}
+			}
+			gotErr := sgProvider.Release(context.Background(), resourceType, k8s.ToSliceOfNamespacedNames(tt.fields.inactiveIngresses))
 			if tt.wantErr != nil {
 				assert.EqualError(t, gotErr, tt.wantErr.Error())
 			} else {

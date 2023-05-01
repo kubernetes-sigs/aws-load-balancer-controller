@@ -18,6 +18,8 @@ AWS Load Balancer controller manages the following AWS resources
 
 ## Security updates
 **Note**: Deployed chart does not receive security updates automatically. You need to manually upgrade to a newer chart.
+#### Node isolation
+As a security best practice, we recommend isolating the controller deployment pods to specific node groups which run critical components. The helm chart provides parameters ```nodeSelector```, ```tolerations``` and ```affinity``` to configure node isolation. For more information, please refer to the guidance [here](https://aws.github.io/aws-eks-best-practices/security/docs/multitenancy/#isolating-tenant-workloads-to-specific-nodes).
 
 ## Prerequisites
 - Kubernetes >= 1.19
@@ -251,3 +253,4 @@ The default values set by the application itself can be confirmed [here](https:/
 | `clusterSecretsPermissions.allowAllSecrets`    | If `true`, controller has access to all secrets in the cluster.                                                                                                                                                        | `false`                                           |
 | `controllerConfig.featureGates`                | set of `key: value` pairs that describe AWS load balance controller features                                                                                                                                           | `{}`                                              |
 | `ingressClassConfig.default`                   | If `true`, the ingressclass will be the default class of the cluster.                                                                                                                                                  | `false`                                           |
+| `enableServiceMutatorWebhook`                 | If `false`, disable the Service Mutator webhook which makes all new services of type LoadBalancer reconciled by the lb controller                                                                                                                                              | `true`                                           |

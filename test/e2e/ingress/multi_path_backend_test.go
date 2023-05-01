@@ -24,7 +24,7 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 
 		if tf.Options.ControllerImage != "" {
 			By(fmt.Sprintf("ensure cluster installed with controller: %s", tf.Options.ControllerImage), func() {
-				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage)
+				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(60 * time.Second)
 			})
