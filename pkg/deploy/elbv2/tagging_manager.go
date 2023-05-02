@@ -2,11 +2,14 @@ package elbv2
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	aws2 "sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -93,26 +96,28 @@ type TaggingManager interface {
 }
 
 // NewDefaultTaggingManager constructs default TaggingManager.
-func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, featureGates config.FeatureGates, logger logr.Logger) *defaultTaggingManager {
+func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, featureGates config.FeatureGates, cloud aws2.Cloud, logger logr.Logger) *defaultTaggingManager {
 	return &defaultTaggingManager{
 		elbv2Client:           elbv2Client,
 		vpcID:                 vpcID,
 		featureGates:          featureGates,
 		logger:                logger,
 		describeTagsChunkSize: defaultDescribeTagsChunkSize,
+		cloud:                 cloud,
 	}
 }
 
 var _ TaggingManager = &defaultTaggingManager{}
 
 // default implementation for TaggingManager
-// @TODO: use AWS Resource Groups Tagging API to optimize this implementation once it have PrivateLink support.
+// @TODO: deprecate ELB API and only use AWS Resource Groups Tagging API to optimize this implementation once RGT has PrivateLink support.
 type defaultTaggingManager struct {
 	elbv2Client           services.ELBV2
 	vpcID                 string
 	featureGates          config.FeatureGates
 	logger                logr.Logger
 	describeTagsChunkSize int
+	cloud                 aws2.Cloud
 }
 
 func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, desiredTags map[string]string, opts ...ReconcileTagsOption) error {
@@ -123,7 +128,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 	reconcileOpts.ApplyOptions(opts)
 	currentTags := reconcileOpts.CurrentTags
 	if currentTags == nil {
-		tagsByARN, err := m.describeResourceTags(ctx, []string{arn})
+		tagsByARN, err := m.describeResourceTagsViaELB(ctx, []string{arn})
 		if err != nil {
 			return err
 		}
@@ -188,7 +193,7 @@ func (m *defaultTaggingManager) ListListeners(ctx context.Context, lbARN string)
 	}
 	var tagsByARN map[string]map[string]string
 	if m.featureGates.Enabled(config.ListenerRulesTagging) {
-		tagsByARN, err = m.describeResourceTags(ctx, lsARNs)
+		tagsByARN, err = m.describeResourceTagsViaELB(ctx, lsARNs)
 		if err != nil {
 			return nil, err
 		}
@@ -221,7 +226,7 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 	}
 	var tagsByARN map[string]map[string]string
 	if m.featureGates.Enabled(config.ListenerRulesTagging) {
-		tagsByARN, err = m.describeResourceTags(ctx, lrARNs)
+		tagsByARN, err = m.describeResourceTagsViaELB(ctx, lrARNs)
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +259,12 @@ func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilter
 		lbARNsWithinVPC = append(lbARNsWithinVPC, lbARN)
 		lbByARNWithinVPC[lbARN] = lb
 	}
-	tagsByARN, err := m.describeResourceTags(ctx, lbARNsWithinVPC)
+	tagsByARN := make(map[string]map[string]string)
+	if m.featureGates.Enabled(config.EnableRGTCalls) {
+		tagsByARN, err = m.describeResourceTagsViaRGT(ctx, services.ResourceTypeELBLoadBalancer, tagFilters)
+	} else {
+		tagsByARN, err = m.describeResourceTagsViaELB(ctx, lbARNsWithinVPC)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -296,7 +306,12 @@ func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters
 		tgARNsWithinVPC = append(tgARNsWithinVPC, tgARN)
 		tgByARNWithinVPC[tgARN] = tg
 	}
-	tagsByARN, err := m.describeResourceTags(ctx, tgARNsWithinVPC)
+	tagsByARN := make(map[string]map[string]string)
+	if m.featureGates.Enabled(config.EnableRGTCalls) {
+		tagsByARN, err = m.describeResourceTagsViaRGT(ctx, services.ResourceTypeELBTargetGroup, tagFilters)
+	} else {
+		tagsByARN, err = m.describeResourceTagsViaELB(ctx, tgARNsWithinVPC)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -321,9 +336,29 @@ func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters
 	return matchedTGs, nil
 }
 
-// describeResourceTags describes tags for elbv2 resources.
+// describeResourceTagsViaRGT describe resource tags via AWS Resource Groups Tagging API calls
+func (m *defaultTaggingManager) describeResourceTagsViaRGT(ctx context.Context, resourceType string, tagFilters []tracking.TagFilter) (map[string]map[string]string, error) {
+	req := &resourcegroupstaggingapi.GetResourcesInput{
+		TagFilters:          services.NewRGTTagFilters(tagFilters),
+		ResourceTypeFilters: aws.StringSlice([]string{resourceType}),
+	}
+
+	resources, err := m.cloud.RGT().GetResourcesAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]map[string]string, len(resources))
+	for _, resource := range resources {
+		tgTags := services.ParseRGTTags(resource.Tags)
+		tgARN := aws.StringValue(resource.ResourceARN)
+		result[tgARN] = tgTags
+	}
+	return result, nil
+}
+
+// describeResourceTagsViaELB describes tags for elbv2 resources.
 // returns tags indexed by resource ARN.
-func (m *defaultTaggingManager) describeResourceTags(ctx context.Context, arns []string) (map[string]map[string]string, error) {
+func (m *defaultTaggingManager) describeResourceTagsViaELB(ctx context.Context, arns []string) (map[string]map[string]string, error) {
 	tagsByARN := make(map[string]map[string]string, len(arns))
 	arnsChunks := algorithm.ChunkStrings(arns, m.describeTagsChunkSize)
 	for _, arnsChunk := range arnsChunks {

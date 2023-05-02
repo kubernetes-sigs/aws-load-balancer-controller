@@ -4,6 +4,7 @@ go 1.19
 
 require (
 	github.com/aws/aws-sdk-go v1.44.137
+	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/gavv/httpexpect/v2 v2.3.1
 	github.com/go-logr/logr v0.4.0
 	github.com/golang/mock v1.6.0
