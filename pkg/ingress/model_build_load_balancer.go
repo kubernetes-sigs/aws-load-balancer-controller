@@ -215,7 +215,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 	}
 	stackTags := t.trackingProvider.StackTags(t.stack)
 
-	sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, tracking.TagsAsTagFilter(stackTags))
+	sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, stackTags, tracking.TagsAsTagFilter(stackTags))
 	if err != nil {
 		return nil, err
 	}

@@ -6,7 +6,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 )
 
 const (
@@ -52,17 +51,4 @@ func ParseRGTTags(tags []*resourcegroupstaggingapi.Tag) map[string]string {
 		result[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
 	}
 	return result
-}
-
-func NewRGTTagFilters(tags []tracking.TagFilter) []*resourcegroupstaggingapi.TagFilter {
-	tagFilters := make([]*resourcegroupstaggingapi.TagFilter, 0, len(tags))
-	for _, tag := range tags {
-		for k, v := range tag {
-			tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{
-				Key:    aws.String(k),
-				Values: aws.StringSlice(v),
-			})
-		}
-	}
-	return tagFilters
 }

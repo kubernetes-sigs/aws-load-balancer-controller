@@ -2791,7 +2791,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 
 			elbv2TaggingManager := elbv2.NewMockTaggingManager(ctrl)
 			for _, call := range tt.listLoadBalancerCalls {
-				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
+				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
 			}
 			vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
 			for _, call := range tt.fetchVPCInfoCalls {

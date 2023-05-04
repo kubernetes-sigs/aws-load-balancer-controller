@@ -151,7 +151,7 @@ func (t *defaultModelBuildTask) fetchExistingLoadBalancer(ctx context.Context) (
 	var fetchError error
 	t.fetchExistingLoadBalancerOnce.Do(func() {
 		stackTags := t.trackingProvider.StackTags(t.stack)
-		sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, tracking.TagsAsTagFilter(stackTags))
+		sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, stackTags, tracking.TagsAsTagFilter(stackTags))
 		if err != nil {
 			fetchError = err
 		}

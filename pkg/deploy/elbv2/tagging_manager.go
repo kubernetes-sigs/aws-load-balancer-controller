@@ -9,7 +9,6 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
-	aws2 "sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -83,10 +82,10 @@ type TaggingManager interface {
 	ReconcileTags(ctx context.Context, arn string, desiredTags map[string]string, opts ...ReconcileTagsOption) error
 
 	// ListLoadBalancers returns LoadBalancers that matches any of the tagging requirements.
-	ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error)
+	ListLoadBalancers(ctx context.Context, stackTags map[string]string, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error)
 
 	// ListTargetGroups returns TargetGroups that matches any of the tagging requirements.
-	ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error)
+	ListTargetGroups(ctx context.Context, stackTags map[string]string, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error)
 
 	// ListListeners returns the LoadBalancer listeners along with tags
 	ListListeners(ctx context.Context, lbARN string) ([]ListenerWithTags, error)
@@ -96,14 +95,14 @@ type TaggingManager interface {
 }
 
 // NewDefaultTaggingManager constructs default TaggingManager.
-func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, featureGates config.FeatureGates, cloud aws2.Cloud, logger logr.Logger) *defaultTaggingManager {
+func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, featureGates config.FeatureGates, rgt services.RGT, logger logr.Logger) *defaultTaggingManager {
 	return &defaultTaggingManager{
 		elbv2Client:           elbv2Client,
 		vpcID:                 vpcID,
 		featureGates:          featureGates,
 		logger:                logger,
 		describeTagsChunkSize: defaultDescribeTagsChunkSize,
-		cloud:                 cloud,
+		rgt:                   rgt,
 	}
 }
 
@@ -117,7 +116,7 @@ type defaultTaggingManager struct {
 	featureGates          config.FeatureGates
 	logger                logr.Logger
 	describeTagsChunkSize int
-	cloud                 aws2.Cloud
+	rgt                   services.RGT
 }
 
 func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, desiredTags map[string]string, opts ...ReconcileTagsOption) error {
@@ -128,7 +127,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 	reconcileOpts.ApplyOptions(opts)
 	currentTags := reconcileOpts.CurrentTags
 	if currentTags == nil {
-		tagsByARN, err := m.describeResourceTagsViaELB(ctx, []string{arn})
+		tagsByARN, err := m.describeResourceTagsNative(ctx, []string{arn})
 		if err != nil {
 			return err
 		}
@@ -193,7 +192,7 @@ func (m *defaultTaggingManager) ListListeners(ctx context.Context, lbARN string)
 	}
 	var tagsByARN map[string]map[string]string
 	if m.featureGates.Enabled(config.ListenerRulesTagging) {
-		tagsByARN, err = m.describeResourceTagsViaELB(ctx, lsARNs)
+		tagsByARN, err = m.describeResourceTagsNative(ctx, lsARNs)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +225,7 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 	}
 	var tagsByARN map[string]map[string]string
 	if m.featureGates.Enabled(config.ListenerRulesTagging) {
-		tagsByARN, err = m.describeResourceTagsViaELB(ctx, lrARNs)
+		tagsByARN, err = m.describeResourceTagsNative(ctx, lrARNs)
 		if err != nil {
 			return nil, err
 		}
@@ -242,13 +241,12 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 	return sdkLRs, err
 }
 
-func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
+func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, stackTags map[string]string, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
 	req := &elbv2sdk.DescribeLoadBalancersInput{}
 	lbs, err := m.elbv2Client.DescribeLoadBalancersAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-
 	lbARNsWithinVPC := make([]string, 0, len(lbs))
 	lbByARNWithinVPC := make(map[string]*elbv2sdk.LoadBalancer, len(lbs))
 	for _, lb := range lbs {
@@ -259,12 +257,74 @@ func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilter
 		lbARNsWithinVPC = append(lbARNsWithinVPC, lbARN)
 		lbByARNWithinVPC[lbARN] = lb
 	}
-	tagsByARN := make(map[string]map[string]string)
-	if m.featureGates.Enabled(config.EnableRGTCalls) {
-		tagsByARN, err = m.describeResourceTagsViaRGT(ctx, services.ResourceTypeELBLoadBalancer, tagFilters)
+	var matchedLBs []LoadBalancerWithTags
+	if m.featureGates.Enabled(config.EnableRGTAPI) {
+		matchedLBs, err = m.matchLoadBalancersRGT(ctx, lbByARNWithinVPC, stackTags)
+		if err != nil {
+			return nil, err
+		}
 	} else {
-		tagsByARN, err = m.describeResourceTagsViaELB(ctx, lbARNsWithinVPC)
+		matchedLBs, err = m.matchLoadBalancersNative(ctx, lbARNsWithinVPC, lbByARNWithinVPC, tagFilters)
+		if err != nil {
+			return nil, err
+		}
 	}
+	return matchedLBs, nil
+}
+
+func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, stackTags map[string]string, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
+	req := &elbv2sdk.DescribeTargetGroupsInput{}
+	tgs, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	tgARNsWithinVPC := make([]string, 0, len(tgs))
+	tgByARNWithinVPC := make(map[string]*elbv2sdk.TargetGroup, len(tgs))
+	for _, tg := range tgs {
+		if awssdk.StringValue(tg.VpcId) != m.vpcID {
+			continue
+		}
+		tgARN := awssdk.StringValue(tg.TargetGroupArn)
+		tgARNsWithinVPC = append(tgARNsWithinVPC, tgARN)
+		tgByARNWithinVPC[tgARN] = tg
+	}
+	var matchedTGs []TargetGroupWithTags
+	if m.featureGates.Enabled(config.EnableRGTAPI) {
+		matchedTGs, err = m.matchTargetGroupsRGT(ctx, tgByARNWithinVPC, stackTags)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		matchedTGs, err = m.matchTargetGroupNative(ctx, tgARNsWithinVPC, tgByARNWithinVPC, tagFilters)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return matchedTGs, nil
+}
+
+func (m *defaultTaggingManager) matchLoadBalancersRGT(ctx context.Context, lbByARNWithinVPC map[string]*elbv2sdk.LoadBalancer, stackTags map[string]string) ([]LoadBalancerWithTags, error) {
+	req := &resourcegroupstaggingapi.GetResourcesInput{
+		TagFilters:          convertTagstoRGTTagFilters(stackTags),
+		ResourceTypeFilters: aws.StringSlice([]string{services.ResourceTypeELBLoadBalancer}),
+	}
+	resources, err := m.rgt.GetResourcesAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	var matchedLBs []LoadBalancerWithTags
+	for _, resource := range resources {
+		matchedLBs = append(matchedLBs, LoadBalancerWithTags{
+			LoadBalancer: lbByARNWithinVPC[aws.StringValue(resource.ResourceARN)],
+			Tags:         services.ParseRGTTags(resource.Tags),
+		})
+	}
+	return matchedLBs, nil
+}
+
+func (m *defaultTaggingManager) matchLoadBalancersNative(ctx context.Context, lbARNsWithinVPC []string, lbByARNWithinVPC map[string]*elbv2sdk.LoadBalancer, tagFilters []tracking.TagFilter) ([]LoadBalancerWithTags, error) {
+	tagsByARN, err := m.describeResourceTagsNative(ctx, lbARNsWithinVPC)
 	if err != nil {
 		return nil, err
 	}
@@ -289,29 +349,27 @@ func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilter
 	return matchedLBs, nil
 }
 
-func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
-	req := &elbv2sdk.DescribeTargetGroupsInput{}
-	tgs, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
+func (m *defaultTaggingManager) matchTargetGroupsRGT(ctx context.Context, tgByARNWithinVPC map[string]*elbv2sdk.TargetGroup, stackTags map[string]string) ([]TargetGroupWithTags, error) {
+	req := &resourcegroupstaggingapi.GetResourcesInput{
+		TagFilters:          convertTagstoRGTTagFilters(stackTags),
+		ResourceTypeFilters: aws.StringSlice([]string{services.ResourceTypeELBTargetGroup}),
+	}
+	resources, err := m.rgt.GetResourcesAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}
+	var matchedTGs []TargetGroupWithTags
+	for _, resource := range resources {
+		matchedTGs = append(matchedTGs, TargetGroupWithTags{
+			TargetGroup: tgByARNWithinVPC[aws.StringValue(resource.ResourceARN)],
+			Tags:        services.ParseRGTTags(resource.Tags),
+		})
+	}
+	return matchedTGs, nil
+}
 
-	tgARNsWithinVPC := make([]string, 0, len(tgs))
-	tgByARNWithinVPC := make(map[string]*elbv2sdk.TargetGroup, len(tgs))
-	for _, tg := range tgs {
-		if awssdk.StringValue(tg.VpcId) != m.vpcID {
-			continue
-		}
-		tgARN := awssdk.StringValue(tg.TargetGroupArn)
-		tgARNsWithinVPC = append(tgARNsWithinVPC, tgARN)
-		tgByARNWithinVPC[tgARN] = tg
-	}
-	tagsByARN := make(map[string]map[string]string)
-	if m.featureGates.Enabled(config.EnableRGTCalls) {
-		tagsByARN, err = m.describeResourceTagsViaRGT(ctx, services.ResourceTypeELBTargetGroup, tagFilters)
-	} else {
-		tagsByARN, err = m.describeResourceTagsViaELB(ctx, tgARNsWithinVPC)
-	}
+func (m *defaultTaggingManager) matchTargetGroupNative(ctx context.Context, tgARNsWithinVPC []string, tgByARNWithinVPC map[string]*elbv2sdk.TargetGroup, tagFilters []tracking.TagFilter) ([]TargetGroupWithTags, error) {
+	tagsByARN, err := m.describeResourceTagsNative(ctx, tgARNsWithinVPC)
 	if err != nil {
 		return nil, err
 	}
@@ -336,29 +394,9 @@ func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters
 	return matchedTGs, nil
 }
 
-// describeResourceTagsViaRGT describe resource tags via AWS Resource Groups Tagging API calls
-func (m *defaultTaggingManager) describeResourceTagsViaRGT(ctx context.Context, resourceType string, tagFilters []tracking.TagFilter) (map[string]map[string]string, error) {
-	req := &resourcegroupstaggingapi.GetResourcesInput{
-		TagFilters:          services.NewRGTTagFilters(tagFilters),
-		ResourceTypeFilters: aws.StringSlice([]string{resourceType}),
-	}
-
-	resources, err := m.cloud.RGT().GetResourcesAsList(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	result := make(map[string]map[string]string, len(resources))
-	for _, resource := range resources {
-		tgTags := services.ParseRGTTags(resource.Tags)
-		tgARN := aws.StringValue(resource.ResourceARN)
-		result[tgARN] = tgTags
-	}
-	return result, nil
-}
-
-// describeResourceTagsViaELB describes tags for elbv2 resources.
+// describeResourceTagsNative describes tags for elbv2 resources.
 // returns tags indexed by resource ARN.
-func (m *defaultTaggingManager) describeResourceTagsViaELB(ctx context.Context, arns []string) (map[string]map[string]string, error) {
+func (m *defaultTaggingManager) describeResourceTagsNative(ctx context.Context, arns []string) (map[string]map[string]string, error) {
 	tagsByARN := make(map[string]map[string]string, len(arns))
 	arnsChunks := algorithm.ChunkStrings(arns, m.describeTagsChunkSize)
 	for _, arnsChunk := range arnsChunks {
@@ -399,4 +437,16 @@ func convertSDKTagsToTags(sdkTags []*elbv2sdk.Tag) map[string]string {
 		tags[awssdk.StringValue(sdkTag.Key)] = awssdk.StringValue(sdkTag.Value)
 	}
 	return tags
+}
+
+// convert tags to RGTTagFilters
+func convertTagstoRGTTagFilters(tags map[string]string) []*resourcegroupstaggingapi.TagFilter {
+	tagFilters := make([]*resourcegroupstaggingapi.TagFilter, 0, len(tags))
+	for k, v := range tags {
+		tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{
+			Key:    aws.String(k),
+			Values: aws.StringSlice([]string{v}),
+		})
+	}
+	return tagFilters
 }

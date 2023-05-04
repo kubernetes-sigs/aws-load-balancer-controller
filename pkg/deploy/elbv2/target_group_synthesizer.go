@@ -89,6 +89,7 @@ func (s *targetGroupSynthesizer) findSDKTargetGroups(ctx context.Context) ([]Tar
 	stackTags := s.trackingProvider.StackTags(s.stack)
 	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
 	return s.taggingManager.ListTargetGroups(ctx,
+		stackTags,
 		tracking.TagsAsTagFilter(stackTags),
 		tracking.TagsAsTagFilter(stackTagsLegacy))
 }

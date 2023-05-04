@@ -259,6 +259,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 		describeTagsWithContextCalls     []describeTagsWithContextCall
 	}
 	type args struct {
+		stackTags  map[string]string
 		tagFilters []tracking.TagFilter
 	}
 	tests := []struct {
@@ -608,7 +609,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
 				featureGates:          featureGates,
 			}
-			got, err := m.ListLoadBalancers(context.Background(), tt.args.tagFilters...)
+			got, err := m.ListLoadBalancers(context.Background(), tt.args.stackTags, tt.args.tagFilters...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -635,6 +636,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 		describeTagsWithContextCalls    []describeTagsWithContextCall
 	}
 	type args struct {
+		stackTags  map[string]string
 		tagFilters []tracking.TagFilter
 	}
 	tests := []struct {
@@ -1108,7 +1110,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
 				featureGates:          featureGates,
 			}
-			got, err := m.ListTargetGroups(context.Background(), tt.args.tagFilters...)
+			got, err := m.ListTargetGroups(context.Background(), tt.args.stackTags, tt.args.tagFilters...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1119,7 +1121,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 	}
 }
 
-func Test_defaultTaggingManager_describeResourceTagsViaELB(t *testing.T) {
+func Test_defaultTaggingManager_describeResourceTagsNative(t *testing.T) {
 	type describeTagsWithContextCall struct {
 		req  *elbv2sdk.DescribeTagsInput
 		resp *elbv2sdk.DescribeTagsOutput
@@ -1272,7 +1274,7 @@ func Test_defaultTaggingManager_describeResourceTagsViaELB(t *testing.T) {
 				vpcID:                 "vpc-xxxxxxx",
 				describeTagsChunkSize: 2,
 			}
-			got, err := m.describeResourceTagsViaELB(context.Background(), tt.args.arns)
+			got, err := m.describeResourceTagsNative(context.Background(), tt.args.arns)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

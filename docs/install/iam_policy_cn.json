@@ -236,13 +236,6 @@
                 "elasticloadbalancing:ModifyRule"
             ],
             "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "tag:GetResources"
-            ],
-            "Resource": "*"
         }
     ]
 }
