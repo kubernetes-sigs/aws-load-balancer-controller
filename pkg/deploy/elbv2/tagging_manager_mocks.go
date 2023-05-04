@@ -66,10 +66,10 @@ func (mr *MockTaggingManagerMockRecorder) ListListeners(arg0, arg1 interface{}) 
 }
 
 // ListLoadBalancers mocks base method.
-func (m *MockTaggingManager) ListLoadBalancers(arg0 context.Context, arg1 map[string]string, arg2 ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
+func (m *MockTaggingManager) ListLoadBalancers(arg0 context.Context, arg1 ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListLoadBalancers", varargs...)
@@ -79,17 +79,17 @@ func (m *MockTaggingManager) ListLoadBalancers(arg0 context.Context, arg1 map[st
 }
 
 // ListLoadBalancers indicates an expected call of ListLoadBalancers.
-func (mr *MockTaggingManagerMockRecorder) ListLoadBalancers(arg0 interface{}, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockTaggingManagerMockRecorder) ListLoadBalancers(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListLoadBalancers", reflect.TypeOf((*MockTaggingManager)(nil).ListLoadBalancers), varargs...)
 }
 
 // ListTargetGroups mocks base method.
-func (m *MockTaggingManager) ListTargetGroups(arg0 context.Context, arg1 map[string]string, arg2 ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
+func (m *MockTaggingManager) ListTargetGroups(arg0 context.Context, arg1 ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ListTargetGroups", varargs...)
@@ -99,9 +99,9 @@ func (m *MockTaggingManager) ListTargetGroups(arg0 context.Context, arg1 map[str
 }
 
 // ListTargetGroups indicates an expected call of ListTargetGroups.
-func (mr *MockTaggingManagerMockRecorder) ListTargetGroups(arg0 interface{}, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockTaggingManagerMockRecorder) ListTargetGroups(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0}, arg1...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTargetGroups", reflect.TypeOf((*MockTaggingManager)(nil).ListTargetGroups), varargs...)
 }
 

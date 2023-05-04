@@ -3895,7 +3895,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			defer ctrl.Finish()
 			elbv2TaggingManager := elbv2.NewMockTaggingManager(ctrl)
 			for _, call := range tt.fields.listLoadBalancersCalls {
-				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.matchedLBs, call.err)
+				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.matchedLBs, call.err)
 			}
 
 			ctx := context.Background()

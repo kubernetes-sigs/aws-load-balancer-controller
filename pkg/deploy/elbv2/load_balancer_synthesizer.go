@@ -114,7 +114,6 @@ func (s *loadBalancerSynthesizer) findSDKLoadBalancers(ctx context.Context) ([]L
 	stackTags := s.trackingProvider.StackTags(s.stack)
 	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
 	return s.taggingManager.ListLoadBalancers(ctx,
-		stackTags,
 		tracking.TagsAsTagFilter(stackTags),
 		tracking.TagsAsTagFilter(stackTagsLegacy))
 }
