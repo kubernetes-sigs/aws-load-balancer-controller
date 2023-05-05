@@ -243,33 +243,23 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 }
 
 func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
-	var matchedLBs []LoadBalancerWithTags
-	var err error
 	if m.featureGates.Enabled(config.EnableRGTAPI) {
-		matchedLBs, err = m.listLoadBalancersRGT(ctx, tagFilters)
+		return m.listLoadBalancersRGT(ctx, tagFilters)
 	}
-	matchedLBs, err = m.listLoadBalancersNative(ctx, tagFilters)
-	if err != nil {
-		return nil, err
-	}
-	return matchedLBs, nil
+	return m.listLoadBalancersNative(ctx, tagFilters)
 }
 
 func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
-	var matchedTGs []TargetGroupWithTags
-	var err error
 	if m.featureGates.Enabled(config.EnableRGTAPI) {
-		matchedTGs, err = m.listTargetGroupsRGT(ctx, tagFilters)
+		return m.listTargetGroupsRGT(ctx, tagFilters)
 	}
-	matchedTGs, err = m.listTargetGroupsNative(ctx, tagFilters)
-	if err != nil {
-		return nil, err
-	}
-	return matchedTGs, nil
+	return m.listTargetGroupsNative(ctx, tagFilters)
+
 }
 
 func (m *defaultTaggingManager) listLoadBalancersRGT(ctx context.Context, tagFilters []tracking.TagFilter) ([]LoadBalancerWithTags, error) {
-	var retResources []*resourcegroupstaggingapi.ResourceTagMapping
+	// use a map to avoid potential duplication in returned resources
+	resourceTagsByARN := make(map[string][]*resourcegroupstaggingapi.Tag)
 	for _, tagFilter := range tagFilters {
 		req := &resourcegroupstaggingapi.GetResourcesInput{
 			TagFilters:          convertTagFiltersToRGTTagFilters(tagFilter),
@@ -279,23 +269,27 @@ func (m *defaultTaggingManager) listLoadBalancersRGT(ctx context.Context, tagFil
 		if err != nil {
 			return nil, err
 		}
-		retResources = append(retResources, resources...)
+		for _, resource := range resources {
+			if _, exists := resourceTagsByARN[aws.StringValue(resource.ResourceARN)]; !exists {
+				resourceTagsByARN[aws.StringValue(resource.ResourceARN)] = resource.Tags
+			}
+		}
 	}
 	var matchedLBs []LoadBalancerWithTags
-	for _, retResource := range retResources {
+	for resourceARN, resourceTags := range resourceTagsByARN {
 		elbv2Req := &elbv2sdk.DescribeLoadBalancersInput{
-			LoadBalancerArns: []*string{retResource.ResourceARN},
+			LoadBalancerArns: []*string{&resourceARN},
 		}
 		elbv2Resp, err := m.elbv2Client.DescribeLoadBalancersAsList(ctx, elbv2Req)
 		if err != nil {
 			return nil, err
 		}
 		if len(elbv2Resp) == 0 {
-			return nil, errors.Errorf("no load balancer found for the arn: %v", retResource.ResourceARN)
+			return nil, errors.Errorf("no load balancer found for the arn: %v", resourceARN)
 		}
 		matchedLBs = append(matchedLBs, LoadBalancerWithTags{
 			LoadBalancer: elbv2Resp[0],
-			Tags:         services.ParseRGTTags(retResource.Tags),
+			Tags:         services.ParseRGTTags(resourceTags),
 		})
 	}
 	return matchedLBs, nil
@@ -343,7 +337,8 @@ func (m *defaultTaggingManager) listLoadBalancersNative(ctx context.Context, tag
 }
 
 func (m *defaultTaggingManager) listTargetGroupsRGT(ctx context.Context, tagFilters []tracking.TagFilter) ([]TargetGroupWithTags, error) {
-	var retResources []*resourcegroupstaggingapi.ResourceTagMapping
+	// use a map to avoid potential duplication in returned resources
+	resourceTagsByARN := make(map[string][]*resourcegroupstaggingapi.Tag)
 	for _, tagFilter := range tagFilters {
 		req := &resourcegroupstaggingapi.GetResourcesInput{
 			TagFilters:          convertTagFiltersToRGTTagFilters(tagFilter),
@@ -353,23 +348,27 @@ func (m *defaultTaggingManager) listTargetGroupsRGT(ctx context.Context, tagFilt
 		if err != nil {
 			return nil, err
 		}
-		retResources = append(retResources, resources...)
+		for _, resource := range resources {
+			if _, exists := resourceTagsByARN[aws.StringValue(resource.ResourceARN)]; !exists {
+				resourceTagsByARN[aws.StringValue(resource.ResourceARN)] = resource.Tags
+			}
+		}
 	}
 	var matchedTGs []TargetGroupWithTags
-	for _, retResource := range retResources {
+	for resourceARN, resourceTags := range resourceTagsByARN {
 		elbv2Req := &elbv2sdk.DescribeTargetGroupsInput{
-			TargetGroupArns: []*string{retResource.ResourceARN},
+			TargetGroupArns: []*string{&resourceARN},
 		}
 		elbv2Resp, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, elbv2Req)
 		if err != nil {
 			return nil, err
 		}
 		if len(elbv2Resp) == 0 {
-			return nil, errors.Errorf("no target group found for the arn: %v", retResource.ResourceARN)
+			return nil, errors.Errorf("no target group found for the arn: %v", resourceARN)
 		}
 		matchedTGs = append(matchedTGs, TargetGroupWithTags{
 			TargetGroup: elbv2Resp[0],
-			Tags:        services.ParseRGTTags(retResource.Tags),
+			Tags:        services.ParseRGTTags(resourceTags),
 		})
 	}
 	return matchedTGs, nil
@@ -460,18 +459,6 @@ func convertSDKTagsToTags(sdkTags []*elbv2sdk.Tag) map[string]string {
 		tags[awssdk.StringValue(sdkTag.Key)] = awssdk.StringValue(sdkTag.Value)
 	}
 	return tags
-}
-
-// convert tags to RGTTagFilters
-func convertTagstoRGTTagFilters(tags map[string]string) []*resourcegroupstaggingapi.TagFilter {
-	tagFilters := make([]*resourcegroupstaggingapi.TagFilter, 0, len(tags))
-	for k, v := range tags {
-		tagFilters = append(tagFilters, &resourcegroupstaggingapi.TagFilter{
-			Key:    aws.String(k),
-			Values: aws.StringSlice([]string{v}),
-		})
-	}
-	return tagFilters
 }
 
 // convert tagFilters to RGTTagFilters
