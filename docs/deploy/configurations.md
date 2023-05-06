@@ -158,5 +158,6 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 | EndpointsFailOpen                     | string                          | true           | Enable or disable allowing endpoints with `ready:unknown` state in the target groups. |
 | EnableServiceController               | string                          | true           | Toggles support for `Service` type resources. |
 | EnableIPTargetType                    | string                          | true           | Used to toggle support for target-type `ip` across `Ingress` and `Service` type resources. |
+| EnableRGTAPI                       | string                          | false          | If enabled, the tagging manager will describe resource tags via RGT APIs, otherwise via ELB APIs. In order to enable RGT API, `tag:GetResources` is needed in controller IAM policy. |
 | SubnetsClusterTagCheck                | string                          | true           | Enable or disable the check for `kubernetes.io/cluster/${cluster-name}` during subnet auto-discovery |
 | NLBHealthCheckAdvancedConfiguration   | string                          | true           | Enable or disable advanced health check configuration for NLB, for example health check timeout |
