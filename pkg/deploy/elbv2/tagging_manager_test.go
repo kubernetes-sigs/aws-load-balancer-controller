@@ -7,6 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
@@ -214,6 +215,7 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
+			featureGates := config.NewFeatureGates()
 			for _, call := range tt.fields.describeTagsWithContextCalls {
 				elbv2Client.EXPECT().DescribeTagsWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
@@ -229,6 +231,7 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 				vpcID:                 "vpc-xxxxxxx",
 				logger:                &log.NullLogger{},
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
+				featureGates:          featureGates,
 			}
 			err := m.ReconcileTags(context.Background(), tt.args.arn, tt.args.desiredTags, tt.args.opts...)
 			if tt.wantErr != nil {
@@ -591,6 +594,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
+			featureGates := config.NewFeatureGates()
 			for _, call := range tt.fields.describeLoadBalancersAsListCalls {
 				elbv2Client.EXPECT().DescribeLoadBalancersAsList(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
@@ -602,6 +606,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 				elbv2Client:           elbv2Client,
 				vpcID:                 "vpc-xxxxxxx",
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
+				featureGates:          featureGates,
 			}
 			got, err := m.ListLoadBalancers(context.Background(), tt.args.tagFilters...)
 			if tt.wantErr != nil {
@@ -1089,6 +1094,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
+			featureGates := config.NewFeatureGates()
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
@@ -1100,6 +1106,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 				elbv2Client:           elbv2Client,
 				vpcID:                 "vpc-xxxxxxx",
 				describeTagsChunkSize: defaultDescribeTagsChunkSize,
+				featureGates:          featureGates,
 			}
 			got, err := m.ListTargetGroups(context.Background(), tt.args.tagFilters...)
 			if tt.wantErr != nil {
@@ -1112,7 +1119,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 	}
 }
 
-func Test_defaultTaggingManager_describeResourceTags(t *testing.T) {
+func Test_defaultTaggingManager_describeResourceTagsNative(t *testing.T) {
 	type describeTagsWithContextCall struct {
 		req  *elbv2sdk.DescribeTagsInput
 		resp *elbv2sdk.DescribeTagsOutput
@@ -1265,7 +1272,7 @@ func Test_defaultTaggingManager_describeResourceTags(t *testing.T) {
 				vpcID:                 "vpc-xxxxxxx",
 				describeTagsChunkSize: 2,
 			}
-			got, err := m.describeResourceTags(context.Background(), tt.args.arns)
+			got, err := m.describeResourceTagsNative(context.Background(), tt.args.arns)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
