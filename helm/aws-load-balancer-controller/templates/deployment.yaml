@@ -149,11 +149,27 @@ spec:
         {{- if ne .Values.defaultTargetType "instance" }}
         - --default-target-type={{ .Values.defaultTargetType }}
         {{- end }}
-        {{- if .Values.env }}
+        {{- if or .Values.env .Values.envFromSecret | default false }}
         env:
+        {{- if .Values.env}}
         {{- range $key, $value := .Values.env }}
         - name: {{ $key }}
           value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
+        {{- if .Values.envFromSecret | default false }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-secret
+              key: key_id
+              optional: true
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-secret
+              key: access_key
+              optional: true
         {{- end }}
         {{- end }}
         securityContext:
