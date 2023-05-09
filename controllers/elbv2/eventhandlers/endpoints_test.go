@@ -2,6 +2,9 @@ package eventhandlers
 
 import (
 	"context"
+	"testing"
+
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_enqueueRequestsForEndpointsEvent_enqueueImpactedTargetGroupBindings(t *testing.T) {
@@ -168,7 +170,7 @@ func Test_enqueueRequestsForEndpointsEvent_enqueueImpactedTargetGroupBindings(t 
 
 			h := &enqueueRequestsForEndpointsEvent{
 				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				logger:    logr.New(&log.NullLogSink{}),
 			}
 			queue := controllertest.Queue{Interface: workqueue.New()}
 			h.enqueueImpactedTargetGroupBindings(queue, tt.args.eps)

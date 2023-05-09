@@ -12,7 +12,7 @@ import (
 // InstallationManager is responsible for manage controller installation in cluster.
 type InstallationManager interface {
 	ResetController() error
-	UpgradeController(controllerImage string) error
+	UpgradeController(controllerImage string, enableEndPointSlices bool) error
 }
 
 // NewDefaultInstallationManager constructs new defaultInstallationManager.
@@ -53,7 +53,7 @@ func (m *defaultInstallationManager) ResetController() error {
 	return err
 }
 
-func (m *defaultInstallationManager) UpgradeController(controllerImage string) error {
+func (m *defaultInstallationManager) UpgradeController(controllerImage string, enableEndPointSlices bool) error {
 	imageRepo, imageTag, err := splitImageRepoAndTag(controllerImage)
 	if err != nil {
 		return err
@@ -65,6 +65,9 @@ func (m *defaultInstallationManager) UpgradeController(controllerImage string) e
 	}
 	vals["podLabels"] = map[string]string{
 		"revision": string(uuid.NewUUID()),
+	}
+	if enableEndPointSlices {
+		vals["enableEndpointSlices"] = true
 	}
 	_, err = m.helmReleaseManager.InstallOrUpgradeRelease(m.helmChart,
 		m.namespace, AWSLoadBalancerControllerHelmRelease, vals,

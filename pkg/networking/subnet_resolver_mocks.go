@@ -10,6 +10,7 @@ import (
 
 	ec2 "github.com/aws/aws-sdk-go/service/ec2"
 	gomock "github.com/golang/mock/gomock"
+	v1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 )
 
 // MockSubnetsResolver is a mock of SubnetsResolver interface.
@@ -73,4 +74,24 @@ func (mr *MockSubnetsResolverMockRecorder) ResolveViaNameOrIDSlice(arg0, arg1 in
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveViaNameOrIDSlice", reflect.TypeOf((*MockSubnetsResolver)(nil).ResolveViaNameOrIDSlice), varargs...)
+}
+
+// ResolveViaSelector mocks base method.
+func (m *MockSubnetsResolver) ResolveViaSelector(arg0 context.Context, arg1 *v1beta1.SubnetSelector, arg2 ...SubnetsResolveOption) ([]*ec2.Subnet, error) {
+	m.ctrl.T.Helper()
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ResolveViaSelector", varargs...)
+	ret0, _ := ret[0].([]*ec2.Subnet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveViaSelector indicates an expected call of ResolveViaSelector.
+func (mr *MockSubnetsResolverMockRecorder) ResolveViaSelector(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveViaSelector", reflect.TypeOf((*MockSubnetsResolver)(nil).ResolveViaSelector), varargs...)
 }

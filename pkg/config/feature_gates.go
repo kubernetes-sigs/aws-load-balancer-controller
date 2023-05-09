@@ -49,7 +49,7 @@ func NewFeatureGates() FeatureGates {
 			ListenerRulesTagging:         true,
 			WeightedTargetGroups:         true,
 			ServiceTypeLoadBalancerOnly:  false,
-			EndpointsFailOpen:            false,
+			EndpointsFailOpen:            true,
 			EnableServiceController:      true,
 			EnableIPTargetType:           true,
 			SubnetsClusterTagCheck:       true,

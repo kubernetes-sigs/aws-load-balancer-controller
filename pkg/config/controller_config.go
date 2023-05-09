@@ -9,12 +9,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 const (
 	flagLogLevel                                     = "log-level"
 	flagK8sClusterName                               = "cluster-name"
 	flagDefaultTags                                  = "default-tags"
+	flagDefaultTargetType                            = "default-target-type"
 	flagExternalManagedTags                          = "external-managed-tags"
 	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
@@ -66,6 +68,9 @@ type ControllerConfig struct {
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
 
+	// Default target type for Ingress and Service objects
+	DefaultTargetType string
+
 	// List of Tag keys on AWS resources that will be managed externally.
 	ExternalManagedTags []string
 
@@ -103,6 +108,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.ClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
 	fs.StringToStringVar(&cfg.DefaultTags, flagDefaultTags, nil,
 		"Default AWS Tags that will be applied to all AWS resources managed by this controller")
+	fs.StringVar(&cfg.DefaultTargetType, flagDefaultTargetType, string(elbv2.TargetTypeInstance),
+		"Default target type for Ingresses and Services - ip, instance")
 	fs.StringSliceVar(&cfg.ExternalManagedTags, flagExternalManagedTags, nil,
 		"List of Tag keys on AWS resources that will be managed externally")
 	fs.IntVar(&cfg.ServiceMaxConcurrentReconciles, flagServiceMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
@@ -147,6 +154,9 @@ func (cfg *ControllerConfig) Validate() error {
 	if err := cfg.validateExternalManagedTagsCollisionWithDefaultTags(); err != nil {
 		return err
 	}
+	if err := cfg.validateDefaultTargetType(); err != nil {
+		return err
+	}
 	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
 		return err
 	}
@@ -179,6 +189,15 @@ func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithDefaultTags
 		}
 	}
 	return nil
+}
+
+func (cfg *ControllerConfig) validateDefaultTargetType() error {
+	switch cfg.DefaultTargetType {
+	case string(elbv2.TargetTypeInstance), string(elbv2.TargetTypeIP):
+		return nil
+	default:
+		return errors.Errorf("invalid value %v for default target type", cfg.DefaultTargetType)
+	}
 }
 
 func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {

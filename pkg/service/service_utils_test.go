@@ -169,7 +169,7 @@ func Test_defaultServiceUtils_IsServiceSupported(t *testing.T) {
 			},
 		},
 		{
-			name: "lb type ClusterIP, RestrictToLoadBanalcerOnly enabled",
+			name: "lb type ClusterIP, RestrictToLoadBalancerOnly enabled",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "nlb-ip",

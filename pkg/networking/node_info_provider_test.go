@@ -2,8 +2,11 @@ package networking
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -12,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_defaultNodeInfoProvider_FetchNodeInstances(t *testing.T) {
@@ -181,7 +183,7 @@ func Test_defaultNodeInfoProvider_FetchNodeInstances(t *testing.T) {
 			}
 			p := &defaultNodeInfoProvider{
 				ec2Client: ec2Client,
-				logger:    &log.NullLogger{},
+				logger:    logr.New(&log.NullLogSink{}),
 			}
 			got, err := p.FetchNodeInstances(context.Background(), tt.args.nodes)
 			if tt.wantErr != nil {

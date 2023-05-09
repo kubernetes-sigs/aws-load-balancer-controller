@@ -60,6 +60,12 @@ spec:
                 required:
                 - name
                 type: object
+              inboundCIDRs:
+                description: InboundCIDRs specifies the CIDRs that are allowed to
+                  access the Ingresses that belong to IngressClass with this IngressClassParams.
+                items:
+                  type: string
+                type: array
               ipAddressType:
                 description: IPAddressType defines the ip address type for all Ingresses
                   that belong to IngressClass with this IngressClassParams.
@@ -139,6 +145,34 @@ spec:
                 - internal
                 - internet-facing
                 type: string
+              sslPolicy:
+                description: SSLPolicy specifies the SSL Policy for all Ingresses
+                  that belong to IngressClass with this IngressClassParams.
+                type: string
+              subnets:
+                description: Subnets defines the subnets for all Ingresses that belong
+                  to IngressClass with this IngressClassParams.
+                properties:
+                  ids:
+                    description: IDs specify the resource IDs of subnets. Exactly
+                      one of this or `tags` must be specified.
+                    items:
+                      description: SubnetID specifies a subnet ID.
+                      pattern: subnet-[0-9a-f]+
+                      type: string
+                    minItems: 1
+                    type: array
+                  tags:
+                    additionalProperties:
+                      items:
+                        type: string
+                      type: array
+                    description: Tags specifies subnets in the load balancer's VPC
+                      where each tag specified in the map key contains one of the
+                      values in the corresponding value list. Exactly one of this
+                      or `ids` must be specified.
+                    type: object
+                type: object
               tags:
                 description: Tags defines list of Tags on AWS resources provisioned
                   for Ingresses that belong to IngressClass with this IngressClassParams.

@@ -2,7 +2,15 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.6
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.5.1
+# Image URL to use for builder stage in Docker build
+BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:1.20.3
+# Image URL to use for base layer in Docker build
+BASE_IMAGE ?= public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2023-02-22-1677092456.2
+IMG_PLATFORM ?= linux/amd64,linux/arm64
+# ECR doesn't appear to support SPDX SBOM
+IMG_SBOM ?= none
+
 
 CRD_OPTIONS ?= "crd:crdVersions=v1"
 
@@ -64,8 +72,10 @@ helm-lint:
 	${MAKEFILE_PATH}/test/helm/helm-lint.sh
 
 # Generate code
-generate: aws-sdk-model-override controller-gen
+.PHONY: generate
+generate: aws-sdk-model-override controller-gen mockgen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	MOCKGEN=$(MOCKGEN) ./scripts/gen_mocks.sh
 
 aws-sdk-model-override:
 	@if [ "$(AWS_SDK_MODEL_OVERRIDE)" = "y" ] ; then \
@@ -74,13 +84,25 @@ aws-sdk-model-override:
 		./scripts/aws_sdk_model_override/cleanup.sh ; \
 	fi
 
+.PHONY: docker-push
+docker-push: aws-load-balancer-controller-push
 
-# Push the docker image
-docker-push:
+.PHONY: aws-load-balancer-controller-push
+aws-load-balancer-controller-push: ko
+	KO_DOCKER_REPO=$(firstword $(subst :, ,${IMG})) \
+    GIT_VERSION=$(shell git describe --tags --dirty --always) \
+    GIT_COMMIT=$(shell git rev-parse HEAD)  \
+    BUILD_DATE=$(shell date +%Y-%m-%dT%H:%M:%S%z) \
+    ko build --tags $(word 2,$(subst :, ,${IMG})) --platform=${IMG_PLATFORM} --bare --sbom ${IMG_SBOM} .
+
+# Push the docker image using docker buildx
+docker-push-w-buildx:
 	docker buildx build . --target bin \
         		--tag $(IMG) \
-        		--push \
-        		--platform linux/amd64,linux/arm64
+				--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+				--build-arg BUILD_IMAGE=$(BUILD_IMAGE) \
+				--push \
+        		--platform ${IMG_PLATFORM}
 
 # find or download controller-gen
 # download controller-gen if necessary
@@ -99,6 +121,24 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
+# find or download mockgen
+# download mockgen if necessary
+.PHONY: mockgen
+mockgen:
+ifeq (, $(shell which mockgen))
+	@{ \
+	set -e ;\
+	MOCKGEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$MOCKGEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go install github.com/golang/mock/mockgen@v1.6.0 ;\
+	rm -rf $$MOCKGEN_TMP_DIR ;\
+	}
+MOCKGEN=$(GOBIN)/mockgen
+else
+MOCKGEN=$(shell which mockgen)
+endif
+
 # install kustomize if not found
 kustomize:
 ifeq (, $(shell which kustomize))
@@ -115,13 +155,17 @@ else
 KUSTOMIZE=$(shell which kustomize)
 endif
 
+.PHONY: ko
+ko:
+	hack/install-ko.sh
+
 # preview docs
 docs-preview: docs-dependencies
 	pipenv run mkdocs serve
 
 # publish the versioned docs using mkdocs mike util
 docs-publish: docs-dependencies
-	pipenv run mike deploy v2.4 latest -p --update-aliases
+	pipenv run mike deploy v2.5 latest -p --update-aliases
 
 # install dependencies needed to preview and publish docs
 docs-dependencies:
@@ -131,8 +175,16 @@ lint:
 	echo "TODO"
 
 .PHONY: quick-ci
-quick-ci: verify-versions
+quick-ci: verify-versions verify-generate verify-crds
 	echo "Done!"
+
+.PHONY: verify-generate
+verify-generate:
+	hack/verify-generate.sh
+
+.PHONY: verify-crds
+verify-crds:
+	hack/verify-crds.sh
 
 .PHONY: verify-versions
 verify-versions:

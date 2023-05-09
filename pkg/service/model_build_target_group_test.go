@@ -1182,6 +1182,7 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 	tests := []struct {
 		testName           string
 		svc                *corev1.Service
+		defaultTargetType  string
 		want               elbv2.TargetType
 		enableIPTargetType *bool
 		wantErr            error
@@ -1201,6 +1202,23 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 				},
 			},
 			want: elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "default type ip",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			defaultTargetType: "ip",
+			want:              elbv2.TargetTypeIP,
 		},
 		{
 			testName: "lb type nlb-ip",
@@ -1378,7 +1396,10 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 			builder := &defaultModelBuildTask{
 				annotationParser:  parser,
 				service:           tt.svc,
-				defaultTargetType: LoadBalancerTargetTypeInstance,
+				defaultTargetType: elbv2.TargetType(tt.defaultTargetType),
+			}
+			if tt.defaultTargetType == "" {
+				builder.defaultTargetType = elbv2.TargetTypeInstance
 			}
 			if tt.enableIPTargetType == nil {
 				builder.enableIPTargetType = true
