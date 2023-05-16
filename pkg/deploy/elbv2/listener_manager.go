@@ -158,8 +158,8 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx context.Context, resLS *elbv2model.Listener,
 	sdkLS ListenerWithTags, isNewSDKListener bool) error {
 	// if TLS is not supported, we shouldn't update
-	if sdkLS.Listener.SslPolicy == nil {
-		m.logger.V(1).Info("SDK Listener doesn't have SSL Policy set, we skip updating extra certs for non-TLS listener.")
+	if resLS.Spec.SSLPolicy == nil && sdkLS.Listener.SslPolicy == nil {
+		m.logger.V(1).Info("Res and Sdk Listener don't have SSL Policy set, we skip updating extra certs for non-TLS listener.")
 		return nil
 	}
 

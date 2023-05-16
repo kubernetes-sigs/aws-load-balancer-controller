@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -31,7 +32,7 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
 	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, vpcEndpointServiceManager, cloud.VpcID(), logger)
-	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, logger)
+	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, cloud.RGT(), logger)
 
 	return &defaultStackDeployer{
 		cloud:                               cloud,
