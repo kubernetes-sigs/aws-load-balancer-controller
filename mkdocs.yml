@@ -32,7 +32,7 @@ nav:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
           - SSL Redirect: guide/tasks/ssl_redirect.md
       - Use Cases:
-        - NLB TLS Termiation: guide/use_cases/nlb_tls_termination/index.md
+        - NLB TLS Termination: guide/use_cases/nlb_tls_termination/index.md
         - Externally Managed Load Balancer: guide/use_cases/self_managed_lb/index.md
   - Examples:
     - EchoServer: examples/echo_server.md
