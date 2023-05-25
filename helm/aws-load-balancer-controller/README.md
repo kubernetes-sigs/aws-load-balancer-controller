@@ -82,7 +82,7 @@ kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/
 
 If you are setting `enableCertManager: true` you need to have installed cert-manager and it's CRDs before installing this chart; to install [cert-manager](https://artifacthub.io/packages/helm/cert-manager/cert-manager) follow the installation guide.
 
-By default, the apiVersion of cert-manager is set to `cert-manager.io/v1`. If you are using an older version of cert-manager, you may need to set `certManagerApiVersion` to `v1alpha2`.
+By default, the apiVersion of cert-manager is set to `cert-manager.io/v1`.
 
 Set `cluster.dnsDomain` (default: `cluster.local`) to the actual DNS domain of your cluster to include the FQDN in requested TLS certificates.
 
@@ -242,7 +242,6 @@ The default values set by the application itself can be confirmed [here](https:/
 | `podDisruptionBudget`                          | Limit the disruption for controller pods. Require at least 2 controller replicas and 3 worker nodes                                                                                                                    | `{}`                                              |
 | `updateStrategy`                               | Defines the update strategy for the deployment                                                                                                                                                                         | `{}`                                              |
 | `enableCertManager`                            | If enabled, cert-manager issues the webhook certificates instead of the helm template, requires cert-manager and it's CRDs to be installed                                                                             | `false`                                           |
-| `certManagerApiVersion`                        | The cert-manager API version to use                                                                                                                                                                                    | `v1`                                        |
 | `enableEndpointSlices`                         | If enabled, controller uses k8s EndpointSlices instead of Endpoints for IP targets                                                                                                                                     | `false`                                           |
 | `enableBackendSecurityGroup`                   | If enabled, controller uses shared security group for backend traffic                                                                                                                                                  | `true`                                            |
 | `backendSecurityGroup`                         | Backend security group to use instead of auto created one if the feature is enabled                                                                                                                                    | ``                                                |
