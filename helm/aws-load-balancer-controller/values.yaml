@@ -100,8 +100,6 @@ additionalLabels: {}
 
 # Enable cert-manager
 enableCertManager: false
-# Select the apiVersion cert-manager uses
-certManagerApiVersion: "v1"
 
 # The name of the Kubernetes cluster. A non-empty value is required
 clusterName:
