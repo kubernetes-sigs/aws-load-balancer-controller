@@ -713,3 +713,85 @@ func Test_fetchESPermissionInfosFromAWS(t *testing.T) {
 		})
 	}
 }
+
+func Test_DeleteWithFailure(t *testing.T) {
+	mockCtrl := gomock.NewController(t)
+	defer mockCtrl.Finish()
+
+	serviceID := "serviceID"
+	sdkES := networking.VPCEndpointServiceInfo{
+		ServiceID: serviceID,
+	}
+
+	ctx := context.Background()
+
+	resourceId := "1"
+	errorCode := "error code"
+	errorMessage := "error message"
+
+	tests := []struct {
+		name                       string
+		deleteResponse             *ec2sdk.DeleteVpcEndpointServiceConfigurationsOutput
+		waitESDeletionPollInterval time.Duration
+		waitESDeletionTimeout      time.Duration
+	}{
+		{
+			name:           "delete response is nil",
+			deleteResponse: nil,
+		},
+		{
+			name: "delete response contains no errors",
+			deleteResponse: &ec2sdk.DeleteVpcEndpointServiceConfigurationsOutput{
+				Unsuccessful: []*ec2sdk.UnsuccessfulItem{},
+			},
+		},
+		{
+			name: "delete response contains one error",
+			deleteResponse: &ec2sdk.DeleteVpcEndpointServiceConfigurationsOutput{
+				Unsuccessful: []*ec2sdk.UnsuccessfulItem{
+					{
+						ResourceId: &resourceId,
+						Error: &ec2sdk.UnsuccessfulItemError{
+							Code:    &errorCode,
+							Message: &errorMessage,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockEC2 := services.NewMockEC2(mockCtrl)
+			mockTaggingManager := NewMockTaggingManager(mockCtrl)
+			manager := NewDefaultEndpointServiceManager(
+				mockEC2,
+				"vpcID",
+				logr.Discard(),
+				tracking.NewDefaultProvider("", ""),
+				mockTaggingManager,
+				[]string{},
+			)
+			req := &ec2sdk.DeleteVpcEndpointServiceConfigurationsInput{
+				ServiceIds: awssdk.StringSlice(
+					[]string{serviceID},
+				),
+			}
+
+			mockEC2.EXPECT().DeleteVpcEndpointServiceConfigurationsWithContext(ctx, gomock.Eq(req)).Return(
+				// We never use this return value
+				tt.deleteResponse,
+				nil,
+			).Times(1)
+
+			err := manager.Delete(ctx, sdkES)
+
+			if tt.deleteResponse != nil && len(tt.deleteResponse.Unsuccessful) > 0 {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"context"
+	"fmt"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
@@ -180,8 +181,17 @@ func (m *defaultEndpointServiceManager) Delete(ctx context.Context, sdkES networ
 
 	m.logger.Info("deleting VPCEndpointService",
 		"serviceId", sdkES.ServiceID)
-	if _, err := m.ec2Client.DeleteVpcEndpointServiceConfigurationsWithContext(ctx, req); err != nil {
+	unsuccessful, err := m.ec2Client.DeleteVpcEndpointServiceConfigurationsWithContext(ctx, req)
+	if err != nil {
 		return errors.Wrap(err, "failed to delete VPCEndpointService")
+	}
+	if unsuccessful != nil {
+		for _, endpoint := range unsuccessful.Unsuccessful {
+			// We return the first error found.
+			// We shouldn't be deleteing more than one endpoint with this call so this
+			// slice should never have more than one element.
+			return fmt.Errorf("failed to delete VPCEndpointService '%s'.  Reason: '%s'", *endpoint.ResourceId, *endpoint.Error.Message)
+		}
 	}
 	m.logger.Info("deleted VPCEndpointService",
 		"serviceId", sdkES.ServiceID)
