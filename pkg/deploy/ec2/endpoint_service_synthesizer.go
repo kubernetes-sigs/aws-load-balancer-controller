@@ -40,6 +40,11 @@ type endpointServiceSynthesizer struct {
 }
 
 func (s *endpointServiceSynthesizer) Synthesize(ctx context.Context) error {
+	// The load balancer synthesizer creates and deletes in its synthesize
+	// loop.  We need to make sure that we delete any VPC endpoint services
+	// before a load balancer deletion is attempted so we also need to delete
+	// in our synthesize loop and we need to make sure that our synthesize
+	// loop is called before the load balancers.
 	var resESs []*ec2model.VPCEndpointService
 	s.stack.ListResources(&resESs)
 	sdkESs, err := s.findSDKEndpointServices(ctx)
@@ -47,7 +52,7 @@ func (s *endpointServiceSynthesizer) Synthesize(ctx context.Context) error {
 		return err
 	}
 
-	matchedResAndSDKESs, unmatchedResESs, unmatchedSDKESs, err := matchResAndSDKEndpointServices(resESs, sdkESs, s.trackingProvider.ResourceIDTagKey())
+	_, _, unmatchedSDKESs, err := matchResAndSDKEndpointServices(resESs, sdkESs, s.trackingProvider.ResourceIDTagKey())
 	if err != nil {
 		return err
 	}
@@ -57,6 +62,29 @@ func (s *endpointServiceSynthesizer) Synthesize(ctx context.Context) error {
 		if err := s.esManager.Delete(ctx, sdkES); err != nil {
 			return errors.Wrap(err, "failed to delete VPCEndpointService")
 		}
+	}
+
+	return nil
+}
+
+func (s *endpointServiceSynthesizer) PostSynthesize(ctx context.Context) error {
+	// We need the load balancer to be created before we attempt to create
+	// our VPC endpoint services.  The load balancer synthesizer creates
+	// load balancers in its synthesize loop so we can safely create in ours
+	// in our post synthesize loop.
+	// We can't create in our synthesize loop as we must synthesize before the
+	// load balancer synthesizer.
+
+	var resESs []*ec2model.VPCEndpointService
+	s.stack.ListResources(&resESs)
+	sdkESs, err := s.findSDKEndpointServices(ctx)
+	if err != nil {
+		return err
+	}
+
+	matchedResAndSDKESs, unmatchedResESs, _, err := matchResAndSDKEndpointServices(resESs, sdkESs, s.trackingProvider.ResourceIDTagKey())
+	if err != nil {
+		return err
 	}
 
 	for _, resES := range unmatchedResESs {
@@ -88,10 +116,6 @@ func (s *endpointServiceSynthesizer) Synthesize(ctx context.Context) error {
 		}
 	}
 
-	return nil
-}
-
-func (s *endpointServiceSynthesizer) PostSynthesize(ctx context.Context) error {
 	return nil
 }
 

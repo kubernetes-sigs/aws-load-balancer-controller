@@ -114,7 +114,9 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) err
 		}
 	}
 	if d.addonsConfig.EndpointServiceEnabled {
-		synthesizers = append(synthesizers, ec2.NewEndpointServiceSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2ESManager, d.vpcID, d.logger, stack))
+		// We need to synthesize endpoints before load balancers so we insert
+		// the endpoint synthesizer to the start of the list.
+		synthesizers = append([]ResourceSynthesizer{ec2.NewEndpointServiceSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2ESManager, d.vpcID, d.logger, stack)}, synthesizers...)
 	}
 
 	for _, synthesizer := range synthesizers {
