@@ -9,6 +9,12 @@ GINKGO_TEST_BUILD="$SCRIPT_DIR/../test/build"
 
 source "$SCRIPT_DIR"/lib/common.sh
 
+# the corresponding accounts for AWS isolated regions
+BJS_PREFIX="918309763551.dkr.ecr.cn-north-1.amazonaws.com.cn"
+ZHY_PREFIX="961992271922.dkr.ecr.cn-northwest-1.amazonaws.com.cn"
+DCA_PREFIX="639420080494.dkr.ecr.us-iso-east-1.c2s.ic.gov"
+LCK_PREFIX="517467847110.dkr.ecr.us-isob-east-1.sc2s.sgov.gov"
+
 function toggle_windows_scheduling(){
   schedule=$1
   nodes=$(kubectl get nodes -l kubernetes.io/os=windows | tail -n +2 | cut -d' ' -f1)
@@ -61,12 +67,17 @@ if [[ $REGION == "cn-north-1" || $REGION == "cn-northwest-1" ]];then
 fi
 
 if [[ $REGION == "cn-north-1" ]];then
-  IMAGE="918309763551.dkr.ecr.cn-north-1.amazonaws.com.cn/amazon/aws-load-balancer-controller"
+  PREFIX=$BJS_PREFIX
 elif [[ $REGION == "cn-northwest-1" ]];then
-  IMAGE="961992271922.dkr.ecr.cn-northwest-1.amazonaws.com.cn/amazon/aws-load-balancer-controller"
+  PREFIX=$ZHY_PREFIX
+elif [[ $REGION == "us-iso-east-1" ]];then
+  PREFIX=$DCA_PREFIX
+elif [[ $REGION == "us-isob-east-1" ]];then
+  PREFIX=$LCK_PREFIX
 else
-  IMAGE="602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller"
+  PREFIX="602401143452.dkr.ecr.us-west-2.amazonaws.com"
 fi
+IMAGE="$PREFIX/amazon/aws-load-balancer-controller"
 
 echo "IMAGE: $IMAGE"
 echo "create IAM policy document file"
