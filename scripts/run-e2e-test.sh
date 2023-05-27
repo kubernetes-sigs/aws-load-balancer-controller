@@ -9,11 +9,8 @@ GINKGO_TEST_BUILD="$SCRIPT_DIR/../test/build"
 
 source "$SCRIPT_DIR"/lib/common.sh
 
-# the corresponding accounts for AWS isolated regions
-BJS_PREFIX="918309763551.dkr.ecr.cn-north-1.amazonaws.com.cn"
-ZHY_PREFIX="961992271922.dkr.ecr.cn-northwest-1.amazonaws.com.cn"
-DCA_PREFIX="639420080494.dkr.ecr.us-iso-east-1.c2s.ic.gov"
-LCK_PREFIX="517467847110.dkr.ecr.us-isob-east-1.sc2s.sgov.gov"
+# set the test image registry
+TEST_IMAGE_REGISTRY=${TEST_IMAGE_REGISTRY:-"602401143452.dkr.ecr.us-west-2.amazonaws.com"}
 
 function toggle_windows_scheduling(){
   schedule=$1
@@ -32,17 +29,17 @@ function cleanUp(){
   # Need to recreae aws-load-balancer controller if we are updating SA
   echo "delete aws-load-balancer-controller if exists"
   helm delete aws-load-balancer-controller -n kube-system --timeout=10m || true
- 
+
   echo "delete service account if exists"
   kubectl delete serviceaccount aws-load-balancer-controller -n kube-system --timeout 10m || true
-  
+
   # IAM role and polcies are AWS Account specific, so need to clean them up if any from previous run
   echo "detach IAM policy if it exists"
   aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
 
   # wait for 10 sec to complete detaching of IAM policy
   sleep 10
-  
+
   echo "delete $ROLE_NAME if it exists"
   aws iam delete-role --role-name $ROLE_NAME || true
 
@@ -66,19 +63,7 @@ if [[ $REGION == "cn-north-1" || $REGION == "cn-northwest-1" ]];then
   IAM_POLCIY_FILE="iam_policy_cn.json"
 fi
 
-if [[ $REGION == "cn-north-1" ]];then
-  PREFIX=$BJS_PREFIX
-elif [[ $REGION == "cn-northwest-1" ]];then
-  PREFIX=$ZHY_PREFIX
-elif [[ $REGION == "us-iso-east-1" ]];then
-  PREFIX=$DCA_PREFIX
-elif [[ $REGION == "us-isob-east-1" ]];then
-  PREFIX=$LCK_PREFIX
-else
-  PREFIX="602401143452.dkr.ecr.us-west-2.amazonaws.com"
-fi
-IMAGE="$PREFIX/amazon/aws-load-balancer-controller"
-
+IMAGE="$TEST_IMAGE_REGISTRY/amazon/aws-load-balancer-controller"
 echo "IMAGE: $IMAGE"
 echo "create IAM policy document file"
 cat <<EOF > trust.json
