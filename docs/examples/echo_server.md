@@ -219,9 +219,9 @@ In this walkthrough, you'll
 
 Make a curl request to the echoserver service and verify that it returns a response payload. Use the address from the output of `kubectl describe ing` command above.
 
-    ```bash
-    curl <load-balancer-dns-name>
-    ```
+   ```bash
+   curl <load-balancer-dns-name>
+   ```
 
 You should get back a valid response.
 
