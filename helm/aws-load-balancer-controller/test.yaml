@@ -305,12 +305,22 @@ objectSelector:
 serviceMonitor:
   # Specifies whether a service monitor should be created
   enabled: false
-  # Labels to add to the service account
+  # Labels to add to the service monitor
   additionalLabels: {}
   # Prometheus scrape interval
   interval: 1m
   # Namespace to create the service monitor in
   namespace:
+
+prometheusRule:
+  # Specifies whether a prometheus rule should be created
+  enabled: false
+  # Labels to add to the prometheus rule
+  additionalLabels: {}
+  # Namespace to create the prometheus rule in
+  namespace:
+  # List of prometheus rules
+  rules: []
 
 # clusterSecretsPermissions lets you configure RBAC permissions for secret resources
 # Access to secrets resource is required only if you use the OIDC feature, and instead of

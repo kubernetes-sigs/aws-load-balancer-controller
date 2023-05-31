@@ -1,0 +1,22 @@
+{{- if and .Values.prometheusRule.enabled .Values.prometheusRule.rules }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "aws-load-balancer-controller.fullname" . }}
+  {{- if .Values.prometheusRule.namespace }}
+  namespace: {{ .Values.prometheusRule.namespace }}
+  {{- else }}
+  namespace: {{ .Release.Namespace | quote }}
+  {{- end }}
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- with .Values.prometheusRule.rules }}
+  groups:
+    - name: {{ include "aws-load-balancer-controller.fullname" $ }}
+      rules: {{- toYaml . | nindent 6 }}
+  {{- end }}
+{{- end }}
