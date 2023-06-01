@@ -25,9 +25,10 @@ type Options struct {
 	ControllerImage string
 
 	// Additional parameters for e2e tests
-	S3BucketName    string
-	CertificateARNs string
-	IPFamily        string
+	S3BucketName      string
+	CertificateARNs   string
+	IPFamily          string
+	TestImageRegistry string
 }
 
 func (options *Options) BindFlags() {
@@ -41,6 +42,7 @@ func (options *Options) BindFlags() {
 	flag.StringVar(&options.S3BucketName, "s3-bucket-name", "", `S3 bucket to use for testing load balancer access logging feature`)
 	flag.StringVar(&options.CertificateARNs, "certificate-arns", "", `Certificate ARNs to use for TLS listeners`)
 	flag.StringVar(&options.IPFamily, "ip-family", "IPv4", "the ip family used for the cluster, can be IPv4 or IPv6")
+	flag.StringVar(&options.TestImageRegistry, "test-image-registry", "617930562442.dkr.ecr.us-west-2.amazonaws.com", "the aws registry in test-infra-* accounts where e2e test images are stored")
 }
 
 func (options *Options) Validate() error {
@@ -55,6 +57,9 @@ func (options *Options) Validate() error {
 	}
 	if len(options.AWSVPCID) == 0 {
 		return errors.Errorf("%s must be set!", "aws-vpc-id")
+	}
+	if len(options.TestImageRegistry) == 0 {
+		return errors.Errorf("%s must be set!", "test-image-registry")
 	}
 	return nil
 }

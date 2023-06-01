@@ -206,7 +206,7 @@ func (s *multiPathBackendStack) buildResourceStacks(namespacedResourcesCFGs map[
 }
 
 func (s *multiPathBackendStack) buildResourceStack(ns *corev1.Namespace, resourcesCFG NamespacedResourcesConfig, f *framework.Framework) (*resourceStack, map[string]*networking.Ingress) {
-	dpByBackendID, svcByBackendID := s.buildBackendResources(ns, resourcesCFG.BackendCFGs, f.Options.AWSRegion)
+	dpByBackendID, svcByBackendID := s.buildBackendResources(ns, resourcesCFG.BackendCFGs, f.Options.TestImageRegistry)
 	ingByIngID := s.buildIngressResources(ns, resourcesCFG.IngCFGs, svcByBackendID, f)
 
 	dps := make([]*appsv1.Deployment, 0, len(dpByBackendID))
@@ -282,19 +282,19 @@ func (s *multiPathBackendStack) buildIngressResource(ns *corev1.Namespace, ingID
 	return ing
 }
 
-func (s *multiPathBackendStack) buildBackendResources(ns *corev1.Namespace, backendCFGs map[string]BackendConfig, awsRegion string) (map[string]*appsv1.Deployment, map[string]*corev1.Service) {
+func (s *multiPathBackendStack) buildBackendResources(ns *corev1.Namespace, backendCFGs map[string]BackendConfig, testImageRegistry string) (map[string]*appsv1.Deployment, map[string]*corev1.Service) {
 	dpByBackendID := make(map[string]*appsv1.Deployment, len(backendCFGs))
 	svcByBackendID := make(map[string]*corev1.Service, len(backendCFGs))
 	for backendID, backendCFG := range backendCFGs {
-		dp, svc := s.buildBackendResource(ns, backendID, backendCFG, awsRegion)
+		dp, svc := s.buildBackendResource(ns, backendID, backendCFG, testImageRegistry)
 		dpByBackendID[backendID] = dp
 		svcByBackendID[backendID] = svc
 	}
 	return dpByBackendID, svcByBackendID
 }
 
-func (s *multiPathBackendStack) buildBackendResource(ns *corev1.Namespace, backendID string, backendCFG BackendConfig, awsRegion string) (*appsv1.Deployment, *corev1.Service) {
-	dpImage := utils.GetDeploymentImage(awsRegion, utils.DefaultColortellerImage)
+func (s *multiPathBackendStack) buildBackendResource(ns *corev1.Namespace, backendID string, backendCFG BackendConfig, testImageRegistry string) (*appsv1.Deployment, *corev1.Service) {
+	dpImage := utils.GetDeploymentImage(testImageRegistry, utils.ColortellerImage)
 	dp := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: ns.Name,

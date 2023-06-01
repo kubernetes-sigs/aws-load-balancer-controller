@@ -9,8 +9,11 @@ GINKGO_TEST_BUILD="$SCRIPT_DIR/../test/build"
 
 source "$SCRIPT_DIR"/lib/common.sh
 
-# set the test image registry
-TEST_IMAGE_REGISTRY=${TEST_IMAGE_REGISTRY:-"602401143452.dkr.ecr.us-west-2.amazonaws.com"}
+# TEST_IMAGE_REGISTRY is the registry in test-infra-* accounts where e2e test images are stored
+TEST_IMAGE_REGISTRY=${TEST_IMAGE_REGISTRY:-"617930562442.dkr.ecr.us-west-2.amazonaws.com"}
+
+# PROD_IMAGE_REGISTRY is the registry in build-prod-* accounts where prod LBC images are stored
+PROD_IMAGE_REGISTRY=${PROD_IMAGE_REGISTRY:-"602401143452.dkr.ecr.us-west-2.amazonaws.com"}
 
 function toggle_windows_scheduling(){
   schedule=$1
@@ -63,7 +66,7 @@ if [[ $REGION == "cn-north-1" || $REGION == "cn-northwest-1" ]];then
   IAM_POLCIY_FILE="iam_policy_cn.json"
 fi
 
-IMAGE="$TEST_IMAGE_REGISTRY/amazon/aws-load-balancer-controller"
+IMAGE="$PROD_IMAGE_REGISTRY/amazon/aws-load-balancer-controller"
 echo "IMAGE: $IMAGE"
 echo "create IAM policy document file"
 cat <<EOF > trust.json
@@ -143,11 +146,11 @@ function run_ginkgo_test() {
   local focus=$1
   echo "Starting the ginkgo tests from generated ginkgo test binaries with focus: $focus"
   if [ "$IP_FAMILY" == "IPv4" ]; then 
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test_image_registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || true)
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test_image_registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || true)
   elif [ "$IP_FAMILY" == "IPv6" ]; then
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --ip-family=$IP_FAMILY || true)
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test_image_registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || true)
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 60m --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test_image_registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || true)
   else
     echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
   fi

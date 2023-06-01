@@ -23,7 +23,7 @@ type NLBInstanceTestStack struct {
 }
 
 func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string) error {
-	dp := s.buildDeploymentSpec(f.Options.AWSRegion)
+	dp := s.buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := s.buildServiceSpec(ctx, svcAnnotations)
 	s.resourceStack = NewResourceStack(dp, svc, "service-instance-e2e", false)
 
@@ -82,13 +82,13 @@ func (s *NLBInstanceTestStack) ApplyNodeLabels(ctx context.Context, f *framework
 	return nil
 }
 
-func (s *NLBInstanceTestStack) buildDeploymentSpec(awsRegion string) *appsv1.Deployment {
+func (s *NLBInstanceTestStack) buildDeploymentSpec(testImageRegistry string) *appsv1.Deployment {
 	numReplicas := int32(defaultNumReplicas)
 	labels := map[string]string{
 		"app.kubernetes.io/name":     "multi-port",
 		"app.kubernetes.io/instance": defaultName,
 	}
-	dpImage := utils.GetDeploymentImage(awsRegion, utils.DefaultHelloImage)
+	dpImage := utils.GetDeploymentImage(testImageRegistry, utils.HelloImage)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: defaultName,
