@@ -32,7 +32,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 			"app.kubernetes.io/name":     "multi-port",
 			"app.kubernetes.io/instance": name,
 		}
-		dpImage := utils.GetDeploymentImage(tf.Options.AWSRegion, utils.DefaultHelloImage)
+		dpImage := utils.GetDeploymentImage(tf.Options.TestImageRegistry, utils.HelloImage)
 		deployment = &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
