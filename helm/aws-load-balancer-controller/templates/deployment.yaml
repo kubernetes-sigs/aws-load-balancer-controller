@@ -149,7 +149,7 @@ spec:
         {{- if ne .Values.defaultTargetType "instance" }}
         - --default-target-type={{ .Values.defaultTargetType }}
         {{- end }}
-        {{- if or .Values.env .Values.envFromSecret | default false }}
+        {{- if or .Values.env (.Values.envFromSecret | default false) }}
         env:
         {{- if .Values.env}}
         {{- range $key, $value := .Values.env }}
