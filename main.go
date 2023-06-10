@@ -203,10 +203,14 @@ func loadControllerConfig() (config.ControllerConfig, error) {
 func getLoggerWithLogLevel(logLevel string) logr.Logger {
 	var zapLevel zapraw.AtomicLevel
 	switch logLevel {
-	case "info":
-		zapLevel = zapraw.NewAtomicLevelAt(zapraw.InfoLevel)
 	case "debug":
 		zapLevel = zapraw.NewAtomicLevelAt(zapraw.DebugLevel)
+	case "info":
+		zapLevel = zapraw.NewAtomicLevelAt(zapraw.InfoLevel)
+	case "warn":
+		zapLevel = zapraw.NewAtomicLevelAt(zapraw.WarnLevel)
+	case "error":
+		zapLevel = zapraw.NewAtomicLevelAt(zapraw.ErrorLevel)
 	default:
 		zapLevel = zapraw.NewAtomicLevelAt(zapraw.InfoLevel)
 	}

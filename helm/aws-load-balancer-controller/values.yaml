@@ -181,7 +181,7 @@ enableWafv2:
 # Maximum number of concurrently running reconcile loops for ingress (default 3)
 ingressMaxConcurrentReconciles:
 
-# Set the controller log level - info(default), debug (default "info")
+# Set the controller log level - debug, info(default), warn, error
 logLevel:
 
 # The address the metric endpoint binds to. (default ":8080")
