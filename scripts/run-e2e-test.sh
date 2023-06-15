@@ -15,6 +15,8 @@ TEST_IMAGE_REGISTRY=${TEST_IMAGE_REGISTRY:-"617930562442.dkr.ecr.us-west-2.amazo
 # PROD_IMAGE_REGISTRY is the registry in build-prod-* accounts where prod LBC images are stored
 PROD_IMAGE_REGISTRY=${PROD_IMAGE_REGISTRY:-"602401143452.dkr.ecr.us-west-2.amazonaws.com"}
 
+ADC_REGIONS="us-iso-east-1 us-isob-east-1 us-iso-west-1"
+
 function toggle_windows_scheduling(){
   schedule=$1
   nodes=$(kubectl get nodes -l kubernetes.io/os=windows | tail -n +2 | cut -d' ' -f1)
@@ -58,13 +60,25 @@ echo "fetch OIDC provider"
 OIDC_PROVIDER=$(echo $CLUSTER_INFO |  jq -r '.cluster.identity.oidc.issuer' | sed -e "s/^https:\/\///")
 echo "OIDC Provider: $OIDC_PROVIDER"
 
+# get the aws partition and iam policy file name based on regions
 AWS_PARTITION="aws"
 IAM_POLCIY_FILE="iam_policy.json"
 
 if [[ $REGION == "cn-north-1" || $REGION == "cn-northwest-1" ]];then
   AWS_PARTITION="aws-cn"
   IAM_POLCIY_FILE="iam_policy_cn.json"
+else if [[ $ADC_REGIONS == *"$REGION"* ]]; then
+  if [[ $REGION == "us-isob-east-1" ]]; then
+    AWS_PARTITION="aws-iso-b"
+    IAM_POLCIY_FILE="iam_policy_isob.json"
+  else
+    AWS_PARTITION="aws-iso"
+    IAM_POLCIY_FILE="iam_policy_iso.json"
+  fi
 fi
+fi
+echo "AWS_PARTITION $AWS_PARTITION"
+echo "IAM_POLCIY_FILE $IAM_POLCIY_FILE"
 
 IMAGE="$PROD_IMAGE_REGISTRY/amazon/aws-load-balancer-controller"
 echo "IMAGE: $IMAGE"
@@ -111,12 +125,17 @@ echo "annotate service account with $ROLE_NAME"
 kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller eks.amazonaws.com/role-arn=arn:${AWS_PARTITION}:iam::"$ACCOUNT_ID":role/"$ROLE_NAME" --overwrite=true || true
 
 echo "update helm repo eks"
-helm repo add eks https://aws.github.io/eks-charts
-
-helm repo update
-
-echo "Install aws-load-balancer-controller"
-helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
+# for ADC regions, install chart from local path
+if [[ $ADC_REGIONS == *"$REGION"* ]]; then
+  echo "Helm install from local chart path"
+  helm upgrade -i aws-load-balancer-controller ../helm/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
+else
+  echo "Update helm repo from github"
+  helm repo add eks https://aws.github.io/eks-charts
+  helm repo update
+  echo "Install aws-load-balancer-controller"
+  helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
+fi
 
 echo_time() {
     date +"%D %T $*"
@@ -170,7 +189,10 @@ toggle_windows_scheduling "uncordon"
 echo "clean up resources from current run"
 cleanUp
 
-echo "Delete TargetGroupBinding CRDs if exists"
-kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30m || true
-
+echo "Delete CRDs if exists"
+if [[ $ADC_REGIONS == *"$REGION"* ]]; then
+  kubectl delete -k "../helm/aws-load-balancer-controller/crds" --timeout=30m || true
+else
+  kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30m || true
+fi
 echo "Successfully finished the test suite $(($SECONDS / 60)) minutes and $(($SECONDS % 60)) seconds"
