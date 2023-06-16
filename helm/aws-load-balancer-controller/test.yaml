@@ -324,3 +324,6 @@ clusterSecretsPermissions:
 # ingressClassConfig contains configurations specific to the ingress class
 ingressClassConfig:
   default: false
+
+# enable leader election
+enableLeaderElection: true
