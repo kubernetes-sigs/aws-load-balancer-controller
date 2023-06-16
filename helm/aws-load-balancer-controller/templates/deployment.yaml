@@ -149,6 +149,9 @@ spec:
         {{- if ne .Values.defaultTargetType "instance" }}
         - --default-target-type={{ .Values.defaultTargetType }}
         {{- end }}
+        {{- if kindIs "bool" .Values.enableLeaderElection }}
+        - --enable-leader-election={{ .Values.enableLeaderElection}}
+        {{- end }}
         {{- if .Values.env }}
         env:
         {{- range $key, $value := .Values.env }}

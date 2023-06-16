@@ -40,10 +40,11 @@ const (
 	defaultQPS = 1e6
 	// High enough Burst to fit all expected use cases. Burst=0 is not set here, because
 	// client code is overriding it.
-	defaultBurst           = 1e6
-	defaultWebhookCertDir  = ""
-	defaultWebhookCertName = ""
-	defaultWebhookKeyName  = ""
+	defaultBurst                = 1e6
+	defaultWebhookCertDir       = ""
+	defaultWebhookCertName      = ""
+	defaultWebhookKeyName       = ""
+	defaultEnableLeaderElection = true
 )
 
 // RuntimeConfig stores the configuration for the controller-runtime
@@ -73,7 +74,7 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 		"The address the health probes binds to.")
 	fs.IntVar(&c.WebhookBindPort, flagWebhookBindPort, defaultWebhookBindPort,
 		"The TCP port the Webhook server binds to.")
-	fs.BoolVar(&c.EnableLeaderElection, flagEnableLeaderElection, true,
+	fs.BoolVar(&c.EnableLeaderElection, flagEnableLeaderElection, defaultEnableLeaderElection,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	fs.StringVar(&c.LeaderElectionID, flagLeaderElectionID, defaultLeaderElectionID,
