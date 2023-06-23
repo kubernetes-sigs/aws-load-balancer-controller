@@ -790,7 +790,7 @@
   
     <li class="md-nav__item">
       <a href="../../guide/use_cases/nlb_tls_termination/" class="md-nav__link">
-        NLB TLS Termiation
+        NLB TLS Termination
       </a>
     </li>
   
@@ -1161,9 +1161,9 @@ I1015 16:08:03.662023       1 leaderelection.go:252] successfully acquired lease
 <ol>
 <li>
 <p>Deploy all the echoserver resources (namespace, service, deployment)</p>
-<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.1/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.1/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.1/docs/examples/echoservice/echoserver-deployment.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.3/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.3/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.3/docs/examples/echoservice/echoserver-deployment.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1183,7 +1183,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <ol>
 <li>
 <p>Download the echoserver ingress manifest locally.</p>
-<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.1/docs/examples/echoservice/echoserver-ingress.yaml
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.3/docs/examples/echoservice/echoserver-ingress.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1277,11 +1277,8 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 </ol>
 <h2 id="verify-that-you-can-access-the-service">Verify that you can access the service<a class="headerlink" href="#verify-that-you-can-access-the-service" title="Permanent link">&para;</a></h2>
 <p>Make a curl request to the echoserver service and verify that it returns a response payload. Use the address from the output of <code>kubectl describe ing</code> command above.</p>
-<div class="codehilite"><pre><span></span><code><span class="err">```</span><span class="n">bash</span>
-<span class="n">curl</span> <span class="o">&lt;</span><span class="nb">load</span><span class="o">-</span><span class="n">balancer</span><span class="o">-</span><span class="n">dns</span><span class="o">-</span><span class="n">name</span><span class="o">&gt;</span>
-<span class="err">```</span>
+<div class="highlight"><pre><span></span><code>curl &lt;load-balancer-dns-name&gt;
 </code></pre></div>
-
 <p>You should get back a valid response.</p>
 <h2 id="optional-use-external-dns-to-create-a-dns-record">(Optional) Use external-dns to create a DNS record<a class="headerlink" href="#optional-use-external-dns-to-create-a-dns-record" title="Permanent link">&para;</a></h2>
 <ol>
@@ -1355,7 +1352,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <ol>
 <li>
 <p>configure the proper policy
-    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.1/docs/install/iam_policy.json</p>
+    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.3/docs/install/iam_policy.json</p>
 </li>
 <li>
 <p>configure the proper role and create the trust relationship

@@ -907,7 +907,7 @@
   
     <li class="md-nav__item">
       <a href="../../guide/use_cases/nlb_tls_termination/" class="md-nav__link">
-        NLB TLS Termiation
+        NLB TLS Termination
       </a>
     </li>
   
@@ -1516,6 +1516,12 @@ Client side throttling enables gradual scaling of the api calls. Additional thro
 <td>string</td>
 <td>true</td>
 <td>Used to toggle support for target-type <code>ip</code> across <code>Ingress</code> and <code>Service</code> type resources.</td>
+</tr>
+<tr>
+<td>EnableRGTAPI</td>
+<td>string</td>
+<td>false</td>
+<td>If enabled, the tagging manager will describe resource tags via RGT APIs, otherwise via ELB APIs. In order to enable RGT API, <code>tag:GetResources</code> is needed in controller IAM policy.</td>
 </tr>
 <tr>
 <td>SubnetsClusterTagCheck</td>
