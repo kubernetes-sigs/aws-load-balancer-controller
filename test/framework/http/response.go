@@ -1,8 +1,8 @@
 package http
 
 import (
+	"io"
 	gohttp "net/http"
-	"os"
 )
 
 type Response struct {
@@ -12,7 +12,7 @@ type Response struct {
 
 func buildResponse(resp *gohttp.Response) (Response, error) {
 	defer resp.Body.Close()
-	body, err := os.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return Response{}, err
 	}
