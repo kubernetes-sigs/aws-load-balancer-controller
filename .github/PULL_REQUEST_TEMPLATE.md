@@ -7,7 +7,7 @@
 <!--
 Please explain the changes you made here.
 
-Help your reviewers my guiding them through your key changes,
+Help your reviewers by guiding them through your key changes,
 implementation decisions etc.
 You can even include snippets of output or screenshots.
 
