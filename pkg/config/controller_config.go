@@ -23,6 +23,7 @@ const (
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
 	flagEnableBackendSG                              = "enable-backend-security-group"
+	flagEnableBackendSGRuleManagement                = "enable-backend-sg-rule-management"
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
@@ -31,6 +32,7 @@ const (
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
 	defaultEnableBackendSG                           = true
+	defaultEnableBackendSGRuleManagement             = true
 	defaultEnableEndpointSlices                      = false
 	defaultDisableRestrictedSGRules                  = false
 )
@@ -91,6 +93,9 @@ type ControllerConfig struct {
 	// EnableBackendSecurityGroup specifies whether to use optimized security group rules
 	EnableBackendSecurityGroup bool
 
+	// EnableBackendSGRuleManagement specifies whether to manage backend security group rules
+	EnableBackendSGRuleManagement bool
+
 	// BackendSecurityGroups specifies the configured backend security group to use
 	// for optimized security group rules
 	BackendSecurityGroup string
@@ -122,6 +127,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Default SSL policy for load balancers listeners")
 	fs.BoolVar(&cfg.EnableBackendSecurityGroup, flagEnableBackendSG, defaultEnableBackendSG,
 		"Enable sharing of security groups for backend traffic")
+	fs.BoolVar(&cfg.EnableBackendSGRuleManagement, flagEnableBackendSGRuleManagement, defaultEnableBackendSGRuleManagement,
+		"Enable management of backend security group rules")
 	fs.StringVar(&cfg.BackendSecurityGroup, flagBackendSecurityGroup, "",
 		"Backend security group id to use for the ingress rules on the worker node SG")
 	fs.BoolVar(&cfg.EnableEndpointSlices, flagEnableEndpointSlices, defaultEnableEndpointSlices,

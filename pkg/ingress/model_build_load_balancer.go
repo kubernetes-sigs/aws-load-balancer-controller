@@ -280,18 +280,20 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 			return nil, err
 		}
 		lbSGTokens = append(lbSGTokens, managedSG.GroupID())
-		if !t.enableBackendSG {
-			t.backendSGIDToken = managedSG.GroupID()
-		} else {
+		backendSGIDToken := managedSG.GroupID()
+		if t.enableBackendSG {
 			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
 			if err != nil {
 				return nil, err
 			}
-			t.backendSGIDToken = core.LiteralStringToken((backendSGID))
 			t.backendSGAllocated = true
-			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
+			backendSGIDToken = core.LiteralStringToken((backendSGID))
+			lbSGTokens = append(lbSGTokens, backendSGIDToken)
 		}
-		t.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+		if t.enableBackendSGRuleManagement {
+			t.backendSGIDToken = backendSGIDToken
+		}
+		t.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", backendSGIDToken)
 	} else {
 		manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
 		if err != nil {
