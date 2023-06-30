@@ -80,6 +80,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |[disable-ingress-group-name-annotation](#disable-ingress-group-name-annotation)  | boolean                         | false           | Disallow new use of the `alb.ingress.kubernetes.io/group.name` annotation |
 |disable-restricted-sg-rules            | boolean                         | false            | Disable the usage of restricted security group rules |
 |enable-backend-security-group          | boolean                         | true            | Enable sharing of security groups for backend traffic |
+|manage-backend-sg-rules                | boolean                         | true            | Enables controller to manage backend SG rules. If `false` controller won't manage the rules, if `true` controller will manage if the annotations on ingress/service don't disable managing. Defaults to `true` |
 |enable-endpoint-slices                 | boolean                         | false           | Use EndpointSlices instead of Endpoints for pod endpoint and TargetGroupBinding resolution for load balancers with IP targets. |
 |enable-leader-election                 | boolean                         | true            | Enable leader election for the load balancer controller manager. Enabling this will ensure there is only one active controller manager |
 |enable-pod-readiness-gate-inject       | boolean                         | true            | If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods |
