@@ -2931,6 +2931,132 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 `,
 			wantNumResources: 4,
 		},
+		{
+			testName:                      "with backend SG rule management disabled using controller config",
+			enableBackendSGRuleManagement: aws.Bool(false),
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "manual-sg-rule",
+					Namespace: "default",
+					UID:       "c93458ad-9ef5-4c4c-bc0b-b31599ff585b",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "ip",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: map[string]string{"app": "hello"},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			wantError:                false,
+			wantValue: `
+{
+ "id":"default/manual-sg-rule",
+ "resources":{
+    "AWS::ElasticLoadBalancingV2::Listener":{
+       "80":{
+          "spec":{
+             "loadBalancerARN":{
+                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+             },
+             "port":80,
+             "protocol":"TCP",
+             "defaultActions":[
+                {
+                   "type":"forward",
+                   "forwardConfig":{
+                      "targetGroups":[
+                         {
+                            "targetGroupARN":{
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/manual-sg-rule:80/status/targetGroupARN"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+       "LoadBalancer":{
+          "spec":{
+             "name":"k8s-default-manualsg-7af4592f28",
+             "type":"network",
+             "scheme":"internal",
+             "ipAddressType":"ipv4",
+             "subnetMapping":[
+                {
+                   "subnetID":"subnet-1"
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup":{
+       "default/manual-sg-rule:80":{
+          "spec":{
+             "name":"k8s-default-manualsg-4f421e4c8d",
+             "targetType":"ip",
+             "ipAddressType":"ipv4",
+             "port":80,
+             "protocol":"TCP",
+             "healthCheckConfig":{
+                "port":"traffic-port",
+                "protocol":"TCP",
+                "intervalSeconds":10,
+                "timeoutSeconds":10,
+                "healthyThresholdCount":3,
+                "unhealthyThresholdCount":3
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+       "default/manual-sg-rule:80":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "name":"k8s-default-manualsg-4f421e4c8d",
+                   "namespace":"default",
+                   "creationTimestamp":null
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/manual-sg-rule:80/status/targetGroupARN"
+                   },
+                   "targetType":"ip",
+                   "ipAddressType":"ipv4",
+                   "serviceRef":{
+                      "name":"manual-sg-rule",
+                      "port":80
+                   }
+                }
+             }
+          }
+       }
+    }
+ }
+}
+`,
+			wantNumResources: 4,
+		},
 	}
 
 	for _, tt := range tests {

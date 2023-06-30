@@ -1070,6 +1070,20 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want:          nil,
 		},
+		{
+			name:                          "with manage backend SG disabled via controller config",
+			enableBackendSGRuleManagement: aws.Bool(false),
+			svc:                           &corev1.Service{},
+			tgPort:                        port80,
+			hcPort:                        port808,
+			subnets: []*ec2.Subnet{{
+				CidrBlock: aws.String("172.16.0.0/19"),
+				SubnetId:  aws.String("az-1"),
+			}},
+			tgProtocol:    corev1.ProtocolTCP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
+			want:          nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
