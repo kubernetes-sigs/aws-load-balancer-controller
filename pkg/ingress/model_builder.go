@@ -411,7 +411,7 @@ func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(ing *networki
 }
 
 func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Context) (bool, error) {
-	// don't manage if enableBackendSGRuleManagement controller config is false, else prefer the annotation value
+	// don't manage if enableBackendSGRuleManagement is false, else prefer the annotation value
 	if !t.enableBackendSGRuleManagement {
 		return false, nil
 	}
