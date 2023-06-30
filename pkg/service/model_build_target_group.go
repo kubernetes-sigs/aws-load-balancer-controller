@@ -611,6 +611,10 @@ func (t *defaultModelBuildTask) buildHealthCheckNetworkingIngressRules(trafficSo
 }
 
 func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Context) (bool, error) {
+	// don't manage if enableBackendSGRuleManagement is false, else prefer the annotation value
+	if !t.enableBackendSGRuleManagement {
+		return false, nil
+	}
 	var rawEnabled bool
 	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixManageSGRules, &rawEnabled, t.service.Annotations)
 	if err != nil {

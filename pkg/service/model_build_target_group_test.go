@@ -402,16 +402,17 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 	trafficPort := intstr.FromString("traffic-port")
 
 	tests := []struct {
-		name                string
-		svc                 *corev1.Service
-		tgPort              intstr.IntOrString
-		hcPort              intstr.IntOrString
-		subnets             []*ec2.Subnet
-		tgProtocol          corev1.Protocol
-		ipAddressType       elbv2.TargetGroupIPAddressType
-		preserveClientIP    bool
-		defaultSourceRanges []string
-		want                *elbv2.TargetGroupBindingNetworking
+		name                          string
+		svc                           *corev1.Service
+		tgPort                        intstr.IntOrString
+		hcPort                        intstr.IntOrString
+		subnets                       []*ec2.Subnet
+		tgProtocol                    corev1.Protocol
+		ipAddressType                 elbv2.TargetGroupIPAddressType
+		preserveClientIP              bool
+		enableBackendSGRuleManagement *bool
+		defaultSourceRanges           []string
+		want                          *elbv2.TargetGroupBindingNetworking
 	}{
 		{
 			name: "udp-service with source ranges",
@@ -1073,7 +1074,16 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets}
+			enableBackendSGRuleManagement := true
+			if tt.enableBackendSGRuleManagement != nil {
+				enableBackendSGRuleManagement = *tt.enableBackendSGRuleManagement
+			}
+			builder := &defaultModelBuildTask{
+				service:                       tt.svc,
+				annotationParser:              parser,
+				ec2Subnets:                    tt.subnets,
+				enableBackendSGRuleManagement: enableBackendSGRuleManagement,
+			}
 			port := corev1.ServicePort{
 				Protocol: tt.tgProtocol,
 			}
