@@ -611,8 +611,8 @@ func (t *defaultModelBuildTask) buildHealthCheckNetworkingIngressRules(trafficSo
 }
 
 func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Context) (bool, error) {
-	// don't manage if enableBackendSGRuleManagement is false, else prefer the annotation value
-	if !t.enableBackendSGRuleManagement {
+	// don't manage if manageBackendSGRules is false, else prefer the annotation value
+	if !t.manageBackendSGRules {
 		return false, nil
 	}
 	var rawEnabled bool

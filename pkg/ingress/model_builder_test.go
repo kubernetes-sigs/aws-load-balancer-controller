@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
@@ -454,12 +455,12 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		err            error
 	}
 	type fields struct {
-		resolveViaDiscoveryCalls      []resolveViaDiscoveryCall
-		listLoadBalancersCalls        []listLoadBalancersCall
-		describeSecurityGroupsResult  []describeSecurityGroupsResult
-		backendSecurityGroup          string
-		enableBackendSG               bool
-		enableBackendSGRuleManagement bool
+		resolveViaDiscoveryCalls     []resolveViaDiscoveryCall
+		listLoadBalancersCalls       []listLoadBalancersCall
+		describeSecurityGroupsResult []describeSecurityGroupsResult
+		backendSecurityGroup         string
+		enableBackendSG              bool
+		manageBackendSGRules         *bool
 	}
 	type args struct {
 		ingGroup Group
@@ -618,10 +619,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -700,10 +700,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               false,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          false,
 			},
 			args: args{
 				ingGroup: Group{
@@ -903,10 +902,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -1008,10 +1006,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -1290,10 +1287,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -1488,10 +1484,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -1615,10 +1610,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -1942,8 +1936,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 					},
 				},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				enableBackendSG: true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -2081,9 +2074,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 					},
 				},
-				backendSecurityGroup:          "sg-backend",
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				backendSecurityGroup: "sg-backend",
+				enableBackendSG:      true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -2221,9 +2213,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 					},
 				},
-				backendSecurityGroup:          "sg-backend",
-				enableBackendSG:               false,
-				enableBackendSGRuleManagement: true,
+				backendSecurityGroup: "sg-backend",
+				enableBackendSG:      false,
 			},
 			args: args{
 				ingGroup: Group{
@@ -2289,9 +2280,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 					},
 				},
-				backendSecurityGroup:          "sg-backend",
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: false,
+				backendSecurityGroup: "sg-backend",
+				enableBackendSG:      true,
+				manageBackendSGRules: aws.Bool(false),
 			},
 			args: args{
 				ingGroup: Group{
@@ -2419,11 +2410,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				backendSecurityGroup:          "sg-backend",
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: false,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				backendSecurityGroup:     "sg-backend",
+				enableBackendSG:          true,
+				manageBackendSGRules:     aws.Bool(false),
 			},
 			args: args{
 				ingGroup: Group{
@@ -2569,11 +2560,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				backendSecurityGroup:          "sg-backend",
-				enableBackendSG:               false,
-				enableBackendSGRuleManagement: false,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				backendSecurityGroup:     "sg-backend",
+				enableBackendSG:          false,
+				manageBackendSGRules:     aws.Bool(false),
 			},
 			args: args{
 				ingGroup: Group{
@@ -2718,10 +2709,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_ipv6},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -2916,10 +2906,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{ns_1_svc_ipv6},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -2970,10 +2959,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			},
 			enableIPTargetType: awssdk.Bool(false),
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -3023,10 +3011,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{svcWithNamedTargetPort},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -3185,10 +3172,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				svcs: []*corev1.Service{svcWithNamedTargetPort},
 			},
 			fields: fields{
-				resolveViaDiscoveryCalls:      []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
-				listLoadBalancersCalls:        []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
-				enableBackendSG:               true,
-				enableBackendSGRuleManagement: true,
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
 			},
 			args: args{
 				ingGroup: Group{
@@ -3389,27 +3375,31 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			if defaultTargetType == "" {
 				defaultTargetType = "instance"
 			}
+			manageBackendSGRules := true
+			if tt.fields.manageBackendSGRules != nil {
+				manageBackendSGRules = *tt.fields.manageBackendSGRules
+			}
 
 			b := &defaultModelBuilder{
-				k8sClient:                     k8sClient,
-				eventRecorder:                 eventRecorder,
-				ec2Client:                     ec2Client,
-				vpcID:                         vpcID,
-				clusterName:                   clusterName,
-				annotationParser:              annotationParser,
-				subnetsResolver:               subnetsResolver,
-				sgResolver:                    sgResolver,
-				backendSGProvider:             backendSGProvider,
-				certDiscovery:                 certDiscovery,
-				authConfigBuilder:             authConfigBuilder,
-				enhancedBackendBuilder:        enhancedBackendBuilder,
-				ruleOptimizer:                 ruleOptimizer,
-				trackingProvider:              trackingProvider,
-				elbv2TaggingManager:           elbv2TaggingManager,
-				enableBackendSG:               tt.fields.enableBackendSG,
-				enableBackendSGRuleManagement: tt.fields.enableBackendSGRuleManagement,
-				featureGates:                  config.NewFeatureGates(),
-				logger:                        logr.New(&log.NullLogSink{}),
+				k8sClient:              k8sClient,
+				eventRecorder:          eventRecorder,
+				ec2Client:              ec2Client,
+				vpcID:                  vpcID,
+				clusterName:            clusterName,
+				annotationParser:       annotationParser,
+				subnetsResolver:        subnetsResolver,
+				sgResolver:             sgResolver,
+				backendSGProvider:      backendSGProvider,
+				certDiscovery:          certDiscovery,
+				authConfigBuilder:      authConfigBuilder,
+				enhancedBackendBuilder: enhancedBackendBuilder,
+				ruleOptimizer:          ruleOptimizer,
+				trackingProvider:       trackingProvider,
+				elbv2TaggingManager:    elbv2TaggingManager,
+				enableBackendSG:        tt.fields.enableBackendSG,
+				manageBackendSGRules:   manageBackendSGRules,
+				featureGates:           config.NewFeatureGates(),
+				logger:                 logr.New(&log.NullLogSink{}),
 
 				defaultSSLPolicy:  "ELBSecurityPolicy-2016-08",
 				defaultTargetType: elbv2model.TargetType(defaultTargetType),

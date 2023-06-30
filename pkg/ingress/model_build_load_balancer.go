@@ -290,7 +290,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 			backendSGIDToken = core.LiteralStringToken((backendSGID))
 			lbSGTokens = append(lbSGTokens, backendSGIDToken)
 		}
-		if t.enableBackendSGRuleManagement {
+		if t.manageBackendSGRules {
 			t.backendSGIDToken = backendSGIDToken
 		}
 		t.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", backendSGIDToken)

@@ -96,19 +96,19 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		sdkLBs: []elbv2.LoadBalancerWithTags{},
 	}
 	tests := []struct {
-		testName                      string
-		resolveViaDiscoveryCalls      []resolveViaDiscoveryCall
-		resolveViaNameOrIDSliceCalls  []resolveViaNameOrIDSliceCall
-		listLoadBalancerCalls         []listLoadBalancerCall
-		fetchVPCInfoCalls             []fetchVPCInfoCall
-		defaultTargetType             string
-		enableIPTargetType            *bool
-		enableBackendSGRuleManagement *bool
-		svc                           *corev1.Service
-		wantError                     bool
-		wantValue                     string
-		wantNumResources              int
-		restrictToTypeLoadBalancer    bool
+		testName                     string
+		resolveViaDiscoveryCalls     []resolveViaDiscoveryCall
+		resolveViaNameOrIDSliceCalls []resolveViaNameOrIDSliceCall
+		listLoadBalancerCalls        []listLoadBalancerCall
+		fetchVPCInfoCalls            []fetchVPCInfoCall
+		defaultTargetType            string
+		enableIPTargetType           *bool
+		manageBackendSGRules         *bool
+		svc                          *corev1.Service
+		wantError                    bool
+		wantValue                    string
+		wantNumResources             int
+		restrictToTypeLoadBalancer   bool
 	}{
 		{
 			testName: "Simple service",
@@ -2932,8 +2932,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			wantNumResources: 4,
 		},
 		{
-			testName:                      "with backend SG rule management disabled using controller config",
-			enableBackendSGRuleManagement: aws.Bool(false),
+			testName:             "with backend SG rule management disabled using controller config",
+			manageBackendSGRules: aws.Bool(false),
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "manual-sg-rule",
@@ -3097,12 +3097,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			} else {
 				enableIPTargetType = *tt.enableIPTargetType
 			}
-			enableBackendSGRuleManagement := true
-			if tt.enableBackendSGRuleManagement != nil {
-				enableBackendSGRuleManagement = *tt.enableBackendSGRuleManagement
+			manageBackendSGRules := true
+			if tt.manageBackendSGRules != nil {
+				manageBackendSGRules = *tt.manageBackendSGRules
 			}
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, featureGates,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, enableIPTargetType, enableBackendSGRuleManagement, serviceUtils)
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, enableIPTargetType, manageBackendSGRules, serviceUtils)
 			ctx := context.Background()
 			stack, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {
