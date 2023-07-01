@@ -63,6 +63,7 @@ const (
 	SvcLBSuffixAccessLogS3BucketName                     = "aws-load-balancer-access-log-s3-bucket-name"
 	SvcLBSuffixAccessLogS3BucketPrefix                   = "aws-load-balancer-access-log-s3-bucket-prefix"
 	SvcLBSuffixCrossZoneLoadBalancingEnabled             = "aws-load-balancer-cross-zone-load-balancing-enabled"
+	SvcLBSuffixSSLDomains                                = "aws-load-balancer-ssl-domains"
 	SvcLBSuffixSSLCertificate                            = "aws-load-balancer-ssl-cert"
 	SvcLBSuffixSSLPorts                                  = "aws-load-balancer-ssl-ports"
 	SvcLBSuffixSSLNegotiationPolicy                      = "aws-load-balancer-ssl-negotiation-policy"

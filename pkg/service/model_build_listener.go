@@ -108,13 +108,26 @@ func (t *defaultModelBuildTask) buildSSLNegotiationPolicy(_ context.Context) *st
 	return &t.defaultSSLPolicy
 }
 
-func (t *defaultModelBuildTask) buildListenerCertificates(_ context.Context) []elbv2model.Certificate {
+func (t *defaultModelBuildTask) buildListenerCertificates(ctx context.Context) []elbv2model.Certificate {
 	var rawCertificateARNs []string
+	var rawSSLDomains []string
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLCertificate, &rawCertificateARNs, t.service.Annotations)
+	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLDomains, &rawSSLDomains, t.service.Annotations)
 
 	var certificates []elbv2model.Certificate
 	for _, cert := range rawCertificateARNs {
 		certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
+	}
+
+	// TODO: Refactoring required
+	autoDiscoveredCertARNs, err := t.certDiscovery.Discover(ctx, rawSSLDomains)
+	if err != nil {
+		return certificates
+	}
+	for _, cert := range autoDiscoveredCertARNs {
+		certificates = append(certificates, elbv2model.Certificate{
+			CertificateARN: aws.String(cert),
+		})
 	}
 	return certificates
 }

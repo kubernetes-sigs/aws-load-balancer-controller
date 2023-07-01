@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"github.com/go-logr/logr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
 	"strconv"
 	"sync"
 
@@ -41,7 +44,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
-	disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
+	disableRestrictedSGRules bool, certDiscovery ingress.CertDiscovery, logger logr.Logger) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:         annotationParser,
 		subnetsResolver:          subnetsResolver,
@@ -50,6 +53,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		elbv2TaggingManager:      elbv2TaggingManager,
 		featureGates:             featureGates,
 		serviceUtils:             serviceUtils,
+		certDiscovery:            certDiscovery,
 		clusterName:              clusterName,
 		vpcID:                    vpcID,
 		defaultTags:              defaultTags,
@@ -78,6 +82,7 @@ type defaultModelBuilder struct {
 	elbv2TaggingManager      elbv2deploy.TaggingManager
 	featureGates             config.FeatureGates
 	serviceUtils             ServiceUtils
+	certDiscovery            ingress.CertDiscovery
 	ec2Client                services.EC2
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
@@ -165,6 +170,7 @@ type defaultModelBuildTask struct {
 	featureGates        config.FeatureGates
 	serviceUtils        ServiceUtils
 	enableIPTargetType  bool
+	certDiscovery       ingress.CertDiscovery
 	ec2Client           services.EC2
 	logger              logr.Logger
 
