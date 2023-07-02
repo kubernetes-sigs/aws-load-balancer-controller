@@ -108,28 +108,30 @@ func (t *defaultModelBuildTask) buildSSLNegotiationPolicy(_ context.Context) *st
 	return &t.defaultSSLPolicy
 }
 
-func (t *defaultModelBuildTask) buildListenerCertificates(ctx context.Context) []elbv2model.Certificate {
+func (t *defaultModelBuildTask) buildListenerCertificates(ctx context.Context) ([]elbv2model.Certificate, error) {
 	var rawCertificateARNs []string
 	var rawSSLDomains []string
-	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLCertificate, &rawCertificateARNs, t.service.Annotations)
-	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLDomains, &rawSSLDomains, t.service.Annotations)
+	sslCertAnnotationExists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLCertificate, &rawCertificateARNs, t.service.Annotations)
 
 	var certificates []elbv2model.Certificate
 	for _, cert := range rawCertificateARNs {
 		certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
 	}
 
-	// TODO: Refactoring required
-	autoDiscoveredCertARNs, err := t.certDiscovery.Discover(ctx, rawSSLDomains)
-	if err != nil {
-		return certificates
+	// auto-discover ACM certs only if the ssl-domains annotation exists ssl-cert annotations is not present
+	// which means ssl-cert takes precedence over the auto-discovered cert/ss-domains annotation
+	if !sslCertAnnotationExists && t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLDomains, &rawSSLDomains, t.service.Annotations) {
+		autoDiscoveredCertARNs, err := t.certDiscovery.Discover(ctx, rawSSLDomains)
+		if err != nil {
+			return certificates, err
+		}
+		for _, cert := range autoDiscoveredCertARNs {
+			certificates = append(certificates, elbv2model.Certificate{
+				CertificateARN: aws.String(cert),
+			})
+		}
 	}
-	for _, cert := range autoDiscoveredCertARNs {
-		certificates = append(certificates, elbv2model.Certificate{
-			CertificateARN: aws.String(cert),
-		})
-	}
-	return certificates
+	return certificates, nil
 }
 
 func validateTLSPortsSet(rawTLSPorts []string, ports []corev1.ServicePort) error {
@@ -205,7 +207,11 @@ type listenerConfig struct {
 }
 
 func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context) (*listenerConfig, error) {
-	certificates := t.buildListenerCertificates(ctx)
+	certificates, err := t.buildListenerCertificates(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	tlsPortsSet, err := t.buildTLSPortsSet(ctx)
 	if err != nil {
 		return nil, err
