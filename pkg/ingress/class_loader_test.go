@@ -660,7 +660,8 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 			}
 
 			l := &defaultClassLoader{
-				client: k8sClient,
+				client:     k8sClient,
+				loadParams: true,
 			}
 			got, err := l.Load(ctx, tt.args.ing)
 			if tt.wantErr != nil {
@@ -852,7 +853,8 @@ func Test_defaultClassLoader_validateIngressClassParamsNamespaceRestriction(t *t
 			}
 
 			l := &defaultClassLoader{
-				client: k8sClient,
+				client:     k8sClient,
+				loadParams: true,
 			}
 			if tt.args.admissionReq != nil {
 				ctx = webhook.ContextWithAdmissionRequest(ctx, *tt.args.admissionReq)

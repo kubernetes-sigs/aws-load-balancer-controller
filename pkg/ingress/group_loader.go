@@ -219,7 +219,7 @@ func (m *defaultGroupLoader) classifyIngress(ctx context.Context, ing *networkin
 		return ClassifiedIngress{
 			Ing:            ing,
 			IngClassConfig: ingClassConfig,
-		}, ingClassConfig.IngClass.Spec.Controller == ingressClassControllerALB, nil
+		}, ingClassConfig.IngClass.Spec.Controller == IngressClassControllerALB, nil
 	}
 
 	return ClassifiedIngress{

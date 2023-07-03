@@ -15,14 +15,17 @@ const (
 
 // IngressConfig contains the configurations for the Ingress controller
 type IngressConfig struct {
-	// Name of the Ingress class this controller satisfies
-	// If empty, all Ingresses without ingress.class annotation, or ingress.class==alb get considered
+	// Name of the Ingress class this controller satisfies.
+	// If empty, all with a `kubernetes.io/ingress.class`
+	// annotation of `alb` get considered.
+	// Also, if empty, all ingresses without either a `kubernetes.io/ingress.class` annotation or
+	// an IngressClassName get considered.
 	IngressClass string
 
-	// DisableIngressClassAnnotation specifies whether to disable new usage of kubernetes.io/ingress.class annotation.
+	// DisableIngressClassAnnotation specifies whether to disable new use of the `kubernetes.io/ingress.class` annotation.
 	DisableIngressClassAnnotation bool
 
-	// DisableIngressGroupNameAnnotation specifies whether to disable new usage of alb.ingress.kubernetes.io/group.name annotation.
+	// DisableIngressGroupNameAnnotation specifies whether to disable new use of the `alb.ingress.kubernetes.io/group.name` annotation.
 	DisableIngressGroupNameAnnotation bool
 
 	// Max concurrent reconcile loops for Ingress objects

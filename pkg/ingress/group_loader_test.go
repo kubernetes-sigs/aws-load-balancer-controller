@@ -621,7 +621,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			}
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
-			classLoader := NewDefaultClassLoader(k8sClient)
+			classLoader := NewDefaultClassLoader(k8sClient, true)
 			classAnnotationMatcher := NewDefaultClassAnnotationMatcher("alb")
 			m := &defaultGroupLoader{
 				client:                             k8sClient,
@@ -1485,7 +1485,7 @@ func Test_defaultGroupLoader_checkGroupMembershipType(t *testing.T) {
 			}
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
-			classLoader := NewDefaultClassLoader(k8sClient)
+			classLoader := NewDefaultClassLoader(k8sClient, true)
 			classAnnotationMatcher := NewDefaultClassAnnotationMatcher("alb")
 			m := &defaultGroupLoader{
 				client:                             k8sClient,
@@ -1759,7 +1759,7 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper(t *testing.T) {
 			}
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
-			classLoader := NewDefaultClassLoader(k8sClient)
+			classLoader := NewDefaultClassLoader(k8sClient, true)
 			classAnnotationMatcher := NewDefaultClassAnnotationMatcher("alb")
 			m := &defaultGroupLoader{
 				client:                             k8sClient,
@@ -2176,7 +2176,7 @@ func Test_defaultGroupLoader_classifyIngress(t *testing.T) {
 			}
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
-			classLoader := NewDefaultClassLoader(k8sClient)
+			classLoader := NewDefaultClassLoader(k8sClient, true)
 			classAnnotationMatcher := NewDefaultClassAnnotationMatcher(tt.fields.ingressClass)
 			m := &defaultGroupLoader{
 				client:                             k8sClient,
