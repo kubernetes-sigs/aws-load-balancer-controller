@@ -386,11 +386,11 @@ You can configure TLS support via the following annotations:
         service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
         ```
 
-- <a name="ssl-domains">`service.beta.kubernetes.io/aws-load-balancer-ssl-domains`</a> specifies the domain names for the NLB to which you want auto-discover the SSL certs.
+- <a name="ssl-domains">`service.beta.kubernetes.io/aws-load-balancer-ssl-domains`</a> specifies the domain names for which the controller will automatically discover TLS certificates.
 
     !!!note ""
-        When both the [ssl-cert](#ssl-cert) and [ssl-domains](#ssl-domains) are specified, `service.beta.kubernetes.io/aws-load-balancer-ssl-cert` annotation
-        takes precedence over the `service.beta.kubernetes.io/aws-load-balancer-ssl-domains`.
+        The `service.beta.kubernetes.io/aws-load-balancer-ssl-cert` annotation takes precedence
+        over the `service.beta.kubernetes.io/aws-load-balancer-ssl-domains` annotation.
 
     !!!example
         ```

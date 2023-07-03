@@ -111,16 +111,18 @@ func (t *defaultModelBuildTask) buildSSLNegotiationPolicy(_ context.Context) *st
 func (t *defaultModelBuildTask) buildListenerCertificates(ctx context.Context) ([]elbv2model.Certificate, error) {
 	var rawCertificateARNs []string
 	var rawSSLDomains []string
-	sslCertAnnotationExists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLCertificate, &rawCertificateARNs, t.service.Annotations)
-
 	var certificates []elbv2model.Certificate
-	for _, cert := range rawCertificateARNs {
-		certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
+
+	if t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLCertificate, &rawCertificateARNs, t.service.Annotations) {
+		for _, cert := range rawCertificateARNs {
+			certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
+		}
+		return certificates, nil
 	}
 
 	// auto-discover ACM certs only if the ssl-domains annotation exists ssl-cert annotations is not present
 	// which means ssl-cert takes precedence over the auto-discovered cert/ss-domains annotation
-	if !sslCertAnnotationExists && t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLDomains, &rawSSLDomains, t.service.Annotations) {
+	if t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLDomains, &rawSSLDomains, t.service.Annotations) {
 		autoDiscoveredCertARNs, err := t.certDiscovery.Discover(ctx, rawSSLDomains)
 		if err != nil {
 			return certificates, err

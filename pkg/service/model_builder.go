@@ -2,11 +2,12 @@ package service
 
 import (
 	"context"
+	"strconv"
+	"sync"
+
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
-	"strconv"
-	"sync"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
