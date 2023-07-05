@@ -12,6 +12,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
     - Annotations that configures LoadBalancer / Listener behaviors have different merge behavior when IngressGroup feature is been used. `MergeBehavior` column below indicates how such annotation will be merged.
         - Exclusive: such annotation should only be specified on a single Ingress within IngressGroup or specified with same value across all Ingresses within IngressGroup.
         - Merge: such annotation can be specified on all Ingresses within IngressGroup, and will be merged together.
+    - For the resources that are manually added or edited via console, it is an expected behavior that controller will revert to default during the reconciliation. In order to avoid this, best practice would be to use annotations that are provided
 
 ## Annotations
 |Name                       | Type |Default|Location|MergeBehavior|

@@ -7,6 +7,7 @@
         - stringList: `"s1,s2,s3"`
         - stringMap: `"k1=v1,k2=v2"`
         - json: `"{ \"key\": \"value\" }"`
+    - For the resources that are manually added or edited via console, it is an expected behavior that controller will revert to default during the reconciliation. In order to avoid this, best practice would be to use annotations that are provided
 
 ## Annotations
 !!!warning
