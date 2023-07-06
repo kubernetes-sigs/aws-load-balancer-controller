@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
 
 	"github.com/aws/aws-sdk-go/service/ec2"

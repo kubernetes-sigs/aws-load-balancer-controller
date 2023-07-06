@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-logr/logr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
@@ -6459,9 +6462,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			} else {
 				enableIPTargetType = *tt.enableIPTargetType
 			}
+			certDiscovery := ingress.NewMockCertDiscovery(ctrl)
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
 				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, enableIPTargetType, serviceUtils,
-				backendSGProvider, sgResolver, tt.enableBackendSG, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}))
+				backendSGProvider, sgResolver, tt.enableBackendSG, tt.disableRestrictedSGRules, certDiscovery, logr.New(&log.NullLogSink{}))
 			ctx := context.Background()
 			stack, _, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {
