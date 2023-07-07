@@ -125,7 +125,7 @@ func (t *defaultModelBuildTask) buildListenerCertificates(ctx context.Context) (
 	if t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLDomains, &rawSSLDomains, t.service.Annotations) {
 		autoDiscoveredCertARNs, err := t.certDiscovery.Discover(ctx, rawSSLDomains)
 		if err != nil {
-			return certificates, err
+			return nil, err
 		}
 		for _, cert := range autoDiscoveredCertARNs {
 			certificates = append(certificates, elbv2model.Certificate{
