@@ -41,6 +41,39 @@ const (
 	LoadBalancerSchemeInternetFacing LoadBalancerScheme = "internet-facing"
 )
 
+// SecurityGroupID specifies a security group ID.
+// +kubebuilder:validation:Pattern=sg-[0-9a-f]+
+type SecurityGroupID string
+
+// SecurityGroupSelector selects one or more existing security groups.
+type SecurityGroupSelector struct {
+	// IDs specify the resource IDs of security groups.
+	// Exactly one of this, `managedInbound`, or `tags` must be specified.
+	// +kubebuilder:validation:MinItems=1
+	// +optional
+	IDs []SecurityGroupID `json:"ids,omitempty"`
+
+	// ManagedBackend specifies that the controller will create and include a security group for
+	// traffic between the load balancer and its targets.
+	// If `managedInbound` is `true`, defaults to the value of the controller's
+	// `--enable-backend-security-group` flag. Otherwise, defaults to `false`.
+	// +optional
+	ManagedBackend *bool `json:"managedBackend,omitempty"`
+
+	// ManagedInbound specifies that the controller will create a security group allowing traffic from
+	// `inboundCIDRs` to the `listen-ports`.
+	// Exactly one of this, `ids`, or `tags` must be specified.
+	// +optional
+	ManagedInbound bool `json:"managedInbound,omitempty"`
+
+	// Tags specifies security groups in the load balancer's VPC where each
+	// tag specified in the map key contains one of the values in the corresponding
+	// value list.
+	// Exactly one of this, `ids`, or `managedInbound` must be specified.
+	// +optional
+	Tags map[string][]string `json:"tags,omitempty"`
+}
+
 // SubnetID specifies a subnet ID.
 // +kubebuilder:validation:Pattern=subnet-[0-9a-f]+
 type SubnetID string
@@ -100,8 +133,13 @@ type IngressClassParamsSpec struct {
 	Scheme *LoadBalancerScheme `json:"scheme,omitempty"`
 
 	// InboundCIDRs specifies the CIDRs that are allowed to access the Ingresses that belong to IngressClass with this IngressClassParams.
+	// If this and `securityGroups` are both specified, `securityGroups.managed` must be `true`.
 	// +optional
 	InboundCIDRs []string `json:"inboundCIDRs,omitempty"`
+
+	// SecurityGroups defines the security groups to attach to all Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
+	SecurityGroups *SecurityGroupSelector `json:"securityGroups,omitempty"`
 
 	// SSLPolicy specifies the SSL Policy for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional

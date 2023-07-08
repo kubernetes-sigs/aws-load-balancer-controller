@@ -140,6 +140,38 @@ Cluster administrators can use the `scheme` field to restrict the scheme for all
 Cluster administrators can use the optional `inboundCIDRs` field to specify the CIDRs that are allowed to access the load balancers that belong to this IngressClass.
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/inbound-cidrs` annotation.
 
+#### spec.securityGroups
+
+Cluster administrators can use the optional `securityGroups` field to specify the security groups for the load balancers that belong to this IngressClass.
+If the field is specified, they must specify one of `ids`, `managedInbound`, or `tags`.
+If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/security-groups` 
+and `alb.ingress.kubernetes.io/manage-backend-security-group-rules` annotations.
+
+##### spec.securityGroups.ids
+
+If `ids` is specified, it must be a set of at least one resource ID of a security group in the VPC.
+
+##### spec.securityGroups.managedInbound
+
+If `managedInbound` is `true`, LBC will create a security group allowing traffic from `spec.inboundCIDRs` to the `listen-ports`.
+
+##### spec.securityGroups.managedBackend
+
+If `managedBackend` is `true`, LBC will create and include a security group for traffic between the load balancer and its targets.
+
+If `managedInbound` is `true`, defaults to the value of the controller's `--enable-backend-security-group` flag. Otherwise, defaults to `false`.
+
+##### spec.securityGroups.tags
+
+If `tags` is specified, it is a map of tag filters. The filters will match security groups in the VPC for which
+each listed tag key is present and has one of the corresponding tag values.
+
+Security groups with the cluster tag for another cluster and which do not have a cluster tag 
+for this cluster will be excluded.
+
+If any matching security group has a cluster tag for this cluster, then security groups without
+a cluster tag will be excluded.
+
 #### spec.sslPolicy
 
 Cluster administrators can use the optional `sslPolicy` field to specify the SSL policy for the load balancers that belong to this IngressClass.
@@ -148,7 +180,8 @@ If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/ssl-po
 #### spec.subnets
 
 Cluster administrators can use the optional `subnets` field to specify the subnets for the load balancers that belong to this IngressClass.
-They may specify either `ids` or `tags`. If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/subnets annotation` annotation.
+If the field is specified, they must specify either `ids` or `tags`.
+If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/subnets` annotation.
 
 ##### spec.subnets.ids
 
@@ -159,7 +192,8 @@ If `ids` is specified, it must be a set of at least one resource ID of a subnet 
 If `tags` is specified, it is a map of tag filters. The filters will match subnets in the VPC for which
 each listed tag key is present and has one of the corresponding tag values.
 
-Unless the `SubnetsClusterTagCheck` feature gate is disabled, subnets without a cluster tag and with the cluster tag for another cluster will be excluded.
+Unless the `SubnetsClusterTagCheck` feature gate is disabled, subnets with the cluster tag for another
+cluster and which do not have a cluster tag for this cluster will be excluded.
 
 Within any given availability zone, subnets with a cluster tag will be chosen over subnets without, then the subnet with the lowest-sorting resource ID will be chosen.
 

@@ -64,6 +64,8 @@ spec:
               inboundCIDRs:
                 description: InboundCIDRs specifies the CIDRs that are allowed to
                   access the Ingresses that belong to IngressClass with this IngressClassParams.
+                  If this and `securityGroups` are both specified, `securityGroups.managed`
+                  must be `true`.
                 items:
                   type: string
                 type: array
@@ -146,6 +148,43 @@ spec:
                 - internal
                 - internet-facing
                 type: string
+              securityGroups:
+                description: SecurityGroups defines the security groups to attach
+                  to all Ingresses that belong to IngressClass with this IngressClassParams.
+                properties:
+                  ids:
+                    description: IDs specify the resource IDs of security groups.
+                      Exactly one of this, `managedInbound`, or `tags` must be specified.
+                    items:
+                      description: SecurityGroupID specifies a security group ID.
+                      pattern: sg-[0-9a-f]+
+                      type: string
+                    minItems: 1
+                    type: array
+                  managedBackend:
+                    description: ManagedBackend specifies that the controller will
+                      create and include a security group for traffic between the
+                      load balancer and its targets. If `managedInbound` is `true`,
+                      defaults to the value of the controller's `--enable-backend-security-group`
+                      flag. Otherwise, defaults to `false`.
+                    type: boolean
+                  managedInbound:
+                    description: ManagedInbound specifies that the controller will
+                      create a security group allowing traffic from `inboundCIDRs`
+                      to the `listen-ports`. Exactly one of this, `ids`, or `tags`
+                      must be specified.
+                    type: boolean
+                  tags:
+                    additionalProperties:
+                      items:
+                        type: string
+                      type: array
+                    description: Tags specifies security groups in the load balancer's
+                      VPC where each tag specified in the map key contains one of
+                      the values in the corresponding value list. Exactly one of this,
+                      `ids`, or `managedInbound` must be specified.
+                    type: object
+                type: object
               sslPolicy:
                 description: SSLPolicy specifies the SSL Policy for all Ingresses
                   that belong to IngressClass with this IngressClassParams.
