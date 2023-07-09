@@ -203,12 +203,12 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 
 	if len(explicitSubnetSelectorList) != 0 {
 		if len(explicitSubnetNameOrIDsList) != 0 {
-			return nil, errors.Errorf("conflicting subnet specifications: IngressClassParams versus annotation")
+			return nil, errors.New("conflicting subnet specifications: IngressClassParams versus annotation")
 		}
 		chosenSubnetSelector := explicitSubnetSelectorList[0]
 		for _, subnetSelector := range explicitSubnetSelectorList[1:] {
 			if !cmp.Equal(*chosenSubnetSelector, *subnetSelector) {
-				return nil, errors.Errorf("conflicting IngressClassParams subnet specifications")
+				return nil, errors.New("conflicting IngressClassParams subnet specifications")
 			}
 		}
 		chosenSubnets, err := t.subnetsResolver.ResolveViaSelector(ctx, chosenSubnetSelector,
@@ -227,7 +227,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		for _, subnetNameOrIDs := range explicitSubnetNameOrIDsList[1:] {
 			// subnetNameOrIDs order doesn't matter
 			if !cmp.Equal(chosenSubnetNameOrIDs, subnetNameOrIDs, equality.IgnoreStringSliceOrder()) {
-				return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
+				return nil, fmt.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
 			}
 		}
 		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
@@ -269,78 +269,120 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
-	sgNameOrIDsViaAnnotation, err := t.buildFrontendSGNameOrIDsFromAnnotation(ctx)
+	var explicitSGSelectorList []*v1beta1.SecurityGroupSelector
+	var explicitSGNameOrIDsList [][]string
+	var lbSGTokens []core.StringToken
+	manageBackendSG := t.enableBackendSG
+
+	for _, member := range t.ingGroup.Members {
+		if member.IngClassConfig.IngClassParams != nil {
+			if member.IngClassConfig.IngClassParams.Spec.SecurityGroups != nil {
+				explicitSGSelectorList = append(explicitSGSelectorList, member.IngClassConfig.IngClassParams.Spec.SecurityGroups)
+				continue
+			}
+			if len(member.IngClassConfig.IngClassParams.Spec.InboundCIDRs) > 0 {
+				explicitSGSelectorList = append(explicitSGSelectorList, &v1beta1.SecurityGroupSelector{ManagedInbound: true})
+				continue
+			}
+		}
+
+		var rawSGNameOrIDs []string
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroups, &rawSGNameOrIDs, member.Ing.Annotations); exists {
+			explicitSGNameOrIDsList = append(explicitSGNameOrIDsList, rawSGNameOrIDs)
+		}
+	}
+
+	if len(explicitSGSelectorList) != 0 {
+		if len(explicitSGNameOrIDsList) != 0 {
+			return nil, errors.New("conflicting security group specifications: IngressClassParams versus annotation")
+		}
+		chosenSGSelector := explicitSGSelectorList[0]
+		for _, sgSelector := range explicitSGSelectorList[1:] {
+			if !cmp.Equal(*chosenSGSelector, *sgSelector) {
+				return nil, errors.New("conflicting IngressClassParams security group specifications")
+			}
+		}
+		if chosenSGSelector.ManagedInbound {
+			if chosenSGSelector.ManagedBackend != nil {
+				manageBackendSG = *chosenSGSelector.ManagedBackend
+			}
+		} else {
+			frontendSGIDs, err := t.sgResolver.ResolveViaSelector(ctx, chosenSGSelector)
+			if err != nil {
+				return nil, err
+			}
+			for _, sgID := range frontendSGIDs {
+				lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
+			}
+			if chosenSGSelector.ManagedBackend != nil && *chosenSGSelector.ManagedBackend {
+				backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
+				if err != nil {
+					return nil, err
+				}
+				t.backendSGIDToken = core.LiteralStringToken(backendSGID)
+				t.backendSGAllocated = true
+				lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
+			}
+			return lbSGTokens, nil
+		}
+	}
+
+	if len(explicitSGNameOrIDsList) > 0 {
+		sgNameOrIDsViaAnnotation := explicitSGNameOrIDsList[0]
+		for _, sgNameOrIDs := range explicitSGNameOrIDsList[1:] {
+			if !cmp.Equal(sgNameOrIDsViaAnnotation, sgNameOrIDs) {
+				return nil, fmt.Errorf("conflicting securityGroups: %v | %v", sgNameOrIDsViaAnnotation, sgNameOrIDs)
+			}
+		}
+
+		if len(sgNameOrIDsViaAnnotation) > 0 {
+			manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
+			if err != nil {
+				return nil, err
+			}
+			frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, sgNameOrIDsViaAnnotation)
+			if err != nil {
+				return nil, err
+			}
+			for _, sgID := range frontendSGIDs {
+				lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
+			}
+
+			if manageBackendSGRules {
+				if !t.enableBackendSG {
+					return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified")
+				}
+				backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
+				if err != nil {
+					return nil, err
+				}
+				t.backendSGIDToken = core.LiteralStringToken(backendSGID)
+				t.backendSGAllocated = true
+				lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
+			}
+			t.logger.Info("SG configured via annotation", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+			return lbSGTokens, nil
+		}
+	}
+
+	managedSG, err := t.buildManagedSecurityGroup(ctx, listenPortConfigByPort, ipAddressType)
 	if err != nil {
 		return nil, err
 	}
-	var lbSGTokens []core.StringToken
-	if len(sgNameOrIDsViaAnnotation) == 0 {
-		managedSG, err := t.buildManagedSecurityGroup(ctx, listenPortConfigByPort, ipAddressType)
-		if err != nil {
-			return nil, err
-		}
-		lbSGTokens = append(lbSGTokens, managedSG.GroupID())
-		if !t.enableBackendSG {
-			t.backendSGIDToken = managedSG.GroupID()
-		} else {
-			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
-			if err != nil {
-				return nil, err
-			}
-			t.backendSGIDToken = core.LiteralStringToken((backendSGID))
-			t.backendSGAllocated = true
-			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
-		}
-		t.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+	lbSGTokens = append(lbSGTokens, managedSG.GroupID())
+	if !manageBackendSG {
+		t.backendSGIDToken = managedSG.GroupID()
 	} else {
-		manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
+		backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
 		if err != nil {
 			return nil, err
 		}
-		frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, sgNameOrIDsViaAnnotation)
-		if err != nil {
-			return nil, err
-		}
-		for _, sgID := range frontendSGIDs {
-			lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
-		}
-
-		if manageBackendSGRules {
-			if !t.enableBackendSG {
-				return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified")
-			}
-			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
-			if err != nil {
-				return nil, err
-			}
-			t.backendSGIDToken = core.LiteralStringToken(backendSGID)
-			t.backendSGAllocated = true
-			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
-		}
-		t.logger.Info("SG configured via annotation", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+		t.backendSGIDToken = core.LiteralStringToken(backendSGID)
+		t.backendSGAllocated = true
+		lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
 	}
+	t.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
 	return lbSGTokens, nil
-}
-
-func (t *defaultModelBuildTask) buildFrontendSGNameOrIDsFromAnnotation(ctx context.Context) ([]string, error) {
-	var explicitSGNameOrIDsList [][]string
-	for _, member := range t.ingGroup.Members {
-		var rawSGNameOrIDs []string
-		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroups, &rawSGNameOrIDs, member.Ing.Annotations); !exists {
-			continue
-		}
-		explicitSGNameOrIDsList = append(explicitSGNameOrIDsList, rawSGNameOrIDs)
-	}
-	if len(explicitSGNameOrIDsList) == 0 {
-		return nil, nil
-	}
-	chosenSGNameOrIDs := explicitSGNameOrIDsList[0]
-	for _, sgNameOrIDs := range explicitSGNameOrIDsList[1:] {
-		if !cmp.Equal(chosenSGNameOrIDs, sgNameOrIDs) {
-			return nil, errors.Errorf("conflicting securityGroups: %v | %v", chosenSGNameOrIDs, sgNameOrIDs)
-		}
-	}
-	return chosenSGNameOrIDs, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerCOIPv4Pool(_ context.Context) (*string, error) {

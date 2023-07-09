@@ -2920,7 +2920,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
 			stackMarshaller := deploy.NewDefaultStackMarshaller()
 			backendSGProvider := networkingpkg.NewMockBackendSGProvider(ctrl)
-			sgResolver := networkingpkg.NewDefaultSecurityGroupResolver(ec2Client, vpcID)
+			sgResolver := networkingpkg.NewDefaultSecurityGroupResolver(ec2Client, vpcID, clusterName)
 			if tt.fields.enableBackendSG {
 				if len(tt.fields.backendSecurityGroup) > 0 {
 					backendSGProvider.EXPECT().Get(gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return(tt.fields.backendSecurityGroup, nil).AnyTimes()

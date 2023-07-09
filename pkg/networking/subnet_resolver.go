@@ -396,8 +396,8 @@ func (r *defaultSubnetsResolver) checkSubnetHasClusterTag(subnet *ec2sdk.Subnet)
 
 // checkSubnetIsNotTaggedForOtherClusters checks whether the subnet is tagged for the current cluster
 // or it doesn't contain the cluster tag at all. If the subnet contains a tag for other clusters, then
-// this check returns false so that the subnet does not used for the load balancer.
-// it returns true if the subnetsClusterTagCheck is disabled
+// this check returns false so that the subnet is not used for the load balancer.
+// It returns true if the subnetsClusterTagCheck is disabled.
 func (r *defaultSubnetsResolver) checkSubnetIsNotTaggedForOtherClusters(subnet *ec2sdk.Subnet, subnetsClusterTagCheck bool) bool {
 	if !subnetsClusterTagCheck {
 		return true

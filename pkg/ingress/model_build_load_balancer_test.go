@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
@@ -683,6 +684,924 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 }
 
 var (
+	sg1 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-1"),
+		VpcId:   awssdk.String("vpc-1"),
+	}
+	sg2 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-2"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("Name"),
+				Value: awssdk.String("namedsg"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg3 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-3"),
+		VpcId:   awssdk.String("vpc-1"),
+	}
+	sg4 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-4"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("Name"),
+				Value: awssdk.String("othername"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg5 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-5"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("Name"),
+				Value: awssdk.String("namedsg"),
+			},
+		},
+		VpcId: awssdk.String("vpc-2"),
+	}
+	sg6 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-6"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("Name"),
+				Value: awssdk.String("sg-1"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg7 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-7"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("Name"),
+				Value: awssdk.String("sg-1"),
+			},
+			{
+				Key:   awssdk.String("class"),
+				Value: awssdk.String("test"),
+			}},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg8 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-8"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("alb"),
+				Value: awssdk.String("test"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg9 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-9"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("Name"),
+				Value: awssdk.String("sg-12"),
+			},
+			{
+				Key:   awssdk.String("alb"),
+				Value: awssdk.String("test"),
+			},
+			{
+				Key:   awssdk.String("class"),
+				Value: awssdk.String("test"),
+			}},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg10 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-10"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("alb"),
+				Value: awssdk.String("testing"),
+			},
+			{
+				Key:   awssdk.String("class"),
+				Value: awssdk.String("test"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg11 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-11"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("tagtest"),
+				Value: awssdk.String("1"),
+			},
+			{
+				Key:   awssdk.String("tagtest2"),
+				Value: awssdk.String("1"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg12 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-12"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("tagtest"),
+				Value: awssdk.String("1"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg13 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-13"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("tagtest"),
+				Value: awssdk.String("1"),
+			},
+			{
+				Key:   awssdk.String("kubernetes.io/cluster/other-cluster"),
+				Value: awssdk.String("shared"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg14 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-14"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("tagtest2"),
+				Value: awssdk.String("1"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	sg15 = &ec2.SecurityGroup{
+		GroupId: awssdk.String("sg-15"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("tagtest2"),
+				Value: awssdk.String("1"),
+			},
+			{
+				Key:   awssdk.String("kubernetes.io/cluster/test-cluster"),
+				Value: awssdk.String("shared"),
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+)
+
+func stubDescribeSecurityGroupsAsList(ctx context.Context, input *ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error) {
+	sgs := []*ec2.SecurityGroup{
+		sg1,
+		sg2,
+		sg3,
+		sg4,
+		sg5,
+		sg6,
+		sg7,
+		sg8,
+		sg9,
+		sg10,
+		sg11,
+		sg12,
+		sg13,
+		sg14,
+		sg15,
+	}
+	if input.GroupIds != nil {
+		var filtered []*ec2.SecurityGroup
+		for _, sg := range sgs {
+			for _, id := range input.GroupIds {
+				if awssdk.StringValue(sg.GroupId) == awssdk.StringValue(id) {
+					filtered = append(filtered, sg)
+					continue
+				}
+			}
+		}
+		sgs = filtered
+	}
+	if input.Filters != nil {
+		var filtered []*ec2.SecurityGroup
+	sgLoop:
+		for _, sg := range sgs {
+			for _, filter := range input.Filters {
+				eligible := false
+				if awssdk.StringValue(filter.Name) == "vpc-id" {
+					for _, name := range filter.Values {
+						if awssdk.StringValue(sg.VpcId) == awssdk.StringValue(name) {
+							eligible = true
+							continue
+						}
+					}
+				} else if strings.HasPrefix(awssdk.StringValue(filter.Name), "tag:") {
+					key := strings.TrimPrefix(awssdk.StringValue(filter.Name), "tag:")
+					for _, value := range filter.Values {
+						for _, tag := range sg.Tags {
+							if awssdk.StringValue(tag.Key) == key && awssdk.StringValue(tag.Value) == awssdk.StringValue(value) {
+								eligible = true
+								continue
+							}
+						}
+					}
+				} else {
+					return nil, fmt.Errorf("unexpected filter %q", awssdk.StringValue(filter.Name))
+				}
+				if !eligible {
+					continue sgLoop
+				}
+			}
+			filtered = append(filtered, sg)
+		}
+		sgs = filtered
+	}
+	return sgs, nil
+}
+
+func Test_defaultModelBuildTask_buildLoadBalancerSecurityGroups(t *testing.T) {
+	type fields struct {
+		ingGroup        Group
+		scheme          elbv2.LoadBalancerScheme
+		enableBackendSG bool
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    []string
+		wantErr string
+	}{
+		{
+			name: "no annotation managed SG",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			want: []string{"sg-managed"},
+		},
+		{
+			name: "no annotation managed SG backend",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+						},
+					},
+				},
+				scheme:          elbv2.LoadBalancerSchemeInternetFacing,
+				enableBackendSG: true,
+			},
+			want: []string{"sg-managed", "sg-backend"},
+		},
+		{
+			name: "security-groups annotation",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups": "sg-1,namedsg",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{},
+								},
+							},
+						},
+					},
+				},
+				enableBackendSG: true,
+			},
+			want: []string{"sg-1", "sg-2"},
+		},
+		{
+			name: "security-groups and backend annotation",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-1,namedsg",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{},
+								},
+							},
+						},
+					},
+				},
+				enableBackendSG: true,
+			},
+			want: []string{"sg-1", "sg-2", "sg-backend"},
+		},
+		{
+			name: "classparams sg ids",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											IDs: []v1beta1.SecurityGroupID{"sg-1", "sg-2"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				enableBackendSG: true,
+			},
+			want: []string{"sg-1", "sg-2"},
+		},
+		{
+			name: "classparams sg ids backend",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "false",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											IDs:            []v1beta1.SecurityGroupID{"sg-1", "sg-2"},
+											ManagedBackend: awssdk.Bool(true),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"sg-1", "sg-2", "sg-backend"},
+		},
+		{
+			name: "classparams sg managed",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											ManagedInbound: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"sg-managed"},
+		},
+		{
+			name: "classparams sg managed default backend",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "false",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											ManagedInbound: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				enableBackendSG: true,
+			},
+			want: []string{"sg-managed", "sg-backend"},
+		},
+		{
+			name: "classparams sg managed explicit backend",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "false",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											ManagedBackend: awssdk.Bool(true),
+											ManagedInbound: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}, want: []string{"sg-managed", "sg-backend"},
+		},
+		{
+			name: "classparams sg managed disable backend",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											ManagedBackend: awssdk.Bool(false),
+											ManagedInbound: true,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				enableBackendSG: true,
+			},
+			want: []string{"sg-managed"},
+		},
+		{
+			name: "classparams inboundCIDRs",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										InboundCIDRs: []string{"10.0.0.0/8"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"sg-managed"},
+		},
+		{
+			name: "classparams inboundCIDRs backend",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "false",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										InboundCIDRs: []string{"10.0.0.0/8"},
+									},
+								},
+							},
+						},
+					},
+				},
+				enableBackendSG: true,
+			},
+			want: []string{"sg-managed", "sg-backend"},
+		},
+		{
+			name: "classparams sg tag multiple values",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											Tags: map[string][]string{
+												"Name": {"namedsg", "othername"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				enableBackendSG: true,
+			},
+			want: []string{"sg-2", "sg-4"},
+		},
+		{
+			name: "classparams sg tag multiple values backend",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups":                     "sg-4,othername",
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											ManagedBackend: awssdk.Bool(true),
+											Tags: map[string][]string{
+												"Name": {"namedsg", "othername"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"sg-2", "sg-4", "sg-backend"},
+		},
+		{
+			name: "classparams sg tag multiple matches",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups": "sg-4,othername",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											Tags: map[string][]string{
+												"Name": {"sg-1"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"sg-6", "sg-7"},
+		},
+		{
+			name: "classparams custom tag",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											Tags: map[string][]string{
+												"alb": {"test"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"sg-8", "sg-9"},
+		},
+		{
+			name: "classparams multiple tags",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											Tags: map[string][]string{
+												"alb":   {"test", "testing"},
+												"class": {"test"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"sg-10", "sg-9"},
+		},
+		{
+			name: "classparams missing id",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/security-groups": "sg-4,othername",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											IDs: []v1beta1.SecurityGroupID{"sg-1234", "sg-1"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: "couldn't find all security groups: IDs: [sg-1234 sg-1], found: 1",
+		},
+		{
+			name: "classparams ignore tagged other cluster",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											Tags: map[string][]string{
+												"tagtest": {"1"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"sg-11", "sg-12"},
+		},
+		{
+			name: "classparams prefer tagged for cluster",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											Tags: map[string][]string{
+												"tagtest2": {"1"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"sg-15"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			backendSGProvider := networking2.NewMockBackendSGProvider(ctrl)
+			backendSGProvider.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any()).
+				DoAndReturn(func(ctx context.Context, resourceType networking2.ResourceType, activeResources []types.NamespacedName) (string, error) {
+					return "sg-backend", nil
+				}).
+				MaxTimes(1)
+
+			mockEC2 := services.NewMockEC2(ctrl)
+			mockEC2.EXPECT().DescribeSecurityGroupsAsList(gomock.Any(), gomock.Any()).
+				DoAndReturn(stubDescribeSecurityGroupsAsList).
+				AnyTimes()
+
+			sgResolver := networking2.NewDefaultSecurityGroupResolver(
+				mockEC2,
+				"vpc-1",
+				"test-cluster",
+			)
+
+			task := &defaultModelBuildTask{
+				featureGates:      config.NewFeatureGates(),
+				ingGroup:          tt.fields.ingGroup,
+				stack:             core.NewDefaultStack(core.StackID(tt.fields.ingGroup.ID)),
+				annotationParser:  annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				backendSGProvider: backendSGProvider,
+				sgResolver:        sgResolver,
+				trackingProvider:  tracking.NewDefaultProvider("ingress.k8s.aws", "test-cluster"),
+				logger:            logr.Discard(),
+				enableBackendSG:   tt.fields.enableBackendSG,
+			}
+			listenPortConfigByType := map[int64]listenPortConfig{
+				80: {
+					protocol: elbv2.ProtocolHTTP,
+				},
+			}
+			got, err := task.buildLoadBalancerSecurityGroups(context.Background(), listenPortConfigByType, elbv2.IPAddressTypeDualStack)
+			if tt.wantErr != "" {
+				assert.EqualError(t, err, tt.wantErr)
+			} else {
+				assert.NoError(t, err)
+				var gotSGs []string
+				for i, mapping := range got {
+					if _, ok := mapping.(*core.ResourceFieldStringToken); ok {
+						gotSGs = append(gotSGs, "sg-managed")
+						continue
+					}
+					sg, err := mapping.Resolve(context.Background())
+					assert.NoError(t, err, "SG mapping %d", i)
+					gotSGs = append(gotSGs, sg)
+				}
+				assert.Equal(t, tt.want, gotSGs)
+			}
+		})
+	}
+}
+
+var (
 	subnet1 = &ec2.Subnet{
 		SubnetId:         awssdk.String("subnet-1"),
 		AvailabilityZone: awssdk.String("az1"),
@@ -1283,9 +2202,10 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 				trackingProvider:    tracking.NewDefaultProvider("ingress.k8s.aws", "test-cluster"),
 			}
 			got, err := task.buildLoadBalancerSubnetMappings(context.Background(), elbv2.LoadBalancerSchemeInternetFacing)
-			if err != nil {
+			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
+				assert.NoError(t, err)
 				var gotSubnets []string
 				for _, mapping := range got {
 					gotSubnets = append(gotSubnets, mapping.SubnetID)
