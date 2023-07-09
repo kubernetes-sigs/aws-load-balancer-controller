@@ -85,6 +85,168 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 			wantErr: "spec.inboundCIDRs[0]: Invalid value: \"invalid.example.com\": Could not be parsed as a CIDR",
 		},
 		{
+			name: "securityGroups is valid ID list",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						IDs: []elbv2api.SecurityGroupID{"sg-1", "sg-2"},
+					},
+				},
+			},
+		},
+		{
+			name: "securityGroups is valid managed",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						ManagedInbound: true,
+					},
+				},
+			},
+		},
+		{
+			name: "securityGroups is managedInbound with inboundCIDRs",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					InboundCIDRs: []string{
+						"10.0.0.0/8",
+						"2001:DB8::/32",
+					},
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						ManagedInbound: true,
+					},
+				},
+			},
+		},
+		{
+			name: "securityGroups is valid tag list",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						Tags: map[string][]string{
+							"key": {"value1", "value2"},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "securityGroups selector empty",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{},
+				},
+			},
+			wantErr: "spec.securityGroups: Required value: must have `ids`, `managed`, or `tags`",
+		},
+		{
+			name: "securityGroups selector with both id and managedInbound",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						IDs:            []elbv2api.SecurityGroupID{"sg-1", "sg-2"},
+						ManagedInbound: true,
+					},
+				},
+			},
+			wantErr: "spec.securityGroups.managedInbound: Forbidden: may not have both `ids` and `managedInbound` set",
+		},
+		{
+			name: "securityGroups selector with both id and tag",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						IDs: []elbv2api.SecurityGroupID{"sg-1", "sg-2"},
+						Tags: map[string][]string{
+							"Name": {"named-subnet"},
+						},
+					},
+				},
+			},
+			wantErr: "spec.securityGroups.tags: Forbidden: may not have both `ids` and `tags` set",
+		},
+		{
+			name: "securityGroups selector with both managedInbound and tag",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						ManagedInbound: true,
+						Tags: map[string][]string{
+							"Name": {"named-subnet"},
+						},
+					},
+				},
+			},
+			wantErr: "spec.securityGroups.tags: Forbidden: may not have both `managedInbound` and `tags` set",
+		},
+		{
+			name: "securityGroups id with inboundCIDRs",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					InboundCIDRs: []string{
+						"10.0.0.0/8",
+					},
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						IDs: []elbv2api.SecurityGroupID{"sg-1"},
+					},
+				},
+			},
+			wantErr: "spec.inboundCIDRs: Forbidden: May not have both `inboundCIDRs` and `securityGroups.ids`",
+		},
+		{
+			name: "securityGroups duplicate id",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						IDs: []elbv2api.SecurityGroupID{"sg-1", "sg-2", "sg-1"},
+					},
+				},
+			},
+			wantErr: "spec.securityGroups.ids[2]: Duplicate value: \"sg-1\"",
+		},
+		{
+			name: "securityGroups tag with inboundCIDRs",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					InboundCIDRs: []string{
+						"10.0.0.0/8",
+					},
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						Tags: map[string][]string{
+							"Name":  {"name1"},
+							"Other": {"other1"},
+						},
+					},
+				},
+			},
+			wantErr: "spec.inboundCIDRs: Forbidden: May not have both `inboundCIDRs` and `securityGroups.tags`",
+		},
+		{
+			name: "securityGroups duplicate tag value",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						Tags: map[string][]string{
+							"Name":  {"name1"},
+							"Other": {"other1", "other2", "other1"},
+						},
+					},
+				},
+			},
+			wantErr: "spec.securityGroups.tags[Other][2]: Duplicate value: \"other1\"",
+		},
+		{
+			name: "securityGroups empty tags map",
+			obj: &elbv2api.IngressClassParams{
+				Spec: elbv2api.IngressClassParamsSpec{
+					SecurityGroups: &elbv2api.SecurityGroupSelector{
+						Tags: map[string][]string{},
+					},
+				},
+			},
+			wantErr: "spec.securityGroups.tags: Required value: must have at least one tag key",
+		},
+		{
 			name: "subnet is valid ID list",
 			obj: &elbv2api.IngressClassParams{
 				Spec: elbv2api.IngressClassParamsSpec{
