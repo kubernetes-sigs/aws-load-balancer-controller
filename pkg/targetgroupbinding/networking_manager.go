@@ -45,18 +45,18 @@ type NetworkingManager interface {
 
 // NewDefaultNetworkingManager constructs defaultNetworkingManager.
 func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver networking.PodENIInfoResolver, nodeENIResolver networking.NodeENIInfoResolver,
-	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler, vpcID string, clusterName string, endpointSGTags map[string]string, logger logr.Logger, disabledRestrictedSGRulesFlag bool) *defaultNetworkingManager {
+	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler, vpcID string, clusterName string, serviceTargetENISGTags map[string]string, logger logr.Logger, disabledRestrictedSGRulesFlag bool) *defaultNetworkingManager {
 
 	return &defaultNetworkingManager{
-		k8sClient:       k8sClient,
-		podENIResolver:  podENIResolver,
-		nodeENIResolver: nodeENIResolver,
-		sgManager:       sgManager,
-		sgReconciler:    sgReconciler,
-		vpcID:           vpcID,
-		clusterName:     clusterName,
-		endpointSGTags:  endpointSGTags,
-		logger:          logger,
+		k8sClient:              k8sClient,
+		podENIResolver:         podENIResolver,
+		nodeENIResolver:        nodeENIResolver,
+		sgManager:              sgManager,
+		sgReconciler:           sgReconciler,
+		vpcID:                  vpcID,
+		clusterName:            clusterName,
+		serviceTargetENISGTags: serviceTargetENISGTags,
+		logger:                 logger,
 
 		mutex:                         sync.Mutex{},
 		ingressPermissionsPerSGByTGB:  make(map[types.NamespacedName]map[string][]networking.IPPermissionInfo),
@@ -68,15 +68,15 @@ func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver network
 
 // default implementation for NetworkingManager.
 type defaultNetworkingManager struct {
-	k8sClient       client.Client
-	podENIResolver  networking.PodENIInfoResolver
-	nodeENIResolver networking.NodeENIInfoResolver
-	sgManager       networking.SecurityGroupManager
-	sgReconciler    networking.SecurityGroupReconciler
-	vpcID           string
-	clusterName     string
-	endpointSGTags  map[string]string
-	logger          logr.Logger
+	k8sClient              client.Client
+	podENIResolver         networking.PodENIInfoResolver
+	nodeENIResolver        networking.NodeENIInfoResolver
+	sgManager              networking.SecurityGroupManager
+	sgReconciler           networking.SecurityGroupReconciler
+	vpcID                  string
+	clusterName            string
+	serviceTargetENISGTags map[string]string
+	logger                 logr.Logger
 
 	// mutex will serialize our TargetGroup's networking reconcile requests.
 	mutex sync.Mutex
@@ -524,8 +524,8 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 	for sgID, sgInfo := range sgInfoByID {
 		isMatch := true
 		if _, ok := sgInfo.Tags[clusterResourceTagKey]; ok {
-			for endpointSGTagKey, endpointSGTagValue := range m.endpointSGTags {
-				if sgInfo.Tags[endpointSGTagKey] != endpointSGTagValue {
+			for endpointSGTagKey, endpointSGTagValue := range m.serviceTargetENISGTags {
+				if _, ok := sgInfo.Tags[endpointSGTagKey]; !ok || sgInfo.Tags[endpointSGTagKey] != endpointSGTagValue {
 					isMatch = false
 					break
 				}
@@ -542,12 +542,12 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 	if len(sgIDsWithMatchingEndpointSGTags) != 1 {
 		// user may provide incorrect `--cluster-name` at bootstrap or modify the tag key unexpectedly, it is hard to find out if no clusterName included in error message.
 		// having `clusterName` included in error message might be helpful for shorten the troubleshooting time spent.
-		if len(m.endpointSGTags) == 0 {
+		if len(m.serviceTargetENISGTags) == 0 {
 			return "", errors.Errorf("expect exactly one securityGroup tagged with %v for eni %v, got: %v (clusterName: %v)",
 				clusterResourceTagKey, eniInfo.NetworkInterfaceID, sgIDsWithMatchingEndpointSGTags.List(), m.clusterName)
 		}
 		return "", errors.Errorf("expect exactly one securityGroup tagged with %v and %v for eni %v, got: %v (clusterName: %v)",
-			clusterResourceTagKey, m.endpointSGTags, eniInfo.NetworkInterfaceID, sgIDsWithMatchingEndpointSGTags.List(), m.clusterName)
+			clusterResourceTagKey, m.serviceTargetENISGTags, eniInfo.NetworkInterfaceID, sgIDsWithMatchingEndpointSGTags.List(), m.clusterName)
 	}
 	sgID, _ := sgIDsWithMatchingEndpointSGTags.PopAny()
 	return sgID, nil
