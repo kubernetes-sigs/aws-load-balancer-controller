@@ -44,6 +44,9 @@ type SubnetsResolveOptions struct {
 	// The Load Balancer Scheme.
 	// By default, it's internet-facing.
 	LBScheme elbv2model.LoadBalancerScheme
+	// The Load Balancer IPAddress Type.
+	// By default, it's IPv4.
+	LBIPAddressType elbv2model.IPAddressType
 	// count of available ip addresses
 	AvailableIPAddressCount int64
 	// whether to check the cluster tag
@@ -60,8 +63,9 @@ func (opts *SubnetsResolveOptions) ApplyOptions(options []SubnetsResolveOption) 
 // defaultSubnetsResolveOptions generates the default SubnetsResolveOptions
 func defaultSubnetsResolveOptions() SubnetsResolveOptions {
 	return SubnetsResolveOptions{
-		LBType:   elbv2model.LoadBalancerTypeApplication,
-		LBScheme: elbv2model.LoadBalancerSchemeInternetFacing,
+		LBType:          elbv2model.LoadBalancerTypeApplication,
+		LBScheme:        elbv2model.LoadBalancerSchemeInternetFacing,
+		LBIPAddressType: elbv2model.IPAddressTypeIPV4,
 	}
 }
 
@@ -78,6 +82,13 @@ func WithSubnetsResolveLBType(lbType elbv2model.LoadBalancerType) SubnetsResolve
 func WithSubnetsResolveLBScheme(lbScheme elbv2model.LoadBalancerScheme) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.LBScheme = lbScheme
+	}
+}
+
+// WithSubnetsResolveLBIPAddressType generates an option that configures LBIPAddressType.
+func WithSubnetsResolveLBIPAddressType(lbIPAddressType elbv2model.IPAddressType) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.LBIPAddressType = lbIPAddressType
 	}
 }
 
@@ -178,6 +189,11 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 		if err := r.validateSubnetsAZExclusivity(chosenSubnets); err != nil {
 			return nil, err
 		}
+		if resolveOpts.LBIPAddressType == elbv2model.IPAddressTypeDualStack {
+			if err := r.validateSubnetsSupportDualstack(chosenSubnets); err != nil {
+				return nil, err
+			}
+		}
 		// todo validate here?
 	} else {
 		req := &ec2sdk.DescribeSubnetsInput{
@@ -192,6 +208,18 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 			req.Filters = append(req.Filters, &ec2sdk.Filter{
 				Name:   awssdk.String("tag:" + key),
 				Values: awssdk.StringSlice(values),
+			})
+		}
+
+		if resolveOpts.LBIPAddressType == elbv2model.IPAddressTypeDualStack {
+			req.Filters = append(req.Filters, &ec2sdk.Filter{
+				Name:   awssdk.String("ipv6-native"),
+				Values: awssdk.StringSlice([]string{"false"}),
+			})
+
+			req.Filters = append(req.Filters, &ec2sdk.Filter{
+				Name:   awssdk.String("ipv6-cidr-block-association.state"),
+				Values: awssdk.StringSlice([]string{ec2sdk.SubnetCidrBlockStateCodeAssociated}),
 			})
 		}
 
@@ -287,6 +315,11 @@ func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, su
 		}
 		resolvedSubnets = append(resolvedSubnets, subnets...)
 	}
+	if resolveOpts.LBIPAddressType == elbv2model.IPAddressTypeDualStack {
+		if err := r.validateSubnetsSupportDualstack(resolvedSubnets); err != nil {
+			return nil, err
+		}
+	}
 	if len(resolvedSubnets) != len(subnetNameOrIDs) {
 		return nil, errors.Errorf("couldn't find all subnets, nameOrIDs: %v, found: %v", subnetNameOrIDs, len(resolvedSubnets))
 	}
@@ -319,6 +352,27 @@ func (r *defaultSubnetsResolver) validateSubnetsAZExclusivity(subnets []*ec2sdk.
 			}
 			return errors.Errorf("multiple subnets in same Availability Zone %v: %v", az, subnetIDs)
 		}
+	}
+	return nil
+}
+
+// validateSubnetsSupportDualstack validates that the subnets can support dual-stack LBs
+func (r *defaultSubnetsResolver) validateSubnetsSupportDualstack(subnets []*ec2sdk.Subnet) error {
+	unsupportiveSubnets := make([]string, 0)
+	for _, subnet := range subnets {
+		if awssdk.BoolValue(subnet.Ipv6Native) || len(subnet.Ipv6CidrBlockAssociationSet) == 0 {
+			unsupportiveSubnets = append(unsupportiveSubnets, awssdk.StringValue(subnet.SubnetId))
+			continue
+		}
+		for _, association := range subnet.Ipv6CidrBlockAssociationSet {
+			if association == nil || association.Ipv6CidrBlockState == nil || awssdk.StringValue(association.Ipv6CidrBlockState.State) != ec2sdk.SubnetCidrBlockStateCodeAssociated {
+				unsupportiveSubnets = append(unsupportiveSubnets, awssdk.StringValue(subnet.SubnetId))
+				break
+			}
+		}
+	}
+	if len(unsupportiveSubnets) > 0 {
+		return errors.Errorf("subnets do not support dualstack LBs: %v", unsupportiveSubnets)
 	}
 	return nil
 }

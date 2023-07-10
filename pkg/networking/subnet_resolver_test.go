@@ -203,6 +203,92 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 			},
 		},
 		{
+			name: "Dualstack ALB with IPv4 only subnets",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-1"}),
+								},
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: awssdk.StringSlice([]string{"", "1"}),
+								},
+								{
+									Name:   awssdk.String("ipv6-native"),
+									Values: awssdk.StringSlice([]string{"false"}),
+								},
+								{
+									Name:   awssdk.String("ipv6-cidr-block-association.state"),
+									Values: awssdk.StringSlice([]string{"associated"}),
+								},
+							},
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:           awssdk.String("subnet-1"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-2"),
+								AvailabilityZone:   awssdk.String("us-west-2b"),
+								AvailabilityZoneId: awssdk.String("usw2-az2"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithSubnetsResolveLBIPAddressType(elbv2model.IPAddressTypeDualStack),
+				},
+			},
+			want: []*ec2sdk.Subnet{
+				{
+					SubnetId:           awssdk.String("subnet-1"),
+					AvailabilityZone:   awssdk.String("us-west-2a"),
+					AvailabilityZoneId: awssdk.String("usw2-az1"),
+					VpcId:              awssdk.String("vpc-1"),
+				},
+				{
+					SubnetId:           awssdk.String("subnet-2"),
+					AvailabilityZone:   awssdk.String("us-west-2b"),
+					AvailabilityZoneId: awssdk.String("usw2-az2"),
+					VpcId:              awssdk.String("vpc-1"),
+				},
+			},
+		},
+		{
 			name: "ALB with no matching subnets",
 			fields: fields{
 				vpcID:       "vpc-1",
@@ -1170,6 +1256,14 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 		subnetNameOrIDs []string
 		opts            []SubnetsResolveOption
 	}
+
+	ipv6CidrBlockAssociationAssociatedSet := []*ec2sdk.SubnetIpv6CidrBlockAssociation{
+		{
+			Ipv6CidrBlockState: &ec2sdk.SubnetCidrBlockState{
+				State: awssdk.String("associated"),
+			},
+		},
+	}
 	tests := []struct {
 		name    string
 		fields  fields
@@ -1728,6 +1822,168 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					AvailabilityZone:   awssdk.String("us-west-2a"),
 					AvailabilityZoneId: awssdk.String("usw2-az1"),
 					VpcId:              awssdk.String("vpc-1"),
+				},
+			},
+		},
+		{
+			name: "Dualstack ALB with subnet IDs - IPv6 only subnets",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: awssdk.StringSlice([]string{"subnet-1"}),
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:                    awssdk.String("subnet-1"),
+								AvailabilityZone:            awssdk.String("us-west-2a"),
+								AvailabilityZoneId:          awssdk.String("usw2-az1"),
+								VpcId:                       awssdk.String("vpc-1"),
+								Ipv6Native:                  awssdk.Bool(true),
+								Ipv6CidrBlockAssociationSet: ipv6CidrBlockAssociationAssociatedSet,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				subnetNameOrIDs: []string{"subnet-1"},
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
+					WithSubnetsResolveLBIPAddressType(elbv2model.IPAddressTypeDualStack),
+				},
+			},
+			wantErr: errors.New("subnets do not support dualstack LBs: [subnet-1]"),
+		},
+		{
+			name: "Dualstack ALB with subnet Name only - subnets without IPv6",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:Name"),
+									Values: awssdk.StringSlice([]string{"my-name-1", "my-name-2"}),
+								},
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-1"}),
+								},
+							},
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:           awssdk.String("subnet-1"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-2"),
+								AvailabilityZone:   awssdk.String("us-west-2b"),
+								AvailabilityZoneId: awssdk.String("usw2-az2"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				subnetNameOrIDs: []string{"my-name-1", "my-name-2"},
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
+					WithSubnetsResolveLBIPAddressType(elbv2model.IPAddressTypeDualStack),
+				},
+			},
+			wantErr: errors.New("subnets do not support dualstack LBs: [subnet-1 subnet-2]"),
+		},
+		{
+			name: "Dualstack ALB with subnet Names - subnets with IPv4+IPv6",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:Name"),
+									Values: awssdk.StringSlice([]string{"my-name-1", "my-name-2"}),
+								},
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-1"}),
+								},
+							},
+						},
+						output: []*ec2sdk.Subnet{
+							{
+								SubnetId:                    awssdk.String("subnet-1"),
+								AvailabilityZone:            awssdk.String("us-west-2a"),
+								AvailabilityZoneId:          awssdk.String("usw2-az1"),
+								VpcId:                       awssdk.String("vpc-1"),
+								Ipv6CidrBlockAssociationSet: ipv6CidrBlockAssociationAssociatedSet,
+							},
+							{
+								SubnetId:                    awssdk.String("subnet-2"),
+								AvailabilityZone:            awssdk.String("us-west-2b"),
+								AvailabilityZoneId:          awssdk.String("usw2-az2"),
+								VpcId:                       awssdk.String("vpc-1"),
+								Ipv6CidrBlockAssociationSet: ipv6CidrBlockAssociationAssociatedSet,
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				subnetNameOrIDs: []string{"my-name-1", "my-name-2"},
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
+					WithSubnetsResolveLBIPAddressType(elbv2model.IPAddressTypeDualStack),
+				},
+			},
+			want: []*ec2sdk.Subnet{
+				{
+					SubnetId:                    awssdk.String("subnet-1"),
+					AvailabilityZone:            awssdk.String("us-west-2a"),
+					AvailabilityZoneId:          awssdk.String("usw2-az1"),
+					VpcId:                       awssdk.String("vpc-1"),
+					Ipv6CidrBlockAssociationSet: ipv6CidrBlockAssociationAssociatedSet,
+				},
+				{
+					SubnetId:                    awssdk.String("subnet-2"),
+					AvailabilityZone:            awssdk.String("us-west-2b"),
+					AvailabilityZoneId:          awssdk.String("usw2-az2"),
+					VpcId:                       awssdk.String("vpc-1"),
+					Ipv6CidrBlockAssociationSet: ipv6CidrBlockAssociationAssociatedSet,
 				},
 			},
 		},
