@@ -2,11 +2,11 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.4.6
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.5.3
 # Image URL to use for builder stage in Docker build
-BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:1.19.3
+BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:1.20.5
 # Image URL to use for base layer in Docker build
-BASE_IMAGE ?= public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2023-02-22-1677092456.2
+BASE_IMAGE ?= public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2023-06-06-1686078098.2
 IMG_PLATFORM ?= linux/amd64,linux/arm64
 # ECR doesn't appear to support SPDX SBOM
 IMG_SBOM ?= none
@@ -165,7 +165,7 @@ docs-preview: docs-dependencies
 
 # publish the versioned docs using mkdocs mike util
 docs-publish: docs-dependencies
-	pipenv run mike deploy v2.4 latest -p --update-aliases
+	pipenv run mike deploy v2.5 latest -p --update-aliases
 
 # install dependencies needed to preview and publish docs
 docs-dependencies:

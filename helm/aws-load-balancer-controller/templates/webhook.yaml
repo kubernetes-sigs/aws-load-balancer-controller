@@ -69,6 +69,12 @@ webhooks:
   name: mservice.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
   rules:
   - apiGroups:
     - ""
@@ -127,6 +133,12 @@ webhooks:
   name: vingressclassparams.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
   rules:
   - apiGroups:
     - elbv2.k8s.aws
@@ -200,11 +212,7 @@ data:
   tls.crt: {{ $tls.clientCert }}
   tls.key: {{ $tls.clientKey }}
 {{- else }}
-{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
 apiVersion: cert-manager.io/v1
-{{- else }}
-apiVersion: cert-manager.io/v1alpha2
-{{- end }}
 kind: Certificate
 metadata:
   name: {{ template "aws-load-balancer-controller.namePrefix" . }}-serving-cert
@@ -220,11 +228,7 @@ spec:
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
   secretName: {{ template "aws-load-balancer-controller.webhookCertSecret" . }}
 ---
-{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
 apiVersion: cert-manager.io/v1
-{{- else }}
-apiVersion: cert-manager.io/v1alpha2
-{{- end }}
 kind: Issuer
 metadata:
   name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer

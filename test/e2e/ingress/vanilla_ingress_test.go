@@ -73,7 +73,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		It("[ingress-class] with IngressClass configured with 'ingress.k8s.aws/alb' controller, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
-			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
 			ingBackend := networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
 					Name: svc.Name,
@@ -119,7 +119,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		It("with 'kubernetes.io/ingress.class' annotation set to 'alb', one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
-			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
 			ingBackend := networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
 					Name: svc.Name,
@@ -159,7 +159,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		It("[ingress-class] with IngressClass configured with 'nginx' controller, no ALB shall be created", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
-			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
 			ingBackend := networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
 					Name: svc.Name,
@@ -198,7 +198,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		It("with 'kubernetes.io/ingress.class' annotation set to 'nginx', no ALB shall be created", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
-			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
 			ingBackend := networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
 					Name: svc.Name,
@@ -229,7 +229,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		It("without IngressClass or 'kubernetes.io/ingress.class' annotation, no ALB shall be created", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
-			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
 			ingBackend := networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
 					Name: svc.Name,
@@ -261,7 +261,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		It("with 'alb.ingress.kubernetes.io/load-balancer-name' annotation explicitly specified, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
-			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
 			ingBackend := networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
 					Name: svc.Name,
@@ -309,7 +309,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		It("with 'alb.ingress.kubernetes.io/target-type' annotation explicitly specified, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder().WithTargetPortName("e2e-targetport")
 			ingBuilder := manifest.NewIngressBuilder()
-			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
 			ingBackend := networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
 					Name: svc.Name,
@@ -360,7 +360,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		It("with 'alb.ingress.kubernetes.io/target-type' annotation explicitly specified, and endPointSlices enabled, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder().WithTargetPortName("e2e-targetport")
 			ingBuilder := manifest.NewIngressBuilder()
-			dp, svc := appBuilder.Build(sandboxNS.Name, "app")
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
 			ingBackend := networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
 					Name: svc.Name,
@@ -401,8 +401,8 @@ var _ = Describe("vanilla ingress tests", func() {
 		It("with annotation based actions, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
-			dp1, svc1 := appBuilder.WithHTTPBody("app-1").Build(sandboxNS.Name, "app-1")
-			dp2, svc2 := appBuilder.WithHTTPBody("app-2").Build(sandboxNS.Name, "app-2")
+			dp1, svc1 := appBuilder.WithHTTPBody("app-1").Build(sandboxNS.Name, "app-1", tf.Options.TestImageRegistry)
+			dp2, svc2 := appBuilder.WithHTTPBody("app-2").Build(sandboxNS.Name, "app-2", tf.Options.TestImageRegistry)
 			ingResponse503Backend := networking.IngressBackend{
 				Service: &networking.IngressServiceBackend{
 					Name: "response-503",

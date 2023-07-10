@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
-	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
@@ -284,11 +283,12 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if !t.enableBackendSG {
 			t.backendSGIDToken = managedSG.GroupID()
 		} else {
-			backendSGID, err := t.backendSGProvider.Get(ctx)
+			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
 			if err != nil {
 				return nil, err
 			}
 			t.backendSGIDToken = core.LiteralStringToken((backendSGID))
+			t.backendSGAllocated = true
 			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
 		}
 		t.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
@@ -297,7 +297,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if err != nil {
 			return nil, err
 		}
-		frontendSGIDs, err := t.resolveSecurityGroupIDsViaNameOrIDSlice(ctx, sgNameOrIDsViaAnnotation)
+		frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, sgNameOrIDsViaAnnotation)
 		if err != nil {
 			return nil, err
 		}
@@ -309,11 +309,12 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 			if !t.enableBackendSG {
 				return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified")
 			}
-			backendSGID, err := t.backendSGProvider.Get(ctx)
+			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
 			if err != nil {
 				return nil, err
 			}
 			t.backendSGIDToken = core.LiteralStringToken(backendSGID)
+			t.backendSGAllocated = true
 			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
 		}
 		t.logger.Info("SG configured via annotation", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
@@ -388,56 +389,6 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(_ context.Context) (map[st
 		return nil, err
 	}
 	return algorithm.MergeStringMap(t.defaultTags, ingGroupTags), nil
-}
-
-func (t *defaultModelBuildTask) resolveSecurityGroupIDsViaNameOrIDSlice(ctx context.Context, sgNameOrIDs []string) ([]string, error) {
-	var sgIDs []string
-	var sgNames []string
-	for _, nameOrID := range sgNameOrIDs {
-		if strings.HasPrefix(nameOrID, "sg-") {
-			sgIDs = append(sgIDs, nameOrID)
-		} else {
-			sgNames = append(sgNames, nameOrID)
-		}
-	}
-	var resolvedSGs []*ec2sdk.SecurityGroup
-	if len(sgIDs) > 0 {
-		req := &ec2sdk.DescribeSecurityGroupsInput{
-			GroupIds: awssdk.StringSlice(sgIDs),
-		}
-		sgs, err := t.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		resolvedSGs = append(resolvedSGs, sgs...)
-	}
-	if len(sgNames) > 0 {
-		req := &ec2sdk.DescribeSecurityGroupsInput{
-			Filters: []*ec2sdk.Filter{
-				{
-					Name:   awssdk.String("tag:Name"),
-					Values: awssdk.StringSlice(sgNames),
-				},
-				{
-					Name:   awssdk.String("vpc-id"),
-					Values: awssdk.StringSlice([]string{t.vpcID}),
-				},
-			},
-		}
-		sgs, err := t.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-		resolvedSGs = append(resolvedSGs, sgs...)
-	}
-	resolvedSGIDs := make([]string, 0, len(resolvedSGs))
-	for _, sg := range resolvedSGs {
-		resolvedSGIDs = append(resolvedSGIDs, awssdk.StringValue(sg.GroupId))
-	}
-	if len(resolvedSGIDs) != len(sgNameOrIDs) {
-		return nil, errors.Errorf("couldn't find all securityGroups, nameOrIDs: %v, found: %v", sgNameOrIDs, resolvedSGIDs)
-	}
-	return resolvedSGIDs, nil
 }
 
 func buildLoadBalancerSubnetMappingsWithSubnets(subnets []*ec2sdk.Subnet) []elbv2model.SubnetMapping {

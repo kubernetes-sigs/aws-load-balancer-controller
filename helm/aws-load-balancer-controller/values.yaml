@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.4.6
+  tag: v2.5.3
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -119,14 +119,18 @@ ingressClassParams:
   # The name of ingressClassParams resource will be referred in ingressClass
   name:
   spec: {}
-    # You always can set specifications in `helm install` command through `--set` or `--set-string`
-    # If you do want to specify specifications in values.yaml, uncomment the following
-    # lines, adjust them as necessary, and remove the curly braces after 'spec:'.
+    # Due to dependency issue, the validation webhook ignores this particular ingressClassParams resource.
+    # We recommend creating ingressClassParams resources separately after installing this chart and the
+    # controller is functional.
+    #
+    # You can set the specifications in the `helm install` command through `--set` or `--set-string`
+    # If you do want to specify in the values.yaml, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'spec:'
+    #
     # namespaceSelector:
     #   matchLabels:
     # group:
     # scheme:
-    # subnets:
     # ipAddressType:
     # tags:
     # loadBalancerAttributes:
@@ -308,8 +312,14 @@ disableRestrictedSecurityGroupRules:
 controllerConfig:
   # featureGates set of key: value pairs that describe AWS load balance controller features
   featureGates: {}
-  #  ServiceTypeLoadBalancerOnly: true
-  #  EndpointsFailOpen: true
+  # ListenerRulesTagging: true
+  # WeightedTargetGroups: true
+  # ServiceTypeLoadBalancerOnly: false
+  # EndpointsFailOpen: true
+  # EnableServiceController: true
+  # EnableIPTargetType: true
+  # SubnetsClusterTagCheck: true
+  # NLBHealthCheckAdvancedConfig: true
 
 # objectSelector for webhook
 objectSelector:

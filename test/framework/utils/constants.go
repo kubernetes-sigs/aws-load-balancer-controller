@@ -1,5 +1,6 @@
 package utils
 
 const (
-	ColortellerImage = "public.ecr.aws/l6m2t8p7/colorteller:latest"
+	HelloImage       = "networking-e2e-test-images/hello-multi:latest"
+	ColortellerImage = "networking-e2e-test-images/colorteller:latest"
 )

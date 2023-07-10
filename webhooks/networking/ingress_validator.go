@@ -174,6 +174,9 @@ func (v *ingressValidator) checkIngressClassUsage(ctx context.Context, ing *netw
 // checkGroupNameAnnotationUsage checks the validity of "conditions.${conditions-name}" annotation.
 func (v *ingressValidator) checkIngressAnnotationConditions(ing *networking.Ingress) error {
 	for _, rule := range ing.Spec.Rules {
+		if rule.HTTP == nil {
+			continue
+		}
 		for _, path := range rule.HTTP.Paths {
 			var conditions []ingress.RuleCondition
 			annotationKey := fmt.Sprintf("conditions.%v", path.Backend.Service.Name)
