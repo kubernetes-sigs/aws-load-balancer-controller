@@ -182,7 +182,7 @@ The controller automatically selects the worker node security groups that it mod
 
     `${cluster-name}` is the name of the Kubernetes cluster.
 
-In the case that you have more than one matching security group with the tag `kubernetes.io/cluster/${cluster-name}` on a target ENI, you may specify additional tags with the `--service-target-eni-security-group-tags` flag to further specify the security group that should be used.
+If it is possible for multiple security groups with the tag `kubernetes.io/cluster/${cluster-name}` to be on a target ENI, you may use the `--service-target-eni-security-group-tags` flag to specify additional tags that must also match in order for a security group to be used.
 
 ### Worker node security groups rules
 
