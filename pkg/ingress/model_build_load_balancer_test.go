@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -862,6 +863,68 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
+	subnet16 = &ec2.Subnet{
+		SubnetId:         awssdk.String("subnet-16"),
+		AvailabilityZone: awssdk.String("az16"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("Name"),
+				Value: awssdk.String("ipv6only"),
+			},
+			{
+				Key:   awssdk.String("dualstack"),
+				Value: awssdk.String("no"),
+			},
+		},
+		Ipv6Native: awssdk.Bool(true),
+		VpcId:      awssdk.String("vpc-1"),
+	}
+	subnet17 = &ec2.Subnet{
+		SubnetId:         awssdk.String("subnet-17"),
+		AvailabilityZone: awssdk.String("az17"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("Name"),
+				Value: awssdk.String("dualstack-1"),
+			},
+			{
+				Key:   awssdk.String("dualstack"),
+				Value: awssdk.String("yes"),
+			},
+		},
+		Ipv6Native: awssdk.Bool(false),
+		Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+			{
+				Ipv6CidrBlockState: &ec2.SubnetCidrBlockState{
+					State: awssdk.String("associated"),
+				},
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
+	subnet18 = &ec2.Subnet{
+		SubnetId:         awssdk.String("subnet-18"),
+		AvailabilityZone: awssdk.String("az18"),
+		Tags: []*ec2.Tag{
+			{
+				Key:   awssdk.String("Name"),
+				Value: awssdk.String("dualstack-2"),
+			},
+			{
+				Key:   awssdk.String("dualstack"),
+				Value: awssdk.String("yes"),
+			},
+		},
+		Ipv6Native: awssdk.Bool(false),
+		Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+			{
+				Ipv6CidrBlockState: &ec2.SubnetCidrBlockState{
+					State: awssdk.String("associated"),
+				},
+			},
+		},
+		VpcId: awssdk.String("vpc-1"),
+	}
 )
 
 func stubDescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error) {
@@ -881,6 +944,9 @@ func stubDescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsIn
 		subnet13,
 		subnet14,
 		subnet15,
+		subnet16,
+		subnet17,
+		subnet18,
 	}
 	if input.SubnetIds != nil {
 		var filtered []*ec2.Subnet
@@ -917,6 +983,23 @@ func stubDescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsIn
 							}
 						}
 					}
+				} else if awssdk.StringValue(filter.Name) == "ipv6-native" {
+					for _, value := range filter.Values {
+						isIpv6Native := awssdk.BoolValue(subnet.Ipv6Native)
+						if awssdk.StringValue(value) == strconv.FormatBool(isIpv6Native) {
+							eligible = true
+							continue
+						}
+					}
+				} else if awssdk.StringValue(filter.Name) == "ipv6-cidr-block-association.state" {
+					for _, value := range filter.Values {
+						for _, association := range subnet.Ipv6CidrBlockAssociationSet {
+							if association.Ipv6CidrBlockState != nil && awssdk.StringValue(value) == awssdk.StringValue(association.Ipv6CidrBlockState.State) {
+								eligible = true
+								continue
+							}
+						}
+					}
 				} else {
 					return nil, fmt.Errorf("unexpected filter %q", awssdk.StringValue(filter.Name))
 				}
@@ -933,8 +1016,9 @@ func stubDescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsIn
 
 func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 	type fields struct {
-		ingGroup Group
-		scheme   elbv2.LoadBalancerScheme
+		ingGroup      Group
+		scheme        elbv2.LoadBalancerScheme
+		ipAddressType elbv2.IPAddressType
 	}
 	tests := []struct {
 		name    string
@@ -1238,6 +1322,96 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 			},
 			want: []string{"subnet-11", "subnet-15"},
 		},
+		{
+			name: "dualstack subnet annotation - no support for dualstack",
+			fields: fields{
+				ipAddressType: elbv2.IPAddressTypeDualStack,
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/subnets": "subnet-1,subnet-16",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: "subnets do not support dualstack LBs: [subnet-1 subnet-16]",
+		},
+		{
+			name: "dualstack classparams subnet multiple name tags",
+			fields: fields{
+				ipAddressType: elbv2.IPAddressTypeDualStack,
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										Subnets: &v1beta1.SubnetSelector{
+											Tags: map[string][]string{
+												"Name": {"dualstack-1", "dualstack-2"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"subnet-17", "subnet-18"},
+		},
+		{
+			name: "dualstack classparams subnet tags - some subnets do not support dualstack",
+			fields: fields{
+				ipAddressType: elbv2.IPAddressTypeDualStack,
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										Subnets: &v1beta1.SubnetSelector{
+											Tags: map[string][]string{
+												"dualstack": {"yes", "no"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []string{"subnet-17", "subnet-18"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1282,7 +1456,11 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 				subnetsResolver:     subnetsResolver,
 				trackingProvider:    tracking.NewDefaultProvider("ingress.k8s.aws", "test-cluster"),
 			}
-			got, err := task.buildLoadBalancerSubnetMappings(context.Background(), elbv2.LoadBalancerSchemeInternetFacing)
+			ipAddressType := elbv2.IPAddressTypeIPV4
+			if tt.fields.ipAddressType != "" {
+				ipAddressType = tt.fields.ipAddressType
+			}
+			got, err := task.buildLoadBalancerSubnetMappings(context.Background(), elbv2.LoadBalancerSchemeInternetFacing, ipAddressType)
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {

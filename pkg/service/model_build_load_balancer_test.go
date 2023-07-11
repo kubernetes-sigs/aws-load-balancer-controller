@@ -938,10 +938,19 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 	listLoadBalancerCallForEmptyLB := listLoadBalancerCall{
 		sdkLBs: []elbv2deploy.LoadBalancerWithTags{},
 	}
+	ipv6CidrBlockAssociationAssociatedSet := []*ec2.SubnetIpv6CidrBlockAssociation{
+		{
+			Ipv6CidrBlock: aws.String("2600:1fe3:3c0:1d00::/56"),
+			Ipv6CidrBlockState: &ec2.SubnetCidrBlockState{
+				State: aws.String("associated"),
+			},
+		},
+	}
 	tests := []struct {
 		name                         string
 		svc                          *corev1.Service
 		scheme                       elbv2.LoadBalancerScheme
+		ipAddressType                elbv2.IPAddressType
 		provider                     tracking.Provider
 		args                         args
 		listLoadBalancersCalls       []listLoadBalancerCall
@@ -1016,6 +1025,64 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 				{
 					SubnetId:  aws.String("subnet-xyz"),
 					CidrBlock: aws.String("192.168.0.0/19"),
+				},
+			},
+		}, {
+			name:                   "dualstack subnet auto-discovery",
+			svc:                    &corev1.Service{},
+			scheme:                 elbv2.LoadBalancerSchemeInternal,
+			ipAddressType:          elbv2.IPAddressTypeDualStack,
+			provider:               tracking.NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			args:                   args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
+			listLoadBalancersCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			resolveViaDiscoveryCalls: []resolveSubnetResults{
+				{
+					subnets: []*ec2.Subnet{
+						{
+							SubnetId:                    aws.String("subnet-a"),
+							CidrBlock:                   aws.String("192.168.0.0/19"),
+							Ipv6CidrBlockAssociationSet: ipv6CidrBlockAssociationAssociatedSet,
+						},
+					},
+				},
+			},
+			want: []*ec2.Subnet{
+				{
+					SubnetId:                    aws.String("subnet-a"),
+					CidrBlock:                   aws.String("192.168.0.0/19"),
+					Ipv6CidrBlockAssociationSet: ipv6CidrBlockAssociationAssociatedSet,
+				},
+			},
+		},
+		{
+			name: "dualstack subnet annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-subnets": "subnet-abc",
+					},
+				},
+			},
+			scheme:        elbv2.LoadBalancerSchemeInternal,
+			ipAddressType: elbv2.IPAddressTypeDualStack,
+			provider:      tracking.NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			args:          args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
+			resolveViaNameOrIDSliceCalls: []resolveSubnetResults{
+				{
+					subnets: []*ec2.Subnet{
+						{
+							SubnetId:                    aws.String("subnet-abc"),
+							CidrBlock:                   aws.String("192.168.0.0/19"),
+							Ipv6CidrBlockAssociationSet: ipv6CidrBlockAssociationAssociatedSet,
+						},
+					},
+				},
+			},
+			want: []*ec2.Subnet{
+				{
+					SubnetId:                    aws.String("subnet-abc"),
+					CidrBlock:                   aws.String("192.168.0.0/19"),
+					Ipv6CidrBlockAssociationSet: ipv6CidrBlockAssociationAssociatedSet,
 				},
 			},
 		},
@@ -1152,6 +1219,10 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 			clusterName := "cluster-name"
 			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
 			featureGates := config.NewFeatureGates()
+			ipAddressType := elbv2.IPAddressTypeIPV4
+			if tt.ipAddressType != "" {
+				ipAddressType = elbv2.IPAddressTypeDualStack
+			}
 
 			builder := &defaultModelBuildTask{
 				clusterName:         clusterName,
@@ -1163,7 +1234,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 				elbv2TaggingManager: elbv2TaggingManager,
 				featureGates:        featureGates,
 			}
-			got, err := builder.buildLoadBalancerSubnets(context.Background(), tt.scheme)
+			got, err := builder.buildLoadBalancerSubnets(context.Background(), tt.scheme, ipAddressType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
