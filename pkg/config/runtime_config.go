@@ -33,7 +33,7 @@ const (
 	defaultWatchNamespace          = corev1.NamespaceAll
 	defaultMetricsAddr             = ":8080"
 	defaultHealthProbeBindAddress  = ":61779"
-	defaultSyncPeriod              = 60 * time.Minute
+	defaultSyncPeriod              = 10 * time.Hour
 	defaultWebhookBindPort         = 9443
 	// High enough QPS to fit all expected use cases. QPS=0 is not set here, because
 	// client code is overriding it.

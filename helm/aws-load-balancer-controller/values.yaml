@@ -215,7 +215,7 @@ targetgroupbindingMaxConcurrentReconciles:
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
 
-# Period at which the controller forces the repopulation of its local object stores. (default 1h0m0s)
+# Period at which the controller forces the repopulation of its local object stores. (default 10h0m0s)
 syncPeriod:
 
 # Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.
