@@ -76,7 +76,7 @@ type ControllerConfig struct {
 	ExternalManagedTags []string
 
 	// ServiceTargetENISGTags are AWS tags, in addition to the cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs.
-	EndpointSGTags map[string]string
+	ServiceTargetENISGTags map[string]string
 
 	// Default SSL Policy that will be applied to all ingresses or services that do not have
 	// the SSL Policy annotation.
@@ -132,7 +132,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Enable EndpointSlices for IP targets instead of Endpoints")
 	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
 		"Disable the usage of restricted security group rules")
-	fs.StringToStringVar(&cfg.EndpointSGTags, flagServiceTargetENISGTags, nil,
+	fs.StringToStringVar(&cfg.ServiceTargetENISGTags, flagServiceTargetENISGTags, nil,
 		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
