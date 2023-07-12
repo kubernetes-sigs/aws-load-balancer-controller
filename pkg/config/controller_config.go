@@ -75,7 +75,7 @@ type ControllerConfig struct {
 	// List of Tag keys on AWS resources that will be managed externally.
 	ExternalManagedTags []string
 
-	// AWS Tags that will be used by the controller to find the worker node security group to add inbound rules from NLBs.
+	// ServiceTargetENISGTags are AWS tags, in addition to the cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs.
 	EndpointSGTags map[string]string
 
 	// Default SSL Policy that will be applied to all ingresses or services that do not have
