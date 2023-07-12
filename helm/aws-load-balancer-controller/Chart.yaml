@@ -1,8 +1,8 @@
 apiVersion: v2
 name: aws-load-balancer-controller
 description: AWS Load Balancer Controller Helm chart for Kubernetes
-version: 1.5.4
-appVersion: v2.5.3
+version: 1.5.5
+appVersion: v2.5.4
 home: https://github.com/aws/eks-charts
 icon: https://raw.githubusercontent.com/aws/eks-charts/master/docs/logo/aws.png
 sources:
