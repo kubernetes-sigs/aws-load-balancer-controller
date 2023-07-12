@@ -828,6 +828,12 @@ In addition, you can use annotations to specify additional tags
         ```
 
 ## Addons
+
+!!!note
+    If waf-acl-arn is specified via the ingress annotations, the controller will make sure the waf-acl is associated to the provisioned ALB with the ingress. 
+    If there is not such annotation, the controller will make sure no waf-acl is associated, so it may remove the existing waf-acl on the ALB provisioned. 
+    If users do not want the controller to manage the waf-acl on the ALBs, they can disable the feature by setting controller command line flags `--enable-waf=false` or `--enable-wafv2=false`
+
 - <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amazon WAF web ACL.
 
     !!!warning ""
