@@ -133,7 +133,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
 		"Disable the usage of restricted security group rules")
 	fs.StringToStringVar(&cfg.EndpointSGTags, flagServiceTargetENISGTags, nil,
-		"AWS Tags that will be used by the controller to find the worker node security group to add inbound rules from NLBs")
+		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
