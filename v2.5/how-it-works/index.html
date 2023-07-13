@@ -1073,6 +1073,10 @@
 <h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
 <p>The following diagram details the AWS components this controller creates. It also demonstrates the route ingress traffic takes from the ALB to the Kubernetes cluster.</p>
 <p><img alt="controller-design" src="../assets/images/controller-design.png" /></p>
+<div class="admonition warning">
+<p class="admonition-title">Note</p>
+<p>The controller manages the configurations of the resources it creates, and we do not recommend out-of-band modifications to these resources because the controller may revert the manual changes during reconciliation. We recommend to use configuration options provided as best practice, such as ingress and service annotations, controller command line flags and IngressClassParams.</p>
+</div>
 <h3 id="ingress-creation">Ingress Creation<a class="headerlink" href="#ingress-creation" title="Permanent link">&para;</a></h3>
 <p>This section describes each step (circle) above. This example demonstrates satisfying 1 ingress resource.</p>
 <p><strong>[1]</strong>: The controller watches for <a href="https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-controllers">ingress

@@ -514,6 +514,20 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#sync-period" class="md-nav__link">
+    sync-period
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#waf-addons" class="md-nav__link">
+    waf-addons
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#throttle-config" class="md-nav__link">
     throttle config
   </a>
@@ -1097,6 +1111,20 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#sync-period" class="md-nav__link">
+    sync-period
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#waf-addons" class="md-nav__link">
+    waf-addons
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#throttle-config" class="md-nav__link">
     throttle config
   </a>
@@ -1305,13 +1333,13 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <td>Enable Shield addon for ALB</td>
 </tr>
 <tr>
-<td>enable-waf</td>
+<td><a href="#waf-addons">enable-waf</a></td>
 <td>boolean</td>
 <td>true</td>
 <td>Enable WAF addon for ALB</td>
 </tr>
 <tr>
-<td>enable-wafv2</td>
+<td><a href="#waf-addons">enable-wafv2</a></td>
 <td>boolean</td>
 <td>true</td>
 <td>Enable WAF V2 addon for ALB</td>
@@ -1389,9 +1417,9 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <td>Maximum number of concurrently running reconcile loops for service</td>
 </tr>
 <tr>
-<td>sync-period</td>
+<td><a href="#sync-period">sync-period</a></td>
 <td>duration</td>
-<td>1h0m0s</td>
+<td>10h0m0s</td>
 <td>Period at which the controller forces the repopulation of its local object stores</td>
 </tr>
 <tr>
@@ -1459,6 +1487,13 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <li>you can no longer create Ingresses with the <code>alb.ingress.kubernetes.io/group.name</code> annotation.</li>
 <li>you can no longer alter the value of an <code>alb.ingress.kubernetes.io/group.name</code> annotation on an existing Ingress.</li>
 </ul>
+<h3 id="sync-period">sync-period<a class="headerlink" href="#sync-period" title="Permanent link">&para;</a></h3>
+<p><code>--sync-period</code> defines a fixed interval for the controller to reconcile all resources even if there is no change, default to 10 hr. Please be mindful that frequent reconciliations may incur unnecessary AWS API usage.</p>
+<p>As best practice, we do not recommend users to manually modify the resources managed by the controller. And users should not depend on the controller auto-reconciliation to revert the manual modification, or to mitigate any security risks.</p>
+<h3 id="waf-addons">waf-addons<a class="headerlink" href="#waf-addons" title="Permanent link">&para;</a></h3>
+<p>By default, the controller assumes sole ownership of the WAF addons associated to the provisioned ALBs, via the flag <code>--enable-waf</code> and <code>--enable-wafv2</code>.
+And the users should disable them accordingly if they want a third party like AWS Firewall Manager to associate or remove the WAF-ACL of the ALBs.
+Once disabled, the controller shall not take any actions on the waf addons of the provisioned ALBs.</p>
 <h3 id="throttle-config">throttle config<a class="headerlink" href="#throttle-config" title="Permanent link">&para;</a></h3>
 <p>Controller uses the following default throttle config:</p>
 <p><div class="highlight"><pre><span></span><code>WAF Regional:^AssociateWebACL|DisassociateWebACL=0.5:1,WAF Regional:^GetWebACLForResource|ListResourcesForWebACL=1:1,WAFV2:^AssociateWebACL|DisassociateWebACL=0.5:1,WAFV2:^GetWebACLForResource|ListResourcesForWebACL=1:1,Elastic Load Balancing v2:^RegisterTargets|^DeregisterTargets=4:20,Elastic Load Balancing v2:.*=10:40

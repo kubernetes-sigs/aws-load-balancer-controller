@@ -2320,6 +2320,12 @@ alb.ingress.kubernetes.io/target-type: ip
 </li>
 </ul>
 <h2 id="addons">Addons<a class="headerlink" href="#addons" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>If waf-acl-arn is specified via the ingress annotations, the controller will make sure the waf-acl is associated to the provisioned ALB with the ingress. 
+If there is not such annotation, the controller will make sure no waf-acl is associated, so it may remove the existing waf-acl on the ALB provisioned. 
+If users do not want the controller to manage the waf-acl on the ALBs, they can disable the feature by setting controller command line flags <code>--enable-waf=false</code> or <code>--enable-wafv2=false</code></p>
+</div>
 <ul>
 <li>
 <p><a name="waf-acl-id"><code>alb.ingress.kubernetes.io/waf-acl-id</code></a> specifies the identifier for the Amazon WAF web ACL.</p>
