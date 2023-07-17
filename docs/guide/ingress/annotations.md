@@ -79,6 +79,13 @@ By default, Ingresses don't belong to any IngressGroup, and we treat it as a "im
         other Kubernetes users may create/modify their Ingresses to belong to the same IngressGroup, and can thus add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.
 
         We'll add more fine-grained access-control in future versions.
+  
+    !!!warning "Rename behavior"
+        ALB is uniquely identified by it's tag `ingress.k8s.aws/stack`, whose value is the name of IngressGroup.
+
+        There is no way to rename an existing IngressGroup while keeping ALB. When the `groupName` of IngressGroup of Ingress is changed, the Ingress will be moved to corresponding IngressGroup and ALB. If target IngressGroup doesn't exist, a new ALB will be created.
+
+        If an IngressGroup has only one Ingress (or IngressGroup is not explicit specified), changing name of IngressGroup will cause recreation of Load Balancer. If an IngressGroup has no Ingress, the corrsponding ALB will be removed. In both cases, deletion protection of ALB will be ignored.
 
     !!!example
         ```
