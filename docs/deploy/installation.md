@@ -213,7 +213,7 @@ We recommend using the Helm chart to install the controller. The chart supports 
             spec:
                 containers:
                     - args:
-                        - --cluster-name=your-cluster-name
+                        - --cluster-name=<your-cluster-name>
     ```
     3. If you use IAM roles for service accounts, we recommend that you delete the `ServiceAccount` from the yaml spec. If you delete the installation section from the yaml spec, deleting the `ServiceAccount` preserves the `eksctl` created `iamserviceaccount`.
     ```
