@@ -2,18 +2,18 @@ package ingress
 
 import (
 	"context"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -81,7 +81,8 @@ func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string) ([]s
 		}
 
 		if len(certARNsForHost) == 0 {
-			return nil, errors.Errorf("no certificate found for host: %s", host)
+			d.logger.Info("no certificate found for host", "host", host)
+			continue
 		}
 		certARNs.Insert(certARNsForHost...)
 	}

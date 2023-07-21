@@ -140,6 +140,10 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 			inboundCIDRv6s: inboundCIDRV6s,
 		}
 		if protocol == elbv2model.ProtocolHTTPS {
+			if len(explicitTLSCertARNs) == 0 && len(inferredTLSCertARNs) == 0 {
+				t.logger.Info("no TLS cert ARNs found for ingress", "ingress", fmt.Sprintf("%s/%s", ing.Ing.Name, ing.Ing.Namespace))
+				continue
+			}
 			if len(explicitTLSCertARNs) == 0 {
 				cfg.tlsCerts = inferredTLSCertARNs
 			} else {
