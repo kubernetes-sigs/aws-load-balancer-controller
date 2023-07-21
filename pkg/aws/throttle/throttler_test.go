@@ -2,18 +2,19 @@ package throttle
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/aws/client/metadata"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/appmesh"
-	"github.com/aws/aws-sdk-go/service/servicediscovery"
-	"github.com/stretchr/testify/assert"
-	"golang.org/x/time/rate"
 	"net/http"
 	"regexp"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws/client/metadata"
+	"github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/service/appmesh"
+	"github.com/aws/aws-sdk-go/service/servicediscovery"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/time/rate"
 )
 
 func Test_NewThrottler(t *testing.T) {
@@ -129,7 +130,7 @@ func Test_throttler_beforeSign(t *testing.T) {
 						condition: func(r *request.Request) bool {
 							return true
 						},
-						limiter: rate.NewLimiter(10, 5),
+						limiter: rate.NewLimiter(5, 5),
 					},
 				},
 			},
@@ -138,9 +139,9 @@ func Test_throttler_beforeSign(t *testing.T) {
 					HTTPRequest: &http.Request{},
 				},
 			},
-			testQPS: 100,
+			testQPS: 30,
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
-				ideal := 5 + 10*elapsedDuration.Seconds()
+				ideal := 5 + 5*elapsedDuration.Seconds()
 				// We should never get more requests than allowed.
 				if want := int64(ideal * 1.1); count > want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
@@ -159,7 +160,7 @@ func Test_throttler_beforeSign(t *testing.T) {
 						condition: func(r *request.Request) bool {
 							return false
 						},
-						limiter: rate.NewLimiter(10, 5),
+						limiter: rate.NewLimiter(5, 5),
 					},
 				},
 			},
@@ -168,9 +169,9 @@ func Test_throttler_beforeSign(t *testing.T) {
 					HTTPRequest: &http.Request{},
 				},
 			},
-			testQPS: 100,
+			testQPS: 30,
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
-				ideal := 100 * elapsedDuration.Seconds()
+				ideal := 30 * elapsedDuration.Seconds()
 				// We should never get more requests than allowed.
 				if want := int64(ideal * 1.1); count > want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
@@ -189,7 +190,7 @@ func Test_throttler_beforeSign(t *testing.T) {
 						condition: func(r *request.Request) bool {
 							return true
 						},
-						limiter: rate.NewLimiter(10, 5),
+						limiter: rate.NewLimiter(5, 5),
 					},
 					{
 						condition: func(r *request.Request) bool {
@@ -204,9 +205,9 @@ func Test_throttler_beforeSign(t *testing.T) {
 					HTTPRequest: &http.Request{},
 				},
 			},
-			testQPS: 100,
+			testQPS: 30,
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
-				ideal := 5 + 10*elapsedDuration.Seconds()
+				ideal := 5 + 5*elapsedDuration.Seconds()
 				// We should never get more requests than allowed.
 				if want := int64(ideal * 1.1); count > want {
 					t.Errorf("count = %d, want %d (ideal %f", count, want, ideal)
@@ -225,7 +226,7 @@ func Test_throttler_beforeSign(t *testing.T) {
 						condition: func(r *request.Request) bool {
 							return true
 						},
-						limiter: rate.NewLimiter(10, 5),
+						limiter: rate.NewLimiter(5, 5),
 					},
 					{
 						condition: func(r *request.Request) bool {
@@ -240,7 +241,7 @@ func Test_throttler_beforeSign(t *testing.T) {
 					HTTPRequest: &http.Request{},
 				},
 			},
-			testQPS: 100,
+			testQPS: 30,
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
 				ideal := 5 + 1*elapsedDuration.Seconds()
 				// We should never get more requests than allowed.
