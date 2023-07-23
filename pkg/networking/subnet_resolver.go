@@ -160,6 +160,7 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 
 	var chosenSubnets []*ec2sdk.Subnet
 	var err error
+	var explanation string
 	if selector.IDs != nil {
 		req := &ec2sdk.DescribeSubnetsInput{
 			SubnetIds: make([]*string, 0, len(selector.IDs)),
@@ -199,13 +200,23 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 		if err != nil {
 			return nil, err
 		}
+		explanation = fmt.Sprintf("%d match VPC and tags", len(allSubnets))
 		var subnets []*ec2sdk.Subnet
+		taggedOtherCluster := 0
 		for _, subnet := range allSubnets {
 			if r.checkSubnetIsNotTaggedForOtherClusters(subnet, resolveOpts.SubnetsClusterTagCheck) {
 				subnets = append(subnets, subnet)
+			} else {
+				taggedOtherCluster += 1
 			}
 		}
-		filteredSubnets := r.filterSubnetsByAvailableIPAddress(subnets, resolveOpts.AvailableIPAddressCount)
+		if taggedOtherCluster > 0 {
+			explanation += fmt.Sprintf(", %d tagged for other cluster", taggedOtherCluster)
+		}
+		filteredSubnets, insufficientIPs := r.filterSubnetsByAvailableIPAddress(subnets, resolveOpts.AvailableIPAddressCount)
+		if insufficientIPs > 0 {
+			explanation += fmt.Sprintf(", %d have fewer than %d free IPs", insufficientIPs, resolveOpts.AvailableIPAddressCount)
+		}
 		subnetsByAZ := mapSDKSubnetsByAZ(filteredSubnets)
 		chosenSubnets = make([]*ec2sdk.Subnet, 0, len(subnetsByAZ))
 		for az, subnets := range subnetsByAZ {
@@ -230,7 +241,7 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 		}
 	}
 	if len(chosenSubnets) == 0 {
-		return nil, errors.New("unable to resolve at least one subnet")
+		return nil, fmt.Errorf("unable to resolve at least one subnet (%s)", explanation)
 	}
 	subnetLocale, err := r.validateSubnetsLocaleUniformity(ctx, chosenSubnets)
 	if err != nil {
@@ -439,15 +450,18 @@ func sortSubnetsByID(subnets []*ec2sdk.Subnet) {
 	})
 }
 
-func (r *defaultSubnetsResolver) filterSubnetsByAvailableIPAddress(subnets []*ec2sdk.Subnet, availableIPAddressCount int64) []*ec2sdk.Subnet {
+func (r *defaultSubnetsResolver) filterSubnetsByAvailableIPAddress(subnets []*ec2sdk.Subnet, availableIPAddressCount int64) ([]*ec2sdk.Subnet, int) {
 	filteredSubnets := make([]*ec2sdk.Subnet, 0, len(subnets))
+
+	insufficientIPs := 0
 	for _, subnet := range subnets {
 		if awssdk.Int64Value(subnet.AvailableIpAddressCount) >= availableIPAddressCount {
 			filteredSubnets = append(filteredSubnets, subnet)
 		} else {
+			insufficientIPs += 1
 			r.logger.Info("ELB requires at least 8 free IP addresses in each subnet",
 				"not enough IP addresses found in ", awssdk.StringValue(subnet.SubnetId))
 		}
 	}
-	return filteredSubnets
+	return filteredSubnets, insufficientIPs
 }

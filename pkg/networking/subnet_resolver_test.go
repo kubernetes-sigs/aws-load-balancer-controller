@@ -231,7 +231,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			wantErr: errors.New("unable to resolve at least one subnet"),
+			wantErr: errors.New("unable to resolve at least one subnet (0 match VPC and tags)"),
 		},
 		{
 			name: "NLB with one matching subnet",
