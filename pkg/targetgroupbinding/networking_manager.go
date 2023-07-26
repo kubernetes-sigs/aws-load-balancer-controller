@@ -203,7 +203,8 @@ func (m *defaultNetworkingManager) reconcileWithIngressPermissionsPerSG(ctx cont
 		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, permissions,
 			networking.WithPermissionSelector(permissionSelector),
 			networking.WithAuthorizeOnly(!computedForAllTGBs)); err != nil {
-			return err
+			m.logger.Error(err, "Security group reconciliation", "SecurityGroupID", sgID)
+			continue
 		}
 	}
 
