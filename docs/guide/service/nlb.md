@@ -41,7 +41,7 @@ In order for the LBC to manage the reconciliation of Kubernetes Service resource
     When you specify the `spec.loadBalancerClass` to be `service.k8s.aws/nlb` on a Kubernetes Service resource of type `LoadBalancer`, the LBC takes charge of reconciliation by provisioning an NLB.
 
     !!! warning
-        - If you modify a Service resource with matching `spec.loadBalancerClass` by changing its `type` from `LoadBalancer` to anything else, the controller will cleanup the provioned NLB for that Service.
+        - If you modify a Service resource with matching `spec.loadBalancerClass` by changing its `type` from `LoadBalancer` to anything else, the controller will cleanup the provisioned NLB for that Service.
 
         - If the `spec.loadBalancerClass` is set to a `loadBalancerClass` that isn't recognized by the LBC, it ignores the Service resource, regardless of the `service.beta.kubernetes.io/aws-load-balancer-type` annotation.
 
