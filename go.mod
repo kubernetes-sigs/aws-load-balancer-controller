@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/aws/aws-sdk-go v1.44.294
-	github.com/aws/aws-sdk-go-v2 v0.18.0
+	github.com/aws/aws-sdk-go-v2 v1.20.0
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/gavv/httpexpect/v2 v2.9.0
 	github.com/go-logr/logr v1.2.3
@@ -39,6 +39,7 @@ require (
 	github.com/ajg/form v1.5.1 // indirect
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
+	github.com/aws/smithy-go v1.14.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
