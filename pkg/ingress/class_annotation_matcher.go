@@ -10,7 +10,7 @@ type ClassAnnotationMatcher interface {
 }
 
 // NewDefaultClassAnnotationMatcher constructs new defaultClassAnnotationMatcher.
-func NewDefaultClassAnnotationMatcher(ingressClass string) *defaultClassAnnotationMatcher {
+func NewDefaultClassAnnotationMatcher(ingressClass string) ClassAnnotationMatcher {
 	return &defaultClassAnnotationMatcher{
 		ingressClass: ingressClass,
 	}
