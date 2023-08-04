@@ -91,7 +91,11 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-	config.ConfigureWebhookServer(controllerCFG.RuntimeConfig, mgr)
+	err = config.ConfigureWebhookServer(controllerCFG.RuntimeConfig, mgr)
+	if err != nil {
+		setupLog.Error(err, "unable to configure webhook server")
+		os.Exit(1)
+	}
 	clientSet, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
 		setupLog.Error(err, "unable to obtain clientSet")
