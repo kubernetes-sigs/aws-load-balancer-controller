@@ -136,7 +136,6 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	notDrainingTargets, drainingTargets := partitionTargetsByDrainingStatus(targets)
 	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
 
-
 	needNetworkingRequeue := false
 	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
 		m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedNetworkReconcile, err.Error())
