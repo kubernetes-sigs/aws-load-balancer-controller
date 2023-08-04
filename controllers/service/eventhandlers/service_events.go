@@ -39,7 +39,7 @@ func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, queue workq
 	oldSvc := e.ObjectOld.(*corev1.Service)
 	newSvc := e.ObjectNew.(*corev1.Service)
 
-	if ! equality.Semantic.DeepEqual(oldSvc.ResourceVersion, newSvc.ResourceVersion) {
+	if !equality.Semantic.DeepEqual(oldSvc.ResourceVersion, newSvc.ResourceVersion) {
 		if equality.Semantic.DeepEqual(oldSvc.Annotations, newSvc.Annotations) &&
 			equality.Semantic.DeepEqual(oldSvc.Spec, newSvc.Spec) &&
 			equality.Semantic.DeepEqual(oldSvc.DeletionTimestamp.IsZero(), newSvc.DeletionTimestamp.IsZero()) {
