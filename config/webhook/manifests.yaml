@@ -131,3 +131,24 @@ webhooks:
         resources:
           - ingresses
     sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
+        path: /validate-networking-v1-ingressclass
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    name: vingressclass.elbv2.k8s.aws
+    rules:
+      - apiGroups:
+          - networking.k8s.io
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - ingressclasses
+    sideEffects: None

@@ -156,6 +156,7 @@ func main() {
 	elbv2webhook.NewIngressClassParamsValidator().SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
+	networkingwebhook.NewIngressClassValidator(mgr.GetClient(), ctrl.Log).SetupWithManager(mgr)
 	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log).SetupWithManager(mgr)
 	//+kubebuilder:scaffold:builder
 
