@@ -1474,6 +1474,12 @@ In addition, most annotations defined on an Ingress only apply to the paths defi
 other Kubernetes users may create/modify their Ingresses to belong to the same IngressGroup, and can thus add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.</p>
 <p>We'll add more fine-grained access-control in future versions.</p>
 </div>
+<div class="admonition note">
+<p class="admonition-title">Rename behavior</p>
+<p>The ALB for an IngressGroup is found by searching for an AWS tag <code>ingress.k8s.aws/stack</code> tag with the name of the IngressGroup as its value. For an implicit IngressGroup, the value is <code>namespace/ingressname</code>.</p>
+<p>When the groupName of an IngressGroup for an Ingress is changed, the Ingress will be moved to a new IngressGroup and be supported by the ALB for the new IngressGroup. If the ALB for the new IngressGroup doesn't exist, a new ALB will be created.</p>
+<p>If an IngressGroup no longer contains any Ingresses, the ALB for that IngressGroup will be deleted and any deletion protection of that ALB will be ignored.</p>
+</div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/group.name: my-team.awesome-group

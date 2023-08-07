@@ -1215,6 +1215,12 @@
 <p>The AWS ALB Ingress controller must be uninstalled before installing the AWS Load Balancer Controller.
 Please follow our <a href="../upgrade/migrate_v1_v2/">migration guide</a> to do a migration.</p>
 </div>
+<div class="admonition warning">
+<p class="admonition-title">When using AWS Load Balancer Controller v2.5+</p>
+<p>The AWS LBC provides a mutating webhook for service resources to set the <code>spec.loadBalancerClass</code> field for service of type LoadBalancer on create. 
+This makes the AWS LBC the <strong>default controller for service</strong> of type LoadBalancer. You can disable this feature and revert to set Cloud Controller Manager (in-tree controller) as the default by setting the helm chart value <strong>enableServiceMutatorWebhook to false</strong> with <code>--set enableServiceMutatorWebhook=false</code> . 
+You will no longer be able to provision new Classic Load Balancer (CLB) from your kubernetes service unless you disable this feature. Existing CLB will continue to work fine.</p>
+</div>
 <h2 id="supported-kubernetes-versions">Supported Kubernetes versions<a class="headerlink" href="#supported-kubernetes-versions" title="Permanent link">&para;</a></h2>
 <ul>
 <li>AWS Load Balancer Controller v2.0.0~v2.1.3 requires Kubernetes 1.15+</li>

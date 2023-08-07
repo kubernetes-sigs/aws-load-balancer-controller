@@ -1129,7 +1129,7 @@
 <p class="admonition-title">Warning</p>
 <ul>
 <li>
-<p>If you modify a Service resource with matching <code>spec.loadBalancerClass</code> by changing its <code>type</code> from <code>LoadBalancer</code> to anything else, the controller will cleanup the provioned NLB for that Service.</p>
+<p>If you modify a Service resource with matching <code>spec.loadBalancerClass</code> by changing its <code>type</code> from <code>LoadBalancer</code> to anything else, the controller will cleanup the provisioned NLB for that Service.</p>
 </li>
 <li>
 <p>If the <code>spec.loadBalancerClass</code> is set to a <code>loadBalancerClass</code> that isn't recognized by the LBC, it ignores the Service resource, regardless of the <code>service.beta.kubernetes.io/aws-load-balancer-type</code> annotation.</p>
