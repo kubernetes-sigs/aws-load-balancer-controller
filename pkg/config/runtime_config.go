@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -131,5 +132,19 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 func ConfigureWebhookServer(rtCfg RuntimeConfig, mgr ctrl.Manager) {
 	mgr.GetWebhookServer().CertName = rtCfg.WebhookCertName
 	mgr.GetWebhookServer().KeyName = rtCfg.WebhookKeyName
-	mgr.GetWebhookServer().TLSMinVersion = "1.3"
+	mgr.GetWebhookServer().TLSOpts = []func(config *tls.Config){
+		func(config *tls.Config) {
+			config.MinVersion = tls.VersionTLS12
+			config.CipherSuites = []uint16{
+				// AEADs w/ ECDHE
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+
+				// AEADs w/o ECDHE
+				tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			}
+		},
+	}
 }
