@@ -88,10 +88,11 @@ func (t *TargetGroupTuple) validate() error {
 	if t.ServiceName != nil && t.ServicePort == nil {
 		return errors.New("missing servicePort")
 	}
-	if t.Weight < 0 || t.Weight > 999 {
+
+	if (t.Weight != nil) && (*(t.Weight) < 0 || *(t.Weight) > 999) {
 		return errors.New("The weight for each target group must be between 0 and 999, inclusive")
 	}
- 	return nil
+	return nil
 }
 
 // Information about the target group stickiness for a rule.
