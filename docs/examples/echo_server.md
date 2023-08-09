@@ -86,6 +86,15 @@ In this walkthrough, you'll
 
 1.  Deploy all the echoserver resources (namespace, service, deployment)
 
+    If you're deploying to Fargate, then add the Fargate profile.
+
+    ```bash
+    eksctl create fargateprofile \
+    --cluster <cluster-name> \
+    --name <profile-name> \
+    --namespace echoserver
+    ```
+
     ```bash
     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.4/docs/examples/echoservice/echoserver-namespace.yaml &&\
     kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.5.4/docs/examples/echoservice/echoserver-service.yaml &&\
