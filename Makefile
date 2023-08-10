@@ -2,7 +2,7 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.5.4
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.6.0
 # Image URL to use for builder stage in Docker build
 BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:1.20.5
 # Image URL to use for base layer in Docker build
@@ -165,7 +165,7 @@ docs-preview: docs-dependencies
 
 # publish the versioned docs using mkdocs mike util
 docs-publish: docs-dependencies
-	pipenv run mike deploy v2.5 latest -p --update-aliases
+	pipenv run mike deploy v2.6 latest -p --update-aliases
 
 # install dependencies needed to preview and publish docs
 docs-dependencies:
