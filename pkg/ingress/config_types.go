@@ -1,6 +1,7 @@
 package ingress
 
 import (
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -89,8 +90,8 @@ func (t *TargetGroupTuple) validate() error {
 		return errors.New("missing servicePort")
 	}
 
-	if (t.Weight != nil) && (*(t.Weight) < 0 || *(t.Weight) > 999) {
-		return errors.New("The weight for each target group must be between 0 and 999, inclusive")
+	if aws.Int64Value(t.Weight) < 0 || aws.Int64Value(t.Weight) > 999 {
+		return errors.New("weight value not between 0 and 999, inclusive")
 	}
 	return nil
 }
