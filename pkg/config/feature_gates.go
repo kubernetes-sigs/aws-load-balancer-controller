@@ -20,6 +20,7 @@ const (
 	EnableRGTAPI                 Feature = "EnableRGTAPI"
 	SubnetsClusterTagCheck       Feature = "SubnetsClusterTagCheck"
 	NLBHealthCheckAdvancedConfig Feature = "NLBHealthCheckAdvancedConfig"
+	NLBSecurityGroup             Feature = "NLBSecurityGroup"
 )
 
 type FeatureGates interface {
@@ -56,6 +57,7 @@ func NewFeatureGates() FeatureGates {
 			EnableRGTAPI:                 false,
 			SubnetsClusterTagCheck:       true,
 			NLBHealthCheckAdvancedConfig: true,
+			NLBSecurityGroup:             true,
 		},
 	}
 }
