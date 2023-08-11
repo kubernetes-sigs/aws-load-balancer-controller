@@ -455,7 +455,7 @@ Load balancer access can be controlled via following annotations:
 - <a name="security-groups">`service.beta.kubernetes.io/aws-load-balancer-security-groups`</a>  specifies the frontend securityGroups you want to attach to NLB.
 
     !!!note ""
-        When this annotation is not present, the controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from `inbound-cidrs` to the `listen-ports`.
+        When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from `inbound-cidrs` to the `listen-ports`.
         Also, the securityGroups for instance/ENI will be modified to allow inbound traffic from this securityGroup.
 
     !!!note ""
