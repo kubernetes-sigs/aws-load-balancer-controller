@@ -84,8 +84,8 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |enable-leader-election                 | boolean                         | true            | Enable leader election for the load balancer controller manager. Enabling this will ensure there is only one active controller manager |
 |enable-pod-readiness-gate-inject       | boolean                         | true            | If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods |
 |enable-shield                          | boolean                         | true            | Enable Shield addon for ALB |
-|enable-waf                             | boolean                         | true            | Enable WAF addon for ALB |
-|enable-wafv2                           | boolean                         | true            | Enable WAF V2 addon for ALB |
+|[enable-waf](#waf-addons)                             | boolean                         | true            | Enable WAF addon for ALB |
+|[enable-wafv2](#waf-addons)                           | boolean                         | true            | Enable WAF V2 addon for ALB |
 |external-managed-tags                  | stringList                      |                 | AWS Tag keys that will be managed externally. Specified Tags are ignored during reconciliation |
 |[feature-gates](#feature-gates)        | stringMap                       |                 | A set of key=value pairs to enable or disable features |
 |health-probe-bind-addr                 | string                          | :61779          | The address the health probes binds to |
@@ -98,7 +98,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |log-level                              | string                          | info            | Set the controller log level - info, debug |
 |metrics-bind-addr                      | string                          | :8080           | The address the metric endpoint binds to |
 |service-max-concurrent-reconciles      | int                             | 3               | Maximum number of concurrently running reconcile loops for service |
-|sync-period                            | duration                        | 1h0m0s          | Period at which the controller forces the repopulation of its local object stores|
+|[sync-period](#sync-period)                            | duration                        | 10h0m0s          | Period at which the controller forces the repopulation of its local object stores|
 |targetgroupbinding-max-concurrent-reconciles | int                       | 3               | Maximum number of concurrently running reconcile loops for targetGroupBinding |
 |targetgroupbinding-max-exponential-backoff-delay | duration              | 16m40s          | Maximum duration of exponential backoff for targetGroupBinding reconcile failures |
 |watch-namespace                        | string                          |                 | Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched. |
@@ -127,6 +127,15 @@ Once disabled:
 * you can no longer create Ingresses with the `alb.ingress.kubernetes.io/group.name` annotation.
 * you can no longer alter the value of an `alb.ingress.kubernetes.io/group.name` annotation on an existing Ingress.
 
+### sync-period
+`--sync-period` defines a fixed interval for the controller to reconcile all resources even if there is no change, default to 10 hr. Please be mindful that frequent reconciliations may incur unnecessary AWS API usage.
+
+As best practice, we do not recommend users to manually modify the resources managed by the controller. And users should not depend on the controller auto-reconciliation to revert the manual modification, or to mitigate any security risks.
+
+### waf-addons
+By default, the controller assumes sole ownership of the WAF addons associated to the provisioned ALBs, via the flag `--enable-waf` and `--enable-wafv2`.
+And the users should disable them accordingly if they want a third party like AWS Firewall Manager to associate or remove the WAF-ACL of the ALBs.
+Once disabled, the controller shall not take any actions on the waf addons of the provisioned ALBs.
 
 ###  throttle config
 

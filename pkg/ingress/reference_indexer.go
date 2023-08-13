@@ -103,7 +103,7 @@ func (i *defaultReferenceIndexer) BuildIngressClassRefIndexes(_ context.Context,
 }
 
 func (i *defaultReferenceIndexer) BuildIngressClassParamsRefIndexes(_ context.Context, ingClass *networking.IngressClass) []string {
-	if ingClass.Spec.Controller != ingressClassControllerALB || ingClass.Spec.Parameters == nil {
+	if ingClass.Spec.Controller != IngressClassControllerALB || ingClass.Spec.Parameters == nil {
 		return nil
 	}
 	if ingClass.Spec.Parameters.APIGroup == nil ||

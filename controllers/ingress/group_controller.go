@@ -66,7 +66,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		vpcEndpointServiceManager, controllerConfig, ingressTagPrefix, logger)
-	classLoader := ingress.NewDefaultClassLoader(k8sClient)
+	classLoader := ingress.NewDefaultClassLoader(k8sClient, true)
 	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)
 	manageIngressesWithoutIngressClass := controllerConfig.IngressConfig.IngressClass == ""
 	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, eventRecorder, annotationParser, classLoader, classAnnotationMatcher, manageIngressesWithoutIngressClass)

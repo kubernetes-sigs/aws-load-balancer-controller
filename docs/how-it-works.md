@@ -6,6 +6,10 @@ The following diagram details the AWS components this controller creates. It als
 
 ![controller-design](assets/images/controller-design.png)
 
+!!!warning "Note"
+
+    The controller manages the configurations of the resources it creates, and we do not recommend out-of-band modifications to these resources because the controller may revert the manual changes during reconciliation. We recommend to use configuration options provided as best practice, such as ingress and service annotations, controller command line flags and IngressClassParams.
+
 ### Ingress Creation
 
 This section describes each step (circle) above. This example demonstrates satisfying 1 ingress resource.

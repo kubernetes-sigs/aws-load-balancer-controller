@@ -16,6 +16,7 @@ import (
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -35,6 +36,7 @@ const (
 
 	explicitGroupFinalizerPrefix = "group.ingress.k8s.aws/"
 	implicitGroupFinalizer       = "ingress.k8s.aws/resources"
+	serviceFinalizer             = "service.k8s.aws/resources"
 
 	sgDescription = "[k8s] Shared Backend SecurityGroup for LoadBalancer"
 )
@@ -76,6 +78,15 @@ func NewBackendSGProvider(clusterName string, backendSG string, vpcID string,
 			return false
 		},
 
+		checkServiceFinalizersFunc: func(finalizers []string) bool {
+			for _, fin := range finalizers {
+				if fin == serviceFinalizer {
+					return true
+				}
+			}
+			return false
+		},
+
 		defaultDeletionPollInterval: defaultSGDeletionPollInterval,
 		defaultDeletionTimeout:      defaultSGDeletionTimeout,
 	}
@@ -101,6 +112,7 @@ type defaultBackendSGProvider struct {
 	// controller deletes the backend SG.
 	objectsMap sync.Map
 
+	checkServiceFinalizersFunc func([]string) bool
 	checkIngressFinalizersFunc func([]string) bool
 
 	defaultDeletionPollInterval time.Duration
@@ -126,7 +138,7 @@ func (p *defaultBackendSGProvider) Release(ctx context.Context, resourceType Res
 	}
 	defer func() {
 		for _, res := range inactiveResources {
-			p.objectsMap.Delete(getObjectKey(resourceType, res))
+			p.objectsMap.CompareAndDelete(getObjectKey(resourceType, res), false)
 		}
 	}()
 	p.updateObjectsMap(ctx, resourceType, inactiveResources, false)
@@ -159,6 +171,9 @@ func (p *defaultBackendSGProvider) isBackendSGRequired(ctx context.Context) (boo
 	if required, err := p.checkIngressListForUnmapped(ctx); required || err != nil {
 		return required, err
 	}
+	if required, err := p.checkServiceListForUnmapped(ctx); required || err != nil {
+		return required, err
+	}
 	return false, nil
 }
 
@@ -172,6 +187,22 @@ func (p *defaultBackendSGProvider) checkIngressListForUnmapped(ctx context.Conte
 			continue
 		}
 		if !p.existsInObjectMap(ResourceTypeIngress, k8s.NamespacedName(&ing)) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (p *defaultBackendSGProvider) checkServiceListForUnmapped(ctx context.Context) (bool, error) {
+	svcList := &corev1.ServiceList{}
+	if err := p.k8sClient.List(ctx, svcList); err != nil {
+		return true, errors.Wrapf(err, "unable to list services")
+	}
+	for _, svc := range svcList.Items {
+		if !p.checkServiceFinalizersFunc(svc.GetFinalizers()) {
+			continue
+		}
+		if !p.existsInObjectMap(ResourceTypeService, k8s.NamespacedName(&svc)) {
 			return true, nil
 		}
 	}

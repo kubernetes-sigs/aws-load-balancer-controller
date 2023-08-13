@@ -2,7 +2,7 @@ package elbv2
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go-v2/aws"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
@@ -263,15 +263,15 @@ func (m *defaultTaggingManager) listLoadBalancersRGT(ctx context.Context, tagFil
 	for _, tagFilter := range tagFilters {
 		req := &resourcegroupstaggingapi.GetResourcesInput{
 			TagFilters:          convertTagFiltersToRGTTagFilters(tagFilter),
-			ResourceTypeFilters: aws.StringSlice([]string{services.ResourceTypeELBLoadBalancer}),
+			ResourceTypeFilters: awssdk.StringSlice([]string{services.ResourceTypeELBLoadBalancer}),
 		}
 		resources, err := m.rgt.GetResourcesAsList(ctx, req)
 		if err != nil {
 			return nil, err
 		}
 		for _, resource := range resources {
-			if _, exists := resourceTagsByARN[aws.StringValue(resource.ResourceARN)]; !exists {
-				resourceTagsByARN[aws.StringValue(resource.ResourceARN)] = resource.Tags
+			if _, exists := resourceTagsByARN[awssdk.StringValue(resource.ResourceARN)]; !exists {
+				resourceTagsByARN[awssdk.StringValue(resource.ResourceARN)] = resource.Tags
 			}
 		}
 	}
@@ -342,15 +342,15 @@ func (m *defaultTaggingManager) listTargetGroupsRGT(ctx context.Context, tagFilt
 	for _, tagFilter := range tagFilters {
 		req := &resourcegroupstaggingapi.GetResourcesInput{
 			TagFilters:          convertTagFiltersToRGTTagFilters(tagFilter),
-			ResourceTypeFilters: aws.StringSlice([]string{services.ResourceTypeELBTargetGroup}),
+			ResourceTypeFilters: awssdk.StringSlice([]string{services.ResourceTypeELBTargetGroup}),
 		}
 		resources, err := m.rgt.GetResourcesAsList(ctx, req)
 		if err != nil {
 			return nil, err
 		}
 		for _, resource := range resources {
-			if _, exists := resourceTagsByARN[aws.StringValue(resource.ResourceARN)]; !exists {
-				resourceTagsByARN[aws.StringValue(resource.ResourceARN)] = resource.Tags
+			if _, exists := resourceTagsByARN[awssdk.StringValue(resource.ResourceARN)]; !exists {
+				resourceTagsByARN[awssdk.StringValue(resource.ResourceARN)] = resource.Tags
 			}
 		}
 	}
@@ -466,8 +466,8 @@ func convertTagFiltersToRGTTagFilters(tagFilter tracking.TagFilter) []*resourceg
 	var RGTTagFilters []*resourcegroupstaggingapi.TagFilter
 	for k, v := range tagFilter {
 		RGTTagFilters = append(RGTTagFilters, &resourcegroupstaggingapi.TagFilter{
-			Key:    aws.String(k),
-			Values: aws.StringSlice(v),
+			Key:    awssdk.String(k),
+			Values: awssdk.StringSlice(v),
 		})
 	}
 	return RGTTagFilters

@@ -1,4 +1,4 @@
-defaultBaseImage: public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2023-02-22-1677092456.2
+defaultBaseImage: public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2023-06-06-1686078098.2
 builds:
 - env:
   - CGO_ENABLED=0
