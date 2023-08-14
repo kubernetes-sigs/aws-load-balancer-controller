@@ -4,7 +4,7 @@ The AWS Load Balancer Controller classifies security groups into two categories:
 
 ## Frontend Security Groups
 
-Frontend security groups control which clients can access the load balancers. The frontend security groups can be configured with the `alb.ingress.kubernetes.io/security-groups` annotation on the Ingress resources. If the annotation is not specified, the LBC will create one security group per load balancer, allowing traffic from `inbound-cidrs` to `listen-ports`.
+Frontend security groups control which clients can access the load balancers. The frontend security groups can be configured with the `alb.ingress.kubernetes.io/security-groups` annotation on Ingress resources or `service.beta.kubernetes.io/aws-load-balancer-security-groups` annotation on Service resources. If the annotations are not specified, the LBC will create one security group per load balancer, allowing traffic from `inbound-cidrs` to `listen-ports`.
 
 ## Backend Security Groups
 
@@ -25,7 +25,7 @@ You can turn off the shared backend security group feature by setting `--enable-
 
 When the LBC auto-creates the frontend security group for a load balancer, it automatically adds the security group rules to allow traffic from the load balancer to the backend instances/ENIs.
 
-When the frontend security group is specified via the `alb.ingress.kubernetes.io/security-groups` annotation, the controller by default will not add any security group rules to the backend instances/ENIs. The automatic management of instance/ENI security group can be controlled via the additional annotation `alb.ingress.kubernetes.io/manage-backend-security-group-rules` on the Ingress resource. When this annotation is set to true the security group rules are automatically managed by the controller. This annotation gets ignored in the case of auto-generated security groups. `--enable-backend-security-group` needs to be true if `alb.ingress.kubernetes.io/manage-backend-security-group-rules` is specified, otherwise it is an error.
+When the frontend security group is specified via the `alb.ingress.kubernetes.io/security-groups` annotation on Ingress resources or `service.beta.kubernetes.io/aws-load-balancer-security-groups` annotation on Service resources, the controller will not by default add any security group rules to the backend instances/ENIs. The automatic management of instance/ENI security group can be controlled via the additional annotation `alb.ingress.kubernetes.io/manage-backend-security-group-rules` on Ingress resources or `service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules` on Service resources. When these annotations are set to true the security group rules are automatically managed by the controller. These annotations get ignored in the case of auto-generated security groups. `--enable-backend-security-group` needs to be true if either `alb.ingress.kubernetes.io/manage-backend-security-group-rules` or `service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules` are specified, otherwise it is an error.
 
 ### Port Range Restrictions for Backend Security Group Rules
 

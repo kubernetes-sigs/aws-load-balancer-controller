@@ -48,6 +48,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        | 
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      |                                                        |
 
 ## Traffic Routing
@@ -427,6 +428,9 @@ Load balancer access can be controlled via following annotations:
         Preserve client IP has no effect on traffic converted from IPv4 to IPv6 and on traffic converted from IPv6 to IPv4. The source IP of this type of traffic is always the private IP address of the Network Load Balancer.
         - This could cause the clients that have their traffic converted to bypass the specified CIDRs that are allowed to access the NLB.
 
+    !!!warning ""
+        this annotation will be ignored if `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified.
+
     !!!example
         ```
         service.beta.kubernetes.io/load-balancer-source-ranges: 10.0.0.0/24
@@ -448,7 +452,23 @@ Load balancer access can be controlled via following annotations:
         ```
         service.beta.kubernetes.io/aws-load-balancer-internal: "true"
         ```
+- <a name="security-groups">`service.beta.kubernetes.io/aws-load-balancer-security-groups`</a>  specifies the frontend securityGroups you want to attach to an NLB.
 
+    !!!note ""
+        When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from `inbound-cidrs` to the `listen-ports`.
+        Also, the securityGroups for target instances/ENIs will be modified to allow inbound traffic from this securityGroup.
+
+    !!!note ""
+        If you specify this annotation, you need to configure the security groups on your target instances/ENIs to allow inbound traffic from the load balancer. You could also set the [`manage-backend-security-group-rules`](#manage-backend-sg-rules) if you want the controller to manage the security group rules.
+
+    !!!tip ""
+        Both name and ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-security-groups: sg-xxxx, nameOfSg1, nameOfSg2
+        ```
+ 
 - <a name="manage-backend-sg-rules">`service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules`</a> specifies whether the controller should automatically add the ingress rules to the instance/ENI security group.
 
     !!!warning ""
