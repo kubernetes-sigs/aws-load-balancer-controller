@@ -452,17 +452,17 @@ Load balancer access can be controlled via following annotations:
         ```
         service.beta.kubernetes.io/aws-load-balancer-internal: "true"
         ```
-- <a name="security-groups">`service.beta.kubernetes.io/aws-load-balancer-security-groups`</a>  specifies the frontend securityGroups you want to attach to NLB.
+- <a name="security-groups">`service.beta.kubernetes.io/aws-load-balancer-security-groups`</a>  specifies the frontend securityGroups you want to attach to an NLB.
 
     !!!note ""
         When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from `inbound-cidrs` to the `listen-ports`.
-        Also, the securityGroups for instance/ENI will be modified to allow inbound traffic from this securityGroup.
+        Also, the securityGroups for target instances/ENIs will be modified to allow inbound traffic from this securityGroup.
 
     !!!note ""
-        If you specify this annotation, you need to configure the security groups on your instance/ENI to allow inbound traffic from the load balancer. You could also set the [`manage-backend-security-group-rules`](#manage-backend-sg-rules) if you want the controller to manage the access rules.
+        If you specify this annotation, you need to configure the security groups on your target instances/ENIs to allow inbound traffic from the load balancer. You could also set the [`manage-backend-security-group-rules`](#manage-backend-sg-rules) if you want the controller to manage the security group rules.
 
     !!!tip ""
-        Both name or ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
+        Both name and ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
 
     !!!example
         ```
