@@ -405,6 +405,10 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
+			By("waiting for target group targets to be healthy", func() {
+				err := waitUntilTargetsAreHealthy(ctx, tf, lbARN, int(numReplicas))
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 	})
 })

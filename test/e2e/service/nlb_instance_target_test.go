@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	. "github.com/onsi/ginkgo/v2"
@@ -207,6 +208,12 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 					})
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
+			By("waiting for target group targets to be healthy", func() {
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+				err = waitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 		It("should create TLS listeners", func() {
 			if len(tf.Options.CertificateARNs) == 0 {
@@ -269,6 +276,12 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 					return verifyLoadBalancerListenerCertificates(ctx, tf, lbARN, certs) == nil
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
+			By("waiting for target group targets to be healthy", func() {
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+				err = waitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 		It("should enable proxy protocol v2", func() {
 			By("deploying stack", func() {
@@ -299,6 +312,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 						"deregistration_delay.timeout_seconds": "120",
 					})
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+				time.Sleep(30 * time.Second)
 			})
 		})
 	})
@@ -345,6 +359,12 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 
 				err = verifyTargetGroupNumRegistered(ctx, tf, tgARN, len(nodes))
 				Expect(err).ToNot(HaveOccurred())
+			})
+			By("waiting for target group targets to be healthy", func() {
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+				err = waitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})
