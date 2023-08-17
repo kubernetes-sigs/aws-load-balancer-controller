@@ -480,6 +480,10 @@ Load balancer access can be controlled via following annotations:
         ```
 
 ## Legacy Cloud Provider
-The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the legacy aws cloud provider. The annotation `service.beta.kubernetes.io/aws-load-balancer-type` is used to determine which controller reconciles the service. If the annotation value is `nlb-ip` or `external`, legacy cloud provider ignores the service resource (provided it has the correct patch) so that the AWS Load Balancer controller can take over. For all other values of the annotation, the legacy cloud provider will handle the service. Note that this annotation should be specified during service creation and not edited later.
+The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the legacy aws cloud provider.
 
-The legacy cloud provider patch was added in Kubernetes v1.20 and is backported to Kubernetes v1.18.18+, v1.19.10+.
+- For users on v2.5.0+, The AWS LBC provides a mutating webhook for service resources to set the `spec.loadBalancerCLass` field for the serive of type LoadBalancer, which makes the AWS LBC the default controller for service of type LoadBalancer. 
+  Users can disable this feature and revert to set Cloud Controller Manager (in-tree controller) as the default by setting the helm chart value enableServiceMutatorWebhook to false with `--set enableServiceMutatorWebhook=false` .
+- For users on older versions, the annotation `service.beta.kubernetes.io/aws-load-balancer-type` is used to determine which controller reconciles the service. If the annotation value is `nlb-ip` or `external`, 
+  legacy cloud provider ignores the service resource (provided it has the correct patch) so that the AWS LBC can take over. For all other values of the annotation, the legacy cloud provider will handle the service. 
+  Note that this annotation should be specified during service creation and not edited later. The legacy cloud provider patch was added in Kubernetes v1.20 and is backported to Kubernetes v1.18.18+, v1.19.10+.
