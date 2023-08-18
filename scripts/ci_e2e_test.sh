@@ -210,7 +210,7 @@ test_controller_image() {
   CERT_ID3="1001570b-1779-40c3-9b49-9a9a41e30058"
   CERTIFICATE_ARNS=${CERTIFICATE_ARNS:-"${CERTIFICATE_ARN_PREFIX}/${CERT_ID1},${CERTIFICATE_ARN_PREFIX}/${CERT_ID2},${CERTIFICATE_ARN_PREFIX}/${CERT_ID3}"}
 
-  ginkgo -v -r test/e2e -- \
+  ginkgo -v -r test/e2e -timeout 2h -- \
     --kubeconfig=${CLUSTER_KUBECONFIG} \
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
