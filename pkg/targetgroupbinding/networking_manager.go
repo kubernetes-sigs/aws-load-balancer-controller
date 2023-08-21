@@ -200,7 +200,7 @@ func (m *defaultNetworkingManager) reconcileWithIngressPermissionsPerSG(ctx cont
 	aggregatedIngressPermissionsPerSG := m.computeAggregatedIngressPermissionsPerSG(ctx)
 
 	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
-	sgReconciliationErrors := make([]error, 0)
+	var sgReconciliationErrors []error
 	for sgID, permissions := range aggregatedIngressPermissionsPerSG {
 		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, permissions,
 			networking.WithPermissionSelector(permissionSelector),
