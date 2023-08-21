@@ -405,6 +405,10 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 	})
 })
