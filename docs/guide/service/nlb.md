@@ -161,8 +161,8 @@ service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: "*"
 See [Subnet Discovery](../../deploy/subnet_discovery.md) for details on configuring Elastic Load Balancing for public or private placement.
 
 ## Security group
- - From v2.6.0, the AWS LBC creates and attaches frontend and backend security groups to NLB by default. For more information please check [here](../../deploy/security_groups.md) 
- - For users on older versions, the controller by default adds inbound rules to the worker node security groups, to allow inbound traffic from an NLB.
+ - From v2.6.0, the AWS LBC creates and attaches frontend and backend security groups to NLB by default. For more information please see [the security groups documentation](../../deploy/security_groups.md) 
+ - In older versions, the controller by default adds inbound rules to the worker node security groups, to allow inbound traffic from an NLB.
 
 !!! tip "disable worker node security group rule management"
     You can disable the worker node security group rule management using an [annotation](./annotations.md#manage-backend-sg-rules).

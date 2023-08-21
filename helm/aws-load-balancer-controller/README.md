@@ -26,7 +26,7 @@ As a security best practice, we recommend isolating the controller deployment po
   - Chart version v1.5.0+ requires Kubernetes 1.22+
   - Chart version v1.4.0+ requires Kubernetes 1.19+
   - Chart version v1.2.0 - v1.3.3 supports Kubernetes 1.16-1.21
-  - Chart version v1.16 and before supports Kubernetes 1.15
+  - Chart version v1.1.6 and before supports Kubernetes 1.15
 - IAM permissions
 - Helm v3
 - Optional dependencies
