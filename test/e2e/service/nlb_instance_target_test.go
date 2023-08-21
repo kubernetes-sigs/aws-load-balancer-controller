@@ -3,13 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"strings"
 )
 
 var _ = Describe("test k8s service reconciled by the aws load balancer controller", func() {
@@ -206,10 +207,8 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 					})
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
-			By("waiting for target group targets to be healthy", func() {
-				nodeList, err := stack.GetWorkerNodes(ctx, tf)
-				Expect(err).ToNot(HaveOccurred())
-				err = waitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -274,10 +273,8 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 					return verifyLoadBalancerListenerCertificates(ctx, tf, lbARN, certs) == nil
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
-			By("waiting for target group targets to be healthy", func() {
-				nodeList, err := stack.GetWorkerNodes(ctx, tf)
-				Expect(err).ToNot(HaveOccurred())
-				err = waitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -310,12 +307,10 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 						"deregistration_delay.timeout_seconds": "120",
 					})
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
-				By("waiting for target group targets to be healthy", func() {
-					nodeList, err := stack.GetWorkerNodes(ctx, tf)
-					Expect(err).ToNot(HaveOccurred())
-					err = waitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
-					Expect(err).NotTo(HaveOccurred())
-				})
+			})
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})
@@ -363,10 +358,8 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				err = verifyTargetGroupNumRegistered(ctx, tf, tgARN, len(nodes))
 				Expect(err).ToNot(HaveOccurred())
 			})
-			By("waiting for target group targets to be healthy", func() {
-				nodeList, err := stack.GetWorkerNodes(ctx, tf)
-				Expect(err).ToNot(HaveOccurred())
-				err = waitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})

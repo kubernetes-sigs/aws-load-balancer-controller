@@ -209,8 +209,7 @@ test_controller_image() {
   CERT_ID2="724963dd-f571-4f2c-b549-5c7d0e35e4b8"
   CERT_ID3="1001570b-1779-40c3-9b49-9a9a41e30058"
   CERTIFICATE_ARNS=${CERTIFICATE_ARNS:-"${CERTIFICATE_ARN_PREFIX}/${CERT_ID1},${CERTIFICATE_ARN_PREFIX}/${CERT_ID2},${CERTIFICATE_ARN_PREFIX}/${CERT_ID3}"}
-  echo "!!!! running the ci_e2e_test.sh with changes"
-  ginkgo -v -r test/e2e --timeout 2h -- \
+  ginkgo -timeout 2h -v -r test/e2e -- \
     --kubeconfig=${CLUSTER_KUBECONFIG} \
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
