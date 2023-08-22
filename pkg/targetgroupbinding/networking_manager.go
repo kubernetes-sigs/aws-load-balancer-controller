@@ -522,20 +522,17 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 	clusterResourceTagKey := fmt.Sprintf("kubernetes.io/cluster/%s", m.clusterName)
 	sgIDsWithMatchingEndpointSGTags := sets.NewString()
 	for sgID, sgInfo := range sgInfoByID {
-		isMatch := true
 		if _, ok := sgInfo.Tags[clusterResourceTagKey]; ok {
+			matchesEndpointSGTags := true
 			for endpointSGTagKey, endpointSGTagValue := range m.serviceTargetENISGTags {
 				if _, ok := sgInfo.Tags[endpointSGTagKey]; !ok || sgInfo.Tags[endpointSGTagKey] != endpointSGTagValue {
-					isMatch = false
+					matchesEndpointSGTags = false
 					break
 				}
 			}
-		} else {
-			continue
-		}
-
-		if isMatch {
-			sgIDsWithMatchingEndpointSGTags.Insert(sgID)
+			if matchesEndpointSGTags {
+				sgIDsWithMatchingEndpointSGTags.Insert(sgID)
+			}
 		}
 	}
 
