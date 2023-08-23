@@ -1,0 +1,21 @@
+name: Deprecated API detect
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  deprecated-apigroups:
+    name: Detect deprecated apiGroups
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          version=$(curl -sL https://api.github.com/repos/FairwindsOps/pluto/releases/latest | jq -r ".tag_name")
+          number=${version:1}
+          wget https://github.com/FairwindsOps/pluto/releases/download/${version}/pluto_${number}_linux_amd64.tar.gz
+          sudo tar -C /usr/local -xzf pluto_${number}_linux_amd64.tar.gz
+      - run: |
+          rm -rf docs/install
+          rm -rf config/samples
+          /usr/local/pluto detect-files -d .
