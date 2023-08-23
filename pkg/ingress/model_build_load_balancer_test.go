@@ -818,6 +818,10 @@ var (
 				Value: awssdk.String("1"),
 			},
 			{
+				Key:   awssdk.String("tagother"),
+				Value: awssdk.String("1"),
+			},
+			{
 				Key:   awssdk.String("kubernetes.io/cluster/other-cluster"),
 				Value: awssdk.String("shared"),
 			},
@@ -1539,6 +1543,36 @@ func Test_defaultModelBuildTask_buildLoadBalancerSecurityGroups(t *testing.T) {
 				},
 			},
 			want: []string{"sg-15"},
+		},
+		{
+			name: "classparams all tagged other cluster",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										SecurityGroups: &v1beta1.SecurityGroupSelector{
+											Tags: map[string][]string{
+												"tagother": {"1"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: "unable to resolve at least one security group (1 match VPC and tags, 1 tagged for other cluster)",
 		},
 	}
 	for _, tt := range tests {

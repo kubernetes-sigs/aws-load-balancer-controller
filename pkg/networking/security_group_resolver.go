@@ -113,6 +113,7 @@ func (r *defaultSecurityGroupResolver) splitIntoSgNameAndIDs(sgNameOrIDs []strin
 func (r *defaultSecurityGroupResolver) ResolveViaSelector(ctx context.Context, selector *v1beta1.SecurityGroupSelector) ([]string, error) {
 	var chosenSGs []*ec2sdk.SecurityGroup
 	var err error
+	var explanation string
 	if selector.IDs != nil {
 		req := &ec2sdk.DescribeSecurityGroupsInput{
 			GroupIds: make([]*string, 0, len(selector.IDs)),
@@ -148,11 +149,18 @@ func (r *defaultSecurityGroupResolver) ResolveViaSelector(ctx context.Context, s
 		if err != nil {
 			return nil, err
 		}
+		explanation = fmt.Sprintf("%d match VPC and tags", len(allSGs))
 		var filteredSGs []*ec2sdk.SecurityGroup
+		taggedOtherCluster := 0
 		for _, sg := range allSGs {
 			if r.checkSecurityGroupIsNotTaggedForOtherClusters(sg) {
 				filteredSGs = append(filteredSGs, sg)
+			} else {
+				taggedOtherCluster += 1
 			}
+		}
+		if taggedOtherCluster > 0 {
+			explanation += fmt.Sprintf(", %d tagged for other cluster", taggedOtherCluster)
 		}
 		for _, sg := range filteredSGs {
 			if r.checkSecurityGroupHasClusterTag(sg) {
@@ -164,7 +172,7 @@ func (r *defaultSecurityGroupResolver) ResolveViaSelector(ctx context.Context, s
 		}
 	}
 	if len(chosenSGs) == 0 {
-		return nil, errors.New("unable to resolve at least one security group")
+		return nil, fmt.Errorf("unable to resolve at least one security group (%s)", explanation)
 	}
 	resolvedSGIDs := make([]string, 0, len(chosenSGs))
 	for _, sg := range chosenSGs {
