@@ -307,23 +307,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 				manageBackendSG = *chosenSGSelector.ManagedBackend
 			}
 		} else {
-			frontendSGIDs, err := t.sgResolver.ResolveViaSelector(ctx, chosenSGSelector)
-			if err != nil {
-				return nil, err
-			}
-			for _, sgID := range frontendSGIDs {
-				lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
-			}
-			if chosenSGSelector.ManagedBackend != nil && *chosenSGSelector.ManagedBackend {
-				backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
-				if err != nil {
-					return nil, err
-				}
-				t.backendSGIDToken = core.LiteralStringToken(backendSGID)
-				t.backendSGAllocated = true
-				lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
-			}
-			return lbSGTokens, nil
+			return t.buildSecurityGroupsFromSelector(ctx, chosenSGSelector, lbSGTokens)
 		}
 	}
 
@@ -336,32 +320,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		}
 
 		if len(sgNameOrIDsViaAnnotation) > 0 {
-			manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
-			if err != nil {
-				return nil, err
-			}
-			frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, sgNameOrIDsViaAnnotation)
-			if err != nil {
-				return nil, err
-			}
-			for _, sgID := range frontendSGIDs {
-				lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
-			}
-
-			if manageBackendSGRules {
-				if !t.enableBackendSG {
-					return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified")
-				}
-				backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
-				if err != nil {
-					return nil, err
-				}
-				t.backendSGIDToken = core.LiteralStringToken(backendSGID)
-				t.backendSGAllocated = true
-				lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
-			}
-			t.logger.Info("SG configured via annotation", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
-			return lbSGTokens, nil
+			return t.buildSecurityGroupsFromAnnotation(ctx, sgNameOrIDsViaAnnotation, lbSGTokens)
 		}
 	}
 
@@ -382,6 +341,55 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
 	}
 	t.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+	return lbSGTokens, nil
+}
+
+func (t *defaultModelBuildTask) buildSecurityGroupsFromAnnotation(ctx context.Context, sgNameOrIDsViaAnnotation []string, lbSGTokens []core.StringToken) ([]core.StringToken, error) {
+	manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlag(ctx)
+	if err != nil {
+		return nil, err
+	}
+	frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, sgNameOrIDsViaAnnotation)
+	if err != nil {
+		return nil, err
+	}
+	for _, sgID := range frontendSGIDs {
+		lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
+	}
+
+	if manageBackendSGRules {
+		if !t.enableBackendSG {
+			return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified")
+		}
+		backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
+		if err != nil {
+			return nil, err
+		}
+		t.backendSGIDToken = core.LiteralStringToken(backendSGID)
+		t.backendSGAllocated = true
+		lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
+	}
+	t.logger.Info("SG configured via annotation", "LB SGs", lbSGTokens, "backend SG", t.backendSGIDToken)
+	return lbSGTokens, nil
+}
+
+func (t *defaultModelBuildTask) buildSecurityGroupsFromSelector(ctx context.Context, chosenSGSelector *v1beta1.SecurityGroupSelector, lbSGTokens []core.StringToken) ([]core.StringToken, error) {
+	frontendSGIDs, err := t.sgResolver.ResolveViaSelector(ctx, chosenSGSelector)
+	if err != nil {
+		return nil, err
+	}
+	for _, sgID := range frontendSGIDs {
+		lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
+	}
+	if chosenSGSelector.ManagedBackend != nil && *chosenSGSelector.ManagedBackend {
+		backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
+		if err != nil {
+			return nil, err
+		}
+		t.backendSGIDToken = core.LiteralStringToken(backendSGID)
+		t.backendSGAllocated = true
+		lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
+	}
 	return lbSGTokens, nil
 }
 
