@@ -67,7 +67,7 @@ IAM_POLCIY_FILE="iam_policy.json"
 if [[ $REGION == "cn-north-1" || $REGION == "cn-northwest-1" ]];then
   AWS_PARTITION="aws-cn"
   IAM_POLCIY_FILE="iam_policy_cn.json"
-else if [[ $ADC_REGIONS == *"$REGION"* ]]; then
+elif [[ $ADC_REGIONS == *"$REGION"* ]]; then
   if [[ $REGION == "us-isob-east-1" ]]; then
     AWS_PARTITION="aws-iso-b"
     IAM_POLCIY_FILE="iam_policy_isob.json"
@@ -76,7 +76,7 @@ else if [[ $ADC_REGIONS == *"$REGION"* ]]; then
     IAM_POLCIY_FILE="iam_policy_iso.json"
   fi
 fi
-fi
+
 echo "AWS_PARTITION $AWS_PARTITION"
 echo "IAM_POLCIY_FILE $IAM_POLCIY_FILE"
 
@@ -107,34 +107,70 @@ EOF
 echo "cleanup any stale resources from previous run"
 cleanUp
 
+PRE_REQUISITE=success
 echo "create Role with above policy document"
-aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://trust.json --description "IAM Role to be used by aws-load-balancer-controller SA" || true
+aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://trust.json --description "IAM Role to be used by aws-load-balancer-controller SA" || PRE_REQUISITE=fail
 
 echo "creating AWSLoadbalancerController IAM Policy"
 aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
-    --policy-document file://"$SCRIPT_DIR"/../docs/install/${IAM_POLCIY_FILE} || true
+    --policy-document file://"$SCRIPT_DIR"/../docs/install/${IAM_POLCIY_FILE} || PRE_REQUISITE=fail
 
-echo "attaching AWSLoadbalancerController IAM Policy to $ROLE_NAME"
-aws iam attach-role-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy --role-name $ROLE_NAME || true
+echo "attaching AWSLoadBalancerController IAM Policy to $ROLE_NAME"
+aws iam attach-role-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy --role-name $ROLE_NAME || PRE_REQUISITE=fail
 
 echo "create service account"
-kubectl create serviceaccount aws-load-balancer-controller -n kube-system || true
+kubectl create serviceaccount aws-load-balancer-controller -n kube-system || PRE_REQUISITE=fail
 
 echo "annotate service account with $ROLE_NAME"
-kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller eks.amazonaws.com/role-arn=arn:${AWS_PARTITION}:iam::"$ACCOUNT_ID":role/"$ROLE_NAME" --overwrite=true || true
+kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller eks.amazonaws.com/role-arn=arn:${AWS_PARTITION}:iam::"$ACCOUNT_ID":role/"$ROLE_NAME" --overwrite=true || PRE_REQUISITE=fail
 
-echo "update helm repo eks"
-# for ADC regions, install chart from local path
+function install_controller_for_adc_regions() {
+    echo "install cert-manager"
+    cert_manager_yaml="./test/prow/cert_manager.yaml"
+
+    # replace the url to the test images registry in ADC regions
+    declare -A url_mapping
+    url_mapping["quay.io/jetstack/cert-manager-cainjector"]="$TEST_IMAGE_REGISTRY/networking-e2e-test-images/cert-manager-cainjector"
+    url_mapping["quay.io/jetstack/cert-manager-controller"]="$TEST_IMAGE_REGISTRY/networking-e2e-test-images/cert-manager-controller"
+    url_mapping["quay.io/jetstack/cert-manager-webhook"]="$TEST_IMAGE_REGISTRY/networking-e2e-test-images/cert-manager-webhook"
+    # Iterate through the mapping and perform the replacements
+    for default_url in "${!url_mapping[@]}"; do
+      adc_url="${url_mapping[$default_url]}"
+      sed -i "" "s#$default_url#$adc_url#g" "$cert_manager_yaml"
+    done
+    echo "Image URLs in $cert_manager_yaml have been updated to use the ADC registry"
+    kubectl apply -f $cert_manager_yaml || PRE_REQUISITE=fail
+
+    echo "install the controller via yaml"
+    controller_yaml="./test/prow/v2_6_0_adc.yaml"
+    default_controller_image="public.ecr.aws/eks/aws-load-balancer-controller"
+    sed -i "" "s#$default_controller_image#$IMAGE#g" "$controller_yaml"
+    echo "Image URL in $controller_yaml has been updated to $IMAGE"
+    sed -i "" "s#your-cluster-name#$CLUSTER_NAME#g" "$controller_yaml"
+    echo "cluster name in $controller_yaml has been update to $CLUSTER_NAME"
+    kubectl apply -f $controller_yaml || PRE_REQUISITE=fail
+}
+
+echo "installing AWS load balancer controller"
 if [[ $ADC_REGIONS == *"$REGION"* ]]; then
-  echo "Helm install from local chart path"
-  helm upgrade -i aws-load-balancer-controller ../helm/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
+  echo "for ADC regions, install via manifest"
+  install_controller_for_adc_regions
+  echo "disable NLB Security Group as it's not supported in ADC yet"
+  kubectl patch deployment aws-load-balancer-controller -n kube-system \
+    --type=json \
+    -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--feature-gates=NLBSecurityGroup=false"}]' || PRE_REQUISITE=fail
 else
-  echo "Update helm repo from github"
+  echo "install via helm repo, update helm repo from github"
   helm repo add eks https://aws.github.io/eks-charts
   helm repo update
   echo "Install aws-load-balancer-controller"
   helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
+fi
+
+if [[ "$PRE_REQUISITE" == fail ]]; then
+    echo "pre-requisite failed, exit the test."
+    exit 1
 fi
 
 echo_time() {
