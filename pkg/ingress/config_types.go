@@ -1,7 +1,7 @@
 package ingress
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
