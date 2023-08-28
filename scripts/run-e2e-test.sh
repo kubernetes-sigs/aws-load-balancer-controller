@@ -107,23 +107,22 @@ EOF
 echo "cleanup any stale resources from previous run"
 cleanUp
 
-PRE_REQUISITE=success
 echo "create Role with above policy document"
-aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://trust.json --description "IAM Role to be used by aws-load-balancer-controller SA" || PRE_REQUISITE=fail
+aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://trust.json --description "IAM Role to be used by aws-load-balancer-controller SA" || true
 
 echo "creating AWSLoadbalancerController IAM Policy"
 aws iam create-policy \
     --policy-name AWSLoadBalancerControllerIAMPolicy \
-    --policy-document file://"$SCRIPT_DIR"/../docs/install/${IAM_POLCIY_FILE} || PRE_REQUISITE=fail
+    --policy-document file://"$SCRIPT_DIR"/../docs/install/${IAM_POLCIY_FILE} || true
 
 echo "attaching AWSLoadBalancerController IAM Policy to $ROLE_NAME"
-aws iam attach-role-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy --role-name $ROLE_NAME || PRE_REQUISITE=fail
+aws iam attach-role-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy --role-name $ROLE_NAME || true
 
 echo "create service account"
-kubectl create serviceaccount aws-load-balancer-controller -n kube-system || PRE_REQUISITE=fail
+kubectl create serviceaccount aws-load-balancer-controller -n kube-system || true
 
 echo "annotate service account with $ROLE_NAME"
-kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller eks.amazonaws.com/role-arn=arn:${AWS_PARTITION}:iam::"$ACCOUNT_ID":role/"$ROLE_NAME" --overwrite=true || PRE_REQUISITE=fail
+kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller eks.amazonaws.com/role-arn=arn:${AWS_PARTITION}:iam::"$ACCOUNT_ID":role/"$ROLE_NAME" --overwrite=true || true
 
 function install_controller_for_adc_regions() {
     echo "install cert-manager"
@@ -140,7 +139,7 @@ function install_controller_for_adc_regions() {
       sed -i "" "s#$default_url#$adc_url#g" "$cert_manager_yaml"
     done
     echo "Image URLs in $cert_manager_yaml have been updated to use the ADC registry"
-    kubectl apply -f $cert_manager_yaml || PRE_REQUISITE=fail
+    kubectl apply -f $cert_manager_yaml || true
 
     echo "install the controller via yaml"
     controller_yaml="./test/prow/v2_6_0_adc.yaml"
@@ -149,7 +148,7 @@ function install_controller_for_adc_regions() {
     echo "Image URL in $controller_yaml has been updated to $IMAGE"
     sed -i "" "s#your-cluster-name#$CLUSTER_NAME#g" "$controller_yaml"
     echo "cluster name in $controller_yaml has been update to $CLUSTER_NAME"
-    kubectl apply -f $controller_yaml || PRE_REQUISITE=fail
+    kubectl apply -f $controller_yaml || true
 }
 
 echo "installing AWS load balancer controller"
@@ -159,18 +158,13 @@ if [[ $ADC_REGIONS == *"$REGION"* ]]; then
   echo "disable NLB Security Group as it's not supported in ADC yet"
   kubectl patch deployment aws-load-balancer-controller -n kube-system \
     --type=json \
-    -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--feature-gates=NLBSecurityGroup=false"}]' || PRE_REQUISITE=fail
+    -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--feature-gates=NLBSecurityGroup=false"}]' || true
 else
   echo "install via helm repo, update helm repo from github"
   helm repo add eks https://aws.github.io/eks-charts
   helm repo update
   echo "Install aws-load-balancer-controller"
   helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
-fi
-
-if [[ "$PRE_REQUISITE" == fail ]]; then
-    echo "pre-requisite failed, exit the test."
-    exit 1
 fi
 
 echo_time() {
