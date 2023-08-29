@@ -133,7 +133,7 @@ type IngressClassParamsSpec struct {
 	Scheme *LoadBalancerScheme `json:"scheme,omitempty"`
 
 	// InboundCIDRs specifies the CIDRs that are allowed to access the Ingresses that belong to IngressClass with this IngressClassParams.
-	// If this and `securityGroups` are both specified, `securityGroups.managed` must be `true`.
+	// If this and `securityGroups` are both specified, `securityGroups.managedInbound` must be `true`.
 	// +optional
 	InboundCIDRs []string `json:"inboundCIDRs,omitempty"`
 

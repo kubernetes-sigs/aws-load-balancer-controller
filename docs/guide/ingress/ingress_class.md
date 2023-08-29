@@ -140,6 +140,8 @@ Cluster administrators can use the `scheme` field to restrict the scheme for all
 Cluster administrators can use the optional `inboundCIDRs` field to specify the CIDRs that are allowed to access the load balancers that belong to this IngressClass.
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/inbound-cidrs` annotation.
 
+If this and `securityGroups` are both specified, `securityGroups.managedInbound` must be `true`.
+
 #### spec.securityGroups
 
 Cluster administrators can use the optional `securityGroups` field to specify the security groups for the load balancers that belong to this IngressClass.
