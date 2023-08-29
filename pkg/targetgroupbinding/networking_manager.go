@@ -540,10 +540,10 @@ func (m *defaultNetworkingManager) resolveEndpointSGForENI(ctx context.Context, 
 		// user may provide incorrect `--cluster-name` at bootstrap or modify the tag key unexpectedly, it is hard to find out if no clusterName included in error message.
 		// having `clusterName` included in error message might be helpful for shorten the troubleshooting time spent.
 		if len(m.serviceTargetENISGTags) == 0 {
-			return "", errors.Errorf("expect exactly one securityGroup tagged with %v for eni %v, got: %v (clusterName: %v)",
+			return "", errors.Errorf("expected exactly one securityGroup tagged with %v for eni %v, got: %v (clusterName: %v)",
 				clusterResourceTagKey, eniInfo.NetworkInterfaceID, sgIDsWithMatchingEndpointSGTags.List(), m.clusterName)
 		}
-		return "", errors.Errorf("expect exactly one securityGroup tagged with %v and %v for eni %v, got: %v (clusterName: %v)",
+		return "", errors.Errorf("expected exactly one securityGroup tagged with %v and %v for eni %v, got: %v (clusterName: %v)",
 			clusterResourceTagKey, m.serviceTargetENISGTags, eniInfo.NetworkInterfaceID, sgIDsWithMatchingEndpointSGTags.List(), m.clusterName)
 	}
 	sgID, _ := sgIDsWithMatchingEndpointSGTags.PopAny()

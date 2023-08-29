@@ -1435,7 +1435,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 		fields  fields
 		args    args
 		want    string
-		wantErr bool
+		wantErr error
 	}{
 		{
 			name: "Only one security group in eniInfo returns early",
@@ -1449,8 +1449,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 					SecurityGroups:     []string{"sg-a"},
 				},
 			},
-			want:    "sg-a",
-			wantErr: false,
+			want: "sg-a",
 		},
 		{
 			name: "No security group in eniInfo returns error",
@@ -1471,7 +1470,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				},
 			},
 			want:    "",
-			wantErr: true,
+			wantErr: errors.New("expected exactly one securityGroup tagged with kubernetes.io/cluster/cluster-a for eni eni-a, got: [] (clusterName: cluster-a)"),
 		},
 		{
 			name: "A single security group with cluster name tag and no service target tags set",
@@ -1507,8 +1506,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
 			},
-			want:    "sg-a",
-			wantErr: false,
+			want: "sg-a",
 		},
 		{
 			name: "A single security group with cluster name tag and one service target tag set",
@@ -1547,8 +1545,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
 			},
-			want:    "sg-b",
-			wantErr: false,
+			want: "sg-b",
 		},
 		{
 			name: "A single security group with cluster name tag and one service target tag set with no matches",
@@ -1588,7 +1585,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				},
 			},
 			want:    "",
-			wantErr: true,
+			wantErr: errors.New("expected exactly one securityGroup tagged with kubernetes.io/cluster/cluster-a and map[keyA:valueNotA] for eni eni-a, got: [] (clusterName: cluster-a)"),
 		},
 		{
 			name: "A single security group with cluster name tag and multiple service target tags set",
@@ -1628,8 +1625,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
 			},
-			want:    "sg-b",
-			wantErr: false,
+			want: "sg-b",
 		},
 		{
 			name: "A single security group with cluster name tag and multiple service target tags set with no matches",
@@ -1670,7 +1666,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				},
 			},
 			want:    "",
-			wantErr: true,
+			wantErr: errors.New("expected exactly one securityGroup tagged with kubernetes.io/cluster/cluster-a and map[keyA:valueA keyB:valueNotB2] for eni eni-a, got: [] (clusterName: cluster-a)"),
 		},
 		{
 			name: "A single security group with cluster name tag and a service target tags with an empty value",
@@ -1709,11 +1705,10 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
 			},
-			want:    "sg-b",
-			wantErr: false,
+			want: "sg-b",
 		},
 		{
-			name: "A single security group with cluster name tag and a service target tags with an empty value with no matches",
+			name: "A single security group with cluster name tag and a service target tag with an empty value with no matches",
 			fields: fields{
 				serviceTargetENISGTags: map[string]string{
 					"keyE": "",
@@ -1750,7 +1745,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				},
 			},
 			want:    "",
-			wantErr: true,
+			wantErr: errors.New("expected exactly one securityGroup tagged with kubernetes.io/cluster/cluster-a and map[keyE:] for eni eni-a, got: [] (clusterName: cluster-a)"),
 		},
 	}
 	for _, tt := range tests {
@@ -1769,12 +1764,11 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				serviceTargetENISGTags: tt.fields.serviceTargetENISGTags,
 			}
 			got, err := m.resolveEndpointSGForENI(tt.args.ctx, tt.args.eniInfo)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("defaultNetworkingManager.resolveEndpointSGForENI() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("defaultNetworkingManager.resolveEndpointSGForENI() = %v, want %v", got, tt.want)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}
