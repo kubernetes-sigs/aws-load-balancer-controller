@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	libErrors "errors"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -199,11 +200,13 @@ func (m *defaultNetworkingManager) reconcileWithIngressPermissionsPerSG(ctx cont
 	aggregatedIngressPermissionsPerSG := m.computeAggregatedIngressPermissionsPerSG(ctx)
 
 	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
+	var sgReconciliationErrors []error
 	for sgID, permissions := range aggregatedIngressPermissionsPerSG {
 		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, permissions,
 			networking.WithPermissionSelector(permissionSelector),
 			networking.WithAuthorizeOnly(!computedForAllTGBs)); err != nil {
-			return err
+			sgReconciliationErrors = append(sgReconciliationErrors, err)
+			continue
 		}
 	}
 
@@ -211,6 +214,11 @@ func (m *defaultNetworkingManager) reconcileWithIngressPermissionsPerSG(ctx cont
 		if err := m.gcIngressPermissionsFromUnusedEndpointSGs(ctx, aggregatedIngressPermissionsPerSG); err != nil {
 			return err
 		}
+	}
+
+	if len(sgReconciliationErrors) > 0 {
+		err := libErrors.Join(sgReconciliationErrors...)
+		return err
 	}
 
 	return nil

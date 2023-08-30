@@ -25,6 +25,7 @@ const (
 	TargetGroupBindingEventReasonFailedRemoveFinalizer  = "FailedRemoveFinalizer"
 	TargetGroupBindingEventReasonFailedUpdateStatus     = "FailedUpdateStatus"
 	TargetGroupBindingEventReasonFailedCleanup          = "FailedCleanup"
+	TargetGroupBindingEventReasonFailedNetworkReconcile = "FailedNetworkReconcile"
 	TargetGroupBindingEventReasonBackendNotFound        = "BackendNotFound"
 	TargetGroupBindingEventReasonSuccessfullyReconciled = "SuccessfullyReconciled"
 )
