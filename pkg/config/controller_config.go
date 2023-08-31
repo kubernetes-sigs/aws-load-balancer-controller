@@ -18,6 +18,7 @@ const (
 	flagDefaultTags                                  = "default-tags"
 	flagDefaultTargetType                            = "default-target-type"
 	flagExternalManagedTags                          = "external-managed-tags"
+	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
 	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
@@ -74,6 +75,9 @@ type ControllerConfig struct {
 	// List of Tag keys on AWS resources that will be managed externally.
 	ExternalManagedTags []string
 
+	// ServiceTargetENISGTags are AWS tags, in addition to the cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs.
+	ServiceTargetENISGTags map[string]string
+
 	// Default SSL Policy that will be applied to all ingresses or services that do not have
 	// the SSL Policy annotation.
 	DefaultSSLPolicy string
@@ -128,7 +132,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Enable EndpointSlices for IP targets instead of Endpoints")
 	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
 		"Disable the usage of restricted security group rules")
-
+	fs.StringToStringVar(&cfg.ServiceTargetENISGTags, flagServiceTargetENISGTags, nil,
+		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)

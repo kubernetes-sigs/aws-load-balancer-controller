@@ -7,7 +7,7 @@ _As contributors and maintainers of this project, and in the interest of fosteri
 ## Getting Started
 
 ### Building the project
-[Controller developement documentation](/docs/controller-devel.md) has instructions on how to build the project and project specific expectations.
+[Controller development documentation](/docs/controller-devel.md) has instructions on how to build the project and project specific expectations.
 
 ### Contributing to docs
 
