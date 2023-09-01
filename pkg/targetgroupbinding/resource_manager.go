@@ -2,7 +2,6 @@ package targetgroupbinding
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/netip"
 	"time"
@@ -17,9 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
@@ -297,9 +294,9 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 	}
 	needFurtherProbe := targetHealthCondStatus != corev1.ConditionTrue
 
-	existingTargetHealthCond, exists := pod.GetPodCondition(targetHealthCondType)
+	existingTargetHealthCond, hasExistingTargetHealthCond := pod.GetPodCondition(targetHealthCondType)
 	// we skip patch pod if it matches current computed status/reason/message.
-	if exists &&
+	if hasExistingTargetHealthCond &&
 		existingTargetHealthCond.Status == targetHealthCondStatus &&
 		existingTargetHealthCond.Reason == reason &&
 		existingTargetHealthCond.Message == message {
@@ -312,22 +309,30 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 		Reason:  reason,
 		Message: message,
 	}
-	if !exists || existingTargetHealthCond.Status != targetHealthCondStatus {
+	if !hasExistingTargetHealthCond || existingTargetHealthCond.Status != targetHealthCondStatus {
 		newTargetHealthCond.LastTransitionTime = metav1.Now()
+	} else {
+		newTargetHealthCond.LastTransitionTime = existingTargetHealthCond.LastTransitionTime
 	}
 
-	patch, err := buildPodConditionPatch(pod, newTargetHealthCond)
-	if err != nil {
-		return false, err
-	}
-	k8sPod := &corev1.Pod{
+	podPatchSource := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: pod.Key.Namespace,
 			Name:      pod.Key.Name,
-			UID:       pod.UID,
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{},
 		},
 	}
-	if err := m.k8sClient.Status().Patch(ctx, k8sPod, patch); err != nil {
+	if hasExistingTargetHealthCond {
+		podPatchSource.Status.Conditions = []corev1.PodCondition{existingTargetHealthCond}
+	}
+
+	podPatchTarget := podPatchSource.DeepCopy()
+	podPatchTarget.UID = pod.UID // only put the uid in the new object to ensure it appears in the patch as a precondition
+	podPatchTarget.Status.Conditions = []corev1.PodCondition{newTargetHealthCond}
+
+	if err := m.k8sClient.Status().Patch(ctx, podPatchTarget, client.StrategicMergeFrom(podPatchSource)); err != nil {
 		if apierrors.IsNotFound(err) {
 			return false, nil
 		}
@@ -517,31 +522,6 @@ func matchNodePortEndpointWithTargets(endpoints []backend.NodePortEndpoint, targ
 		unmatchedTargets = append(unmatchedTargets, targetsByUID[uid])
 	}
 	return matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets
-}
-
-func buildPodConditionPatch(pod k8s.PodInfo, condition corev1.PodCondition) (client.Patch, error) {
-	oldData, err := json.Marshal(corev1.Pod{
-		Status: corev1.PodStatus{
-			Conditions: nil,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	newData, err := json.Marshal(corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{UID: pod.UID}, // only put the uid in the new object to ensure it appears in the patch as a precondition
-		Status: corev1.PodStatus{
-			Conditions: []corev1.PodCondition{condition},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(oldData, newData, corev1.Pod{})
-	if err != nil {
-		return nil, err
-	}
-	return client.RawPatch(types.StrategicMergePatchType, patchBytes), nil
 }
 
 func isELBV2TargetGroupNotFoundError(err error) bool {
