@@ -149,6 +149,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Add readiness probe
+	err = mgr.AddReadyzCheck("ready-webhook", mgr.GetWebhookServer().StartedChecker())
+	setupLog.Info("adding readiness check for webhook")
+	if err != nil {
+		setupLog.Error(err, "unable add a readiness check")
+		os.Exit(1)
+	}
+
 	podReadinessGateInjector := inject.NewPodReadinessGate(controllerCFG.PodWebhookConfig,
 		mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
 	corewebhook.NewPodMutator(podReadinessGateInjector).SetupWithManager(mgr)

@@ -240,6 +240,17 @@ livenessProbe:
   initialDelaySeconds: 30
   timeoutSeconds: 10
 
+# readiness probe configuration for the controller
+readinessProbe:
+  failureThreshold: 2
+  httpGet:
+    path: /readyz
+    port: 61779
+    scheme: HTTP
+  successThreshold: 1
+  initialDelaySeconds: 10
+  timeoutSeconds: 10
+
 # Environment variables to set for aws-load-balancer-controller pod.
 # We strongly discourage programming access credentials in the controller environment. You should setup IRSA or
 # comparable solutions like kube2iam, kiam etc instead.
