@@ -31,13 +31,6 @@ echo "TEST_ID: $TEST_ID"
 ROLE_NAME="aws-load-balancer-controller-$TEST_ID"
 
 function cleanUp(){
-  # Need to recreae aws-load-balancer controller if we are updating SA
-  echo "delete aws-load-balancer-controller if exists"
-  helm delete aws-load-balancer-controller -n kube-system --timeout=10m || true
-
-  echo "delete service account if exists"
-  kubectl delete serviceaccount aws-load-balancer-controller -n kube-system --timeout 10m || true
-
   # IAM role and polcies are AWS Account specific, so need to clean them up if any from previous run
   echo "detach IAM policy if it exists"
   aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
@@ -103,9 +96,6 @@ cat <<EOF > trust.json
   ]
 }
 EOF
-
-echo "cleanup any stale resources from previous run"
-cleanUp
 
 echo "create Role with above policy document"
 aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://trust.json --description "IAM Role to be used by aws-load-balancer-controller SA" || true
@@ -217,6 +207,13 @@ kubectl logs -l app.kubernetes.io/name=aws-load-balancer-controller --container 
 echo "Uncordon windows nodes"
 toggle_windows_scheduling "uncordon"
 
+echo "uninstalling aws load balancer controller"
+if [[ $ADC_REGIONS == *"$REGION"* ]]; then
+  kubectl delete -f $controller_yaml --timeout=60s || true
+  kubectl delete -f  $cert_manager_yaml --timeout=60s || true
+else
+  helm uninstall aws-load-balancer-controller -n kube-system --timeout=60s || true
+fi
 echo "clean up resources from current run"
 cleanUp
 
