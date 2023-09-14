@@ -32,7 +32,9 @@ ROLE_NAME="aws-load-balancer-controller-$TEST_ID"
 POLICY_NAME="AWSLoadBalancerControllerIAMPolicy-$TEST_ID"
 
 function cleanUp(){
-  # IAM role and polcies are AWS Account specific, so need to clean them up if any from previous run
+  echo "delete serviceaccount"
+  kubectl delete serviceaccount aws-load-balancer-controller -n kube-system --timeout 60s || true
+
   echo "detach IAM policy"
   aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/$POLICY_NAME || true
 
@@ -42,9 +44,15 @@ function cleanUp(){
   echo "delete $ROLE_NAME"
   aws iam delete-role --role-name $ROLE_NAME || true
 
-  # Need to do this as last step
   echo "delete $POLICY_NAME"
   aws iam delete-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/$POLICY_NAME || true
+
+  echo "Delete CRDs if exists"
+  if [[ $ADC_REGIONS == *"$REGION"* ]]; then
+    kubectl delete -k "../helm/aws-load-balancer-controller/crds" --timeout=30s || true
+  else
+    kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30s || true
+  fi
 }
 
 echo "cordon off windows nodes"
@@ -217,13 +225,6 @@ else
 fi
 echo "clean up resources from current run"
 cleanUp
-
-echo "Delete CRDs if exists"
-if [[ $ADC_REGIONS == *"$REGION"* ]]; then
-  kubectl delete -k "../helm/aws-load-balancer-controller/crds" --timeout=30s || true
-else
-  kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30s || true
-fi
 
 if [[ "$TEST_RESULT" == fail ]]; then
     echo "e2e tests failed."
