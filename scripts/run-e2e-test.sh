@@ -29,21 +29,22 @@ function toggle_windows_scheduling(){
 TEST_ID=$(date +%s)
 echo "TEST_ID: $TEST_ID"
 ROLE_NAME="aws-load-balancer-controller-$TEST_ID"
+POLICY_NAME="AWSLoadBalancerControllerIAMPolicy-$TEST_ID"
 
 function cleanUp(){
   # IAM role and polcies are AWS Account specific, so need to clean them up if any from previous run
-  echo "detach IAM policy if it exists"
-  aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
+  echo "detach IAM policy"
+  aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/$POLICY_NAME || true
 
   # wait for 10 sec to complete detaching of IAM policy
   sleep 10
 
-  echo "delete $ROLE_NAME if it exists"
+  echo "delete $ROLE_NAME"
   aws iam delete-role --role-name $ROLE_NAME || true
 
   # Need to do this as last step
-  echo "delete AWSLoadBalancerControllerIAMPolicy if it exists"
-  aws iam delete-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
+  echo "delete $POLICY_NAME"
+  aws iam delete-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/$POLICY_NAME || true
 }
 
 echo "cordon off windows nodes"
@@ -102,11 +103,11 @@ aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://
 
 echo "creating AWSLoadbalancerController IAM Policy"
 aws iam create-policy \
-    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-name $POLICY_NAME \
     --policy-document file://"$SCRIPT_DIR"/../docs/install/${IAM_POLCIY_FILE} || true
 
 echo "attaching AWSLoadBalancerController IAM Policy to $ROLE_NAME"
-aws iam attach-role-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy --role-name $ROLE_NAME || true
+aws iam attach-role-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/$POLICY_NAME --role-name $ROLE_NAME || true
 
 echo "create service account"
 kubectl create serviceaccount aws-load-balancer-controller -n kube-system || true
@@ -219,9 +220,9 @@ cleanUp
 
 echo "Delete CRDs if exists"
 if [[ $ADC_REGIONS == *"$REGION"* ]]; then
-  kubectl delete -k "../helm/aws-load-balancer-controller/crds" --timeout=30m || true
+  kubectl delete -k "../helm/aws-load-balancer-controller/crds" --timeout=30s || true
 else
-  kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30m || true
+  kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30s || true
 fi
 
 if [[ "$TEST_RESULT" == fail ]]; then
