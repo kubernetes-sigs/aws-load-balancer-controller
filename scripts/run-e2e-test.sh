@@ -4,6 +4,11 @@
 
 set -e
 
+set -x
+env
+ls -latr /etc/aws-cred || true
+aws --debug sts get-caller-identity
+
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 GINKGO_TEST_BUILD="$SCRIPT_DIR/../test/build"
 
