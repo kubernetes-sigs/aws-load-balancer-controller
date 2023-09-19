@@ -29,28 +29,30 @@ function toggle_windows_scheduling(){
 TEST_ID=$(date +%s)
 echo "TEST_ID: $TEST_ID"
 ROLE_NAME="aws-load-balancer-controller-$TEST_ID"
+POLICY_NAME="AWSLoadBalancerControllerIAMPolicy-$TEST_ID"
 
 function cleanUp(){
-  # Need to recreae aws-load-balancer controller if we are updating SA
-  echo "delete aws-load-balancer-controller if exists"
-  helm delete aws-load-balancer-controller -n kube-system --timeout=10m || true
+  echo "delete serviceaccount"
+  kubectl delete serviceaccount aws-load-balancer-controller -n kube-system --timeout 60s || true
 
-  echo "delete service account if exists"
-  kubectl delete serviceaccount aws-load-balancer-controller -n kube-system --timeout 10m || true
-
-  # IAM role and polcies are AWS Account specific, so need to clean them up if any from previous run
-  echo "detach IAM policy if it exists"
-  aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
+  echo "detach IAM policy"
+  aws iam detach-role-policy --role-name $ROLE_NAME --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/$POLICY_NAME || true
 
   # wait for 10 sec to complete detaching of IAM policy
   sleep 10
 
-  echo "delete $ROLE_NAME if it exists"
+  echo "delete $ROLE_NAME"
   aws iam delete-role --role-name $ROLE_NAME || true
 
-  # Need to do this as last step
-  echo "delete AWSLoadBalancerControllerIAMPolicy if it exists"
-  aws iam delete-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy || true
+  echo "delete $POLICY_NAME"
+  aws iam delete-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/$POLICY_NAME || true
+
+  echo "Delete CRDs if exists"
+  if [[ $ADC_REGIONS == *"$REGION"* ]]; then
+    kubectl delete -k "../helm/aws-load-balancer-controller/crds" --timeout=30s || true
+  else
+    kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30s || true
+  fi
 }
 
 echo "cordon off windows nodes"
@@ -104,19 +106,16 @@ cat <<EOF > trust.json
 }
 EOF
 
-echo "cleanup any stale resources from previous run"
-cleanUp
-
 echo "create Role with above policy document"
 aws iam create-role --role-name $ROLE_NAME --assume-role-policy-document file://trust.json --description "IAM Role to be used by aws-load-balancer-controller SA" || true
 
 echo "creating AWSLoadbalancerController IAM Policy"
 aws iam create-policy \
-    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-name $POLICY_NAME \
     --policy-document file://"$SCRIPT_DIR"/../docs/install/${IAM_POLCIY_FILE} || true
 
 echo "attaching AWSLoadBalancerController IAM Policy to $ROLE_NAME"
-aws iam attach-role-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy --role-name $ROLE_NAME || true
+aws iam attach-role-policy --policy-arn arn:${AWS_PARTITION}:iam::$ACCOUNT_ID:policy/$POLICY_NAME --role-name $ROLE_NAME || true
 
 echo "create service account"
 kubectl create serviceaccount aws-load-balancer-controller -n kube-system || true
@@ -217,15 +216,15 @@ kubectl logs -l app.kubernetes.io/name=aws-load-balancer-controller --container 
 echo "Uncordon windows nodes"
 toggle_windows_scheduling "uncordon"
 
+echo "uninstalling aws load balancer controller"
+if [[ $ADC_REGIONS == *"$REGION"* ]]; then
+  kubectl delete -f $controller_yaml --timeout=60s || true
+  kubectl delete -f  $cert_manager_yaml --timeout=60s || true
+else
+  helm uninstall aws-load-balancer-controller -n kube-system --timeout=60s || true
+fi
 echo "clean up resources from current run"
 cleanUp
-
-echo "Delete CRDs if exists"
-if [[ $ADC_REGIONS == *"$REGION"* ]]; then
-  kubectl delete -k "../helm/aws-load-balancer-controller/crds" --timeout=30m || true
-else
-  kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30m || true
-fi
 
 if [[ "$TEST_RESULT" == fail ]]; then
     echo "e2e tests failed."
