@@ -49,7 +49,7 @@ function cleanUp(){
 
   echo "Delete CRDs if exists"
   if [[ $ADC_REGIONS == *"$REGION"* ]]; then
-    kubectl delete -k "../helm/aws-load-balancer-controller/crds" --timeout=30s || true
+    kubectl delete -k "$SCRIPT_DIR"/../helm/aws-load-balancer-controller/crds --timeout=30s || true
   else
     kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30s || true
   fi
@@ -125,7 +125,7 @@ kubectl annotate serviceaccount -n kube-system aws-load-balancer-controller eks.
 
 function install_controller_for_adc_regions() {
     echo "install cert-manager"
-    cert_manager_yaml="./test/prow/cert_manager.yaml"
+    cert_manager_yaml="$SCRIPT_DIR"/../test/prow/cert_manager.yaml
 
     # replace the url to the test images registry in ADC regions
     declare -A url_mapping
@@ -141,7 +141,7 @@ function install_controller_for_adc_regions() {
     kubectl apply -f $cert_manager_yaml || true
 
     echo "install the controller via yaml"
-    controller_yaml="./test/prow/v2_6_0_adc.yaml"
+    controller_yaml="$SCRIPT_DIR"/../test/prow/v2_6_0_adc.yaml
     default_controller_image="public.ecr.aws/eks/aws-load-balancer-controller"
     sed -i "" "s#$default_controller_image#$IMAGE#g" "$controller_yaml"
     echo "Image URL in $controller_yaml has been updated to $IMAGE"
