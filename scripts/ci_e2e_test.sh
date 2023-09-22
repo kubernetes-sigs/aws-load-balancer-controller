@@ -210,6 +210,8 @@ test_controller_image() {
   CERT_ID2="35d7e09b-c4a9-447e-ba8c-7f9f29b77c8f"
   CERT_ID3="f44d1a16-409a-4937-a420-b42dab2d384a"
   CERTIFICATE_ARNS=${CERTIFICATE_ARNS:-"${CERTIFICATE_ARN_PREFIX}/${CERT_ID1},${CERTIFICATE_ARN_PREFIX}/${CERT_ID2},${CERTIFICATE_ARN_PREFIX}/${CERT_ID3}"}
+  echo "creating s3 bucket $S3_BUCKET"
+  aws s3api create-bucket --bucket $S3_BUCKET --region $AWS_REGION --create-bucket-configuration LocationConstraint=$AWS_REGION || true
   ginkgo -timeout 2h -v -r test/e2e -- \
     --kubeconfig=${CLUSTER_KUBECONFIG} \
     --cluster-name=${CLUSTER_NAME} \
@@ -217,6 +219,7 @@ test_controller_image() {
     --aws-vpc-id=${cluster_vpc_id} \
     --helm-chart=${HELM_DIR}/aws-load-balancer-controller \
     --controller-image=${CONTROLLER_IMAGE_NAME} \
+    --s3-bucket-name=${S3_BUCKET} \
     --certificate-arns=${CERTIFICATE_ARNS}
 }
 
