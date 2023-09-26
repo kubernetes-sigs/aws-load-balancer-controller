@@ -205,10 +205,13 @@ test_controller_image() {
   AWS_ACCOUNT_ID=$(aws sts get-caller-identity --region ${AWS_REGION} --query Account --output text)
   S3_BUCKET=${S3_BUCKET:-"lb-controller-e2e-${AWS_ACCOUNT_ID}"}
   CERTIFICATE_ARN_PREFIX=arn:aws:acm:${AWS_REGION}:${AWS_ACCOUNT_ID}:certificate
-  CERT_ID1="7caec311-1e1f-4b04-a061-bfa688fe813f"
-  CERT_ID2="724963dd-f571-4f2c-b549-5c7d0e35e4b8"
-  CERT_ID3="1001570b-1779-40c3-9b49-9a9a41e30058"
+  echo "updated the CERT_IDs"
+  CERT_ID1="d39a65e5-44f6-4734-9034-6c82ae7df73b"
+  CERT_ID2="35d7e09b-c4a9-447e-ba8c-7f9f29b77c8f"
+  CERT_ID3="f44d1a16-409a-4937-a420-b42dab2d384a"
   CERTIFICATE_ARNS=${CERTIFICATE_ARNS:-"${CERTIFICATE_ARN_PREFIX}/${CERT_ID1},${CERTIFICATE_ARN_PREFIX}/${CERT_ID2},${CERTIFICATE_ARN_PREFIX}/${CERT_ID3}"}
+  echo "creating s3 bucket $S3_BUCKET"
+  aws s3api create-bucket --bucket $S3_BUCKET --region $AWS_REGION --create-bucket-configuration LocationConstraint=$AWS_REGION || true
   ginkgo -timeout 2h -v -r test/e2e -- \
     --kubeconfig=${CLUSTER_KUBECONFIG} \
     --cluster-name=${CLUSTER_NAME} \
