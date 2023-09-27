@@ -7,6 +7,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/globalaccelerator"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/shield"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafregional"
@@ -47,6 +48,7 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 		wafv2WebACLAssociationManager:       wafv2.NewDefaultWebACLAssociationManager(cloud.WAFv2(), logger),
 		wafRegionalWebACLAssociationManager: wafregional.NewDefaultWebACLAssociationManager(cloud.WAFRegional(), logger),
 		shieldProtectionManager:             shield.NewDefaultProtectionManager(cloud.Shield(), logger),
+		gaEndpointManager:                   globalaccelerator.NewDefaultEndpointManager(cloud.GA(), logger),
 		featureGates:                        config.FeatureGates,
 		vpcID:                               cloud.VpcID(),
 		logger:                              logger,
@@ -69,6 +71,7 @@ type defaultStackDeployer struct {
 	elbv2LRManager                      elbv2.ListenerRuleManager
 	elbv2TGManager                      elbv2.TargetGroupManager
 	elbv2TGBManager                     elbv2.TargetGroupBindingManager
+	gaEndpointManager                   globalaccelerator.EndpointManager
 	wafv2WebACLAssociationManager       wafv2.WebACLAssociationManager
 	wafRegionalWebACLAssociationManager wafregional.WebACLAssociationManager
 	shieldProtectionManager             shield.ProtectionManager
@@ -92,6 +95,7 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) err
 		elbv2.NewListenerSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LSManager, d.logger, stack),
 		elbv2.NewListenerRuleSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LRManager, d.logger, stack),
 		elbv2.NewTargetGroupBindingSynthesizer(d.k8sClient, d.trackingProvider, d.elbv2TGBManager, d.logger, stack),
+		globalaccelerator.NewEndpointSynthesizer(d.gaEndpointManager, d.logger, stack),
 	}
 
 	if d.addonsConfig.WAFV2Enabled {

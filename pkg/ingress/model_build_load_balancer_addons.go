@@ -6,12 +6,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	gamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/globalaccelerator"
 	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/shield"
 	wafregionalmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafregional"
 	wafv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafv2"
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancerAddOns(ctx context.Context, lbARN core.StringToken) error {
+
 	if _, err := t.buildWAFv2WebACLAssociation(ctx, lbARN); err != nil {
 		return err
 	}
@@ -21,6 +23,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerAddOns(ctx context.Context, lbA
 	if _, err := t.buildShieldProtection(ctx, lbARN); err != nil {
 		return err
 	}
+	if _, err := t.buildGAEndpoint(ctx, lbARN); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -100,5 +106,44 @@ func (t *defaultModelBuildTask) buildShieldProtection(_ context.Context, lbARN c
 		})
 		return protection, nil
 	}
+	return nil, nil
+}
+
+func (t *defaultModelBuildTask) buildGAEndpoint(_ context.Context, lbARN core.StringToken) (*gamodel.Endpoint, error) {
+	explicitEPGARNs := sets.NewString()
+	epCreateByARN := make(map[string]string)
+	rawEPGARN := ""
+
+	for _, member := range t.ingGroup.Members {
+		// Unfortunately we can't support deletion of an endpoint just by removing
+		// the `ga-epg-arn` annotation, because cleaning up afterwards would require
+		// us to scan all accelerators and endpointgroups for the desired endpoint.
+		// To still enable a way to delete the endpoint, users can set `ga-epg-create=false`
+		epCreate := "false"
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixGAEndpointGroup, &rawEPGARN, member.Ing.Annotations); exists {
+			explicitEPGARNs.Insert(rawEPGARN)
+			t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixGAEndpointCreate, &epCreate, member.Ing.Annotations)
+			epCreateByARN[rawEPGARN] = epCreate
+		}
+	}
+	if len(explicitEPGARNs) > 1 {
+		return nil, errors.Errorf("conflicting Global Accelerator EndpointGroup ARNs: %v", explicitEPGARNs.List())
+	}
+	if len(explicitEPGARNs) == 1 {
+		epgARN, _ := explicitEPGARNs.PopAny()
+		if epgARN != "" {
+			create := false
+			if epCreateByARN[epgARN] == "true" {
+				create = true
+			}
+			endpoint := gamodel.NewEndpoint(t.stack, resourceIDLoadBalancer, gamodel.EndpointSpec{
+				EndpointGroupARN: epgARN,
+				ResourceARN:      lbARN,
+				Create:           create,
+			})
+			return endpoint, nil
+		}
+	}
+
 	return nil, nil
 }
