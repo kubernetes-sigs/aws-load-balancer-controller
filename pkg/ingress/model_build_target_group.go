@@ -170,7 +170,7 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	tgPort := t.buildTargetGroupPort(ctx, targetType, svcPort)
-	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing.Ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion)
+	name := t.buildTargetGroupName(ctx, svcAndIngAnnotations, k8s.NamespacedName(ing.Ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion)
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,
@@ -188,7 +188,7 @@ var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 // buildTargetGroupName will calculate the targetGroup's name.
 func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
-	ingKey types.NamespacedName, svc *corev1.Service, port intstr.IntOrString, tgPort int64,
+	svcAndIngAnnotations map[string]string, ingKey types.NamespacedName, svc *corev1.Service, port intstr.IntOrString, tgPort int64,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion elbv2model.ProtocolVersion) string {
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
@@ -203,9 +203,14 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 	_, _ = uuidHash.Write([]byte(tgProtocolVersion))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
-	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(svc.Namespace, "")
-	sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(svc.Name, "")
-	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
+	var prefix string
+	if !t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixTargetGroupPrefix, &prefix, svcAndIngAnnotations) {
+		sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(svc.Namespace, "")
+		sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(svc.Name, "")
+		prefix = fmt.Sprintf("k8s-%.8s-%.8s-", sanitizedNamespace, sanitizedName)
+	}
+
+	return fmt.Sprintf("%.22s%.10s", prefix, uuid)
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.TargetType, error) {
