@@ -39,6 +39,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)                                       | HTTP \| HTTPS               |HTTP|Ingress,Service|N/A|
 | [alb.ingress.kubernetes.io/backend-protocol-version](#backend-protocol-version)                       | string                      | HTTP1 |Ingress,Service|N/A|
 | [alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)                         | stringMap                   |N/A|Ingress,Service|N/A|
+| [alb.ingress.kubernetes.io/target-group-prefix](#target-group-prefix)                                 |string                       |k8s-<namespace>-<name>|Ingress,Service|N/A|
 | [alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)                                       | integer \| traffic-port     |traffic-port|Ingress,Service|N/A|
 | [alb.ingress.kubernetes.io/healthcheck-protocol](#healthcheck-protocol)                               | HTTP \| HTTPS               |HTTP|Ingress,Service|N/A|
 | [alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)                                       | string                      |/ \| /AWS.ALB/healthcheck |Ingress,Service|N/A|
@@ -765,7 +766,7 @@ TLS support can be controlled with the following annotations:
 - <a name="mutual-authentication">`alb.ingress.kubernetes.io/mutual-authentication`</a>  specifies the mutual authentication configuration that should be assigned to the Application Load Balancer secure listener ports. See [Mutual authentication with TLS](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html) in the AWS documentation for more details.
 
     !!!note "Configuration Options"
-        - `port: listen port ` 
+        - `port: listen port `
             - Must be a HTTPS port specified by [listen-ports](#listen-ports).
         - `mode: "off" (default) | "passthrough" | "verify"`
             - `verify` mode requires an existing trust store resource.
@@ -774,7 +775,7 @@ TLS support can be controlled with the following annotations:
             - Both ARN and Name of trustStore are supported values.
             - `trustStore` is required when mode is `verify`.
         - `ignoreClientCertificateExpiry : true | false (default)`
-  
+
     !!!example
         - [listen-ports](#listen-ports) specifies four HTTPS ports: `80, 443, 8080, 8443`
         - listener `HTTPS:80` will be set to `passthrough` mode
