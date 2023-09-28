@@ -6,7 +6,7 @@ set -e
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 GINKGO_TEST_BUILD="$SCRIPT_DIR/../test/build"
-
+OSTYPE=${OSTYPE:-"linux-gnu"}
 source "$SCRIPT_DIR"/lib/common.sh
 
 # TEST_IMAGE_REGISTRY is the registry in test-infra-* accounts where e2e test images are stored
@@ -135,19 +135,29 @@ function install_controller_for_adc_regions() {
     # Iterate through the mapping and perform the replacements
     for default_url in "${!url_mapping[@]}"; do
       adc_url="${url_mapping[$default_url]}"
-      sed -i "" "s#$default_url#$adc_url#g" "$cert_manager_yaml"
+      if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i "" "s#$default_url#$adc_url#g" "$cert_manager_yaml"
+      else
+        sed -i "s#$default_url#$adc_url#g" "$cert_manager_yaml"
+      fi
     done
     echo "Image URLs in $cert_manager_yaml have been updated to use the ADC registry"
     kubectl apply -f $cert_manager_yaml || true
-
+    sleep 60s
     echo "install the controller via yaml"
     controller_yaml="$SCRIPT_DIR"/../test/prow/v2_6_0_adc.yaml
     default_controller_image="public.ecr.aws/eks/aws-load-balancer-controller"
-    sed -i "" "s#$default_controller_image#$IMAGE#g" "$controller_yaml"
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+      sed -i "" "s#$default_controller_image#$IMAGE#g" "$controller_yaml"
+      sed -i "" "s#your-cluster-name#$CLUSTER_NAME#g" "$controller_yaml"
+    else
+      sed -i "s#$default_controller_image#$IMAGE#g" "$controller_yaml"
+      sed -i "s#your-cluster-name#$CLUSTER_NAME#g" "$controller_yaml"
+    fi
     echo "Image URL in $controller_yaml has been updated to $IMAGE"
-    sed -i "" "s#your-cluster-name#$CLUSTER_NAME#g" "$controller_yaml"
     echo "cluster name in $controller_yaml has been update to $CLUSTER_NAME"
     kubectl apply -f $controller_yaml || true
+    kubectl rollout status -n kube-system deployment aws-load-balancer-controller || true
 }
 
 echo "installing AWS load balancer controller"
