@@ -40,7 +40,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)                                       | HTTP \| HTTPS               |HTTP| Ingress,Service | N/A       |
 | [alb.ingress.kubernetes.io/backend-protocol-version](#backend-protocol-version)                       | string                      | HTTP1 | Ingress,Service | N/A       |
 | [alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)                         | stringMap                   |N/A| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/target-group-prefix](#target-group-prefix)                                 | string                      |k8s-<namespace>-<name>|Ingress,Service|N/A|
+| [alb.ingress.kubernetes.io/target-group-prefix](#target-group-prefix)                                 | string                      |k8s-<namespace>-<name>|Ingress,Service|Merge|
 | [alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)                                       | integer \| traffic-port     |traffic-port| Ingress,Service | N/A       |
 | [alb.ingress.kubernetes.io/healthcheck-protocol](#healthcheck-protocol)                               | HTTP \| HTTPS               |HTTP| Ingress,Service | N/A       |
 | [alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)                                       | string                      |/ \| /AWS.ALB/healthcheck | Ingress,Service | N/A       |
@@ -886,6 +886,14 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
         - enable Automated Target Weights(ATW) on HTTP/HTTPS target groups to increase application availability. Set your load balancing algorithm to weighted random and turn on anomaly mitigation (recommended)
             ```
             alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=weighted_random,load_balancing.algorithm.anomaly_mitigation=on
+            ```
+
+- <a name="target-group-prefix">`alb.ingress.kubernetes.io/target-group-prefix`</a> specifies the name prefix given to Target Groups. The prefix is truncated to 22 characters.
+
+    !!!example
+        - set the target group prefix to "my-service-", the full name will look like "my-service-8f5fe20735"
+            ```
+            alb.ingress.kubernetes.io/target-group-prefix: my-service-
             ```
 
 ## Resource Tags
