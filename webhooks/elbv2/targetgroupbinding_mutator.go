@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
@@ -38,7 +39,7 @@ func (m *targetGroupBindingMutator) Prototype(_ admission.Request) (runtime.Obje
 func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	if tgb.Spec.TargetGroupARN == "" && tgb.Spec.TargetGroupName == "" {
-		return nil, errors.Errorf("You must provide either TargetGroupARN or TargetGroupName")
+		return nil, errors.Errorf("must provide either TargetGroupARN or TargetGroupName")
 	}
 	if err := m.getArnFromNameIfNeeded(ctx, tgb); err != nil {
 		return nil, err
