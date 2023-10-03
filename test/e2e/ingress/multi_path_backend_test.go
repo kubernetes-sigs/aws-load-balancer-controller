@@ -98,7 +98,6 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 			err = stack.Cleanup(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 		})
-
 		It("IngressGroup across namespaces should behaves correctly", func() {
 			backendConfigA := BackendConfig{
 				Replicas:   3,
