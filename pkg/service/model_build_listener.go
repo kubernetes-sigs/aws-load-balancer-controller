@@ -20,7 +20,7 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2
 	}
 
 	for _, port := range t.service.Spec.Ports {
-		_, err := t.buildListener(ctx, port, *cfg, scheme)
+		_, err := t.buildListener(ctx, t.service, port, *cfg, scheme)
 		if err != nil {
 			return err
 		}
@@ -28,9 +28,9 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg listenerConfig,
+func (t *defaultModelBuildTask) buildListener(ctx context.Context, svc *corev1.Service, port corev1.ServicePort, cfg listenerConfig,
 	scheme elbv2model.LoadBalancerScheme) (*elbv2model.Listener, error) {
-	lsSpec, err := t.buildListenerSpec(ctx, port, cfg, scheme)
+	lsSpec, err := t.buildListenerSpec(ctx, svc, port, cfg, scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.S
 	return ls, nil
 }
 
-func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg listenerConfig,
+func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, svc *corev1.Service, port corev1.ServicePort, cfg listenerConfig,
 	scheme elbv2model.LoadBalancerScheme) (elbv2model.ListenerSpec, error) {
 	tgProtocol := elbv2model.Protocol(port.Protocol)
 	listenerProtocol := elbv2model.Protocol(port.Protocol)
@@ -55,7 +55,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}
-	targetGroup, err := t.buildTargetGroup(ctx, port, tgProtocol, scheme)
+	targetGroup, err := t.buildTargetGroup(ctx, svc, port, tgProtocol, scheme)
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
 	}

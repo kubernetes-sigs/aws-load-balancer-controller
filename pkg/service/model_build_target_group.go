@@ -30,7 +30,7 @@ const (
 	healthCheckPortTrafficPort     = "traffic-port"
 )
 
-func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
+func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, svc *corev1.Service, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
 	svcPort := intstr.FromInt(int(port.Port))
 	tgResourceID := t.buildTargetGroupResourceID(k8s.NamespacedName(t.service), svcPort)
 	if targetGroup, exists := t.tgByResID[tgResourceID]; exists {
@@ -40,7 +40,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 	if err != nil {
 		return nil, err
 	}
-	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx, targetType)
+	healthCheckConfig, err := t.buildTargetGroupHealthCheckConfig(ctx, svc, targetType)
 	if err != nil {
 		return nil, err
 	}
@@ -89,22 +89,22 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Context, targetType elbv2model.TargetType) (*elbv2model.TargetGroupHealthCheckConfig, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfig(ctx context.Context, svc *corev1.Service, targetType elbv2model.TargetType) (*elbv2model.TargetGroupHealthCheckConfig, error) {
 	if targetType == elbv2model.TargetTypeInstance && t.service.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal &&
 		t.service.Spec.Type == corev1.ServiceTypeLoadBalancer {
-		return t.buildTargetGroupHealthCheckConfigForInstanceModeLocal(ctx)
+		return t.buildTargetGroupHealthCheckConfigForInstanceModeLocal(ctx, svc, targetType)
 	}
-	return t.buildTargetGroupHealthCheckConfigDefault(ctx)
+	return t.buildTargetGroupHealthCheckConfigDefault(ctx, svc, targetType)
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx context.Context, svc *corev1.Service, targetType elbv2model.TargetType) (*elbv2model.TargetGroupHealthCheckConfig, error) {
 	healthCheckProtocol, err := t.buildTargetGroupHealthCheckProtocol(ctx, t.defaultHealthCheckProtocol)
 	if err != nil {
 		return nil, err
 	}
 	healthCheckPathPtr := t.buildTargetGroupHealthCheckPath(ctx, t.defaultHealthCheckPath, healthCheckProtocol)
 	healthCheckMatcherPtr := t.buildTargetGroupHealthCheckMatcher(ctx, healthCheckProtocol)
-	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, t.defaultHealthCheckPort)
+	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, svc, t.defaultHealthCheckPort, targetType)
 	if err != nil {
 		return nil, err
 	}
@@ -137,14 +137,14 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceModeLocal(ctx context.Context) (*elbv2model.TargetGroupHealthCheckConfig, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceModeLocal(ctx context.Context, svc *corev1.Service, targetType elbv2model.TargetType) (*elbv2model.TargetGroupHealthCheckConfig, error) {
 	healthCheckProtocol, err := t.buildTargetGroupHealthCheckProtocol(ctx, t.defaultHealthCheckProtocolForInstanceModeLocal)
 	if err != nil {
 		return nil, err
 	}
 	healthCheckPathPtr := t.buildTargetGroupHealthCheckPath(ctx, t.defaultHealthCheckPathForInstanceModeLocal, healthCheckProtocol)
 	healthCheckMatcherPtr := t.buildTargetGroupHealthCheckMatcher(ctx, healthCheckProtocol)
-	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, t.defaultHealthCheckPortForInstanceModeLocal)
+	healthCheckPort, err := t.buildTargetGroupHealthCheckPort(ctx, svc, t.defaultHealthCheckPortForInstanceModeLocal, targetType)
 	if err != nil {
 		return nil, err
 	}
@@ -276,17 +276,28 @@ func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetTy
 	return 1
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Context, defaultHealthCheckPort string) (intstr.IntOrString, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Context, svc *corev1.Service, defaultHealthCheckPort string, targetType elbv2model.TargetType) (intstr.IntOrString, error) {
 	rawHealthCheckPort := defaultHealthCheckPort
 	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPort, &rawHealthCheckPort, t.service.Annotations)
 	if rawHealthCheckPort == healthCheckPortTrafficPort {
 		return intstr.FromString(rawHealthCheckPort), nil
 	}
-	portVal, err := strconv.ParseInt(rawHealthCheckPort, 10, 64)
-	if err != nil {
-		return intstr.IntOrString{}, errors.Errorf("health check port \"%v\" not supported", rawHealthCheckPort)
+	healthCheckPort := intstr.Parse(rawHealthCheckPort)
+	if healthCheckPort.Type == intstr.Int {
+		return healthCheckPort, nil
 	}
-	return intstr.FromInt(int(portVal)), nil
+
+	svcPort, err := k8s.LookupServicePort(svc, healthCheckPort)
+	if err != nil {
+		return intstr.IntOrString{}, errors.Wrap(err, "failed to resolve healthCheckPort")
+	}
+	if targetType == elbv2model.TargetTypeInstance {
+		return intstr.FromInt(int(svcPort.NodePort)), nil
+	}
+	if svcPort.TargetPort.Type == intstr.Int {
+		return svcPort.TargetPort, nil
+	}
+	return intstr.IntOrString{}, errors.New("cannot use named healthCheckPort for IP TargetType when service's targetPort is a named port")
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckProtocol(_ context.Context, defaultHealthCheckProtocol elbv2model.Protocol) (elbv2model.Protocol, error) {
