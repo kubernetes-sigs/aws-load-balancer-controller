@@ -198,12 +198,9 @@ function run_ginkgo_test() {
   TEST_RESULT=success
   local focus=$1
   echo "Starting the ginkgo tests from generated ginkgo test binaries with focus: $focus"
-  if [ "$IP_FAMILY" == "IPv4" ]; then 
+  if [ "$IP_FAMILY" == "IPv4" ] || [ "$IP_FAMILY" == "IPv6" ]; then
     (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail)
     (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail)
-  elif [ "$IP_FAMILY" == "IPv6" ]; then
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail)
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail)
   else
     echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
   fi
