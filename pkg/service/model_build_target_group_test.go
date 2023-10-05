@@ -387,7 +387,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultHealthCheckHealthyThresholdForInstanceModeLocal:   2,
 				defaultHealthCheckUnhealthyThresholdForInstanceModeLocal: 2,
 			}
-			hc, err := builder.buildTargetGroupHealthCheckConfig(context.Background(), tt.svc, tt.targetType)
+			hc, err := builder.buildTargetGroupHealthCheckConfig(context.Background(), tt.targetType)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -2013,7 +2013,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 				service:                tt.svc,
 				defaultHealthCheckPort: tt.defaultPort,
 			}
-			got, err := builder.buildTargetGroupHealthCheckPort(context.Background(), tt.svc, tt.defaultPort, tt.targetType)
+			got, err := builder.buildTargetGroupHealthCheckPort(context.Background(), tt.defaultPort, tt.targetType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
