@@ -6,7 +6,7 @@
 # AWS Load Balancer Controller
 We have rebranded "AWS ALB Ingress Controller" to be "AWS Load Balancer Controller" along with our v2.0.0 release.
 
-"AWS ALB Ingress Controller" is now deprecated, we encourage users to migrate to "AWS ALB Ingress Controller" by follow our [migration guide](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/deploy/upgrade/migrate_v1_v2/).
+"AWS ALB Ingress Controller" is now deprecated, we encourage users to migrate to "AWS Load Balancer Controller" by follow our [migration guide](https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/deploy/upgrade/migrate_v1_v2/).
 
 # AWS ALB Ingress Controller
 
