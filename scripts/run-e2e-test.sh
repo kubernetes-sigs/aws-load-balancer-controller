@@ -15,6 +15,7 @@ TEST_IMAGE_REGISTRY=${TEST_IMAGE_REGISTRY:-"617930562442.dkr.ecr.us-west-2.amazo
 PROD_IMAGE_REGISTRY=${PROD_IMAGE_REGISTRY:-"602401143452.dkr.ecr.us-west-2.amazonaws.com"}
 
 ADC_REGIONS="us-iso-east-1 us-isob-east-1 us-iso-west-1"
+CONTAINER_NAME="aws-load-balancer-controller"
 
 function toggle_windows_scheduling(){
   schedule=$1
@@ -157,11 +158,12 @@ function install_controller_for_adc_regions() {
 echo "installing AWS load balancer controller"
 if [[ $ADC_REGIONS == *"$REGION"* ]]; then
   echo "for ADC regions, install via manifest"
+  CONTAINER_NAME="controller"
   install_controller_for_adc_regions
-  echo "disable NLB Security Group as it's not supported in ADC yet"
+  echo "disable NLB Security Group and Listener Rules tagging as they are not supported in ADC yet"
   kubectl patch deployment aws-load-balancer-controller -n kube-system \
     --type=json \
-    -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--feature-gates=NLBSecurityGroup=false"}]' || true
+    -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--feature-gates=NLBSecurityGroup=false,ListenerRulesTagging=false"}]' || true
 else
   echo "install via helm repo, update helm repo from github"
   helm repo add eks https://aws.github.io/eks-charts
@@ -215,7 +217,7 @@ run_ginkgo_test
 # tail=-1 is added so that no logs are truncated
 # https://github.com/kubernetes/kubectl/issues/812
 echo "Fetch most recent aws-load-balancer-controller logs"
-kubectl logs -l app.kubernetes.io/name=aws-load-balancer-controller --container aws-load-balancer-controller --tail=-1 -n kube-system || true
+kubectl logs -l app.kubernetes.io/name=aws-load-balancer-controller --container $CONTAINER_NAME --tail=-1 -n kube-system || true
 
 echo "Uncordon windows nodes"
 toggle_windows_scheduling "uncordon"
