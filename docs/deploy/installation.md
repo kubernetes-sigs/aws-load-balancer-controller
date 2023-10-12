@@ -26,6 +26,9 @@ The LBC is supported by AWS. Some clusters may be using the legacy "in-tree" fun
 * Ensure subnets are tagged appropriately for auto-discovery to work
 * For IP targets, pods must have IPs from the VPC subnets. You can configure the [`amazon-vpc-cni-k8s`](https://github.com/aws/amazon-vpc-cni-k8s#readme) plugin for this purpose.
 
+### Additional requirements for isolated cluster:
+Isolated clusters are clusters without internet access, and instead reply on VPC endpoints for all required connects.
+When installing the AWS LBC in isolated clusters, you need to disable shield, waf and wafv2 via controller flags `--enable-shield=false, --enable-waf=false, --enable-wafv2=false`
 ### Using the Amazon EC2 instance metadata server version 2 (IMDSv2)
 We recommend blocking the access to instance metadata by requiring the instance to use [IMDSv2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html) only. For more information, please refer to the AWS guidance [here](https://aws.github.io/aws-eks-best-practices/security/docs/iam/#restrict-access-to-the-instance-profile-assigned-to-the-worker-node). If you are using the IMDSv2, set the hop limit to 2 or higher in order to allow the LBC to perform the metadata introspection. 
 
@@ -155,6 +158,7 @@ Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/
 
 If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the default configuration.
 
+If you use custom networking, please refer to the [EKS Best Practices Guides](https://aws.github.io/aws-eks-best-practices/networking/custom-networking/#use-custom-networking-when) for network configuration.
 ## Add controller to cluster
 
 We recommend using the Helm chart to install the controller. The chart supports Fargate and facilitates updating the controller.
@@ -174,7 +178,8 @@ We recommend using the Helm chart to install the controller. The chart supports 
     ```
     2. If upgrading the chart via `helm upgrade`, install the `TargetGroupBinding` CRDs.
     ```
-    kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+    wget https://raw.githubusercontent.com/aws/eks-charts/master/stable/aws-load-balancer-controller/crds/crds.yaml
+    kubectl apply -f crds.yaml
     ```
 
         !!!tip
