@@ -48,6 +48,8 @@ type SubnetsResolveOptions struct {
 	AvailableIPAddressCount int64
 	// whether to check the cluster tag
 	SubnetsClusterTagCheck bool
+	// Disable subnet minimal count restriction
+	ALBSingleSubnet bool
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -92,6 +94,13 @@ func WithSubnetsResolveAvailableIPAddressCount(AvailableIPAddressCount int64) Su
 func WithSubnetsClusterTagCheck(SubnetsClusterTagCheck bool) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.SubnetsClusterTagCheck = SubnetsClusterTagCheck
+	}
+}
+
+// WithALBSingleSubnet generate an option that foncigure ALBSingleSubnet
+func WithALBSingleSubnet(ALBSingleSubnet bool) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.ALBSingleSubnet = ALBSingleSubnet
 	}
 }
 
@@ -364,6 +373,9 @@ func (r *defaultSubnetsResolver) validateSubnetsMinimalCount(subnets []*ec2sdk.S
 // computeSubnetsMinimalCount returns the minimal count requirement for subnets.
 func (r *defaultSubnetsResolver) computeSubnetsMinimalCount(subnetLocale subnetLocaleType, resolveOpts SubnetsResolveOptions) int {
 	minimalCount := 1
+	if resolveOpts.ALBSingleSubnet {
+		return minimalCount
+	}
 	if resolveOpts.LBType == elbv2model.LoadBalancerTypeApplication && subnetLocale == subnetLocaleTypeAvailabilityZone {
 		minimalCount = 2
 	}
