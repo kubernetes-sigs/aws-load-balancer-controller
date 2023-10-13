@@ -7,7 +7,6 @@ import (
 	"net"
 	"strings"
 	"sync"
-	libErrors "errors"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
