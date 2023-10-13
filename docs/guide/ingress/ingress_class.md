@@ -104,6 +104,33 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
       - key: idle_timeout.timeout_seconds
         value: "120"
     ```
+    - with subnets.ids
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: awesome-class
+    spec:
+      subnets:
+        ids:
+        - subnet-xxx
+        - subnet-123
+    ```
+    - with subnets.tags
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      subnets:
+      tags:
+        kubernetes.io/role/internal-elb:
+        - "1"
+        myKey:
+        - myVal0
+        - myVal1
+    ```
 
 ### IngressClassParams specification
 
