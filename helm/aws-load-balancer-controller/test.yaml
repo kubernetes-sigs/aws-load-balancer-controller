@@ -209,6 +209,12 @@ disableIngressClassAnnotation:
 # disableIngressGroupNameAnnotation disables the usage of alb.ingress.kubernetes.io/group.name annotation, false by default
 disableIngressGroupNameAnnotation:
 
+# tolerateNonExistentBackendService permits rules which specify backend services that don't exist, true by default
+tolerateNonExistentBackendService:
+
+# tolerateNonExistentBackendAction permits rules which specify backend actions that don't exist, true by default
+tolerateNonExistentBackendAction:
+
 # defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners
 defaultSSLPolicy:
 
