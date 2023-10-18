@@ -321,6 +321,7 @@ controllerConfig:
   # EnableIPTargetType: true
   # SubnetsClusterTagCheck: true
   # NLBHealthCheckAdvancedConfig: true
+  # ALBSingleSubnet: false
 
 # objectSelector for webhook
 objectSelector:
