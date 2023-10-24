@@ -2,7 +2,7 @@
 title: Restrict Access with Frontend Security Groups
 ---
 
-Frontend security groups limit client/internet traffic with a load balancer. This improves security by preventing unauthorized access to cluster services, and blocking unexpected outbound connections. Both [AWS Network Load Balancers (NLBs) and Application Load Balancers (ALBs)](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/load-balancer-types.html) support frontend security groups.
+Frontend security groups limit client/internet traffic with a load balancer. This improves security by preventing unauthorized access to cluster services, and blocking unexpected outbound connections. Both [AWS Network Load Balancers (NLBs) and Application Load Balancers (ALBs)](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/load-balancer-types.html) support frontend security groups. Learn more about how the Load Balancer Controller uses [Frontend and Backend Security Groups](../../../deploy/security_groups.md). 
 
 ## Solution Overview
 

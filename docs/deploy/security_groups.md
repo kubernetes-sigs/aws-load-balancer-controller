@@ -9,6 +9,12 @@ Use security groups to limit client connections to your load balancers, and rest
 
 Frontend security groups control access to load balancers by specifying which clients can connect to them.
 
+Use cases for Frontent Security Groups include:
+
+* Placing the load balancer behind another service, such as [AWS Web Application Firewall](https://docs.aws.amazon.com/waf/latest/developerguide/what-is-aws-waf.html) or [AWS CloudFront](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html).
+* Blocking the IP address range (CIDR) of a region.
+* Configuring the Load Balancer for private or internal use, by specifying internal CIDRs and Security Groups. 
+
 In the default configuration, the LBC automatically creates one security group per load balancer, allowing traffic from `inbound-cidrs` to `listen-ports`.
 
 ### Configuration
@@ -65,4 +71,4 @@ If `--backend-security-group` is left empty, a security group with the following
 
 From version v2.3.0 onwards, the controller restricts port ranges in the backend security group rules by default. This improves the security of the default configuration. The LBC should generate the necessary rules to permit traffic, based on the Service and Ingress resources. 
 
-If needed, set the controller flag `--disable-restricted-sg-rules` to `true` to permit traffic to all ports.
+If needed, set the controller flag `--disable-restricted-sg-rules` to `true` to permit traffic to all ports. This may be appropriate for backwards compatability, or troubleshooting. 
