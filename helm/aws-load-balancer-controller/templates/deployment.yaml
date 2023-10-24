@@ -122,6 +122,12 @@ spec:
         {{- if kindIs "bool" .Values.disableIngressGroupNameAnnotation }}
         - --disable-ingress-group-name-annotation={{ .Values.disableIngressGroupNameAnnotation }}
         {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendService }}
+        - --tolerate-non-existent-backend-service={{ .Values.tolerateNonExistentBackendService }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendAction }}
+        - --tolerate-non-existent-backend-action={{ .Values.tolerateNonExistentBackendAction }}
+        {{- end }}
         {{- if .Values.defaultSSLPolicy }}
         - --default-ssl-policy={{ .Values.defaultSSLPolicy }}
         {{- end }}

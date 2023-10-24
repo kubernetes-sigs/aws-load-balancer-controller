@@ -314,7 +314,7 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
-			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(nil, annotationParser, nil)
+			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(nil, annotationParser, nil, true, true)
 			i := &defaultReferenceIndexer{
 				enhancedBackendBuilder: enhancedBackendBuilder,
 				authConfigBuilder:      authConfigBuilder,
@@ -365,7 +365,7 @@ func Test_defaultReferenceIndexer_BuildSecretRefIndexes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
-			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(nil, annotationParser, nil)
+			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(nil, annotationParser, nil, true, true)
 			i := &defaultReferenceIndexer{
 				enhancedBackendBuilder: enhancedBackendBuilder,
 				authConfigBuilder:      authConfigBuilder,
