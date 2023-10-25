@@ -62,7 +62,7 @@ Learn how to [create an egress rule with the AWS CLI.](https://awscli.amazonaws.
 
 ### 5. Add the security group annotation to your Ingress or Service
 
-For [Ingress resources](../guide/ingress/annotations#annotations), add the following annotation:
+For [Ingress resources](../../../guide/ingress/annotations.md), add the following annotation:
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -73,7 +73,7 @@ metadata:
     alb.ingress.kubernetes.io/security-groups: <sg-id>
 ```
 
-For [Service resources](../guide/service/annotations.md#annotations), add the following annotation:
+For [Service resources](../../../guide/service/annotations.md#annotations), add the following annotation:
 
 ```yaml
 apiVersion: v1
