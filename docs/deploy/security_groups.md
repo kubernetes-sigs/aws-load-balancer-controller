@@ -23,7 +23,7 @@ Apply custom frontend security groups with an annotation. This disables automati
 
 - For Ingress resources, use the [`alb.ingress.kubernetes.io/security-groups`](../guide/ingress/annotations.md#security-groups) annotation.
 - For Service resources, use the [`service.beta.kubernetes.io/aws-load-balancer-security-groups`](../guide/service/annotations.md#security-groups) annotation.
-- The annotation must be set to one or more security group IDs.
+- The annotation must be set to one or more security group IDs or security group names.
 
 
 ## Backend Security Groups

@@ -15,7 +15,7 @@ In this example, you will restrict access to a cluster service. You will create 
 ## Prerequisites
 
 - [Kubernetes Cluster Version 1.22+](https://docs.aws.amazon.com/cli/latest/reference/eks/describe-cluster.html)
-- [AWS Load Balancer Controller v2.5.0+](../../../deploy/installation/)
+- [AWS Load Balancer Controller v2.6.0+](../../../deploy/installation/)
 - [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 
 ## Configure
