@@ -27,6 +27,7 @@ const (
 	flagWebhookCertDir          = "webhook-cert-dir"
 	flagWebhookCertName         = "webhook-cert-file"
 	flagWebhookKeyName          = "webhook-key-file"
+	flagWebhookDsibleHTTP2      = "webhook-disable-http2"
 
 	defaultKubeconfig              = ""
 	defaultLeaderElectionID        = "aws-load-balancer-controller-leader"
@@ -41,10 +42,11 @@ const (
 	defaultQPS = 1e6
 	// High enough Burst to fit all expected use cases. Burst=0 is not set here, because
 	// client code is overriding it.
-	defaultBurst           = 1e6
-	defaultWebhookCertDir  = ""
-	defaultWebhookCertName = ""
-	defaultWebhookKeyName  = ""
+	defaultBurst               = 1e6
+	defaultWebhookCertDir      = ""
+	defaultWebhookCertName     = ""
+	defaultWebhookKeyName      = ""
+	defaultWebhookDisableHTTP2 = false
 )
 
 // RuntimeConfig stores the configuration for the controller-runtime
@@ -62,6 +64,7 @@ type RuntimeConfig struct {
 	WebhookCertDir          string
 	WebhookCertName         string
 	WebhookKeyName          string
+	WebhookDisableHTTP2     bool
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -88,6 +91,7 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.WebhookCertDir, flagWebhookCertDir, defaultWebhookCertDir, "WebhookCertDir is the directory that contains the webhook server key and certificate.")
 	fs.StringVar(&c.WebhookCertName, flagWebhookCertName, defaultWebhookCertName, "WebhookCertName is the webhook server certificate name.")
 	fs.StringVar(&c.WebhookKeyName, flagWebhookKeyName, defaultWebhookKeyName, "WebhookKeyName is the webhook server key name.")
+	fs.BoolVar(&c.WebhookDisableHTTP2, flagWebhookDsibleHTTP2, defaultWebhookDisableHTTP2, "WebhookDisableHTTP2 disables HTTP2 for the webhook server.")
 
 }
 
@@ -144,6 +148,9 @@ func ConfigureWebhookServer(rtCfg RuntimeConfig, mgr ctrl.Manager) {
 				// AEADs w/o ECDHE
 				tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
 				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			}
+			if rtCfg.WebhookDisableHTTP2 {
+				config.NextProtos = []string{"http/1.1"}
 			}
 		},
 	}

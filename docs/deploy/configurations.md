@@ -108,6 +108,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |webhook-cert-dir                       | string                          | /tmp/k8s-webhook-server/serving-certs | The directory that contains the server key and certificate |
 |webhook-cert-file                      | string                          | tls.crt | The server certificate name |
 |webhook-key-file                       | string                          | tls.key | The server key name |
+|webhook-disable-http2                  | bool                            | false   | Disable HTTP2 for the webhook server |
 
 
 ### disable-ingress-class-annotation
