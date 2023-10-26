@@ -19,11 +19,11 @@ require (
 	golang.org/x/time v0.3.0
 	gomodules.xyz/jsonpatch/v2 v2.2.0
 	helm.sh/helm/v3 v3.11.1
-	k8s.io/api v0.26.5
-	k8s.io/apimachinery v0.26.5
+	k8s.io/api v0.26.10
+	k8s.io/apimachinery v0.26.10
 	k8s.io/cli-runtime v0.26.3
-	k8s.io/client-go v0.26.5
-	sigs.k8s.io/controller-runtime v0.14.6
+	k8s.io/client-go v0.26.10
+	sigs.k8s.io/controller-runtime v0.14.7
 	sigs.k8s.io/yaml v1.3.0
 )
 
@@ -74,7 +74,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20210407192527-94a9f03dee38 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/google/uuid v1.2.0 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/gosuri/uitable v0.0.4 // indirect
@@ -150,9 +150,9 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.26.1 // indirect
-	k8s.io/apiserver v0.26.1 // indirect
-	k8s.io/component-base v0.26.1 // indirect
+	k8s.io/apiextensions-apiserver v0.26.10 // indirect
+	k8s.io/apiserver v0.26.10 // indirect
+	k8s.io/component-base v0.26.10 // indirect
 	k8s.io/klog/v2 v2.80.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
 	k8s.io/kubectl v0.26.0 // indirect
