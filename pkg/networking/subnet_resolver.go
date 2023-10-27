@@ -48,7 +48,7 @@ type SubnetsResolveOptions struct {
 	AvailableIPAddressCount int64
 	// whether to check the cluster tag
 	SubnetsClusterTagCheck bool
-	// Disable subnet minimal count restriction
+	// whether to allow using only 1 subnet for provisioning ALB, default to false
 	ALBSingleSubnet bool
 }
 
@@ -97,7 +97,7 @@ func WithSubnetsClusterTagCheck(SubnetsClusterTagCheck bool) SubnetsResolveOptio
 	}
 }
 
-// WithALBSingleSubnet generate an option that foncigure ALBSingleSubnet
+// WithALBSingleSubnet generate an option that configures ALBSingleSubnet
 func WithALBSingleSubnet(ALBSingleSubnet bool) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.ALBSingleSubnet = ALBSingleSubnet
