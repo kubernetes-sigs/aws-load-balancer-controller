@@ -160,6 +160,10 @@ spec:
         {{- range $key, $value := .Values.env }}
         - name: {{ $key }}
           value: "{{ $value }}"
+        {{- with .Values.envFrom }}
+        envFrom:
+          {{- . | toYaml | nindent 12 }}
+        {{- end }}
         {{- end }}
         {{- end }}
         securityContext:
