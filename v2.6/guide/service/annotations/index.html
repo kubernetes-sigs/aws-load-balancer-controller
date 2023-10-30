@@ -911,6 +911,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
+        Frontend Security Groups
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1872,8 +1884,14 @@ Also, the securityGroups for target instances/ENIs will be modified to allow inb
 </li>
 </ul>
 <h2 id="legacy-cloud-provider">Legacy Cloud Provider<a class="headerlink" href="#legacy-cloud-provider" title="Permanent link">&para;</a></h2>
-<p>The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the legacy aws cloud provider. The annotation <code>service.beta.kubernetes.io/aws-load-balancer-type</code> is used to determine which controller reconciles the service. If the annotation value is <code>nlb-ip</code> or <code>external</code>, legacy cloud provider ignores the service resource (provided it has the correct patch) so that the AWS Load Balancer controller can take over. For all other values of the annotation, the legacy cloud provider will handle the service. Note that this annotation should be specified during service creation and not edited later.</p>
-<p>The legacy cloud provider patch was added in Kubernetes v1.20 and is backported to Kubernetes v1.18.18+, v1.19.10+.</p>
+<p>The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the AWS cloud provider's legacy service controller.</p>
+<ul>
+<li>For users on v2.5.0+, The AWS LBC provides a mutating webhook for service resources to set the <code>spec.loadBalancerCLass</code> field for Serive of type LoadBalancer, effectively making the AWS LBC the default controller for Service of type LoadBalancer. 
+  Users can disable this feature and revert to using the AWS Cloud Controller Manager as the default service controller by setting the helm chart value <code>enableServiceMutatorWebhook</code> to false with <code>--set enableServiceMutatorWebhook=false</code> .</li>
+<li>For users on older versions, the annotation <code>service.beta.kubernetes.io/aws-load-balancer-type</code> is used to determine which controller reconciles the service. If the annotation value is <code>nlb-ip</code> or <code>external</code>,
+  recent versions of the legacy cloud provider ignore the Service resource so that the AWS LBC can take over. For all other values of the annotation, the legacy cloud provider will handle the service. 
+  Note that this annotation should be specified during service creation and not edited later. Support for the annotation was added to the legacy cloud provider in Kubernetes v1.20, and is backported to v1.18.18+ and v1.19.10+.</li>
+</ul>
                 
               
               

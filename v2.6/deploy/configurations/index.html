@@ -939,6 +939,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/use_cases/frontend_sg/" class="md-nav__link">
+        Frontend Security Groups
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1433,6 +1445,18 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <td>duration</td>
 <td>16m40s</td>
 <td>Maximum duration of exponential backoff for targetGroupBinding reconcile failures</td>
+</tr>
+<tr>
+<td>tolerate-non-existent-backend-service</td>
+<td>boolean</td>
+<td>true</td>
+<td>Whether to allow rules which refer to backend services that do not exist</td>
+</tr>
+<tr>
+<td>tolerate-non-existent-backend-action</td>
+<td>boolean</td>
+<td>true</td>
+<td>Whether to allow rules which refer to backend actions that do not exist</td>
 </tr>
 <tr>
 <td>watch-namespace</td>

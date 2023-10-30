@@ -961,6 +961,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
+        Frontend Security Groups
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1308,6 +1320,31 @@ spec:
     value: &quot;true&quot;
   - key: idle_timeout.timeout_seconds
     value: &quot;120&quot;
+</code></pre></div></li>
+<li>with subnets.ids
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: awesome-class
+spec:
+  subnets:
+    ids:
+    - subnet-xxx
+    - subnet-123
+</code></pre></div></li>
+<li>with subnets.tags
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  subnets:
+  tags:
+    kubernetes.io/role/internal-elb:
+    - &quot;1&quot;
+    myKey:
+    - myVal0
+    - myVal1
 </code></pre></div></li>
 </ul>
 </div>

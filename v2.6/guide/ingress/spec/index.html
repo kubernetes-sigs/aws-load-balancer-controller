@@ -822,6 +822,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
+        Frontend Security Groups
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -948,6 +960,16 @@
                 
                 <h1 id="ingress-specification">Ingress specification<a class="headerlink" href="#ingress-specification" title="Permanent link">&para;</a></h1>
 <p>This document covers how ingress resources work in relation to The AWS Load Balancer Controller.</p>
+<div class="admonition note">
+<ul>
+<li>Beginning from v2.4.3 of the AWS LBC, rules are ordered as follows:  <ul>
+<li><code>pathType: Exact</code> paths are always ordered first </li>
+<li>followed by <code>pathType: Prefix</code> paths, with the longest prefix first</li>
+<li>followed by <code>pathType: ImplementationSpecific</code> paths, in the order they are listed in the manifest</li>
+</ul>
+</li>
+</ul>
+</div>
 <p>An example ingress, from <a href="../../../examples/2048/2048_full.yaml">example</a> is as follows.</p>
 <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
 <span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>

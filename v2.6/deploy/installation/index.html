@@ -468,6 +468,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#additional-requirements-for-isolated-cluster" class="md-nav__link">
+    Additional requirements for isolated cluster:
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#using-the-amazon-ec2-instance-metadata-server-version-2-imdsv2" class="md-nav__link">
     Using the Amazon EC2 instance metadata server version 2 (IMDSv2)
   </a>
@@ -959,6 +966,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/use_cases/frontend_sg/" class="md-nav__link">
+        Frontend Security Groups
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1092,6 +1111,13 @@
           <li class="md-nav__item">
   <a href="#additional-requirements-for-non-eks-clusters" class="md-nav__link">
     Additional requirements for non-EKS clusters:
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#additional-requirements-for-isolated-cluster" class="md-nav__link">
+    Additional requirements for isolated cluster:
   </a>
   
 </li>
@@ -1234,6 +1260,9 @@ You will no longer be able to provision new Classic Load Balancer (CLB) from you
 <li>Ensure subnets are tagged appropriately for auto-discovery to work</li>
 <li>For IP targets, pods must have IPs from the VPC subnets. You can configure the <a href="https://github.com/aws/amazon-vpc-cni-k8s#readme"><code>amazon-vpc-cni-k8s</code></a> plugin for this purpose.</li>
 </ul>
+<h3 id="additional-requirements-for-isolated-cluster">Additional requirements for isolated cluster:<a class="headerlink" href="#additional-requirements-for-isolated-cluster" title="Permanent link">&para;</a></h3>
+<p>Isolated clusters are clusters without internet access, and instead reply on VPC endpoints for all required connects.
+When installing the AWS LBC in isolated clusters, you need to disable shield, waf and wafv2 via controller flags <code>--enable-shield=false, --enable-waf=false, --enable-wafv2=false</code></p>
 <h3 id="using-the-amazon-ec2-instance-metadata-server-version-2-imdsv2">Using the Amazon EC2 instance metadata server version 2 (IMDSv2)<a class="headerlink" href="#using-the-amazon-ec2-instance-metadata-server-version-2-imdsv2" title="Permanent link">&para;</a></h3>
 <p>We recommend blocking the access to instance metadata by requiring the instance to use <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html">IMDSv2</a> only. For more information, please refer to the AWS guidance <a href="https://aws.github.io/aws-eks-best-practices/security/docs/iam/#restrict-access-to-the-instance-profile-assigned-to-the-worker-node">here</a>. If you are using the IMDSv2, set the hop limit to 2 or higher in order to allow the LBC to perform the metadata introspection. </p>
 <p>You can set the IMDSv2 as follows:
@@ -1281,13 +1310,13 @@ You will no longer be able to provision new Classic Load Balancer (CLB) from you
 <li>
 <p>Download an IAM policy for the LBC using one of the following commands:<p>
     If your cluster is in a US Gov Cloud region:
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/install/iam_policy_us-gov.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.1/docs/install/iam_policy_us-gov.json
 </code></pre></div>
     If your cluster is in a China region:
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/install/iam_policy_cn.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.1/docs/install/iam_policy_cn.json
 </code></pre></div>
     If your cluster is in any other region:
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/install/iam_policy.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.1/docs/install/iam_policy.json
 </code></pre></div></p>
 </li>
 <li>
@@ -1313,7 +1342,7 @@ You will no longer be able to provision new Classic Load Balancer (CLB) from you
 </ol>
 <h3 id="option-b-attach-iam-policies-to-nodes">Option B: Attach IAM policies to nodes<a class="headerlink" href="#option-b-attach-iam-policies-to-nodes" title="Permanent link">&para;</a></h3>
 <p>If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum. Please be aware of the possibility that the controller permissions may be assumed by other users in a pod after retrieving the node role credentials, so the best practice would be using IRSA instead of attaching IAM policy directly.
-<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/install/iam_policy.json
+<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.1/docs/install/iam_policy.json
 </code></pre></div></p>
 <p>The following IAM permissions subset is for those using <code>TargetGroupBinding</code> only and don't plan to use the LBC to manage security group rules:</p>
 <div class="highlight"><pre><span></span><code>{
@@ -1340,6 +1369,7 @@ You will no longer be able to provision new Classic Load Balancer (CLB) from you
 <h2 id="network-configuration">Network configuration<a class="headerlink" href="#network-configuration" title="Permanent link">&para;</a></h2>
 <p>Review the <a href="https://docs.aws.amazon.com/eks/latest/userguide/sec-group-reqs.html">worker nodes security group</a> docs. Your node security group must permit incoming traffic on TCP port 9443 from the Kubernetes control plane. This is needed for webhook access.</p>
 <p>If you use <a href="https://eksctl.io/usage/vpc-networking/">eksctl</a>, this is the default configuration.</p>
+<p>If you use custom networking, please refer to the <a href="https://aws.github.io/aws-eks-best-practices/networking/custom-networking/#use-custom-networking-when">EKS Best Practices Guides</a> for network configuration.</p>
 <h2 id="add-controller-to-cluster">Add controller to cluster<a class="headerlink" href="#add-controller-to-cluster" title="Permanent link">&para;</a></h2>
 <p>We recommend using the Helm chart to install the controller. The chart supports Fargate and facilitates updating the controller.</p>
 <div class="tabbed-set" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><label for="__tabbed_1_1">Helm</label><div class="tabbed-content">
@@ -1353,7 +1383,8 @@ You will no longer be able to provision new Classic Load Balancer (CLB) from you
 </code></pre></div></li>
 <li>
 <p>If upgrading the chart via <code>helm upgrade</code>, install the <code>TargetGroupBinding</code> CRDs.
-<div class="highlight"><pre><span></span><code>kubectl apply -k &quot;github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master&quot;
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/aws/eks-charts/master/stable/aws-load-balancer-controller/crds/crds.yaml
+kubectl apply -f crds.yaml
 </code></pre></div></p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
@@ -1375,7 +1406,7 @@ You will no longer be able to provision new Classic Load Balancer (CLB) from you
 <h3 id="apply-yaml">Apply YAML<a class="headerlink" href="#apply-yaml" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Download the spec for the LBC.
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.6.0/v2_6_0_full.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.6.1/v2_6_1_full.yaml
 </code></pre></div></li>
 <li>Edit the saved yaml file, go to the Deployment spec, and set the controller <code>--cluster-name</code> arg value to your EKS cluster name
 <div class="highlight"><pre><span></span><code>apiVersion: apps/v1
@@ -1389,20 +1420,20 @@ spec:
         spec:
             containers:
                 - args:
-                    - --cluster-name=&lt;INSERT_CLUSTER_NAME&gt;
+                    - --cluster-name=&lt;your-cluster-name&gt;
 </code></pre></div></li>
 <li>If you use IAM roles for service accounts, we recommend that you delete the <code>ServiceAccount</code> from the yaml spec. If you delete the installation section from the yaml spec, deleting the <code>ServiceAccount</code> preserves the <code>eksctl</code> created <code>iamserviceaccount</code>.
 <div class="highlight"><pre><span></span><code>apiVersion: v1
 kind: ServiceAccount
 </code></pre></div></li>
 <li>Apply the yaml file
-<div class="highlight"><pre><span></span><code>kubectl apply -f v2_6_0_full.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f v2_6_1_full.yaml
 </code></pre></div></li>
 <li>Optionally download the default ingressclass and ingressclass params
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.6.0/v2_6_0_ingclass.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.6.1/v2_6_1_ingclass.yaml
 </code></pre></div></li>
 <li>Apply the ingressclass and params
-<div class="highlight"><pre><span></span><code>kubectl apply -f v2_6_0_ingclass.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f v2_6_1_ingclass.yaml
 </code></pre></div></li>
 </ol>
 </div>

@@ -808,6 +808,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/use_cases/frontend_sg/" class="md-nav__link">
+        Frontend Security Groups
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -1161,9 +1173,9 @@ I1015 16:08:03.662023       1 leaderelection.go:252] successfully acquired lease
 <ol>
 <li>
 <p>Deploy all the echoserver resources (namespace, service, deployment)</p>
-<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/examples/echoservice/echoserver-deployment.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.1/docs/examples/echoservice/echoserver-namespace.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.1/docs/examples/echoservice/echoserver-service.yaml <span class="o">&amp;&amp;</span><span class="se">\</span>
+kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.1/docs/examples/echoservice/echoserver-deployment.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1183,7 +1195,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <ol>
 <li>
 <p>Download the echoserver ingress manifest locally.</p>
-<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/examples/echoservice/echoserver-ingress.yaml
+<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.1/docs/examples/echoservice/echoserver-ingress.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1352,7 +1364,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <ol>
 <li>
 <p>configure the proper policy
-    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.0/docs/install/iam_policy.json</p>
+    The policy to be used can be fetched from https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.6.1/docs/install/iam_policy.json</p>
 </li>
 <li>
 <p>configure the proper role and create the trust relationship
@@ -1427,7 +1439,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
   
     <nav class="md-footer__inner md-grid" aria-label="Footer">
       
-        <a href="../../guide/use_cases/self_managed_lb/" class="md-footer__link md-footer__link--prev" rel="prev">
+        <a href="../../guide/use_cases/frontend_sg/" class="md-footer__link md-footer__link--prev" rel="prev">
           <div class="md-footer__button md-icon">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg>
           </div>
@@ -1436,7 +1448,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
               <span class="md-footer__direction">
                 Previous
               </span>
-              Externally Managed Load Balancer
+              Frontend Security Groups
             </div>
           </div>
         </a>

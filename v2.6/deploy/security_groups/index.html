@@ -68,7 +68,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#security-groups" class="md-skip">
+        <a href="#security-groups-for-load-balancers" class="md-skip">
           Skip to content
         </a>
       
@@ -486,6 +486,19 @@
     Frontend Security Groups
   </a>
   
+    <nav class="md-nav" aria-label="Frontend Security Groups">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    Configuration
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -497,15 +510,35 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#management-of-backend-security-group-rules" class="md-nav__link">
-    Management of Backend Security Group Rules
+  <a href="#configuration_1" class="md-nav__link">
+    Configuration
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#port-range-restrictions-for-backend-security-group-rules" class="md-nav__link">
-    Port Range Restrictions for Backend Security Group Rules
+  <a href="#coordination-of-frontend-and-backend-security-groups" class="md-nav__link">
+    Coordination of Frontend and Backend Security Groups
+  </a>
+  
+    <nav class="md-nav" aria-label="Coordination of Frontend and Backend Security Groups">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enable-autogeneration-of-backend-security-group-rules" class="md-nav__link">
+    Enable Autogeneration of Backend Security Group Rules
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#port-range-restrictions" class="md-nav__link">
+    Port Range Restrictions
   </a>
   
 </li>
@@ -877,6 +910,18 @@
   
 
           
+            
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/use_cases/frontend_sg/" class="md-nav__link">
+        Frontend Security Groups
+      </a>
+    </li>
+  
+
+          
         </ul>
       </nav>
     </li>
@@ -997,6 +1042,19 @@
     Frontend Security Groups
   </a>
   
+    <nav class="md-nav" aria-label="Frontend Security Groups">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    Configuration
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1008,15 +1066,35 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#management-of-backend-security-group-rules" class="md-nav__link">
-    Management of Backend Security Group Rules
+  <a href="#configuration_1" class="md-nav__link">
+    Configuration
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#port-range-restrictions-for-backend-security-group-rules" class="md-nav__link">
-    Port Range Restrictions for Backend Security Group Rules
+  <a href="#coordination-of-frontend-and-backend-security-groups" class="md-nav__link">
+    Coordination of Frontend and Backend Security Groups
+  </a>
+  
+    <nav class="md-nav" aria-label="Coordination of Frontend and Backend Security Groups">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enable-autogeneration-of-backend-security-group-rules" class="md-nav__link">
+    Enable Autogeneration of Backend Security Group Rules
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#port-range-restrictions" class="md-nav__link">
+    Port Range Restrictions
   </a>
   
 </li>
@@ -1043,24 +1121,62 @@
                   </a>
                 
                 
-                <h1 id="security-groups">Security groups<a class="headerlink" href="#security-groups" title="Permanent link">&para;</a></h1>
-<p>The AWS Load Balancer Controller classifies security groups into two categories: frontend and backend.</p>
+                <h1 id="security-groups-for-load-balancers">Security Groups for Load Balancers<a class="headerlink" href="#security-groups-for-load-balancers" title="Permanent link">&para;</a></h1>
+<p>Use security groups to limit client connections to your load balancers, and restrict connections with nodes. The AWS Load Balancer Controller (LBC) defines two classifications of security groups: <strong>frontend</strong> and <strong>backend</strong>.</p>
+<ul>
+<li><strong>Frontend Security Groups:</strong> Determine the clients that can access the load balancers.</li>
+<li><strong>Backend Security Groups:</strong> Permit the load balancer to connect to targets, such as EC2 instances or ENIs.</li>
+</ul>
 <h2 id="frontend-security-groups">Frontend Security Groups<a class="headerlink" href="#frontend-security-groups" title="Permanent link">&para;</a></h2>
-<p>Frontend security groups control which clients can access the load balancers. The frontend security groups can be configured with the <code>alb.ingress.kubernetes.io/security-groups</code> annotation on Ingress resources or <code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code> annotation on Service resources. If the annotations are not specified, the LBC will create one security group per load balancer, allowing traffic from <code>inbound-cidrs</code> to <code>listen-ports</code>.</p>
+<p>Frontend security groups control access to load balancers by specifying which clients can connect to them.</p>
+<p>Use cases for Frontent Security Groups include:</p>
+<ul>
+<li>Placing the load balancer behind another service, such as <a href="https://docs.aws.amazon.com/waf/latest/developerguide/what-is-aws-waf.html">AWS Web Application Firewall</a> or <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Introduction.html">AWS CloudFront</a>.</li>
+<li>Blocking the IP address range (CIDR) of a region.</li>
+<li>Configuring the Load Balancer for private or internal use, by specifying internal CIDRs and Security Groups. </li>
+</ul>
+<p>In the default configuration, the LBC automatically creates one security group per load balancer, allowing traffic from <code>inbound-cidrs</code> to <code>listen-ports</code>.</p>
+<h3 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h3>
+<p>Apply custom frontend security groups with an annotation. This disables automatic generation of frontend security groups. </p>
+<ul>
+<li>For Ingress resources, use the <a href="../../guide/ingress/annotations/#security-groups"><code>alb.ingress.kubernetes.io/security-groups</code></a> annotation.</li>
+<li>For Service resources, use the <a href="../../guide/service/annotations/#security-groups"><code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code></a> annotation.</li>
+<li>The annotation must be set to one or more security group IDs or security group names.</li>
+</ul>
 <h2 id="backend-security-groups">Backend Security Groups<a class="headerlink" href="#backend-security-groups" title="Permanent link">&para;</a></h2>
-<p>A single shared backend security group controls the traffic between load balancers and their target EC2 instances or ENIs. This security group is attached to the load balancers and is used as the traffic source in the ENI/Instance security group rules. The backend security group is shared between multiple load balancers.</p>
-<p>The controller flag <code>--enable-backend-security-group</code> (default <code>true</code>) is used to enable/disable the shared backend security group. The flag <code>--backend-security-group</code> (default empty) is used to pass in the security group to use as a shared backend security group. If it is empty, the LBC will auto-generate a security group with the following name and tags -</p>
-<div class="highlight"><pre><span></span><code>name: k8s-traffic-&lt;cluster_name&gt;-&lt;hash_of_cluster_name&gt;
-tags: 
-    elbv2.k8s.aws/cluster: &lt;cluster_name&gt;
-    elbv2.k8s.aws/resource: backend-sg
+<p>Backend Security Groups control traffic between AWS Load Balancers and their target EC2 instances or ENIs. For example, backend security groups can restrict the ports load balancers may access on nodes.</p>
+<ul>
+<li>Backend security groups permit traffic from AWS Load Balancers to their targets. </li>
+<li>LBC uses a single, shared backend security group, attaching it to each load balancer and using as the traffic source in the security group rules it adds to targets.</li>
+<li>When configuring security group rules at the ENI/Instance level, use the Security Group ID of the backend security group. Avoid using the IP addresses of a specific AWS Load Balancer, these IPs are dynamic and the security group rules aren't updated automatically.</li>
+</ul>
+<h3 id="configuration_1">Configuration<a class="headerlink" href="#configuration_1" title="Permanent link">&para;</a></h3>
+<p><strong>Enable or Disable:</strong> Use <code>--enable-backend-security-group</code> (default <code>true</code>) to enable/disable the shared backend security group.</p>
+<p>You can turn off the shared backend security group feature by setting it to <code>false</code>. However, if you have a high number of Ingress resources with frontend security groups auto-generated by the controller, you might run into security group rule limits on the instance/ENI security groups.</p>
+<p><strong>Specification:</strong> Use <code>--backend-security-group</code> to pass in a security group ID to use as a custom shared backend security group. </p>
+<p>If <code>--backend-security-group</code> is left empty, a security group with the following attributes will be created:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">k8s-traffic-&lt;cluster_name&gt;-&lt;hash_of_cluster_name&gt;</span>
+<span class="nt">tags</span><span class="p">:</span> 
+    <span class="nt">elbv2.k8s.aws/cluster</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">&lt;cluster_name&gt;</span>
+    <span class="nt">elbv2.k8s.aws/resource</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">backend-sg</span>
 </code></pre></div>
-<p>You can turn off the shared backend security group feature by setting <code>--enable-backend-security-group</code> to <code>false</code>. However, if you have a high number of Ingress resources with frontend security groups auto-generated by the controller, you might run into security group rule limits on the instance/ENI security groups.</p>
-<h3 id="management-of-backend-security-group-rules">Management of Backend Security Group Rules<a class="headerlink" href="#management-of-backend-security-group-rules" title="Permanent link">&para;</a></h3>
-<p>When the LBC auto-creates the frontend security group for a load balancer, it automatically adds the security group rules to allow traffic from the load balancer to the backend instances/ENIs.</p>
-<p>When the frontend security group is specified via the <code>alb.ingress.kubernetes.io/security-groups</code> annotation on Ingress resources or <code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code> annotation on Service resources, the controller will not by default add any security group rules to the backend instances/ENIs. The automatic management of instance/ENI security group can be controlled via the additional annotation <code>alb.ingress.kubernetes.io/manage-backend-security-group-rules</code> on Ingress resources or <code>service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules</code> on Service resources. When these annotations are set to true the security group rules are automatically managed by the controller. These annotations get ignored in the case of auto-generated security groups. <code>--enable-backend-security-group</code> needs to be true if either <code>alb.ingress.kubernetes.io/manage-backend-security-group-rules</code> or <code>service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules</code> are specified, otherwise it is an error.</p>
-<h3 id="port-range-restrictions-for-backend-security-group-rules">Port Range Restrictions for Backend Security Group Rules<a class="headerlink" href="#port-range-restrictions-for-backend-security-group-rules" title="Permanent link">&para;</a></h3>
-<p>As of version v2.3.0, the controller will by default restrict the backend security group rules to specific port ranges. You can set the controller flag <code>--disable-restricted-sg-rules</code> to <code>true</code> to get the backend security group rules to allow traffic to ALL ports.</p>
+<h3 id="coordination-of-frontend-and-backend-security-groups">Coordination of Frontend and Backend Security Groups<a class="headerlink" href="#coordination-of-frontend-and-backend-security-groups" title="Permanent link">&para;</a></h3>
+<ul>
+<li>If the LBC auto-creates the frontend security group for a load balancer, it automatically adds the security group rules to allow traffic from the load balancer to the backend instances/ENIs.</li>
+<li>If the frontend security groups are manually specified, the LBC will not <strong>by default</strong> add any rules to the backend security group.</li>
+</ul>
+<h4 id="enable-autogeneration-of-backend-security-group-rules">Enable Autogeneration of Backend Security Group Rules<a class="headerlink" href="#enable-autogeneration-of-backend-security-group-rules" title="Permanent link">&para;</a></h4>
+<ul>
+<li>If using custom frontend security groups, the LBC can be configured to automatically manage backend security group rules.</li>
+<li>To enable managing backend security group rules, apply an additional annotation to Ingress and Service resources.</li>
+<li>For Ingress resources, set the <code>alb.ingress.kubernetes.io/manage-backend-security-group-rules</code> annotation to <code>true</code>.</li>
+<li>For Service resources, set the <code>service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules</code> annotation to <code>true</code>.</li>
+<li>If management of backend security group rules is enabled with an annotation on a Service or Ingress, then <code>--enable-backend-security-group</code> must be set to true.</li>
+<li>These annotations are ignored when using auto-generated frontend security groups. </li>
+</ul>
+<h3 id="port-range-restrictions">Port Range Restrictions<a class="headerlink" href="#port-range-restrictions" title="Permanent link">&para;</a></h3>
+<p>From version v2.3.0 onwards, the controller restricts port ranges in the backend security group rules by default. This improves the security of the default configuration. The LBC should generate the necessary rules to permit traffic, based on the Service and Ingress resources. </p>
+<p>If needed, set the controller flag <code>--disable-restricted-sg-rules</code> to <code>true</code> to permit traffic to all ports. This may be appropriate for backwards compatability, or troubleshooting. </p>
                 
               
               
