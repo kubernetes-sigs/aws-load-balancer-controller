@@ -21,6 +21,7 @@ const (
 	SubnetsClusterTagCheck       Feature = "SubnetsClusterTagCheck"
 	NLBHealthCheckAdvancedConfig Feature = "NLBHealthCheckAdvancedConfig"
 	NLBSecurityGroup             Feature = "NLBSecurityGroup"
+	ALBSingleSubnet              Feature = "ALBSingleSubnet"
 )
 
 type FeatureGates interface {
@@ -58,6 +59,7 @@ func NewFeatureGates() FeatureGates {
 			SubnetsClusterTagCheck:       true,
 			NLBHealthCheckAdvancedConfig: true,
 			NLBSecurityGroup:             true,
+			ALBSingleSubnet:              false,
 		},
 	}
 }

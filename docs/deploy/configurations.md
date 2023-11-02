@@ -172,3 +172,4 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 | EnableRGTAPI                       | string                          | false          | If enabled, the tagging manager will describe resource tags via RGT APIs, otherwise via ELB APIs. In order to enable RGT API, `tag:GetResources` is needed in controller IAM policy. |
 | SubnetsClusterTagCheck                | string                          | true           | Enable or disable the check for `kubernetes.io/cluster/${cluster-name}` during subnet auto-discovery |
 | NLBHealthCheckAdvancedConfiguration   | string                          | true           | Enable or disable advanced health check configuration for NLB, for example health check timeout |
+| ALBSingleSubnet                       | string                          | false          | If enabled, controller will allow using only 1 subnet for provisioning ALB, which need to get whitelisted by ELB in advance |
