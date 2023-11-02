@@ -253,6 +253,9 @@ env:
   # ENV_1: ""
   # ENV_2: ""
 
+# Use Environment variables credentials from Secret (aws-secret) for aws-load-balancer-controller pod similarly as The EBS CSI Driver does.
+# envSecretName: aws-secret
+
 # Specifies if aws-load-balancer-controller should be started in hostNetwork mode.
 #
 # This is required if using a custom CNI where the managed control plane nodes are unable to initiate
