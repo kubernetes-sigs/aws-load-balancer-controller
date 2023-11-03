@@ -88,7 +88,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-attributes": "access_logs.s3.enabled=true,access_logs.s3.bucket=nlb-bucket," +
-							"access_logs.s3.prefix=bkt-pfx,load_balancing.cross_zone.enabled=true,deletion_protection.enabled=true",
+							"access_logs.s3.prefix=bkt-pfx,load_balancing.cross_zone.enabled=true,deletion_protection.enabled=true,dns_record.client_routing_policy=availability_zone_affinity",
 					},
 				},
 			},
@@ -113,6 +113,10 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 				{
 					Key:   lbAttrsDeletionProtectionEnabled,
 					Value: "true",
+				},
+				{
+					Key:   lbAttrsLoadBalancingDnsClientRoutingPolicy,
+					Value: availabilityZoneAffinity,
 				},
 			},
 		},

@@ -26,12 +26,16 @@ import (
 )
 
 const (
-	lbAttrsAccessLogsS3Enabled           = "access_logs.s3.enabled"
-	lbAttrsAccessLogsS3Bucket            = "access_logs.s3.bucket"
-	lbAttrsAccessLogsS3Prefix            = "access_logs.s3.prefix"
-	lbAttrsLoadBalancingCrossZoneEnabled = "load_balancing.cross_zone.enabled"
-	resourceIDLoadBalancer               = "LoadBalancer"
-	minimalAvailableIPAddressCount       = int64(8)
+	lbAttrsAccessLogsS3Enabled                 = "access_logs.s3.enabled"
+	lbAttrsAccessLogsS3Bucket                  = "access_logs.s3.bucket"
+	lbAttrsAccessLogsS3Prefix                  = "access_logs.s3.prefix"
+	lbAttrsLoadBalancingCrossZoneEnabled       = "load_balancing.cross_zone.enabled"
+	lbAttrsLoadBalancingDnsClientRoutingPolicy = "dns_record.client_routing_policy"
+	availabilityZoneAffinity                   = "availability_zone_affinity"
+	partialAvailabilityZoneAffinity            = "partial_availability_zone_affinity"
+	anyAvailabilityZone                        = "any_availability_zone"
+	resourceIDLoadBalancer                     = "LoadBalancer"
+	minimalAvailableIPAddressCount             = int64(8)
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
@@ -436,6 +440,18 @@ func (t *defaultModelBuildTask) getLoadBalancerAttributes() (map[string]string, 
 	var attributes map[string]string
 	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &attributes, t.service.Annotations); err != nil {
 		return nil, err
+	}
+	dnsRecordClientRoutingPolicy, exists := attributes[lbAttrsLoadBalancingDnsClientRoutingPolicy]
+	if exists {
+		switch dnsRecordClientRoutingPolicy {
+		case availabilityZoneAffinity:
+		case partialAvailabilityZoneAffinity:
+		case anyAvailabilityZone:
+		default:
+			return nil, errors.Errorf("invalid dns_record.client_routing_policy set in annotation %s: got '%s' expected one of ['%s', '%s', '%s']",
+				annotations.SvcLBSuffixLoadBalancerAttributes, dnsRecordClientRoutingPolicy,
+				anyAvailabilityZone, partialAvailabilityZoneAffinity, availabilityZoneAffinity)
+		}
 	}
 	return attributes, nil
 }
