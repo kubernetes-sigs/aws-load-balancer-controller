@@ -355,6 +355,7 @@ controllerConfig:
   # SubnetsClusterTagCheck: true
   # NLBHealthCheckAdvancedConfig: true
   # ALBSingleSubnet: false
+  # MultiClusterIPTargets: false
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope

@@ -2,16 +2,20 @@ package targetgroupbinding
 
 import (
 	"context"
+	"sync"
+	"testing"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/eks"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sync"
-	"testing"
-	"time"
 )
 
 func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
@@ -803,6 +807,350 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 					targetsCacheItem := rawTargetsCacheItem.(*targetsCacheItem)
 					assert.ElementsMatch(t, targets, targetsCacheItem.targets)
 				}
+			}
+		})
+	}
+}
+
+func Test_cachedTargetsManager_ListOwnedTargets(t *testing.T) {
+	type describeTargetHealthWithContextCall struct {
+		req  *elbv2sdk.DescribeTargetHealthInput
+		resp *elbv2sdk.DescribeTargetHealthOutput
+		err  error
+	}
+	type describeClusterWithContextCall struct {
+		req  *eks.DescribeClusterInput
+		resp *eks.DescribeClusterOutput
+		err  error
+	}
+	type describeSubnetsCall struct {
+		req  *ec2sdk.DescribeSubnetsInput
+		resp *ec2sdk.DescribeSubnetsOutput
+		err  error
+	}
+	type fields struct {
+		describeTargetHealthWithContextCalls []describeTargetHealthWithContextCall
+		describeClusterWithContextCalls      []describeClusterWithContextCall
+		describeSubnetsCalls                 []describeSubnetsCall
+		clusterName                          string
+	}
+	type args struct {
+		tgARN string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []TargetInfo
+		wantErr error
+	}{
+		{
+			name: "when targets are IPs, one is in the cluster",
+			fields: fields{
+				describeTargetHealthWithContextCalls: []describeTargetHealthWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTargetHealthInput{
+							TargetGroupArn: awssdk.String("my-tg"),
+							Targets:        nil,
+						},
+						resp: &elbv2sdk.DescribeTargetHealthOutput{
+							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+								{
+									Target: &elbv2sdk.TargetDescription{
+										Id:   awssdk.String("192.168.1.1"),
+										Port: awssdk.Int64(8080),
+									},
+									TargetHealth: &elbv2sdk.TargetHealth{
+										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									},
+								},
+								{
+									Target: &elbv2sdk.TargetDescription{
+										Id:   awssdk.String("10.0.0.1"),
+										Port: awssdk.Int64(8080),
+									},
+									TargetHealth: &elbv2sdk.TargetHealth{
+										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									},
+								},
+							},
+						},
+					},
+				},
+				describeClusterWithContextCalls: []describeClusterWithContextCall{
+					{
+						req: &eks.DescribeClusterInput{
+							Name: awssdk.String("cluster_1"),
+						},
+						resp: &eks.DescribeClusterOutput{
+							Cluster: &eks.Cluster{
+								ResourcesVpcConfig: &eks.VpcConfigResponse{
+									SubnetIds: awssdk.StringSlice([]string{"subnet-01234567890abcdef", "subnet-0bb1c79de3abcdef"}),
+								},
+							},
+						},
+					},
+				},
+				describeSubnetsCalls: []describeSubnetsCall{
+					{
+						req: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: awssdk.StringSlice([]string{"subnet-01234567890abcdef", "subnet-0bb1c79de3abcdef"}),
+						},
+						resp: &ec2sdk.DescribeSubnetsOutput{
+							Subnets: []*ec2sdk.Subnet{
+								{
+									CidrBlock: awssdk.String("10.0.0.0/24"),
+								},
+								{
+									CidrBlock: awssdk.String("10.0.1.0/24"),
+								},
+							},
+						},
+					},
+				},
+				clusterName: "cluster_1",
+			},
+			args: args{
+				tgARN: "my-tg",
+			},
+			want: []TargetInfo{
+				{
+					Target: elbv2sdk.TargetDescription{
+						Id:   awssdk.String("10.0.0.1"),
+						Port: awssdk.Int64(8080),
+					},
+					TargetHealth: &elbv2sdk.TargetHealth{
+						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					},
+				},
+			},
+		},
+		{
+			name: "when targets are instances, keep all",
+			fields: fields{
+				describeTargetHealthWithContextCalls: []describeTargetHealthWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTargetHealthInput{
+							TargetGroupArn: awssdk.String("my-tg"),
+							Targets:        nil,
+						},
+						resp: &elbv2sdk.DescribeTargetHealthOutput{
+							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+								{
+									Target: &elbv2sdk.TargetDescription{
+										Id:   awssdk.String("i-0fa2d0064e848c69e"),
+										Port: awssdk.Int64(8080),
+									},
+									TargetHealth: &elbv2sdk.TargetHealth{
+										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									},
+								},
+								{
+									Target: &elbv2sdk.TargetDescription{
+										Id:   awssdk.String("i-gdh270064e848c70e"),
+										Port: awssdk.Int64(8080),
+									},
+									TargetHealth: &elbv2sdk.TargetHealth{
+										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									},
+								},
+							},
+						},
+					},
+				},
+				describeClusterWithContextCalls: []describeClusterWithContextCall{
+					{
+						req: &eks.DescribeClusterInput{
+							Name: awssdk.String("cluster_1"),
+						},
+						resp: &eks.DescribeClusterOutput{
+							Cluster: &eks.Cluster{
+								ResourcesVpcConfig: &eks.VpcConfigResponse{
+									SubnetIds: awssdk.StringSlice([]string{"subnet-01234567890abcdef", "subnet-0bb1c79de3abcdef"}),
+								},
+							},
+						},
+					},
+				},
+				describeSubnetsCalls: []describeSubnetsCall{
+					{
+						req: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: awssdk.StringSlice([]string{"subnet-01234567890abcdef", "subnet-0bb1c79de3abcdef"}),
+						},
+						resp: &ec2sdk.DescribeSubnetsOutput{
+							Subnets: []*ec2sdk.Subnet{
+								{
+									CidrBlock: awssdk.String("10.0.0.0/24"),
+								},
+								{
+									CidrBlock: awssdk.String("10.0.1.0/24"),
+								},
+							},
+						},
+					},
+				},
+				clusterName: "cluster_1",
+			},
+			args: args{
+				tgARN: "my-tg",
+			},
+			want: []TargetInfo{
+				{
+					Target: elbv2sdk.TargetDescription{
+						Id:   awssdk.String("i-0fa2d0064e848c69e"),
+						Port: awssdk.Int64(8080),
+					},
+					TargetHealth: &elbv2sdk.TargetHealth{
+						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					},
+				},
+				{
+					Target: elbv2sdk.TargetDescription{
+						Id:   awssdk.String("i-gdh270064e848c70e"),
+						Port: awssdk.Int64(8080),
+					},
+					TargetHealth: &elbv2sdk.TargetHealth{
+						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					},
+				},
+			},
+		},
+		{
+			name: "when targets include lambda ARNs, instances, and the ip is in the cluster",
+			fields: fields{
+				describeTargetHealthWithContextCalls: []describeTargetHealthWithContextCall{
+					{
+						req: &elbv2sdk.DescribeTargetHealthInput{
+							TargetGroupArn: awssdk.String("my-tg"),
+							Targets:        nil,
+						},
+						resp: &elbv2sdk.DescribeTargetHealthOutput{
+							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+								{
+									Target: &elbv2sdk.TargetDescription{
+										Id:   awssdk.String("10.0.0.1"),
+										Port: awssdk.Int64(8080),
+									},
+									TargetHealth: &elbv2sdk.TargetHealth{
+										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									},
+								},
+								{
+									Target: &elbv2sdk.TargetDescription{
+										Id:   awssdk.String("i-gdh270064e848c70e"),
+										Port: awssdk.Int64(8080),
+									},
+									TargetHealth: &elbv2sdk.TargetHealth{
+										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									},
+								},
+								{
+									Target: &elbv2sdk.TargetDescription{
+										Id:   awssdk.String("arn:aws:lambda:us-west-2:123456789012:function:my-function"),
+										Port: awssdk.Int64(8080),
+									},
+									TargetHealth: &elbv2sdk.TargetHealth{
+										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									},
+								},
+							},
+						},
+					},
+				},
+				describeClusterWithContextCalls: []describeClusterWithContextCall{
+					{
+						req: &eks.DescribeClusterInput{
+							Name: awssdk.String("cluster_1"),
+						},
+						resp: &eks.DescribeClusterOutput{
+							Cluster: &eks.Cluster{
+								ResourcesVpcConfig: &eks.VpcConfigResponse{
+									SubnetIds: awssdk.StringSlice([]string{"subnet-01234567890abcdef", "subnet-0bb1c79de3abcdef"}),
+								},
+							},
+						},
+					},
+				},
+				describeSubnetsCalls: []describeSubnetsCall{
+					{
+						req: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: awssdk.StringSlice([]string{"subnet-01234567890abcdef", "subnet-0bb1c79de3abcdef"}),
+						},
+						resp: &ec2sdk.DescribeSubnetsOutput{
+							Subnets: []*ec2sdk.Subnet{
+								{
+									CidrBlock: awssdk.String("10.0.0.0/24"),
+								},
+								{
+									CidrBlock: awssdk.String("10.0.1.0/24"),
+								},
+							},
+						},
+					},
+				},
+				clusterName: "cluster_1",
+			},
+			args: args{
+				tgARN: "my-tg",
+			},
+			want: []TargetInfo{
+				{
+					Target: elbv2sdk.TargetDescription{
+						Id:   awssdk.String("10.0.0.1"),
+						Port: awssdk.Int64(8080),
+					},
+					TargetHealth: &elbv2sdk.TargetHealth{
+						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					},
+				},
+				{
+					Target: elbv2sdk.TargetDescription{
+						Id:   awssdk.String("i-gdh270064e848c70e"),
+						Port: awssdk.Int64(8080),
+					},
+					TargetHealth: &elbv2sdk.TargetHealth{
+						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			elbv2Client := services.NewMockELBV2(ctrl)
+			for _, call := range tt.fields.describeTargetHealthWithContextCalls {
+				elbv2Client.EXPECT().DescribeTargetHealthWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			eksClient := services.NewMockEKS(ctrl)
+			for _, call := range tt.fields.describeClusterWithContextCalls {
+				eksClient.EXPECT().DescribeClusterWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			ec2Client := services.NewMockEC2(ctrl)
+			for _, call := range tt.fields.describeSubnetsCalls {
+				ec2Client.EXPECT().DescribeSubnets(call.req).Return(call.resp, call.err)
+			}
+			cacheTTL := 1 * time.Minute
+			targetsCache := cache.NewExpiring()
+			m := &cachedTargetsManager{
+				elbv2Client:       elbv2Client,
+				targetsCache:      targetsCache,
+				targetsCacheTTL:   cacheTTL,
+				targetsCacheMutex: sync.RWMutex{},
+			}
+			eksInfoResolver := networking.NewDefaultEKSInfoResolver(
+				eksClient, ec2Client, tt.fields.clusterName,
+			)
+
+			ctx := context.Background()
+			got, err := m.ListOwnedTargets(ctx, tt.args.tgARN, eksInfoResolver)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
 			}
 		})
 	}

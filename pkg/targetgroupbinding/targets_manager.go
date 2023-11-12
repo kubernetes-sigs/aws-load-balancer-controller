@@ -2,19 +2,25 @@ package targetgroupbinding
 
 import (
 	"context"
+	"net/netip"
+	"regexp"
+	"sync"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sync"
-	"time"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 const (
 	defaultTargetsCacheTTL            = 5 * time.Minute
 	defaultRegisterTargetsChunkSize   = 200
 	defaultDeregisterTargetsChunkSize = 200
+
+	defaultInstanceCacheTTL = 30 * time.Minute
 )
 
 // TargetsManager is an abstraction around ELBV2's targets API.
@@ -27,6 +33,9 @@ type TargetsManager interface {
 
 	// List Targets from TargetGroup.
 	ListTargets(ctx context.Context, tgARN string) ([]TargetInfo, error)
+
+	// List Targets from TargetGroup that the cluster controls.
+	ListOwnedTargets(ctx context.Context, tgARN string, eksInfoResolver networking.EKSInfoResolver) ([]TargetInfo, error)
 }
 
 // NewCachedTargetsManager constructs new cachedTargetsManager
@@ -143,6 +152,60 @@ func (m *cachedTargetsManager) ListTargets(ctx context.Context, tgARN string) ([
 	}
 	m.targetsCache.Set(tgARN, targetsCacheItem, m.targetsCacheTTL)
 	return cloneTargetInfoSlice(refreshedTargets), nil
+}
+
+// A copy of ListTargets, except ListOwnedTargets requires an EKSInfoResolver so that it can only return targets that
+// are owned by the cluster. It used CIDRs to determine if an IP target is owned by the cluster, as assumes instances are
+func (m *cachedTargetsManager) ListOwnedTargets(ctx context.Context, tgARN string, eksInfoResolver networking.EKSInfoResolver) ([]TargetInfo, error) {
+	m.targetsCacheMutex.Lock()
+	defer m.targetsCacheMutex.Unlock()
+
+	if rawTargetsCacheItem, exists := m.targetsCache.Get(tgARN); exists {
+		targetsCacheItem := rawTargetsCacheItem.(*targetsCacheItem)
+		targetsCacheItem.mutex.Lock()
+		defer targetsCacheItem.mutex.Unlock()
+		refreshedTargets, err := m.refreshUnhealthyTargets(ctx, tgARN, targetsCacheItem.targets)
+		if err != nil {
+			return nil, err
+		}
+		targetsCacheItem.targets = refreshedTargets
+		return cloneTargetInfoSlice(refreshedTargets), nil
+	}
+
+	refreshedTargets, err := m.refreshAllTargets(ctx, tgARN)
+	if err != nil {
+		return nil, err
+	}
+	targetsCacheItem := &targetsCacheItem{
+		mutex:   sync.RWMutex{},
+		targets: refreshedTargets,
+	}
+	m.targetsCache.Set(tgARN, targetsCacheItem, m.targetsCacheTTL)
+
+	var parsedTargets []TargetInfo
+	clusterCIDRs, err := eksInfoResolver.ListCIDRs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var isInstanceID = regexp.MustCompile("i-[a-z0-9]{17}")
+
+	for _, target := range refreshedTargets {
+		if isInstanceID.MatchString(*target.Target.Id) {
+			parsedTargets = append(parsedTargets, target)
+		} else {
+			ip, err := netip.ParseAddr(*target.Target.Id)
+			// Ignore the cases where this errors, the target will be a lambda or ALB ARN, neither of which
+			// the cluster will have ownership of
+			if err == nil {
+				if networking.IsIPWithinCIDRs(ip, clusterCIDRs) {
+					parsedTargets = append(parsedTargets, target)
+				}
+			}
+		}
+	}
+
+	return cloneTargetInfoSlice(parsedTargets), nil
 }
 
 // refreshAllTargets will refresh all targets for targetGroup.
