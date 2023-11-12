@@ -35,9 +35,11 @@ type ResourceManager interface {
 }
 
 // NewDefaultResourceManager constructs new defaultResourceManager.
-func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
+func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2, eksClient services.EKS,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
 	vpcInfoProvider networking.VPCInfoProvider,
+	eksInfoResolver networking.EKSInfoResolver,
+	enableClusterAwareBindings bool,
 	vpcID string, clusterName string, failOpenEnabled bool, endpointSliceEnabled bool, disabledRestrictedSGRulesFlag bool,
 	endpointSGTags map[string]string,
 	eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
@@ -50,15 +52,17 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 
 	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, endpointSGTags, logger, disabledRestrictedSGRulesFlag)
 	return &defaultResourceManager{
-		k8sClient:         k8sClient,
-		targetsManager:    targetsManager,
-		endpointResolver:  endpointResolver,
-		networkingManager: networkingManager,
-		eventRecorder:     eventRecorder,
-		logger:            logger,
-		vpcID:             vpcID,
-		vpcInfoProvider:   vpcInfoProvider,
-		podInfoRepo:       podInfoRepo,
+		k8sClient:                  k8sClient,
+		targetsManager:             targetsManager,
+		endpointResolver:           endpointResolver,
+		eksInfoResolver:            eksInfoResolver,
+		enableClusterAwareBindings: enableClusterAwareBindings,
+		networkingManager:          networkingManager,
+		eventRecorder:              eventRecorder,
+		logger:                     logger,
+		vpcID:                      vpcID,
+		vpcInfoProvider:            vpcInfoProvider,
+		podInfoRepo:                podInfoRepo,
 
 		targetHealthRequeueDuration: defaultTargetHealthRequeueDuration,
 	}
@@ -68,15 +72,17 @@ var _ ResourceManager = &defaultResourceManager{}
 
 // default implementation for ResourceManager.
 type defaultResourceManager struct {
-	k8sClient         client.Client
-	targetsManager    TargetsManager
-	endpointResolver  backend.EndpointResolver
-	networkingManager NetworkingManager
-	eventRecorder     record.EventRecorder
-	logger            logr.Logger
-	vpcInfoProvider   networking.VPCInfoProvider
-	podInfoRepo       k8s.PodInfoRepo
-	vpcID             string
+	k8sClient                  client.Client
+	targetsManager             TargetsManager
+	endpointResolver           backend.EndpointResolver
+	eksInfoResolver            networking.EKSInfoResolver
+	enableClusterAwareBindings bool
+	networkingManager          NetworkingManager
+	eventRecorder              record.EventRecorder
+	logger                     logr.Logger
+	vpcInfoProvider            networking.VPCInfoProvider
+	podInfoRepo                k8s.PodInfoRepo
+	vpcID                      string
 
 	targetHealthRequeueDuration time.Duration
 }
@@ -126,11 +132,20 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		return err
 	}
 
+	var targets []TargetInfo
 	tgARN := tgb.Spec.TargetGroupARN
-	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
-	if err != nil {
-		return err
+	if m.enableClusterAwareBindings {
+		targets, err = m.targetsManager.ListOwnedTargets(ctx, tgARN, m.eksInfoResolver)
+		if err != nil {
+			return err
+		}
+	} else {
+		targets, err = m.targetsManager.ListTargets(ctx, tgARN)
+		if err != nil {
+			return err
+		}
 	}
+
 	notDrainingTargets, drainingTargets := partitionTargetsByDrainingStatus(targets)
 	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
 
@@ -190,11 +205,21 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		}
 		return err
 	}
+
+	var targets []TargetInfo
 	tgARN := tgb.Spec.TargetGroupARN
-	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
-	if err != nil {
-		return err
+	if m.enableClusterAwareBindings {
+		targets, err = m.targetsManager.ListOwnedTargets(ctx, tgARN, m.eksInfoResolver)
+		if err != nil {
+			return err
+		}
+	} else {
+		targets, err = m.targetsManager.ListTargets(ctx, tgARN)
+		if err != nil {
+			return err
+		}
 	}
+
 	notDrainingTargets, drainingTargets := partitionTargetsByDrainingStatus(targets)
 	_, unmatchedEndpoints, unmatchedTargets := matchNodePortEndpointWithTargets(endpoints, notDrainingTargets)
 

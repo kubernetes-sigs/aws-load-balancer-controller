@@ -27,6 +27,7 @@ const (
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
+	flagEnableClusterAwareBindings                   = "enable-cluster-aware-bindings"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
@@ -34,6 +35,7 @@ const (
 	defaultEnableBackendSG                           = true
 	defaultEnableEndpointSlices                      = false
 	defaultDisableRestrictedSGRules                  = false
+	defaultEnableClusterAwareBindings                = false
 )
 
 var (
@@ -77,6 +79,9 @@ type ControllerConfig struct {
 
 	// ServiceTargetENISGTags are AWS tags, in addition to the cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs.
 	ServiceTargetENISGTags map[string]string
+
+	// EnableClusterAwareBindings is a bool toggle to enable filtering targets on TGBs based on if they are managed by the cluster
+	EnableClusterAwareBindings bool
 
 	// Default SSL Policy that will be applied to all ingresses or services that do not have
 	// the SSL Policy annotation.
@@ -134,6 +139,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Disable the usage of restricted security group rules")
 	fs.StringToStringVar(&cfg.ServiceTargetENISGTags, flagServiceTargetENISGTags, nil,
 		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
+	fs.BoolVar(&cfg.EnableClusterAwareBindings, flagEnableClusterAwareBindings, defaultEnableClusterAwareBindings,
+		"Enable filtering targets to manage to only those managed by the cluster. Enabling this allows you to managed a TGB from multiple cluster")
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
