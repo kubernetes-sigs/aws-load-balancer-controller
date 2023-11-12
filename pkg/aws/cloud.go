@@ -23,6 +23,9 @@ type Cloud interface {
 	// EC2 provides API to AWS EC2
 	EC2() services.EC2
 
+	// EKS provides API to EKS
+	EKS() services.EKS
+
 	// ELBV2 provides API to AWS ELBV2
 	ELBV2() services.ELBV2
 
@@ -123,6 +126,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 	return &defaultCloud{
 		cfg:         cfg,
 		ec2:         ec2Service,
+		eks:         services.NewEKS(sess),
 		elbv2:       services.NewELBV2(sess),
 		acm:         services.NewACM(sess),
 		wafv2:       services.NewWAFv2(sess),
@@ -175,6 +179,7 @@ type defaultCloud struct {
 
 	ec2   services.EC2
 	elbv2 services.ELBV2
+	eks   services.EKS
 
 	acm         services.ACM
 	wafv2       services.WAFv2
@@ -185,6 +190,10 @@ type defaultCloud struct {
 
 func (c *defaultCloud) EC2() services.EC2 {
 	return c.ec2
+}
+
+func (c *defaultCloud) EKS() services.EKS {
+	return c.eks
 }
 
 func (c *defaultCloud) ELBV2() services.ELBV2 {
