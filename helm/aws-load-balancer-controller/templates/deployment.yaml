@@ -104,6 +104,9 @@ spec:
         {{- if .Values.targetgroupbindingMaxExponentialBackoffDelay }}
         - --targetgroupbinding-max-exponential-backoff-delay={{ .Values.targetgroupbindingMaxExponentialBackoffDelay }}
         {{- end }}
+        {{- if kindIs "bool" .Values.targetgroupbindingEnableCLusterAwareBindings }}
+        - --enable-cluster-aware-bindings={{ .Values.targetgroupbindingEnableCLusterAwareBindings }}
+        {{- end}}
         {{- if .Values.logLevel }}
         - --log-level={{ .Values.logLevel }}
         {{- end }}

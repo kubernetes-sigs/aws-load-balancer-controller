@@ -6,6 +6,7 @@ MOCKGEN=${MOCKGEN:-~/go/bin/mockgen}
 $MOCKGEN -package=mock_client -destination=./mocks/controller-runtime/client/client_mocks.go sigs.k8s.io/controller-runtime/pkg/client Client
 $MOCKGEN -package=services -destination=./pkg/aws/services/elbv2_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services ELBV2
 $MOCKGEN -package=services -destination=./pkg/aws/services/ec2_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services EC2
+$MOCKGEN -package=services -destination=./pkg/aws/services/eks_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services EKS
 $MOCKGEN -package=services -destination=./pkg/aws/services/shield_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services Shield
 $MOCKGEN -package=webhook -destination=./pkg/webhook/mutator_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/webhook Mutator
 $MOCKGEN -package=webhook -destination=./pkg/webhook/validator_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/webhook Validator

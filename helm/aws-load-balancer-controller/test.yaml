@@ -197,6 +197,9 @@ targetgroupbindingMaxConcurrentReconciles:
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
 
+# Enable cluster aware bindings, that will not remove targets that are not managed by the cluster
+targetgroupbindingEnableCLusterAwareBindings: 
+
 # Period at which the controller forces the repopulation of its local object stores. (default 1h0m0s)
 syncPeriod:
 
