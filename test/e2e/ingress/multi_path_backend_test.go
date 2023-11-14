@@ -17,11 +17,12 @@ import (
 var _ = Describe("test ingresses with multiple path and backends", func() {
 	var (
 		ctx context.Context
+		stack multiPathBackendStack
 	)
 
 	BeforeEach(func() {
 		ctx = context.Background()
-
+		stack = multiPathBackendStack{}
 		if tf.Options.ControllerImage != "" {
 			By(fmt.Sprintf("ensure cluster installed with controller: %s", tf.Options.ControllerImage), func() {
 				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false)
@@ -32,8 +33,8 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 	})
 
 	AfterEach(func() {
-		// TODO, force cleanup all left AWS resources if any.
-		// TODO, force cleanup all left K8s resources if any.
+		err := stack.Cleanup(ctx, tf)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	Context("with podReadinessGate enabled", func() {
@@ -94,9 +95,6 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-b")))
 				Expect(err).NotTo(HaveOccurred())
 			})
-
-			err = stack.Cleanup(ctx, tf)
-			Expect(err).NotTo(HaveOccurred())
 		})
 		It("IngressGroup across namespaces should behaves correctly", func() {
 			backendConfigA := BackendConfig{
@@ -224,9 +222,6 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-e")))
 				Expect(err).NotTo(HaveOccurred())
 			})
-
-			err = stack.Cleanup(ctx, tf)
-			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })
