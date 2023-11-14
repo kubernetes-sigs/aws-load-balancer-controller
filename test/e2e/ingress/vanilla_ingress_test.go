@@ -69,7 +69,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		}
 	})
 
-	Context("with basic settings", func() {
+	Context("with basic settings, internet-facing ALB", func() {
 		It("[ingress-class] in IP mode, with IngressClass configured with 'ingress.k8s.aws/alb' controller, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
@@ -235,7 +235,148 @@ var _ = Describe("vanilla ingress tests", func() {
 		})
 	})
 
-	Context("with IngressClass variant settings", func() {
+	Context("[ADC] with basic settings, internal ALB", func() {
+		It("[ingress-class] in IP mode, with IngressClass configured with 'ingress.k8s.aws/alb' controller, one ALB shall be created and functional", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			ingClass := &networking.IngressClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: sandboxNS.Name,
+				},
+				Spec: networking.IngressClassSpec{
+					Controller: "ingress.k8s.aws/alb",
+				},
+			}
+			annotation := map[string]string{
+				"alb.ingress.kubernetes.io/target-type": "ip",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+			}
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithIngressClassName(ingClass.Name).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ingClass, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+		})
+		It("[ingress-class] in Instance mode, with IngressClass configured with 'ingress.k8s.aws/alb' controller, one ALB shall be created and functional", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			ingClass := &networking.IngressClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: sandboxNS.Name,
+				},
+				Spec: networking.IngressClassSpec{
+					Controller: "ingress.k8s.aws/alb",
+				},
+			}
+			annotation := map[string]string{}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+			}
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithIngressClassName(ingClass.Name).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ingClass, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+		})
+
+		It("ingress in IP mode, with 'kubernetes.io/ingress.class' annotation set to 'alb', one ALB shall be created and functional", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			annotation := map[string]string{
+				"kubernetes.io/ingress.class":      "alb",
+				"alb.ingress.kubernetes.io/target-type": "ip",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+			}
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+		})
+		It("ingress in Instance mode, with 'kubernetes.io/ingress.class' annotation set to 'alb', one ALB shall be created and functional", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			annotation := map[string]string{
+				"kubernetes.io/ingress.class":      "alb",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+			}
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+		})
+	})
+
+	Context("[ADC] with IngressClass variant settings", func() {
 		It("[ingress-class] with IngressClass configured with 'nginx' controller, no ALB shall be created", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
@@ -337,7 +478,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		})
 	})
 
-	Context("with `alb.ingress.kubernetes.io/load-balancer-name` variant settings", func() {
+	Context("with `alb.ingress.kubernetes.io/load-balancer-name` variant settings, internet-facing ALB", func() {
 		It("with 'alb.ingress.kubernetes.io/load-balancer-name' annotation explicitly specified, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
@@ -385,7 +526,48 @@ var _ = Describe("vanilla ingress tests", func() {
 		})
 	})
 
-	Context("with ALB IP targets and named target port", func() {
+	Context("[ADC] with `alb.ingress.kubernetes.io/load-balancer-name` variant settings, internal ALB", func() {
+		It("with 'alb.ingress.kubernetes.io/load-balancer-name' annotation explicitly specified, one ALB shall be created and functional", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			safeClusterName := strings.ReplaceAll(tf.Options.ClusterName, ".", "-")
+			lbName := fmt.Sprintf("%.16s-%.15s", safeClusterName, sandboxNS.Name)
+			annotation := map[string]string{
+				"kubernetes.io/ingress.class":                  "alb",
+				"alb.ingress.kubernetes.io/load-balancer-name": lbName,
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
+			}
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+
+			sdkLB, err := tf.LBManager.GetLoadBalancerFromARN(ctx, lbARN)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(awssdk.StringValue(sdkLB.LoadBalancerName)).Should(Equal(lbName))
+			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+		})
+	})
+
+	Context("with internet-facing ALB IP targets and named target port", func() {
 		It("with 'alb.ingress.kubernetes.io/target-type' annotation explicitly specified, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder().WithTargetPortName("e2e-targetport")
 			ingBuilder := manifest.NewIngressBuilder()
@@ -426,7 +608,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		})
 	})
 
-	Context("with ALB IP targets, named target port and endPointSlices enabled", func() {
+	Context("with internet-facing ALB IP targets, named target port and endPointSlices enabled", func() {
 		BeforeEach(func() {
 			ctx = context.Background()
 			if tf.Options.ControllerImage != "" {
@@ -477,7 +659,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		})
 	})
 
-	Context("with `alb.ingress.kubernetes.io/actions.${action-name}` variant settings", func() {
+	Context("with `alb.ingress.kubernetes.io/actions.${action-name}` variant settings, internet-facing ALB", func() {
 		It("with annotation based actions, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder()
 			ingBuilder := manifest.NewIngressBuilder()
@@ -558,7 +740,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		})
 	})
 
-	Context("with `alb.ingress.kubernetes.io/conditions.${conditions-name}` variant settings", func() {
+	Context("with `alb.ingress.kubernetes.io/conditions.${conditions-name}` variant settings, internet-facing ALB", func() {
 		It("with annotation based conditions, one ALB shall be created and functional", func() {
 			ingBuilder := manifest.NewIngressBuilder()
 			ingRulePath1Backend := networking.IngressBackend{

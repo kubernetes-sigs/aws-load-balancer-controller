@@ -374,4 +374,56 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 			})
 		})
 	})
+
+	Context("[ADC] with internal NLB instance target configuration", func() {
+		annotation := make(map[string]string)
+		BeforeEach(func() {
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
+		})
+		It("should provision internal load-balancer resources", func() {
+			By("deploying stack", func() {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-scheme"] = "internal"
+				err := stack.Deploy(ctx, tf, annotation)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("checking service status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+			By("verifying AWS loadbalancer resources", func() {
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+					Type:         "network",
+					Scheme:       "internal",
+					TargetType:   "instance",
+					Listeners:    stack.resourceStack.getListenersPortMap(),
+					TargetGroups: stack.resourceStack.getTargetGroupNodePortMap(),
+					NumTargets:   len(nodeList),
+					TargetGroupHC: &TargetGroupHC{
+						Protocol:           "TCP",
+						Port:               "traffic-port",
+						Interval:           10,
+						Timeout:            10,
+						HealthyThreshold:   3,
+						UnhealthyThreshold: 3,
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
 })

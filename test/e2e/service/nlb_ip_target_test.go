@@ -70,7 +70,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	Context("NLB with IP target configuration", func() {
+	Context("internet-facing NLB with IP target configuration", func() {
 		var (
 			svc *corev1.Service
 		)
@@ -188,8 +188,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 			})
 		})
 	})
-
-	Context("NLB IP with TLS configuration", func() {
+	Context("internet-facing NLB IP with TLS configuration", func() {
 		var (
 			svc *corev1.Service
 		)
@@ -332,7 +331,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 			})
 		})
 	})
-	Context("NLB IP Load Balancer with name", func() {
+	Context("internet-facing NLB IP Load Balancer with name", func() {
 		var (
 			svc    *corev1.Service
 			lbName string
@@ -386,6 +385,198 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Name:       lbName,
 					Type:       "network",
 					Scheme:     "internet-facing",
+					TargetType: "ip",
+					Listeners: map[string]string{
+						"80": "TCP",
+					},
+					TargetGroups: map[string]string{
+						"80": "TCP",
+					},
+					NumTargets: int(numReplicas),
+					TargetGroupHC: &TargetGroupHC{
+						Protocol:           "TCP",
+						Port:               "traffic-port",
+						Interval:           10,
+						Timeout:            10,
+						HealthyThreshold:   3,
+						UnhealthyThreshold: 3,
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
+
+	Context("[ADC] internal NLB with IP target configuration", func() {
+		var (
+			svc *corev1.Service
+		)
+		BeforeEach(func() {
+			annotation := map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
+			svc = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        name,
+					Annotations: annotation,
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: labels,
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			}
+		})
+		It("Should create and verify internal NLB with IP targets", func() {
+			By("deploying stack", func() {
+				err := stack.Deploy(ctx, tf, svc, deployment)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("checking service status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+			By("Verify Service with AWS", func() {
+				err := verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+					Type:       "network",
+					Scheme:     "internal",
+					TargetType: "ip",
+					Listeners: map[string]string{
+						"80": "TCP",
+					},
+					TargetGroups: map[string]string{
+						"80": "TCP",
+					},
+					NumTargets: int(numReplicas),
+					TargetGroupHC: &TargetGroupHC{
+						Protocol:           "TCP",
+						Port:               "traffic-port",
+						Interval:           10,
+						Timeout:            10,
+						HealthyThreshold:   3,
+						UnhealthyThreshold: 3,
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+			By("waiting for target group targets to be healthy", func() {
+				err := waitUntilTargetsAreHealthy(ctx, tf, lbARN, int(numReplicas))
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("Specifying Healthcheck annotations", func() {
+				err := stack.UpdateServiceAnnotations(ctx, tf, map[string]string{
+					"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":            "HTTP",
+					"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                "80",
+					"service.beta.kubernetes.io/aws-load-balancer-healthcheck-path":                "/healthz",
+					"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":            "30",
+					"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":             "6",
+					"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":   "2",
+					"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold": "2",
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(func() bool {
+					return getTargetGroupHealthCheckProtocol(ctx, tf, lbARN) == "HTTP"
+				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+
+				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+					Type:       "network",
+					Scheme:     "internal",
+					TargetType: "ip",
+					Listeners: map[string]string{
+						"80": "TCP",
+					},
+					TargetGroups: map[string]string{
+						"80": "TCP",
+					},
+					NumTargets: int(numReplicas),
+					TargetGroupHC: &TargetGroupHC{
+						Protocol:           "HTTP",
+						Port:               "80",
+						Path:               "/healthz",
+						Interval:           30,
+						Timeout:            6,
+						HealthyThreshold:   2,
+						UnhealthyThreshold: 2,
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+	})
+	Context("[ADC] internal NLB IP Load Balancer with name", func() {
+		var (
+			svc    *corev1.Service
+			lbName string
+		)
+		lbName = utils.RandomDNS1123Label(20)
+		BeforeEach(func() {
+			annotation := map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-name":   lbName,
+				"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
+			svc = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        name,
+					Annotations: annotation,
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: labels,
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			}
+		})
+		It("Should create and verify service", func() {
+			By("deploying stack", func() {
+				err := stack.Deploy(ctx, tf, svc, deployment)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("checking service status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+			By("Verify Service with AWS", func() {
+				err := verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+					Name:       lbName,
+					Type:       "network",
+					Scheme:     "internal",
 					TargetType: "ip",
 					Listeners: map[string]string{
 						"80": "TCP",

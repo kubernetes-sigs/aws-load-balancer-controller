@@ -153,6 +153,24 @@ function install_controller_for_adc_regions() {
     echo "apply the manifest for ingressclass and ingressclassparam"
     ingclass_yaml="$SCRIPT_DIR"/../test/prow/v2_6_0_ingclass.yaml
     kubectl apply -f $ingclass_yaml || true
+
+    # https://dcaprod.www.docs.aws.a2z.com/c2s/latest/userguide/eks.html
+    echo "disable features that are not supported in ADC..."
+    echo "disable NLB Security Group, Listener Rules tagging and weighted target group"
+    kubectl patch deployment aws-load-balancer-controller -n kube-system --type=json \
+      -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--feature-gates=NLBSecurityGroup=false,ListenerRulesTagging=false,WeightedTargetGroups=false"}]' || true
+    echo "disable waf"
+    kubectl patch deployment aws-load-balancer-controller -n kube-system --type=json \
+      -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-waf=false"}]' || true
+    echo "disable wafv2"
+    kubectl patch deployment aws-load-balancer-controller -n kube-system --type=json \
+      -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-wafv2=false"}]' || true
+    echo "disable shield"
+    kubectl patch deployment aws-load-balancer-controller -n kube-system --type=json \
+      -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--enable-shield=false"}]' || true
+    echo "set nil default SSL policy"
+    kubectl patch deployment aws-load-balancer-controller -n kube-system --type=json \
+      -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--default-ssl-policy=''"}]' || true
 }
 
 echo "installing AWS load balancer controller"
@@ -160,10 +178,6 @@ if [[ $ADC_REGIONS == *"$REGION"* ]]; then
   echo "for ADC regions, install via manifest"
   CONTAINER_NAME="controller"
   install_controller_for_adc_regions
-  echo "disable NLB Security Group and Listener Rules tagging as they are not supported in ADC yet"
-  kubectl patch deployment aws-load-balancer-controller -n kube-system \
-    --type=json \
-    -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--feature-gates=NLBSecurityGroup=false,ListenerRulesTagging=false"}]' || true
 else
   echo "install via helm repo, update helm repo from github"
   helm repo add eks https://aws.github.io/eks-charts
@@ -200,16 +214,23 @@ function run_ginkgo_test() {
   TEST_RESULT=success
   local focus=$1
   echo "Starting the ginkgo tests from generated ginkgo test binaries with focus: $focus"
-  if [ "$IP_FAMILY" == "IPv4" ] || [ "$IP_FAMILY" == "IPv6" ]; then
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail)
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail)
+  if [ "$IP_FAMILY" == "IPv4" ]; then
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY) || TEST_RESULT=fail
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY) || TEST_RESULT=fail
+  elif [ "$IP_FAMILY" == "IPv6" ]; then
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY) || TEST_RESULT=fail
+    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" --skip="instance" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY) || TEST_RESULT=fail
   else
     echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
   fi
 }
 
 #Start the test
-run_ginkgo_test
+if [[ $ADC_REGIONS == *"$REGION"* ]]; then
+  run_ginkgo_test "ADC"
+else
+  run_ginkgo_test
+fi
 
 # tail=-1 is added so that no logs are truncated
 # https://github.com/kubernetes/kubectl/issues/812
