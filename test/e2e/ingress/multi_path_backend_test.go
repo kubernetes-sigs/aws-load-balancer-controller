@@ -95,6 +95,8 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-b")))
 				Expect(err).NotTo(HaveOccurred())
 			})
+			err = stack.Cleanup(ctx, tf)
+			Expect(err).NotTo(HaveOccurred())
 		})
 		It("IngressGroup across namespaces should behaves correctly", func() {
 			backendConfigA := BackendConfig{
@@ -222,6 +224,8 @@ var _ = Describe("test ingresses with multiple path and backends", func() {
 				err = tf.HTTPVerifier.VerifyURL(url, http.ResponseBodyMatches([]byte("backend-e")))
 				Expect(err).NotTo(HaveOccurred())
 			})
+			err = stack.Cleanup(ctx, tf)
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

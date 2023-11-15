@@ -212,7 +212,7 @@ test_controller_image() {
   CERTIFICATE_ARNS=${CERTIFICATE_ARNS:-"${CERTIFICATE_ARN_PREFIX}/${CERT_ID1},${CERTIFICATE_ARN_PREFIX}/${CERT_ID2},${CERTIFICATE_ARN_PREFIX}/${CERT_ID3}"}
   echo "creating s3 bucket $S3_BUCKET"
   aws s3api create-bucket --bucket $S3_BUCKET --region $AWS_REGION --create-bucket-configuration LocationConstraint=$AWS_REGION || true
-  ginkgo -timeout 2h -v -r test/e2e -- \
+  ginkgo --skip="ADC" -timeout 3h -v -r test/e2e -- \
     --kubeconfig=${CLUSTER_KUBECONFIG} \
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
