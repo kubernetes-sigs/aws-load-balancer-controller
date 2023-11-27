@@ -5,8 +5,8 @@ This will allow you to provision the load balancer infrastructure completely out
 
 !!!tip "usage to support Ingress and Service"
     The AWS LoadBalancer controller internally used TargetGroupBinding to support the functionality for Ingress and Service resource as well.
-    It automatically creates TargetGroupBinding in the same namespace of the Service used. 
-    
+    It automatically creates TargetGroupBinding in the same namespace of the Service used.
+
     You can view all TargetGroupBindings in a namespace by `kubectl get targetgroupbindings -n <your-namespace> -o wide`
 
 
@@ -15,6 +15,13 @@ TargetGroupBinding CR supports TargetGroups of either `instance` or `ip` TargetT
 
 !!!tip ""
     If TargetType is not explicitly specified, a mutating webhook will automatically call AWS API to find the TargetType for your TargetGroup and set it to correct value.
+
+
+## VpcId
+TargetGroupBinding CR supports the explicit definition of the Virtual Private Cloud (VPC) of your TargetGroup.
+
+!!!tip ""
+    If the VpcId is not explicitly specified, a mutating webhook will automatically call AWS API to find the VpcId for your TargetGroup and set it to correct value.
 
 
 ## Sample YAML
