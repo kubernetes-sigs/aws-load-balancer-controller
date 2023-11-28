@@ -587,6 +587,10 @@ spec:
                 - instance
                 - ip
                 type: string
+              vpcId:
+                description: VpcId is the VPC of the TargetGroup. If unspecified,
+                  it will be automatically inferred.
+                type: string
             required:
             - serviceRef
             - targetGroupARN

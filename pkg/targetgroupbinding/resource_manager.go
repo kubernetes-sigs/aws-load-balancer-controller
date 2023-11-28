@@ -386,7 +386,7 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN st
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN, tgVpcId string, endpoints []backend.PodEndpoint) error {
 	vpcId := m.vpcID
 	// Target group is in a different VPC from the cluster's VPC
-	if tgVpcId != m.vpcID {
+	if tgVpcId != "" && tgVpcId != m.vpcID {
 		vpcId = tgVpcId
 	}
 	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcId)

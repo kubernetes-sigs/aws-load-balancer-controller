@@ -86,9 +86,6 @@ func (v *targetGroupBindingValidator) checkRequiredFields(tgb *elbv2api.TargetGr
 	if tgb.Spec.TargetType == nil {
 		absentRequiredFields = append(absentRequiredFields, "spec.targetType")
 	}
-	if tgb.Spec.VpcId == "" {
-		absentRequiredFields = append(absentRequiredFields, "spec.vpcId")
-	}
 	if len(absentRequiredFields) != 0 {
 		return errors.Errorf("%s must specify these fields: %s", "TargetGroupBinding", strings.Join(absentRequiredFields, ","))
 	}
@@ -162,6 +159,9 @@ func (v *targetGroupBindingValidator) checkTargetGroupIPAddressType(ctx context.
 
 // checkTargetGroupVpcId ensures VpcId matches with that on the AWS target group
 func (v *targetGroupBindingValidator) checkTargetGroupVpcId(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.VpcId == "" {
+		return nil
+	}
 	vpcId, err := v.getVpcIdFromAWS(ctx, tgb.Spec.TargetGroupARN)
 	if err != nil {
 		return errors.Wrap(err, "unable to get target group VpcId")

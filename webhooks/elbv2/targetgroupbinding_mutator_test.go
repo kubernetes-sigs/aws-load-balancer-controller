@@ -41,7 +41,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "targetGroupBinding with TargetType and ipAddressType already set",
+			name: "targetGroupBinding with TargetType and ipAddressType and vpcId already set",
 			fields: fields{
 				describeTargetGroupsAsListCalls: nil,
 			},
@@ -51,6 +51,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 						TargetGroupARN: "tg-1",
 						TargetType:     &instanceTargetType,
 						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+						VpcId:          "vpcid-01",
 					},
 				},
 			},
@@ -59,6 +60,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 					TargetGroupARN: "tg-1",
 					TargetType:     &instanceTargetType,
 					IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					VpcId:          "vpcid-01",
 				},
 			},
 		},
@@ -166,6 +168,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 						TargetGroupARN: "tg-1",
 						TargetType:     &instanceTargetType,
 						IPAddressType:  &targetGroupIPAddressTypeIPv6,
+						VpcId:          "vpcid-01",
 					},
 				},
 			},
@@ -174,6 +177,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 					TargetGroupARN: "tg-1",
 					TargetType:     &instanceTargetType,
 					IPAddressType:  &targetGroupIPAddressTypeIPv6,
+					VpcId:          "vpcid-01",
 				},
 			},
 		},
