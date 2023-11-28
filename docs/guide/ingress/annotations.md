@@ -815,6 +815,10 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
                     ```
                     alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests
                     ```
+        - enable Automated Target Weights(ATW) on HTTP/HTTPS target groups to increase application availability. Set your load balancing algorithm to weighted random and turn on anomaly mitigation (recommended)
+            ```
+            alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=weighted_random,load_balancing.algorithm.anomaly_mitigation=on
+            ```
 
 ## Resource Tags
 The AWS Load Balancer Controller automatically applies following tags to the AWS resources (ALB/TargetGroups/SecurityGroups/Listener/ListenerRule) it creates:
