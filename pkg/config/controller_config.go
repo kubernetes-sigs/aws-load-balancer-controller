@@ -9,13 +9,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 const (
 	flagLogLevel                                     = "log-level"
 	flagK8sClusterName                               = "cluster-name"
 	flagDefaultTags                                  = "default-tags"
+	flagDefaultTargetType                            = "default-target-type"
 	flagExternalManagedTags                          = "external-managed-tags"
+	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
 	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
@@ -66,8 +69,14 @@ type ControllerConfig struct {
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
 
+	// Default target type for Ingress and Service objects
+	DefaultTargetType string
+
 	// List of Tag keys on AWS resources that will be managed externally.
 	ExternalManagedTags []string
+
+	// ServiceTargetENISGTags are AWS tags, in addition to the cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs.
+	ServiceTargetENISGTags map[string]string
 
 	// Default SSL Policy that will be applied to all ingresses or services that do not have
 	// the SSL Policy annotation.
@@ -103,6 +112,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.ClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
 	fs.StringToStringVar(&cfg.DefaultTags, flagDefaultTags, nil,
 		"Default AWS Tags that will be applied to all AWS resources managed by this controller")
+	fs.StringVar(&cfg.DefaultTargetType, flagDefaultTargetType, string(elbv2.TargetTypeInstance),
+		"Default target type for Ingresses and Services - ip, instance")
 	fs.StringSliceVar(&cfg.ExternalManagedTags, flagExternalManagedTags, nil,
 		"List of Tag keys on AWS resources that will be managed externally")
 	fs.IntVar(&cfg.ServiceMaxConcurrentReconciles, flagServiceMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
@@ -121,7 +132,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Enable EndpointSlices for IP targets instead of Endpoints")
 	fs.BoolVar(&cfg.DisableRestrictedSGRules, flagDisableRestrictedSGRules, defaultDisableRestrictedSGRules,
 		"Disable the usage of restricted security group rules")
-
+	fs.StringToStringVar(&cfg.ServiceTargetENISGTags, flagServiceTargetENISGTags, nil,
+		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
@@ -145,6 +157,9 @@ func (cfg *ControllerConfig) Validate() error {
 		return err
 	}
 	if err := cfg.validateExternalManagedTagsCollisionWithDefaultTags(); err != nil {
+		return err
+	}
+	if err := cfg.validateDefaultTargetType(); err != nil {
 		return err
 	}
 	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
@@ -179,6 +194,15 @@ func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithDefaultTags
 		}
 	}
 	return nil
+}
+
+func (cfg *ControllerConfig) validateDefaultTargetType() error {
+	switch cfg.DefaultTargetType {
+	case string(elbv2.TargetTypeInstance), string(elbv2.TargetTypeIP):
+		return nil
+	default:
+		return errors.Errorf("invalid value %v for default target type", cfg.DefaultTargetType)
+	}
 }
 
 func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {

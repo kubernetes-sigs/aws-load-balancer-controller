@@ -104,15 +104,15 @@ type listenPortConfig struct {
 	tlsCerts       []string
 }
 
-func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *networking.Ingress) (map[int64]listenPortConfig, error) {
-	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing)
+func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int64]listenPortConfig, error) {
+	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing.Ing)
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
 	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
 	if err != nil {
 		return nil, err
 	}
 	preferTLS := len(explicitTLSCertARNs) != 0
-	listenPorts, err := t.computeIngressListenPorts(ctx, ing, preferTLS)
+	listenPorts, err := t.computeIngressListenPorts(ctx, ing.Ing, preferTLS)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 	}
 	var inferredTLSCertARNs []string
 	if containsHTTPSPort && len(explicitTLSCertARNs) == 0 {
-		inferredTLSCertARNs, err = t.computeIngressInferredTLSCertARNs(ctx, ing)
+		inferredTLSCertARNs, err = t.computeIngressInferredTLSCertARNs(ctx, ing.Ing)
 		if err != nil {
 			return nil, err
 		}
@@ -209,15 +209,24 @@ func (t *defaultModelBuildTask) computeIngressListenPorts(_ context.Context, ing
 	return portAndProtocols, nil
 }
 
-func (t *defaultModelBuildTask) computeIngressExplicitInboundCIDRs(_ context.Context, ing *networking.Ingress) ([]string, []string, error) {
+func (t *defaultModelBuildTask) computeIngressExplicitInboundCIDRs(_ context.Context, ing *ClassifiedIngress) ([]string, []string, error) {
 	var rawInboundCIDRs []string
-	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixInboundCIDRs, &rawInboundCIDRs, ing.Annotations)
+	fromIngressClassParams := false
+	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.InboundCIDRs) != 0 {
+		rawInboundCIDRs = ing.IngClassConfig.IngClassParams.Spec.InboundCIDRs
+		fromIngressClassParams = true
+	} else {
+		_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixInboundCIDRs, &rawInboundCIDRs, ing.Ing.Annotations)
+	}
 
 	var inboundCIDRv4s, inboundCIDRv6s []string
 	for _, cidr := range rawInboundCIDRs {
 		_, _, err := net.ParseCIDR(cidr)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "invalid %v settings on Ingress: %v", annotations.IngressSuffixInboundCIDRs, k8s.NamespacedName(ing))
+			if fromIngressClassParams {
+				return nil, nil, fmt.Errorf("invalid CIDR in IngressClassParams InboundCIDR %s: %w", cidr, err)
+			}
+			return nil, nil, fmt.Errorf("invalid %v settings on Ingress: %v: %w", annotations.IngressSuffixInboundCIDRs, k8s.NamespacedName(ing.Ing), err)
 		}
 		if strings.Contains(cidr, ":") {
 			inboundCIDRv6s = append(inboundCIDRv6s, cidr)
@@ -228,9 +237,12 @@ func (t *defaultModelBuildTask) computeIngressExplicitInboundCIDRs(_ context.Con
 	return inboundCIDRv4s, inboundCIDRv6s, nil
 }
 
-func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Context, ing *networking.Ingress) *string {
+func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Context, ing *ClassifiedIngress) *string {
 	var rawSSLPolicy string
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixSSLPolicy, &rawSSLPolicy, ing.Annotations); !exists {
+	if ing.IngClassConfig.IngClassParams != nil && ing.IngClassConfig.IngClassParams.Spec.SSLPolicy != "" {
+		return &ing.IngClassConfig.IngClassParams.Spec.SSLPolicy
+	}
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixSSLPolicy, &rawSSLPolicy, ing.Ing.Annotations); !exists {
 		return nil
 	}
 	return &rawSSLPolicy

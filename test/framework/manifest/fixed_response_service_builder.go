@@ -68,15 +68,16 @@ func (b *fixedResponseServiceBuilder) WithServiceAnnotations(svcAnnotations map[
 	return b
 }
 
-func (b *fixedResponseServiceBuilder) Build(namespace string, name string) (*appsv1.Deployment, *corev1.Service) {
-	dp := b.buildDeployment(namespace, name)
+func (b *fixedResponseServiceBuilder) Build(namespace string, name string, testImageRegistry string) (*appsv1.Deployment, *corev1.Service) {
+	dp := b.buildDeployment(namespace, name, testImageRegistry)
 	svc := b.buildService(namespace, name)
 	return dp, svc
 }
 
 // TODO: have a deployment builder that been called by this component :D.
-func (b *fixedResponseServiceBuilder) buildDeployment(namespace string, name string) *appsv1.Deployment {
+func (b *fixedResponseServiceBuilder) buildDeployment(namespace string, name string, testImageRegistry string) *appsv1.Deployment {
 	podLabels := b.buildPodLabels(name)
+	dpImage := utils.GetDeploymentImage(testImageRegistry, utils.ColortellerImage)
 	dp := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,
@@ -95,7 +96,7 @@ func (b *fixedResponseServiceBuilder) buildDeployment(namespace string, name str
 					Containers: []corev1.Container{
 						{
 							Name:  "app",
-							Image: utils.ColortellerImage,
+							Image: dpImage,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          b.targetPortName,

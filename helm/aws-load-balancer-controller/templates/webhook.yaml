@@ -56,6 +56,36 @@ webhooks:
     resources:
     - pods
   sideEffects: None
+{{- if .Values.enableServiceMutatorWebhook }}
+- clientConfig:
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-v1-service
+  failurePolicy: Fail
+  name: mservice.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - services
+  sideEffects: None
+{{- end }}
 - clientConfig:
     {{ if not $.Values.enableCertManager -}}
     caBundle: {{ $tls.caCert }}
@@ -91,6 +121,35 @@ metadata:
   labels:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 webhooks:
+- clientConfig:
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
+      namespace: {{ $.Release.Namespace }}
+      path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
+  failurePolicy: Fail
+  name: vingressclassparams.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingressclassparams
+  sideEffects: None
 - clientConfig:
     {{ if not $.Values.enableCertManager -}}
     caBundle: {{ $tls.caCert }}
@@ -153,11 +212,7 @@ data:
   tls.crt: {{ $tls.clientCert }}
   tls.key: {{ $tls.clientKey }}
 {{- else }}
-{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
 apiVersion: cert-manager.io/v1
-{{- else }}
-apiVersion: cert-manager.io/v1alpha2
-{{- end }}
 kind: Certificate
 metadata:
   name: {{ template "aws-load-balancer-controller.namePrefix" . }}-serving-cert
@@ -173,11 +228,7 @@ spec:
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
   secretName: {{ template "aws-load-balancer-controller.webhookCertSecret" . }}
 ---
-{{- if .Capabilities.APIVersions.Has "cert-manager.io/v1" }}
 apiVersion: cert-manager.io/v1
-{{- else }}
-apiVersion: cert-manager.io/v1alpha2
-{{- end }}
 kind: Issuer
 metadata:
   name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer

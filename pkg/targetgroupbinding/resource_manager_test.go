@@ -6,6 +6,7 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
@@ -136,8 +137,10 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 						Status: corev1.PodStatus{
 							Conditions: []corev1.PodCondition{
 								{
-									Type:   "target-health.elbv2.k8s.aws/my-tgb",
-									Status: corev1.ConditionFalse,
+									Type:    "target-health.elbv2.k8s.aws/my-tgb",
+									Message: elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress,
+									Reason:  "Elb.RegistrationInProgress",
+									Status:  corev1.ConditionFalse,
 								},
 								{
 									Type:   corev1.ContainersReady,
@@ -159,8 +162,10 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 					},
 					Conditions: []corev1.PodCondition{
 						{
-							Type:   "target-health.elbv2.k8s.aws/my-tgb",
-							Status: corev1.ConditionFalse,
+							Type:    "target-health.elbv2.k8s.aws/my-tgb",
+							Message: elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress,
+							Reason:  "Elb.RegistrationInProgress",
+							Status:  corev1.ConditionFalse,
 						},
 						{
 							Type:   corev1.ContainersReady,
@@ -378,7 +383,7 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 
 			m := &defaultResourceManager{
 				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				logger:    logr.New(&log.NullLogSink{}),
 			}
 
 			ctx := context.Background()
@@ -455,49 +460,6 @@ func Test_containsTargetsInInitialState(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := containsTargetsInInitialState(tt.args.matchedEndpointAndTargets)
 			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func Test_buildPodConditionPatch(t *testing.T) {
-	type args struct {
-		pod       k8s.PodInfo
-		condition corev1.PodCondition
-	}
-	tests := []struct {
-		name      string
-		args      args
-		wantPatch []byte
-		wantErr   error
-	}{
-		{
-			name: "standard case",
-			args: args{
-				pod: k8s.PodInfo{
-					Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
-					UID: "pod-uuid",
-				},
-				condition: corev1.PodCondition{
-					Type:    "custom-condition",
-					Status:  corev1.ConditionTrue,
-					Reason:  "some-reason",
-					Message: "some-msg",
-				},
-			},
-			wantPatch: []byte(`{"metadata":{"uid":"pod-uuid"},"status":{"conditions":[{"lastProbeTime":null,"lastTransitionTime":null,"message":"some-msg","reason":"some-reason","status":"True","type":"custom-condition"}]}}`),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildPodConditionPatch(tt.args.pod, tt.args.condition)
-			if tt.wantErr != nil {
-				assert.EqualError(t, err, tt.wantErr.Error())
-			} else {
-				assert.NoError(t, err)
-				gotPatch, _ := got.Data(nil)
-				assert.Equal(t, tt.wantPatch, gotPatch)
-				assert.Equal(t, types.StrategicMergePatchType, got.Type())
-			}
 		})
 	}
 }

@@ -13,14 +13,14 @@ The following resources are required prior to deployment:
 - aws-load-balancer-controller
 - external-dns
 
-See [echo_server.md](echo_server.md) for setup instructions for those resources.
+See [echo_server.md](echo_server.md) and [external_dns.md](/guide/integrations/external_dns) for setup instructions for those resources.
 
 ## Create an ACM certificate
 > NOTE: An ACM certificate is required for this demo as the application uses the `grpc.secure_channel` method.
 
 If you already have an ACM certificate (including wildcard certificates) for the domain you would like to use in this example, you can skip this step.
 
-- Request a certificate for a domain you own using the steps described in the official AWS [documentation](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html).
+- Request a certificate for a domain you own using the steps described in the official [AWS ACM documentation](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html).
 - Once the status for the certificate is "Issued" continue to the next step.
 
 ## Deploy the grpcserver manifests
@@ -65,7 +65,7 @@ If you already have an ACM certificate (including wildcard certificates) for the
 
 1. Change the domain name from `grpcserver.example.com` to your desired domain.
 
-> NOTE: This example manifest assumes that you have tagged your subnets for the aws-load-balancer-controller. Otherwise add your subnets using the annotations described in ingress annotations documentation.
+1. The example manifest assumes that you have tagged your subnets for the aws-load-balancer-controller. Otherwise add your subnets using the [alb.ingress.kubernetes.io/subnets](/guide/ingress/annotations/#subnets) annotation.
 
 1.  Deploy the ingress resource for grpcserver.
 
@@ -75,11 +75,11 @@ If you already have an ACM certificate (including wildcard certificates) for the
 
 1. Wait a few minutes for the ALB to provision and for DNS to update.
 
-1.  Check the logs for `external-dns` and `aws-load-balancer-controller` to ensure the ALB is created and external-dns creates the record and points your domain to the ALB.
+1.  Check the `aws-load-balancer-controller` logs to ensure the ALB is created. Also ensure that `external-dns` creates a DNS record that points your domain to the ALB.
 
     ```bash
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'aws-load-balancer-controller[a-zA-Z0-9-]+') | grep 'grpcserver\/grpcserver'
-    kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o 'aws-load-balancer-controller[a-zA-Z0-9-]+') | grep 'YOUR_DOMAIN_NAME'
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=aws-load-balancer-controller | grep 'grpcserver\/grpcserver'
+    kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name=external-dns | grep 'YOUR_DOMAIN_NAME'
     ```
 
 1.  Next check that your ingress shows the correct ALB address and custom domain name.
@@ -91,8 +91,8 @@ If you already have an ACM certificate (including wildcard certificates) for the
     You should see similar to the following.
 
     ```console
-    NNAME         CLASS    HOSTS                       ADDRESS                                                                 PORTS   AGE
-grpcserver   <none>   YOUR_DOMAIN_NAME   ALB-NAME.us-east-1.elb.amazonaws.com   80      90m
+    NNAME         CLASS    HOSTS              ADDRESS     PORTS    AGE
+    grpcserver     alb   YOUR_DOMAIN_NAME   ALB-DNS-NAME   80      90m
     ```
 
 1. Finally, test your secure gRPC service by running the greeter client, substituting `YOUR_DOMAIN_NAME` for the domain you used in the ingress manifest.

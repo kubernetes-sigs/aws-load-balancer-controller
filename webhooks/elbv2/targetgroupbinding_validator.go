@@ -2,6 +2,8 @@ package elbv2
 
 import (
 	"context"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
@@ -14,12 +16,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"strings"
 )
 
 const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
 
-// NewTargetGroupBindingValidator returns a mutator for TargetGroupBinding CRD.
+// NewTargetGroupBindingValidator returns a validator for TargetGroupBinding CRD.
 func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, logger logr.Logger) *targetGroupBindingValidator {
 	return &targetGroupBindingValidator{
 		k8sClient:   k8sClient,
@@ -128,7 +129,7 @@ func (v *targetGroupBindingValidator) checkExistingTargetGroups(tgb *elbv2api.Ta
 	return nil
 }
 
-//checkNodeSelector ensures that NodeSelector is only set when TargetType is ip
+// checkNodeSelector ensures that NodeSelector is only set when TargetType is ip
 func (v *targetGroupBindingValidator) checkNodeSelector(tgb *elbv2api.TargetGroupBinding) error {
 	if (*tgb.Spec.TargetType == elbv2api.TargetTypeIP) && (tgb.Spec.NodeSelector != nil) {
 		return errors.Errorf("TargetGroupBinding cannot set NodeSelector when TargetType is ip")

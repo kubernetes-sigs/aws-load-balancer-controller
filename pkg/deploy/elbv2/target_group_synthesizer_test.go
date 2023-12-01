@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
@@ -283,7 +284,8 @@ func Test_matchResAndSDKTargetGroups(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, got2, err := matchResAndSDKTargetGroups(tt.args.resTGs, tt.args.sdkTGs, tt.args.resourceIDTagKey)
+			featureGates := config.NewFeatureGates()
+			got, got1, got2, err := matchResAndSDKTargetGroups(tt.args.resTGs, tt.args.sdkTGs, tt.args.resourceIDTagKey, featureGates)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -619,7 +621,7 @@ func Test_isSDKTargetGroupRequiresReplacement(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "healthCheck change need replacement",
+			name: "healthCheck change needs no replacement for protocol change",
 			args: args{
 				sdkTG: TargetGroupWithTags{
 					TargetGroup: &elbv2sdk.TargetGroup{
@@ -653,12 +655,13 @@ func Test_isSDKTargetGroupRequiresReplacement(t *testing.T) {
 					},
 				},
 			},
-			want: true,
+			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isSDKTargetGroupRequiresReplacement(tt.args.sdkTG, tt.args.resTG)
+			featureGates := config.NewFeatureGates()
+			got := isSDKTargetGroupRequiresReplacement(tt.args.sdkTG, tt.args.resTG, featureGates)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -668,8 +671,9 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 	port8080 := intstr.FromInt(8080)
 	protocolHTTP := elbv2model.ProtocolHTTP
 	type args struct {
-		sdkTG TargetGroupWithTags
-		resTG *elbv2model.TargetGroup
+		sdkTG                               TargetGroupWithTags
+		resTG                               *elbv2model.TargetGroup
+		disableAdvancedNLBHealthCheckConfig bool
 	}
 	tests := []struct {
 		name string
@@ -714,7 +718,7 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "NLB TargetGroup healthCheck cannot change protocol",
+			name: "NLB TargetGroup healthCheck cannot change protocol without advanced config",
 			args: args{
 				sdkTG: TargetGroupWithTags{
 					TargetGroup: &elbv2sdk.TargetGroup{
@@ -747,6 +751,7 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 						},
 					},
 				},
+				disableAdvancedNLBHealthCheckConfig: true,
 			},
 			want: true,
 		},
@@ -784,6 +789,7 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 						},
 					},
 				},
+				disableAdvancedNLBHealthCheckConfig: true,
 			},
 			want: true,
 		},
@@ -821,6 +827,7 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 						},
 					},
 				},
+				disableAdvancedNLBHealthCheckConfig: true,
 			},
 			want: true,
 		},
@@ -858,6 +865,7 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 						},
 					},
 				},
+				disableAdvancedNLBHealthCheckConfig: true,
 			},
 			want: true,
 		},
@@ -975,7 +983,11 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(tt.args.sdkTG, tt.args.resTG)
+			featureGates := config.NewFeatureGates()
+			if tt.args.disableAdvancedNLBHealthCheckConfig {
+				featureGates.Disable(config.NLBHealthCheckAdvancedConfig)
+			}
+			got := isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(tt.args.sdkTG, tt.args.resTG, featureGates)
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -29,9 +29,9 @@ CONTROLLER_IAM_POLICY_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
 CONTROLLER_IAM_POLICY_ARN="" # will be fulfilled during setup_controller_iam_sa
 
 # Cluster settings
-EKSCTL_VERSION="v0.100.0"
+EKSCTL_VERSION="v0.134.0"
 CLUSTER_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
-CLUSTER_VERSION=${CLUSTER_VERSION:-"1.21"}
+CLUSTER_VERSION=${CLUSTER_VERSION:-"1.25"}
 CLUSTER_INSTANCE_TYPE="m5.xlarge"
 CLUSTER_NODE_COUNT="4"
 CLUSTER_KUBECONFIG=${CLUSTER_KUBECONFIG:-"/tmp/lb-controller-e2e/clusters/${CLUSTER_NAME}.kubeconfig"}
@@ -72,21 +72,7 @@ build_push_controller_image() {
   fi
 
   echo "build and push docker image ${CONTROLLER_IMAGE_NAME}"
-  DOCKER_CLI_EXPERIMENTAL=enabled docker buildx create --use
-  DOCKER_CLI_EXPERIMENTAL=enabled docker buildx inspect --bootstrap
-
-  # TODO: the first buildx build sometimes fails on new created builder instance.
-  #  figure out why and remove this retry.
-  n=0
-  until [ "$n" -ge 2 ]; do
-    DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build . --target bin \
-      --tag "${CONTROLLER_IMAGE_NAME}" \
-      --push \
-      --progress plain \
-      --platform linux/amd64 && break
-    n=$((n + 1))
-    sleep 2
-  done
+  make docker-push IMG=${CONTROLLER_IMAGE_NAME} IMG_PLATFORM=linux/amd64
 
   if [[ $? -ne 0 ]]; then
     echo "unable to build and push docker image" >&2
@@ -219,12 +205,14 @@ test_controller_image() {
   AWS_ACCOUNT_ID=$(aws sts get-caller-identity --region ${AWS_REGION} --query Account --output text)
   S3_BUCKET=${S3_BUCKET:-"lb-controller-e2e-${AWS_ACCOUNT_ID}"}
   CERTIFICATE_ARN_PREFIX=arn:aws:acm:${AWS_REGION}:${AWS_ACCOUNT_ID}:certificate
-  CERT_ID1="7caec311-1e1f-4b04-a061-bfa688fe813f"
-  CERT_ID2="724963dd-f571-4f2c-b549-5c7d0e35e4b8"
-  CERT_ID3="1001570b-1779-40c3-9b49-9a9a41e30058"
+  echo "updated the CERT_IDs"
+  CERT_ID1="d39a65e5-44f6-4734-9034-6c82ae7df73b"
+  CERT_ID2="35d7e09b-c4a9-447e-ba8c-7f9f29b77c8f"
+  CERT_ID3="f44d1a16-409a-4937-a420-b42dab2d384a"
   CERTIFICATE_ARNS=${CERTIFICATE_ARNS:-"${CERTIFICATE_ARN_PREFIX}/${CERT_ID1},${CERTIFICATE_ARN_PREFIX}/${CERT_ID2},${CERTIFICATE_ARN_PREFIX}/${CERT_ID3}"}
-
-  ginkgo -v -r test/e2e -- \
+  echo "creating s3 bucket $S3_BUCKET"
+  aws s3api create-bucket --bucket $S3_BUCKET --region $AWS_REGION --create-bucket-configuration LocationConstraint=$AWS_REGION || true
+  ginkgo -timeout 2h -v -r test/e2e -- \
     --kubeconfig=${CLUSTER_KUBECONFIG} \
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
@@ -274,7 +262,7 @@ main() {
   build_push_controller_image
 
   go install github.com/mikefarah/yq/v4@v4.6.1
-  go install github.com/onsi/ginkgo/v2/ginkgo@v2.1.4
+  go install github.com/onsi/ginkgo/v2/ginkgo@v2.3.1
   trap "cleanup" EXIT
   setup_cluster
   setup_controller_iam_sa

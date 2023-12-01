@@ -2,14 +2,16 @@ package networking
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_defaultVPCInfoProvider_FetchVPCInfo(t *testing.T) {
@@ -297,7 +299,7 @@ func Test_defaultVPCInfoProvider_FetchVPCInfo(t *testing.T) {
 				ec2Client.EXPECT().DescribeVpcsWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
 
-			p := NewDefaultVPCInfoProvider(ec2Client, &log.NullLogger{})
+			p := NewDefaultVPCInfoProvider(ec2Client, logr.New(&log.NullLogSink{}))
 			for _, call := range tt.fetchVPCInfoCalls {
 				got, err := p.FetchVPCInfo(context.Background(), call.vpcID, call.opts...)
 				if call.wantErr != nil {
@@ -401,7 +403,7 @@ func Test_defaultVPCInfoProvider_fetchVPCInfoFromAWS(t *testing.T) {
 
 			p := &defaultVPCInfoProvider{
 				ec2Client: ec2Client,
-				logger:    &log.NullLogger{},
+				logger:    logr.New(&log.NullLogSink{}),
 			}
 			got, err := p.fetchVPCInfoFromAWS(context.Background(), tt.args.vpcID)
 			if tt.wantErr != nil {

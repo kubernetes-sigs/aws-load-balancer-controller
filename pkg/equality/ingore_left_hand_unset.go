@@ -8,8 +8,8 @@ import (
 
 // IgnoreLeftHandUnset is an option that ignores struct fields that are unset on the left hand side of a comparison.
 // Note:
-//	 1. for map and slices, only nil value is considered to be unset, non-nil but empty is not considered as unset.
-//   2. for struct pointers, nil value is considered to be unset
+//  1. for map and slices, only nil value is considered to be unset, non-nil but empty is not considered as unset.
+//  2. for struct pointers, nil value is considered to be unset
 func IgnoreLeftHandUnset(typ interface{}, fields ...string) cmp.Option {
 	t := reflect.TypeOf(typ)
 	fieldsSet := sets.NewString(fields...)

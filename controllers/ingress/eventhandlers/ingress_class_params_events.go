@@ -63,7 +63,6 @@ func (h *enqueueRequestsForIngressClassParamsEvent) Generic(e event.GenericEvent
 	// we don't have any generic event for secrets.
 }
 
-//
 func (h *enqueueRequestsForIngressClassParamsEvent) enqueueImpactedIngressClasses(ingClassParams *elbv2api.IngressClassParams) {
 	ingClassList := &networking.IngressClassList{}
 	if err := h.k8sClient.List(context.Background(), ingClassList,

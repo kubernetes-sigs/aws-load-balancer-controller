@@ -3,7 +3,10 @@ package backend
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -19,11 +22,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
+	discovery "k8s.io/api/discovery/v1"
 )
 
 func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
@@ -1238,7 +1240,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
-			wantContainsPotentialReadyEndpoints: false,
+			wantContainsPotentialReadyEndpoints: true,
 		},
 		{
 			name: "service not found",
@@ -1324,7 +1326,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				podInfoRepo:          podInfoRepo,
 				failOpenEnabled:      tt.fields.failOpenEnabled,
 				endpointSliceEnabled: tt.fields.endpointSliceEnabled,
-				logger:               &log.NullLogger{},
+				logger:               logr.New(&log.NullLogSink{}),
 			}
 			got, gotContainsPotentialReadyEndpoints, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, tt.args.opts...)
 			if tt.wantErr != nil {

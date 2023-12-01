@@ -2,21 +2,26 @@ package config
 
 import (
 	"fmt"
-	"github.com/spf13/pflag"
 	"strconv"
 	"strings"
+
+	"github.com/spf13/pflag"
 )
 
 type Feature string
 
 const (
-	ListenerRulesTagging        Feature = "ListenerRulesTagging"
-	WeightedTargetGroups        Feature = "WeightedTargetGroups"
-	ServiceTypeLoadBalancerOnly Feature = "ServiceTypeLoadBalancerOnly"
-	EndpointsFailOpen           Feature = "EndpointsFailOpen"
-	EnableServiceController     Feature = "EnableServiceController"
-	EnableIPTargetType          Feature = "EnableIPTargetType"
-	SubnetsClusterTagCheck      Feature = "SubnetsClusterTagCheck"
+	ListenerRulesTagging         Feature = "ListenerRulesTagging"
+	WeightedTargetGroups         Feature = "WeightedTargetGroups"
+	ServiceTypeLoadBalancerOnly  Feature = "ServiceTypeLoadBalancerOnly"
+	EndpointsFailOpen            Feature = "EndpointsFailOpen"
+	EnableServiceController      Feature = "EnableServiceController"
+	EnableIPTargetType           Feature = "EnableIPTargetType"
+	EnableRGTAPI                 Feature = "EnableRGTAPI"
+	SubnetsClusterTagCheck       Feature = "SubnetsClusterTagCheck"
+	NLBHealthCheckAdvancedConfig Feature = "NLBHealthCheckAdvancedConfig"
+	NLBSecurityGroup             Feature = "NLBSecurityGroup"
+	ALBSingleSubnet              Feature = "ALBSingleSubnet"
 )
 
 type FeatureGates interface {
@@ -44,13 +49,17 @@ type defaultFeatureGates struct {
 func NewFeatureGates() FeatureGates {
 	return &defaultFeatureGates{
 		featureState: map[Feature]bool{
-			ListenerRulesTagging:        true,
-			WeightedTargetGroups:        true,
-			ServiceTypeLoadBalancerOnly: false,
-			EndpointsFailOpen:           false,
-			EnableServiceController:     true,
-			EnableIPTargetType:          true,
-			SubnetsClusterTagCheck:      true,
+			ListenerRulesTagging:         true,
+			WeightedTargetGroups:         true,
+			ServiceTypeLoadBalancerOnly:  false,
+			EndpointsFailOpen:            true,
+			EnableServiceController:      true,
+			EnableIPTargetType:           true,
+			EnableRGTAPI:                 false,
+			SubnetsClusterTagCheck:       true,
+			NLBHealthCheckAdvancedConfig: true,
+			NLBSecurityGroup:             true,
+			ALBSingleSubnet:              false,
 		},
 	}
 }

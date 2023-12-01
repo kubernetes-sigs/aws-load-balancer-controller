@@ -8,11 +8,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	defaultTestImage   = "kishorj/hello-multi:v1"
 	appContainerPort   = 80
 	defaultNumReplicas = 3
 	defaultName        = "instance-e2e"
@@ -23,7 +23,7 @@ type NLBInstanceTestStack struct {
 }
 
 func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string) error {
-	dp := s.buildDeploymentSpec()
+	dp := s.buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := s.buildServiceSpec(ctx, svcAnnotations)
 	s.resourceStack = NewResourceStack(dp, svc, "service-instance-e2e", false)
 
@@ -82,12 +82,13 @@ func (s *NLBInstanceTestStack) ApplyNodeLabels(ctx context.Context, f *framework
 	return nil
 }
 
-func (s *NLBInstanceTestStack) buildDeploymentSpec() *appsv1.Deployment {
+func (s *NLBInstanceTestStack) buildDeploymentSpec(testImageRegistry string) *appsv1.Deployment {
 	numReplicas := int32(defaultNumReplicas)
 	labels := map[string]string{
 		"app.kubernetes.io/name":     "multi-port",
 		"app.kubernetes.io/instance": defaultName,
 	}
+	dpImage := utils.GetDeploymentImage(testImageRegistry, utils.HelloImage)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: defaultName,
@@ -106,7 +107,7 @@ func (s *NLBInstanceTestStack) buildDeploymentSpec() *appsv1.Deployment {
 						{
 							Name:            "app",
 							ImagePullPolicy: corev1.PullAlways,
-							Image:           defaultTestImage,
+							Image:           dpImage,
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: appContainerPort,

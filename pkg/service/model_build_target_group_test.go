@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/golang/mock/gomock"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sort"
 	"strconv"
 	"testing"
@@ -15,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
@@ -183,6 +187,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				Port:                    &trafficPort,
 				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
 				IntervalSeconds:         aws.Int64(10),
+				TimeoutSeconds:          aws.Int64(10),
 				HealthyThresholdCount:   aws.Int64(3),
 				UnhealthyThresholdCount: aws.Int64(3),
 			},
@@ -200,6 +205,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":             "30",
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":   "2",
 						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold": "2",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes":       "200-220,231,250-300,301,302",
 					},
 				},
 			},
@@ -209,13 +215,17 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				Protocol:                (*elbv2.Protocol)(aws.String("HTTP")),
 				Path:                    aws.String("/healthz"),
 				IntervalSeconds:         aws.Int64(10),
+				TimeoutSeconds:          aws.Int64(30),
 				HealthyThresholdCount:   aws.Int64(2),
 				UnhealthyThresholdCount: aws.Int64(2),
+				Matcher: &elbv2.HealthCheckMatcher{
+					HTTPCode: aws.String("200-220,231,250-300,301,302"),
+				},
 			},
 			targetType: elbv2.TargetTypeInstance,
 		},
 		{
-			testName: "default path",
+			testName: "default path and matcher code",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -229,8 +239,12 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				Protocol:                (*elbv2.Protocol)(aws.String("HTTP")),
 				Path:                    aws.String("/"),
 				IntervalSeconds:         aws.Int64(10),
+				TimeoutSeconds:          aws.Int64(10),
 				HealthyThresholdCount:   aws.Int64(3),
 				UnhealthyThresholdCount: aws.Int64(3),
+				Matcher: &elbv2.HealthCheckMatcher{
+					HTTPCode: aws.String("200-399"),
+				},
 			},
 			targetType: elbv2.TargetTypeIP,
 		},
@@ -284,6 +298,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				Port:                    &trafficPort,
 				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
 				IntervalSeconds:         aws.Int64(10),
+				TimeoutSeconds:          aws.Int64(10),
 				HealthyThresholdCount:   aws.Int64(3),
 				UnhealthyThresholdCount: aws.Int64(3),
 			},
@@ -304,8 +319,12 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolHTTP))),
 				Path:                    aws.String("/healthz"),
 				IntervalSeconds:         aws.Int64(10),
+				TimeoutSeconds:          aws.Int64(6),
 				HealthyThresholdCount:   aws.Int64(2),
 				UnhealthyThresholdCount: aws.Int64(2),
+				Matcher: &elbv2.HealthCheckMatcher{
+					HTTPCode: aws.String("200-399"),
+				},
 			},
 			targetType: elbv2.TargetTypeInstance,
 		},
@@ -333,6 +352,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				Port:                    &port8888,
 				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
 				IntervalSeconds:         aws.Int64(10),
+				TimeoutSeconds:          aws.Int64(30),
 				HealthyThresholdCount:   aws.Int64(5),
 				UnhealthyThresholdCount: aws.Int64(5),
 			},
@@ -345,6 +365,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			builder := &defaultModelBuildTask{
 				service:                              tt.svc,
 				annotationParser:                     parser,
+				featureGates:                         config.NewFeatureGates(),
 				defaultAccessLogsS3Bucket:            "",
 				defaultAccessLogsS3Prefix:            "",
 				defaultLoadBalancingCrossZoneEnabled: false,
@@ -356,6 +377,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultHealthCheckTimeout:            10,
 				defaultHealthCheckHealthyThreshold:   3,
 				defaultHealthCheckUnhealthyThreshold: 3,
+				defaultHealthCheckMatcherHTTPCode:    "200-399",
 
 				defaultHealthCheckProtocolForInstanceModeLocal:           elbv2.ProtocolHTTP,
 				defaultHealthCheckPortForInstanceModeLocal:               strconv.FormatInt(int64(int(tt.svc.Spec.HealthCheckNodePort)), 10),
@@ -375,24 +397,30 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 	}
 }
 
-func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T) {
+func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *testing.T) {
 	networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
 	networkingProtocolUDP := elbv2api.NetworkingProtocolUDP
 	port80 := intstr.FromInt(80)
 	port808 := intstr.FromInt(808)
 	trafficPort := intstr.FromString("traffic-port")
+	cidrBlockStateAssociated := ec2.VpcCidrBlockStateCodeAssociated
+	type fetchVPCInfoCall struct {
+		wantVPCInfo networking.VPCInfo
+		err         error
+	}
 
 	tests := []struct {
-		name                string
-		svc                 *corev1.Service
-		tgPort              intstr.IntOrString
-		hcPort              intstr.IntOrString
-		subnets             []*ec2.Subnet
-		tgProtocol          corev1.Protocol
-		ipAddressType       elbv2.TargetGroupIPAddressType
-		preserveClientIP    bool
-		defaultSourceRanges []string
-		want                *elbv2.TargetGroupBindingNetworking
+		name              string
+		svc               *corev1.Service
+		tgPort            intstr.IntOrString
+		hcPort            intstr.IntOrString
+		subnets           []*ec2.Subnet
+		tgProtocol        corev1.Protocol
+		ipAddressType     elbv2.TargetGroupIPAddressType
+		preserveClientIP  bool
+		scheme            elbv2.LoadBalancerScheme
+		fetchVPCInfoCalls []fetchVPCInfoCall
+		want              *elbv2.TargetGroupBindingNetworking
 	}{
 		{
 			name: "udp-service with source ranges",
@@ -401,6 +429,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					LoadBalancerSourceRanges: []string{"10.0.0.0/16", "1.2.3.4/24"},
 				},
 			},
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			tgPort: port80,
 			hcPort: trafficPort,
 			subnets: []*ec2.Subnet{{
@@ -458,6 +487,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					},
 				},
 			},
+			scheme: elbv2.LoadBalancerSchemeInternal,
 			tgPort: port80,
 			hcPort: port808,
 			subnets: []*ec2.Subnet{{
@@ -507,11 +537,11 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:                "udp-service with no source ranges configuration",
-			svc:                 &corev1.Service{},
-			tgPort:              port80,
-			hcPort:              port808,
-			defaultSourceRanges: []string{"0.0.0.0/0"},
+			name:   "udp-service with no source ranges configuration",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port808,
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			subnets: []*ec2.Subnet{{
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
@@ -554,10 +584,83 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
+			name:   "udp-service with no source ranges configuration, internal",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port808,
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			subnets: []*ec2.Subnet{{
+				CidrBlock: aws.String("172.16.0.0/19"),
+				SubnetId:  aws.String("az-1"),
+			}},
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("172.16.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+							{
+								CidrBlock: aws.String("1.2.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			tgProtocol:    corev1.ProtocolUDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/16",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.0.0/16",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:   "tcp-service with traffic-port hc",
 			svc:    &corev1.Service{},
 			tgPort: port80,
 			hcPort: trafficPort,
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			subnets: []*ec2.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
@@ -596,7 +699,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:   "tcp-service with preserveClient IP, traffic-port hc",
+			name:   "tcp-service with preserveClient IP, traffic-port hc, scheme internet-facing",
 			svc:    &corev1.Service{},
 			tgPort: port80,
 			hcPort: trafficPort,
@@ -610,10 +713,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					SubnetId:  aws.String("sn-2"),
 				},
 			},
-			defaultSourceRanges: []string{"0.0.0.0/0"},
-			tgProtocol:          corev1.ProtocolTCP,
-			ipAddressType:       elbv2.TargetGroupIPAddressTypeIPv4,
-			preserveClientIP:    true,
+			scheme:           elbv2.LoadBalancerSchemeInternetFacing,
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
+			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -621,6 +724,70 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "0.0.0.0/0",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "tcp-service with preserveClient IP, traffic-port hc, scheme internal",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: trafficPort,
+			subnets: []*ec2.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("sn-1"),
+				},
+				{
+					CidrBlock: aws.String("1.2.3.4/19"),
+					SubnetId:  aws.String("sn-2"),
+				},
+			},
+			scheme:           elbv2.LoadBalancerSchemeInternal,
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
+			preserveClientIP: true,
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("172.16.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+							{
+								CidrBlock: aws.String("1.2.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/16",
+								},
+							},
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "1.2.0.0/16",
 								},
 							},
 						},
@@ -649,10 +816,9 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 					SubnetId:  aws.String("sn-2"),
 				},
 			},
-			tgProtocol:          corev1.ProtocolTCP,
-			ipAddressType:       elbv2.TargetGroupIPAddressTypeIPv4,
-			preserveClientIP:    true,
-			defaultSourceRanges: []string{"0.0.0.0/0"},
+			tgProtocol:       corev1.ProtocolTCP,
+			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
+			preserveClientIP: true,
 			want: &elbv2.TargetGroupBindingNetworking{
 				Ingress: []elbv2.NetworkingIngressRule{
 					{
@@ -880,11 +1046,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:                "ipv6 preserve client IP enabled",
-			svc:                 &corev1.Service{},
-			defaultSourceRanges: []string{"::/0"},
-			tgPort:              port80,
-			hcPort:              port80,
+			name:   "ipv6 preserve client IP enabled",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port80,
 			subnets: []*ec2.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
@@ -929,11 +1094,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:                "ipv6 preserve client IP disabled",
-			svc:                 &corev1.Service{},
-			defaultSourceRanges: []string{"::/0"},
-			tgPort:              port80,
-			hcPort:              port80,
+			name:   "ipv6 preserve client IP disabled",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port80,
 			subnets: []*ec2.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
@@ -983,11 +1147,25 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
-			name:                "ipv6 preserve client IP enabled, vpc range default",
-			svc:                 &corev1.Service{},
-			defaultSourceRanges: []string{"2300:1ab3:ab0:1900::/56"},
-			tgPort:              port80,
-			hcPort:              port80,
+			name:   "ipv6 preserve client IP enabled, vpc range default",
+			svc:    &corev1.Service{},
+			scheme: elbv2.LoadBalancerSchemeInternal,
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						Ipv6CidrBlockAssociationSet: []*ec2.VpcIpv6CidrBlockAssociation{
+							{
+								Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/56"),
+								Ipv6CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			tgPort: port80,
+			hcPort: port80,
 			subnets: []*ec2.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
@@ -1053,15 +1231,219 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+			for _, call := range tt.fetchVPCInfoCalls {
+				vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
+			}
+
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets}
+			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets, preserveClientIP: tt.preserveClientIP,
+				defaultIPv4SourceRanges: []string{"0.0.0.0/0"}, defaultIPv6SourceRanges: []string{"::/0"}, vpcInfoProvider: vpcInfoProvider}
 			port := corev1.ServicePort{
 				Protocol: tt.tgProtocol,
 			}
-			got, _ := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.preserveClientIP, tt.hcPort, port, tt.defaultSourceRanges, tt.ipAddressType)
+			got, _ := builder.buildTargetGroupBindingNetworkingLegacy(context.Background(), tt.tgPort, tt.hcPort, port, tt.scheme, tt.ipAddressType)
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T) {
+	networkingProtocolTCP := elbv2api.NetworkingProtocolTCP
+	networkingProtocolUDP := elbv2api.NetworkingProtocolUDP
+	port80 := intstr.FromInt(80)
+	port808 := intstr.FromInt(808)
+	trafficPort := intstr.FromString("traffic-port")
+	sgBackend := "sg-backend"
+
+	tests := []struct {
+		name                   string
+		tgPort                 intstr.IntOrString
+		hcPort                 intstr.IntOrString
+		tgProtocol             corev1.Protocol
+		disableRestrictedRules bool
+		backendSGIDToken       core.StringToken
+		want                   *elbv2.TargetGroupBindingNetworking
+	}{
+		{
+			name:                   "tcp with restricted rules disabled",
+			tgPort:                 port80,
+			hcPort:                 trafficPort,
+			tgProtocol:             corev1.ProtocolTCP,
+			backendSGIDToken:       core.LiteralStringToken(sgBackend),
+			disableRestrictedRules: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:                   "udp with restricted rules disabled",
+			tgPort:                 port80,
+			hcPort:                 trafficPort,
+			tgProtocol:             corev1.ProtocolUDP,
+			backendSGIDToken:       core.LiteralStringToken(sgBackend),
+			disableRestrictedRules: true,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+							},
+							{
+								Protocol: &networkingProtocolUDP,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "tcp with port restricted rules",
+			tgPort:           port80,
+			hcPort:           trafficPort,
+			tgProtocol:       corev1.ProtocolTCP,
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "udp with port restricted rules",
+			tgPort:           port80,
+			hcPort:           trafficPort,
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			tgProtocol:       corev1.ProtocolUDP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "tcp with port restricted rules, different hc",
+			tgPort:           port80,
+			hcPort:           port808,
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			tgProtocol:       corev1.ProtocolTCP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "udp with port restricted rules, different hc",
+			tgPort:           port80,
+			hcPort:           port808,
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			tgProtocol:       corev1.ProtocolUDP,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:       "no backend SG configured",
+			tgPort:     port80,
+			hcPort:     port808,
+			tgProtocol: corev1.ProtocolUDP,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := &defaultModelBuildTask{disableRestrictedSGRules: tt.disableRestrictedRules, backendSGIDToken: tt.backendSGIDToken}
+			port := corev1.ServicePort{
+				Protocol: tt.tgProtocol,
+			}
+			got, _ := builder.buildTargetGroupBindingNetworking(context.Background(), tt.tgPort, tt.hcPort, port)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
 }
 
 func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
@@ -1163,6 +1545,7 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 	tests := []struct {
 		testName           string
 		svc                *corev1.Service
+		defaultTargetType  string
 		want               elbv2.TargetType
 		enableIPTargetType *bool
 		wantErr            error
@@ -1182,6 +1565,23 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 				},
 			},
 			want: elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "default type ip",
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			defaultTargetType: "ip",
+			want:              elbv2.TargetTypeIP,
 		},
 		{
 			testName: "lb type nlb-ip",
@@ -1359,7 +1759,10 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 			builder := &defaultModelBuildTask{
 				annotationParser:  parser,
 				service:           tt.svc,
-				defaultTargetType: LoadBalancerTargetTypeInstance,
+				defaultTargetType: elbv2.TargetType(tt.defaultTargetType),
+			}
+			if tt.defaultTargetType == "" {
+				builder.defaultTargetType = elbv2.TargetTypeInstance
 			}
 			if tt.enableIPTargetType == nil {
 				builder.enableIPTargetType = true
@@ -1457,6 +1860,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 		testName    string
 		svc         *corev1.Service
 		defaultPort string
+		targetType  elbv2.TargetType
 		want        intstr.IntOrString
 		wantErr     error
 	}{
@@ -1465,6 +1869,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 			svc:         &corev1.Service{},
 			defaultPort: "traffic-port",
 			want:        intstr.FromString("traffic-port"),
+			targetType:  elbv2.TargetTypeInstance,
 		},
 		{
 			testName: "with annotation",
@@ -1477,6 +1882,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 			},
 			defaultPort: "traffic-port",
 			want:        intstr.FromInt(34576),
+			targetType:  elbv2.TargetTypeInstance,
 		},
 		{
 			testName: "unsupported annotation value",
@@ -1488,19 +1894,115 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 				},
 			},
 			defaultPort: "traffic-port",
-			wantErr:     errors.New("health check port \"a34576\" not supported"),
+			wantErr:     errors.New("failed to resolve healthCheckPort: unable to find port a34576 on service /"),
+			targetType:  elbv2.TargetTypeInstance,
 		},
 		{
 			testName:    "default health check nodeport",
 			svc:         &corev1.Service{},
 			defaultPort: "31227",
 			want:        intstr.FromInt(31227),
+			targetType:  elbv2.TargetTypeInstance,
 		},
 		{
 			testName:    "invalid default",
 			svc:         &corev1.Service{},
 			defaultPort: "abs",
-			wantErr:     errors.New("health check port \"abs\" not supported"),
+			wantErr:     errors.New("failed to resolve healthCheckPort: unable to find port abs on service /"),
+			targetType:  elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "resolve port name instance",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port": "health",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "traffic",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							NodePort:   31227,
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "health",
+							Port:       1234,
+							TargetPort: intstr.FromInt(1234),
+							NodePort:   30987,
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			defaultPort: "8080",
+			want:        intstr.FromInt(30987),
+			targetType:  elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "invalid port name",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port": "absent",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "traffic",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							NodePort:   31227,
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "health",
+							Port:       1234,
+							TargetPort: intstr.FromInt(1234),
+							NodePort:   30987,
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			defaultPort: "8080",
+			wantErr:     errors.New("failed to resolve healthCheckPort: unable to find port absent on service /"),
+			targetType:  elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "resolve port name IP",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port": "health",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "traffic",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							NodePort:   31227,
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "health",
+							Port:       1234,
+							TargetPort: intstr.FromInt(1234),
+							NodePort:   30987,
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			defaultPort: "8080",
+			want:        intstr.FromInt(1234),
+			targetType:  elbv2.TargetTypeIP,
 		},
 	}
 	for _, tt := range tests {
@@ -1511,7 +2013,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 				service:                tt.svc,
 				defaultHealthCheckPort: tt.defaultPort,
 			}
-			got, err := builder.buildTargetGroupHealthCheckPort(context.Background(), tt.defaultPort)
+			got, err := builder.buildTargetGroupHealthCheckPort(context.Background(), tt.defaultPort, tt.targetType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

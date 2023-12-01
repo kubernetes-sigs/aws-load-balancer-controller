@@ -23,7 +23,6 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 		labels      map[string]string
 		stack       NLBIPTestStack
 	)
-
 	BeforeEach(func() {
 		ctx = context.Background()
 		numReplicas = 3
@@ -33,6 +32,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 			"app.kubernetes.io/name":     "multi-port",
 			"app.kubernetes.io/instance": name,
 		}
+		dpImage := utils.GetDeploymentImage(tf.Options.TestImageRegistry, utils.HelloImage)
 		deployment = &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: name,
@@ -51,7 +51,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 							{
 								Name:            "app",
 								ImagePullPolicy: corev1.PullAlways,
-								Image:           defaultTestImage,
+								Image:           dpImage,
 								Ports: []corev1.ContainerPort{
 									{
 										ContainerPort: appContainerPort,
@@ -217,6 +217,18 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 							TargetPort: intstr.FromInt(80),
 							Protocol:   corev1.ProtocolTCP,
 						},
+						{
+							Port:       443,
+							Name:       "https",
+							TargetPort: intstr.FromInt(443),
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Port:       333,
+							Name:       "arbitrary-port",
+							TargetPort: intstr.FromInt(333),
+							Protocol:   corev1.ProtocolTCP,
+						},
 					},
 				},
 			}
@@ -245,10 +257,14 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Scheme:     "internet-facing",
 					TargetType: "ip",
 					Listeners: map[string]string{
-						"80": "TLS",
+						"80":  "TLS",
+						"443": "TLS",
+						"333": "TLS",
 					},
 					TargetGroups: map[string]string{
-						"80": "TCP",
+						"80":  "TCP",
+						"443": "TCP",
+						"333": "TCP",
 					},
 					NumTargets: int(numReplicas),
 				})
@@ -272,10 +288,14 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Scheme:     "internet-facing",
 					TargetType: "ip",
 					Listeners: map[string]string{
-						"80": "TCP",
+						"80":  "TCP",
+						"443": "TLS",
+						"333": "TLS",
 					},
 					TargetGroups: map[string]string{
-						"80": "TCP",
+						"80":  "TCP",
+						"443": "TCP",
+						"333": "TCP",
 					},
 					NumTargets: int(numReplicas),
 				})
@@ -384,6 +404,10 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					},
 				})
 				Expect(err).ToNot(HaveOccurred())
+			})
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

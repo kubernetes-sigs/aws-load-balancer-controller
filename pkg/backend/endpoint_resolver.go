@@ -8,7 +8,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
+	discovery "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -166,7 +166,8 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 					return nil, false, err
 				}
 				if !exists {
-					r.logger.Info("ignore pod Endpoint with non-existent podInfo", "podKey", podKey.String())
+					r.logger.Info("the pod in endpoint is not found in pod cache yet, will keep retrying", "podKey", podKey.String())
+					containsPotentialReadyEndpoints = true
 					continue
 				}
 				podEndpoint := buildPodEndpoint(pod, epAddr, epPort)

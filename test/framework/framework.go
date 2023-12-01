@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"github.com/gavv/httpexpect/v2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -34,7 +35,8 @@ type Framework struct {
 
 	HTTPVerifier http.Verifier
 
-	Logger utils.GinkgoLogger
+	Logger         logr.Logger
+	LoggerReporter httpexpect.LoggerReporter
 }
 
 func InitFramework() (*Framework, error) {
@@ -63,7 +65,7 @@ func InitFramework() (*Framework, error) {
 		return nil, err
 	}
 
-	logger := utils.NewGinkgoLogger()
+	logger, loggerReporter := utils.NewGinkgoLogger()
 
 	f := &Framework{
 		Options:   globalOptions,
@@ -81,7 +83,8 @@ func InitFramework() (*Framework, error) {
 
 		HTTPVerifier: http.NewDefaultVerifier(),
 
-		Logger: logger,
+		Logger:         logger,
+		LoggerReporter: loggerReporter,
 	}
 
 	return f, nil

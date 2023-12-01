@@ -24,10 +24,6 @@ const (
 	nonExistentBackendServiceMessageBody = "Backend service does not exist"
 	// the message body of fixed 503 response used when referencing a non-existent annotation Action as backend.
 	nonExistentBackendActionMessageBody = "Backend action does not exist"
-	// by default, we tolerate a missing backend service, and use a fixed 503 response instead.
-	defaultTolerateNonExistentBackendService = true
-	// by default, we tolerate a missing backend action, and use a fixed 503 response instead.
-	defaultTolerateNonExistentBackendAction = true
 )
 
 // EnhancedBackend is an enhanced version of Ingress backend.
@@ -80,14 +76,13 @@ type EnhancedBackendBuilder interface {
 }
 
 // NewDefaultEnhancedBackendBuilder constructs new defaultEnhancedBackendBuilder.
-func NewDefaultEnhancedBackendBuilder(k8sClient client.Client, annotationParser annotations.Parser, authConfigBuilder AuthConfigBuilder) *defaultEnhancedBackendBuilder {
+func NewDefaultEnhancedBackendBuilder(k8sClient client.Client, annotationParser annotations.Parser, authConfigBuilder AuthConfigBuilder, tolerateNonExistentBackendService bool, tolerateNonExistentBackendAction bool) *defaultEnhancedBackendBuilder {
 	return &defaultEnhancedBackendBuilder{
-		k8sClient:         k8sClient,
-		annotationParser:  annotationParser,
-		authConfigBuilder: authConfigBuilder,
-
-		tolerateNonExistentBackendService: defaultTolerateNonExistentBackendAction,
-		tolerateNonExistentBackendAction:  defaultTolerateNonExistentBackendService,
+		k8sClient:                         k8sClient,
+		annotationParser:                  annotationParser,
+		authConfigBuilder:                 authConfigBuilder,
+		tolerateNonExistentBackendService: tolerateNonExistentBackendService,
+		tolerateNonExistentBackendAction:  tolerateNonExistentBackendAction,
 	}
 }
 
@@ -165,7 +160,7 @@ func (b *defaultEnhancedBackendBuilder) buildConditions(_ context.Context, ingAn
 		return nil, err
 	}
 	for _, condition := range conditions {
-		if err := condition.validate(); err != nil {
+		if err := condition.Validate(); err != nil {
 			return nil, err
 		}
 	}

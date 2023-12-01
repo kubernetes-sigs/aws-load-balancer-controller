@@ -7,8 +7,14 @@ _As contributors and maintainers of this project, and in the interest of fosteri
 ## Getting Started
 
 ### Building the project
-[Controller developement documentation](/docs/controller-devel.md) has instructions on how to build the project and project specific expectations.
+[Controller development documentation](/docs/controller-devel.md) has instructions on how to build the project and project specific expectations.
 
+### Contributing to docs
+
+The [documentation](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/) is generated using [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/). In order to generate and preview docs locally, use the steps below -
+
+- Install [pipenv](https://pipenv.pypa.io/en/latest/install/#installing-pipenv)
+- run `make docs-preview`. This will generate and serve docs locally at http://127.0.0.1:8000
 
 ### Contributing
 We also have more documentation on how to get started contributing here:
@@ -23,5 +29,5 @@ We also have more documentation on how to get started contributing here:
 
 ## Contact Information
 
-- [Slack channel](https://kubernetes.slack.com/messages/sig-aws)
+- [Slack channel](https://kubernetes.slack.com/messages/provider-aws)
 - [Mailing list](https://groups.google.com/forum/#!forum/kubernetes-sig-aws)

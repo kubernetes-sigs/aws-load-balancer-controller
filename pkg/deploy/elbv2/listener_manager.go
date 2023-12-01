@@ -2,6 +2,8 @@ package elbv2
 
 import (
 	"context"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
@@ -15,7 +17,6 @@ import (
 	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
-	"time"
 )
 
 // ListenerManager is responsible for create/update/delete Listener resources.
@@ -157,8 +158,8 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx context.Context, resLS *elbv2model.Listener,
 	sdkLS ListenerWithTags, isNewSDKListener bool) error {
 	// if TLS is not supported, we shouldn't update
-	if sdkLS.Listener.SslPolicy == nil {
-		m.logger.V(1).Info("SDK Listener doesn't have SSL Policy set, we skip updating extra certs for non-TLS listener.")
+	if resLS.Spec.SSLPolicy == nil && sdkLS.Listener.SslPolicy == nil {
+		m.logger.V(1).Info("Res and Sdk Listener don't have SSL Policy set, we skip updating extra certs for non-TLS listener.")
 		return nil
 	}
 

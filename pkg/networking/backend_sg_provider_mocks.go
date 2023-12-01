@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	types "k8s.io/apimachinery/pkg/types"
 )
 
 // MockBackendSGProvider is a mock of BackendSGProvider interface.
@@ -35,30 +36,30 @@ func (m *MockBackendSGProvider) EXPECT() *MockBackendSGProviderMockRecorder {
 }
 
 // Get mocks base method.
-func (m *MockBackendSGProvider) Get(arg0 context.Context) (string, error) {
+func (m *MockBackendSGProvider) Get(arg0 context.Context, arg1 ResourceType, arg2 []types.NamespacedName) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0)
+	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockBackendSGProviderMockRecorder) Get(arg0 interface{}) *gomock.Call {
+func (mr *MockBackendSGProviderMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockBackendSGProvider)(nil).Get), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockBackendSGProvider)(nil).Get), arg0, arg1, arg2)
 }
 
 // Release mocks base method.
-func (m *MockBackendSGProvider) Release(arg0 context.Context) error {
+func (m *MockBackendSGProvider) Release(arg0 context.Context, arg1 ResourceType, arg2 []types.NamespacedName) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Release", arg0)
+	ret := m.ctrl.Call(m, "Release", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Release indicates an expected call of Release.
-func (mr *MockBackendSGProviderMockRecorder) Release(arg0 interface{}) *gomock.Call {
+func (mr *MockBackendSGProviderMockRecorder) Release(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockBackendSGProvider)(nil).Release), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockBackendSGProvider)(nil).Release), arg0, arg1, arg2)
 }

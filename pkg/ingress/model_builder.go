@@ -2,6 +2,8 @@ package ingress
 
 import (
 	"context"
+	"strconv"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
@@ -21,7 +23,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 )
 
 const (
@@ -31,7 +32,7 @@ const (
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
 type ModelBuilder interface {
 	// build mode stack for a IngressGroup.
-	Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, error)
+	Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, error)
 }
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
@@ -40,8 +41,9 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
-	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string,
-	backendSGProvider networkingpkg.BackendSGProvider, enableBackendSG bool, disableRestrictedSGRules bool, enableIPTargetType bool, logger logr.Logger) *defaultModelBuilder {
+	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string,
+	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
+	enableBackendSG bool, disableRestrictedSGRules bool, enableIPTargetType bool, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
@@ -53,6 +55,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		annotationParser:         annotationParser,
 		subnetsResolver:          subnetsResolver,
 		backendSGProvider:        backendSGProvider,
+		sgResolver:               sgResolver,
 		certDiscovery:            certDiscovery,
 		authConfigBuilder:        authConfigBuilder,
 		enhancedBackendBuilder:   enhancedBackendBuilder,
@@ -63,6 +66,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		defaultTags:              defaultTags,
 		externalManagedTags:      sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:         defaultSSLPolicy,
+		defaultTargetType:        elbv2model.TargetType(defaultTargetType),
 		enableBackendSG:          enableBackendSG,
 		disableRestrictedSGRules: disableRestrictedSGRules,
 		enableIPTargetType:       enableIPTargetType,
@@ -84,6 +88,7 @@ type defaultModelBuilder struct {
 	annotationParser         annotations.Parser
 	subnetsResolver          networkingpkg.SubnetsResolver
 	backendSGProvider        networkingpkg.BackendSGProvider
+	sgResolver               networkingpkg.SecurityGroupResolver
 	certDiscovery            CertDiscovery
 	authConfigBuilder        AuthConfigBuilder
 	enhancedBackendBuilder   EnhancedBackendBuilder
@@ -94,6 +99,7 @@ type defaultModelBuilder struct {
 	defaultTags              map[string]string
 	externalManagedTags      sets.String
 	defaultSSLPolicy         string
+	defaultTargetType        elbv2model.TargetType
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
 	enableIPTargetType       bool
@@ -102,7 +108,7 @@ type defaultModelBuilder struct {
 }
 
 // build mode stack for a IngressGroup.
-func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, error) {
+func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, error) {
 	stack := core.NewDefaultStack(core.StackID(ingGroup.ID))
 	task := &defaultModelBuildTask{
 		k8sClient:                b.k8sClient,
@@ -120,6 +126,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		elbv2TaggingManager:      b.elbv2TaggingManager,
 		featureGates:             b.featureGates,
 		backendSGProvider:        b.backendSGProvider,
+		sgResolver:               b.sgResolver,
 		logger:                   b.logger,
 		enableBackendSG:          b.enableBackendSG,
 		disableRestrictedSGRules: b.disableRestrictedSGRules,
@@ -133,7 +140,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		defaultIPAddressType:                      elbv2model.IPAddressTypeIPV4,
 		defaultScheme:                             elbv2model.LoadBalancerSchemeInternal,
 		defaultSSLPolicy:                          b.defaultSSLPolicy,
-		defaultTargetType:                         elbv2model.TargetTypeInstance,
+		defaultTargetType:                         b.defaultTargetType,
 		defaultBackendProtocol:                    elbv2model.ProtocolHTTP,
 		defaultBackendProtocolVersion:             elbv2model.ProtocolVersionHTTP1,
 		defaultHealthCheckPathHTTP:                "/",
@@ -150,9 +157,9 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		backendServices: make(map[types.NamespacedName]*corev1.Service),
 	}
 	if err := task.run(ctx); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, false, err
 	}
-	return task.stack, task.loadBalancer, task.secretKeys, nil
+	return task.stack, task.loadBalancer, task.secretKeys, task.backendSGAllocated, nil
 }
 
 // the default model build task
@@ -165,6 +172,7 @@ type defaultModelBuildTask struct {
 	annotationParser       annotations.Parser
 	subnetsResolver        networkingpkg.SubnetsResolver
 	backendSGProvider      networkingpkg.BackendSGProvider
+	sgResolver             networkingpkg.SecurityGroupResolver
 	certDiscovery          CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
@@ -178,6 +186,7 @@ type defaultModelBuildTask struct {
 	sslRedirectConfig        *SSLRedirectConfig
 	stack                    core.Stack
 	backendSGIDToken         core.StringToken
+	backendSGAllocated       bool
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
 	enableIPTargetType       bool
@@ -225,7 +234,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	listenPortConfigsByPort := make(map[int64][]listenPortConfigWithIngress)
 	for _, member := range t.ingGroup.Members {
 		ingKey := k8s.NamespacedName(member.Ing)
-		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, member.Ing)
+		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, &member)
 		if err != nil {
 			return errors.Wrapf(err, "ingress: %v", ingKey.String())
 		}

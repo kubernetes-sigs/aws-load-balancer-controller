@@ -12,3 +12,12 @@ func NamespacedName(obj metav1.Object) types.NamespacedName {
 		Name:      obj.GetName(),
 	}
 }
+
+// ToSliceOfNamespacedNames gets the slice of types.NamespacedName from the input slice s
+func ToSliceOfNamespacedNames[T metav1.ObjectMetaAccessor](s []T) []types.NamespacedName {
+	result := make([]types.NamespacedName, len(s))
+	for i, v := range s {
+		result[i] = NamespacedName(v.GetObjectMeta())
+	}
+	return result
+}

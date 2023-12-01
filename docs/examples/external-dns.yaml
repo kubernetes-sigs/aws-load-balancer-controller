@@ -2,32 +2,29 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: external-dns
+  labels:
+    app.kubernetes.io/name: external-dns
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: external-dns
+  labels:
+    app.kubernetes.io/name: external-dns
 rules:
 - apiGroups: [""]
-  resources: ["services"]
+  resources: ["services", "endpoints", "pods", "nodes"]
   verbs: ["get","watch","list"]
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get","watch","list"]
-- apiGroups: ["extensions"]
+- apiGroups: ["extensions", "networking.k8s.io"]
   resources: ["ingresses"]
-  verbs: ["get","watch","list"]
-- apiGroups: [""]
-  resources: ["nodes"]
-  verbs: ["list"]
-- apiGroups: [""]
-  resources: ["endpoints"]
   verbs: ["get","watch","list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: external-dns-viewer
+  labels:
+    app.kubernetes.io/name: external-dns
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -41,23 +38,25 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: external-dns
+  labels:
+    app.kubernetes.io/name: external-dns
 spec:
   selector:
     matchLabels:
-      app: external-dns
+      app.kubernetes.io/name: external-dns
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        app: external-dns
+        app.kubernetes.io/name: external-dns
     spec:
       serviceAccountName: external-dns
       securityContext:
         fsGroup: 65534
       containers:
       - name: external-dns
-        image: bitnami/external-dns:0.7.4
+        image: bitnami/external-dns:0.13.1
         # must specify env AWS_REGION in AWS china regions
         # env:
         # - name: AWS_REGION

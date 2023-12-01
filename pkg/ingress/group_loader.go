@@ -81,7 +81,6 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 	if err := m.client.List(ctx, ingList); err != nil {
 		return Group{}, err
 	}
-
 	var members []ClassifiedIngress
 	var inactiveMembers []*networking.Ingress
 	for index := range ingList.Items {
@@ -208,30 +207,24 @@ func (m *defaultGroupLoader) classifyIngress(ctx context.Context, ing *networkin
 		}, false, nil
 	}
 
-	if ing.Spec.IngressClassName != nil {
-		ingClassConfig, err := m.classLoader.Load(ctx, ing)
-		if err != nil {
-			return ClassifiedIngress{
-				Ing:            ing,
-				IngClassConfig: ClassConfiguration{},
-			}, false, err
-		}
+	ingClassConfig, err := m.classLoader.Load(ctx, ing)
+	if err != nil {
+		return ClassifiedIngress{
+			Ing:            ing,
+			IngClassConfig: ClassConfiguration{},
+		}, false, err
+	}
 
-		if matchesIngressClass := ingClassConfig.IngClass != nil && ingClassConfig.IngClass.Spec.Controller == ingressClassControllerALB; matchesIngressClass {
-			return ClassifiedIngress{
-				Ing:            ing,
-				IngClassConfig: ingClassConfig,
-			}, true, nil
-		}
+	if ingClassConfig.IngClass != nil {
 		return ClassifiedIngress{
 			Ing:            ing,
 			IngClassConfig: ingClassConfig,
-		}, false, nil
+		}, ingClassConfig.IngClass.Spec.Controller == IngressClassControllerALB, nil
 	}
 
 	return ClassifiedIngress{
 		Ing:            ing,
-		IngClassConfig: ClassConfiguration{},
+		IngClassConfig: ingClassConfig,
 	}, m.manageIngressesWithoutIngressClass, nil
 }
 

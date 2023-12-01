@@ -73,6 +73,7 @@ const (
 	SvcLBSuffixHCProtocol                    = "aws-load-balancer-healthcheck-protocol"
 	SvcLBSuffixHCPort                        = "aws-load-balancer-healthcheck-port"
 	SvcLBSuffixHCPath                        = "aws-load-balancer-healthcheck-path"
+	SvcLBSuffixHCSuccessCodes                = "aws-load-balancer-healthcheck-success-codes"
 	SvcLBSuffixTargetGroupAttributes         = "aws-load-balancer-target-group-attributes"
 	SvcLBSuffixSubnets                       = "aws-load-balancer-subnets"
 	SvcLBSuffixEIPAllocations                = "aws-load-balancer-eip-allocations"
@@ -81,5 +82,6 @@ const (
 	SvcLBSuffixALPNPolicy                    = "aws-load-balancer-alpn-policy"
 	SvcLBSuffixTargetNodeLabels              = "aws-load-balancer-target-node-labels"
 	SvcLBSuffixLoadBalancerAttributes        = "aws-load-balancer-attributes"
+	SvcLBSuffixLoadBalancerSecurityGroups    = "aws-load-balancer-security-groups"
 	SvcLBSuffixManageSGRules                 = "aws-load-balancer-manage-backend-security-group-rules"
 )

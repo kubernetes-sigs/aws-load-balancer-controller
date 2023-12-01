@@ -3,15 +3,17 @@ package networking
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sort"
-	"strings"
 )
 
 const (
@@ -46,6 +48,8 @@ type SubnetsResolveOptions struct {
 	AvailableIPAddressCount int64
 	// whether to check the cluster tag
 	SubnetsClusterTagCheck bool
+	// whether to allow using only 1 subnet for provisioning ALB, default to false
+	ALBSingleSubnet bool
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -93,16 +97,26 @@ func WithSubnetsClusterTagCheck(SubnetsClusterTagCheck bool) SubnetsResolveOptio
 	}
 }
 
+// WithALBSingleSubnet generate an option that configures ALBSingleSubnet
+func WithALBSingleSubnet(ALBSingleSubnet bool) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.ALBSingleSubnet = ALBSingleSubnet
+	}
+}
+
 // SubnetsResolver is responsible for resolve EC2 Subnets for Load Balancers.
 type SubnetsResolver interface {
 	// ResolveViaDiscovery resolve subnets by auto discover matching subnets.
 	// Discovery candidate includes all subnets within the clusterVPC. Additionally,
 	//   * for internet-facing Load Balancer, "kubernetes.io/role/elb" tag must be present.
 	//   * for internal Load Balancer, "kubernetes.io/role/internal-elb" tag must be present.
-	//   * if SubnetClusterTagCheck is enabled, subnets within the clusterVPC must contain no cluster tag at all
+	//   * if SubnetsClusterTagCheck is enabled, subnets within the clusterVPC must contain no cluster tag at all
 	//     or contain the "kubernetes.io/cluster/<cluster_name>" tag for the current cluster
 	// If multiple subnets are found for specific AZ, one subnet is chosen based on the lexical order of subnetID.
 	ResolveViaDiscovery(ctx context.Context, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
+
+	// ResolveViaSelector resolves subnets using a SubnetSelector.
+	ResolveViaSelector(ctx context.Context, selector *elbv2api.SubnetSelector, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
 
 	// ResolveViaNameOrIDSlice resolve subnets using subnet name or ID.
 	ResolveViaNameOrIDSlice(ctx context.Context, subnetNameOrIDs []string, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
@@ -141,52 +155,102 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 	case elbv2model.LoadBalancerSchemeInternetFacing:
 		subnetRoleTagKey = TagKeySubnetPublicELB
 	}
-	req := &ec2sdk.DescribeSubnetsInput{Filters: []*ec2sdk.Filter{
-		{
-			Name:   awssdk.String("tag:" + subnetRoleTagKey),
-			Values: awssdk.StringSlice([]string{"", "1"}),
-		},
-		{
-			Name:   awssdk.String("vpc-id"),
-			Values: awssdk.StringSlice([]string{r.vpcID}),
-		},
-	}}
 
-	allSubnets, err := r.ec2Client.DescribeSubnetsAsList(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	var subnets []*ec2sdk.Subnet
-	for _, subnet := range allSubnets {
-		if r.checkSubnetIsNotTaggedForOtherClusters(subnet, resolveOpts.SubnetsClusterTagCheck) {
-			subnets = append(subnets, subnet)
+	return r.ResolveViaSelector(ctx, &elbv2api.SubnetSelector{
+		Tags: map[string][]string{
+			subnetRoleTagKey: {"", "1"},
+		},
+	}, opts...)
+}
+
+func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selector *elbv2api.SubnetSelector, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
+	resolveOpts := defaultSubnetsResolveOptions()
+	resolveOpts.ApplyOptions(opts)
+
+	var chosenSubnets []*ec2sdk.Subnet
+	var err error
+	var explanation string
+	if selector.IDs != nil {
+		req := &ec2sdk.DescribeSubnetsInput{
+			SubnetIds: make([]*string, 0, len(selector.IDs)),
 		}
-	}
-	filteredSubnets := r.filterSubnetsByAvailableIPAddress(subnets, resolveOpts.AvailableIPAddressCount)
-	subnetsByAZ := mapSDKSubnetsByAZ(filteredSubnets)
-	chosenSubnets := make([]*ec2sdk.Subnet, 0, len(subnetsByAZ))
-	for az, subnets := range subnetsByAZ {
-		if len(subnets) == 1 {
-			chosenSubnets = append(chosenSubnets, subnets[0])
-		} else if len(subnets) > 1 {
-			sort.Slice(subnets, func(i, j int) bool {
-				clusterTagI := r.checkSubnetHasClusterTag(subnets[i])
-				clusterTagJ := r.checkSubnetHasClusterTag(subnets[j])
-				if clusterTagI != clusterTagJ {
-					if clusterTagI {
-						return true
-					}
-					return false
-				}
-				return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
+		for _, subnetID := range selector.IDs {
+			id := string(subnetID)
+			req.SubnetIds = append(req.SubnetIds, &id)
+		}
+		chosenSubnets, err = r.ec2Client.DescribeSubnetsAsList(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if len(chosenSubnets) != len(selector.IDs) {
+			return nil, errors.Errorf("couldn't find all subnets, IDs: %v, found: %v", selector.IDs, len(chosenSubnets))
+		}
+		if err := r.validateSubnetsAZExclusivity(chosenSubnets); err != nil {
+			return nil, err
+		}
+		// todo validate here?
+	} else {
+		req := &ec2sdk.DescribeSubnetsInput{
+			Filters: []*ec2sdk.Filter{
+				{
+					Name:   awssdk.String("vpc-id"),
+					Values: awssdk.StringSlice([]string{r.vpcID}),
+				},
+			},
+		}
+		for key, values := range selector.Tags {
+			req.Filters = append(req.Filters, &ec2sdk.Filter{
+				Name:   awssdk.String("tag:" + key),
+				Values: awssdk.StringSlice(values),
 			})
-			r.logger.Info("multiple subnet in the same AvailabilityZone", "AvailabilityZone", az,
-				"chosen", subnets[0].SubnetId, "ignored", subnets[1:])
-			chosenSubnets = append(chosenSubnets, subnets[0])
+		}
+
+		allSubnets, err := r.ec2Client.DescribeSubnetsAsList(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		explanation = fmt.Sprintf("%d match VPC and tags", len(allSubnets))
+		var subnets []*ec2sdk.Subnet
+		taggedOtherCluster := 0
+		for _, subnet := range allSubnets {
+			if r.checkSubnetIsNotTaggedForOtherClusters(subnet, resolveOpts.SubnetsClusterTagCheck) {
+				subnets = append(subnets, subnet)
+			} else {
+				taggedOtherCluster += 1
+			}
+		}
+		if taggedOtherCluster > 0 {
+			explanation += fmt.Sprintf(", %d tagged for other cluster", taggedOtherCluster)
+		}
+		filteredSubnets, insufficientIPs := r.filterSubnetsByAvailableIPAddress(subnets, resolveOpts.AvailableIPAddressCount)
+		if insufficientIPs > 0 {
+			explanation += fmt.Sprintf(", %d have fewer than %d free IPs", insufficientIPs, resolveOpts.AvailableIPAddressCount)
+		}
+		subnetsByAZ := mapSDKSubnetsByAZ(filteredSubnets)
+		chosenSubnets = make([]*ec2sdk.Subnet, 0, len(subnetsByAZ))
+		for az, subnets := range subnetsByAZ {
+			if len(subnets) == 1 {
+				chosenSubnets = append(chosenSubnets, subnets[0])
+			} else if len(subnets) > 1 {
+				sort.Slice(subnets, func(i, j int) bool {
+					clusterTagI := r.checkSubnetHasClusterTag(subnets[i])
+					clusterTagJ := r.checkSubnetHasClusterTag(subnets[j])
+					if clusterTagI != clusterTagJ {
+						if clusterTagI {
+							return true
+						}
+						return false
+					}
+					return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
+				})
+				r.logger.Info("multiple subnet in the same AvailabilityZone", "AvailabilityZone", az,
+					"chosen", subnets[0].SubnetId, "ignored", subnets[1:])
+				chosenSubnets = append(chosenSubnets, subnets[0])
+			}
 		}
 	}
 	if len(chosenSubnets) == 0 {
-		return nil, errors.New("unable to discover at least one subnet")
+		return nil, fmt.Errorf("unable to resolve at least one subnet (%s)", explanation)
 	}
 	subnetLocale, err := r.validateSubnetsLocaleUniformity(ctx, chosenSubnets)
 	if err != nil {
@@ -309,7 +373,7 @@ func (r *defaultSubnetsResolver) validateSubnetsMinimalCount(subnets []*ec2sdk.S
 // computeSubnetsMinimalCount returns the minimal count requirement for subnets.
 func (r *defaultSubnetsResolver) computeSubnetsMinimalCount(subnetLocale subnetLocaleType, resolveOpts SubnetsResolveOptions) int {
 	minimalCount := 1
-	if resolveOpts.LBType == elbv2model.LoadBalancerTypeApplication && subnetLocale == subnetLocaleTypeAvailabilityZone {
+	if resolveOpts.LBType == elbv2model.LoadBalancerTypeApplication && subnetLocale == subnetLocaleTypeAvailabilityZone && !resolveOpts.ALBSingleSubnet {
 		minimalCount = 2
 	}
 	return minimalCount
@@ -395,15 +459,18 @@ func sortSubnetsByID(subnets []*ec2sdk.Subnet) {
 	})
 }
 
-func (r *defaultSubnetsResolver) filterSubnetsByAvailableIPAddress(subnets []*ec2sdk.Subnet, availableIPAddressCount int64) []*ec2sdk.Subnet {
+func (r *defaultSubnetsResolver) filterSubnetsByAvailableIPAddress(subnets []*ec2sdk.Subnet, availableIPAddressCount int64) ([]*ec2sdk.Subnet, int) {
 	filteredSubnets := make([]*ec2sdk.Subnet, 0, len(subnets))
+
+	insufficientIPs := 0
 	for _, subnet := range subnets {
 		if awssdk.Int64Value(subnet.AvailableIpAddressCount) >= availableIPAddressCount {
 			filteredSubnets = append(filteredSubnets, subnet)
 		} else {
+			insufficientIPs += 1
 			r.logger.Info("ELB requires at least 8 free IP addresses in each subnet",
 				"not enough IP addresses found in ", awssdk.StringValue(subnet.SubnetId))
 		}
 	}
-	return filteredSubnets
+	return filteredSubnets, insufficientIPs
 }

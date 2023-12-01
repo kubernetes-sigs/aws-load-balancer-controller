@@ -9,8 +9,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    - host: echoserver.example.com
-      http:
+    - http:
         paths:
           - path: /
             pathType: Exact

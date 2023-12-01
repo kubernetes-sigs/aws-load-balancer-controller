@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -14,12 +15,13 @@ import (
 
 // NewTargetGroupSynthesizer constructs targetGroupSynthesizer
 func NewTargetGroupSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
-	tgManager TargetGroupManager, logger logr.Logger, stack core.Stack) *targetGroupSynthesizer {
+	tgManager TargetGroupManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack) *targetGroupSynthesizer {
 	return &targetGroupSynthesizer{
 		elbv2Client:      elbv2Client,
 		trackingProvider: trackingProvider,
 		taggingManager:   taggingManager,
 		tgManager:        tgManager,
+		featureGates:     featureGates,
 		logger:           logger,
 		stack:            stack,
 		unmatchedSDKTGs:  nil,
@@ -32,6 +34,7 @@ type targetGroupSynthesizer struct {
 	trackingProvider tracking.Provider
 	taggingManager   TaggingManager
 	tgManager        TargetGroupManager
+	featureGates     config.FeatureGates
 	logger           logr.Logger
 
 	stack           core.Stack
@@ -45,7 +48,8 @@ func (s *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	matchedResAndSDKTGs, unmatchedResTGs, unmatchedSDKTGs, err := matchResAndSDKTargetGroups(resTGs, sdkTGs, s.trackingProvider.ResourceIDTagKey())
+	matchedResAndSDKTGs, unmatchedResTGs, unmatchedSDKTGs, err := matchResAndSDKTargetGroups(resTGs, sdkTGs,
+		s.trackingProvider.ResourceIDTagKey(), s.featureGates)
 	if err != nil {
 		return err
 	}
@@ -95,7 +99,7 @@ type resAndSDKTargetGroupPair struct {
 }
 
 func matchResAndSDKTargetGroups(resTGs []*elbv2model.TargetGroup, sdkTGs []TargetGroupWithTags,
-	resourceIDTagKey string) ([]resAndSDKTargetGroupPair, []*elbv2model.TargetGroup, []TargetGroupWithTags, error) {
+	resourceIDTagKey string, featureGates config.FeatureGates) ([]resAndSDKTargetGroupPair, []*elbv2model.TargetGroup, []TargetGroupWithTags, error) {
 	var matchedResAndSDKTGs []resAndSDKTargetGroupPair
 	var unmatchedResTGs []*elbv2model.TargetGroup
 	var unmatchedSDKTGs []TargetGroupWithTags
@@ -113,7 +117,7 @@ func matchResAndSDKTargetGroups(resTGs []*elbv2model.TargetGroup, sdkTGs []Targe
 		sdkTGs := sdkTGsByID[resID]
 		foundMatch := false
 		for _, sdkTG := range sdkTGs {
-			if isSDKTargetGroupRequiresReplacement(sdkTG, resTG) {
+			if isSDKTargetGroupRequiresReplacement(sdkTG, resTG, featureGates) {
 				unmatchedSDKTGs = append(unmatchedSDKTGs, sdkTG)
 				continue
 			}
@@ -158,7 +162,7 @@ func mapSDKTargetGroupByResourceID(sdkTGs []TargetGroupWithTags, resourceIDTagKe
 }
 
 // isSDKTargetGroupRequiresReplacement checks whether a sdk TargetGroup requires replacement to fulfill a TargetGroup resource.
-func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2model.TargetGroup) bool {
+func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2model.TargetGroup, featureGates config.FeatureGates) bool {
 	if string(resTG.Spec.TargetType) != awssdk.StringValue(sdkTG.TargetGroup.TargetType) {
 		return true
 	}
@@ -171,12 +175,12 @@ func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2
 		}
 	}
 
-	return isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG, resTG)
+	return isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG, resTG, featureGates)
 }
 
 // most of the healthCheck settings for NLB targetGroups cannot be changed for now.
-func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWithTags, resTG *elbv2model.TargetGroup) bool {
-	if resTG.Spec.HealthCheckConfig == nil {
+func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWithTags, resTG *elbv2model.TargetGroup, featureGates config.FeatureGates) bool {
+	if resTG.Spec.HealthCheckConfig == nil || featureGates.Enabled(config.NLBHealthCheckAdvancedConfig) {
 		return false
 	}
 	if resTG.Spec.Protocol != elbv2model.ProtocolTCP && resTG.Spec.Protocol != elbv2model.ProtocolUDP &&

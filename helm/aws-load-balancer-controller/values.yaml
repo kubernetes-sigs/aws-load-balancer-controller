@@ -5,8 +5,8 @@
 replicaCount: 2
 
 image:
-  repository: 602401143452.dkr.ecr.us-west-2.amazonaws.com/amazon/aws-load-balancer-controller
-  tag: v2.4.4
+  repository: public.ecr.aws/eks/aws-load-balancer-controller
+  tag: v2.6.1
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -119,15 +119,23 @@ ingressClassParams:
   # The name of ingressClassParams resource will be referred in ingressClass
   name:
   spec: {}
-    # You always can set specifications in `helm install` command through `--set` or `--set-string`
-    # If you do want to specify specifications in values.yaml, uncomment the following
-    # lines, adjust them as necessary, and remove the curly braces after 'spec:'.
+    # Due to dependency issue, the validation webhook ignores this particular ingressClassParams resource.
+    # We recommend creating ingressClassParams resources separately after installing this chart and the
+    # controller is functional.
+    #
+    # You can set the specifications in the `helm install` command through `--set` or `--set-string`
+    # If you do want to specify in the values.yaml, uncomment the following
+    # lines, adjust them as necessary, and remove the curly braces after 'spec:'
+    #
     # namespaceSelector:
     #   matchLabels:
     # group:
     # scheme:
     # ipAddressType:
     # tags:
+    # loadBalancerAttributes:
+    # - key:
+    #   value:
 
 # To use IngressClass resource instead of annotation, before you need to install the IngressClass resource pointing to controller.
 # If specified as true, the IngressClass resource will be created.
@@ -149,8 +157,14 @@ awsApiThrottle:
 # Maximum retries for AWS APIs (default 10)
 awsMaxRetries:
 
-
-
+# Default target type. Used as the default value of the "alb.ingress.kubernetes.io/target-type" and
+# "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type" annotations.
+# Possible values are "ip" and "instance"
+# The value "ip" should be used for ENI-based CNIs, such as the Amazon VPC CNI,
+# Calico with encapsulation disabled, or Cilium with masquerading disabled.
+# The value "instance" should be used for overlay-based CNIs, such as Calico in VXLAN or IPIP mode or
+# Cilium with masquerading enabled.
+defaultTargetType: instance
 
 # If enabled, targetHealth readiness gate will get injected to the pod spec for the matching endpoint pods (default true)
 enablePodReadinessGateInject:
@@ -201,7 +215,7 @@ targetgroupbindingMaxConcurrentReconciles:
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
 
-# Period at which the controller forces the repopulation of its local object stores. (default 1h0m0s)
+# Period at which the controller forces the repopulation of its local object stores. (default 10h0m0s)
 syncPeriod:
 
 # Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.
@@ -212,6 +226,12 @@ disableIngressClassAnnotation:
 
 # disableIngressGroupNameAnnotation disables the usage of alb.ingress.kubernetes.io/group.name annotation, false by default
 disableIngressGroupNameAnnotation:
+
+# tolerateNonExistentBackendService permits rules which specify backend services that don't exist, true by default
+tolerateNonExistentBackendService:
+
+# tolerateNonExistentBackendAction permits rules which specify backend actions that don't exist, true by default
+tolerateNonExistentBackendAction:
 
 # defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners
 defaultSSLPolicy:
@@ -232,6 +252,9 @@ livenessProbe:
 env:
   # ENV_1: ""
   # ENV_2: ""
+
+# Use Environment variables credentials from Secret (aws-secret) for aws-load-balancer-controller pod similarly as The EBS CSI Driver does.
+# envSecretName: aws-secret
 
 # Specifies if aws-load-balancer-controller should be started in hostNetwork mode.
 #
@@ -293,8 +316,15 @@ disableRestrictedSecurityGroupRules:
 controllerConfig:
   # featureGates set of key: value pairs that describe AWS load balance controller features
   featureGates: {}
-  #  ServiceTypeLoadBalancerOnly: true
-  #  EndpointsFailOpen: true
+  # ListenerRulesTagging: true
+  # WeightedTargetGroups: true
+  # ServiceTypeLoadBalancerOnly: false
+  # EndpointsFailOpen: true
+  # EnableServiceController: true
+  # EnableIPTargetType: true
+  # SubnetsClusterTagCheck: true
+  # NLBHealthCheckAdvancedConfig: true
+  # ALBSingleSubnet: false
 
 # objectSelector for webhook
 objectSelector:
@@ -328,3 +358,6 @@ clusterSecretsPermissions:
 # ingressClassConfig contains configurations specific to the ingress class
 ingressClassConfig:
   default: false
+
+# enableServiceMutatorWebhook allows you enable the webhook which makes this controller the default for all new services of type LoadBalancer
+enableServiceMutatorWebhook: true

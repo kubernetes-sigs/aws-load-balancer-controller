@@ -122,6 +122,12 @@ spec:
         {{- if kindIs "bool" .Values.disableIngressGroupNameAnnotation }}
         - --disable-ingress-group-name-annotation={{ .Values.disableIngressGroupNameAnnotation }}
         {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendService }}
+        - --tolerate-non-existent-backend-service={{ .Values.tolerateNonExistentBackendService }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendAction }}
+        - --tolerate-non-existent-backend-action={{ .Values.tolerateNonExistentBackendAction }}
+        {{- end }}
         {{- if .Values.defaultSSLPolicy }}
         - --default-ssl-policy={{ .Values.defaultSSLPolicy }}
         {{- end }}
@@ -146,15 +152,32 @@ spec:
         {{- if .Values.controllerConfig.featureGates }}
         - --feature-gates={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.controllerConfig.featureGates | trimSuffix "," }}
         {{- end }}
-        {{- if .Values.env }}
+        {{- if ne .Values.defaultTargetType "instance" }}
+        - --default-target-type={{ .Values.defaultTargetType }}
+        {{- end }}
+        {{- if or .Values.env .Values.envSecretName }}
         env:
+        {{- if .Values.env}}
         {{- range $key, $value := .Values.env }}
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
         {{- end }}
-        command:
-        - /controller
+        {{- if .Values.envSecretName  }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.envSecretName }}
+              key: key_id
+              optional: true
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.envSecretName }}
+              key: access_key
+              optional: true
+        {{- end }}
+        {{- end }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"

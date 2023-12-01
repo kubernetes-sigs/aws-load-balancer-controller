@@ -12,6 +12,7 @@ nav:
     - Installation Guide: deploy/installation.md
     - Configurations: deploy/configurations.md
     - Subnet Discovery: deploy/subnet_discovery.md
+    - Security Group Management: deploy/security_groups.md
     - Pod Readiness Gate: deploy/pod_readiness_gate.md
     - Upgrade:
           - Migrate v1 to v2: deploy/upgrade/migrate_v1_v2.md
@@ -31,11 +32,13 @@ nav:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
           - SSL Redirect: guide/tasks/ssl_redirect.md
       - Use Cases:
-        - NLB TLS Termiation: guide/use_cases/nlb_tls_termination/index.md
+        - NLB TLS Termination: guide/use_cases/nlb_tls_termination/index.md
         - Externally Managed Load Balancer: guide/use_cases/self_managed_lb/index.md
+        - Frontend Security Groups: guide/use_cases/frontend_sg/index.md
   - Examples:
     - EchoServer: examples/echo_server.md
     - gRPCServer: examples/grpc_server.md
+    - Setup External DNS: guide/integrations/external_dns.md
     - RBAC to access OIDC Secret: examples/secrets_access.md
 
 
