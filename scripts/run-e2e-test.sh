@@ -141,7 +141,7 @@ function install_controller_for_adc_regions() {
     kubectl apply -f $cert_manager_yaml || true
     sleep 60s
     echo "install the controller via yaml"
-    controller_yaml="$SCRIPT_DIR"/../test/prow/v2_6_2_adc.yaml
+    controller_yaml="$SCRIPT_DIR"/../test/prow/v2_6_0_adc.yaml
     default_controller_image="public.ecr.aws/eks/aws-load-balancer-controller"
     sed -i "s#$default_controller_image#$IMAGE#g" "$controller_yaml"
     echo "Image URL in $controller_yaml has been updated to $IMAGE"
@@ -151,7 +151,7 @@ function install_controller_for_adc_regions() {
     kubectl rollout status -n kube-system deployment aws-load-balancer-controller || true
 
     echo "apply the manifest for ingressclass and ingressclassparam"
-    ingclass_yaml="$SCRIPT_DIR"/../test/prow/v2_6_2_ingclass.yaml
+    ingclass_yaml="$SCRIPT_DIR"/../test/prow/v2_6_0_ingclass.yaml
     kubectl apply -f $ingclass_yaml || true
 }
 
