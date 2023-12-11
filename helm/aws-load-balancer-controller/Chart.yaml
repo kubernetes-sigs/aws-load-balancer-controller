@@ -14,6 +14,12 @@ maintainers:
   - name: m00nf1sh
     url: https://github.com/m00nf1sh
     email: m00nf1sh@users.noreply.github.com
+  - name: oliviassss
+    url: https://github.com/oliviassss
+    email: oliviassss@users.noreply.github.com
+  - name: johngmyers
+    url: https://github.com/johngmyers
+    email: johngmyers@users.noreply.github.com
 keywords:
   - eks
   - alb
