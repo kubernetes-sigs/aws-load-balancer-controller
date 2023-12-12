@@ -101,8 +101,8 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |[sync-period](#sync-period)                            | duration                        | 10h0m0s         | Period at which the controller forces the repopulation of its local object stores|
 |targetgroupbinding-max-concurrent-reconciles | int                       | 3               | Maximum number of concurrently running reconcile loops for targetGroupBinding |
 |targetgroupbinding-max-exponential-backoff-delay | duration              | 16m40s          | Maximum duration of exponential backoff for targetGroupBinding reconcile failures |
-|tolerate-non-existent-backend-service  | boolean                         | true            | Whether to allow rules which refer to backend services that do not exist |
-|tolerate-non-existent-backend-action  | boolean                         | true            | Whether to allow rules which refer to backend actions that do not exist |
+|tolerate-non-existent-backend-service  | boolean                         | true            | Whether to allow rules which refer to backend services that do not exist (When enabled, it will return 503 error if backend service not exist) |
+|tolerate-non-existent-backend-action  | boolean                         | true            | Whether to allow rules which refer to backend actions that do not exist (When enabled, it will return 503 error if backend action not exist) |
 |watch-namespace                        | string                          |                 | Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched. |
 |webhook-bind-port                      | int                             | 9443            | The TCP port the Webhook server binds to |
 |webhook-cert-dir                       | string                          | /tmp/k8s-webhook-server/serving-certs | The directory that contains the server key and certificate |
@@ -139,7 +139,7 @@ By default, the controller assumes sole ownership of the WAF addons associated t
 And the users should disable them accordingly if they want a third party like AWS Firewall Manager to associate or remove the WAF-ACL of the ALBs.
 Once disabled, the controller shall not take any actions on the waf addons of the provisioned ALBs.
 
-###  throttle config
+### throttle config
 
 Controller uses the following default throttle config:
 
