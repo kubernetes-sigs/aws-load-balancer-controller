@@ -412,7 +412,7 @@ Load balancer access can be controlled via following annotations:
 - <a name="lb-source-ranges">`service.beta.kubernetes.io/load-balancer-source-ranges`</a> specifies the CIDRs that are allowed to access the NLB.
 
     !!!tip
-        we recommend specifying CIDRs in the service `Spec.LoadBalancerSourceRanges` instead
+        we recommend specifying CIDRs in the service `spec.loadBalancerSourceRanges` instead
 
     !!!note "Default"
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"
