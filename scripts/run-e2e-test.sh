@@ -155,6 +155,13 @@ function install_controller_for_adc_regions() {
     kubectl apply -f $ingclass_yaml || true
 }
 
+function enable_primary_ipv6_address() {
+  echo "enable primary ipv6 address for the ec2 instance"
+  SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:kubernetes.io/role/elb,Values=1" --query "Subnets[0].SubnetId" --output text) || true
+  echo "create network interface with primary ipv6 address enabled for subnet $SUBNET_ID"
+  aws ec2 create-network-interface --subnet-id $SUBNET_ID --enable-primary-ipv6 --ipv6-address-count 1 || true
+}
+
 echo "installing AWS load balancer controller"
 if [[ $ADC_REGIONS == *"$REGION"* ]]; then
   echo "for ADC regions, install via manifest"
@@ -209,6 +216,9 @@ function run_ginkgo_test() {
 }
 
 #Start the test
+if [ "$IP_FAMILY" == "IPv6" ]; then
+  enable_primary_ipv6_address
+fi
 run_ginkgo_test
 
 # tail=-1 is added so that no logs are truncated
