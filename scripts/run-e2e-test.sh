@@ -169,7 +169,12 @@ else
   helm repo add eks https://aws.github.io/eks-charts
   helm repo update
   echo "Install aws-load-balancer-controller"
-  helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
+  if [[ "$REGION" == "ca-west-1" ]]; then
+    # Disable Shield and WAF temporarily for ca-west-1
+    helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE --set enableShield=false --set enableWaf=false --set enableWafv2=false
+  else
+    helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
+  fi
 fi
 
 echo_time() {
@@ -190,7 +195,7 @@ wait_until_deployment_ready() {
 		fi
 		echo -n "."
 		sleep 2
-	done 
+	done
 	echo_time "Deployment $1 $NS replicas desired=$desiredReplicas available=$availableReplicas"
 }
 
