@@ -157,9 +157,10 @@ function install_controller_for_adc_regions() {
 
 function enable_primary_ipv6_address() {
   echo "enable primary ipv6 address for the ec2 instance"
-  SUBNET_ID=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:kubernetes.io/role/elb,Values=1" --query "Subnets[0].SubnetId" --output text) || true
-  echo "create network interface with primary ipv6 address enabled for subnet $SUBNET_ID"
-  aws ec2 create-network-interface --subnet-id $SUBNET_ID --enable-primary-ipv6 --ipv6-address-count 1 || true
+  ENI_IDS=$(aws ec2 describe-instances --filters "Name=tag:aws:eks:cluster-name,Values=$CLUSTER_NAME" --query "Reservations[].Instances[].NetworkInterfaces[].NetworkInterfaceId" --output text)
+  for ENI_ID in $ENI_IDS; do
+    aws ec2 modify-network-interface-attribute --network-interface-id $ENI_ID --enable-primary-ipv6 || true
+  done
 }
 
 echo "installing AWS load balancer controller"
