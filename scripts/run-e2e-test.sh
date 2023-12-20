@@ -16,6 +16,8 @@ PROD_IMAGE_REGISTRY=${PROD_IMAGE_REGISTRY:-"602401143452.dkr.ecr.us-west-2.amazo
 
 ADC_REGIONS="us-iso-east-1 us-isob-east-1 us-iso-west-1"
 CONTAINER_NAME="aws-load-balancer-controller"
+: "${DISABLE_WAFV2:=false}"
+DISABLE_WAFV2_FLAGS=""
 
 function toggle_windows_scheduling(){
   schedule=$1
@@ -174,15 +176,13 @@ if [[ $ADC_REGIONS == *"$REGION"* ]]; then
     -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--feature-gates=NLBSecurityGroup=false,ListenerRulesTagging=false"}]' || true
 else
   echo "install via helm repo, update helm repo from github"
+  if [[ "$DISABLE_WAFV2" == true ]]; then
+    DISABLE_WAFV2_FLAGS="--set enableShield=false --set enableWaf=false --set enableWafv2=false"
+  fi
   helm repo add eks https://aws.github.io/eks-charts
   helm repo update
   echo "Install aws-load-balancer-controller"
-  if [[ "$REGION" == "ca-west-1" ]]; then
-    # Disable Shield and WAF temporarily for ca-west-1
-    helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE --set enableShield=false --set enableWaf=false --set enableWafv2=false
-  else
-    helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
-  fi
+  helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE $DISABLE_WAFV2_FLAGS
 fi
 
 echo_time() {
