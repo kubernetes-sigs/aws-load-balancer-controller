@@ -28,7 +28,7 @@ function toggle_windows_scheduling(){
   done
 }
 
-TEST_ID=$(date +%s)
+TEST_ID=$(date +%s)-$((RANDOM % 1000))
 echo "TEST_ID: $TEST_ID"
 ROLE_NAME="aws-load-balancer-controller-$TEST_ID"
 POLICY_NAME="AWSLoadBalancerControllerIAMPolicy-$TEST_ID"
@@ -159,9 +159,12 @@ function install_controller_for_adc_regions() {
 
 function enable_primary_ipv6_address() {
   echo "enable primary ipv6 address for the ec2 instance"
-  ENI_IDS=$(aws ec2 describe-instances --filters "Name=tag:aws:eks:cluster-name,Values=$CLUSTER_NAME" --query "Reservations[].Instances[].NetworkInterfaces[].NetworkInterfaceId" --output text)
+  ENI_IDS=$(aws ec2 describe-instances --region $REGION --filters "Name=tag:aws:eks:cluster-name,Values=$CLUSTER_NAME" --query "Reservations[].Instances[].NetworkInterfaces[].NetworkInterfaceId" --output text)
+  ENI_COUNT=$(echo "$ENI_IDS" | wc -w)
+  echo "found $ENI_COUNT ENIs: $ENI_IDS"
   for ENI_ID in $ENI_IDS; do
-    aws ec2 modify-network-interface-attribute --network-interface-id $ENI_ID --enable-primary-ipv6 || true
+    echo "enable primary ipv6 address for ENI $ENI_ID"
+    aws ec2 modify-network-interface-attribute --region $REGION --network-interface-id $ENI_ID --enable-primary-ipv6
   done
 }
 
