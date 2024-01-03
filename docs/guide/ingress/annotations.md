@@ -462,22 +462,22 @@ Traffic Routing can be controlled with following annotations:
                 {
                     "type":"forward",
                     "forwardConfig":{
-                    "targetGroups":[
-                        {
-                        "serviceName":"service-1",
-                        "servicePort":"80",
-                        "weight":50
-                        },
-                        {
-                        "serviceName":"service-2",
-                        "servicePort":"80",
-                        "weight":50
+			"targetGroups":[
+			    {
+			    "serviceName":"service-1",
+			    "servicePort":"80",
+			    "weight":50
+			    },
+			    {
+			    "serviceName":"service-2",
+			    "servicePort":"80",
+			    "weight":50
+			    }
+		        ],
+                        "TargetGroupStickinessConfig": {
+                            "Enabled": true,
+                            "DurationSeconds": 120
                         }
-                    ],
-                    "TargetGroupStickinessConfig": {
-                        "Enabled": true,
-                        "DurationSeconds": 120
-                    }
                     }
                 }
             spec:
