@@ -13,5 +13,7 @@ const (
 	// IngressReconcileTimeout is the timeout we expected the controller finishes reconcile for Ingresses.
 	IngressReconcileTimeout = 1 * time.Minute
 	// IngressDNSAvailableWaitTimeout is the timeout we expect the DNS records of ALB to be propagated.
-	IngressDNSAvailableWaitTimeout = 5 * time.Minute
+	IngressDNSAvailableWaitTimeout = 10 * time.Minute
+	// IngressDNSAvailableRetryInterval is the interval to retry wait
+	IngressDNSAvailableRetryInterval = 3 * time.Minute
 )

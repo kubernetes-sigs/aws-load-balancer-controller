@@ -753,16 +753,17 @@ func ExpectNoLBProvisionedForIngress(ctx context.Context, tf *framework.Framewor
 }
 
 func ExpectLBDNSBeAvailable(ctx context.Context, tf *framework.Framework, lbARN string, lbDNS string) {
-	ctx, cancel := context.WithTimeout(ctx, utils.IngressDNSAvailableWaitTimeout)
-	defer cancel()
-
 	tf.Logger.Info("wait loadBalancer becomes available", "arn", lbARN)
-	err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
-	Expect(err).NotTo(HaveOccurred())
+	Eventually(func() bool {
+		err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+		return Expect(err).NotTo(HaveOccurred()) == true
+	}, utils.IngressDNSAvailableWaitTimeout, utils.IngressDNSAvailableRetryInterval).Should(BeTrue())
 	tf.Logger.Info("loadBalancer becomes available", "arn", lbARN)
 
 	tf.Logger.Info("wait dns becomes available", "dns", lbDNS)
-	err = utils.WaitUntilDNSNameAvailable(ctx, lbDNS)
-	Expect(err).NotTo(HaveOccurred())
+	Eventually(func() bool {
+		err := utils.WaitUntilDNSNameAvailable(ctx, lbDNS)
+		return Expect(err).NotTo(HaveOccurred()) == true
+	}, utils.IngressDNSAvailableWaitTimeout, utils.IngressDNSAvailableRetryInterval).Should(BeTrue())
 	tf.Logger.Info("dns becomes available", "dns", lbDNS)
 }
