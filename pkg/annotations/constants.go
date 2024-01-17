@@ -46,6 +46,7 @@ const (
 	IngressSuffixAuthSessionTimeout           = "auth-session-timeout"
 	IngressSuffixTargetNodeLabels             = "target-node-labels"
 	IngressSuffixManageSecurityGroupRules     = "manage-backend-security-group-rules"
+	IngressSuffixMutualAuthentication         = "mutual-authentication"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io

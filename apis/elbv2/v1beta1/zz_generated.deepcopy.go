@@ -138,6 +138,11 @@ func (in *IngressClassParamsSpec) DeepCopyInto(out *IngressClassParamsSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.MutualAuthentication != nil {
+		in, out := &in.MutualAuthentication, &out.MutualAuthentication
+		*out = new(MutualAuthentication)
+		**out = **in
+	}
 	if in.Subnets != nil {
 		in, out := &in.Subnets, &out.Subnets
 		*out = new(SubnetSelector)

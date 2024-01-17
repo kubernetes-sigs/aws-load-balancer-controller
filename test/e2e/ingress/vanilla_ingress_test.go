@@ -91,7 +91,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				},
 			}
 			annotation := map[string]string{
-				"alb.ingress.kubernetes.io/scheme": "internet-facing",
+				"alb.ingress.kubernetes.io/scheme":      "internet-facing",
 				"alb.ingress.kubernetes.io/target-type": "ip",
 			}
 			if tf.Options.IPFamily == "IPv6" {
@@ -173,8 +173,8 @@ var _ = Describe("vanilla ingress tests", func() {
 				},
 			}
 			annotation := map[string]string{
-				"kubernetes.io/ingress.class":      "alb",
-				"alb.ingress.kubernetes.io/scheme": "internet-facing",
+				"kubernetes.io/ingress.class":           "alb",
+				"alb.ingress.kubernetes.io/scheme":      "internet-facing",
 				"alb.ingress.kubernetes.io/target-type": "ip",
 			}
 			if tf.Options.IPFamily == "IPv6" {

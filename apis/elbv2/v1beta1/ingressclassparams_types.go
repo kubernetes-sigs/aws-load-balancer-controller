@@ -84,6 +84,8 @@ type Attribute struct {
 	Value string `json:"value"`
 }
 
+type MutualAuthentication string
+
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 type IngressClassParamsSpec struct {
 	// NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
@@ -106,6 +108,10 @@ type IngressClassParamsSpec struct {
 	// SSLPolicy specifies the SSL Policy for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
 	SSLPolicy string `json:"sslPolicy,omitEmpty"`
+
+	// MutualAuthentication specifies the mutual TLS authentication config for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
+	MutualAuthentication *MutualAuthentication `json:"mutualAuthentication,omitempty"`
 
 	// Subnets defines the subnets for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional

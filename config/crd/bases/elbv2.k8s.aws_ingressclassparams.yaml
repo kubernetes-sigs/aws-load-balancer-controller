@@ -92,6 +92,10 @@ spec:
                   - value
                   type: object
                 type: array
+              mutualAuthentication:
+                description: MutualAuthentication specifies the mutual TLS authentication
+                  config for all Ingresses that belong to IngressClass with this IngressClassParams.
+                type: string
               namespaceSelector:
                 description: NamespaceSelector restrict the namespaces of Ingresses
                   that are allowed to specify the IngressClass with this IngressClassParams.
