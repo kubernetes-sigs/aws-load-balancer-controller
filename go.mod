@@ -1,6 +1,6 @@
 module sigs.k8s.io/aws-load-balancer-controller
 
-go 1.21.5
+go 1.21
 
 require (
 	github.com/aws/aws-sdk-go v1.48.10
