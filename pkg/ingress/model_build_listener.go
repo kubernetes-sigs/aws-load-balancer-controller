@@ -6,7 +6,6 @@ import (
 	"fmt"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"k8s.io/utils/strings/slices"
-	"maps"
 	"net"
 	"strings"
 
@@ -266,75 +265,29 @@ type MutualAuthenticationConfig struct {
 }
 
 func (t *defaultModelBuildTask) computeIngressMutualAuthentication(ctx context.Context, ing *ClassifiedIngress) (map[int64]*elbv2model.MutualAuthenticationAttributes, error) {
-	var rawMtlsConfigStringFromIngressClassParam string
-	var fromIngressClassParams bool
 	var rawMtlsConfigString string
 
-	if ing.IngClassConfig.IngClassParams != nil && ing.IngClassConfig.IngClassParams.Spec.MutualAuthentication != nil {
-		rawMtlsConfigStringFromIngressClassParam = string(*ing.IngClassConfig.IngClassParams.Spec.MutualAuthentication)
-		fromIngressClassParams = true
-	}
-	// If both Ingress and IngressClassParam is missing mutualAuthentication config, return default mutualAuthentication mode
+	// If both Ingress annotation is missing mutual-authentication config, return default mutualAuthentication mode
 	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixMutualAuthentication, &rawMtlsConfigString, ing.Ing.Annotations); !exists {
-		if !fromIngressClassParams {
-			return map[int64]*elbv2model.MutualAuthenticationAttributes{443: {
-				Mode: string(elbv2model.MutualAuthenticationOffMode),
-			}}, nil
-		}
-	}
+		return map[int64]*elbv2model.MutualAuthenticationAttributes{443: {
+			Mode: string(elbv2model.MutualAuthenticationOffMode),
+		}}, nil
 
-	var ingressClassParamEntries []MutualAuthenticationConfig
+	}
 	var ingressAnnotationEntries []MutualAuthenticationConfig
-	ingressClassParamPortAndMtlsAttributes := make(map[int64]*elbv2model.MutualAuthenticationAttributes)
-	ingressAnnotationPortAndMtlsAttributes := make(map[int64]*elbv2model.MutualAuthenticationAttributes)
-	parsedPortAndMtlsAttributes := make(map[int64]*elbv2model.MutualAuthenticationAttributes)
 
-	if rawMtlsConfigStringFromIngressClassParam != "" {
-		if err := json.Unmarshal([]byte(rawMtlsConfigStringFromIngressClassParam), &ingressClassParamEntries); err != nil {
-			return nil, errors.Wrapf(err, "failed to parse mutualAuthentication configuration from ingress class: `%s`", rawMtlsConfigStringFromIngressClassParam)
-		}
-		if len(ingressClassParamEntries) == 0 {
-			return nil, errors.Errorf("empty mutualAuthentication configuration from ingress class: `%s`", rawMtlsConfigStringFromIngressClassParam)
-		}
-
-		portAndMtlsAttributesMap, err := t.parseMtlsConfigEntries(ctx, ingressClassParamEntries)
-		if err != nil {
-			return nil, err
-		}
-		ingressClassParamPortAndMtlsAttributes = portAndMtlsAttributesMap
-		if rawMtlsConfigString == "" {
-			parsedPortAndMtlsAttributes, err = t.parseMtlsAttributesForTrustStoreNames(ctx, ingressClassParamPortAndMtlsAttributes)
-			if err != nil {
-				return nil, err
-			}
-			return parsedPortAndMtlsAttributes, nil
-		}
+	if err := json.Unmarshal([]byte(rawMtlsConfigString), &ingressAnnotationEntries); err != nil {
+		return nil, errors.Wrapf(err, "failed to parse mutualAuthentication configuration from ingress annotation: `%s`", rawMtlsConfigString)
+	}
+	if len(ingressAnnotationEntries) == 0 {
+		return nil, errors.Errorf("empty mutualAuthentication configuration from ingress annotation: `%s`", rawMtlsConfigString)
+	}
+	portAndMtlsAttributesMap, err := t.parseMtlsConfigEntries(ctx, ingressAnnotationEntries)
+	if err != nil {
+		return nil, err
 	}
 
-	if rawMtlsConfigString != "" {
-		if err := json.Unmarshal([]byte(rawMtlsConfigString), &ingressAnnotationEntries); err != nil {
-			return nil, errors.Wrapf(err, "failed to parse mutualAuthentication configuration from ingress annotation: `%s`", rawMtlsConfigString)
-		}
-		if len(ingressAnnotationEntries) == 0 {
-			return nil, errors.Errorf("empty mutualAuthentication configuration from ingress annotation: `%s`", rawMtlsConfigString)
-		}
-		portAndMtlsAttributesMap, err := t.parseMtlsConfigEntries(ctx, ingressAnnotationEntries)
-		if err != nil {
-			return nil, err
-		}
-		ingressAnnotationPortAndMtlsAttributes = portAndMtlsAttributesMap
-		if rawMtlsConfigStringFromIngressClassParam == "" {
-			parsedPortAndMtlsAttributes, err = t.parseMtlsAttributesForTrustStoreNames(ctx, ingressAnnotationPortAndMtlsAttributes)
-			if err != nil {
-				return nil, err
-			}
-			return parsedPortAndMtlsAttributes, nil
-		}
-	}
-
-	maps.Copy(ingressAnnotationPortAndMtlsAttributes, ingressClassParamPortAndMtlsAttributes)
-
-	parsedPortAndMtlsAttributes, err := t.parseMtlsAttributesForTrustStoreNames(ctx, ingressAnnotationPortAndMtlsAttributes)
+	parsedPortAndMtlsAttributes, err := t.parseMtlsAttributesForTrustStoreNames(ctx, portAndMtlsAttributesMap)
 	if err != nil {
 		return nil, err
 	}
