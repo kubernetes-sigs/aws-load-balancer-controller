@@ -57,7 +57,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	securityGropus, err := t.buildLoadBalancerSecurityGroups(ctx, existingLB, ipAddressType)
+	securityGroups, err := t.buildLoadBalancerSecurityGroups(ctx, existingLB, ipAddressType)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -78,7 +78,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 		Type:                   elbv2model.LoadBalancerTypeNetwork,
 		Scheme:                 &scheme,
 		IPAddressType:          &ipAddressType,
-		SecurityGroups:         securityGropus,
+		SecurityGroups:         securityGroups,
 		SubnetMappings:         subnetMappings,
 		LoadBalancerAttributes: lbAttributes,
 		Tags:                   tags,
