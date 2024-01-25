@@ -203,10 +203,10 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort 
 	if !t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetGroupPrefix, &prefix, t.service.Annotations) {
 		sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Namespace, "")
 		sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Name, "")
-		prefix = fmt.Sprintf("k8s-%.8s-%.8s-", sanitizedNamespace, sanitizedName)
+		prefix = fmt.Sprintf("k8s-%.8s-%.8s", sanitizedNamespace, sanitizedName)
 	}
 
-	return fmt.Sprintf("%.22s%.10s", prefix, uuid)
+	return fmt.Sprintf("%.21s%.10s", prefix, uuid)
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([]elbv2model.TargetGroupAttribute, error) {
