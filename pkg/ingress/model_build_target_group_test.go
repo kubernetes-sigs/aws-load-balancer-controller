@@ -145,10 +145,32 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 				tgProtocol:        elbv2model.ProtocolHTTPS,
 				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
 				svcAndIngAnnotations: map[string]string{
-					"alb.ingress.kubernetes.io/target-group-prefix": "test-",
+					"alb.ingress.kubernetes.io/target-group-prefix": "test",
 				},
 			},
 			want: "test-22fbce26a7",
+		},
+		{
+			name: "standard case - prefix annotation with dash",
+			args: args{
+				ingKey: types.NamespacedName{Namespace: "ns-1", Name: "name-1"},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "name-1",
+						UID:       "my-uuid",
+					},
+				},
+				port:              intstr.FromString("http"),
+				tgPort:            8080,
+				targetType:        elbv2model.TargetTypeIP,
+				tgProtocol:        elbv2model.ProtocolHTTPS,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/target-group-prefix": "test-",
+				},
+			},
+			want: "test--22fbce26a7",
 		},
 		{
 			name: "standard case - long prefix annotation",
@@ -170,7 +192,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 					"alb.ingress.kubernetes.io/target-group-prefix": "test-prefix-this-is-too-long-",
 				},
 			},
-			want: "test-prefix-this-is-to22fbce26a7",
+			want: "test-prefix-this-is-t-22fbce26a7",
 		},
 	}
 	for _, tt := range tests {
