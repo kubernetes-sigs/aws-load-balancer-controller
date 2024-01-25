@@ -891,9 +891,9 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
 - <a name="target-group-prefix">`alb.ingress.kubernetes.io/target-group-prefix`</a> specifies the name prefix given to Target Groups. The prefix is truncated to 22 characters.
 
     !!!example
-        - set the target group prefix to "my-service-", the full name will look like "my-service-8f5fe20735"
+        - set the target group prefix to "my-service", the full name will look like "my-service-8f5fe20735"
             ```
-            alb.ingress.kubernetes.io/target-group-prefix: my-service-
+            alb.ingress.kubernetes.io/target-group-prefix: my-service
             ```
 
 ## Resource Tags

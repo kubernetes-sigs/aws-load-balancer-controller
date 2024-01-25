@@ -242,7 +242,7 @@ func Test_defaultModelBuilderTask_targetGroupName(t *testing.T) {
 						Name:      "name-1",
 						UID:       "my-uuid",
 						Annotations: map[string]string{
-							"service.beta.kubernetes.io/aws-load-balancer-target-group-prefix": "test-",
+							"service.beta.kubernetes.io/aws-load-balancer-target-group-prefix": "test",
 						},
 					},
 				},
@@ -271,7 +271,7 @@ func Test_defaultModelBuilderTask_targetGroupName(t *testing.T) {
 						Name:      "name-1",
 						UID:       "my-uuid",
 						Annotations: map[string]string{
-							"service.beta.kubernetes.io/aws-load-balancer-target-group-prefix": "test-prefix-this-is-too-long-",
+							"service.beta.kubernetes.io/aws-load-balancer-target-group-prefix": "test-prefix-this-is-too-long",
 						},
 					},
 				},
@@ -289,7 +289,7 @@ func Test_defaultModelBuilderTask_targetGroupName(t *testing.T) {
 					UnhealthyThresholdCount: aws.Int64(2),
 				},
 			},
-			want: "test-prefix-this-is-to81f03d99d5",
+			want: "test-prefix-this-is-t-81f03d99d5",
 		},
 	}
 	for _, tt := range tests {
