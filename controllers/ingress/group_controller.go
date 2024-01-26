@@ -56,7 +56,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerConfig.FeatureGates, cloud.RGT(), logger)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
-		cloud.EC2(), cloud.ACM(),
+		cloud.EC2(), cloud.ELBV2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
