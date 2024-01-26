@@ -69,8 +69,8 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |aws-api-endpoints                      | AWS API Endpoints Config        |                 | AWS API endpoints mapping, format: serviceID1=URL1,serviceID2=URL2 |
 |aws-api-throttle                       | AWS Throttle Config             | [default value](#default-throttle-config ) | throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst |
 |aws-max-retries                        | int                             | 10              | Maximum retries for AWS APIs |
-|aws-region                             | string                          | [instance metadata](#instance-metadata)    | AWS Region for the kubernetes cluster |
-|aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)    | AWS VPC ID for the Kubernetes cluster |
+|aws-region                             | string                          | [instance metadata](#instance-metadata)   | AWS Region for the kubernetes cluster |
+|aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)   | AWS VPC ID for the Kubernetes cluster |
 |backend-security-group                 | string                          |                 | Backend security group id to use for the ingress rules on the worker node SG|
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all Ingresses or Services that do not have the SSL Policy annotation |
@@ -78,7 +78,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |default-target-type                    | string                          | instance        | Default target type for Ingresses and Services - ip, instance |
 |[disable-ingress-class-annotation](#disable-ingress-class-annotation)       | boolean                         | false           | Disable new usage of the `kubernetes.io/ingress.class` annotation |
 |[disable-ingress-group-name-annotation](#disable-ingress-group-name-annotation)  | boolean                         | false           | Disallow new use of the `alb.ingress.kubernetes.io/group.name` annotation |
-|disable-restricted-sg-rules            | boolean                         | false            | Disable the usage of restricted security group rules |
+|disable-restricted-sg-rules            | boolean                         | false           | Disable the usage of restricted security group rules |
 |enable-backend-security-group          | boolean                         | true            | Enable sharing of security groups for backend traffic |
 |enable-endpoint-slices                 | boolean                         | false           | Use EndpointSlices instead of Endpoints for pod endpoint and TargetGroupBinding resolution for load balancers with IP targets. |
 |enable-leader-election                 | boolean                         | true            | Enable leader election for the load balancer controller manager. Enabling this will ensure there is only one active controller manager |
@@ -98,9 +98,11 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |log-level                              | string                          | info            | Set the controller log level - info, debug |
 |metrics-bind-addr                      | string                          | :8080           | The address the metric endpoint binds to |
 |service-max-concurrent-reconciles      | int                             | 3               | Maximum number of concurrently running reconcile loops for service |
-|[sync-period](#sync-period)                            | duration                        | 10h0m0s          | Period at which the controller forces the repopulation of its local object stores|
+|[sync-period](#sync-period)                            | duration                        | 10h0m0s         | Period at which the controller forces the repopulation of its local object stores|
 |targetgroupbinding-max-concurrent-reconciles | int                       | 3               | Maximum number of concurrently running reconcile loops for targetGroupBinding |
 |targetgroupbinding-max-exponential-backoff-delay | duration              | 16m40s          | Maximum duration of exponential backoff for targetGroupBinding reconcile failures |
+|tolerate-non-existent-backend-service  | boolean                         | true            | Whether to allow rules which refer to backend services that do not exist (When enabled, it will return 503 error if backend service not exist) |
+|tolerate-non-existent-backend-action  | boolean                         | true            | Whether to allow rules which refer to backend actions that do not exist (When enabled, it will return 503 error if backend action not exist) |
 |watch-namespace                        | string                          |                 | Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched. |
 |webhook-bind-port                      | int                             | 9443            | The TCP port the Webhook server binds to |
 |webhook-cert-dir                       | string                          | /tmp/k8s-webhook-server/serving-certs | The directory that contains the server key and certificate |
@@ -137,7 +139,7 @@ By default, the controller assumes sole ownership of the WAF addons associated t
 And the users should disable them accordingly if they want a third party like AWS Firewall Manager to associate or remove the WAF-ACL of the ALBs.
 Once disabled, the controller shall not take any actions on the waf addons of the provisioned ALBs.
 
-###  throttle config
+### throttle config
 
 Controller uses the following default throttle config:
 
@@ -170,3 +172,4 @@ They are a set of kye=value pairs that describe AWS load balance controller feat
 | EnableRGTAPI                       | string                          | false          | If enabled, the tagging manager will describe resource tags via RGT APIs, otherwise via ELB APIs. In order to enable RGT API, `tag:GetResources` is needed in controller IAM policy. |
 | SubnetsClusterTagCheck                | string                          | true           | Enable or disable the check for `kubernetes.io/cluster/${cluster-name}` during subnet auto-discovery |
 | NLBHealthCheckAdvancedConfiguration   | string                          | true           | Enable or disable advanced health check configuration for NLB, for example health check timeout |
+| ALBSingleSubnet                       | string                          | false          | If enabled, controller will allow using only 1 subnet for provisioning ALB, which need to get whitelisted by ELB in advance |

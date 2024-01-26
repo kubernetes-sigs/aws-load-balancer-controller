@@ -124,7 +124,7 @@ eksctl::delete_cluster() {
 
   echo "deleting cluster ${cluster_name}"
   if ! ${EKSCTL_BINARY} delete cluster \
-    -f "${cluster_config}" \
+    -f "${cluster_config}" --disable-nodegroup-eviction \
     --wait; then
     echo "unable to delete cluster ${cluster_name}"
     return 1

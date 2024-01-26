@@ -122,6 +122,12 @@ spec:
         {{- if kindIs "bool" .Values.disableIngressGroupNameAnnotation }}
         - --disable-ingress-group-name-annotation={{ .Values.disableIngressGroupNameAnnotation }}
         {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendService }}
+        - --tolerate-non-existent-backend-service={{ .Values.tolerateNonExistentBackendService }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendAction }}
+        - --tolerate-non-existent-backend-action={{ .Values.tolerateNonExistentBackendAction }}
+        {{- end }}
         {{- if .Values.defaultSSLPolicy }}
         - --default-ssl-policy={{ .Values.defaultSSLPolicy }}
         {{- end }}
@@ -149,11 +155,27 @@ spec:
         {{- if ne .Values.defaultTargetType "instance" }}
         - --default-target-type={{ .Values.defaultTargetType }}
         {{- end }}
-        {{- if .Values.env }}
+        {{- if or .Values.env .Values.envSecretName }}
         env:
+        {{- if .Values.env}}
         {{- range $key, $value := .Values.env }}
         - name: {{ $key }}
           value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
+        {{- if .Values.envSecretName  }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.envSecretName }}
+              key: key_id
+              optional: true
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.envSecretName }}
+              key: access_key
+              optional: true
         {{- end }}
         {{- end }}
         securityContext:

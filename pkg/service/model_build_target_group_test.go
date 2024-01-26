@@ -1860,6 +1860,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 		testName    string
 		svc         *corev1.Service
 		defaultPort string
+		targetType  elbv2.TargetType
 		want        intstr.IntOrString
 		wantErr     error
 	}{
@@ -1868,6 +1869,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 			svc:         &corev1.Service{},
 			defaultPort: "traffic-port",
 			want:        intstr.FromString("traffic-port"),
+			targetType:  elbv2.TargetTypeInstance,
 		},
 		{
 			testName: "with annotation",
@@ -1880,6 +1882,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 			},
 			defaultPort: "traffic-port",
 			want:        intstr.FromInt(34576),
+			targetType:  elbv2.TargetTypeInstance,
 		},
 		{
 			testName: "unsupported annotation value",
@@ -1891,19 +1894,115 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 				},
 			},
 			defaultPort: "traffic-port",
-			wantErr:     errors.New("health check port \"a34576\" not supported"),
+			wantErr:     errors.New("failed to resolve healthCheckPort: unable to find port a34576 on service /"),
+			targetType:  elbv2.TargetTypeInstance,
 		},
 		{
 			testName:    "default health check nodeport",
 			svc:         &corev1.Service{},
 			defaultPort: "31227",
 			want:        intstr.FromInt(31227),
+			targetType:  elbv2.TargetTypeInstance,
 		},
 		{
 			testName:    "invalid default",
 			svc:         &corev1.Service{},
 			defaultPort: "abs",
-			wantErr:     errors.New("health check port \"abs\" not supported"),
+			wantErr:     errors.New("failed to resolve healthCheckPort: unable to find port abs on service /"),
+			targetType:  elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "resolve port name instance",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port": "health",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "traffic",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							NodePort:   31227,
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "health",
+							Port:       1234,
+							TargetPort: intstr.FromInt(1234),
+							NodePort:   30987,
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			defaultPort: "8080",
+			want:        intstr.FromInt(30987),
+			targetType:  elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "invalid port name",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port": "absent",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "traffic",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							NodePort:   31227,
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "health",
+							Port:       1234,
+							TargetPort: intstr.FromInt(1234),
+							NodePort:   30987,
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			defaultPort: "8080",
+			wantErr:     errors.New("failed to resolve healthCheckPort: unable to find port absent on service /"),
+			targetType:  elbv2.TargetTypeInstance,
+		},
+		{
+			testName: "resolve port name IP",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port": "health",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "traffic",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							NodePort:   31227,
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "health",
+							Port:       1234,
+							TargetPort: intstr.FromInt(1234),
+							NodePort:   30987,
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			defaultPort: "8080",
+			want:        intstr.FromInt(1234),
+			targetType:  elbv2.TargetTypeIP,
 		},
 	}
 	for _, tt := range tests {
@@ -1914,7 +2013,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 				service:                tt.svc,
 				defaultHealthCheckPort: tt.defaultPort,
 			}
-			got, err := builder.buildTargetGroupHealthCheckPort(context.Background(), tt.defaultPort)
+			got, err := builder.buildTargetGroupHealthCheckPort(context.Background(), tt.defaultPort, tt.targetType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

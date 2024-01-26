@@ -215,6 +215,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
+			networking.WithALBSingleSubnet(t.featureGates.Enabled(config.ALBSingleSubnet)),
 		)
 		if err != nil {
 			return nil, err
@@ -233,6 +234,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithALBSingleSubnet(t.featureGates.Enabled(config.ALBSingleSubnet)),
 		)
 		if err != nil {
 			return nil, err
