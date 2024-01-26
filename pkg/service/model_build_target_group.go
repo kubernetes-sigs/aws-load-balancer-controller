@@ -206,7 +206,7 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort 
 		prefix = fmt.Sprintf("k8s-%.8s-%.8s", sanitizedNamespace, sanitizedName)
 	}
 
-	return fmt.Sprintf("%.21s%.10s", prefix, uuid)
+	return fmt.Sprintf("%.21s-%.10s", prefix, uuid)
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([]elbv2model.TargetGroupAttribute, error) {
