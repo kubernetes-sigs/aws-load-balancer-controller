@@ -3,7 +3,7 @@ module sigs.k8s.io/aws-load-balancer-controller
 go 1.21
 
 require (
-	github.com/aws/aws-sdk-go v1.48.10
+	github.com/aws/aws-sdk-go v1.50.5
 	github.com/evanphx/json-patch v5.6.0+incompatible
 	github.com/gavv/httpexpect/v2 v2.9.0
 	github.com/go-logr/logr v1.2.4
