@@ -17,6 +17,20 @@ TargetGroupBinding CR supports TargetGroups of either `instance` or `ip` TargetT
     If TargetType is not explicitly specified, a mutating webhook will automatically call AWS API to find the TargetType for your TargetGroup and set it to correct value.
 
 
+## Sample YAML
+```yaml
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: my-tgb
+spec:
+  serviceRef:
+    name: awesome-service # route traffic to the awesome-service
+    port: 80
+  targetGroupARN: <arn-to-targetGroup>
+```
+
+
 ## VpcId
 TargetGroupBinding CR supports the explicit definition of the Virtual Private Cloud (VPC) of your TargetGroup.
 
@@ -35,6 +49,7 @@ spec:
     name: awesome-service # route traffic to the awesome-service
     port: 80
   targetGroupARN: <arn-to-targetGroup>
+  vpcId: <vpcId>
 ```
 
 
