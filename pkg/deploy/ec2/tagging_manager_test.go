@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -427,6 +428,289 @@ func Test_defaultTaggingManager_ListSecurityGroups(t *testing.T) {
 				assert.NoError(t, err)
 				opts := cmpopts.SortSlices(func(lhs networking.SecurityGroupInfo, rhs networking.SecurityGroupInfo) bool {
 					return lhs.SecurityGroupID < rhs.SecurityGroupID
+				})
+				assert.True(t, cmp.Equal(tt.want, got, opts), "diff", cmp.Diff(tt.want, got, opts))
+			}
+		})
+	}
+}
+
+func Test_defaultTaggingManager_ListElasticIPAddresses(t *testing.T) {
+	type fetchEIPInfosByRequestCall struct {
+		req  *ec2sdk.DescribeAddressesInput
+		resp map[string]networking.ElasticIPAddressInfo
+		err  error
+	}
+	type fields struct {
+		fetchEIPInfosByRequestCalls []fetchEIPInfosByRequestCall
+	}
+	type args struct {
+		tagFilters []tracking.TagFilter
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []networking.ElasticIPAddressInfo
+		wantErr error
+	}{
+		{
+			name: "with a single tagFilter",
+			fields: fields{
+				fetchEIPInfosByRequestCalls: []fetchEIPInfosByRequestCall{
+					{
+						req: &ec2sdk.DescribeAddressesInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:keyA"),
+									Values: awssdk.StringSlice([]string{"valueA"}),
+								},
+								{
+									Name:   awssdk.String("tag:keyB"),
+									Values: awssdk.StringSlice([]string{"valueB1", "valueB2"}),
+								},
+								{
+									Name:   awssdk.String("tag-key"),
+									Values: awssdk.StringSlice([]string{"keyC"}),
+								},
+							},
+						},
+						resp: map[string]networking.ElasticIPAddressInfo{
+							"eipalloc-a": {
+								AllocationID:   "eipalloc-a",
+								PublicIPv4Pool: "amazon",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB1",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+							"eipalloc-b": {
+								AllocationID:   "eipalloc-b",
+								PublicIPv4Pool: "ipv4pool-ec2-b",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB2",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": []string{"valueA"},
+						"keyB": []string{"valueB1", "valueB2"},
+						"keyC": nil,
+					},
+				},
+			},
+			want: []networking.ElasticIPAddressInfo{
+				{
+					AllocationID:   "eipalloc-a",
+					PublicIPv4Pool: "amazon",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB1",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+				{
+					AllocationID:   "eipalloc-b",
+					PublicIPv4Pool: "ipv4pool-ec2-b",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB2",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+			},
+		},
+		{
+			name: "with two tagFilter",
+			fields: fields{
+				fetchEIPInfosByRequestCalls: []fetchEIPInfosByRequestCall{
+					{
+						req: &ec2sdk.DescribeAddressesInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:keyA"),
+									Values: awssdk.StringSlice([]string{"valueA"}),
+								},
+								{
+									Name:   awssdk.String("tag:keyB"),
+									Values: awssdk.StringSlice([]string{"valueB1", "valueB2"}),
+								},
+								{
+									Name:   awssdk.String("tag-key"),
+									Values: awssdk.StringSlice([]string{"keyC"}),
+								},
+							},
+						},
+						resp: map[string]networking.ElasticIPAddressInfo{
+							"eipalloc-a": {
+								AllocationID:   "eipalloc-a",
+								PublicIPv4Pool: "amazon",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB1",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+							"eipalloc-b": {
+								AllocationID:   "eipalloc-b",
+								PublicIPv4Pool: "ipv4pool-ec2-b",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB2",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+						},
+					},
+					{
+						req: &ec2sdk.DescribeAddressesInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:keyA"),
+									Values: awssdk.StringSlice([]string{"valueA"}),
+								},
+								{
+									Name:   awssdk.String("tag:keyB"),
+									Values: awssdk.StringSlice([]string{"valueB2", "valueB3"}),
+								},
+								{
+									Name:   awssdk.String("tag-key"),
+									Values: awssdk.StringSlice([]string{"keyC"}),
+								},
+							},
+						},
+						resp: map[string]networking.ElasticIPAddressInfo{
+							"eipalloc-b": {
+								AllocationID:   "eipalloc-b",
+								PublicIPv4Pool: "ipv4pool-ec2-b",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB2",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+							"eipalloc-c": {
+								AllocationID:   "eipalloc-c",
+								PublicIPv4Pool: "ipv4pool-ec2-c",
+								Tags: map[string]string{
+									"keyA": "valueA",
+									"keyB": "valueB3",
+									"keyC": "valueC",
+									"keyD": "valueD",
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": []string{"valueA"},
+						"keyB": []string{"valueB1", "valueB2"},
+						"keyC": nil,
+					},
+					{
+						"keyA": []string{"valueA"},
+						"keyB": []string{"valueB2", "valueB3"},
+						"keyC": nil,
+					},
+				},
+			},
+			want: []networking.ElasticIPAddressInfo{
+				{
+					AllocationID:   "eipalloc-a",
+					PublicIPv4Pool: "amazon",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB1",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+				{
+					AllocationID:   "eipalloc-b",
+					PublicIPv4Pool: "ipv4pool-ec2-b",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB2",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+				{
+					AllocationID:   "eipalloc-c",
+					PublicIPv4Pool: "ipv4pool-ec2-c",
+					Tags: map[string]string{
+						"keyA": "valueA",
+						"keyB": "valueB3",
+						"keyC": "valueC",
+						"keyD": "valueD",
+					},
+				},
+			},
+		},
+		{
+			name: "with error",
+			fields: fields{
+				fetchEIPInfosByRequestCalls: []fetchEIPInfosByRequestCall{
+					{
+						req: &ec2sdk.DescribeAddressesInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("tag:keyA"),
+									Values: awssdk.StringSlice([]string{"valueA"}),
+								},
+							},
+						},
+						err: errors.New("some error"),
+					},
+				},
+			},
+			args: args{
+				tagFilters: []tracking.TagFilter{
+					{
+						"keyA": []string{"valueA"},
+					},
+				},
+			},
+			wantErr: errors.New("some error"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			networkingEIPManager := networking.NewMockElasticIPAddressManager(ctrl)
+			for _, call := range tt.fields.fetchEIPInfosByRequestCalls {
+				networkingEIPManager.EXPECT().FetchEIPInfosByRequest(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			m := &defaultTaggingManager{
+				networkingEIPManager: networkingEIPManager,
+			}
+			got, err := m.ListElasticIPAddresses(context.Background(), tt.args.tagFilters...)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				opts := cmpopts.SortSlices(func(lhs networking.ElasticIPAddressInfo, rhs networking.ElasticIPAddressInfo) bool {
+					return lhs.AllocationID < rhs.AllocationID
 				})
 				assert.True(t, cmp.Equal(tt.want, got, opts), "diff", cmp.Diff(tt.want, got, opts))
 			}

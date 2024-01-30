@@ -12,6 +12,7 @@ $MOCKGEN -package=webhook -destination=./pkg/webhook/validator_mocks.go sigs.k8s
 $MOCKGEN -package=k8s -destination=./pkg/k8s/finalizer_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/k8s FinalizerManager
 $MOCKGEN -package=k8s -destination=./pkg/k8s/pod_info_repo_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/k8s PodInfoRepo
 $MOCKGEN -package=networking -destination=./pkg/networking/security_group_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SecurityGroupManager
+$MOCKGEN -package=networking -destination=./pkg/networking/elastic_ip_address_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking ElasticIPAddressManager
 $MOCKGEN -package=networking -destination=./pkg/networking/subnet_resolver_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SubnetsResolver
 $MOCKGEN -package=networking -destination=./pkg/networking/az_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking AZInfoProvider
 $MOCKGEN -package=networking -destination=./pkg/networking/node_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking NodeInfoProvider

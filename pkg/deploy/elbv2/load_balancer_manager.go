@@ -158,9 +158,14 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 		return nil
 	}
 
+	sdkSubnetMapping, err := buildSDKSubnetMappings(resLB.Spec.SubnetMappings)
+	if err != nil {
+		return err
+	}
+
 	req := &elbv2sdk.SetSubnetsInput{
 		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
-		SubnetMappings:  buildSDKSubnetMappings(resLB.Spec.SubnetMappings),
+		SubnetMappings:  sdkSubnetMapping,
 	}
 	changeDesc := fmt.Sprintf("%v => %v", currentSubnets.List(), desiredSubnets.List())
 	m.logger.Info("modifying loadBalancer subnetMappings",
@@ -245,7 +250,12 @@ func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2
 		sdkObj.IpAddressType = nil
 	}
 
-	sdkObj.SubnetMappings = buildSDKSubnetMappings(lbSpec.SubnetMappings)
+	if sdkSubnetMappings, err := buildSDKSubnetMappings(lbSpec.SubnetMappings); err != nil {
+		return nil, err
+	} else {
+		sdkObj.SubnetMappings = sdkSubnetMappings
+	}
+
 	if sdkSecurityGroups, err := buildSDKSecurityGroups(lbSpec.SecurityGroups); err != nil {
 		return nil, err
 	} else {
@@ -256,15 +266,19 @@ func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2
 	return sdkObj, nil
 }
 
-func buildSDKSubnetMappings(modelSubnetMappings []elbv2model.SubnetMapping) []*elbv2sdk.SubnetMapping {
+func buildSDKSubnetMappings(modelSubnetMappings []elbv2model.SubnetMapping) ([]*elbv2sdk.SubnetMapping, error) {
 	var sdkSubnetMappings []*elbv2sdk.SubnetMapping
 	if len(modelSubnetMappings) != 0 {
 		sdkSubnetMappings = make([]*elbv2sdk.SubnetMapping, 0, len(modelSubnetMappings))
 		for _, modelSubnetMapping := range modelSubnetMappings {
-			sdkSubnetMappings = append(sdkSubnetMappings, buildSDKSubnetMapping(modelSubnetMapping))
+			sdkSubnetMapping, err := buildSDKSubnetMapping(modelSubnetMapping)
+			if err != nil {
+				return nil, err
+			}
+			sdkSubnetMappings = append(sdkSubnetMappings, sdkSubnetMapping)
 		}
 	}
-	return sdkSubnetMappings
+	return sdkSubnetMappings, nil
 }
 
 func buildSDKSecurityGroups(modelSecurityGroups []coremodel.StringToken) ([]*string, error) {
@@ -283,13 +297,25 @@ func buildSDKSecurityGroups(modelSecurityGroups []coremodel.StringToken) ([]*str
 	return sdkSecurityGroups, nil
 }
 
-func buildSDKSubnetMapping(modelSubnetMapping elbv2model.SubnetMapping) *elbv2sdk.SubnetMapping {
-	return &elbv2sdk.SubnetMapping{
-		AllocationId:       modelSubnetMapping.AllocationID,
+func buildSDKSubnetMapping(modelSubnetMapping elbv2model.SubnetMapping) (*elbv2sdk.SubnetMapping, error) {
+	ctx := context.Background()
+
+	sdkSubnetMapping := &elbv2sdk.SubnetMapping{
 		PrivateIPv4Address: modelSubnetMapping.PrivateIPv4Address,
 		IPv6Address:        modelSubnetMapping.IPv6Address,
 		SubnetId:           awssdk.String(modelSubnetMapping.SubnetID),
 	}
+
+	if modelSubnetMapping.AllocationID != nil {
+		allocationID, err := modelSubnetMapping.AllocationID.Resolve(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		sdkSubnetMapping.AllocationId = awssdk.String(allocationID)
+	}
+
+	return sdkSubnetMapping, nil
 }
 
 func buildResLoadBalancerStatus(sdkLB LoadBalancerWithTags) elbv2model.LoadBalancerStatus {

@@ -65,6 +65,14 @@ func (lb *LoadBalancer) DNSName() core.StringToken {
 
 // register dependencies for LoadBalancer.
 func (lb *LoadBalancer) registerDependencies(stack core.Stack) {
+	for _, subnetMapping := range lb.Spec.SubnetMappings {
+		if subnetMapping.AllocationID != nil {
+			for _, dep := range subnetMapping.AllocationID.Dependencies() {
+				stack.AddDependency(dep, lb)
+			}
+		}
+	}
+
 	for _, sgToken := range lb.Spec.SecurityGroups {
 		for _, dep := range sgToken.Dependencies() {
 			stack.AddDependency(dep, lb)
@@ -97,7 +105,7 @@ const (
 type SubnetMapping struct {
 	// [Network Load Balancers] The allocation ID of the Elastic IP address for
 	// an internet-facing load balancer.
-	AllocationID *string `json:"allocationID,omitempty"`
+	AllocationID core.StringToken `json:"allocationID,omitempty"`
 
 	// [Network Load Balancers] The private IPv4 address for an internal load balancer.
 	PrivateIPv4Address *string `json:"privateIPv4Address,omitempty"`

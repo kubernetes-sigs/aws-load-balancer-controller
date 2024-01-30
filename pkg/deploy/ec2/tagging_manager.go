@@ -54,15 +54,19 @@ type TaggingManager interface {
 
 	// ListSecurityGroups returns SecurityGroups that matches any of the tagging requirements.
 	ListSecurityGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]networking.SecurityGroupInfo, error)
+
+	// ListElasticIPAddresses returns ElasticIPAddress that matches any of the tagging requirements.
+	ListElasticIPAddresses(ctx context.Context, tagFilters ...tracking.TagFilter) ([]networking.ElasticIPAddressInfo, error)
 }
 
 // NewDefaultTaggingManager constructs new defaultTaggingManager.
-func NewDefaultTaggingManager(ec2Client services.EC2, networkingSGManager networking.SecurityGroupManager, vpcID string, logger logr.Logger) *defaultTaggingManager {
+func NewDefaultTaggingManager(ec2Client services.EC2, networkingEIPManager networking.ElasticIPAddressManager, networkingSGManager networking.SecurityGroupManager, vpcID string, logger logr.Logger) *defaultTaggingManager {
 	return &defaultTaggingManager{
-		ec2Client:           ec2Client,
-		networkingSGManager: networkingSGManager,
-		vpcID:               vpcID,
-		logger:              logger,
+		ec2Client:            ec2Client,
+		networkingEIPManager: networkingEIPManager,
+		networkingSGManager:  networkingSGManager,
+		vpcID:                vpcID,
+		logger:               logger,
 	}
 }
 
@@ -70,10 +74,11 @@ var _ TaggingManager = &defaultTaggingManager{}
 
 // default implementation for TaggingManager.
 type defaultTaggingManager struct {
-	ec2Client           services.EC2
-	networkingSGManager networking.SecurityGroupManager
-	vpcID               string
-	logger              logr.Logger
+	ec2Client            services.EC2
+	networkingEIPManager networking.ElasticIPAddressManager
+	networkingSGManager  networking.SecurityGroupManager
+	vpcID                string
+	logger               logr.Logger
 }
 
 func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, resID string, desiredTags map[string]string, opts ...ReconcileTagsOption) error {
@@ -157,7 +162,42 @@ func (m *defaultTaggingManager) listSecurityGroupsWithTagFilter(ctx context.Cont
 		},
 	}
 
-	for _, tagKey := range sets.StringKeySet(tagFilter).List() {
+	req.Filters = append(req.Filters, convertTagFiltersToSDKFilters(tagFilter)...)
+
+	return m.networkingSGManager.FetchSGInfosByRequest(ctx, req)
+}
+
+func (m *defaultTaggingManager) ListElasticIPAddresses(ctx context.Context, tagFilters ...tracking.TagFilter) ([]networking.ElasticIPAddressInfo, error) {
+	eipInfoByID := make(map[string]networking.ElasticIPAddressInfo)
+	for _, tagFilter := range tagFilters {
+		eipInfoByIDForTagFilter, err := m.listElasticIPAddressesWithTagFilter(ctx, tagFilter)
+		if err != nil {
+			return nil, err
+		}
+		for eipID, eipInfo := range eipInfoByIDForTagFilter {
+			eipInfoByID[eipID] = eipInfo
+		}
+	}
+
+	eipInfos := make([]networking.ElasticIPAddressInfo, 0, len(eipInfoByID))
+	for _, eipInfo := range eipInfoByID {
+		eipInfos = append(eipInfos, eipInfo)
+	}
+	return eipInfos, nil
+}
+
+func (m *defaultTaggingManager) listElasticIPAddressesWithTagFilter(ctx context.Context, tagFilter tracking.TagFilter) (map[string]networking.ElasticIPAddressInfo, error) {
+	req := &ec2sdk.DescribeAddressesInput{
+		Filters: convertTagFiltersToSDKFilters(tagFilter),
+	}
+
+	return m.networkingEIPManager.FetchEIPInfosByRequest(ctx, req)
+}
+
+func convertTagFiltersToSDKFilters(tagFilter tracking.TagFilter) []*ec2sdk.Filter {
+	tagKeys := sets.StringKeySet(tagFilter).List()
+	sdkFilters := make([]*ec2sdk.Filter, 0, len(tagKeys))
+	for _, tagKey := range tagKeys {
 		tagValues := tagFilter[tagKey]
 		var filter ec2sdk.Filter
 		if len(tagValues) == 0 {
@@ -169,10 +209,9 @@ func (m *defaultTaggingManager) listSecurityGroupsWithTagFilter(ctx context.Cont
 			filter.Name = awssdk.String(tagFilterName)
 			filter.Values = awssdk.StringSlice(tagValues)
 		}
-		req.Filters = append(req.Filters, &filter)
+		sdkFilters = append(sdkFilters, &filter)
 	}
-
-	return m.networkingSGManager.FetchSGInfosByRequest(ctx, req)
+	return sdkFilters
 }
 
 // convert tags into AWS SDK tag presentation.
