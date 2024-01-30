@@ -24,6 +24,7 @@ spec:
       http:
         paths:
           - path: /*
+            pathType: Prefix
             backend:
               service:
                 name: "service-2048"
