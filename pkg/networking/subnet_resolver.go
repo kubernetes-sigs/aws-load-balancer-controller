@@ -198,7 +198,10 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 				},
 			},
 		}
+
+		targetTagKeys := []string{}
 		for key, values := range selector.Tags {
+			targetTagKeys = append(targetTagKeys, key)
 			req.Filters = append(req.Filters, &ec2sdk.Filter{
 				Name:   awssdk.String("tag:" + key),
 				Values: awssdk.StringSlice(values),
@@ -209,7 +212,8 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 		if err != nil {
 			return nil, err
 		}
-		explanation = fmt.Sprintf("%d match VPC and tags", len(allSubnets))
+		explanation = fmt.Sprintf("%d match VPC and tags: %s", len(allSubnets), targetTagKeys)
+
 		var subnets []*ec2sdk.Subnet
 		taggedOtherCluster := 0
 		for _, subnet := range allSubnets {
