@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
@@ -34,6 +35,7 @@ func (v *ingressClassParamsValidator) ValidateCreate(ctx context.Context, obj ru
 	icp := obj.(*elbv2api.IngressClassParams)
 	allErrs := field.ErrorList{}
 	allErrs = append(allErrs, v.checkInboundCIDRs(icp)...)
+	allErrs = append(allErrs, v.checkSecurityGroupsSelectors(icp)...)
 	allErrs = append(allErrs, v.checkSubnetSelectors(icp)...)
 
 	return allErrs.ToAggregate()
@@ -43,6 +45,7 @@ func (v *ingressClassParamsValidator) ValidateUpdate(ctx context.Context, obj ru
 	icp := obj.(*elbv2api.IngressClassParams)
 	allErrs := field.ErrorList{}
 	allErrs = append(allErrs, v.checkInboundCIDRs(icp)...)
+	allErrs = append(allErrs, v.checkSecurityGroupsSelectors(icp)...)
 	allErrs = append(allErrs, v.checkSubnetSelectors(icp)...)
 
 	return allErrs.ToAggregate()
@@ -89,6 +92,63 @@ func validateCIDR(cidr string, fieldPath *field.Path) field.ErrorList {
 	return allErrs
 }
 
+// checkSecurityGroupsSelectors will check for valid SubnetSelectors
+func (v *ingressClassParamsValidator) checkSecurityGroupsSelectors(icp *elbv2api.IngressClassParams) (allErrs field.ErrorList) {
+	if icp.Spec.SecurityGroups != nil {
+		securityGroups := icp.Spec.SecurityGroups
+		fieldPath := field.NewPath("spec", "securityGroups")
+		if securityGroups.IDs == nil && !securityGroups.ManagedInbound && securityGroups.Tags == nil {
+			allErrs = append(allErrs, field.Required(fieldPath, "must have `ids`, `managed`, or `tags`"))
+			return allErrs
+		}
+		if securityGroups.IDs != nil {
+			if len(icp.Spec.InboundCIDRs) > 0 {
+				allErrs = append(allErrs, field.Forbidden(field.NewPath("spec", "inboundCIDRs"), "May not have both `inboundCIDRs` and `securityGroups.ids`"))
+			}
+			if securityGroups.ManagedInbound {
+				allErrs = append(allErrs, field.Forbidden(fieldPath.Child("managedInbound"), "may not have both `ids` and `managedInbound` set"))
+				return allErrs
+			}
+			if securityGroups.Tags != nil {
+				allErrs = append(allErrs, field.Forbidden(fieldPath.Child("tags"), "may not have both `ids` and `tags` set"))
+				return allErrs
+			}
+			fieldPath := fieldPath.Child("ids")
+			seen := sets.New[elbv2api.SecurityGroupID]()
+			for i, securityGroupID := range securityGroups.IDs {
+				if seen.Has(securityGroupID) {
+					allErrs = append(allErrs, field.Duplicate(fieldPath.Index(i), securityGroupID))
+				}
+				seen.Insert(securityGroupID)
+			}
+		} else if securityGroups.ManagedInbound {
+			if securityGroups.Tags != nil {
+				allErrs = append(allErrs, field.Forbidden(fieldPath.Child("tags"), "may not have both `managedInbound` and `tags` set"))
+			}
+		} else {
+			fieldPath := fieldPath.Child("tags")
+			if len(icp.Spec.InboundCIDRs) > 0 {
+				allErrs = append(allErrs, field.Forbidden(field.NewPath("spec", "inboundCIDRs"), "May not have both `inboundCIDRs` and `securityGroups.tags`"))
+			}
+			if len(securityGroups.Tags) == 0 {
+				allErrs = append(allErrs, field.Required(fieldPath, "must have at least one tag key"))
+			}
+			for tagKey, tagValues := range securityGroups.Tags {
+				fieldPath := fieldPath.Key(tagKey)
+				valueSeen := sets.New[string]()
+				for i, value := range tagValues {
+					if valueSeen.Has(value) {
+						allErrs = append(allErrs, field.Duplicate(fieldPath.Index(i), value))
+					}
+					valueSeen.Insert(value)
+				}
+			}
+		}
+	}
+
+	return allErrs
+}
+
 // checkSubnetSelectors will check for valid SubnetSelectors
 func (v *ingressClassParamsValidator) checkSubnetSelectors(icp *elbv2api.IngressClassParams) (allErrs field.ErrorList) {
 	if icp.Spec.Subnets != nil {
@@ -104,12 +164,12 @@ func (v *ingressClassParamsValidator) checkSubnetSelectors(icp *elbv2api.Ingress
 				return allErrs
 			}
 			fieldPath := fieldPath.Child("ids")
-			seen := map[elbv2api.SubnetID]bool{}
+			seen := sets.New[elbv2api.SubnetID]()
 			for i, subnetID := range subnets.IDs {
-				if seen[subnetID] {
+				if seen.Has(subnetID) {
 					allErrs = append(allErrs, field.Duplicate(fieldPath.Index(i), subnetID))
 				}
-				seen[subnetID] = true
+				seen.Insert(subnetID)
 			}
 		} else {
 			fieldPath := fieldPath.Child("tags")
@@ -118,12 +178,12 @@ func (v *ingressClassParamsValidator) checkSubnetSelectors(icp *elbv2api.Ingress
 			}
 			for tagKey, tagValues := range subnets.Tags {
 				fieldPath := fieldPath.Key(tagKey)
-				valueSeen := map[string]bool{}
+				valueSeen := sets.New[string]()
 				for i, value := range tagValues {
-					if valueSeen[value] {
+					if valueSeen.Has(value) {
 						allErrs = append(allErrs, field.Duplicate(fieldPath.Index(i), value))
 					}
-					valueSeen[value] = true
+					valueSeen.Insert(value)
 				}
 			}
 		}

@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	v1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 )
 
 // MockSecurityGroupResolver is a mock of SecurityGroupResolver interface.
@@ -47,4 +48,19 @@ func (m *MockSecurityGroupResolver) ResolveViaNameOrID(arg0 context.Context, arg
 func (mr *MockSecurityGroupResolverMockRecorder) ResolveViaNameOrID(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveViaNameOrID", reflect.TypeOf((*MockSecurityGroupResolver)(nil).ResolveViaNameOrID), arg0, arg1)
+}
+
+// ResolveViaSelector mocks base method.
+func (m *MockSecurityGroupResolver) ResolveViaSelector(arg0 context.Context, arg1 *v1beta1.SecurityGroupSelector) ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveViaSelector", arg0, arg1)
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveViaSelector indicates an expected call of ResolveViaSelector.
+func (mr *MockSecurityGroupResolverMockRecorder) ResolveViaSelector(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveViaSelector", reflect.TypeOf((*MockSecurityGroupResolver)(nil).ResolveViaSelector), arg0, arg1)
 }
