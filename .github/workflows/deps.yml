@@ -1,5 +1,22 @@
 name: "Dependency Review"
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - main
+      - 'release-*'
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      head_ref:
+        description: 'HEAD git reference (tag/branch/commit) to analyze'
+        required: true
+        default: 'main'
+        type: string
+      base_ref:
+        description: 'Base git reference (tag/branch/commit) to compare against head_ref'
+        required: true
+        default: 'main'
+        type: string
 permissions:
   contents: read
 jobs:
@@ -11,7 +28,10 @@ jobs:
         with:
           show-progress: false
       - name: "Dependency Review"
-        uses: actions/dependency-review-action@v3
+        uses: actions/dependency-review-action@v4
+        with:
+          base-ref: ${{ inputs.base_ref || github.event.pull_request.base.sha || 'main' }}
+          head-ref: ${{ inputs.head_ref || github.event.pull_request.head.sha || github.ref }}
   govulncheck:
     runs-on: ubuntu-latest
     steps:
