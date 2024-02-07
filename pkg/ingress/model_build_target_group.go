@@ -77,6 +77,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 				Networking:    tgbNetworking,
 				NodeSelector:  nodeSelector,
 				IPAddressType: (*elbv2api.TargetGroupIPAddressType)(tg.Spec.IPAddressType),
+				VpcId:         t.vpcID,
 			},
 		},
 	}
