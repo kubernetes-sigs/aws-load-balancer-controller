@@ -35,6 +35,7 @@ spec:
       type: string
     - description: The AWS TargetGroup's Name
       jsonPath: .spec.targetGroupName
+      name: NAME
       priority: 2
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -155,7 +156,7 @@ spec:
                   the TargetGroup.
                 type: string
               targetGroupName:
-                description: The AWS TargetGroup's Name
+                description: targetGroupName is the Name (ARN) of the TargetGroup.
                 type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,
@@ -200,6 +201,7 @@ spec:
       type: string
     - description: The AWS TargetGroup's Name
       jsonPath: .spec.targetGroupName
+      name: NAME
       priority: 2
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -375,10 +377,9 @@ spec:
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
-                minLength: 1
                 type: string
               targetGroupName:
-                description: The AWS TargetGroup's Name.
+                description: targetGroupName is the Name (ARN) of the TargetGroup.
                 type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,
