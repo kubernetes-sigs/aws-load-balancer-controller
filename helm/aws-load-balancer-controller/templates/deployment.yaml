@@ -156,6 +156,9 @@ spec:
         {{- if ne .Values.defaultTargetType "instance" }}
         - --default-target-type={{ .Values.defaultTargetType }}
         {{- end }}
+        {{- if .Values.serviceTargetENISGTags }}
+        - --service-target-eni-security-group-tags={{ .Values.serviceTargetENISGTags }}
+        {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:
         {{- if .Values.env}}
