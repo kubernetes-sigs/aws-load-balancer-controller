@@ -161,7 +161,7 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 	sdkLS ListenerWithTags, isNewSDKListener bool) error {
 	// if TLS is not supported, we shouldn't update
 	if resLS.Spec.SSLPolicy == nil && sdkLS.Listener.SslPolicy == nil {
-		m.logger.V(1).Info("Res and Sdk Listener don't have SSL Policy set, we skip updating extra certs for non-TLS listener.")
+		m.logger.V(2).Info("Res and Sdk Listener don't have SSL Policy set, we skip updating extra certs for non-TLS listener.")
 		return nil
 	}
 
