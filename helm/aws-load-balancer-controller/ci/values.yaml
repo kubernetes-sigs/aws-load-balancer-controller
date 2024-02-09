@@ -1,0 +1,7 @@
+# CI testing values for aws-load-balancer-controller
+
+region: us-west-2
+image:
+  repository: public.ecr.aws/eks/aws-load-balancer-controller
+  tag: v2.4.5
+  pullPolicy: Always

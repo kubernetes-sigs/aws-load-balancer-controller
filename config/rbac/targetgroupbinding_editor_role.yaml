@@ -1,0 +1,24 @@
+# permissions for end users to edit targetgroupbindings.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: targetgroupbinding-editor-role
+rules:
+  - apiGroups:
+      - elbv2.k8s.aws
+    resources:
+      - targetgroupbindings
+    verbs:
+      - create
+      - delete
+      - get
+      - list
+      - patch
+      - update
+      - watch
+  - apiGroups:
+      - elbv2.k8s.aws
+    resources:
+      - targetgroupbindings/status
+    verbs:
+      - get

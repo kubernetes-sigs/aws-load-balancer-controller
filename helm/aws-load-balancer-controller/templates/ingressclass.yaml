@@ -1,0 +1,41 @@
+{{- /*
+[caution] AWSLoadBalancerController <= v2.4.2 expects referenced IngressClassParams to be created before IngressClass.
+We use a list here to force Helm create IngressClassParams(if any) before apply any IngressClass changes.
+*/}}
+{{- if .Values.createIngressClassResource }}
+apiVersion: v1
+kind: List
+metadata:
+  name: ingress-class
+items:
+{{- if .Values.ingressClassParams.create }}
+- apiVersion: elbv2.k8s.aws/v1beta1
+  kind: IngressClassParams
+  metadata:
+    name: {{ include "aws-load-balancer-controller.ingressClassParamsName" . }}
+    labels:
+      {{- include "aws-load-balancer-controller.labels" . | nindent 6 }}
+  {{- with .Values.ingressClassParams.spec }}
+  spec:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+- apiVersion: networking.k8s.io/v1
+  kind: IngressClass
+  metadata:
+    name: {{ .Values.ingressClass }}
+    labels:
+      {{- include "aws-load-balancer-controller.labels" . | nindent 6 }}
+    {{- if .Values.ingressClassConfig.default }}
+    annotations:
+      ingressclass.kubernetes.io/is-default-class: "true"
+    {{- end }}
+  spec:
+    controller: ingress.k8s.aws/alb
+    {{- if or .Values.ingressClassParams.name (and .Values.ingressClassParams.create .Values.ingressClassParams.spec) }}
+    parameters:
+      apiGroup: elbv2.k8s.aws
+      kind: IngressClassParams
+      name: {{ include "aws-load-balancer-controller.ingressClassParamsName" . }}
+    {{- end }}
+{{- end }}

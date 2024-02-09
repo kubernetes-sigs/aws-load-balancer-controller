@@ -1,0 +1,80 @@
+site_name: AWS Load Balancer Controller
+repo_name: kubernetes-sigs/aws-load-balancer-controller
+repo_url: https://github.com/kubernetes-sigs/aws-load-balancer-controller
+edit_uri: edit/main/docs/
+strict: true
+
+nav:
+  - Home:
+    - Welcome: index.md
+    - How it works: how-it-works.md
+  - Deployment:
+    - Installation Guide: deploy/installation.md
+    - Configurations: deploy/configurations.md
+    - Subnet Discovery: deploy/subnet_discovery.md
+    - Security Group Management: deploy/security_groups.md
+    - Pod Readiness Gate: deploy/pod_readiness_gate.md
+    - Upgrade:
+          - Migrate v1 to v2: deploy/upgrade/migrate_v1_v2.md
+  - Guide:
+      - Ingress:
+          - Annotations: guide/ingress/annotations.md
+          - Specification: guide/ingress/spec.md
+          - IngressClass: guide/ingress/ingress_class.md
+          - Certificate Discovery: guide/ingress/cert_discovery.md
+      - Service:
+          - Network Load Balancer: guide/service/nlb.md
+          - Annotations: guide/service/annotations.md
+      - TargetGroupBinding:
+          - TargetGroupBinding: guide/targetgroupbinding/targetgroupbinding.md
+          - Specification: guide/targetgroupbinding/spec.md
+      - Tasks:
+          - Cognito Authentication: guide/tasks/cognito_authentication.md
+          - SSL Redirect: guide/tasks/ssl_redirect.md
+      - Use Cases:
+        - NLB TLS Termination: guide/use_cases/nlb_tls_termination/index.md
+        - Externally Managed Load Balancer: guide/use_cases/self_managed_lb/index.md
+        - Frontend Security Groups: guide/use_cases/frontend_sg/index.md
+        - Blue/Green: guide/use_cases/blue_green/index.md
+  - Examples:
+    - EchoServer: examples/echo_server.md
+    - gRPCServer: examples/grpc_server.md
+    - Setup External DNS: guide/integrations/external_dns.md
+    - RBAC to access OIDC Secret: examples/secrets_access.md
+
+
+
+plugins:
+  - search
+theme:
+  name: material
+  language: en
+  favicon: assets/images/aws_load_balancer_icon.svg
+  palette:
+    primary: indigo
+    accent: indigo
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+  custom_dir: docs/theme_overrides
+# Extensions
+markdown_extensions:
+  - admonition
+  - attr_list
+  - codehilite
+  - pymdownx.inlinehilite
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - toc:
+      permalink: true
+extra_css:
+  - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css
+extra_javascript:
+  - https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js

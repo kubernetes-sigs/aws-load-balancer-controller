@@ -1,0 +1,38 @@
+# permissions to do leader election.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: controller-leader-election-role
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - aws-load-balancer-controller-leader
+    verbs:
+      - get
+      - update
+      - patch
+  - apiGroups:
+    - "coordination.k8s.io"
+    resources:
+    - leases
+    verbs:
+    - create
+  - apiGroups:
+    - "coordination.k8s.io"
+    resources:
+    - leases
+    resourceNames:
+      - aws-load-balancer-controller-leader
+    verbs:
+      - get
+      - update
+      - patch

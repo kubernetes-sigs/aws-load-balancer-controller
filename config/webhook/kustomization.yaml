@@ -1,0 +1,11 @@
+resources:
+  - manifests.yaml
+  - service.yaml
+
+configurations:
+  - kustomizeconfig.yaml
+
+patchesStrategicMerge:
+  - pod_mutator_patch.yaml
+  - service_mutator_patch.yaml
+  - ingressclassparams_validator_patch.yaml

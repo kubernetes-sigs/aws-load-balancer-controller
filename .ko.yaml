@@ -1,0 +1,13 @@
+defaultBaseImage: public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2023-09-06-1694026927.2
+builds:
+- env:
+  - CGO_ENABLED=0
+  flags:
+  - -mod=readonly
+  ldflags:
+  - -s
+  - -w
+  - -X sigs.k8s.io/aws-load-balancer-controller/pkg/version.GitVersion={{.Env.GIT_VERSION}}
+  - -X sigs.k8s.io/aws-load-balancer-controller/pkg/version.GitCommit={{.Env.GIT_COMMIT}}
+  - -X sigs.k8s.io/aws-load-balancer-controller/pkg/version.BuildDate={{.Env.BUILD_DATE}}
+

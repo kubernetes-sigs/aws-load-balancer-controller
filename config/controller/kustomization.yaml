@@ -1,0 +1,12 @@
+resources:
+- controller.yaml
+patchesStrategicMerge:
+- iam_for_sa_patch.yaml
+- security_context_patch.yaml
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+images:
+- name: controller
+  newName: public.ecr.aws/eks/aws-load-balancer-controller
+  newTag: v2.7.0

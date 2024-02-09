@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# Copyright 2020 The Kubernetes Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# This script helps with updating versions across the repo, updating the
+# multiple places where we encode a aws-load-balancer-controller version number.
+
+# Use: hack/set-version <new-release-version>
+
+# new-release-version is the version you are releasing.
+
+#
+# Examples:
+# 1.20.1
+# 1.21.0-alpha.1
+# 1.21.0-beta.1
+
+set -e
+set -x
+
+NEW_RELEASE_VERSION=$1
+
+if [[ ! "${NEW_RELEASE_VERSION}" =~ ^([0-9]+[.][0-9]+)[.]([0-9]+)(-(alpha|beta)[.]([0-9]+))?$ ]]; then
+  echo "syntax $0 <new-release-version>"
+  echo "<new-relese-version> must be 'X.Y.Z', 'X.Y.Z-alpha.N', or 'X.Y.Z-beta.N'"
+  exit 1
+fi
+
+MINOR=${BASH_REMATCH[1]}
+PATCH=${BASH_REMATCH[2]}
+PRERELEASE=${BASH_REMATCH[4]}
+PRERELEASE_SEQUENCE=${BASH_REMATCH[5]}
+
+PREV_RELEASE_VERSION=$(cat version.txt)
+PREV_STABLE_VERSION=$(cat version-stable.txt)
+
+echo "$NEW_RELEASE_VERSION" > version.txt
+
+sed -i.bak -e "s@public.ecr.aws/eks/aws-load-balancer-controller:v${PREV_RELEASE_VERSION}@public.ecr.aws/eks/aws-load-balancer-controller:v${NEW_RELEASE_VERSION}@g" Makefile
+
+if [[ -z "$PRERELEASE" ]]; then
+  echo "$NEW_RELEASE_VERSION" > version-stable.txt
+
+  sed -i.bak -e "s@newTag: v${PREV_STABLE_VERSION}@newTag: v${NEW_RELEASE_VERSION}@g" config/controller/kustomization.yaml
+  sed -i.bak -e "s@appVersion: v${PREV_STABLE_VERSION}@appVersion: v${NEW_RELEASE_VERSION}@g" helm/aws-load-balancer-controller/Chart.yaml
+  sed -i.bak -e "s@tag: v${PREV_STABLE_VERSION}@tag: v${NEW_RELEASE_VERSION}@g" helm/aws-load-balancer-controller/test.yaml
+  sed -i.bak -e "s@tag: v${PREV_STABLE_VERSION}@tag: v${NEW_RELEASE_VERSION}@g" helm/aws-load-balancer-controller/values.yaml
+  sed -i.bak -e "s@/v${PREV_STABLE_VERSION}/v${PREV_STABLE_VERSION//./_}_@/v${NEW_RELEASE_VERSION}/v${NEW_RELEASE_VERSION//./_}_@g" docs/deploy/installation.md
+  sed -i.bak -e "s@ v${PREV_STABLE_VERSION//./_}_@ v${NEW_RELEASE_VERSION//./_}_@g" docs/deploy/installation.md
+  sed -i.bak -e "s@/v${PREV_STABLE_VERSION}/@/v${NEW_RELEASE_VERSION}/@g" docs/deploy/installation.md
+  sed -i.bak -e "s@/v${PREV_STABLE_VERSION}/@/v${NEW_RELEASE_VERSION}/@g" docs/examples/echo_server.md
+
+fi

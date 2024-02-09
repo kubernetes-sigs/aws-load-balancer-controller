@@ -1,0 +1,7 @@
+apiVersion: elbv2.k8s.aws/v1alpha1
+kind: TargetGroupBinding
+metadata:
+  name: targetgroupbinding-sample
+spec:
+  # Add fields here
+  foo: bar
