@@ -2,7 +2,13 @@ package ingress
 
 import (
 	"context"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/acm"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -11,9 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -33,7 +36,7 @@ type CertDiscovery interface {
 }
 
 // NewACMCertDiscovery constructs new acmCertDiscovery
-func NewACMCertDiscovery(acmClient services.ACM, logger logr.Logger) *acmCertDiscovery {
+func NewACMCertDiscovery(acmClient services.ACM, allowedCAARNs []string, logger logr.Logger) *acmCertDiscovery {
 	return &acmCertDiscovery{
 		acmClient: acmClient,
 		logger:    logger,
@@ -44,6 +47,7 @@ func NewACMCertDiscovery(acmClient services.ACM, logger logr.Logger) *acmCertDis
 		certDomainsCache:            cache.NewExpiring(),
 		importedCertDomainsCacheTTL: defaultImportedCertDomainsCacheTTL,
 		privateCertDomainsCacheTTL:  defaultPrivateCertDomainsCacheTTL,
+		allowedCAARNs:               allowedCAARNs,
 	}
 }
 
@@ -59,6 +63,7 @@ type acmCertDiscovery struct {
 	certARNsCache               *cache.Expiring
 	certARNsCacheTTL            time.Duration
 	certDomainsCache            *cache.Expiring
+	allowedCAARNs               []string
 	importedCertDomainsCacheTTL time.Duration
 	privateCertDomainsCacheTTL  time.Duration
 }
@@ -102,7 +107,10 @@ func (d *acmCertDiscovery) loadDomainsForAllCertificates(ctx context.Context) (m
 		if err != nil {
 			return nil, err
 		}
-		domainsByCertARN[certARN] = certDomains
+		if len(certDomains) > 0 {
+			domainsByCertARN[certARN] = certDomains
+		}
+
 	}
 	return domainsByCertARN, nil
 }
@@ -143,14 +151,20 @@ func (d *acmCertDiscovery) loadDomainsForCertificate(ctx context.Context, certAR
 		return nil, err
 	}
 	certDetail := resp.Certificate
-	domains := sets.NewString(aws.StringValueSlice(certDetail.SubjectAlternativeNames)...)
-	switch aws.StringValue(certDetail.Type) {
-	case acm.CertificateTypeImported:
-		d.certDomainsCache.Set(certARN, domains, d.importedCertDomainsCacheTTL)
-	case acm.CertificateTypeAmazonIssued, acm.CertificateTypePrivate:
-		d.certDomainsCache.Set(certARN, domains, d.privateCertDomainsCacheTTL)
+
+	// check if cert is issued from an allowed CA
+	if len(d.allowedCAARNs) == 0 || slices.Contains(d.allowedCAARNs, awssdk.StringValue(certDetail.CertificateAuthorityArn)) {
+		domains := sets.NewString(aws.StringValueSlice(certDetail.SubjectAlternativeNames)...)
+		switch aws.StringValue(certDetail.Type) {
+		case acm.CertificateTypeImported:
+			d.certDomainsCache.Set(certARN, domains, d.importedCertDomainsCacheTTL)
+		case acm.CertificateTypeAmazonIssued, acm.CertificateTypePrivate:
+			d.certDomainsCache.Set(certARN, domains, d.privateCertDomainsCacheTTL)
+		}
+		return domains, nil
 	}
-	return domains, nil
+	return sets.String{}, nil
+
 }
 
 func (d *acmCertDiscovery) domainMatchesHost(domainName string, tlsHost string) bool {
