@@ -12,18 +12,18 @@ type Endpoint interface {
 	GetIdentifier(includeTimestamp bool) string
 }
 
-// An endpoint provided by pod directly.
-type PodEndpoint struct {
+// IpEndpoint is an endpoint for an ip address
+type IpEndpoint struct {
 	// Pod's IP.
 	IP string
 	// Pod's container port.
 	Port int32
 	// Pod that provides this endpoint.
-	Pod k8s.PodInfo
+	Pod *k8s.PodInfo
 }
 
-func (e PodEndpoint) GetIdentifier(includeTimestamp bool) string {
-	if includeTimestamp {
+func (e IpEndpoint) GetIdentifier(includeTimestamp bool) string {
+	if includeTimestamp && e.Pod != nil {
 		return fmt.Sprintf("%s:%d:%d", e.IP, e.Port, e.Pod.CreationTime.UnixMilli())
 	}
 	return fmt.Sprintf("%s:%d", e.IP, e.Port)
