@@ -259,7 +259,7 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 // TODO: we can refactor this by store provisioned LB's ARN as annotations on Ingress/Service, thus avoid this heavy lookup calls when RGT is not available.
 func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
 	if m.featureGates.Enabled(config.EnableRGTAPI) {
-		m.logger.V(2).Info("ResourceGroupTagging enabled, list the load balancers via RGT API")
+		m.logger.V(1).Info("ResourceGroupTagging enabled, list the load balancers via RGT API")
 		return m.listLoadBalancersRGT(ctx, tagFilters)
 	}
 	return m.listLoadBalancersNative(ctx, tagFilters)
@@ -267,7 +267,7 @@ func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilter
 
 func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
 	if m.featureGates.Enabled(config.EnableRGTAPI) {
-		m.logger.V(2).Info("ResourceGroupTagging enabled, list the target groups via RGT API")
+		m.logger.V(1).Info("ResourceGroupTagging enabled, list the target groups via RGT API")
 		return m.listTargetGroupsRGT(ctx, tagFilters)
 	}
 	return m.listTargetGroupsNative(ctx, tagFilters)
