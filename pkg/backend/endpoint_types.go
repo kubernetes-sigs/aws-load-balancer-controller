@@ -12,8 +12,8 @@ type Endpoint interface {
 	GetIdentifier(includeTimestamp bool, includeQuicServerId bool) string
 }
 
-// An endpoint provided by pod directly.
-type PodEndpoint struct {
+// IpEndpoint is an endpoint for an ip address
+type IpEndpoint struct {
 	// Pod's IP.
 	IP string
 	// Pod's container port.
@@ -21,10 +21,10 @@ type PodEndpoint struct {
 	// [QUIC] The ServerID for the IP:Port
 	QuicServerID *string
 	// Pod that provides this endpoint.
-	Pod k8s.PodInfo
+	Pod *k8s.PodInfo
 }
 
-func (e PodEndpoint) GetIdentifier(includeTimestamp bool, includeQuicServerId bool) string {
+func (e IpEndpoint) GetIdentifier(includeTimestamp bool, includeQuicServerId bool) string {
 	baseString := fmt.Sprintf("%s:%d", e.IP, e.Port)
 
 	if e.QuicServerID != nil && includeQuicServerId {

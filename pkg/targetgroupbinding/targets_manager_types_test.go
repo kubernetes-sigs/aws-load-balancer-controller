@@ -281,7 +281,7 @@ func TestGetIdentifier(t *testing.T) {
 		},
 		{
 			name: "ip - not quic",
-			endpoint: backend.PodEndpoint{
+			endpoint: backend.IpEndpoint{
 				IP:   "127.0.0.1",
 				Port: 80,
 			},
