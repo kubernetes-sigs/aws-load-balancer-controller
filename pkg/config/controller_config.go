@@ -10,6 +10,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 const (
@@ -27,6 +28,7 @@ const (
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
+	flagSubnetDiscoverySortingAlgorithm              = "subnet-discovery-sorting-algorithm"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
@@ -34,6 +36,7 @@ const (
 	defaultEnableBackendSG                           = true
 	defaultEnableEndpointSlices                      = false
 	defaultDisableRestrictedSGRules                  = false
+	defaultSubnetDiscoverySortingAlgorithm           = networking.SubnetSortingByID
 )
 
 var (
@@ -44,6 +47,10 @@ var (
 		"ingress.k8s.aws/resource",
 		"service.k8s.aws/stack",
 		"service.k8s.aws/resource",
+	)
+	subnetSortingAlgorithms = sets.NewString(
+		networking.SubnetSortingByID,
+		networking.SubnetSortingAZFirst,
 	)
 )
 
@@ -103,6 +110,9 @@ type ControllerConfig struct {
 	DisableRestrictedSGRules bool
 
 	FeatureGates FeatureGates
+
+	// SubnetDiscoverySortingAlgorithm specifies how subnets should be sorted if multiple are found in the same availability zone.
+	SubnetDiscoverySortingAlgorithm string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -134,6 +144,9 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Disable the usage of restricted security group rules")
 	fs.StringToStringVar(&cfg.ServiceTargetENISGTags, flagServiceTargetENISGTags, nil,
 		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
+	fs.StringVar(&cfg.SubnetDiscoverySortingAlgorithm, flagSubnetDiscoverySortingAlgorithm, defaultSubnetDiscoverySortingAlgorithm,
+		"Set the algoritm by which subnets should be sorted if multiple are found in the same availability zone")
+
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
@@ -163,6 +176,9 @@ func (cfg *ControllerConfig) Validate() error {
 		return err
 	}
 	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
+		return err
+	}
+	if err := cfg.validateSubnetSortingAlgorithm(); err != nil {
 		return err
 	}
 	return nil
@@ -211,6 +227,13 @@ func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {
 	}
 	if !strings.HasPrefix(cfg.BackendSecurityGroup, "sg-") {
 		return errors.Errorf("invalid value %v for backend security group id", cfg.BackendSecurityGroup)
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) validateSubnetSortingAlgorithm() error {
+	if !subnetSortingAlgorithms.Has(cfg.SubnetDiscoverySortingAlgorithm) {
+		return errors.Errorf("invalid value %v for subnet sorting algorithm", cfg.SubnetDiscoverySortingAlgorithm)
 	}
 	return nil
 }

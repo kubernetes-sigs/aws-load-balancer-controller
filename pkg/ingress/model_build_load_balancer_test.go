@@ -1270,6 +1270,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 				mockEC2,
 				"vpc-1",
 				"test-cluster",
+				"id",
 				logr.New(&log.NullLogSink{}),
 			)
 

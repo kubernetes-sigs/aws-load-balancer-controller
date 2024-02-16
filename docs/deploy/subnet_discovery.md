@@ -2,8 +2,8 @@
 By default, the AWS Load Balancer Controller (LBC) auto-discovers network subnets that it can create AWS Network Load Balancers (NLB) and AWS Application Load Balancers (ALB) in. ALBs require at least two subnets across Availability Zones by default, 
 set [Feature Gate ALBSingleSubnet](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/configurations/#feature-gates) to "true" allows using only 1 subnet for provisioning ALB. NLBs require one subnet.
 The subnets must be tagged appropriately for auto-discovery to work. The controller chooses one subnet from each Availability Zone. During auto-discovery, the controller
-considers subnets with at least eight available IP addresses. In the case of multiple qualified tagged subnets in an Availability Zone, the controller chooses the first one in lexicographical 
-order by the subnet IDs.
+considers subnets with at least eight available IP addresses. In the case of multiple qualified tagged subnets in an Availability Zone, the controller defaults to selecting the first subnet based on lexicographical order of subnet IDs 
+Other available algorithm for selection include `azfirst` to prioritize subnets from availability-zone locale. 
 For more information about the subnets for the LBC, see [Application Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html) 
 and [Network Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html).
 If you used `eksctl` or an Amazon EKS AWS CloudFormation template to create your VPC after March 26, 2020, then the subnets are tagged appropriately when they're created. For 
