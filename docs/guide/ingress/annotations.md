@@ -33,6 +33,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/listen-ports](#listen-ports)                                               | json                        |'[{"HTTP": 80}]' \| '[{"HTTPS": 443}]'|Ingress|Merge|
 | [alb.ingress.kubernetes.io/ssl-redirect](#ssl-redirect)                                               | integer                     |N/A|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/inbound-cidrs](#inbound-cidrs)                                             | stringList                  |0.0.0.0/0, ::/0|Ingress|Exclusive|
+| [alb.ingress.kubernetes.io/security-group-prefix-lists](#security-group-prefix-lists)                                               | stringList                        |pl-00000000, pl-1111111|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)                                         | stringList                  |N/A|Ingress|Merge|
 | [alb.ingress.kubernetes.io/ssl-policy](#ssl-policy)                                                   | string                      |ELBSecurityPolicy-2016-08|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/target-type](#target-type)                                                 | instance \| ip              |instance|Ingress,Service|N/A|
@@ -512,7 +513,7 @@ Access control for LoadBalancer can be controlled with following annotations:
         `inbound-cidrs` is merged across all Ingresses in IngressGroup, but is exclusive per listen-port.
 
         - the `inbound-cidrs` will only impact the ports defined for that Ingress.
-        - if same listen-port is defined by multiple Ingress within IngressGroup, inbound-cidrs should only be defined on one of the Ingress.
+        - if same listen-port is defined by multiple Ingress within IngressGroup, `inbound-cidrs` should only be defined on one of the Ingress.
 
     !!!note "Default"
 
@@ -527,10 +528,32 @@ Access control for LoadBalancer can be controlled with following annotations:
         alb.ingress.kubernetes.io/inbound-cidrs: 10.0.0.0/24
         ```
 
+- <a name="security-group-prefix-lists">`alb.ingress.kubernetes.io/security-group-prefix-lists`</a> specifies the managed prefix lists that are allowed to access LoadBalancer.
+
+    !!!note "Merge Behavior"
+        `security-group-prefix-lists` is merged across all Ingresses in IngressGroup, but is exclusive per listen-port.
+
+        - the `security-group-prefix-lists` will only impact the ports defined for that Ingress.
+        - if same listen-port is defined by multiple Ingress within IngressGroup, `security-group-prefix-lists` should only be defined on one of the Ingress.
+
+    !!!warning ""
+        This annotation will be ignored if `alb.ingress.kubernetes.io/security-groups` is specified.
+
+    !!!warning ""
+        If you'd like to use this annotation, make sure your security group rule quota is enough. If you'd like to know how the managed prefix list affects your quota, see the [reference](https://docs.aws.amazon.com/vpc/latest/userguide/working-with-aws-managed-prefix-lists.html#aws-managed-prefix-list-weights) in the AWS documentation for more details.
+
+    !!!tip ""
+        If you only use this annotation without `inbound-cidrs`, the controller managed security group would ignore the `inbound-cidrs` default settings.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/security-group-prefix-lists: pl-000000
+        ```
+
 - <a name="security-groups">`alb.ingress.kubernetes.io/security-groups`</a> specifies the securityGroups you want to attach to LoadBalancer.
 
     !!!note ""
-        When this annotation is not present, the controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from [`inbound-cidrs`](#inbound-cidrs) to the [`listen-ports`](#listen-ports).
+        When this annotation is not present, the controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from [`inbound-cidrs`](#inbound-cidrs) and [`security-group-prefix-lists`](#security-group-prefix-lists) to the [`listen-ports`](#listen-ports).
         Also, the securityGroups for Node/Pod will be modified to allow inbound traffic from this securityGroup.
 
     !!!note ""

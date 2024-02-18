@@ -16,6 +16,7 @@
 | Name                                                                                             | Type                    | Default                   | Notes                                                  |
 |--------------------------------------------------------------------------------------------------|-------------------------|---------------------------|--------------------------------------------------------|
 | [service.beta.kubernetes.io/load-balancer-source-ranges](#lb-source-ranges)                      | stringList              |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists](#lb-security-group-prefix-lists)                      | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-type](#lb-type)                                    | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-nlb-target-type](#nlb-target-type)                 | string                  |                           | default `instance` in case of LoadBalancerClass        |
 | [service.beta.kubernetes.io/aws-load-balancer-name](#load-balancer-name)                         | string                  |                           |                                                        |
@@ -437,6 +438,22 @@ Load balancer access can be controlled via following annotations:
         service.beta.kubernetes.io/load-balancer-source-ranges: 10.0.0.0/24
         ```
 
+- <a name="lb-security-group-prefix-lists">`service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists`</a> specifies the managed prefix lists that are allowed to access the NLB.
+
+    !!!warning ""
+        this annotation will be ignored if `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified.
+
+    !!!warning ""
+        If you'd like to use this annotation, make sure your security group rule quota is enough. If you'd like to know how the managed prefix list affects your quota, see the [reference](https://docs.aws.amazon.com/vpc/latest/userguide/working-with-aws-managed-prefix-lists.html#aws-managed-prefix-list-weights) in the AWS documentation for more details.
+
+    !!!tip ""
+        If you only use this annotation without `load-balancer-source-ranges`, the controller managed security group would ignore the `load-balancer-source-ranges` default settings.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists: pl-00000000
+        ```
+
 - <a name="lb-scheme">`service.beta.kubernetes.io/aws-load-balancer-scheme`</a> specifies whether the NLB will be internet-facing or internal.  Valid values are `internal`, `internet-facing`. If not specified, default is `internal`.
 
     !!!example
@@ -456,7 +473,7 @@ Load balancer access can be controlled via following annotations:
 - <a name="security-groups">`service.beta.kubernetes.io/aws-load-balancer-security-groups`</a>  specifies the frontend securityGroups you want to attach to an NLB.
 
     !!!note ""
-        When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from `inbound-cidrs` to the `listen-ports`.
+        When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from `load-balancer-source-ranges` and `aws-load-balancer-security-group-prefix-lists` to the `listen-ports`.
         Also, the securityGroups for target instances/ENIs will be modified to allow inbound traffic from this securityGroup.
 
     !!!note ""
