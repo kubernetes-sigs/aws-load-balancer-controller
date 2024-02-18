@@ -298,6 +298,9 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 	mergedInboundCIDRv6s := sets.NewString()
 	mergedInboundCIDRv4s := sets.NewString()
 
+	var mergedInboundPrefixListsProvider *types.NamespacedName
+	mergedInboundPrefixLists := sets.NewString()
+
 	var mergedSSLPolicyProvider *types.NamespacedName
 	var mergedSSLPolicy *string
 
@@ -326,6 +329,17 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 			} else if !mergedInboundCIDRv4s.Equal(cfgInboundCIDRv4s) || !mergedInboundCIDRv6s.Equal(cfgInboundCIDRv6s) {
 				return listenPortConfig{}, errors.Errorf("conflicting inbound-cidrs, %v: %v, %v | %v: %v, %v",
 					*mergedInboundCIDRsProvider, mergedInboundCIDRv4s.List(), mergedInboundCIDRv6s.List(), cfg.ingKey, cfgInboundCIDRv4s.List(), cfgInboundCIDRv6s.List())
+			}
+		}
+
+		if len(cfg.listenPortConfig.prefixLists) != 0 {
+			cfgInboundPrefixLists := sets.NewString(cfg.listenPortConfig.prefixLists...)
+			if mergedInboundPrefixListsProvider == nil {
+				mergedInboundPrefixListsProvider = &cfg.ingKey
+				mergedInboundPrefixLists = cfgInboundPrefixLists
+			} else if !mergedInboundPrefixLists.Equal(cfgInboundPrefixLists) {
+				return listenPortConfig{}, errors.Errorf("conflicting inbound-prefix-lists, %v: %v | %v: %v",
+					*mergedInboundPrefixListsProvider, mergedInboundPrefixLists.List(), cfg.ingKey, cfgInboundPrefixLists.List())
 			}
 		}
 
@@ -359,7 +373,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 
 	}
 
-	if len(mergedInboundCIDRv4s) == 0 && len(mergedInboundCIDRv6s) == 0 {
+	if len(mergedInboundCIDRv4s) == 0 && len(mergedInboundCIDRv6s) == 0 && len(mergedInboundPrefixLists) == 0 {
 		mergedInboundCIDRv4s.Insert("0.0.0.0/0")
 		mergedInboundCIDRv6s.Insert("::/0")
 	}
@@ -377,6 +391,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		protocol:             mergedProtocol,
 		inboundCIDRv4s:       mergedInboundCIDRv4s.List(),
 		inboundCIDRv6s:       mergedInboundCIDRv6s.List(),
+		prefixLists:          mergedInboundPrefixLists.List(),
 		sslPolicy:            mergedSSLPolicy,
 		tlsCerts:             mergedTLSCerts,
 		mutualAuthentication: mergedMtlsAttributes,

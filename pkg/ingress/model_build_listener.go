@@ -103,6 +103,7 @@ type listenPortConfig struct {
 	protocol             elbv2model.Protocol
 	inboundCIDRv4s       []string
 	inboundCIDRv6s       []string
+	prefixLists          []string
 	sslPolicy            *string
 	tlsCerts             []string
 	mutualAuthentication *elbv2model.MutualAuthenticationAttributes
@@ -111,6 +112,8 @@ type listenPortConfig struct {
 func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int64]listenPortConfig, error) {
 	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing.Ing)
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
+	var prefixListIDs []string
+	t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroupPrefixLists, &prefixListIDs, ing.Ing.Annotations)
 	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
 	if err != nil {
 		return nil, err
@@ -146,6 +149,7 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 			protocol:       protocol,
 			inboundCIDRv4s: inboundCIDRv4s,
 			inboundCIDRv6s: inboundCIDRV6s,
+			prefixLists:    prefixListIDs,
 		}
 		if protocol == elbv2model.ProtocolHTTPS {
 			if len(explicitTLSCertARNs) == 0 {
