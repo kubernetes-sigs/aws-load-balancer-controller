@@ -55,7 +55,7 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 	if err := v.checkTargetGroupIPAddressType(ctx, tgb); err != nil {
 		return err
 	}
-	if err := v.checkTargetGroupVpcId(ctx, tgb); err != nil {
+	if err := v.checkTargetGroupVpcID(ctx, tgb); err != nil {
 		return err
 	}
 	return nil
@@ -111,9 +111,9 @@ func (v *targetGroupBindingValidator) checkImmutableFields(tgb *elbv2api.TargetG
 	if oldTGB.Spec.IPAddressType != nil && tgb.Spec.IPAddressType != nil && (*oldTGB.Spec.IPAddressType) != (*tgb.Spec.IPAddressType) {
 		changedImmutableFields = append(changedImmutableFields, "spec.ipAddressType")
 	}
-	if (tgb.Spec.VpcId != "" && oldTGB.Spec.VpcId != "" && (tgb.Spec.VpcId) != (oldTGB.Spec.VpcId)) ||
-		(tgb.Spec.VpcId == "") != (oldTGB.Spec.VpcId == "") {
-		changedImmutableFields = append(changedImmutableFields, "spec.vpcId")
+	if (tgb.Spec.VpcID != "" && oldTGB.Spec.VpcID != "" && (tgb.Spec.VpcID) != (oldTGB.Spec.VpcID)) ||
+		(tgb.Spec.VpcID == "") != (oldTGB.Spec.VpcID == "") {
+		changedImmutableFields = append(changedImmutableFields, "spec.vpcID")
 	}
 	if len(changedImmutableFields) != 0 {
 		return errors.Errorf("%s update may not change these fields: %s", "TargetGroupBinding", strings.Join(changedImmutableFields, ","))
@@ -157,17 +157,17 @@ func (v *targetGroupBindingValidator) checkTargetGroupIPAddressType(ctx context.
 	return nil
 }
 
-// checkTargetGroupVpcId ensures VpcId matches with that on the AWS target group
-func (v *targetGroupBindingValidator) checkTargetGroupVpcId(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	if tgb.Spec.VpcId == "" {
+// checkTargetGroupVpcID ensures VpcID matches with that on the AWS target group
+func (v *targetGroupBindingValidator) checkTargetGroupVpcID(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.VpcID == "" {
 		return nil
 	}
-	vpcId, err := v.getVpcIdFromAWS(ctx, tgb.Spec.TargetGroupARN)
+	vpcID, err := v.getVpcIDFromAWS(ctx, tgb.Spec.TargetGroupARN)
 	if err != nil {
-		return errors.Wrap(err, "unable to get target group VpcId")
+		return errors.Wrap(err, "unable to get target group VpcID")
 	}
-	if vpcId != tgb.Spec.VpcId {
-		return errors.Errorf("invalid vpc Id %v doesnt match VpcId from TargetGroup %v", tgb.Spec.VpcId, tgb.Spec.TargetGroupARN)
+	if vpcID != tgb.Spec.VpcID {
+		return errors.Errorf("invalid VpcID %v doesnt match VpcID from TargetGroup %v", tgb.Spec.VpcID, tgb.Spec.TargetGroupARN)
 	}
 	return nil
 }
@@ -205,7 +205,7 @@ func (v *targetGroupBindingValidator) getTargetGroupFromAWS(ctx context.Context,
 	return tgList[0], nil
 }
 
-func (v *targetGroupBindingValidator) getVpcIdFromAWS(ctx context.Context, tgARN string) (string, error) {
+func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgARN string) (string, error) {
 	targetGroup, err := v.getTargetGroupFromAWS(ctx, tgARN)
 	if err != nil {
 		return "", err

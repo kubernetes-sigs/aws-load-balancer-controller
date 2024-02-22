@@ -41,7 +41,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "targetGroupBinding with TargetType and ipAddressType and vpcId already set",
+			name: "targetGroupBinding with TargetType and ipAddressType and vpcID already set",
 			fields: fields{
 				describeTargetGroupsAsListCalls: nil,
 			},
@@ -51,7 +51,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 						TargetGroupARN: "tg-1",
 						TargetType:     &instanceTargetType,
 						IPAddressType:  &targetGroupIPAddressTypeIPv4,
-						VpcId:          "vpcid-01",
+						VpcID:          "vpcid-01",
 					},
 				},
 			},
@@ -60,7 +60,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 					TargetGroupARN: "tg-1",
 					TargetType:     &instanceTargetType,
 					IPAddressType:  &targetGroupIPAddressTypeIPv4,
-					VpcId:          "vpcid-01",
+					VpcID:          "vpcid-01",
 				},
 			},
 		},
@@ -168,7 +168,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 						TargetGroupARN: "tg-1",
 						TargetType:     &instanceTargetType,
 						IPAddressType:  &targetGroupIPAddressTypeIPv6,
-						VpcId:          "vpcid-01",
+						VpcID:          "vpcid-01",
 					},
 				},
 			},
@@ -177,12 +177,12 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 					TargetGroupARN: "tg-1",
 					TargetType:     &instanceTargetType,
 					IPAddressType:  &targetGroupIPAddressTypeIPv6,
-					VpcId:          "vpcid-01",
+					VpcID:          "vpcid-01",
 				},
 			},
 		},
 		{
-			name: "targetGroupBinding with VpcId absent will be defaulted via AWS API",
+			name: "targetGroupBinding with VpcID absent will be defaulted via AWS API",
 			fields: fields{
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
@@ -211,7 +211,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 					TargetGroupARN: "tg-1",
 					TargetType:     &instanceTargetType,
 					IPAddressType:  &targetGroupIPAddressTypeIPv4,
-					VpcId:          "vpcid-01",
+					VpcID:          "vpcid-01",
 				},
 			},
 		},
@@ -543,7 +543,7 @@ func Test_targetGroupBindingMutator_obtainSDKVpcIDFromAWS(t *testing.T) {
 				elbv2Client: elbv2Client,
 				logger:      logr.New(&log.NullLogSink{}),
 			}
-			got, err := m.getVpcIdFromAWS(context.Background(), tt.args.tgARN)
+			got, err := m.getVpcIDFromAWS(context.Background(), tt.args.tgARN)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

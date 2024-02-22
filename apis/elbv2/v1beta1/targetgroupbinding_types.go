@@ -146,9 +146,9 @@ type TargetGroupBindingSpec struct {
 	// +optional
 	IPAddressType *TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
 
-	// VpcId is the VPC of the TargetGroup. If unspecified, it will be automatically inferred.
+	// VpcID is the VPC of the TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
-	VpcId string `json:"vpcId,omitempty"`
+	VpcID string `json:"vpcID,omitempty"`
 }
 
 // TargetGroupBindingStatus defines the observed state of TargetGroupBinding

@@ -31,11 +31,11 @@ spec:
 ```
 
 
-## VpcId
+## VpcID
 TargetGroupBinding CR supports the explicit definition of the Virtual Private Cloud (VPC) of your TargetGroup.
 
 !!!tip ""
-    If the VpcId is not explicitly specified, a mutating webhook will automatically call AWS API to find the VpcId for your TargetGroup and set it to correct value.
+    If the VpcID is not explicitly specified, a mutating webhook will automatically call AWS API to find the VpcID for your TargetGroup and set it to correct value.
 
 
 ## Sample YAML
@@ -49,7 +49,7 @@ spec:
     name: awesome-service # route traffic to the awesome-service
     port: 80
   targetGroupARN: <arn-to-targetGroup>
-  vpcId: <vpcId>
+  vpcID: <vpcID>
 ```
 
 

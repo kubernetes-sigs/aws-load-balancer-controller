@@ -43,7 +43,7 @@ func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtim
 	if err := m.defaultingIPAddressType(ctx, tgb); err != nil {
 		return nil, err
 	}
-	if err := m.defaultingVpcId(ctx, tgb); err != nil {
+	if err := m.defaultingVpcID(ctx, tgb); err != nil {
 		return nil, err
 	}
 	return tgb, nil
@@ -88,15 +88,15 @@ func (m *targetGroupBindingMutator) defaultingIPAddressType(ctx context.Context,
 	return nil
 }
 
-func (m *targetGroupBindingMutator) defaultingVpcId(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	if tgb.Spec.VpcId != "" {
+func (m *targetGroupBindingMutator) defaultingVpcID(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.VpcID != "" {
 		return nil
 	}
-	vpcId, err := m.getVpcIdFromAWS(ctx, tgb.Spec.TargetGroupARN)
+	vpcId, err := m.getVpcIDFromAWS(ctx, tgb.Spec.TargetGroupARN)
 	if err != nil {
-		return errors.Wrap(err, "unable to get target group VpcId")
+		return errors.Wrap(err, "unable to get target group VpcID")
 	}
-	tgb.Spec.VpcId = vpcId
+	tgb.Spec.VpcID = vpcId
 	return nil
 }
 
@@ -140,7 +140,7 @@ func (m *targetGroupBindingMutator) getTargetGroupFromAWS(ctx context.Context, t
 	return tgList[0], nil
 }
 
-func (m *targetGroupBindingMutator) getVpcIdFromAWS(ctx context.Context, tgARN string) (string, error) {
+func (m *targetGroupBindingMutator) getVpcIDFromAWS(ctx context.Context, tgARN string) (string, error) {
 	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgARN)
 	if err != nil {
 		return "", err
