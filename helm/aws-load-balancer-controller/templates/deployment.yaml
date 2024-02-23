@@ -159,6 +159,9 @@ spec:
         {{- if .Values.serviceTargetENISGTags }}
         - --service-target-eni-security-group-tags={{ .Values.serviceTargetENISGTags }}
         {{- end }}
+        {{- if .Values.certDiscovery.allowedCertificateAuthorityARNs }}
+        - --allowed-certificate-authority-arns={{ .Values.certDiscovery.allowedCertificateAuthorityARNs }}
+        {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:
         {{- if .Values.env}}
