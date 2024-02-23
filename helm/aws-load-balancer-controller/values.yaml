@@ -350,6 +350,9 @@ controllerConfig:
   # NLBHealthCheckAdvancedConfig: true
   # ALBSingleSubnet: false
 
+certDiscovery: 
+  allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
+
 # objectSelector for webhook
 objectSelector:
   matchExpressions:

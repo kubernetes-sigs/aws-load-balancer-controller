@@ -71,6 +71,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |aws-max-retries                        | int                             | 10              | Maximum retries for AWS APIs |
 |aws-region                             | string                          | [instance metadata](#instance-metadata)   | AWS Region for the kubernetes cluster |
 |aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)   | AWS VPC ID for the Kubernetes cluster |
+|allowed-certificate-authority-arns     | stringList                      | []              | Specify an optional list of CA ARNs to filter on in cert discovery (empty means all CAs are allowed) |
 |backend-security-group                 | string                          |                 | Backend security group id to use for the ingress rules on the worker node SG|
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all Ingresses or Services that do not have the SSL Policy annotation |
