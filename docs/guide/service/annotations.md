@@ -229,6 +229,10 @@ for proxy protocol v2 configuration.
             ```
             service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
             ```
+        - disable immediate [connection termination for unhealthy targets](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/target-group-health.html#unhealthy-target-connection-termination) and configure a 30s draining interval (available range is  0-360000 seconds)
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: target_health_state.unhealthy.connection_termination.enabled=false,target_health_state.unhealthy.draining_interval_seconds=30
+            ```
 
 
 - <a name="load-balancer-attributes">`service.beta.kubernetes.io/aws-load-balancer-attributes`</a> specifies [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the NLB.
