@@ -215,6 +215,29 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "targetGroupBinding with VpcID absent will be defaulted via AWS API - error",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-1"}),
+						},
+						err: errors.New("vpcid not found"),
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-1",
+						TargetType:     &instanceTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					},
+				},
+			},
+			wantErr: errors.New("unable to get target group VpcID: vpcid not found"),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
