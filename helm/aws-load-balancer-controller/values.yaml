@@ -363,6 +363,12 @@ objectSelector:
   matchLabels:
   #   key: value
 
+prometheusScrape:
+  # Specifies whether the controller should be annotated for Prometheus scraping.
+  # Scraping annotations will not be added if serviceMonitor.enabled is set to true
+  # to prevent duplicate metrics.
+  enabled: true
+
 serviceMonitor:
   # Specifies whether a service monitor should be created
   enabled: false

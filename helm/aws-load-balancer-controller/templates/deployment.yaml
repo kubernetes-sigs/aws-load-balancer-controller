@@ -27,12 +27,10 @@ spec:
         {{- toYaml .Values.podLabels | nindent 8 }}
         {{- end }}
       annotations:
-        {{- if not .Values.serviceMonitor.enabled }}
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "{{ (split ":" .Values.metricsBindAddr)._1 | default 8080 }}"
-        {{- end}}
-        {{- if .Values.podAnnotations }}
-        {{- toYaml .Values.podAnnotations | nindent 8 }}
+        {{- $promethusAnnotations := dict "prometheus.io/scrape" "true" "prometheus.io/port" "8080"}}
+        {{- if or .Values.podAnnotations $promethusAnnotations }}
+        {{- $podAnnotations := merge $promethusAnnotations .Values.podAnnotations }}
+        {{- toYaml $podAnnotations | nindent 8 }}
         {{- end }}
     spec:
     {{- with .Values.imagePullSecrets }}
