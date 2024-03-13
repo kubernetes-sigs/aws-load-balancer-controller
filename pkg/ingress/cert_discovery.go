@@ -2,7 +2,6 @@ package ingress
 
 import (
 	"context"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
@@ -153,18 +153,18 @@ func (d *acmCertDiscovery) loadDomainsForCertificate(ctx context.Context, certAR
 	certDetail := resp.Certificate
 
 	// check if cert is issued from an allowed CA
+	// otherwise empty-out the list of domains
+	domains := sets.String{}
 	if len(d.allowedCAARNs) == 0 || slices.Contains(d.allowedCAARNs, awssdk.StringValue(certDetail.CertificateAuthorityArn)) {
-		domains := sets.NewString(aws.StringValueSlice(certDetail.SubjectAlternativeNames)...)
-		switch aws.StringValue(certDetail.Type) {
-		case acm.CertificateTypeImported:
-			d.certDomainsCache.Set(certARN, domains, d.importedCertDomainsCacheTTL)
-		case acm.CertificateTypeAmazonIssued, acm.CertificateTypePrivate:
-			d.certDomainsCache.Set(certARN, domains, d.privateCertDomainsCacheTTL)
-		}
-		return domains, nil
+		domains = sets.NewString(aws.StringValueSlice(certDetail.SubjectAlternativeNames)...)
 	}
-	return sets.String{}, nil
-
+	switch aws.StringValue(certDetail.Type) {
+	case acm.CertificateTypeImported:
+		d.certDomainsCache.Set(certARN, domains, d.importedCertDomainsCacheTTL)
+	case acm.CertificateTypeAmazonIssued, acm.CertificateTypePrivate:
+		d.certDomainsCache.Set(certARN, domains, d.privateCertDomainsCacheTTL)
+	}
+	return domains, nil
 }
 
 func (d *acmCertDiscovery) domainMatchesHost(domainName string, tlsHost string) bool {
