@@ -547,7 +547,7 @@ Access control for LoadBalancer can be controlled with following annotations:
 
     !!!example
         ```
-        alb.ingress.kubernetes.io/security-group-prefix-lists: pl-000000
+        alb.ingress.kubernetes.io/security-group-prefix-lists: pl-000000, pl-111111
         ```
 
 - <a name="security-groups">`alb.ingress.kubernetes.io/security-groups`</a> specifies the securityGroups you want to attach to LoadBalancer.

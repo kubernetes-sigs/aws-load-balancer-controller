@@ -451,7 +451,7 @@ Load balancer access can be controlled via following annotations:
 
     !!!example
         ```
-        service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists: pl-00000000
+        service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists: pl-00000000, pl-1111111
         ```
 
 - <a name="lb-scheme">`service.beta.kubernetes.io/aws-load-balancer-scheme`</a> specifies whether the NLB will be internet-facing or internal.  Valid values are `internal`, `internet-facing`. If not specified, default is `internal`.
