@@ -223,6 +223,53 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 				},
 			},
 		},
+		{
+			name: "no ip range but multiple prefix lists",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists": "pl-xxxxx, pl-yyyyyy",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "http",
+								Port:     80,
+								NodePort: 18080,
+							},
+						},
+						LoadBalancerSourceRanges: []string{},
+					},
+				},
+				ipAddressType: elbv2model.IPAddressTypeDualStack,
+			},
+			wantErr: false,
+			want: []ec2model.IPPermission{
+				{
+					IPProtocol: "",
+					FromPort:   aws.Int64(80),
+					ToPort:     aws.Int64(80),
+					PrefixLists: []ec2model.PrefixList{
+						{
+							ListID: "pl-xxxxx",
+						},
+					},
+				},
+				{
+					IPProtocol: "",
+					FromPort:   aws.Int64(80),
+					ToPort:     aws.Int64(80),
+					PrefixLists: []ec2model.PrefixList{
+						{
+							ListID: "pl-yyyyyy",
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t1 *testing.T) {
