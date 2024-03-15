@@ -233,6 +233,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"ip",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":80
@@ -380,6 +381,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"ip",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":80
@@ -598,6 +600,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"ip",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"nlb-ip-svc",
                       "port":80
@@ -664,6 +667,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"ip",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"nlb-ip-svc",
                       "port":83
@@ -942,6 +946,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "vpcID": "vpc-xxx",
                    "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
@@ -994,6 +999,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"ip",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":83
@@ -1276,6 +1282,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"instance",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"instance-mode",
                       "port":80
@@ -1317,6 +1324,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"instance",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"instance-mode",
                       "port":83
@@ -1554,6 +1562,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/traffic-local:80/status/targetGroupARN"
                    },
                    "targetType":"instance",
+                   "vpcID": "vpc-xxx",
                    "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"traffic-local",
@@ -1626,6 +1635,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"instance",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"traffic-local",
                       "port":83
@@ -1815,6 +1825,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"ip",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":80
@@ -1935,6 +1946,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "spec": {
               "targetType": "ip",
               "ipAddressType":"ipv4",
+              "vpcID": "vpc-xxx",
               "targetGroupARN": {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/ip-target:80/status/targetGroupARN"
               },
@@ -2108,6 +2120,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "spec": {
               "targetType": "ip",
               "ipAddressType":"ipv4",
+              "vpcID": "vpc-xxx",
               "targetGroupARN": {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/default-ip-target:80/status/targetGroupARN"
               },
@@ -2473,6 +2486,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/traffic-local:80/status/targetGroupARN"
               },
               "targetType": "instance",
+              "vpcID": "vpc-xxx",
               "serviceRef": {
                 "name": "traffic-local",
                 "port": 80
@@ -2622,6 +2636,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/traffic-local:80/status/targetGroupARN"
               },
               "targetType": "instance",
+              "vpcID": "vpc-xxx",
               "serviceRef": {
                 "name": "traffic-local",
                 "port": 80
@@ -2824,6 +2839,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/awesome/lb-with-class:80/status/targetGroupARN"
               },
               "targetType": "instance",
+              "vpcID": "vpc-xxx",
               "serviceRef": {
                 "name": "lb-with-class",
                 "port": 80
@@ -2992,6 +3008,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"ip",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"manual-sg-rule",
                       "port":80
@@ -3145,6 +3162,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"ip",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
                       "port":80
@@ -3326,6 +3344,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "vpcID": "vpc-xxx",
                    "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
@@ -3580,6 +3599,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"ip",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"nlb-ip-svc",
                       "port":80
@@ -3624,6 +3644,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc:83/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "vpcID": "vpc-xxx",
                    "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc",
@@ -3917,6 +3938,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "vpcID": "vpc-xxx",
                    "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
@@ -3958,6 +3980,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:83/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "vpcID": "vpc-xxx",
                    "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
@@ -4220,6 +4243,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"instance",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"instance-mode",
                       "port":80
@@ -4262,6 +4286,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"instance",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"instance-mode",
                       "port":83
@@ -4557,6 +4582,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/traffic-local:80/status/targetGroupARN"
                    },
                    "targetType":"instance",
+                   "vpcID": "vpc-xxx",
                    "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"traffic-local",
@@ -4605,6 +4631,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"instance",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"traffic-local",
                       "port":83
@@ -4906,6 +4933,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"instance",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"traffic-local",
                       "port":80
@@ -4953,6 +4981,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    },
                    "targetType":"instance",
                    "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
                    "serviceRef":{
                       "name":"traffic-local",
                       "port":83
@@ -5135,6 +5164,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
                    },
                    "targetType":"ip",
+                   "vpcID": "vpc-xxx",
                    "ipAddressType":"ipv4",
                    "serviceRef":{
                       "name":"nlb-ip-svc-tls",
@@ -5275,6 +5305,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "spec": {
               "targetType": "ip",
               "ipAddressType":"ipv4",
+              "vpcID": "vpc-xxx",
               "targetGroupARN": {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/ip-target:80/status/targetGroupARN"
               },
@@ -5526,6 +5557,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/traffic-local:80/status/targetGroupARN"
               },
               "targetType": "instance",
+              "vpcID": "vpc-xxx",
               "serviceRef": {
                 "name": "traffic-local",
                 "port": 80
@@ -5709,6 +5741,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/traffic-local:80/status/targetGroupARN"
               },
               "targetType": "instance",
+              "vpcID": "vpc-xxx",
               "serviceRef": {
                 "name": "traffic-local",
                 "port": 80
@@ -5891,6 +5924,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/awesome/lb-with-class:80/status/targetGroupARN"
               },
               "targetType": "instance",
+              "vpcID": "vpc-xxx",
               "serviceRef": {
                 "name": "lb-with-class",
                 "port": 80
@@ -6085,6 +6119,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/manual-security-groups:80/status/targetGroupARN"
               },
               "targetType": "ip",
+              "vpcID": "vpc-xxx",
               "serviceRef": {
                 "name": "manual-security-groups",
                 "port": 80
@@ -6224,6 +6259,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/manual-security-groups:80/status/targetGroupARN"
               },
               "targetType": "ip",
+              "vpcID": "vpc-xxx",
               "serviceRef": {
                 "name": "manual-security-groups",
                 "port": 80
@@ -6252,7 +6288,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           }
         }
       }
-    } 
+    }
   }
 }
 `,
