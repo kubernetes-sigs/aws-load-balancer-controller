@@ -51,6 +51,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, endpointSGTags, logger, disabledRestrictedSGRulesFlag)
 	return &defaultResourceManager{
 		k8sClient:         k8sClient,
+		elbv2Client:       elbv2Client,
 		targetsManager:    targetsManager,
 		endpointResolver:  endpointResolver,
 		networkingManager: networkingManager,
@@ -69,6 +70,7 @@ var _ ResourceManager = &defaultResourceManager{}
 // default implementation for ResourceManager.
 type defaultResourceManager struct {
 	k8sClient         client.Client
+	elbv2Client       services.ELBV2
 	targetsManager    TargetsManager
 	endpointResolver  backend.EndpointResolver
 	networkingManager NetworkingManager
@@ -383,14 +385,7 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN st
 }
 
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN string, endpoints []backend.PodEndpoint) error {
-	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, m.vpcID)
-	if err != nil {
-		return err
-	}
-	var vpcRawCIDRs []string
-	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
-	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
-	vpcCIDRs, err := networking.ParseCIDRs(vpcRawCIDRs)
+	albCIDRs, err := m.getAlbVpcCidr(ctx, tgARN)
 	if err != nil {
 		return err
 	}
@@ -405,12 +400,71 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 		if err != nil {
 			return err
 		}
-		if !networking.IsIPWithinCIDRs(podIP, vpcCIDRs) {
+
+		if !networking.IsIPWithinCIDRs(podIP, albCIDRs) {
+			m.logger.Info(fmt.Sprintf("On %s, the podIP %s does not belong to any of it's LB's CIDRs %v, hence we are setting AvailabilityZone=all", tgARN, podIP, albCIDRs))
 			target.AvailabilityZone = awssdk.String("all")
 		}
 		sdkTargets = append(sdkTargets, target)
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
+}
+
+func (m *defaultResourceManager) getAlbVpcCidr(ctx context.Context, tgARN string) ([]netip.Prefix, error) {
+	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgARN)
+	if err != nil {
+		return nil, err
+	}
+	if len(targetGroup.LoadBalancerArns) != 1 {
+		return nil, errors.Errorf("Target Group must be associated to one load balancer, not %d", len(targetGroup.LoadBalancerArns))
+	}
+
+	lb, err := m.getLoadBalancerFroAWS(ctx, *targetGroup.LoadBalancerArns[0])
+	if err != nil {
+		return nil, err
+	}
+
+	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, *lb.VpcId)
+	if err != nil {
+		return nil, err
+	}
+
+	var vpcRawCIDRs []string
+	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
+	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
+	vpcCIDRs, err := networking.ParseCIDRs(vpcRawCIDRs)
+	if err != nil {
+		return nil, err
+	}
+	return vpcCIDRs, nil
+}
+
+func (m *defaultResourceManager) getTargetGroupFromAWS(ctx context.Context, tgARN string) (*elbv2sdk.TargetGroup, error) {
+	req := &elbv2sdk.DescribeTargetGroupsInput{
+		TargetGroupArns: awssdk.StringSlice([]string{tgARN}),
+	}
+	tgList, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if len(tgList) != 1 {
+		return nil, errors.Errorf("expecting a single targetGroup but got %v", len(tgList))
+	}
+	return tgList[0], nil
+}
+
+func (m *defaultResourceManager) getLoadBalancerFroAWS(ctx context.Context, lbARN string) (*elbv2sdk.LoadBalancer, error) {
+	req := &elbv2sdk.DescribeLoadBalancersInput{
+		LoadBalancerArns: awssdk.StringSlice([]string{lbARN}),
+	}
+	lbList, err := m.elbv2Client.DescribeLoadBalancersAsList(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if len(lbList) != 1 {
+		return nil, errors.Errorf("expecting a single loadBalancer but got %v", len(lbList))
+	}
+	return lbList[0], nil
 }
 
 func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, tgARN string, endpoints []backend.NodePortEndpoint) error {
