@@ -2,20 +2,23 @@ package elbv2
 
 import (
 	"context"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/metrics"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 const (
@@ -35,11 +38,12 @@ type TargetGroupBindingManager interface {
 }
 
 // NewDefaultTargetGroupBindingManager constructs new defaultTargetGroupBindingManager
-func NewDefaultTargetGroupBindingManager(k8sClient client.Client, trackingProvider tracking.Provider, logger logr.Logger) *defaultTargetGroupBindingManager {
+func NewDefaultTargetGroupBindingManager(k8sClient client.Client, trackingProvider tracking.Provider, logger logr.Logger, metric *prometheus.GaugeVec) *defaultTargetGroupBindingManager {
 	return &defaultTargetGroupBindingManager{
-		k8sClient:        k8sClient,
-		trackingProvider: trackingProvider,
-		logger:           logger,
+		k8sClient:             k8sClient,
+		trackingProvider:      trackingProvider,
+		logger:                logger,
+		targetGroupInfoMetric: metric,
 
 		waitTGBObservedPollInterval: defaultWaitTGBObservedPollInterval,
 		waitTGBObservedTimout:       defaultWaitTGBObservedTimeout,
@@ -52,9 +56,10 @@ var _ TargetGroupBindingManager = &defaultTargetGroupBindingManager{}
 
 // default implementation for TargetGroupBindingManager.
 type defaultTargetGroupBindingManager struct {
-	k8sClient        client.Client
-	trackingProvider tracking.Provider
-	logger           logr.Logger
+	k8sClient             client.Client
+	trackingProvider      tracking.Provider
+	logger                logr.Logger
+	targetGroupInfoMetric *prometheus.GaugeVec
 
 	waitTGBObservedPollInterval time.Duration
 	waitTGBObservedTimout       time.Duration
@@ -88,6 +93,7 @@ func (m *defaultTargetGroupBindingManager) Create(ctx context.Context, resTGB *e
 		"stackID", resTGB.Stack().StackID(),
 		"resourceID", resTGB.ID(),
 		"targetGroupBinding", k8s.NamespacedName(k8sTGB))
+	m.targetGroupInfoMetric.With(metrics.LabelsForTargetGroupBinding(k8sTGB)).Set(1)
 	return buildResTargetGroupBindingStatus(k8sTGB), nil
 }
 
@@ -96,6 +102,7 @@ func (m *defaultTargetGroupBindingManager) Update(ctx context.Context, resTGB *e
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceStatus{}, err
 	}
+	m.targetGroupInfoMetric.With(metrics.LabelsForTargetGroupBinding(k8sTGB)).Set(1)
 	if equality.Semantic.DeepEqual(k8sTGB.Spec, k8sTGBSpec) {
 		return buildResTargetGroupBindingStatus(k8sTGB), nil
 	}
@@ -130,6 +137,7 @@ func (m *defaultTargetGroupBindingManager) Delete(ctx context.Context, tgb *elbv
 	}
 	m.logger.Info("deleted targetGroupBinding",
 		"targetGroupBinding", k8s.NamespacedName(tgb))
+	m.targetGroupInfoMetric.Delete(metrics.LabelsForTargetGroupBinding(tgb))
 	return nil
 }
 

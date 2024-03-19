@@ -2,7 +2,9 @@ package deploy
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/ec2"
@@ -23,10 +25,17 @@ type StackDeployer interface {
 }
 
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
-func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
-	networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
+func NewDefaultStackDeployer(
+	cloud aws.Cloud,
+	k8sClient client.Client,
+	networkingSGManager networking.SecurityGroupManager,
+	networkingSGReconciler networking.SecurityGroupReconciler,
 	elbv2TaggingManager elbv2.TaggingManager,
-	config config.ControllerConfig, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
+	targetGroupMetric *prometheus.GaugeVec,
+	config config.ControllerConfig,
+	tagPrefix string,
+	logger logr.Logger,
+) *defaultStackDeployer {
 
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
 	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, cloud.VpcID(), logger)
@@ -43,7 +52,7 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 		elbv2LSManager:                      elbv2.NewDefaultListenerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
 		elbv2LRManager:                      elbv2.NewDefaultListenerRuleManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
 		elbv2TGManager:                      elbv2.NewDefaultTargetGroupManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, cloud.VpcID(), config.ExternalManagedTags, logger),
-		elbv2TGBManager:                     elbv2.NewDefaultTargetGroupBindingManager(k8sClient, trackingProvider, logger),
+		elbv2TGBManager:                     elbv2.NewDefaultTargetGroupBindingManager(k8sClient, trackingProvider, logger, targetGroupMetric),
 		wafv2WebACLAssociationManager:       wafv2.NewDefaultWebACLAssociationManager(cloud.WAFv2(), logger),
 		wafRegionalWebACLAssociationManager: wafregional.NewDefaultWebACLAssociationManager(cloud.WAFRegional(), logger),
 		shieldProtectionManager:             shield.NewDefaultProtectionManager(cloud.Shield(), logger),

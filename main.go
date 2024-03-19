@@ -18,6 +18,8 @@ package main
 
 import (
 	"os"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/metrics"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 
 	"github.com/go-logr/logr"
@@ -46,7 +48,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	k8smetric "sigs.k8s.io/controller-runtime/pkg/metrics"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -76,7 +78,7 @@ func main() {
 	}
 	ctrl.SetLogger(getLoggerWithLogLevel(controllerCFG.LogLevel))
 
-	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry)
+	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, k8smetric.Registry)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize AWS cloud")
 		os.Exit(1)
@@ -114,11 +116,15 @@ func main() {
 		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, ctrl.Log.WithName("backend-sg-provider"))
 	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerCFG.FeatureGates, cloud.RGT(), ctrl.Log)
+	targetGroupMetric, err := metrics.RegisterTargetGroupInfoMetric(k8smetric.Registry)
+	if err != nil {
+		setupLog.Error(err, "failed to register target binding information metric")
+	}
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
-		finalizerManager, sgManager, sgReconciler, subnetResolver, elbv2TaggingManager,
+		finalizerManager, sgManager, sgReconciler, subnetResolver, elbv2TaggingManager, targetGroupMetric,
 		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"))
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
-		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager,
+		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager, targetGroupMetric,
 		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"))
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
 		finalizerManager, tgbResManager,
