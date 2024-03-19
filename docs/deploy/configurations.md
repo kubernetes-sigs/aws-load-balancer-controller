@@ -98,6 +98,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |load-balancer-class                    | string                          | service.k8s.aws/nlb| Name of the load balancer class specified in service `spec.loadBalancerClass` reconciled by this controller |
 |log-level                              | string                          | info            | Set the controller log level - info, debug |
 |metrics-bind-addr                      | string                          | :8080           | The address the metric endpoint binds to |
+|subnet-discovery-sorting-algorithm     | string                          | id              | Set the algoritm by which subnets should be sorted if multiple are found in the same availability zone |
 |service-max-concurrent-reconciles      | int                             | 3               | Maximum number of concurrently running reconcile loops for service |
 |[sync-period](#sync-period)                            | duration                        | 10h0m0s         | Period at which the controller forces the repopulation of its local object stores|
 |targetgroupbinding-max-concurrent-reconciles | int                       | 3               | Maximum number of concurrently running reconcile loops for targetGroupBinding |

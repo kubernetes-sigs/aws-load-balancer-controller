@@ -19,6 +19,10 @@ import (
 const (
 	TagKeySubnetInternalELB = "kubernetes.io/role/internal-elb"
 	TagKeySubnetPublicELB   = "kubernetes.io/role/elb"
+	// SubnetSortingByID sorts in lexicographical order.
+	SubnetSortingByID = "id"
+	// SubnetSortingAZFirst prioritizes availability zone locale over other locales.
+	SubnetSortingAZFirst = "azfirst"
 )
 
 type subnetLocaleType string
@@ -123,13 +127,14 @@ type SubnetsResolver interface {
 }
 
 // NewDefaultSubnetsResolver constructs new defaultSubnetsResolver.
-func NewDefaultSubnetsResolver(azInfoProvider AZInfoProvider, ec2Client services.EC2, vpcID string, clusterName string, logger logr.Logger) *defaultSubnetsResolver {
+func NewDefaultSubnetsResolver(azInfoProvider AZInfoProvider, ec2Client services.EC2, vpcID, clusterName, sortingAlgorithm string, logger logr.Logger) *defaultSubnetsResolver {
 	return &defaultSubnetsResolver{
-		azInfoProvider: azInfoProvider,
-		ec2Client:      ec2Client,
-		vpcID:          vpcID,
-		clusterName:    clusterName,
-		logger:         logger,
+		azInfoProvider:   azInfoProvider,
+		ec2Client:        ec2Client,
+		vpcID:            vpcID,
+		clusterName:      clusterName,
+		sortingAlgorithm: sortingAlgorithm,
+		logger:           logger,
 	}
 }
 
@@ -137,11 +142,12 @@ var _ SubnetsResolver = &defaultSubnetsResolver{}
 
 // default implementation for SubnetsResolver.
 type defaultSubnetsResolver struct {
-	azInfoProvider AZInfoProvider
-	ec2Client      services.EC2
-	vpcID          string
-	clusterName    string
-	logger         logr.Logger
+	azInfoProvider   AZInfoProvider
+	ec2Client        services.EC2
+	vpcID            string
+	clusterName      string
+	sortingAlgorithm string
+	logger           logr.Logger
 }
 
 func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
@@ -231,6 +237,7 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 			explanation += fmt.Sprintf(", %d have fewer than %d free IPs", insufficientIPs, resolveOpts.AvailableIPAddressCount)
 		}
 		subnetsByAZ := mapSDKSubnetsByAZ(filteredSubnets)
+		fmt.Println("by AZ:", subnetsByAZ)
 		chosenSubnets = make([]*ec2sdk.Subnet, 0, len(subnetsByAZ))
 		for az, subnets := range subnetsByAZ {
 			if len(subnets) == 1 {
@@ -247,6 +254,28 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 					}
 					return awssdk.StringValue(subnets[i].SubnetId) < awssdk.StringValue(subnets[j].SubnetId)
 				})
+				if r.sortingAlgorithm != SubnetSortingByID {
+					var (
+						topSubnets    []*ec2sdk.Subnet
+						bottomSubnets []*ec2sdk.Subnet
+					)
+					for i := range subnets {
+						localeType, err := r.buildSDKSubnetLocaleType(ctx, subnets[i])
+						if err != nil {
+							r.logger.Info("unable to find subnet locale type, fallback to sorting by ID", "subnet", subnets[i])
+							break
+						}
+						switch r.sortingAlgorithm {
+						case SubnetSortingAZFirst:
+							if localeType == subnetLocaleTypeAvailabilityZone {
+								topSubnets = append(topSubnets, subnets[i])
+							} else {
+								bottomSubnets = append(bottomSubnets, subnets[i])
+							}
+						}
+					}
+					subnets = append(topSubnets, bottomSubnets...)
+				}
 				r.logger.Info("multiple subnet in the same AvailabilityZone", "AvailabilityZone", az,
 					"chosen", subnets[0].SubnetId, "ignored", subnets[1:])
 				chosenSubnets = append(chosenSubnets, subnets[0])
