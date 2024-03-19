@@ -689,7 +689,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 	}
 	type env struct {
 		nodes          []*corev1.Node
-		services       []*corev1.Service
 		endpointsList  []*corev1.Endpoints
 		endpointSlices []*discovery.EndpointSlice
 	}
@@ -699,16 +698,16 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 		endpointSliceEnabled bool
 	}
 	type args struct {
-		svcKey types.NamespacedName
-		port   intstr.IntOrString
-		opts   []EndpointResolveOption
+		svc  *corev1.Service
+		port intstr.IntOrString
+		opts []EndpointResolveOption
 	}
 	tests := []struct {
 		name                                string
 		env                                 env
 		fields                              fields
 		args                                args
-		want                                []PodEndpoint
+		want                                []IpEndpoint
 		wantContainsPotentialReadyEndpoints bool
 		wantErr                             error
 	}{
@@ -716,7 +715,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			name: "[with endpoints][with failOpen] choose every ready pod only when there are ready pods",
 			env: env{
 				nodes:         []*corev1.Node{nodeA, nodeB, nodeC},
-				services:      []*corev1.Service{svc1},
 				endpointsList: []*corev1.Endpoints{ep1},
 			},
 			fields: fields{
@@ -761,20 +759,20 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   nil,
+				svc:  svc1,
+				port: intstr.FromString("http"),
+				opts: nil,
 			},
-			want: []PodEndpoint{
+			want: []IpEndpoint{
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -783,7 +781,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			name: "[with endpointSlices][with failOpen] choose every ready pod only when there are ready pods",
 			env: env{
 				nodes:          []*corev1.Node{nodeA, nodeB, nodeC},
-				services:       []*corev1.Service{svc1},
 				endpointSlices: []*discovery.EndpointSlice{eps1},
 			},
 			fields: fields{
@@ -833,20 +830,20 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   nil,
+				svc:  svc1,
+				port: intstr.FromString("http"),
+				opts: nil,
 			},
-			want: []PodEndpoint{
+			want: []IpEndpoint{
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -855,7 +852,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			name: "[with endpointSlices][without failOpen] choose every ready pod only when there are ready pods",
 			env: env{
 				nodes:          []*corev1.Node{nodeA, nodeB, nodeC},
-				services:       []*corev1.Service{svc1},
 				endpointSlices: []*discovery.EndpointSlice{eps1},
 			},
 			fields: fields{
@@ -905,20 +901,20 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   nil,
+				svc:  svc1,
+				port: intstr.FromString("http"),
+				opts: nil,
 			},
-			want: []PodEndpoint{
+			want: []IpEndpoint{
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -927,7 +923,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			name: "[with endpointSlices][with failOpen] choose every unknown pod when there are no ready pods",
 			env: env{
 				nodes:          []*corev1.Node{nodeA, nodeB, nodeC},
-				services:       []*corev1.Service{svc1},
 				endpointSlices: []*discovery.EndpointSlice{eps2},
 			},
 			fields: fields{
@@ -967,25 +962,25 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   nil,
+				svc:  svc1,
+				port: intstr.FromString("http"),
+				opts: nil,
 			},
-			want: []PodEndpoint{
+			want: []IpEndpoint{
 				{
 					IP:   "192.168.1.2",
 					Port: 8080,
-					Pod:  pod2,
+					Pod:  &pod2,
 				},
 				{
 					IP:   "192.168.1.5",
 					Port: 8080,
-					Pod:  pod5,
+					Pod:  &pod5,
 				},
 				{
 					IP:   "192.168.1.8",
 					Port: 8080,
-					Pod:  pod8,
+					Pod:  &pod8,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -994,7 +989,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			name: "[with endpointSlices][without failOpen] don't choose unknown pod when there are no ready pods",
 			env: env{
 				nodes:          []*corev1.Node{nodeA, nodeB, nodeC},
-				services:       []*corev1.Service{svc1},
 				endpointSlices: []*discovery.EndpointSlice{eps2},
 			},
 			fields: fields{
@@ -1034,9 +1028,9 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   nil,
+				svc:  svc1,
+				port: intstr.FromString("http"),
+				opts: nil,
 			},
 			want:                                nil,
 			wantContainsPotentialReadyEndpoints: false,
@@ -1045,7 +1039,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			name: "[with endpointSlices][with failOpen] choose every ready pod only when there are ready pods - some pod have readinessGate",
 			env: env{
 				nodes:          []*corev1.Node{nodeA, nodeB, nodeC},
-				services:       []*corev1.Service{svc1},
 				endpointSlices: []*discovery.EndpointSlice{eps1},
 			},
 			fields: fields{
@@ -1095,20 +1088,20 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
+				svc:  svc1,
+				port: intstr.FromString("http"),
+				opts: []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
 			},
-			want: []PodEndpoint{
+			want: []IpEndpoint{
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: true,
@@ -1117,7 +1110,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			name: "[with endpointSlices][with failOpen] choose every ready pod only when there are ready pods - no pod have readinessGate",
 			env: env{
 				nodes:          []*corev1.Node{nodeA, nodeB, nodeC},
-				services:       []*corev1.Service{svc1},
 				endpointSlices: []*discovery.EndpointSlice{eps3},
 			},
 			fields: fields{
@@ -1162,20 +1154,20 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
+				svc:  svc1,
+				port: intstr.FromString("http"),
+				opts: []EndpointResolveOption{WithPodReadinessGate("custom-condition")},
 			},
-			want: []PodEndpoint{
+			want: []IpEndpoint{
 				{
 					IP:   "192.168.1.1",
 					Port: 8080,
-					Pod:  pod1,
+					Pod:  &pod1,
 				},
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -1184,7 +1176,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			name: "[with endpoints][with failOpen] choose every ready pod only when there are ready pods - ignore pods don't exists",
 			env: env{
 				nodes:         []*corev1.Node{nodeA, nodeB, nodeC},
-				services:      []*corev1.Service{svc1},
 				endpointsList: []*corev1.Endpoints{ep1},
 			},
 			fields: fields{
@@ -1229,66 +1220,46 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   nil,
+				svc:  svc1,
+				port: intstr.FromString("http"),
+				opts: nil,
 			},
-			want: []PodEndpoint{
+			want: []IpEndpoint{
 				{
 					IP:   "192.168.1.4",
 					Port: 8080,
-					Pod:  pod4,
+					Pod:  &pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: true,
 		},
 		{
-			name: "service not found",
-			env: env{
-				services:      []*corev1.Service{},
-				endpointsList: []*corev1.Endpoints{},
-			},
-			fields: fields{
-				podInfoRepoGetCalls: []podInfoRepoGetCall{},
-			},
-			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   nil,
-			},
-			want:                                []PodEndpoint{},
-			wantContainsPotentialReadyEndpoints: false,
-			wantErr:                             fmt.Errorf("%w: %v", ErrNotFound, "services \"svc-1\" not found"),
-		},
-		{
 			name: "service port not found",
 			env: env{
-				services:      []*corev1.Service{svc1WithoutHTTPPort},
 				endpointsList: []*corev1.Endpoints{},
 			},
 			fields: fields{
 				podInfoRepoGetCalls: []podInfoRepoGetCall{},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   nil,
+				svc:  svc1WithoutHTTPPort,
+				port: intstr.FromString("http"),
+				opts: nil,
 			},
 			wantErr: fmt.Errorf("%w: %v", ErrNotFound, "unable to find port http on service test-ns/svc-1"),
 		},
 		{
 			name: "endpoints not found",
 			env: env{
-				services:      []*corev1.Service{svc1},
 				endpointsList: []*corev1.Endpoints{},
 			},
 			fields: fields{
 				podInfoRepoGetCalls: []podInfoRepoGetCall{},
 			},
 			args: args{
-				svcKey: k8s.NamespacedName(svc1),
-				port:   intstr.FromString("http"),
-				opts:   nil,
+				svc:  svc1,
+				port: intstr.FromString("http"),
+				opts: nil,
 			},
 			wantErr: fmt.Errorf("%w: %v", ErrNotFound, "endpoints \"svc-1\" not found"),
 		},
@@ -1311,9 +1282,6 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			for _, node := range tt.env.nodes {
 				assert.NoError(t, k8sClient.Create(ctx, node.DeepCopy()))
 			}
-			for _, svc := range tt.env.services {
-				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
-			}
 			for _, endpoints := range tt.env.endpointsList {
 				assert.NoError(t, k8sClient.Create(ctx, endpoints.DeepCopy()))
 			}
@@ -1328,14 +1296,14 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 				endpointSliceEnabled: tt.fields.endpointSliceEnabled,
 				logger:               logr.New(&log.NullLogSink{}),
 			}
-			got, gotContainsPotentialReadyEndpoints, err := r.ResolvePodEndpoints(ctx, tt.args.svcKey, tt.args.port, tt.args.opts...)
+			got, gotContainsPotentialReadyEndpoints, err := r.ResolvePodEndpoints(ctx, k8s.NamespacedName(tt.args.svc), tt.args.svc, tt.args.port, tt.args.opts...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
 				opt := cmp.Options{
 					equality.IgnoreFakeClientPopulatedFields(),
-					cmpopts.SortSlices(func(lhs PodEndpoint, rhs PodEndpoint) bool {
+					cmpopts.SortSlices(func(lhs IpEndpoint, rhs IpEndpoint) bool {
 						return lhs.IP < rhs.IP
 					}),
 				}
@@ -1345,6 +1313,61 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			}
 		})
 	}
+}
+
+type mockDns map[string][]string
+
+func (m mockDns) LookupHost(_ context.Context, host string) (addrs []string, err error) {
+	var ok bool
+	addrs, ok = m[host]
+	if !ok {
+		err = fmt.Errorf("No ips are registered for %s", host)
+	}
+	return
+}
+
+func Test_defaultEndpointResolver_ResolveExternalNameEndpoints(t *testing.T) {
+	svcExternalName := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "testNS",
+			Name:      "svc-1",
+		},
+		Spec: corev1.ServiceSpec{
+			Type:         corev1.ServiceTypeExternalName,
+			ExternalName: "service.in.my.vpc",
+		},
+	}
+	ctx := context.Background()
+
+	want := []IpEndpoint{
+		{
+			IP:   "10.10.10.10",
+			Port: 80,
+		},
+		{
+			IP:   "10.10.11.10",
+			Port: 80,
+		},
+	}
+	opt := cmp.Options{
+		equality.IgnoreFakeClientPopulatedFields(),
+		cmpopts.SortSlices(func(lhs IpEndpoint, rhs IpEndpoint) bool {
+			return lhs.IP < rhs.IP
+		}),
+	}
+
+	r := &defaultEndpointResolver{
+		logger:      logr.New(&log.NullLogSink{}),
+		dnsResolver: mockDns{"service.in.my.vpc": []string{"10.10.10.10", "10.10.11.10"}},
+	}
+	got, err := r.ResolveExternalNameEndpoints(ctx, svcExternalName, intstr.FromInt(80))
+	assert.NoError(t, err)
+	assert.True(t, cmp.Equal(want, got, opt),
+		"diff: %v", cmp.Diff(want, got, opt))
+
+	r.dnsResolver = mockDns{}
+	got, err = r.ResolveExternalNameEndpoints(ctx, svcExternalName, intstr.FromInt(80))
+	assert.EqualError(t, err, fmt.Errorf("No ips are registered for %s", svcExternalName.Spec.ExternalName).Error())
 }
 
 func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
@@ -2079,7 +2102,7 @@ func Test_defaultEndpointResolver_findServiceAndServicePort(t *testing.T) {
 			} else {
 				opt := cmp.Options{
 					equality.IgnoreFakeClientPopulatedFields(),
-					cmpopts.SortSlices(func(lhs PodEndpoint, rhs PodEndpoint) bool {
+					cmpopts.SortSlices(func(lhs IpEndpoint, rhs IpEndpoint) bool {
 						return lhs.IP < rhs.IP
 					}),
 				}
@@ -2596,7 +2619,7 @@ func Test_buildPodEndpoint(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want PodEndpoint
+		want IpEndpoint
 	}{
 		{
 			name: "base case",
@@ -2607,10 +2630,10 @@ func Test_buildPodEndpoint(t *testing.T) {
 				epAddr: "192.168.1.1",
 				port:   80,
 			},
-			want: PodEndpoint{
+			want: IpEndpoint{
 				IP:   "192.168.1.1",
 				Port: 80,
-				Pod: k8s.PodInfo{
+				Pod: &k8s.PodInfo{
 					Key: types.NamespacedName{Name: "sample-node"},
 				},
 			},
@@ -2618,7 +2641,7 @@ func Test_buildPodEndpoint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildPodEndpoint(tt.args.pod, tt.args.epAddr, tt.args.port)
+			got := buildPodEndpoint(&tt.args.pod, tt.args.epAddr, tt.args.port)
 			assert.Equal(t, tt.want, got)
 		})
 	}

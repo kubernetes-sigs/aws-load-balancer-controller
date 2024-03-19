@@ -141,7 +141,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	ing ClassifiedIngress, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort) (elbv2model.TargetGroupSpec, error) {
 	svcAndIngAnnotations := algorithm.MergeStringMap(svc.Annotations, ing.Ing.Annotations)
-	targetType, err := t.buildTargetGroupTargetType(ctx, svcAndIngAnnotations)
+	targetType, err := t.buildTargetGroupTargetType(ctx, svcAndIngAnnotations, svc)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
@@ -208,9 +208,13 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.TargetType, error) {
+func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, svcAndIngAnnotations map[string]string, svc *corev1.Service) (elbv2model.TargetType, error) {
 	rawTargetType := string(t.defaultTargetType)
 	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixTargetType, &rawTargetType, svcAndIngAnnotations)
+	if svc.Spec.Type == corev1.ServiceTypeExternalName && rawTargetType != string(elbv2model.TargetTypeIP) {
+		t.logger.Info("Target type will be ip for since service is an ExternalName", "service", k8s.NamespacedName(svc))
+		rawTargetType = string(elbv2model.TargetTypeIP)
+	}
 	switch rawTargetType {
 	case string(elbv2model.TargetTypeInstance):
 		return elbv2model.TargetTypeInstance, nil

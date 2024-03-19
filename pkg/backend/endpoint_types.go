@@ -7,14 +7,14 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 )
 
-// An endpoint provided by pod directly.
-type PodEndpoint struct {
+// IpEndpoint is an endpoint for an ip address
+type IpEndpoint struct {
 	// Pod's IP.
 	IP string
 	// Pod's container port.
 	Port int64
 	// Pod that provides this endpoint.
-	Pod k8s.PodInfo
+	Pod *k8s.PodInfo
 }
 
 // An endpoint provided by nodePort as traffic proxy.

@@ -35,7 +35,7 @@ const (
 // NetworkingManager manages the networking for targetGroupBindings.
 type NetworkingManager interface {
 	// ReconcileForPodEndpoints reconcile network settings for TargetGroupBindings with podEndpoints.
-	ReconcileForPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error
+	ReconcileForPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.IpEndpoint) error
 
 	// ReconcileForNodePortEndpoints reconcile network settings for TargetGroupBindings with nodePortEndpoints.
 	ReconcileForNodePortEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.NodePortEndpoint) error
@@ -95,7 +95,7 @@ type defaultNetworkingManager struct {
 	disableRestrictedSGRules bool
 }
 
-func (m *defaultNetworkingManager) ReconcileForPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error {
+func (m *defaultNetworkingManager) ReconcileForPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.IpEndpoint) error {
 	var ingressPermissionsPerSG map[string][]networking.IPPermissionInfo
 	if tgb.Spec.Networking != nil {
 		var err error
@@ -123,12 +123,12 @@ func (m *defaultNetworkingManager) Cleanup(ctx context.Context, tgb *elbv2api.Ta
 	return m.reconcileWithIngressPermissionsPerSG(ctx, tgb, nil)
 }
 
-func (m *defaultNetworkingManager) computeIngressPermissionsPerSGWithPodEndpoints(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, endpoints []backend.PodEndpoint) (map[string][]networking.IPPermissionInfo, error) {
+func (m *defaultNetworkingManager) computeIngressPermissionsPerSGWithPodEndpoints(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, endpoints []backend.IpEndpoint) (map[string][]networking.IPPermissionInfo, error) {
 	pods := make([]k8s.PodInfo, 0, len(endpoints))
 	podByPodKey := make(map[types.NamespacedName]k8s.PodInfo, len(endpoints))
 	for _, endpoint := range endpoints {
-		pods = append(pods, endpoint.Pod)
-		podByPodKey[endpoint.Pod.Key] = endpoint.Pod
+		pods = append(pods, *endpoint.Pod)
+		podByPodKey[endpoint.Pod.Key] = *endpoint.Pod
 	}
 	eniInfoByPodKey, err := m.podENIResolver.Resolve(ctx, pods)
 	if err != nil {

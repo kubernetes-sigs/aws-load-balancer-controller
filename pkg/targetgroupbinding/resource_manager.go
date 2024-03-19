@@ -112,20 +112,26 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		backend.WithPodReadinessGate(targetHealthCondType),
 	}
 
-	var endpoints []backend.PodEndpoint
+	var endpoints []backend.IpEndpoint
 	var containsPotentialReadyEndpoints bool
-	var err error
-
-	endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
-
-	if err != nil {
-		if errors.Is(err, backend.ErrNotFound) {
-			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
-			return m.Cleanup(ctx, tgb)
+	svc, err := m.endpointResolver.FindService(ctx, svcKey)
+	if svc.Spec.Type == corev1.ServiceTypeExternalName {
+		endpoints, err = m.endpointResolver.ResolveExternalNameEndpoints(ctx, svc, tgb.Spec.ServiceRef.Port)
+		if err != nil {
+			return err
 		}
-		return err
-	}
+	} else {
 
+		endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, svc, tgb.Spec.ServiceRef.Port, resolveOpts...)
+
+		if err != nil {
+			if errors.Is(err, backend.ErrNotFound) {
+				m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
+				return m.Cleanup(ctx, tgb)
+			}
+			return err
+		}
+	}
 	tgARN := tgb.Spec.TargetGroupARN
 	vpcID := tgb.Spec.VpcID
 	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
@@ -136,9 +142,11 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
 
 	needNetworkingRequeue := false
-	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
-		m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedNetworkReconcile, err.Error())
-		needNetworkingRequeue = true
+	if svc.Spec.Type != corev1.ServiceTypeExternalName {
+		if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
+			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedNetworkReconcile, err.Error())
+			needNetworkingRequeue = true
+		}
 	}
 	if len(unmatchedTargets) > 0 {
 		if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
@@ -150,23 +158,23 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 			return err
 		}
 	}
-
-	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints)
-	if err != nil {
-		return err
-	}
-
-	if anyPodNeedFurtherProbe {
-		if containsTargetsInInitialState(matchedEndpointAndTargets) || len(unmatchedEndpoints) != 0 {
-			return runtime.NewRequeueNeededAfter("monitor targetHealth", m.targetHealthRequeueDuration)
+	if svc.Spec.Type != corev1.ServiceTypeExternalName {
+		anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints)
+		if err != nil {
+			return err
 		}
-		return runtime.NewRequeueNeeded("monitor targetHealth")
-	}
 
-	if containsPotentialReadyEndpoints {
-		return runtime.NewRequeueNeeded("monitor potential ready endpoints")
-	}
+		if anyPodNeedFurtherProbe {
+			if containsTargetsInInitialState(matchedEndpointAndTargets) || len(unmatchedEndpoints) != 0 {
+				return runtime.NewRequeueNeededAfter("monitor targetHealth", m.targetHealthRequeueDuration)
+			}
+			return runtime.NewRequeueNeeded("monitor targetHealth")
+		}
 
+		if containsPotentialReadyEndpoints {
+			return runtime.NewRequeueNeeded("monitor potential ready endpoints")
+		}
+	}
 	_ = drainingTargets
 
 	if needNetworkingRequeue {
@@ -240,13 +248,13 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 // updateTargetHealthPodCondition will updates pod's targetHealth condition for matchedEndpointAndTargets and unmatchedEndpoints.
 // returns whether further probe is needed or not
 func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Context, targetHealthCondType corev1.PodConditionType,
-	matchedEndpointAndTargets []podEndpointAndTargetPair, unmatchedEndpoints []backend.PodEndpoint) (bool, error) {
+	matchedEndpointAndTargets []podEndpointAndTargetPair, unmatchedEndpoints []backend.IpEndpoint) (bool, error) {
 	anyPodNeedFurtherProbe := false
 
 	for _, endpointAndTarget := range matchedEndpointAndTargets {
 		pod := endpointAndTarget.endpoint.Pod
 		targetHealth := endpointAndTarget.target.TargetHealth
-		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
+		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, *pod, targetHealth, targetHealthCondType)
 		if err != nil {
 			return false, err
 		}
@@ -262,7 +270,7 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 			Reason:      awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
 			Description: awssdk.String("Target registration is in progress"),
 		}
-		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
+		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, *pod, targetHealth, targetHealthCondType)
 		if err != nil {
 			return false, err
 		}
@@ -383,7 +391,7 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN st
 	return m.targetsManager.DeregisterTargets(ctx, tgARN, sdkTargets)
 }
 
-func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN, tgVpcID string, endpoints []backend.PodEndpoint) error {
+func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN, tgVpcID string, endpoints []backend.IpEndpoint) error {
 	vpcID := m.vpcID
 	// Target group is in a different VPC from the cluster's VPC
 	if tgVpcID != "" && tgVpcID != m.vpcID {
@@ -433,7 +441,7 @@ func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, 
 }
 
 type podEndpointAndTargetPair struct {
-	endpoint backend.PodEndpoint
+	endpoint backend.IpEndpoint
 	target   TargetInfo
 }
 
@@ -459,12 +467,12 @@ func containsTargetsInInitialState(matchedEndpointAndTargets []podEndpointAndTar
 	return false
 }
 
-func matchPodEndpointWithTargets(endpoints []backend.PodEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.PodEndpoint, []TargetInfo) {
+func matchPodEndpointWithTargets(endpoints []backend.IpEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.IpEndpoint, []TargetInfo) {
 	var matchedEndpointAndTargets []podEndpointAndTargetPair
-	var unmatchedEndpoints []backend.PodEndpoint
+	var unmatchedEndpoints []backend.IpEndpoint
 	var unmatchedTargets []TargetInfo
 
-	endpointsByUID := make(map[string]backend.PodEndpoint, len(endpoints))
+	endpointsByUID := make(map[string]backend.IpEndpoint, len(endpoints))
 	for _, endpoint := range endpoints {
 		endpointUID := fmt.Sprintf("%v:%v", endpoint.IP, endpoint.Port)
 		endpointsByUID[endpointUID] = endpoint
