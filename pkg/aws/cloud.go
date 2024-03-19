@@ -41,6 +41,9 @@ type Cloud interface {
 	// RGT provides API to AWS RGT
 	RGT() services.RGT
 
+	// GA provides API to AWS Global Accelerator
+	GA() services.GlobalAccelerator
+
 	// Region for the kubernetes cluster
 	Region() string
 
@@ -125,6 +128,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		ec2:         ec2Service,
 		elbv2:       services.NewELBV2(sess),
 		acm:         services.NewACM(sess),
+		ga:          services.NewGlobalAccelerator(sess),
 		wafv2:       services.NewWAFv2(sess),
 		wafRegional: services.NewWAFRegional(sess, cfg.Region),
 		shield:      services.NewShield(sess),
@@ -177,6 +181,7 @@ type defaultCloud struct {
 	elbv2 services.ELBV2
 
 	acm         services.ACM
+	ga          services.GlobalAccelerator
 	wafv2       services.WAFv2
 	wafRegional services.WAFRegional
 	shield      services.Shield
@@ -209,6 +214,10 @@ func (c *defaultCloud) Shield() services.Shield {
 
 func (c *defaultCloud) RGT() services.RGT {
 	return c.rgt
+}
+
+func (c *defaultCloud) GA() services.GlobalAccelerator {
+	return c.ga
 }
 
 func (c *defaultCloud) Region() string {

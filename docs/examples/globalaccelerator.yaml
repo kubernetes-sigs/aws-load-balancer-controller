@@ -1,0 +1,19 @@
+kind: Ingress
+metadata:
+    name: echoserver
+    annotations:
+        kubernetes.io/ingress.class: alb
+        alb.ingress.kubernetes.io/scheme: internet-facing
+        alb.ingress.kubernetes.io/ga-epg-arn: arn:aws:globalaccelerator::12345678912:accelerator/d60128f1-4134-4e03-bed9-edd00f77b3e6/listener/a309af4a/endpoint-group/ed7bf648f700
+        alb.ingress.kubernetes.io/ga-ep-create: "true"
+spec:
+    rules:
+    - http:
+        paths:
+          - backend:
+              service:
+                name: my-release-nginx
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix

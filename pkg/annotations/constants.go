@@ -19,6 +19,8 @@ const (
 	IngressSuffixWAFACLID                     = "waf-acl-id"
 	IngressSuffixWebACLID                     = "web-acl-id" // deprecated, use "waf-acl-id" instead.
 	IngressSuffixShieldAdvancedProtection     = "shield-advanced-protection"
+	IngressSuffixGAEndpointGroup              = "ga-epg-arn"
+	IngressSuffixGAEndpointCreate             = "ga-ep-create"
 	IngressSuffixSecurityGroups               = "security-groups"
 	IngressSuffixListenPorts                  = "listen-ports"
 	IngressSuffixSSLRedirect                  = "ssl-redirect"
