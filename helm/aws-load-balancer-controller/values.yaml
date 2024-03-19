@@ -391,3 +391,6 @@ enableServiceMutatorWebhook: true
 
 # serviceTargetENISGTags specifies AWS tags, in addition to the cluster tags, for finding the target ENI SG to which to add inbound rules from NLBs.
 serviceTargetENISGTags:
+
+# creator will disable helm default labels, so you can only add yours
+# creator: "me"
