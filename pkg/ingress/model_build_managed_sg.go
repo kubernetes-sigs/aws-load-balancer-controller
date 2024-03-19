@@ -97,6 +97,18 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(_ co
 				})
 			}
 		}
+		for _, prefixID := range cfg.prefixLists {
+			permissions = append(permissions, ec2model.IPPermission{
+				IPProtocol: "tcp",
+				FromPort:   awssdk.Int64(port),
+				ToPort:     awssdk.Int64(port),
+				PrefixLists: []ec2model.PrefixList{
+					{
+						ListID: prefixID,
+					},
+				},
+			})
+		}
 	}
 	return permissions
 }
