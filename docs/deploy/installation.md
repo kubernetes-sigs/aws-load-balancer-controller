@@ -196,7 +196,10 @@ We recommend using the Helm chart to install the controller. The chart supports 
     helm install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=<cluster-name>
     ```
 
+    If you're deploying the controller to Amazon EC2 nodes that have [restricted access to the Amazon EC2 instance metadata service (IMDS)](https://aws.github.io/aws-eks-best-practices/security/docs/iam/#restrict-access-to-the-instance-profile-assigned-to-the-worker-node), or if you're deploying to Fargate, then add the following flags to the helm command that follows:
 
+    - `--set region=<region-code>`
+    - `--set vpcId=<vpc-id>`
 
 === "YAML manifests"
 
