@@ -216,6 +216,9 @@ webhookNamespaceSelectors:
 #   values:
 #   - enabled
 
+# failurePolicy for webhooks. (default "Fail")
+webhookFailurePolicy: "Fail"
+
 # keepTLSSecret specifies whether to reuse existing TLS secret for chart upgrade
 keepTLSSecret: true
 

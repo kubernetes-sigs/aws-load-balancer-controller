@@ -19,7 +19,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-v1-pod
-  failurePolicy: Fail
+  failurePolicy: {{ .Values.webhookFailurePolicy | default "Fail" }}
   name: mpod.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
@@ -65,7 +65,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-v1-service
-  failurePolicy: Fail
+  failurePolicy: {{ .Values.webhookFailurePolicy | default "Fail" }}
   name: mservice.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
@@ -94,7 +94,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
-  failurePolicy: Fail
+  failurePolicy: {{ .Values.webhookFailurePolicy | default "Fail" }}
   name: mtargetgroupbinding.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
@@ -129,7 +129,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
-  failurePolicy: Fail
+  failurePolicy: {{ .Values.webhookFailurePolicy | default "Fail" }}
   name: vingressclassparams.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
@@ -158,7 +158,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
-  failurePolicy: Fail
+  failurePolicy: {{ .Values.webhookFailurePolicy | default "Fail" }}
   name: vtargetgroupbinding.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
@@ -181,7 +181,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /validate-networking-v1-ingress
-  failurePolicy: Fail
+  failurePolicy: {{ .Values.webhookFailurePolicy | default "Fail" }}
   matchPolicy: Equivalent
   name: vingress.elbv2.k8s.aws
   admissionReviewVersions:
