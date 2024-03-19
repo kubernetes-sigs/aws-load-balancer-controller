@@ -12,7 +12,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/strings/slices"
@@ -86,7 +85,8 @@ func (d *acmCertDiscovery) Discover(ctx context.Context, tlsHosts []string) ([]s
 		}
 
 		if len(certARNsForHost) == 0 {
-			return nil, errors.Errorf("no certificate found for host: %s", host)
+			d.logger.Info("no certificate found for host", "host", host)
+			continue
 		}
 		certARNs.Insert(certARNsForHost...)
 	}
