@@ -127,6 +127,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	}
 
 	tgARN := tgb.Spec.TargetGroupARN
+	vpcID := tgb.Spec.VpcID
 	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
 	if err != nil {
 		return err
@@ -145,7 +146,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		}
 	}
 	if len(unmatchedEndpoints) > 0 {
-		if err := m.registerPodEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
+		if err := m.registerPodEndpoints(ctx, tgARN, vpcID, unmatchedEndpoints); err != nil {
 			return err
 		}
 	}
@@ -382,8 +383,15 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN st
 	return m.targetsManager.DeregisterTargets(ctx, tgARN, sdkTargets)
 }
 
-func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN string, endpoints []backend.PodEndpoint) error {
-	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, m.vpcID)
+func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN, tgVpcID string, endpoints []backend.PodEndpoint) error {
+	vpcID := m.vpcID
+	// Target group is in a different VPC from the cluster's VPC
+	if tgVpcID != "" && tgVpcID != m.vpcID {
+		vpcID = tgVpcID
+		m.logger.Info("registering endpoints using the targetGroup's vpcID", tgVpcID,
+			"which is different from the cluster's vpcID", m.vpcID)
+	}
+	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
 	if err != nil {
 		return err
 	}
