@@ -258,6 +258,10 @@ for proxy protocol v2 configuration.
         ```
         service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
         ```
+        - enable client availability zone affinity
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
+        ```
 
 - <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
 
