@@ -199,9 +199,14 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort 
 	_, _ = uuidHash.Write([]byte(healthCheckInterval))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
-	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Namespace, "")
-	sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Name, "")
-	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
+	var prefix string
+	if !t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixTargetGroupPrefix, &prefix, t.service.Annotations) {
+		sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Namespace, "")
+		sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(t.service.Name, "")
+		prefix = fmt.Sprintf("k8s-%.8s-%.8s", sanitizedNamespace, sanitizedName)
+	}
+
+	return fmt.Sprintf("%.21s-%.10s", prefix, uuid)
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([]elbv2model.TargetGroupAttribute, error) {

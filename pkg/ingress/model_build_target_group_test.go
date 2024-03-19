@@ -2,6 +2,8 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -13,18 +15,18 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
 )
 
 func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 	type args struct {
-		ingKey            types.NamespacedName
-		svc               *corev1.Service
-		port              intstr.IntOrString
-		tgPort            int64
-		targetType        elbv2model.TargetType
-		tgProtocol        elbv2model.Protocol
-		tgProtocolVersion elbv2model.ProtocolVersion
+		svcAndIngAnnotations map[string]string
+		ingKey               types.NamespacedName
+		svc                  *corev1.Service
+		port                 intstr.IntOrString
+		tgPort               int64
+		targetType           elbv2model.TargetType
+		tgProtocol           elbv2model.Protocol
+		tgProtocolVersion    elbv2model.ProtocolVersion
 	}
 	tests := []struct {
 		name string
@@ -126,11 +128,79 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 			},
 			want: "k8s-ns1-name1-22fbce26a7",
 		},
+		{
+			name: "standard case - prefix annotation",
+			args: args{
+				ingKey: types.NamespacedName{Namespace: "ns-1", Name: "name-1"},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "name-1",
+						UID:       "my-uuid",
+					},
+				},
+				port:              intstr.FromString("http"),
+				tgPort:            8080,
+				targetType:        elbv2model.TargetTypeIP,
+				tgProtocol:        elbv2model.ProtocolHTTPS,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/target-group-prefix": "test",
+				},
+			},
+			want: "test-22fbce26a7",
+		},
+		{
+			name: "standard case - prefix annotation with dash",
+			args: args{
+				ingKey: types.NamespacedName{Namespace: "ns-1", Name: "name-1"},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "name-1",
+						UID:       "my-uuid",
+					},
+				},
+				port:              intstr.FromString("http"),
+				tgPort:            8080,
+				targetType:        elbv2model.TargetTypeIP,
+				tgProtocol:        elbv2model.ProtocolHTTPS,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/target-group-prefix": "test-",
+				},
+			},
+			want: "test--22fbce26a7",
+		},
+		{
+			name: "standard case - long prefix annotation",
+			args: args{
+				ingKey: types.NamespacedName{Namespace: "ns-1", Name: "name-1"},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "name-1",
+						UID:       "my-uuid",
+					},
+				},
+				port:              intstr.FromString("http"),
+				tgPort:            8080,
+				targetType:        elbv2model.TargetTypeIP,
+				tgProtocol:        elbv2model.ProtocolHTTPS,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/target-group-prefix": "test-prefix-this-is-too-long-",
+				},
+			},
+			want: "test-prefix-this-is-t-22fbce26a7",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			task := &defaultModelBuildTask{}
-			got := task.buildTargetGroupName(context.Background(), tt.args.ingKey, tt.args.svc, tt.args.port, tt.args.tgPort, tt.args.targetType, tt.args.tgProtocol, tt.args.tgProtocolVersion)
+			task := &defaultModelBuildTask{
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+			got := task.buildTargetGroupName(context.Background(), tt.args.svcAndIngAnnotations, tt.args.ingKey, tt.args.svc, tt.args.port, tt.args.tgPort, tt.args.targetType, tt.args.tgProtocol, tt.args.tgProtocolVersion)
 			assert.Equal(t, tt.want, got)
 		})
 	}
