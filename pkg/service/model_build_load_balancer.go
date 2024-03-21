@@ -77,6 +77,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+	securityGroupsInboundRulesOnPrivateLink, err := t.buildSecurityGroupsInboundRulesOnPrivateLink(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+
 	spec := elbv2model.LoadBalancerSpec{
 		Name:                   name,
 		Type:                   elbv2model.LoadBalancerTypeNetwork,
@@ -87,6 +92,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 		LoadBalancerAttributes: lbAttributes,
 		Tags:                   tags,
 	}
+
+	if securityGroupsInboundRulesOnPrivateLink != nil {
+		spec.SecurityGroupsInboundRulesOnPrivateLink = securityGroupsInboundRulesOnPrivateLink
+	}
+
 	return spec, nil
 }
 
@@ -174,6 +184,23 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 		return elbv2model.IPAddressTypeDualStack, nil
 	default:
 		return "", errors.Errorf("unknown IPAddressType: %v", rawIPAddressType)
+	}
+}
+
+func (t *defaultModelBuildTask) buildSecurityGroupsInboundRulesOnPrivateLink(_ context.Context) (*elbv2model.SecurityGroupsInboundRulesOnPrivateLinkStatus, error) {
+	var rawSecurityGroupsInboundRulesOnPrivateLink string
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEnforceSGInboundRulesOnPrivateLinkTraffic, &rawSecurityGroupsInboundRulesOnPrivateLink, t.service.Annotations); !exists {
+		return nil, nil
+	}
+	securityGroupsInboundRulesOnPrivateLink := elbv2model.SecurityGroupsInboundRulesOnPrivateLinkStatus(rawSecurityGroupsInboundRulesOnPrivateLink)
+
+	switch securityGroupsInboundRulesOnPrivateLink {
+	case elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOn:
+		return &securityGroupsInboundRulesOnPrivateLink, nil
+	case elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOff:
+		return &securityGroupsInboundRulesOnPrivateLink, nil
+	default:
+		return nil, errors.Errorf("Invalid value for securityGroupsInboundRulesOnPrivateLink status: %v, value must be one of [%v, %v]", securityGroupsInboundRulesOnPrivateLink, string(elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOn), string(elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOff))
 	}
 }
 
