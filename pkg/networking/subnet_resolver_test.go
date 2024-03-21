@@ -203,7 +203,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 			},
 		},
 		{
-			name: "ALB with no matching subnets",
+			name: "ALB with no matching subnets (internal)",
 			fields: fields{
 				vpcID:       "vpc-1",
 				clusterName: "kube-cluster",
@@ -231,7 +231,38 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			wantErr: errors.New("unable to resolve at least one subnet (0 match VPC and tags)"),
+			wantErr: errors.New("unable to resolve at least one subnet (0 match VPC and tags: [kubernetes.io/role/internal-elb])"),
+		},
+		{
+			name: "ALB with no matching subnets (internet-facing)",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []*ec2sdk.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: awssdk.StringSlice([]string{"vpc-1"}),
+								},
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: awssdk.StringSlice([]string{"", "1"}),
+								},
+							},
+						},
+						output: nil,
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+				},
+			},
+			wantErr: errors.New("unable to resolve at least one subnet (0 match VPC and tags: [kubernetes.io/role/elb])"),
 		},
 		{
 			name: "NLB with one matching subnet",

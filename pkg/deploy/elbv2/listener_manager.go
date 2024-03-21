@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+	"reflect"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -134,7 +135,8 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 		return err
 	}
 	desiredDefaultCerts, _ := buildSDKCertificates(resLS.Spec.Certificates)
-	if !isSDKListenerSettingsDrifted(resLS.Spec, sdkLS, desiredDefaultActions, desiredDefaultCerts) {
+	desiredDefaultMutualAuthentication := buildSDKMutualAuthenticationConfig(resLS.Spec.MutualAuthentication)
+	if !isSDKListenerSettingsDrifted(resLS.Spec, sdkLS, desiredDefaultActions, desiredDefaultCerts, desiredDefaultMutualAuthentication) {
 		return nil
 	}
 	req := buildSDKModifyListenerInput(resLS.Spec, desiredDefaultActions, desiredDefaultCerts)
@@ -159,7 +161,7 @@ func (m *defaultListenerManager) updateSDKListenerWithExtraCertificates(ctx cont
 	sdkLS ListenerWithTags, isNewSDKListener bool) error {
 	// if TLS is not supported, we shouldn't update
 	if resLS.Spec.SSLPolicy == nil && sdkLS.Listener.SslPolicy == nil {
-		m.logger.V(1).Info("Res and Sdk Listener don't have SSL Policy set, we skip updating extra certs for non-TLS listener.")
+		m.logger.V(1).Info("Res and Sdk Listener don't have SSL Policy set, skip updating extra certs for non-TLS listener.")
 		return nil
 	}
 
@@ -246,7 +248,7 @@ func (m *defaultListenerManager) fetchSDKListenerExtraCertificateARNs(ctx contex
 }
 
 func isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS ListenerWithTags,
-	desiredDefaultActions []*elbv2sdk.Action, desiredDefaultCerts []*elbv2sdk.Certificate) bool {
+	desiredDefaultActions []*elbv2sdk.Action, desiredDefaultCerts []*elbv2sdk.Certificate, desiredDefaultMutualAuthentication *elbv2sdk.MutualAuthenticationAttributes) bool {
 	if lsSpec.Port != awssdk.Int64Value(sdkLS.Listener.Port) {
 		return true
 	}
@@ -263,6 +265,9 @@ func isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS Listener
 		return true
 	}
 	if len(lsSpec.ALPNPolicy) != 0 && !cmp.Equal(lsSpec.ALPNPolicy, awssdk.StringValueSlice(sdkLS.Listener.AlpnPolicy), cmpopts.EquateEmpty()) {
+		return true
+	}
+	if !reflect.DeepEqual(desiredDefaultMutualAuthentication, sdkLS.Listener.MutualAuthentication) {
 		return true
 	}
 
@@ -289,6 +294,8 @@ func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec, featureGates co
 	if len(lsSpec.ALPNPolicy) != 0 {
 		sdkObj.AlpnPolicy = awssdk.StringSlice(lsSpec.ALPNPolicy)
 	}
+	sdkObj.MutualAuthentication = buildSDKMutualAuthenticationConfig(lsSpec.MutualAuthentication)
+
 	return sdkObj, nil
 }
 
@@ -302,6 +309,8 @@ func buildSDKModifyListenerInput(lsSpec elbv2model.ListenerSpec, desiredDefaultA
 	if len(lsSpec.ALPNPolicy) != 0 {
 		sdkObj.AlpnPolicy = awssdk.StringSlice(lsSpec.ALPNPolicy)
 	}
+	sdkObj.MutualAuthentication = buildSDKMutualAuthenticationConfig(lsSpec.MutualAuthentication)
+
 	return sdkObj
 }
 
@@ -324,6 +333,18 @@ func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]*elbv2sdk.Cert
 func buildSDKCertificate(modelCert elbv2model.Certificate) *elbv2sdk.Certificate {
 	return &elbv2sdk.Certificate{
 		CertificateArn: modelCert.CertificateARN,
+	}
+}
+
+// buildSDKMutualAuthenticationConfig builds the mutual TLS authentication config for listener
+func buildSDKMutualAuthenticationConfig(modelMutualAuthenticationCfg *elbv2model.MutualAuthenticationAttributes) *elbv2sdk.MutualAuthenticationAttributes {
+	if modelMutualAuthenticationCfg == nil {
+		return nil
+	}
+	return &elbv2sdk.MutualAuthenticationAttributes{
+		IgnoreClientCertificateExpiry: modelMutualAuthenticationCfg.IgnoreClientCertificateExpiry,
+		Mode:                          awssdk.String(modelMutualAuthenticationCfg.Mode),
+		TrustStoreArn:                 modelMutualAuthenticationCfg.TrustStoreArn,
 	}
 }
 

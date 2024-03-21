@@ -16,6 +16,8 @@ PROD_IMAGE_REGISTRY=${PROD_IMAGE_REGISTRY:-"602401143452.dkr.ecr.us-west-2.amazo
 
 ADC_REGIONS="us-iso-east-1 us-isob-east-1 us-iso-west-1"
 CONTAINER_NAME="aws-load-balancer-controller"
+: "${DISABLE_WAFV2:=false}"
+DISABLE_WAFV2_FLAGS=""
 
 function toggle_windows_scheduling(){
   schedule=$1
@@ -26,7 +28,7 @@ function toggle_windows_scheduling(){
   done
 }
 
-TEST_ID=$(date +%s)
+TEST_ID=$(date +%s)-$((RANDOM % 1000))
 echo "TEST_ID: $TEST_ID"
 ROLE_NAME="aws-load-balancer-controller-$TEST_ID"
 POLICY_NAME="AWSLoadBalancerControllerIAMPolicy-$TEST_ID"
@@ -155,6 +157,17 @@ function install_controller_for_adc_regions() {
     kubectl apply -f $ingclass_yaml || true
 }
 
+function enable_primary_ipv6_address() {
+  echo "enable primary ipv6 address for the ec2 instance"
+  ENI_IDS=$(aws ec2 describe-instances --region $REGION --filters "Name=tag:aws:eks:cluster-name,Values=$CLUSTER_NAME" --query "Reservations[].Instances[].NetworkInterfaces[].NetworkInterfaceId" --output text)
+  ENI_COUNT=$(echo "$ENI_IDS" | wc -w)
+  echo "found $ENI_COUNT ENIs: $ENI_IDS"
+  for ENI_ID in $ENI_IDS; do
+    echo "enable primary ipv6 address for ENI $ENI_ID"
+    aws ec2 modify-network-interface-attribute --region $REGION --network-interface-id $ENI_ID --enable-primary-ipv6
+  done
+}
+
 echo "installing AWS load balancer controller"
 if [[ $ADC_REGIONS == *"$REGION"* ]]; then
   echo "for ADC regions, install via manifest"
@@ -166,10 +179,13 @@ if [[ $ADC_REGIONS == *"$REGION"* ]]; then
     -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "--feature-gates=NLBSecurityGroup=false,ListenerRulesTagging=false"}]' || true
 else
   echo "install via helm repo, update helm repo from github"
+  if [[ "$DISABLE_WAFV2" == true ]]; then
+    DISABLE_WAFV2_FLAGS="--set enableShield=false --set enableWaf=false --set enableWafv2=false"
+  fi
   helm repo add eks https://aws.github.io/eks-charts
   helm repo update
   echo "Install aws-load-balancer-controller"
-  helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE
+  helm upgrade -i aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system --set clusterName=$CLUSTER_NAME --set serviceAccount.create=false --set serviceAccount.name=aws-load-balancer-controller --set region=$REGION --set vpcId=$VPC_ID --set image.repository=$IMAGE $DISABLE_WAFV2_FLAGS
 fi
 
 echo_time() {
@@ -190,7 +206,7 @@ wait_until_deployment_ready() {
 		fi
 		echo -n "."
 		sleep 2
-	done 
+	done
 	echo_time "Deployment $1 $NS replicas desired=$desiredReplicas available=$availableReplicas"
 }
 
@@ -201,14 +217,17 @@ function run_ginkgo_test() {
   local focus=$1
   echo "Starting the ginkgo tests from generated ginkgo test binaries with focus: $focus"
   if [ "$IP_FAMILY" == "IPv4" ] || [ "$IP_FAMILY" == "IPv6" ]; then
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail)
-    (CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail)
+    CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail
+    CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail
   else
     echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
   fi
 }
 
 #Start the test
+if [ "$IP_FAMILY" == "IPv6" ]; then
+  enable_primary_ipv6_address
+fi
 run_ginkgo_test
 
 # tail=-1 is added so that no logs are truncated

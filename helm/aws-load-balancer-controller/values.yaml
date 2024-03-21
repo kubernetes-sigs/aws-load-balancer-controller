@@ -4,14 +4,27 @@
 
 replicaCount: 2
 
+revisionHistoryLimit: 10
+
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.6.1
+  tag: v2.7.0
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+
+# AWS LBC only has 1 main working pod, other pods are just standby
+# the purpose of enable hpa is to survive load induced failure by the calls to the aws-load-balancer-webhook-service
+# since the calls from kube-apiserver are sent round-robin to all replicas, and the failure policy on those webhooks is Fail
+# if the pods become overloaded and do not respond within the timeout that could block the creation of pods, targetgroupbindings or ingresses
+# Please keep in mind that the controller pods have `priorityClassName: system-cluster-critical`, enabling HPA may lead to the eviction of other low-priority pods in the node
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -227,10 +240,10 @@ disableIngressClassAnnotation:
 # disableIngressGroupNameAnnotation disables the usage of alb.ingress.kubernetes.io/group.name annotation, false by default
 disableIngressGroupNameAnnotation:
 
-# tolerateNonExistentBackendService permits rules which specify backend services that don't exist, true by default
+# tolerateNonExistentBackendService permits rules which specify backend services that don't exist, true by default (When enabled, it will return 503 error if backend service not exist)
 tolerateNonExistentBackendService:
 
-# tolerateNonExistentBackendAction permits rules which specify backend actions that don't exist, true by default
+# tolerateNonExistentBackendAction permits rules which specify backend actions that don't exist, true by default (When enabled, it will return 503 error if backend action not exist)
 tolerateNonExistentBackendAction:
 
 # defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners
@@ -244,6 +257,17 @@ livenessProbe:
     port: 61779
     scheme: HTTP
   initialDelaySeconds: 30
+  timeoutSeconds: 10
+
+# readiness probe configuration for the controller
+readinessProbe:
+  failureThreshold: 2
+  httpGet:
+    path: /readyz
+    port: 61779
+    scheme: HTTP
+  successThreshold: 1
+  initialDelaySeconds: 10
   timeoutSeconds: 10
 
 # Environment variables to set for aws-load-balancer-controller pod.
@@ -326,6 +350,9 @@ controllerConfig:
   # NLBHealthCheckAdvancedConfig: true
   # ALBSingleSubnet: false
 
+certDiscovery: 
+  allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
+
 # objectSelector for webhook
 objectSelector:
   matchExpressions:
@@ -361,3 +388,6 @@ ingressClassConfig:
 
 # enableServiceMutatorWebhook allows you enable the webhook which makes this controller the default for all new services of type LoadBalancer
 enableServiceMutatorWebhook: true
+
+# serviceTargetENISGTags specifies AWS tags, in addition to the cluster tags, for finding the target ENI SG to which to add inbound rules from NLBs.
+serviceTargetENISGTags:

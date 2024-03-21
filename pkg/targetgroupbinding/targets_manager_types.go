@@ -38,7 +38,8 @@ func (t *TargetInfo) IsDraining() bool {
 	if t.TargetHealth == nil {
 		return false
 	}
-	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumDraining
+	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumDraining ||
+		awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumUnhealthyDraining
 }
 
 // IsInitial returns whether target is in initial state.

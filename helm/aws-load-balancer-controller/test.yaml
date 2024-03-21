@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.6.1
+  tag: v2.7.0
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -209,10 +209,10 @@ disableIngressClassAnnotation:
 # disableIngressGroupNameAnnotation disables the usage of alb.ingress.kubernetes.io/group.name annotation, false by default
 disableIngressGroupNameAnnotation:
 
-# tolerateNonExistentBackendService permits rules which specify backend services that don't exist, true by default
+# tolerateNonExistentBackendService permits rules which specify backend services that don't exist, true by default (When enabled, it will return 503 error if backend service not exist)
 tolerateNonExistentBackendService:
 
-# tolerateNonExistentBackendAction permits rules which specify backend actions that don't exist, true by default
+# tolerateNonExistentBackendAction permits rules which specify backend actions that don't exist, true by default (When enabled, it will return 503 error if backend action not exist)
 tolerateNonExistentBackendAction:
 
 # defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners

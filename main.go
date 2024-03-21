@@ -19,6 +19,8 @@ package main
 import (
 	"os"
 
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
+
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	zapraw "go.uber.org/zap"
@@ -118,14 +120,13 @@ func main() {
 	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
 		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, ctrl.Log.WithName("backend-sg-provider"))
 	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
+	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerCFG.FeatureGates, cloud.RGT(), ctrl.Log)
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
-		finalizerManager, sgManager, sgReconciler, subnetResolver,
-		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"),
-		managedResourcesCollector)
+		finalizerManager, sgManager, sgReconciler, subnetResolver, elbv2TaggingManager,
+		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"), managedResourcesCollector)
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
-		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider,
-		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"),
-		managedResourcesCollector)
+		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager,
+		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"), managedResourcesCollector)
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
 		finalizerManager, tgbResManager,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
@@ -154,6 +155,14 @@ func main() {
 	setupLog.Info("adding health check for controller")
 	if err != nil {
 		setupLog.Error(err, "unable add a health check")
+		os.Exit(1)
+	}
+
+	// Add readiness probe
+	err = mgr.AddReadyzCheck("ready-webhook", mgr.GetWebhookServer().StartedChecker())
+	setupLog.Info("adding readiness check for webhook")
+	if err != nil {
+		setupLog.Error(err, "unable add a readiness check")
 		os.Exit(1)
 	}
 

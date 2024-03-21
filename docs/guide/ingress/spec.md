@@ -24,6 +24,7 @@ spec:
       http:
         paths:
           - path: /*
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: "service-2048"

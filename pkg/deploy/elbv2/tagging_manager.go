@@ -2,6 +2,10 @@ package elbv2
 
 import (
 	"context"
+	"sync"
+	"time"
+
+	"k8s.io/apimachinery/pkg/util/cache"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
@@ -18,6 +22,8 @@ import (
 const (
 	// ELBV2 API supports up to 20 resource per DescribeTags API call.
 	defaultDescribeTagsChunkSize = 20
+	// cache ttl for tags on ELB resources.
+	defaultResourceTagsCacheTTL = 20 * time.Minute
 )
 
 // LoadBalancer with it's tags.
@@ -103,6 +109,8 @@ func NewDefaultTaggingManager(elbv2Client services.ELBV2, vpcID string, featureG
 		featureGates:          featureGates,
 		logger:                logger,
 		describeTagsChunkSize: defaultDescribeTagsChunkSize,
+		resourceTagsCache:     cache.NewExpiring(),
+		resourceTagsCacheTTL:  defaultResourceTagsCacheTTL,
 		rgt:                   rgt,
 	}
 }
@@ -117,7 +125,11 @@ type defaultTaggingManager struct {
 	featureGates          config.FeatureGates
 	logger                logr.Logger
 	describeTagsChunkSize int
-	rgt                   services.RGT
+	// cache for tags on ELB resources.
+	resourceTagsCache      *cache.Expiring
+	resourceTagsCacheTTL   time.Duration
+	resourceTagsCacheMutex sync.RWMutex
+	rgt                    services.RGT
 }
 
 func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, desiredTags map[string]string, opts ...ReconcileTagsOption) error {
@@ -128,7 +140,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 	reconcileOpts.ApplyOptions(opts)
 	currentTags := reconcileOpts.CurrentTags
 	if currentTags == nil {
-		tagsByARN, err := m.describeResourceTagsNative(ctx, []string{arn})
+		tagsByARN, err := m.describeResourceTags(ctx, []string{arn})
 		if err != nil {
 			return err
 		}
@@ -153,6 +165,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 		if _, err := m.elbv2Client.AddTagsWithContext(ctx, req); err != nil {
 			return err
 		}
+		m.invalidateResourceTagsCache(arn)
 		m.logger.Info("added resource tags",
 			"arn", arn)
 	}
@@ -170,6 +183,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, arn string, d
 		if _, err := m.elbv2Client.RemoveTagsWithContext(ctx, req); err != nil {
 			return err
 		}
+		m.invalidateResourceTagsCache(arn)
 		m.logger.Info("removed resource tags",
 			"arn", arn)
 	}
@@ -193,7 +207,7 @@ func (m *defaultTaggingManager) ListListeners(ctx context.Context, lbARN string)
 	}
 	var tagsByARN map[string]map[string]string
 	if m.featureGates.Enabled(config.ListenerRulesTagging) {
-		tagsByARN, err = m.describeResourceTagsNative(ctx, lsARNs)
+		tagsByARN, err = m.describeResourceTags(ctx, lsARNs)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +240,7 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 	}
 	var tagsByARN map[string]map[string]string
 	if m.featureGates.Enabled(config.ListenerRulesTagging) {
-		tagsByARN, err = m.describeResourceTagsNative(ctx, lrARNs)
+		tagsByARN, err = m.describeResourceTags(ctx, lrARNs)
 		if err != nil {
 			return nil, err
 		}
@@ -242,8 +256,10 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 	return sdkLRs, err
 }
 
+// TODO: we can refactor this by store provisioned LB's ARN as annotations on Ingress/Service, thus avoid this heavy lookup calls when RGT is not available.
 func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
 	if m.featureGates.Enabled(config.EnableRGTAPI) {
+		m.logger.V(1).Info("ResourceGroupTagging enabled, list the load balancers via RGT API")
 		return m.listLoadBalancersRGT(ctx, tagFilters)
 	}
 	return m.listLoadBalancersNative(ctx, tagFilters)
@@ -251,10 +267,10 @@ func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilter
 
 func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
 	if m.featureGates.Enabled(config.EnableRGTAPI) {
+		m.logger.V(1).Info("ResourceGroupTagging enabled, list the target groups via RGT API")
 		return m.listTargetGroupsRGT(ctx, tagFilters)
 	}
 	return m.listTargetGroupsNative(ctx, tagFilters)
-
 }
 
 func (m *defaultTaggingManager) listLoadBalancersRGT(ctx context.Context, tagFilters []tracking.TagFilter) ([]LoadBalancerWithTags, error) {
@@ -311,7 +327,7 @@ func (m *defaultTaggingManager) listLoadBalancersNative(ctx context.Context, tag
 		lbARNsWithinVPC = append(lbARNsWithinVPC, lbARN)
 		lbByARNWithinVPC[lbARN] = lb
 	}
-	tagsByARN, err := m.describeResourceTagsNative(ctx, lbARNsWithinVPC)
+	tagsByARN, err := m.describeResourceTags(ctx, lbARNsWithinVPC)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +407,7 @@ func (m *defaultTaggingManager) listTargetGroupsNative(ctx context.Context, tagF
 		tgARNsWithinVPC = append(tgARNsWithinVPC, tgARN)
 		tgByARNWithinVPC[tgARN] = tg
 	}
-	tagsByARN, err := m.describeResourceTagsNative(ctx, tgARNsWithinVPC)
+	tagsByARN, err := m.describeResourceTags(ctx, tgARNsWithinVPC)
 	if err != nil {
 		return nil, err
 	}
@@ -416,9 +432,34 @@ func (m *defaultTaggingManager) listTargetGroupsNative(ctx context.Context, tagF
 	return matchedTGs, nil
 }
 
-// describeResourceTagsNative describes tags for elbv2 resources.
+func (m *defaultTaggingManager) describeResourceTags(ctx context.Context, arns []string) (map[string]map[string]string, error) {
+	m.resourceTagsCacheMutex.Lock()
+	defer m.resourceTagsCacheMutex.Unlock()
+
+	tagsByARN := make(map[string]map[string]string, len(arns))
+	var arnsWithoutTagsCache []string
+	for _, arn := range arns {
+		if rawTagsCacheItem, exists := m.resourceTagsCache.Get(arn); exists {
+			tagsCacheItem := rawTagsCacheItem.(map[string]string)
+			tagsByARN[arn] = tagsCacheItem
+		} else {
+			arnsWithoutTagsCache = append(arnsWithoutTagsCache, arn)
+		}
+	}
+	tagsByARNFromAWS, err := m.describeResourceTagsFromAWS(ctx, arnsWithoutTagsCache)
+	if err != nil {
+		return nil, err
+	}
+	for arn, tags := range tagsByARNFromAWS {
+		m.resourceTagsCache.Set(arn, tags, m.resourceTagsCacheTTL)
+		tagsByARN[arn] = tags
+	}
+	return tagsByARN, nil
+}
+
+// describeResourceTagsFromAWS describes tags for elbv2 resources.
 // returns tags indexed by resource ARN.
-func (m *defaultTaggingManager) describeResourceTagsNative(ctx context.Context, arns []string) (map[string]map[string]string, error) {
+func (m *defaultTaggingManager) describeResourceTagsFromAWS(ctx context.Context, arns []string) (map[string]map[string]string, error) {
 	tagsByARN := make(map[string]map[string]string, len(arns))
 	arnsChunks := algorithm.ChunkStrings(arns, m.describeTagsChunkSize)
 	for _, arnsChunk := range arnsChunks {
@@ -434,6 +475,13 @@ func (m *defaultTaggingManager) describeResourceTagsNative(ctx context.Context, 
 		}
 	}
 	return tagsByARN, nil
+}
+
+func (m *defaultTaggingManager) invalidateResourceTagsCache(arn string) {
+	m.resourceTagsCacheMutex.Lock()
+	defer m.resourceTagsCacheMutex.Unlock()
+
+	m.resourceTagsCache.Delete(arn)
 }
 
 // convert tags into AWS SDK tag presentation.

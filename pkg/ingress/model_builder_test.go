@@ -308,6 +308,7 @@ const baseStackJSON = `
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
                             },
                             "targetType":"instance",
+                            "vpcID": "vpc-dummy",
                             "ipAddressType":"ipv4",
                             "serviceRef":{
                                 "name":"svc-1",
@@ -350,6 +351,7 @@ const baseStackJSON = `
                             },
                             "targetType":"instance",
                             "ipAddressType":"ipv4",
+                            "vpcID": "vpc-dummy",
                             "serviceRef":{
                                 "name":"svc-2",
                                 "port":"http"
@@ -390,6 +392,7 @@ const baseStackJSON = `
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
                             },
                             "targetType":"ip",
+                            "vpcID": "vpc-dummy",
                             "ipAddressType":"ipv4",
                             "serviceRef":{
                                 "name":"svc-3",
@@ -1130,7 +1133,10 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 					"port": 443,
 					"protocol": "HTTPS",
-					"sslPolicy": "ELBSecurityPolicy-2016-08"
+					"sslPolicy": "ELBSecurityPolicy-2016-08",
+					"mutualAuthentication" : {
+						"mode" : "off"
+					}
 				}
 			},
 			"80": null
@@ -1439,6 +1445,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						"spec": {
 							"ipAddressType": "ipv4",
+							"vpcID": "vpc-dummy",
 							"networking": {
 								"ingress": [
 									{
@@ -1735,7 +1742,10 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 					"port": 443,
 					"protocol": "HTTPS",
-					"sslPolicy": "ingress-class-policy"
+					"sslPolicy": "ingress-class-policy",
+					"mutualAuthentication": {
+						"mode" : "off"
+					}
 				}
 			},
 			"80": null
@@ -2423,6 +2433,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						"spec": {
 							"ipAddressType": "ipv6",
+							"vpcID": "vpc-dummy",
 							"networking": {
 								"ingress": [
 									{
@@ -2689,6 +2700,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						"spec": {
 							"ipAddressType": "ipv4",
+							"vpcID": "vpc-dummy",
 							"networking": {
 								"ingress": [
 									{
@@ -2848,6 +2860,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						"spec": {
 							"ipAddressType": "ipv4",
+							"vpcID": "vpc-dummy",
 							"networking": {
 								"ingress": [
 									{
@@ -2904,6 +2917,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			vpcID := "vpc-dummy"
 			clusterName := "cluster-dummy"
 			ec2Client := services.NewMockEC2(ctrl)
+			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, res := range tt.fields.describeSecurityGroupsResult {
 				ec2Client.EXPECT().DescribeSecurityGroupsAsList(gomock.Any(), gomock.Any()).Return(res.securityGroups, res.err)
 			}
@@ -2938,6 +2952,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				k8sClient:              k8sClient,
 				eventRecorder:          eventRecorder,
 				ec2Client:              ec2Client,
+				elbv2Client:            elbv2Client,
 				vpcID:                  vpcID,
 				clusterName:            clusterName,
 				annotationParser:       annotationParser,

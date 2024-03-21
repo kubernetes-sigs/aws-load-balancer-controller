@@ -444,6 +444,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 				Networking:    tgbNetworking,
 				NodeSelector:  nodeSelector,
 				IPAddressType: (*elbv2api.TargetGroupIPAddressType)(targetGroup.Spec.IPAddressType),
+				VpcID:         t.vpcID,
 			},
 		},
 	}, nil

@@ -71,6 +71,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |aws-max-retries                        | int                             | 10              | Maximum retries for AWS APIs |
 |aws-region                             | string                          | [instance metadata](#instance-metadata)   | AWS Region for the kubernetes cluster |
 |aws-vpc-id                             | string                          | [instance metadata](#instance-metadata)   | AWS VPC ID for the Kubernetes cluster |
+|allowed-certificate-authority-arns     | stringList                      | []              | Specify an optional list of CA ARNs to filter on in cert discovery (empty means all CAs are allowed) |
 |backend-security-group                 | string                          |                 | Backend security group id to use for the ingress rules on the worker node SG|
 |cluster-name                           | string                          |                 | Kubernetes cluster name|
 |default-ssl-policy                     | string                          | ELBSecurityPolicy-2016-08 | Default SSL Policy that will be applied to all Ingresses or Services that do not have the SSL Policy annotation |
@@ -101,8 +102,8 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 |[sync-period](#sync-period)                            | duration                        | 10h0m0s         | Period at which the controller forces the repopulation of its local object stores|
 |targetgroupbinding-max-concurrent-reconciles | int                       | 3               | Maximum number of concurrently running reconcile loops for targetGroupBinding |
 |targetgroupbinding-max-exponential-backoff-delay | duration              | 16m40s          | Maximum duration of exponential backoff for targetGroupBinding reconcile failures |
-|tolerate-non-existent-backend-service  | boolean                         | true            | Whether to allow rules which refer to backend services that do not exist |
-|tolerate-non-existent-backend-action  | boolean                         | true            | Whether to allow rules which refer to backend actions that do not exist |
+|tolerate-non-existent-backend-service  | boolean                         | true            | Whether to allow rules which refer to backend services that do not exist (When enabled, it will return 503 error if backend service not exist) |
+|tolerate-non-existent-backend-action  | boolean                         | true            | Whether to allow rules which refer to backend actions that do not exist (When enabled, it will return 503 error if backend action not exist) |
 |watch-namespace                        | string                          |                 | Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched. |
 |webhook-bind-port                      | int                             | 9443            | The TCP port the Webhook server binds to |
 |webhook-cert-dir                       | string                          | /tmp/k8s-webhook-server/serving-certs | The directory that contains the server key and certificate |
@@ -139,7 +140,7 @@ By default, the controller assumes sole ownership of the WAF addons associated t
 And the users should disable them accordingly if they want a third party like AWS Firewall Manager to associate or remove the WAF-ACL of the ALBs.
 Once disabled, the controller shall not take any actions on the waf addons of the provisioned ALBs.
 
-###  throttle config
+### throttle config
 
 Controller uses the following default throttle config:
 
@@ -161,15 +162,16 @@ If running on EC2, the default values are obtained from the instance metadata se
 ### Feature Gates
 They are a set of kye=value pairs that describe AWS load balance controller features. You can use it as flags `--feature-gates=key1=value1,key2=value2`
 
-|Features-gate Supported Key            | Type                            | Default Value   | Description |
-|---------------------------------------|---------------------------------|-----------------|-------------|
-| ListenerRulesTagging                  | string                          | true           | Enable or disable tagging AWS load balancer listeners and rules |
-| WeightedTargetGroups                  | string                          | true           | Enable or disable weighted target groups |
-| ServiceTypeLoadBalancerOnly           | string                          | false          | If enabled, controller will be limited to reconciling service of type `LoadBalancer`|
-| EndpointsFailOpen                     | string                          | true           | Enable or disable allowing endpoints with `ready:unknown` state in the target groups. |
-| EnableServiceController               | string                          | true           | Toggles support for `Service` type resources. |
-| EnableIPTargetType                    | string                          | true           | Used to toggle support for target-type `ip` across `Ingress` and `Service` type resources. |
-| EnableRGTAPI                       | string                          | false          | If enabled, the tagging manager will describe resource tags via RGT APIs, otherwise via ELB APIs. In order to enable RGT API, `tag:GetResources` is needed in controller IAM policy. |
-| SubnetsClusterTagCheck                | string                          | true           | Enable or disable the check for `kubernetes.io/cluster/${cluster-name}` during subnet auto-discovery |
-| NLBHealthCheckAdvancedConfiguration   | string                          | true           | Enable or disable advanced health check configuration for NLB, for example health check timeout |
-| ALBSingleSubnet                       | string                          | false          | If enabled, controller will allow using only 1 subnet for provisioning ALB, which need to get whitelisted by ELB in advance |
+|Features-gate Supported Key            | Type                            | Default Value | Description                                                                                                                                                                          |
+|---------------------------------------|---------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ListenerRulesTagging                  | string                          | true          | Enable or disable tagging AWS load balancer listeners and rules                                                                                                                      |
+| WeightedTargetGroups                  | string                          | true          | Enable or disable weighted target groups                                                                                                                                             |
+| ServiceTypeLoadBalancerOnly           | string                          | false         | If enabled, controller will be limited to reconciling service of type `LoadBalancer`                                                                                                 |
+| EndpointsFailOpen                     | string                          | true          | Enable or disable allowing endpoints with `ready:unknown` state in the target groups.                                                                                                |
+| EnableServiceController               | string                          | true          | Toggles support for `Service` type resources.                                                                                                                                        |
+| EnableIPTargetType                    | string                          | true          | Used to toggle support for target-type `ip` across `Ingress` and `Service` type resources.                                                                                           |
+| EnableRGTAPI                       | string                          | false         | If enabled, the tagging manager will describe resource tags via RGT APIs, otherwise via ELB APIs. In order to enable RGT API, `tag:GetResources` is needed in controller IAM policy. |
+| SubnetsClusterTagCheck                | string                          | true          | Enable or disable the check for `kubernetes.io/cluster/${cluster-name}` during subnet auto-discovery                                                                                 |
+| NLBHealthCheckAdvancedConfiguration   | string                          | true          | Enable or disable advanced health check configuration for NLB, for example health check timeout                                                                                      |
+| ALBSingleSubnet                       | string                          | false         | If enabled, controller will allow using only 1 subnet for provisioning ALB, which need to get whitelisted by ELB in advance                                                          |
+| NLBSecurityGroup                      | string                          | true          | Enable or disable all NLB security groups actions including frontend sg creation, backend sg creation, and backend sg modifications                                                  |

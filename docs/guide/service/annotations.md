@@ -229,6 +229,10 @@ for proxy protocol v2 configuration.
             ```
             service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
             ```
+        - disable immediate [connection termination for unhealthy targets](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/target-group-health.html#unhealthy-target-connection-termination) and configure a 30s draining interval (available range is  0-360000 seconds)
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: target_health_state.unhealthy.connection_termination.enabled=false,target_health_state.unhealthy.draining_interval_seconds=30
+            ```
 
 
 - <a name="load-balancer-attributes">`service.beta.kubernetes.io/aws-load-balancer-attributes`</a> specifies [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the NLB.
@@ -253,6 +257,10 @@ for proxy protocol v2 configuration.
         - enable cross zone load balancing
         ```
         service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+        ```
+        - enable client availability zone affinity
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
         ```
 
 - <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
@@ -295,6 +303,7 @@ Health check on target groups can be configured with following annotations:
         - you can specify `tcp`, or `http` or `https`, `tcp` is the default
         - `tcp` is the default health check protocol if the service `spec.externalTrafficPolicy` is `Cluster`, `http` if `Local`
         - if the service `spec.externalTrafficPolicy` is `Local`, do **not** use `tcp` for health check
+        - Supports only single protocol per service
 
     !!!example
         ```service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http
@@ -412,7 +421,7 @@ Load balancer access can be controlled via following annotations:
 - <a name="lb-source-ranges">`service.beta.kubernetes.io/load-balancer-source-ranges`</a> specifies the CIDRs that are allowed to access the NLB.
 
     !!!tip
-        we recommend specifying CIDRs in the service `Spec.LoadBalancerSourceRanges` instead
+        we recommend specifying CIDRs in the service `spec.loadBalancerSourceRanges` instead
 
     !!!note "Default"
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"
