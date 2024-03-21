@@ -77,6 +77,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+	securityGroupsInboundRulesOnPrivateLink, err := t.buildSecurityGroupsInboundRulesOnPrivateLink(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+
 	spec := elbv2model.LoadBalancerSpec{
 		Name:                   name,
 		Type:                   elbv2model.LoadBalancerTypeNetwork,
@@ -87,6 +92,22 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 		LoadBalancerAttributes: lbAttributes,
 		Tags:                   tags,
 	}
+
+	if securityGroupsInboundRulesOnPrivateLink != "" {
+		spec = elbv2model.LoadBalancerSpec{
+			Name:                                    name,
+			Type:                                    elbv2model.LoadBalancerTypeNetwork,
+			Scheme:                                  &scheme,
+			IPAddressType:                           &ipAddressType,
+			SecurityGroups:                          securityGroups,
+			SubnetMappings:                          subnetMappings,
+			LoadBalancerAttributes:                  lbAttributes,
+			Tags:                                    tags,
+			SecurityGroupsInboundRulesOnPrivateLink: &securityGroupsInboundRulesOnPrivateLink,
+		}
+
+	}
+
 	return spec, nil
 }
 
@@ -174,6 +195,22 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 		return elbv2model.IPAddressTypeDualStack, nil
 	default:
 		return "", errors.Errorf("unknown IPAddressType: %v", rawIPAddressType)
+	}
+}
+
+func (t *defaultModelBuildTask) buildSecurityGroupsInboundRulesOnPrivateLink(_ context.Context) (elbv2model.SecurityGroupsInboundRulesOnPrivateLinkStatus, error) {
+	var securityGroupsInboundRulesOnPrivateLink string
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEnforceSGInboundRulesOnPrivateLinkTraffic, &securityGroupsInboundRulesOnPrivateLink, t.service.Annotations); !exists {
+		return "", nil
+	}
+
+	switch securityGroupsInboundRulesOnPrivateLink {
+	case string(elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOn):
+		return elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOn, nil
+	case string(elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOff):
+		return elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOff, nil
+	default:
+		return "", errors.Errorf("Invalid value for securityGroupsInboundRulesOnPrivateLink status: %v, value must be one of [%v, %v]", securityGroupsInboundRulesOnPrivateLink, string(elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOn), string(elbv2model.SecurityGroupsInboundRulesOnPrivateLinkOff))
 	}
 }
 

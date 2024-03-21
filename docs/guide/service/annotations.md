@@ -50,6 +50,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        | 
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic](#update-security-settings)         | string                  |                           |                                                                                   
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -487,6 +488,14 @@ Load balancer access can be controlled via following annotations:
         ```
         service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: "false"
         ```
+
+- <a name="update-security-settings">`service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic`</a> specifies whether to apply security group rules to traffic sent to the load balancer through AWS PrivateLink. 
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic: "off"
+        ```
+
 
 ## Legacy Cloud Provider
 The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the AWS cloud provider's legacy service controller.
