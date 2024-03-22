@@ -2,6 +2,8 @@ package elbv2
 
 import (
 	"context"
+	"os"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -56,8 +58,17 @@ func (s *listenerSynthesizer) synthesizeListenersOnLB(ctx context.Context, lbARN
 	if err != nil {
 		return err
 	}
+	preventDeletionTagName := os.Getenv("PREVENT_DELETION_TAG_NAME")
 	matchedResAndSDKLSs, unmatchedResLSs, unmatchedSDKLSs := matchResAndSDKListeners(resLSs, sdkLSs)
 	for _, sdkLS := range unmatchedSDKLSs {
+		if preventDeletionTagName != "" {
+			if _, found := sdkLS.Tags[preventDeletionTagName]; found {
+				if sdkLS.Listener.ListenerArn != nil {
+					s.logger.Info("skip deleting listener", "arn", *sdkLS.Listener.ListenerArn)
+				}
+				continue
+			}
+		}
 		if err := s.lsManager.Delete(ctx, sdkLS); err != nil {
 			return err
 		}
