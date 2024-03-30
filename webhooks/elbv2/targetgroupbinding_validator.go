@@ -21,11 +21,12 @@ import (
 const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
 
 // NewTargetGroupBindingValidator returns a validator for TargetGroupBinding CRD.
-func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, logger logr.Logger) *targetGroupBindingValidator {
+func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, logger logr.Logger) *targetGroupBindingValidator {
 	return &targetGroupBindingValidator{
 		k8sClient:   k8sClient,
 		elbv2Client: elbv2Client,
 		logger:      logger,
+		vpcID:       vpcID,
 	}
 }
 
@@ -35,6 +36,7 @@ type targetGroupBindingValidator struct {
 	k8sClient   client.Client
 	elbv2Client services.ELBV2
 	logger      logr.Logger
+	vpcID       string
 }
 
 func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Object, error) {
@@ -112,7 +114,8 @@ func (v *targetGroupBindingValidator) checkImmutableFields(tgb *elbv2api.TargetG
 		changedImmutableFields = append(changedImmutableFields, "spec.ipAddressType")
 	}
 	if (tgb.Spec.VpcID != "" && oldTGB.Spec.VpcID != "" && (tgb.Spec.VpcID) != (oldTGB.Spec.VpcID)) ||
-		(tgb.Spec.VpcID == "") != (oldTGB.Spec.VpcID == "") {
+		(oldTGB.Spec.VpcID != "" && tgb.Spec.VpcID == "") ||
+		(oldTGB.Spec.VpcID == "" && tgb.Spec.VpcID != "" && tgb.Spec.VpcID != v.vpcID) {
 		changedImmutableFields = append(changedImmutableFields, "spec.vpcID")
 	}
 	if len(changedImmutableFields) != 0 {
