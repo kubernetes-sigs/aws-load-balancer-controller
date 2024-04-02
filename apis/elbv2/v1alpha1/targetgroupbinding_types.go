@@ -64,7 +64,7 @@ type NetworkingPeer struct {
 	SecurityGroup *SecurityGroup `json:"securityGroup,omitempty"`
 }
 
-// +kubebuilder:validation:Enum=TCP;UDP
+// +kubebuilder:validation:Enum=TCP;UDP;TCP_UDP
 type NetworkingProtocol string
 
 const (
@@ -73,6 +73,9 @@ const (
 
 	// NetworkingProtocolUDP is the UDP protocol.
 	NetworkingProtocolUDP NetworkingProtocol = "UDP"
+
+	// NetworkingProtocolTCPUDP is the TCP_UDP protocol.
+	NetworkingProtocolTCPUDP NetworkingProtocol = "TCP_UDP"
 )
 
 type NetworkingPort struct {
