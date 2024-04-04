@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -21,6 +22,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_defaultModelBuilderTask_Build(t *testing.T) {
@@ -127,7 +129,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					Namespace: "default",
 					UID:       "bdca2bd0-bfc6-449a-88a3-03451f05f18c",
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-type":                                     "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic": "on",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -184,6 +187,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-6b0ba8ff70",
              "type":"network",
              "scheme":"internal",
+             "securityGroupsInboundRulesOnPrivateLink":"on",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -274,9 +278,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					Namespace: "default",
 					UID:       "bdca2bd0-bfc6-449a-88a3-03451f05f18c",
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":            "nlb-ip",
-						"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "dualstack",
-						"service.beta.kubernetes.io/aws-load-balancer-scheme":          "internet-facing",
+						"service.beta.kubernetes.io/aws-load-balancer-type":                                     "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-ip-address-type":                          "dualstack",
+						"service.beta.kubernetes.io/aws-load-balancer-scheme":                                   "internet-facing",
+						"service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic": "on",
 					},
 				},
 				Spec: corev1.ServiceSpec{
@@ -332,6 +337,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-4d831c6ca6",
              "type":"network",
              "scheme":"internet-facing",
+             "securityGroupsInboundRulesOnPrivateLink":"on",
              "ipAddressType":"dualstack",
              "subnetMapping":[
                 {
@@ -422,15 +428,16 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					Name:      "nlb-ip-svc",
 					Namespace: "default",
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-type":                            "nlb-ip",
-						"service.beta.kubernetes.io/aws-load-balancer-scheme":                          "internal",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":            "HTTP",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                "8888",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-path":                "/healthz",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":            "10",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":             "30",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":   "2",
-						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold": "2",
+						"service.beta.kubernetes.io/aws-load-balancer-type":                                     "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-scheme":                                   "internal",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol":                     "HTTP",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-port":                         "8888",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-path":                         "/healthz",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval":                     "10",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout":                      "30",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold":            "2",
+						"service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold":          "2",
+						"service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic": "off",
 					},
 					UID: "7ab4be33-11c2-4a7b-b655-7add8affab36",
 				},
@@ -517,6 +524,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-518cdfc227",
              "type":"network",
              "scheme":"internal",
+             "securityGroupsInboundRulesOnPrivateLink":"off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -6453,7 +6461,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			}
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
 				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, enableIPTargetType, serviceUtils,
-				backendSGProvider, sgResolver, tt.enableBackendSG, tt.disableRestrictedSGRules)
+				backendSGProvider, sgResolver, tt.enableBackendSG, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}))
 			ctx := context.Background()
 			stack, _, _, err := builder.Build(ctx, tt.svc)
 			if tt.wantError {

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -40,7 +41,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
-	disableRestrictedSGRules bool) *defaultModelBuilder {
+	disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:         annotationParser,
 		subnetsResolver:          subnetsResolver,
@@ -61,6 +62,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		ec2Client:                ec2Client,
 		enableBackendSG:          enableBackendSG,
 		disableRestrictedSGRules: disableRestrictedSGRules,
+		logger:                   logger,
 	}
 }
 
@@ -87,6 +89,7 @@ type defaultModelBuilder struct {
 	defaultSSLPolicy    string
 	defaultTargetType   elbv2model.TargetType
 	enableIPTargetType  bool
+	logger              logr.Logger
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
@@ -107,6 +110,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		ec2Client:                b.ec2Client,
 		enableBackendSG:          b.enableBackendSG,
 		disableRestrictedSGRules: b.disableRestrictedSGRules,
+		logger:                   b.logger,
 
 		service:   service,
 		stack:     stack,
@@ -162,6 +166,7 @@ type defaultModelBuildTask struct {
 	serviceUtils        ServiceUtils
 	enableIPTargetType  bool
 	ec2Client           services.EC2
+	logger              logr.Logger
 
 	service *corev1.Service
 
