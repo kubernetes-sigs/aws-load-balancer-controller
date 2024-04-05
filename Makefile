@@ -4,7 +4,8 @@ MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 # Image URL to use all building/pushing image targets
 IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.7.0
 # Image URL to use for builder stage in Docker build
-BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:1.21.5
+GOLANG_VERSION ?= $(shell cat .go-version)
+BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:$(GOLANG_VERSION)
 # Image URL to use for base layer in Docker build
 BASE_IMAGE ?= public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2023-09-06-1694026927.2
 IMG_PLATFORM ?= linux/amd64,linux/arm64
@@ -23,6 +24,9 @@ GOBIN=$(shell go env GOPATH)/bin
 else
 GOBIN=$(shell go env GOBIN)
 endif
+
+export GOSUMDB = sum.golang.org
+export GOTOOLCHAIN = go$(GOLANG_VERSION)
 
 all: controller
 
@@ -113,7 +117,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.11.1 ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.14.0 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen

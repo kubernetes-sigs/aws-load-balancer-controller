@@ -43,6 +43,9 @@ func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtim
 	if err := m.defaultingIPAddressType(ctx, tgb); err != nil {
 		return nil, err
 	}
+	if err := m.defaultingVpcID(ctx, tgb); err != nil {
+		return nil, err
+	}
 	return tgb, nil
 }
 
@@ -85,6 +88,18 @@ func (m *targetGroupBindingMutator) defaultingIPAddressType(ctx context.Context,
 	return nil
 }
 
+func (m *targetGroupBindingMutator) defaultingVpcID(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.VpcID != "" {
+		return nil
+	}
+	vpcId, err := m.getVpcIDFromAWS(ctx, tgb.Spec.TargetGroupARN)
+	if err != nil {
+		return errors.Wrap(err, "unable to get target group VpcID")
+	}
+	tgb.Spec.VpcID = vpcId
+	return nil
+}
+
 func (m *targetGroupBindingMutator) obtainSDKTargetTypeFromAWS(ctx context.Context, tgARN string) (string, error) {
 	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgARN)
 	if err != nil {
@@ -123,6 +138,14 @@ func (m *targetGroupBindingMutator) getTargetGroupFromAWS(ctx context.Context, t
 		return nil, errors.Errorf("expecting a single targetGroup but got %v", len(tgList))
 	}
 	return tgList[0], nil
+}
+
+func (m *targetGroupBindingMutator) getVpcIDFromAWS(ctx context.Context, tgARN string) (string, error) {
+	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgARN)
+	if err != nil {
+		return "", err
+	}
+	return awssdk.StringValue(targetGroup.VpcId), nil
 }
 
 // +kubebuilder:webhook:path=/mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=true,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=mtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1

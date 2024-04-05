@@ -227,7 +227,10 @@ Traffic Routing can be controlled with following annotations:
 - <a name="subnets">`alb.ingress.kubernetes.io/subnets`</a> specifies the [Availability Zone](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html)s that the ALB will route traffic to. See [Load Balancer subnets](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html) for more details.
 
     !!!note ""
-        You must specify at least two subnets in different AZs. Either subnetID or subnetName(Name tag on subnets) can be used.
+        You must specify at least two subnets in different AZs unless utilizing the outpost locale, in which case a single subnet suffices. Either subnetID or subnetName(Name tag on subnets) can be used.
+
+    !!!note ""
+        You must not mix subnets from different locales: availability-zone, local-zone, wavelength-zone, outpost.
 
     !!!tip
         You can enable subnet auto discovery to avoid specifying this annotation on every Ingress. See [Subnet Discovery](../../deploy/subnet_discovery.md) for instructions.

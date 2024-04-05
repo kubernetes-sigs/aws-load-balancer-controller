@@ -9,6 +9,7 @@ const (
 	flagIngressMaxConcurrentReconciles       = "ingress-max-concurrent-reconciles"
 	flagTolerateNonExistentBackendService    = "tolerate-non-existent-backend-service"
 	flagTolerateNonExistentBackendAction     = "tolerate-non-existent-backend-action"
+	flagAllowedCAArns                        = "allowed-certificate-authority-arns"
 	defaultIngressClass                      = "alb"
 	defaultDisableIngressClassAnnotation     = false
 	defaultDisableIngressGroupNameAnnotation = false
@@ -42,6 +43,9 @@ type IngressConfig struct {
 	// TolerateNonExistentBackendAction specifies whether to allow rules that reference a backend action that does not
 	// exist. In this case, requests to that rule will result in a 503 error.
 	TolerateNonExistentBackendAction bool
+
+	// AllowedCertificateAuthoritiyARNs contains a list of all CAs to consider when discovering certificates for ingress resources
+	AllowedCertificateAuthorityARNs []string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -58,4 +62,5 @@ func (cfg *IngressConfig) BindFlags(fs *pflag.FlagSet) {
 		"Tolerate rules that specify a non-existent backend service")
 	fs.BoolVar(&cfg.TolerateNonExistentBackendAction, flagTolerateNonExistentBackendAction, defaultTolerateNonExistentBackendAction,
 		"Tolerate rules that specify a non-existent backend action")
+	fs.StringSliceVar(&cfg.AllowedCertificateAuthorityARNs, flagAllowedCAArns, []string{}, "Specify an optional list of CA ARNs to filter on in cert discovery")
 }

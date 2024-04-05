@@ -39,6 +39,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 	}
 	instanceTargetType := elbv2api.TargetTypeInstance
 	ipTargetType := elbv2api.TargetTypeIP
+	clusterVpcID := "vpcid-02"
 	tests := []struct {
 		name    string
 		fields  fields
@@ -180,6 +181,94 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			wantErr: errors.New("invalid IP address type ipv6 for TargetGroup tg-2"),
+		},
+		{
+			name: "VpcID in spec matches with TG vpc",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     awssdk.String("instance"),
+								IpAddressType:  awssdk.String("ipv6"),
+								VpcId:          &clusterVpcID,
+							},
+						},
+					},
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     awssdk.String("instance"),
+								IpAddressType:  awssdk.String("ipv6"),
+								VpcId:          &clusterVpcID,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &instanceTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv6,
+						VpcID:          clusterVpcID,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "VpcID provided doesnt match TG VpcID mismatch",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     awssdk.String("instance"),
+								IpAddressType:  awssdk.String("ipv6"),
+								VpcId:          &clusterVpcID,
+							},
+						},
+					},
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     awssdk.String("instance"),
+								IpAddressType:  awssdk.String("ipv6"),
+								VpcId:          &clusterVpcID,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &instanceTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv6,
+						VpcID:          "vpcid-01",
+					},
+				},
+			},
+			wantErr: errors.New("invalid VpcID vpcid-01 doesnt match VpcID from TargetGroup tg-2"),
 		},
 	}
 	for _, tt := range tests {
@@ -391,6 +480,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 	}
 	instanceTargetType := elbv2api.TargetTypeInstance
 	ipTargetType := elbv2api.TargetTypeIP
+	clusterVpcID := "cluster-vpc-id"
 	tests := []struct {
 		name    string
 		args    args
@@ -600,11 +690,89 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 			},
 			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
 		},
+		{
+			name: "VpcID modified from vpc-01 to vpc-02",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						VpcID:          "vpc-02",
+					},
+				},
+				oldTGB: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						VpcID:          "vpc-01",
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
+		},
+		{
+			name: "VpcID modified from vpc-01 to nil",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+					},
+				},
+				oldTGB: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						VpcID:          "vpc-01",
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
+		},
+		{
+			name: "VpcID modified from nil to vpc-01",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						VpcID:          "vpc-01",
+					},
+				},
+				oldTGB: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
+		},
+		{
+			name: "VpcID modified from nil to cluster vpc-id is allowed",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+						VpcID:          clusterVpcID,
+					},
+				},
+				oldTGB: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						TargetType:     &ipTargetType,
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &targetGroupBindingValidator{
 				logger: logr.New(&log.NullLogSink{}),
+				vpcID:  clusterVpcID,
 			}
 			err := v.checkImmutableFields(tt.args.tgb, tt.args.oldTGB)
 			if tt.wantErr != nil {
@@ -902,6 +1070,83 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 				assert.NoError(t, err)
 			} else {
 				assert.EqualError(t, err, tt.wantErr.Error())
+			}
+		})
+	}
+}
+
+func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
+	type args struct {
+		obj *elbv2api.TargetGroupBinding
+	}
+	type describeTargetGroupsAsListCall struct {
+		req  *elbv2sdk.DescribeTargetGroupsInput
+		resp []*elbv2sdk.TargetGroup
+		err  error
+	}
+	type fields struct {
+		describeTargetGroupsAsListCalls []describeTargetGroupsAsListCall
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr error
+	}{
+		{
+			name: "[ok] VpcID is not set",
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "[err] vpcID is not found",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						err: errors.New("vpcid not found"),
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          "vpcid-01",
+					},
+				},
+			},
+			wantErr: errors.New("unable to get target group VpcID: vpcid not found"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			elbv2Client := services.NewMockELBV2(ctrl)
+			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
+				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			v := &targetGroupBindingValidator{
+				k8sClient:   k8sClient,
+				elbv2Client: elbv2Client,
+				logger:      logr.New(&log.NullLogSink{}),
+			}
+			err := v.checkTargetGroupVpcID(context.Background(), tt.args.obj)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}

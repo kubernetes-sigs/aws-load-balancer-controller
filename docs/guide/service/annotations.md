@@ -51,6 +51,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        | 
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic](#update-security-settings)         | string                  |                           |                                                                                   
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -230,6 +231,10 @@ for proxy protocol v2 configuration.
             ```
             service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
             ```
+        - disable immediate [connection termination for unhealthy targets](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/target-group-health.html#unhealthy-target-connection-termination) and configure a 30s draining interval (available range is  0-360000 seconds)
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: target_health_state.unhealthy.connection_termination.enabled=false,target_health_state.unhealthy.draining_interval_seconds=30
+            ```
 
 
 - <a name="load-balancer-attributes">`service.beta.kubernetes.io/aws-load-balancer-attributes`</a> specifies [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the NLB.
@@ -254,6 +259,10 @@ for proxy protocol v2 configuration.
         - enable cross zone load balancing
         ```
         service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+        ```
+        - enable client availability zone affinity
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
         ```
 
 - <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
@@ -496,6 +505,14 @@ Load balancer access can be controlled via following annotations:
         ```
         service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: "false"
         ```
+
+- <a name="update-security-settings">`service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic`</a> specifies whether to apply security group rules to traffic sent to the load balancer through AWS PrivateLink. 
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic: "off"
+        ```
+
 
 ## Legacy Cloud Provider
 The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the AWS cloud provider's legacy service controller.

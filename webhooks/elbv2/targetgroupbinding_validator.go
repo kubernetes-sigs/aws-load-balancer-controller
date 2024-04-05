@@ -21,11 +21,12 @@ import (
 const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
 
 // NewTargetGroupBindingValidator returns a validator for TargetGroupBinding CRD.
-func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, logger logr.Logger) *targetGroupBindingValidator {
+func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, logger logr.Logger) *targetGroupBindingValidator {
 	return &targetGroupBindingValidator{
 		k8sClient:   k8sClient,
 		elbv2Client: elbv2Client,
 		logger:      logger,
+		vpcID:       vpcID,
 	}
 }
 
@@ -35,6 +36,7 @@ type targetGroupBindingValidator struct {
 	k8sClient   client.Client
 	elbv2Client services.ELBV2
 	logger      logr.Logger
+	vpcID       string
 }
 
 func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Object, error) {
@@ -53,6 +55,9 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 		return err
 	}
 	if err := v.checkTargetGroupIPAddressType(ctx, tgb); err != nil {
+		return err
+	}
+	if err := v.checkTargetGroupVpcID(ctx, tgb); err != nil {
 		return err
 	}
 	return nil
@@ -108,6 +113,11 @@ func (v *targetGroupBindingValidator) checkImmutableFields(tgb *elbv2api.TargetG
 	if oldTGB.Spec.IPAddressType != nil && tgb.Spec.IPAddressType != nil && (*oldTGB.Spec.IPAddressType) != (*tgb.Spec.IPAddressType) {
 		changedImmutableFields = append(changedImmutableFields, "spec.ipAddressType")
 	}
+	if (tgb.Spec.VpcID != "" && oldTGB.Spec.VpcID != "" && (tgb.Spec.VpcID) != (oldTGB.Spec.VpcID)) ||
+		(oldTGB.Spec.VpcID != "" && tgb.Spec.VpcID == "") ||
+		(oldTGB.Spec.VpcID == "" && tgb.Spec.VpcID != "" && tgb.Spec.VpcID != v.vpcID) {
+		changedImmutableFields = append(changedImmutableFields, "spec.vpcID")
+	}
 	if len(changedImmutableFields) != 0 {
 		return errors.Errorf("%s update may not change these fields: %s", "TargetGroupBinding", strings.Join(changedImmutableFields, ","))
 	}
@@ -150,6 +160,21 @@ func (v *targetGroupBindingValidator) checkTargetGroupIPAddressType(ctx context.
 	return nil
 }
 
+// checkTargetGroupVpcID ensures VpcID matches with that on the AWS target group
+func (v *targetGroupBindingValidator) checkTargetGroupVpcID(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.VpcID == "" {
+		return nil
+	}
+	vpcID, err := v.getVpcIDFromAWS(ctx, tgb.Spec.TargetGroupARN)
+	if err != nil {
+		return errors.Wrap(err, "unable to get target group VpcID")
+	}
+	if vpcID != tgb.Spec.VpcID {
+		return errors.Errorf("invalid VpcID %v doesnt match VpcID from TargetGroup %v", tgb.Spec.VpcID, tgb.Spec.TargetGroupARN)
+	}
+	return nil
+}
+
 // getTargetGroupIPAddressTypeFromAWS returns the target group IP address type of AWS target group
 func (v *targetGroupBindingValidator) getTargetGroupIPAddressTypeFromAWS(ctx context.Context, tgARN string) (elbv2api.TargetGroupIPAddressType, error) {
 	targetGroup, err := v.getTargetGroupFromAWS(ctx, tgARN)
@@ -181,6 +206,14 @@ func (v *targetGroupBindingValidator) getTargetGroupFromAWS(ctx context.Context,
 		return nil, errors.Errorf("expecting a single targetGroup but got %v", len(tgList))
 	}
 	return tgList[0], nil
+}
+
+func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgARN string) (string, error) {
+	targetGroup, err := v.getTargetGroupFromAWS(ctx, tgARN)
+	if err != nil {
+		return "", err
+	}
+	return awssdk.StringValue(targetGroup.VpcId), nil
 }
 
 // +kubebuilder:webhook:path=/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=false,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=vtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1

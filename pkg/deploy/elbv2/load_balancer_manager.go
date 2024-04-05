@@ -3,6 +3,7 @@ package elbv2
 import (
 	"context"
 	"fmt"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
@@ -73,6 +74,12 @@ func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2mod
 		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn))
 	if err := m.attributesReconciler.Reconcile(ctx, resLB, sdkLB); err != nil {
 		return elbv2model.LoadBalancerStatus{}, err
+	}
+
+	if resLB.Spec.Type == elbv2model.LoadBalancerTypeNetwork && resLB.Spec.SecurityGroupsInboundRulesOnPrivateLink != nil {
+		if err := m.updateSDKLoadBalancerWithSecurityGroups(ctx, resLB, sdkLB); err != nil {
+			return elbv2model.LoadBalancerStatus{}, err
+		}
 	}
 
 	return buildResLoadBalancerStatus(sdkLB), nil
@@ -186,27 +193,39 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSecurityGroups(ctx
 	}
 	desiredSecurityGroups := sets.NewString(awssdk.StringValueSlice(securityGroups)...)
 	currentSecurityGroups := sets.NewString(awssdk.StringValueSlice(sdkLB.LoadBalancer.SecurityGroups)...)
-	if desiredSecurityGroups.Equal(currentSecurityGroups) {
+
+	isEnforceSGInboundRulesOnPrivateLinkUpdated, currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic := isEnforceSGInboundRulesOnPrivateLinkUpdated(resLB, sdkLB)
+	if desiredSecurityGroups.Equal(currentSecurityGroups) && !isEnforceSGInboundRulesOnPrivateLinkUpdated {
 		return nil
+	}
+
+	var changeDescriptions []string
+
+	if !desiredSecurityGroups.Equal(currentSecurityGroups) {
+		changeSecurityGroupsDesc := fmt.Sprintf("%v => %v", currentSecurityGroups.List(), desiredSecurityGroups.List())
+		changeDescriptions = append(changeDescriptions, "changeSecurityGroups", changeSecurityGroupsDesc)
 	}
 
 	req := &elbv2sdk.SetSecurityGroupsInput{
 		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
 		SecurityGroups:  securityGroups,
 	}
-	changeDesc := fmt.Sprintf("%v => %v", currentSecurityGroups.List(), desiredSecurityGroups.List())
-	m.logger.Info("modifying loadBalancer securityGroups",
-		"stackID", resLB.Stack().StackID(),
-		"resourceID", resLB.ID(),
-		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
-		"change", changeDesc)
+
+	if isEnforceSGInboundRulesOnPrivateLinkUpdated {
+		changeEnforceSecurityGroupInboundRulesOnPrivateLinkTrafficDesc := fmt.Sprintf("%v => %v", currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic)
+		changeDescriptions = append(changeDescriptions, "changeEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic", changeEnforceSecurityGroupInboundRulesOnPrivateLinkTrafficDesc)
+		req.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = &desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
+	}
+
 	if _, err := m.elbv2Client.SetSecurityGroupsWithContext(ctx, req); err != nil {
 		return err
 	}
 	m.logger.Info("modified loadBalancer securityGroups",
 		"stackID", resLB.Stack().StackID(),
 		"resourceID", resLB.ID(),
-		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn))
+		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
+		"changeSecurityGroups", changeDescriptions,
+	)
 
 	return nil
 }
@@ -297,4 +316,26 @@ func buildResLoadBalancerStatus(sdkLB LoadBalancerWithTags) elbv2model.LoadBalan
 		LoadBalancerARN: awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
 		DNSName:         awssdk.StringValue(sdkLB.LoadBalancer.DNSName),
 	}
+}
+
+func isEnforceSGInboundRulesOnPrivateLinkUpdated(resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) (bool, string, string) {
+
+	if resLB.Spec.Type != elbv2model.LoadBalancerTypeNetwork || resLB.Spec.SecurityGroupsInboundRulesOnPrivateLink == nil {
+		return false, "", ""
+	}
+
+	desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic := string(*resLB.Spec.SecurityGroupsInboundRulesOnPrivateLink)
+
+	var currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic string
+
+	if sdkLB.LoadBalancer.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic != nil {
+		currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = awssdk.StringValue(sdkLB.LoadBalancer.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic)
+	}
+
+	if desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic == currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic {
+		return false, "", ""
+	}
+
+	return true, currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
+
 }
