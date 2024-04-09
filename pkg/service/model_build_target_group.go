@@ -457,7 +457,6 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 	}
 	protocolTCP := elbv2api.NetworkingProtocolTCP
 	protocolUDP := elbv2api.NetworkingProtocolUDP
-	protocolTCP_UDP := elbv2api.NetworkingProtocolTCP_UDP
 
 	var ports []elbv2api.NetworkingPort
 	if t.disableRestrictedSGRules {

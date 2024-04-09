@@ -37,6 +37,29 @@ func Test_defaultModelBuilderTask_buildListenerALPNPolicy(t *testing.T) {
 		{
 			name: "Service with annotation, non-TLS target",
 			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "log-tcp",
+							Port:       514,
+							TargetPort: intstr.FromInt(514),
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "log-udp",
+							Port:       514,
+							TargetPort: intstr.FromInt(514),
+							Protocol:   corev1.ProtocolUDP,
+						},
+					},
+				},
+			},
+			want:             []string{string(elbv2model.ALPNPolicyNone)},
+			listenerProtocol: elbv2model.ProtocolTCP_UDP,
+		},
+		{
+			name: "Service with annotation, non-TLS target",
+			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-alpn-policy": "HTTP2Only",
