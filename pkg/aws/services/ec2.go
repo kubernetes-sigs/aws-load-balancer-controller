@@ -10,17 +10,20 @@ import (
 type EC2 interface {
 	ec2iface.EC2API
 
-	// wrapper to DescribeInstancesPagesWithContext API, which aggregates paged results into list.
+	// DescribeInstancesAsList wraps the DescribeInstancesPagesWithContext API, which aggregates paged results into list.
 	DescribeInstancesAsList(ctx context.Context, input *ec2.DescribeInstancesInput) ([]*ec2.Instance, error)
 
-	// wrapper to DescribeNetworkInterfacesPagesWithContext API, which aggregates paged results into list.
+	// DescribeNetworkInterfacesAsList wraps the DescribeNetworkInterfacesPagesWithContext API, which aggregates paged results into list.
 	DescribeNetworkInterfacesAsList(ctx context.Context, input *ec2.DescribeNetworkInterfacesInput) ([]*ec2.NetworkInterface, error)
 
-	// wrapper to DescribeSecurityGroupsPagesWithContext API, which aggregates paged results into list.
+	// DescribeSecurityGroupsAsList wraps the DescribeSecurityGroupsPagesWithContext API, which aggregates paged results into list.
 	DescribeSecurityGroupsAsList(ctx context.Context, input *ec2.DescribeSecurityGroupsInput) ([]*ec2.SecurityGroup, error)
 
-	// wrapper to DescribeSubnetsPagesWithContext API, which aggregates paged results into list.
+	// DescribeSubnetsAsList wraps the DescribeSubnetsPagesWithContext API, which aggregates paged results into list.
 	DescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error)
+
+	// DescribeVPCAsList wraps the DescribeVpcsPagesWithContext API, which aggregates paged results into list.
+	DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeVpcsInput) ([]*ec2.Vpc, error)
 }
 
 // NewEC2 constructs new EC2 implementation.
@@ -73,6 +76,17 @@ func (c *defaultEC2) DescribeSubnetsAsList(ctx context.Context, input *ec2.Descr
 	var result []*ec2.Subnet
 	if err := c.DescribeSubnetsPagesWithContext(ctx, input, func(output *ec2.DescribeSubnetsOutput, _ bool) bool {
 		result = append(result, output.Subnets...)
+		return true
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *defaultEC2) DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeVpcsInput) ([]*ec2.Vpc, error) {
+	var result []*ec2.Vpc
+	if err := c.DescribeVpcsPagesWithContext(ctx, input, func(output *ec2.DescribeVpcsOutput, _ bool) bool {
+		result = append(result, output.Vpcs...)
 		return true
 	}); err != nil {
 		return nil, err

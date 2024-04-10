@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -113,6 +114,14 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 	ec2Service := services.NewEC2(sess)
 
 	if len(cfg.VpcID) == 0 {
+		if cfg.VpcTagKey != "" {
+			vpcID, err := inferVPCIDFromTags(ec2Service, cfg.VpcTagKey)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to identify vpcID from tags, specify --aws-vpc-id instead if tags are unavailable")
+			}
+			cfg.VpcID = vpcID
+		}
+
 		vpcID, err := inferVPCID(metadata, ec2Service)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to introspect vpcID from EC2Metadata or Node name, specify --aws-vpc-id instead if EC2Metadata is unavailable")
@@ -166,6 +175,30 @@ func inferVPCID(metadata services.EC2Metadata, ec2Service services.EC2) (string,
 
 	}
 	return "", amerrors.NewAggregate(errList)
+}
+
+func inferVPCIDFromTags(ec2Service services.EC2, vpcTagKey string) (string, error) {
+	vpcs, err := ec2Service.DescribeVPCsAsList(context.Background(), &ec2.DescribeVpcsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name: &vpcTagKey,
+				//Values: []*string{
+				//	aws.String("owned"),
+				//},
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch VPC ID with tag: %w", err)
+	}
+	if len(vpcs) == 0 {
+		return "", fmt.Errorf("no VPC exists with tag: %w", err)
+	}
+	if len(vpcs) > 1 {
+		return "", fmt.Errorf("multiple VPCs exists with tag: %w", err)
+	}
+
+	return *vpcs[0].VpcId, nil
 }
 
 var _ Cloud = &defaultCloud{}
