@@ -120,8 +120,8 @@ clusterName:
 
 # cluster contains configurations specific to the kubernetes cluster
 cluster:
-    # Cluster DNS domain (required for requesting TLS certificates)
-    dnsDomain: cluster.local
+  # Cluster DNS domain (required for requesting TLS certificates)
+  dnsDomain: cluster.local
 
 # The ingress class this controller will satisfy. If not specified, controller will match all
 # ingresses without ingress class annotation and ingresses of type alb
@@ -367,12 +367,18 @@ objectSelector:
 serviceMonitor:
   # Specifies whether a service monitor should be created
   enabled: false
-  # Labels to add to the service account
+  # Namespace to create the service monitor in
+  namespace:
+  # Labels to add to the service monitor
   additionalLabels: {}
   # Prometheus scrape interval
   interval: 1m
-  # Namespace to create the service monitor in
-  namespace:
+  # Prometheus scrape timeout
+  scrapeTimeout:
+  # Relabelings to apply to samples before ingestion
+  relabelings:
+  # Metric relabelings to apply to samples before ingestion
+  metricRelabelings:
 
 # clusterSecretsPermissions lets you configure RBAC permissions for secret resources
 # Access to secrets resource is required only if you use the OIDC feature, and instead of
@@ -412,4 +418,4 @@ serviceMutatorWebhookConfig:
 serviceTargetENISGTags:
 
 # Specifies the class of load balancer to use for services. This affects how services are provisioned if type LoadBalancer is used (default service.k8s.aws/nlb)
-loadBalancerClass: 
+loadBalancerClass:
