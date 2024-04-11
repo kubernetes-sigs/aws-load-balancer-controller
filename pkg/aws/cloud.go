@@ -113,21 +113,11 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 
 	ec2Service := services.NewEC2(sess)
 
-	if len(cfg.VpcID) == 0 {
-		if cfg.VpcTagKey != "" {
-			vpcID, err := inferVPCIDFromTags(ec2Service, cfg.VpcTagKey)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to identify vpcID from tags, specify --aws-vpc-id instead if tags are unavailable")
-			}
-			cfg.VpcID = vpcID
-		}
-
-		vpcID, err := inferVPCID(metadata, ec2Service)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to introspect vpcID from EC2Metadata or Node name, specify --aws-vpc-id instead if EC2Metadata is unavailable")
-		}
-		cfg.VpcID = vpcID
+	vpcID, err := getVpcID(cfg, ec2Service, metadata)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get VPC ID")
 	}
+	cfg.VpcID = vpcID
 
 	return &defaultCloud{
 		cfg:         cfg,
@@ -139,6 +129,18 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		shield:      services.NewShield(sess),
 		rgt:         services.NewRGT(sess),
 	}, nil
+}
+
+func getVpcID(cfg CloudConfig, ec2Service services.EC2, metadata services.EC2Metadata) (string, error) {
+	if cfg.VpcID != "" {
+		return cfg.VpcID, nil
+	}
+
+	if cfg.VpcTagKey != "" {
+		return inferVPCIDFromTags(ec2Service, cfg.VpcTagKey)
+	}
+
+	return inferVPCID(metadata, ec2Service)
 }
 
 func inferVPCID(metadata services.EC2Metadata, ec2Service services.EC2) (string, error) {
