@@ -22,7 +22,7 @@ type EC2 interface {
 	// DescribeSubnetsAsList wraps the DescribeSubnetsPagesWithContext API, which aggregates paged results into list.
 	DescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error)
 
-	// DescribeVPCAsList wraps the DescribeVpcsPagesWithContext API, which aggregates paged results into list.
+	// DescribeVPCsAsList wraps the DescribeVpcsPagesWithContext API, which aggregates paged results into list.
 	DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeVpcsInput) ([]*ec2.Vpc, error)
 }
 
