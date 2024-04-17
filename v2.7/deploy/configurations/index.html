@@ -1279,6 +1279,12 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <td>AWS VPC ID for the Kubernetes cluster</td>
 </tr>
 <tr>
+<td>allowed-certificate-authority-arns</td>
+<td>stringList</td>
+<td>[]</td>
+<td>Specify an optional list of CA ARNs to filter on in cert discovery (empty means all CAs are allowed)</td>
+</tr>
+<tr>
 <td>backend-security-group</td>
 <td>string</td>
 <td></td>

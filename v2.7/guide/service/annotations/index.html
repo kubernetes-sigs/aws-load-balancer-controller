@@ -1376,6 +1376,12 @@ documentation is not an accurate reference for the services reconciled by the in
 <td>true</td>
 <td></td>
 </tr>
+<tr>
+<td><a href="#update-security-settings">service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic</a></td>
+<td>string</td>
+<td></td>
+<td></td>
+</tr>
 </tbody>
 </table>
 <h2 id="traffic-routing">Traffic Routing<a class="headerlink" href="#traffic-routing" title="Permanent link">&para;</a></h2>
@@ -1601,6 +1607,9 @@ for proxy protocol v2 configuration.</p>
 <li>enable <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#client-ip-preservation">client IP preservation</a>
     <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
 </code></pre></div></li>
+<li>disable immediate <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/target-group-health.html#unhealthy-target-connection-termination">connection termination for unhealthy targets</a> and configure a 30s draining interval (available range is  0-360000 seconds)
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: target_health_state.unhealthy.connection_termination.enabled=false,target_health_state.unhealthy.draining_interval_seconds=30
+</code></pre></div></li>
 </ul>
 </div>
 </li>
@@ -1627,6 +1636,9 @@ Custom attributes set in this annotation's config map will be overriden by annot
 </code></pre></div></li>
 <li>enable cross zone load balancing
 <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+</code></pre></div></li>
+<li>enable client availability zone affinity
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
 </code></pre></div></li>
 </ul>
 </div>
@@ -1892,6 +1904,14 @@ Also, the securityGroups for target instances/ENIs will be modified to allow inb
 <div class="admonition example">
 <p class="admonition-title">Example</p>
 <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: &quot;false&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="update-security-settings"><code>service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic</code></a> specifies whether to apply security group rules to traffic sent to the load balancer through AWS PrivateLink. </p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic: &quot;off&quot;
 </code></pre></div>
 </div>
 </li>

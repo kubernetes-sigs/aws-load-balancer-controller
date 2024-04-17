@@ -1681,7 +1681,10 @@ other Kubernetes users may create/modify their Ingresses to belong to the same I
 <li>
 <p><a name="subnets"><code>alb.ingress.kubernetes.io/subnets</code></a> specifies the <a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">Availability Zone</a>s that the ALB will route traffic to. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-subnets.html">Load Balancer subnets</a> for more details.</p>
 <div class="admonition note">
-<p>You must specify at least two subnets in different AZs. Either subnetID or subnetName(Name tag on subnets) can be used.</p>
+<p>You must specify at least two subnets in different AZs unless utilizing the outpost locale, in which case a single subnet suffices. Either subnetID or subnetName(Name tag on subnets) can be used.</p>
+</div>
+<div class="admonition note">
+<p>You must not mix subnets from different locales: availability-zone, local-zone, wavelength-zone, outpost.</p>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
