@@ -8,7 +8,7 @@ revisionHistoryLimit: 10
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.7.0
+  tag: v2.7.2
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -209,7 +209,7 @@ webhookTLS:
   cert:
   key:
 
-# array of namespace selectors for the webhook
+# array of namespace selectors for the pod mutator webhook
 webhookNamespaceSelectors:
 # - key: elbv2.k8s.aws/pod-readiness-gate-inject
 #   operator: In
@@ -350,7 +350,7 @@ controllerConfig:
   # NLBHealthCheckAdvancedConfig: true
   # ALBSingleSubnet: false
 
-certDiscovery: 
+certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
 
 # objectSelector for webhook
@@ -388,6 +388,26 @@ ingressClassConfig:
 
 # enableServiceMutatorWebhook allows you enable the webhook which makes this controller the default for all new services of type LoadBalancer
 enableServiceMutatorWebhook: true
+
+# serviceMutatorWebhook contains configurations specific to the service mutator webhook
+serviceMutatorWebhook:
+  # Specifies whether a service mutator webhook should be created
+  enabled: true
+  # whether or not to fail the service creation if the webhook fails
+  failurePolicy: Fail
+  # limit webhook to only mutate services matching the objectSelector
+  objectSelector:
+    matchExpressions: []
+    # - key: <key>
+    #   operator: <operator>
+    #   values:
+    #   - <value>
+    matchLabels: {}
+      # key: value
+  # which operations trigger the webhook
+  operations:
+  - CREATE
+    # - UPDATE
 
 # serviceTargetENISGTags specifies AWS tags, in addition to the cluster tags, for finding the target ENI SG to which to add inbound rules from NLBs.
 serviceTargetENISGTags:
