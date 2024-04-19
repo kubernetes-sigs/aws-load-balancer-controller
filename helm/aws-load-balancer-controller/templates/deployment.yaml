@@ -35,11 +35,13 @@ spec:
         {{- toYaml .Values.podAnnotations | nindent 8 }}
         {{- end }}
     spec:
-    runtimeClassName: {{ .Values.runtimeClassName }}
     {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
     {{- end }}
+    {{ - if .Values.runtimeClassName }}
+      runtimeClassName: {{ .Values.runtimeClassName }}
+    {{ - end }}
       serviceAccountName: {{ include "aws-load-balancer-controller.serviceAccountName" . }}
       volumes:
       - name: cert
