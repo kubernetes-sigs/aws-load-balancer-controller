@@ -163,7 +163,7 @@ spec:
         - --allowed-certificate-authority-arns={{ .Values.certDiscovery.allowedCertificateAuthorityARNs }}
         {{- end }}
         {{- if .Values.loadBalancerClass }}
-        - --defaultLoadBalancerClass={{ .Values.loadBalancerClass }}
+        - --load-balancer-class={{ .Values.loadBalancerClass }}
         {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:
