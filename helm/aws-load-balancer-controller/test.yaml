@@ -12,6 +12,7 @@ image:
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+runtimeClassName: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
