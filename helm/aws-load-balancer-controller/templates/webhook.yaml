@@ -56,7 +56,7 @@ webhooks:
     resources:
     - pods
   sideEffects: None
-{{- if and .Values.enableServiceMutatorWebhook .Values.serviceMutatorWebhook.enabled }}
+{{- if .Values.enableserviceMutatorWebhook }}
 - clientConfig:
     {{ if not $.Values.enableCertManager -}}
     caBundle: {{ $tls.caCert }}
@@ -65,7 +65,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-v1-service
-  failurePolicy: {{ .Values.serviceMutatorWebhook.failurePolicy }}
+  failurePolicy: {{ .Values.serviceMutatorWebhookConfig.failurePolicy }}
   name: mservice.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
@@ -75,13 +75,13 @@ webhooks:
       operator: NotIn
       values:
       - {{ include "aws-load-balancer-controller.name" . }}
-    {{- if .Values.serviceMutatorWebhook.objectSelector.matchExpressions }}
-    {{- toYaml .Values.serviceMutatorWebhook.objectSelector.matchExpressions | nindent 4 }}
+    {{- if .Values.serviceMutatorWebhookConfig.objectSelector.matchExpressions }}
+    {{- toYaml .Values.serviceMutatorWebhookConfig.objectSelector.matchExpressions | nindent 4 }}
     {{- end }}
 
-    {{- if .Values.serviceMutatorWebhook.objectSelector.matchLabels }}
+    {{- if .Values.serviceMutatorWebhookConfig.objectSelector.matchLabels }}
     matchLabels:
-    {{- toYaml .Values.serviceMutatorWebhook.objectSelector.matchLabels | nindent 6 }}
+    {{- toYaml .Values.serviceMutatorWebhookConfig.objectSelector.matchLabels | nindent 6 }}
     {{- end }}
   rules:
   - apiGroups:
@@ -89,7 +89,7 @@ webhooks:
     apiVersions:
     - v1
     operations:
-    {{- toYaml .Values.serviceMutatorWebhook.operations | nindent 4 }}
+    {{- toYaml .Values.serviceMutatorWebhookConfig.operations | nindent 4 }}
     resources:
     - services
   sideEffects: None

@@ -390,9 +390,7 @@ ingressClassConfig:
 enableServiceMutatorWebhook: true
 
 # serviceMutatorWebhook contains configurations specific to the service mutator webhook
-serviceMutatorWebhook:
-  # Specifies whether a service mutator webhook should be created
-  enabled: true
+serviceMutatorWebhookConfig:
   # whether or not to fail the service creation if the webhook fails
   failurePolicy: Fail
   # limit webhook to only mutate services matching the objectSelector
