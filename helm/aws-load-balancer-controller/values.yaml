@@ -392,3 +392,6 @@ enableServiceMutatorWebhook: true
 
 # serviceTargetENISGTags specifies AWS tags, in addition to the cluster tags, for finding the target ENI SG to which to add inbound rules from NLBs.
 serviceTargetENISGTags:
+
+# Specifies the class of load balancer to use for services. This affects how services are provisioned if type LoadBalancer is used (default service.k8s.aws/nlb)
+loadBalancerClass: 
