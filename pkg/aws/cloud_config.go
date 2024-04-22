@@ -12,9 +12,12 @@ const (
 	flagAWSAPIEndpoints  = "aws-api-endpoints"
 	flagAWSAPIThrottle   = "aws-api-throttle"
 	flagAWSVpcID         = "aws-vpc-id"
+	flagAWSVpcTags       = "aws-vpc-tags"
 	flagAWSVpcCacheTTL   = "aws-vpc-cache-ttl"
 	flagAWSMaxRetries    = "aws-max-retries"
+	flagAWSVpcNameTagKey = "aws-vpc-name-tag-key"
 	defaultVpcID         = ""
+	defaultVpcNameTagKey = "Name"
 	defaultRegion        = ""
 	defaultAPIMaxRetries = 10
 )
@@ -28,6 +31,12 @@ type CloudConfig struct {
 
 	// VpcID for the LoadBalancer resources.
 	VpcID string
+
+	// VPC tags List
+	VpcTags map[string]string
+
+	// VPC Name Tag Key, default "Name"
+	VpcNameTagKey string
 
 	// VPC cache TTL in minutes
 	VpcCacheTTL time.Duration
@@ -43,6 +52,8 @@ func (cfg *CloudConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.Region, flagAWSRegion, defaultRegion, "AWS Region for the kubernetes cluster")
 	fs.Var(cfg.ThrottleConfig, flagAWSAPIThrottle, "throttle settings for AWS APIs, format: serviceID1:operationRegex1=rate:burst,serviceID2:operationRegex2=rate:burst")
 	fs.StringVar(&cfg.VpcID, flagAWSVpcID, defaultVpcID, "AWS VpcID for the LoadBalancer resources")
+	fs.StringToStringVar(&cfg.VpcTags, flagAWSVpcTags, nil, "AWS VPC tags List,format: tagkey1=tagvalue1,tagkey2=tagvalue2")
+	fs.StringVar(&cfg.VpcNameTagKey, flagAWSVpcNameTagKey, defaultVpcNameTagKey, "AWS tag key for identifying the VPC")
 	fs.IntVar(&cfg.MaxRetries, flagAWSMaxRetries, defaultAPIMaxRetries, "Maximum retries for AWS APIs")
 	fs.StringToStringVar(&cfg.AWSEndpoints, flagAWSAPIEndpoints, nil, "Custom AWS endpoint configuration, format: serviceID1=URL1,serviceID2=URL2")
 }

@@ -37,7 +37,7 @@ You can set the IMDSv2 as follows:
 aws ec2 modify-instance-metadata-options --http-put-response-hop-limit 2 --http-tokens required --region <region> --instance-id <instance-id>
 ```
 
-Instead of depending on IMDSv2, you can specify the AWS Region and the VPC via the controller flags `--aws-region` and `--aws-vpc-id`.
+Instead of depending on IMDSv2, you can specify the AWS Region via the controller flag `--aws-region`, and the AWS VPC via controller flag `--aws-vpc-id` or by specifying vpc tags via the flag `--aws-vpc-tags` and an optional flag `--aws-vpc-name-tag-key` if you have a different key for the tag other than "Name". 
 
 ## Configure IAM
 
