@@ -3,7 +3,7 @@
 
 ## Prerequisites
 ### Role Permissions
-Adequate roles and policies must be configured in AWS and available to the node(s) running the external-dns. See https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions.
+Adequate roles and policies must be configured in AWS and available to the node(s) running the external-dns. See [external-dns tutorial](https://github.com/kubernetes-sigs/external-dns/blob/master/docs/tutorials/aws.md#iam-permissions).
 
 ## Installation
 1. Download sample `external-dns` manifest
@@ -51,7 +51,6 @@ Adequate roles and policies must be configured in AWS and available to the node(
 
     ```yaml
     annotations:
-      kubernetes.io/ingress.class: alb
       alb.ingress.kubernetes.io/scheme: internet-facing
 
       # external-dns specific configuration for creating route53 record-set
