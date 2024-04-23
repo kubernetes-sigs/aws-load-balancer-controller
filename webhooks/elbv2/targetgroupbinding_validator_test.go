@@ -39,7 +39,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 	}
 	instanceTargetType := elbv2api.TargetTypeInstance
 	ipTargetType := elbv2api.TargetTypeIP
-	clusterVpcID := "vpcid-02"
+	clusterVpcID := "vpc-123456ab"
 	tests := []struct {
 		name    string
 		fields  fields
@@ -264,11 +264,11 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 						TargetGroupARN: "tg-2",
 						TargetType:     &instanceTargetType,
 						IPAddressType:  &targetGroupIPAddressTypeIPv6,
-						VpcID:          "vpcid-01",
+						VpcID:          "vpc-1234567a",
 					},
 				},
 			},
-			wantErr: errors.New("invalid VpcID vpcid-01 doesnt match VpcID from TargetGroup tg-2"),
+			wantErr: errors.New("invalid VpcID vpc-1234567a doesnt match VpcID from TargetGroup tg-2"),
 		},
 	}
 	for _, tt := range tests {
@@ -691,27 +691,27 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
 		},
 		{
-			name: "VpcID modified from vpc-01 to vpc-02",
+			name: "VpcID modified from vpc-0aaaaaaa to vpc-0bbbbbbb",
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
 						TargetType:     &ipTargetType,
-						VpcID:          "vpc-02",
+						VpcID:          "vpc-vpc-0bbbbbbb",
 					},
 				},
 				oldTGB: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
 						TargetType:     &ipTargetType,
-						VpcID:          "vpc-01",
+						VpcID:          "vpc-0aaaaaaa",
 					},
 				},
 			},
 			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
 		},
 		{
-			name: "VpcID modified from vpc-01 to nil",
+			name: "VpcID modified from vpc-0aaaaaaa to nil",
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
@@ -723,20 +723,20 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
 						TargetType:     &ipTargetType,
-						VpcID:          "vpc-01",
+						VpcID:          "vpc-0aaaaaaa",
 					},
 				},
 			},
 			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
 		},
 		{
-			name: "VpcID modified from nil to vpc-01",
+			name: "VpcID modified from nil to vpc-0aaaaaaa",
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
 						TargetType:     &ipTargetType,
-						VpcID:          "vpc-01",
+						VpcID:          "vpc-0aaaaaaa",
 					},
 				},
 				oldTGB: &elbv2api.TargetGroupBinding{
@@ -1118,11 +1118,23 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
-						VpcID:          "vpcid-01",
+						VpcID:          "vpc-b234567a",
 					},
 				},
 			},
 			wantErr: errors.New("unable to get target group VpcID: vpcid not found"),
+		},
+		{
+			name: "[err] vpcID is not valid",
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          "vpcid-123",
+					},
+				},
+			},
+			wantErr: errors.New("ValidationError: vpcID vpcid-123 failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8 or 17 lowercase letters (a-f) or numbers."),
 		},
 	}
 	for _, tt := range tests {
