@@ -36,16 +36,25 @@ type enqueueRequestsForEndpointSlicesEvent struct {
 }
 
 // Create is called in response to an create event - e.g. EndpointSlice Creation.
-func (h *enqueueRequestsForEndpointSlicesEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	epNew := e.Object.(*discv1.EndpointSlice)
+func (h *enqueueRequestsForEndpointSlicesEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+	epNew, ok := e.Object.(*discv1.EndpointSlice)
+	if !ok {
+		return
+	}
 	h.logger.V(1).Info("Create event for EndpointSlices", "name", epNew.Name)
 	h.enqueueImpactedTargetGroupBindings(queue, epNew)
 }
 
 // Update is called in response to an update event -  e.g. EndpointSlice Updated.
-func (h *enqueueRequestsForEndpointSlicesEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	epOld := e.ObjectOld.(*discv1.EndpointSlice)
-	epNew := e.ObjectNew.(*discv1.EndpointSlice)
+func (h *enqueueRequestsForEndpointSlicesEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+	epOld, ok := e.ObjectOld.(*discv1.EndpointSlice)
+	if !ok {
+		return
+	}
+	epNew, ok := e.ObjectNew.(*discv1.EndpointSlice)
+	if !ok {
+		return
+	}
 	h.logger.V(1).Info("Update event for EndpointSlices", "name", epNew.Name)
 	if !equality.Semantic.DeepEqual(epOld.Ports, epNew.Ports) || !equality.Semantic.DeepEqual(epOld.Endpoints, epNew.Endpoints) {
 		h.logger.V(1).Info("Enqueue EndpointSlice", "name", epNew.Name)
@@ -54,15 +63,18 @@ func (h *enqueueRequestsForEndpointSlicesEvent) Update(e event.UpdateEvent, queu
 }
 
 // Delete is called in response to a delete event - e.g. EndpointSlice Deleted.
-func (h *enqueueRequestsForEndpointSlicesEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	epOld := e.Object.(*discv1.EndpointSlice)
+func (h *enqueueRequestsForEndpointSlicesEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+	epOld, ok := e.Object.(*discv1.EndpointSlice)
+	if !ok {
+		return
+	}
 	h.logger.V(1).Info("Deletion event for EndpointSlices", "name", epOld.Name)
 	h.enqueueImpactedTargetGroupBindings(queue, epOld)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile AutoScaling, or a WebHook.
-func (h *enqueueRequestsForEndpointSlicesEvent) Generic(event.GenericEvent, workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForEndpointSlicesEvent) Generic(context.Context, event.GenericEvent, workqueue.RateLimitingInterface) {
 }
 
 func (h *enqueueRequestsForEndpointSlicesEvent) enqueueImpactedTargetGroupBindings(queue workqueue.RateLimitingInterface, epSlice *discv1.EndpointSlice) {

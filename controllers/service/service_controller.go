@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +22,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/service"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/source"
@@ -36,7 +38,7 @@ const (
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingSGManager networking.SecurityGroupManager,
 	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
-	vpcInfoProvider networking.VPCInfoProvider, controllerConfig config.ControllerConfig, logger logr.Logger) *serviceReconciler {
+	vpcInfoProvider networking.VPCInfoProvider, controllerConfig config.ControllerConfig, cache cache.Cache, logger logr.Logger) *serviceReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, controllerConfig.ClusterName)
@@ -60,6 +62,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 		logger:          logger,
 
 		maxConcurrentReconciles: controllerConfig.ServiceMaxConcurrentReconciles,
+		cache:                   cache,
 	}
 }
 
@@ -77,6 +80,8 @@ type serviceReconciler struct {
 	logger          logr.Logger
 
 	maxConcurrentReconciles int
+
+	cache cache.Cache
 }
 
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch
@@ -210,7 +215,7 @@ func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Controller) error {
 	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder,
 		r.serviceUtils, r.logger.WithName("eventHandlers").WithName("service"))
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
+	if err := c.Watch(source.Kind(r.cache, &corev1.Service{}), svcEventHandler); err != nil {
 		return err
 	}
 	return nil

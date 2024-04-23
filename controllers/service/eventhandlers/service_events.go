@@ -1,6 +1,8 @@
 package eventhandlers
 
 import (
+	"context"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -31,14 +33,23 @@ type enqueueRequestsForServiceEvent struct {
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForServiceEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	h.enqueueManagedService(queue, e.Object.(*corev1.Service))
+func (h *enqueueRequestsForServiceEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+	o, ok := e.Object.(*corev1.Service)
+	if !ok {
+		return
+	}
+	h.enqueueManagedService(queue, o)
 }
 
-func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	oldSvc := e.ObjectOld.(*corev1.Service)
-	newSvc := e.ObjectNew.(*corev1.Service)
-
+func (h *enqueueRequestsForServiceEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+	oldSvc, ok := e.ObjectOld.(*corev1.Service)
+	if !ok {
+		return
+	}
+	newSvc, ok := e.ObjectNew.(*corev1.Service)
+	if !ok {
+		return
+	}
 	if equality.Semantic.DeepEqual(oldSvc.Annotations, newSvc.Annotations) &&
 		equality.Semantic.DeepEqual(oldSvc.Spec, newSvc.Spec) &&
 		equality.Semantic.DeepEqual(oldSvc.DeletionTimestamp.IsZero(), newSvc.DeletionTimestamp.IsZero()) {
@@ -48,13 +59,13 @@ func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, queue workq
 	h.enqueueManagedService(queue, newSvc)
 }
 
-func (h *enqueueRequestsForServiceEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForServiceEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
 	// We attach a finalizer during reconcile, and handle the user triggered delete action during the update event.
 	// In case of delete, there will first be an update event with nonzero deletionTimestamp set on the object. Since
 	// deletion is already taken care of during update event, we will ignore this event.
 }
 
-func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForServiceEvent) Generic(ctx context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 }
 
 func (h *enqueueRequestsForServiceEvent) enqueueManagedService(queue workqueue.RateLimitingInterface, service *corev1.Service) {

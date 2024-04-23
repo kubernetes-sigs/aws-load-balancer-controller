@@ -609,7 +609,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClient()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}
@@ -1750,7 +1750,7 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClient()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}
@@ -2116,7 +2116,7 @@ func Test_defaultGroupLoader_classifyIngress(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClient()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}

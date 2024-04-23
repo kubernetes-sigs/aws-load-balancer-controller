@@ -2,6 +2,8 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -11,7 +13,6 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
@@ -229,7 +230,7 @@ func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClient()
 			for _, secret := range tt.env.secrets {
 				err := k8sClient.Create(context.Background(), secret.DeepCopy())
 				assert.NoError(t, err)

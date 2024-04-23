@@ -6,6 +6,7 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
@@ -17,7 +18,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing.T) {
@@ -374,11 +374,11 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 		t.Run(tt.name, func(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClient()
 
 			m := &defaultResourceManager{
 				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				logger:    logr.Discard(),
 			}
 
 			ctx := context.Background()

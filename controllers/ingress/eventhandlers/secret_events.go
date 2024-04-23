@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -37,15 +38,23 @@ type enqueueRequestsForSecretEvent struct {
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForSecretEvent) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
-	secretNew := e.Object.(*corev1.Secret)
+func (h *enqueueRequestsForSecretEvent) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+	secretNew, ok := e.Object.(*corev1.Secret)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedObjects(secretNew)
 }
 
-func (h *enqueueRequestsForSecretEvent) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
-	secretOld := e.ObjectOld.(*corev1.Secret)
-	secretNew := e.ObjectNew.(*corev1.Secret)
-
+func (h *enqueueRequestsForSecretEvent) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+	secretOld, ok := e.ObjectOld.(*corev1.Secret)
+	if !ok {
+		return
+	}
+	secretNew, ok := e.ObjectNew.(*corev1.Secret)
+	if !ok {
+		return
+	}
 	// we only care below update event:
 	//	1. Secret data updates
 	//	2. Secret deletions
@@ -57,13 +66,19 @@ func (h *enqueueRequestsForSecretEvent) Update(e event.UpdateEvent, _ workqueue.
 	h.enqueueImpactedObjects(secretNew)
 }
 
-func (h *enqueueRequestsForSecretEvent) Delete(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
-	secretOld := e.Object.(*corev1.Secret)
+func (h *enqueueRequestsForSecretEvent) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+	secretOld, ok := e.Object.(*corev1.Secret)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedObjects(secretOld)
 }
 
-func (h *enqueueRequestsForSecretEvent) Generic(e event.GenericEvent, _ workqueue.RateLimitingInterface) {
-	secretObj := e.Object.(*corev1.Secret)
+func (h *enqueueRequestsForSecretEvent) Generic(ctx context.Context, e event.GenericEvent, _ workqueue.RateLimitingInterface) {
+	secretObj, ok := e.Object.(*corev1.Secret)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedObjects(secretObj)
 }
 

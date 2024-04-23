@@ -2,7 +2,10 @@ package networking
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -15,8 +18,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
@@ -245,7 +246,7 @@ func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 				annotationParser:              annotationParser,
 				classAnnotationMatcher:        classAnnotationMatcher,
 				disableIngressClassAnnotation: tt.fields.disableIngressClassAnnotation,
-				logger:                        &log.NullLogger{},
+				logger:                        logr.Discard(),
 			}
 			err := v.checkIngressClassAnnotationUsage(tt.args.ing, tt.args.oldIng)
 			if tt.wantErr != nil {
@@ -459,7 +460,7 @@ func Test_ingressValidator_checkGroupNameAnnotationUsage(t *testing.T) {
 				annotationParser:              annotationParser,
 				classAnnotationMatcher:        classAnnotationMatcher,
 				disableIngressGroupAnnotation: tt.fields.disableIngressGroupAnnotation,
-				logger:                        &log.NullLogger{},
+				logger:                        logr.Discard(),
 			}
 			err := v.checkGroupNameAnnotationUsage(tt.args.ing, tt.args.oldIng)
 			if tt.wantErr != nil {
@@ -762,7 +763,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClient()
 			for _, ns := range tt.env.nsList {
 				assert.NoError(t, k8sClient.Create(ctx, ns.DeepCopy()))
 			}

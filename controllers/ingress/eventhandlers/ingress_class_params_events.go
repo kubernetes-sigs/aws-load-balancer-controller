@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -34,15 +35,23 @@ type enqueueRequestsForIngressClassParamsEvent struct {
 	logger            logr.Logger
 }
 
-func (h *enqueueRequestsForIngressClassParamsEvent) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
-	ingClassParamsNew := e.Object.(*elbv2api.IngressClassParams)
+func (h *enqueueRequestsForIngressClassParamsEvent) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+	ingClassParamsNew, ok := e.Object.(*elbv2api.IngressClassParams)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedIngressClasses(ingClassParamsNew)
 }
 
-func (h *enqueueRequestsForIngressClassParamsEvent) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
-	ingClassParamsOld := e.ObjectOld.(*elbv2api.IngressClassParams)
-	ingClassParamsNew := e.ObjectNew.(*elbv2api.IngressClassParams)
-
+func (h *enqueueRequestsForIngressClassParamsEvent) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+	ingClassParamsOld, ok := e.ObjectOld.(*elbv2api.IngressClassParams)
+	if !ok {
+		return
+	}
+	ingClassParamsNew, ok := e.ObjectNew.(*elbv2api.IngressClassParams)
+	if !ok {
+		return
+	}
 	// we only care below update event:
 	//	2. IngressClassParams spec updates
 	//	3. IngressClassParams deletion
@@ -54,12 +63,15 @@ func (h *enqueueRequestsForIngressClassParamsEvent) Update(e event.UpdateEvent, 
 	h.enqueueImpactedIngressClasses(ingClassParamsNew)
 }
 
-func (h *enqueueRequestsForIngressClassParamsEvent) Delete(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
-	ingClassParamsOld := e.Object.(*elbv2api.IngressClassParams)
+func (h *enqueueRequestsForIngressClassParamsEvent) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+	ingClassParamsOld, ok := e.Object.(*elbv2api.IngressClassParams)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedIngressClasses(ingClassParamsOld)
 }
 
-func (h *enqueueRequestsForIngressClassParamsEvent) Generic(e event.GenericEvent, _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForIngressClassParamsEvent) Generic(ctx context.Context, e event.GenericEvent, _ workqueue.RateLimitingInterface) {
 	// we don't have any generic event for secrets.
 }
 

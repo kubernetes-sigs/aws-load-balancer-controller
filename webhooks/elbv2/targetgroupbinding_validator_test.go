@@ -2,18 +2,19 @@ package elbv2
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -187,7 +188,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClient()
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
@@ -195,7 +196,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			v := &targetGroupBindingValidator{
 				k8sClient:   k8sClient,
 				elbv2Client: elbv2Client,
-				logger:      &log.NullLogger{},
+				logger:      logr.Discard(),
 			}
 			err := v.ValidateCreate(context.Background(), tt.args.obj)
 			if tt.wantErr != nil {
@@ -318,7 +319,7 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &targetGroupBindingValidator{
-				logger: &log.NullLogger{},
+				logger: logr.Discard(),
 			}
 			err := v.ValidateUpdate(context.Background(), tt.args.obj, tt.args.oldObj)
 			if tt.wantErr != nil {
@@ -368,7 +369,7 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &targetGroupBindingValidator{
-				logger: &log.NullLogger{},
+				logger: logr.Discard(),
 			}
 			err := v.checkRequiredFields(tt.args.tgb)
 			if tt.wantErr != nil {
@@ -602,7 +603,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &targetGroupBindingValidator{
-				logger: &log.NullLogger{},
+				logger: logr.Discard(),
 			}
 			err := v.checkImmutableFields(tt.args.tgb, tt.args.oldTGB)
 			if tt.wantErr != nil {
@@ -676,7 +677,7 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := &targetGroupBindingValidator{
-				logger: &log.NullLogger{},
+				logger: logr.Discard(),
 			}
 			err := v.checkNodeSelector(tt.args.tgb)
 			if tt.wantErr != nil {
@@ -887,10 +888,10 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClient()
 			v := &targetGroupBindingValidator{
 				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				logger:    logr.Discard(),
 			}
 			for _, tgb := range tt.env.existingTGBs {
 				assert.NoError(t, k8sClient.Create(context.Background(), tgb.DeepCopy()))

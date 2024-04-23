@@ -8,6 +8,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -27,7 +28,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_defaultModelBuilder_Build(t *testing.T) {
@@ -3901,7 +3901,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			ctx := context.Background()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewFakeClient()
 			for _, svc := range tt.env.svcs {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			}
@@ -3921,7 +3921,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
 			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder)
-			ruleOptimizer := NewDefaultRuleOptimizer(&log.NullLogger{})
+			ruleOptimizer := NewDefaultRuleOptimizer(logr.Discard())
 			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
 			stackMarshaller := deploy.NewDefaultStackMarshaller()
 			backendSGProvider := networkingpkg.NewMockBackendSGProvider(ctrl)
@@ -3951,7 +3951,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				elbv2TaggingManager:    elbv2TaggingManager,
 				enableBackendSG:        tt.fields.enableBackendSG,
 				featureGates:           config.NewFeatureGates(),
-				logger:                 &log.NullLogger{},
+				logger:                 logr.Discard(),
 
 				defaultSSLPolicy: "ELBSecurityPolicy-2016-08",
 			}
