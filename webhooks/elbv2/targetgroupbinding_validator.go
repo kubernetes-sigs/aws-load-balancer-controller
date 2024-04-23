@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+	"regexp"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -19,6 +20,8 @@ import (
 )
 
 const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
+
+var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17})$")
 
 // NewTargetGroupBindingValidator returns a validator for TargetGroupBinding CRD.
 func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, logger logr.Logger) *targetGroupBindingValidator {
@@ -164,6 +167,9 @@ func (v *targetGroupBindingValidator) checkTargetGroupIPAddressType(ctx context.
 func (v *targetGroupBindingValidator) checkTargetGroupVpcID(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	if tgb.Spec.VpcID == "" {
 		return nil
+	}
+	if !vpcIDPatternRegex.MatchString(tgb.Spec.VpcID) {
+		return errors.Errorf("ValidationError: vpcID %v failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8 or 17 lowercase letters (a-f) or numbers.", tgb.Spec.VpcID)
 	}
 	vpcID, err := v.getVpcIDFromAWS(ctx, tgb.Spec.TargetGroupARN)
 	if err != nil {
