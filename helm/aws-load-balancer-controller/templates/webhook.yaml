@@ -65,7 +65,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-v1-service
-  failurePolicy: Fail
+  failurePolicy: {{ .Values.serviceMutatorWebhookConfig.failurePolicy }}
   name: mservice.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1
@@ -75,13 +75,21 @@ webhooks:
       operator: NotIn
       values:
       - {{ include "aws-load-balancer-controller.name" . }}
+    {{- if .Values.serviceMutatorWebhookConfig.objectSelector.matchExpressions }}
+    {{- toYaml .Values.serviceMutatorWebhookConfig.objectSelector.matchExpressions | nindent 4 }}
+    {{- end }}
+
+    {{- if .Values.serviceMutatorWebhookConfig.objectSelector.matchLabels }}
+    matchLabels:
+    {{- toYaml .Values.serviceMutatorWebhookConfig.objectSelector.matchLabels | nindent 6 }}
+    {{- end }}
   rules:
   - apiGroups:
     - ""
     apiVersions:
     - v1
     operations:
-    - CREATE
+    {{- toYaml .Values.serviceMutatorWebhookConfig.operations | nindent 4 }}
     resources:
     - services
   sideEffects: None
