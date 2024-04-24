@@ -59,15 +59,17 @@ spec:
       containers:
       - name: {{ .Chart.Name }}
         args:
-        - --cluster-name={{ required "Chart cannot be installed without a valid clusterName!" .Values.clusterName }}
+        - --cluster-name={{ required "Chart cannot be installed without a valid clusterName!" (tpl (default "" .Values.clusterName) .) }}
         {{- if .Values.ingressClass }}
         - --ingress-class={{ .Values.ingressClass }}
         {{- end }}
-        {{- if .Values.region }}
+        {{- $region := tpl (default "" .Values.region) . }}
+        {{- if $region }}
         - --aws-region={{ .Values.region }}
         {{- end }}
-        {{- if .Values.vpcId }}
-        - --aws-vpc-id={{ .Values.vpcId }}
+        {{- $vpcID := tpl (default "" .Values.vpcId) . }}
+        {{- if $vpcID }}
+        - --aws-vpc-id={{ $vpcID }}
         {{- end }}
         {{- if .Values.awsApiEndpoints }}
         - --aws-api-endpoints={{ .Values.awsApiEndpoints }}
