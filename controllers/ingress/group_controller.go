@@ -26,6 +26,7 @@ import (
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -45,7 +46,7 @@ const (
 func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingSGManager networkingpkg.SecurityGroupManager,
 	networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
-	controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider, logger logr.Logger) *groupReconciler {
+	controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider, cache cache.Cache, logger logr.Logger) *groupReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
@@ -82,6 +83,8 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		logger:                logger,
 
 		maxConcurrentReconciles: controllerConfig.IngressConfig.MaxConcurrentReconciles,
+
+		cache: cache,
 	}
 }
 
@@ -101,6 +104,8 @@ type groupReconciler struct {
 	logger                logr.Logger
 
 	maxConcurrentReconciles int
+
+	cache cache.Cache
 }
 
 // +kubebuilder:rbac:groups=elbv2.k8s.aws,resources=ingressclassparams,verbs=get;list;watch
@@ -294,10 +299,10 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 	if err := c.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Kind{Type: &networking.Ingress{}}, ingEventHandler); err != nil {
+	if err := c.Watch(source.Kind(r.cache, &networking.Ingress{}), ingEventHandler); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
+	if err := c.Watch(source.Kind(r.cache, &corev1.Service{}), ingEventHandler); err != nil {
 		return err
 	}
 	if err := c.Watch(&source.Channel{Source: secretEventsChan}, secretEventHandler); err != nil {
@@ -312,10 +317,10 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 		if err := c.Watch(&source.Channel{Source: ingClassEventChan}, ingClassEventHandler); err != nil {
 			return err
 		}
-		if err := c.Watch(&source.Kind{Type: &elbv2api.IngressClassParams{}}, ingClassParamsEventHandler); err != nil {
+		if err := c.Watch(source.Kind(r.cache, &elbv2api.IngressClassParams{}), ingClassParamsEventHandler); err != nil {
 			return err
 		}
-		if err := c.Watch(&source.Kind{Type: &networking.IngressClass{}}, ingClassEventHandler); err != nil {
+		if err := c.Watch(source.Kind(r.cache, &networking.IngressClass{}), ingClassEventHandler); err != nil {
 			return err
 		}
 	}

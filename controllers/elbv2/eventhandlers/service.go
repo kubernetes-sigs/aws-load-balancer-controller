@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -30,29 +31,41 @@ type enqueueRequestsForServiceEvent struct {
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
-func (h *enqueueRequestsForServiceEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	svcNew := e.Object.(*corev1.Service)
+func (h *enqueueRequestsForServiceEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+	svcNew, ok := e.Object.(*corev1.Service)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedTargetGroupBindings(queue, svcNew)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
-func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	svcOld := e.ObjectOld.(*corev1.Service)
-	svcNew := e.ObjectNew.(*corev1.Service)
+func (h *enqueueRequestsForServiceEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+	svcOld, ok := e.ObjectOld.(*corev1.Service)
+	if !ok {
+		return
+	}
+	svcNew, ok := e.ObjectNew.(*corev1.Service)
+	if !ok {
+		return
+	}
 	if !equality.Semantic.DeepEqual(svcOld.Spec.Ports, svcNew.Spec.Ports) {
 		h.enqueueImpactedTargetGroupBindings(queue, svcNew)
 	}
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
-func (h *enqueueRequestsForServiceEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	svcOld := e.Object.(*corev1.Service)
+func (h *enqueueRequestsForServiceEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+	svcOld, ok := e.Object.(*corev1.Service)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedTargetGroupBindings(queue, svcOld)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile AutoScaling, or a WebHook.
-func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForServiceEvent) Generic(ctx context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 	// nothing to do here
 }
 

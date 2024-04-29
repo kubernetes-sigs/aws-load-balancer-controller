@@ -2,6 +2,9 @@ package eventhandlers
 
 import (
 	"context"
+	"testing"
+
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -16,8 +19,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllertest"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_enqueueRequestsForServiceEvent_enqueueImpactedTargetGroupBindings(t *testing.T) {
@@ -189,11 +190,11 @@ func Test_enqueueRequestsForServiceEvent_enqueueImpactedTargetGroupBindings(t *t
 
 			h := &enqueueRequestsForServiceEvent{
 				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				logger:    logr.Discard(),
 			}
 			queue := controllertest.Queue{Interface: workqueue.New()}
-			h.enqueueImpactedTargetGroupBindings(queue, tt.args.svc)
-			gotRequests := testutils.ExtractCTRLRequestsFromQueue(queue)
+			h.enqueueImpactedTargetGroupBindings(&queue, tt.args.svc)
+			gotRequests := testutils.ExtractCTRLRequestsFromQueue(&queue)
 			assert.True(t, cmp.Equal(tt.wantRequests, gotRequests),
 				"diff", cmp.Diff(tt.wantRequests, gotRequests))
 		})

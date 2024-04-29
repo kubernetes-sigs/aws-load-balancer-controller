@@ -2,8 +2,11 @@ package networking
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -15,8 +18,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_defaultPodENIInfoResolver_Resolve(t *testing.T) {
@@ -536,7 +537,7 @@ func Test_defaultPodENIInfoResolver_Resolve(t *testing.T) {
 				}
 				nodeInfoProvider.EXPECT().FetchNodeInstances(gomock.Any(), gomock.InAnyOrder(updatedNodes)).Return(call.nodeInstanceByNodeKey, call.err)
 			}
-			r := NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, "vpc-abc", &log.NullLogger{})
+			r := NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, "vpc-abc", logr.Discard())
 			for _, call := range tt.wantResolveCalls {
 				got, err := r.Resolve(context.Background(), call.args.pods)
 				if call.wantErr != nil {
@@ -990,7 +991,7 @@ func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup(t *testing.T) {
 				k8sClient:                            k8sClient,
 				nodeInfoProvider:                     nodeInfoProvider,
 				vpcID:                                "vpc-0d6d9ee10bd062dcc",
-				logger:                               &log.NullLogger{},
+				logger:                               logr.Discard(),
 				describeNetworkInterfacesIPChunkSize: 2,
 			}
 
@@ -1197,7 +1198,7 @@ func Test_defaultPodENIInfoResolver_resolveViaPodENIAnnotation(t *testing.T) {
 			}
 			r := &defaultPodENIInfoResolver{
 				ec2Client: ec2Client,
-				logger:    &log.NullLogger{},
+				logger:    logr.Discard(),
 			}
 			got, err := r.resolveViaPodENIAnnotation(context.Background(), tt.args.pods)
 			if tt.wantErr != nil {
@@ -1687,7 +1688,7 @@ func Test_defaultPodENIInfoResolver_resolveViaNodeENIs(t *testing.T) {
 			r := &defaultPodENIInfoResolver{
 				k8sClient:        k8sClient,
 				nodeInfoProvider: nodeInfoProvider,
-				logger:           &log.NullLogger{},
+				logger:           logr.Discard(),
 			}
 			got, err := r.resolveViaNodeENIs(context.Background(), tt.args.pods)
 			if tt.wantErr != nil {
@@ -2031,7 +2032,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIs(t *testing.T) {
 			r := &defaultPodENIInfoResolver{
 				ec2Client:                            ec2Client,
 				vpcID:                                "vpc-0d6d9ee10bd062dcc",
-				logger:                               &log.NullLogger{},
+				logger:                               logr.Discard(),
 				describeNetworkInterfacesIPChunkSize: 2,
 			}
 			got, err := r.resolveViaVPCENIs(context.Background(), tt.args.pods)
@@ -2372,7 +2373,7 @@ func Test_defaultPodENIInfoResolver_resolveViaVPCENIsForIPv6(t *testing.T) {
 			r := &defaultPodENIInfoResolver{
 				ec2Client:                            ec2Client,
 				vpcID:                                "vpc-0d6d9ee10bd062dcc",
-				logger:                               &log.NullLogger{},
+				logger:                               logr.Discard(),
 				describeNetworkInterfacesIPChunkSize: 2,
 			}
 			got, err := r.resolveViaVPCENIs(context.Background(), tt.args.pods)

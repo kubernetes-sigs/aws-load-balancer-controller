@@ -64,20 +64,19 @@ func InitFramework() (*Framework, error) {
 	}
 
 	logger := utils.NewGinkgoLogger()
-
 	f := &Framework{
 		Options:   globalOptions,
 		RestCfg:   restCfg,
 		K8sClient: k8sClient,
 		Cloud:     cloud,
 
-		CTRLInstallationManager: buildControllerInstallationManager(globalOptions, logger),
-		NSManager:               k8sresources.NewDefaultNamespaceManager(k8sClient, logger),
-		DPManager:               k8sresources.NewDefaultDeploymentManager(k8sClient, logger),
-		SVCManager:              k8sresources.NewDefaultServiceManager(k8sClient, logger),
-		INGManager:              k8sresources.NewDefaultIngressManager(k8sClient, logger),
-		LBManager:               awsresources.NewDefaultLoadBalancerManager(cloud.ELBV2(), logger),
-		TGManager:               awsresources.NewDefaultTargetGroupManager(cloud.ELBV2(), logger),
+		CTRLInstallationManager: buildControllerInstallationManager(globalOptions, logger.GetLogr()),
+		NSManager:               k8sresources.NewDefaultNamespaceManager(k8sClient, logger.GetLogr()),
+		DPManager:               k8sresources.NewDefaultDeploymentManager(k8sClient, logger.GetLogr()),
+		SVCManager:              k8sresources.NewDefaultServiceManager(k8sClient, logger.GetLogr()),
+		INGManager:              k8sresources.NewDefaultIngressManager(k8sClient, logger.GetLogr()),
+		LBManager:               awsresources.NewDefaultLoadBalancerManager(cloud.ELBV2(), logger.GetLogr()),
+		TGManager:               awsresources.NewDefaultTargetGroupManager(cloud.ELBV2(), logger.GetLogr()),
 
 		HTTPVerifier: http.NewDefaultVerifier(),
 

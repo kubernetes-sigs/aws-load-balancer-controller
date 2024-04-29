@@ -31,27 +31,39 @@ type enqueueRequestsForNodeEvent struct {
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
-func (h *enqueueRequestsForNodeEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	nodeNew := e.Object.(*corev1.Node)
+func (h *enqueueRequestsForNodeEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+	nodeNew, ok := e.Object.(*corev1.Node)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedTargetGroupBindings(queue, nil, nodeNew)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
-func (h *enqueueRequestsForNodeEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	nodeOld := e.ObjectOld.(*corev1.Node)
-	nodeNew := e.ObjectNew.(*corev1.Node)
+func (h *enqueueRequestsForNodeEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+	nodeOld, ok := e.ObjectOld.(*corev1.Node)
+	if !ok {
+		return
+	}
+	nodeNew, ok := e.ObjectNew.(*corev1.Node)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedTargetGroupBindings(queue, nodeOld, nodeNew)
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
-func (h *enqueueRequestsForNodeEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
-	nodeOld := e.Object.(*corev1.Node)
+func (h *enqueueRequestsForNodeEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+	nodeOld, ok := e.Object.(*corev1.Node)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedTargetGroupBindings(queue, nodeOld, nil)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile AutoScaling, or a WebHook.
-func (h *enqueueRequestsForNodeEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForNodeEvent) Generic(ctx context.Context, e event.GenericEvent, queue workqueue.RateLimitingInterface) {
 	// nothing to do here
 }
 

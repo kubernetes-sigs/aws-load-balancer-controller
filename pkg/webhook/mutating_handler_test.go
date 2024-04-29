@@ -3,6 +3,9 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -12,10 +15,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"net/http"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"testing"
 )
 
 func Test_mutatingHandler_InjectDecoder(t *testing.T) {
@@ -32,7 +33,7 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 	schema := runtime.NewScheme()
 	clientgoscheme.AddToScheme(schema)
 	// k8sDecoder knows k8s objects
-	decoder, _ := admission.NewDecoder(schema)
+	decoder := admission.NewDecoder(schema)
 	patchTypeJSONPatch := admissionv1.PatchTypeJSONPatch
 
 	initialPod := &corev1.Pod{
@@ -174,8 +175,9 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 				AdmissionResponse: admissionv1.AdmissionResponse{
 					Allowed: false,
 					Result: &metav1.Status{
-						Code:   http.StatusForbidden,
-						Reason: "oops, some error happened",
+						Code:    http.StatusForbidden,
+						Reason:  metav1.StatusReasonForbidden,
+						Message: "oops, some error happened",
 					},
 				},
 			},
@@ -313,8 +315,9 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 				AdmissionResponse: admissionv1.AdmissionResponse{
 					Allowed: false,
 					Result: &metav1.Status{
-						Code:   http.StatusForbidden,
-						Reason: "oops, some error happened",
+						Code:    http.StatusForbidden,
+						Reason:  metav1.StatusReasonForbidden,
+						Message: "oops, some error happened",
 					},
 				},
 			},
