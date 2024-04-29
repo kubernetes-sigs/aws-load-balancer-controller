@@ -22,7 +22,11 @@ AWS Load Balancer controller manages the following AWS resources
 As a security best practice, we recommend isolating the controller deployment pods to specific node groups which run critical components. The helm chart provides parameters ```nodeSelector```, ```tolerations``` and ```affinity``` to configure node isolation. For more information, please refer to the guidance [here](https://aws.github.io/aws-eks-best-practices/security/docs/multitenancy/#isolating-tenant-workloads-to-specific-nodes).
 
 ## Prerequisites
-- Kubernetes >= 1.19
+- Supported Kubernetes Versions 
+  - Chart version v1.5.0+ requires Kubernetes 1.22+
+  - Chart version v1.4.0+ requires Kubernetes 1.19+
+  - Chart version v1.2.0 - v1.3.3 supports Kubernetes 1.16-1.21
+  - Chart version v1.1.6 and before supports Kubernetes 1.15
 - IAM permissions
 - Helm v3
 - Optional dependencies
@@ -229,10 +233,13 @@ The default values set by the application itself can be confirmed [here](https:/
 | `watchNamespace`                               | Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched                                                                                                               | None                                              |
 | `disableIngressClassAnnotation`                | Disables the usage of kubernetes.io/ingress.class annotation                                                                                                                                                           | None                                              |
 | `disableIngressGroupNameAnnotation`            | Disables the usage of alb.ingress.kubernetes.io/group.name annotation                                                                                                                                                  | None                                              |
+| `tolerateNonExistentBackendService`            | whether to allow rules that reference a backend service that does not exist. (When enabled, it will return 503 error if backend service not exist)                                                                     | `true`                                            |
+| `tolerateNonExistentBackendAction`             | whether to allow rules that reference a backend action that does not exist. (When enabled, it will return 503 error if backend action not exist)                                                                       | `true`                                            |
 | `defaultSSLPolicy`                             | Specifies the default SSL policy to use for HTTPS or TLS listeners                                                                                                                                                     | None                                              |
 | `externalManagedTags`                          | Specifies the list of tag keys on AWS resources that are managed externally                                                                                                                                            | `[]`                                              |
 | `livenessProbe`                                | Liveness probe settings for the controller                                                                                                                                                                             | (see `values.yaml`)                               |
 | `env`                                          | Environment variables to set for aws-load-balancer-controller pod                                                                                                                                                      | None                                              |
+| `envSecretName`                                | AWS credentials as environment variables from Secret (Secret keys `key_id` and `access_key`).                                                                                                                          | None                                              |
 | `hostNetwork`                                  | If `true`, use hostNetwork                                                                                                                                                                                             | `false`                                           |
 | `dnsPolicy`                                    | Set dnsPolicy if required                                                                                                                                                                                              | `ClusterFirst`                                    |
 | `extraVolumeMounts`                            | Extra volume mounts for the pod                                                                                                                                                                                        | `[]`                                              |

@@ -2915,7 +2915,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			certDiscovery := NewMockCertDiscovery(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
-			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder)
+			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, true, true)
 			ruleOptimizer := NewDefaultRuleOptimizer(logr.New(&log.NullLogSink{}))
 			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
 			stackMarshaller := deploy.NewDefaultStackMarshaller()

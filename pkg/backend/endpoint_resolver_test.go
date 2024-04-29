@@ -1240,7 +1240,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 					Pod:  pod4,
 				},
 			},
-			wantContainsPotentialReadyEndpoints: false,
+			wantContainsPotentialReadyEndpoints: true,
 		},
 		{
 			name: "service not found",

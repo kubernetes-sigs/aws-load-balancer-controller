@@ -25,12 +25,13 @@ const (
 // NewIngressValidator returns a validator for Ingress API.
 func NewIngressValidator(client client.Client, ingConfig config.IngressConfig, logger logr.Logger) *ingressValidator {
 	return &ingressValidator{
-		annotationParser:              annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress),
-		classAnnotationMatcher:        ingress.NewDefaultClassAnnotationMatcher(ingConfig.IngressClass),
-		classLoader:                   ingress.NewDefaultClassLoader(client),
-		disableIngressClassAnnotation: ingConfig.DisableIngressClassAnnotation,
-		disableIngressGroupAnnotation: ingConfig.DisableIngressGroupNameAnnotation,
-		logger:                        logger,
+		annotationParser:                   annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress),
+		classAnnotationMatcher:             ingress.NewDefaultClassAnnotationMatcher(ingConfig.IngressClass),
+		classLoader:                        ingress.NewDefaultClassLoader(client, false),
+		disableIngressClassAnnotation:      ingConfig.DisableIngressClassAnnotation,
+		disableIngressGroupAnnotation:      ingConfig.DisableIngressGroupNameAnnotation,
+		manageIngressesWithoutIngressClass: ingConfig.IngressClass == "",
+		logger:                             logger,
 	}
 }
 
@@ -42,7 +43,10 @@ type ingressValidator struct {
 	classLoader                   ingress.ClassLoader
 	disableIngressClassAnnotation bool
 	disableIngressGroupAnnotation bool
-	logger                        logr.Logger
+	// manageIngressesWithoutIngressClass specifies whether ingresses without "kubernetes.io/ingress.class" annotation
+	// and "spec.ingressClassName" should be managed or not.
+	manageIngressesWithoutIngressClass bool
+	logger                             logr.Logger
 }
 
 func (v *ingressValidator) Prototype(req admission.Request) (runtime.Object, error) {
@@ -51,6 +55,9 @@ func (v *ingressValidator) Prototype(req admission.Request) (runtime.Object, err
 
 func (v *ingressValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	ing := obj.(*networking.Ingress)
+	if skip, err := v.checkIngressClass(ctx, ing); skip || err != nil {
+		return err
+	}
 	if err := v.checkIngressClassAnnotationUsage(ing, nil); err != nil {
 		return err
 	}
@@ -69,6 +76,9 @@ func (v *ingressValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Object, oldObj runtime.Object) error {
 	ing := obj.(*networking.Ingress)
 	oldIng := oldObj.(*networking.Ingress)
+	if skip, err := v.checkIngressClass(ctx, ing); skip || err != nil {
+		return err
+	}
 	if err := v.checkIngressClassAnnotationUsage(ing, oldIng); err != nil {
 		return err
 	}
@@ -86,6 +96,21 @@ func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Objec
 
 func (v *ingressValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
 	return nil
+}
+
+// checkIngressClass checks to see if this ingress is handled by this controller.
+func (v *ingressValidator) checkIngressClass(ctx context.Context, ing *networking.Ingress) (bool, error) {
+	if ingClassAnnotation, exists := ing.Annotations[annotations.IngressClass]; exists {
+		return !v.classAnnotationMatcher.Matches(ingClassAnnotation), nil
+	}
+	classConfiguration, err := v.classLoader.Load(ctx, ing)
+	if err != nil {
+		return false, err
+	}
+	if classConfiguration.IngClass != nil {
+		return classConfiguration.IngClass.Spec.Controller != ingress.IngressClassControllerALB, nil
+	}
+	return !v.manageIngressesWithoutIngressClass, nil
 }
 
 // checkIngressClassAnnotationUsage checks the usage of kubernetes.io/ingress.class annotation.

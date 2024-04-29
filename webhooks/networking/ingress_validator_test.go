@@ -21,6 +21,244 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+func Test_ingressValidator_checkIngressClass(t *testing.T) {
+	type fields struct {
+	}
+	tests := []struct {
+		name                   string
+		configuredIngressClass string
+		ing                    *networking.Ingress
+		ingClassList           []*networking.IngressClass
+		expected               bool
+		expectedErr            string
+	}{
+		{
+			name:                   "ingress with matching ingress.class annotation",
+			configuredIngressClass: "alb",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns-1",
+					Name:      "ing-1",
+					Annotations: map[string]string{
+						"kubernetes.io/ingress.class": "alb",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name:                   "ingress with not-matching ingress.class annotation",
+			configuredIngressClass: "alb",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns-1",
+					Name:      "ing-1",
+					Annotations: map[string]string{
+						"kubernetes.io/ingress.class": "nginx",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name:                   "ingress without IngressClassName, handling",
+			configuredIngressClass: "",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "awesome-ns",
+					Name:      "awesome-ing",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: nil,
+				},
+			},
+			expected: false,
+		},
+		{
+			name:                   "ingress without IngressClassName, not handling",
+			configuredIngressClass: "alb",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "awesome-ns",
+					Name:      "awesome-ing",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: nil,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "ingress with IngressClassName that refers to non-existent IngressClass",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "awesome-ns",
+					Name:      "awesome-ing",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("awesome-class"),
+				},
+			},
+			expectedErr: "invalid ingress class: ingressclasses.networking.k8s.io \"awesome-class\" not found",
+		},
+		{
+			name: "ingress with IngressClassName that refers to IngressClass with non-matching controller",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "awesome-ns",
+					Name:      "awesome-ing",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("awesome-class"),
+				},
+			},
+			ingClassList: []*networking.IngressClass{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "awesome-class",
+					},
+					Spec: networking.IngressClassSpec{
+						Controller: "other-controller",
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "ingress with IngressClassName that refers to IngressClass with no params",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "awesome-ns",
+					Name:      "awesome-ing",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("awesome-class"),
+				},
+			},
+			ingClassList: []*networking.IngressClass{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "awesome-class",
+					},
+					Spec: networking.IngressClassSpec{
+						Controller: "ingress.k8s.aws/alb",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "ingress with IngressClassName that refers to IngressClass with missing IngressClassParams",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "awesome-ns",
+					Name:      "awesome-ing",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: awssdk.String("awesome-class"),
+				},
+			},
+			ingClassList: []*networking.IngressClass{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "awesome-class",
+					},
+					Spec: networking.IngressClassSpec{
+						Controller: "ingress.k8s.aws/alb",
+						Parameters: &networking.IngressClassParametersReference{
+							APIGroup: awssdk.String("elbv2.k8s.aws"),
+							Kind:     "IngressClassParams",
+							Name:     "awesome-class-params",
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name:                   "ingress without IngressClassName, default IngressClass",
+			configuredIngressClass: "alb",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "awesome-ns",
+					Name:      "awesome-ing",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: nil,
+				},
+			},
+			ingClassList: []*networking.IngressClass{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "awesome-class",
+						Annotations: map[string]string{
+							"ingressclass.kubernetes.io/is-default-class": "true",
+						},
+					},
+					Spec: networking.IngressClassSpec{
+						Controller: "ingress.k8s.aws/alb",
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name:                   "ingress without IngressClassName, default IngressClass non-matching controller",
+			configuredIngressClass: "",
+			ing: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "awesome-ns",
+					Name:      "awesome-ing",
+				},
+				Spec: networking.IngressSpec{
+					IngressClassName: nil,
+				},
+			},
+			ingClassList: []*networking.IngressClass{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "awesome-class",
+						Annotations: map[string]string{
+							"ingressclass.kubernetes.io/is-default-class": "true",
+						},
+					},
+					Spec: networking.IngressClassSpec{
+						Controller: "other-controller",
+					},
+				},
+			},
+			expected: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().
+				WithScheme(k8sSchema).
+				Build()
+			for _, ingClass := range tt.ingClassList {
+				assert.NoError(t, k8sClient.Create(ctx, ingClass.DeepCopy()))
+			}
+			classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(tt.configuredIngressClass)
+			v := &ingressValidator{
+				classLoader:                        ingress.NewDefaultClassLoader(k8sClient, false),
+				classAnnotationMatcher:             classAnnotationMatcher,
+				manageIngressesWithoutIngressClass: tt.configuredIngressClass == "",
+				logger:                             logr.New(&log.NullLogSink{}),
+			}
+			skip, err := v.checkIngressClass(ctx, tt.ing)
+			if tt.expectedErr == "" {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, skip)
+			} else {
+				assert.EqualError(t, err, tt.expectedErr)
+			}
+		})
+	}
+}
 func Test_ingressValidator_checkIngressClassAnnotationUsage(t *testing.T) {
 	type fields struct {
 		disableIngressClassAnnotation bool
@@ -764,7 +1002,9 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().
+				WithScheme(k8sSchema).
+				Build()
 			for _, ns := range tt.env.nsList {
 				assert.NoError(t, k8sClient.Create(ctx, ns.DeepCopy()))
 			}
@@ -776,7 +1016,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			}
 
 			v := &ingressValidator{
-				classLoader: ingress.NewDefaultClassLoader(k8sClient),
+				classLoader: ingress.NewDefaultClassLoader(k8sClient, true),
 			}
 			err := v.checkIngressClassUsage(ctx, tt.args.ing, tt.args.oldIng)
 			if tt.wantErr != nil {

@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.5.2
+  tag: v2.6.1
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -215,7 +215,7 @@ targetgroupbindingMaxConcurrentReconciles:
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
 
-# Period at which the controller forces the repopulation of its local object stores. (default 1h0m0s)
+# Period at which the controller forces the repopulation of its local object stores. (default 10h0m0s)
 syncPeriod:
 
 # Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.
@@ -226,6 +226,12 @@ disableIngressClassAnnotation:
 
 # disableIngressGroupNameAnnotation disables the usage of alb.ingress.kubernetes.io/group.name annotation, false by default
 disableIngressGroupNameAnnotation:
+
+# tolerateNonExistentBackendService permits rules which specify backend services that don't exist, true by default (When enabled, it will return 503 error if backend service not exist)
+tolerateNonExistentBackendService:
+
+# tolerateNonExistentBackendAction permits rules which specify backend actions that don't exist, true by default (When enabled, it will return 503 error if backend action not exist)
+tolerateNonExistentBackendAction:
 
 # defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners
 defaultSSLPolicy:
@@ -246,6 +252,9 @@ livenessProbe:
 env:
   # ENV_1: ""
   # ENV_2: ""
+
+# Use Environment variables credentials from Secret (aws-secret) for aws-load-balancer-controller pod similarly as The EBS CSI Driver does.
+# envSecretName: aws-secret
 
 # Specifies if aws-load-balancer-controller should be started in hostNetwork mode.
 #
@@ -315,6 +324,7 @@ controllerConfig:
   # EnableIPTargetType: true
   # SubnetsClusterTagCheck: true
   # NLBHealthCheckAdvancedConfig: true
+  # ALBSingleSubnet: false
 
 # objectSelector for webhook
 objectSelector:

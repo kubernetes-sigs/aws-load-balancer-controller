@@ -108,7 +108,7 @@ func main() {
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), cloud.EC2(),
 		podInfoRepo, sgManager, sgReconciler, vpcInfoProvider,
 		cloud.VpcID(), controllerCFG.ClusterName, controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices, controllerCFG.DisableRestrictedSGRules,
-		mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
+		controllerCFG.ServiceTargetENISGTags, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
 	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
 		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, ctrl.Log.WithName("backend-sg-provider"))
 	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
@@ -117,7 +117,7 @@ func main() {
 		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"))
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider,
-		controllerCFG, ctrl.Log.WithName("controllers").WithName("service"))
+		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"))
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
 		finalizerManager, tgbResManager,
 		controllerCFG, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))

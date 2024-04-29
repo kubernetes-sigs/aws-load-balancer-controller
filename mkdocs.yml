@@ -34,6 +34,7 @@ nav:
       - Use Cases:
         - NLB TLS Termination: guide/use_cases/nlb_tls_termination/index.md
         - Externally Managed Load Balancer: guide/use_cases/self_managed_lb/index.md
+        - Frontend Security Groups: guide/use_cases/frontend_sg/index.md
   - Examples:
     - EchoServer: examples/echo_server.md
     - gRPCServer: examples/grpc_server.md

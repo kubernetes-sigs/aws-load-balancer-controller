@@ -48,6 +48,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        | 
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      |                                                        |
 
 ## Traffic Routing
@@ -411,7 +412,7 @@ Load balancer access can be controlled via following annotations:
 - <a name="lb-source-ranges">`service.beta.kubernetes.io/load-balancer-source-ranges`</a> specifies the CIDRs that are allowed to access the NLB.
 
     !!!tip
-        we recommend specifying CIDRs in the service `Spec.LoadBalancerSourceRanges` instead
+        we recommend specifying CIDRs in the service `spec.loadBalancerSourceRanges` instead
 
     !!!note "Default"
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"
@@ -426,6 +427,9 @@ Load balancer access can be controlled via following annotations:
     !!!warning ""
         Preserve client IP has no effect on traffic converted from IPv4 to IPv6 and on traffic converted from IPv6 to IPv4. The source IP of this type of traffic is always the private IP address of the Network Load Balancer.
         - This could cause the clients that have their traffic converted to bypass the specified CIDRs that are allowed to access the NLB.
+
+    !!!warning ""
+        this annotation will be ignored if `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified.
 
     !!!example
         ```
@@ -448,7 +452,23 @@ Load balancer access can be controlled via following annotations:
         ```
         service.beta.kubernetes.io/aws-load-balancer-internal: "true"
         ```
+- <a name="security-groups">`service.beta.kubernetes.io/aws-load-balancer-security-groups`</a>  specifies the frontend securityGroups you want to attach to an NLB.
 
+    !!!note ""
+        When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from `inbound-cidrs` to the `listen-ports`.
+        Also, the securityGroups for target instances/ENIs will be modified to allow inbound traffic from this securityGroup.
+
+    !!!note ""
+        If you specify this annotation, you need to configure the security groups on your target instances/ENIs to allow inbound traffic from the load balancer. You could also set the [`manage-backend-security-group-rules`](#manage-backend-sg-rules) if you want the controller to manage the security group rules.
+
+    !!!tip ""
+        Both name and ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-security-groups: sg-xxxx, nameOfSg1, nameOfSg2
+        ```
+ 
 - <a name="manage-backend-sg-rules">`service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules`</a> specifies whether the controller should automatically add the ingress rules to the instance/ENI security group.
 
     !!!warning ""
@@ -460,6 +480,10 @@ Load balancer access can be controlled via following annotations:
         ```
 
 ## Legacy Cloud Provider
-The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the legacy aws cloud provider. The annotation `service.beta.kubernetes.io/aws-load-balancer-type` is used to determine which controller reconciles the service. If the annotation value is `nlb-ip` or `external`, legacy cloud provider ignores the service resource (provided it has the correct patch) so that the AWS Load Balancer controller can take over. For all other values of the annotation, the legacy cloud provider will handle the service. Note that this annotation should be specified during service creation and not edited later.
+The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the AWS cloud provider's legacy service controller.
 
-The legacy cloud provider patch was added in Kubernetes v1.20 and is backported to Kubernetes v1.18.18+, v1.19.10+.
+- For users on v2.5.0+, The AWS LBC provides a mutating webhook for service resources to set the `spec.loadBalancerCLass` field for Serive of type LoadBalancer, effectively making the AWS LBC the default controller for Service of type LoadBalancer. 
+  Users can disable this feature and revert to using the AWS Cloud Controller Manager as the default service controller by setting the helm chart value `enableServiceMutatorWebhook` to false with `--set enableServiceMutatorWebhook=false` .
+- For users on older versions, the annotation `service.beta.kubernetes.io/aws-load-balancer-type` is used to determine which controller reconciles the service. If the annotation value is `nlb-ip` or `external`,
+  recent versions of the legacy cloud provider ignore the Service resource so that the AWS LBC can take over. For all other values of the annotation, the legacy cloud provider will handle the service. 
+  Note that this annotation should be specified during service creation and not edited later. Support for the annotation was added to the legacy cloud provider in Kubernetes v1.20, and is backported to v1.18.18+ and v1.19.10+.

@@ -51,7 +51,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
-	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder)
+	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, controllerConfig.IngressConfig.TolerateNonExistentBackendService, controllerConfig.IngressConfig.TolerateNonExistentBackendAction)
 	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
 	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerConfig.FeatureGates, cloud.RGT(), logger)
@@ -65,7 +65,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
 		controllerConfig, ingressTagPrefix, logger)
-	classLoader := ingress.NewDefaultClassLoader(k8sClient)
+	classLoader := ingress.NewDefaultClassLoader(k8sClient, true)
 	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)
 	manageIngressesWithoutIngressClass := controllerConfig.IngressConfig.IngressClass == ""
 	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, eventRecorder, annotationParser, classLoader, classAnnotationMatcher, manageIngressesWithoutIngressClass)

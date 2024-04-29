@@ -79,6 +79,13 @@ By default, Ingresses don't belong to any IngressGroup, and we treat it as a "im
         other Kubernetes users may create/modify their Ingresses to belong to the same IngressGroup, and can thus add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.
 
         We'll add more fine-grained access-control in future versions.
+  
+    !!!note "Rename behavior"
+        The ALB for an IngressGroup is found by searching for an AWS tag `ingress.k8s.aws/stack` tag with the name of the IngressGroup as its value. For an implicit IngressGroup, the value is `namespace/ingressname`.
+
+        When the groupName of an IngressGroup for an Ingress is changed, the Ingress will be moved to a new IngressGroup and be supported by the ALB for the new IngressGroup. If the ALB for the new IngressGroup doesn't exist, a new ALB will be created.
+
+        If an IngressGroup no longer contains any Ingresses, the ALB for that IngressGroup will be deleted and any deletion protection of that ALB will be ignored.
 
     !!!example
         ```
@@ -808,6 +815,10 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
                     ```
                     alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests
                     ```
+        - enable Automated Target Weights(ATW) on HTTP/HTTPS target groups to increase application availability. Set your load balancing algorithm to weighted random and turn on anomaly mitigation (recommended)
+            ```
+            alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=weighted_random,load_balancing.algorithm.anomaly_mitigation=on
+            ```
 
 ## Resource Tags
 The AWS Load Balancer Controller automatically applies following tags to the AWS resources (ALB/TargetGroups/SecurityGroups/Listener/ListenerRule) it creates:
@@ -828,6 +839,12 @@ In addition, you can use annotations to specify additional tags
         ```
 
 ## Addons
+
+!!!note
+    If waf-acl-arn is specified via the ingress annotations, the controller will make sure the waf-acl is associated to the provisioned ALB with the ingress. 
+    If there is not such annotation, the controller will make sure no waf-acl is associated, so it may remove the existing waf-acl on the ALB provisioned. 
+    If users do not want the controller to manage the waf-acl on the ALBs, they can disable the feature by setting controller command line flags `--enable-waf=false` or `--enable-wafv2=false`
+
 - <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amazon WAF web ACL.
 
     !!!warning ""

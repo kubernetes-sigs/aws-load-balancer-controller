@@ -166,7 +166,8 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 					return nil, false, err
 				}
 				if !exists {
-					r.logger.Info("ignore pod Endpoint with non-existent podInfo", "podKey", podKey.String())
+					r.logger.Info("the pod in endpoint is not found in pod cache yet, will keep retrying", "podKey", podKey.String())
+					containsPotentialReadyEndpoints = true
 					continue
 				}
 				podEndpoint := buildPodEndpoint(pod, epAddr, epPort)

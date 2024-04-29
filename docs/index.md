@@ -48,7 +48,5 @@ This project was formerly known as "AWS ALB Ingress Controller", we rebranded it
   - AWS ALB Ingress Controller was donated to Kubernetes SIG-AWS to allow AWS, CoreOS, Ticketmaster and other SIG-AWS contributors to officially maintain the project. SIG-AWS reached this consensus on June 1, 2018.
 
 
-## Security disclosures
-
-If you think you’ve found a potential security issue, please do not post it in the Issues.  Instead, please follow the instructions [here](https://aws.amazon.com/security/vulnerability-reporting/) or [email AWS security directly](mailto:aws-security@amazon.com).
-
+## Support Policy
+Currently, AWS provides security updates and bug fixes to the latest available minor versions of AWS LBC. For other ad-hoc supports on older versions, please reach out through AWS support ticket.
