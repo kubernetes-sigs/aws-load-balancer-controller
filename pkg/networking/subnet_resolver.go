@@ -113,13 +113,13 @@ type SubnetsResolver interface {
 	//   * if SubnetsClusterTagCheck is enabled, subnets within the clusterVPC must contain no cluster tag at all
 	//     or contain the "kubernetes.io/cluster/<cluster_name>" tag for the current cluster
 	// If multiple subnets are found for specific AZ, one subnet is chosen based on the lexical order of subnetID.
-	ResolveViaDiscovery(ctx context.Context, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
+	ResolveViaDiscovery(ctx context.Context, vpcID string, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
 
 	// ResolveViaSelector resolves subnets using a SubnetSelector.
-	ResolveViaSelector(ctx context.Context, selector *elbv2api.SubnetSelector, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
+	ResolveViaSelector(ctx context.Context, vpcID string, selector *elbv2api.SubnetSelector, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
 
 	// ResolveViaNameOrIDSlice resolve subnets using subnet name or ID.
-	ResolveViaNameOrIDSlice(ctx context.Context, subnetNameOrIDs []string, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
+	ResolveViaNameOrIDSlice(ctx context.Context, vpcIDs string, subnetNameOrIDs []string, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error)
 }
 
 // NewDefaultSubnetsResolver constructs new defaultSubnetsResolver.
@@ -144,7 +144,7 @@ type defaultSubnetsResolver struct {
 	logger         logr.Logger
 }
 
-func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
+func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, vpcID string, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
 	resolveOpts := defaultSubnetsResolveOptions()
 	resolveOpts.ApplyOptions(opts)
 
@@ -156,14 +156,14 @@ func (r *defaultSubnetsResolver) ResolveViaDiscovery(ctx context.Context, opts .
 		subnetRoleTagKey = TagKeySubnetPublicELB
 	}
 
-	return r.ResolveViaSelector(ctx, &elbv2api.SubnetSelector{
+	return r.ResolveViaSelector(ctx, vpcID, &elbv2api.SubnetSelector{
 		Tags: map[string][]string{
 			subnetRoleTagKey: {"", "1"},
 		},
 	}, opts...)
 }
 
-func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selector *elbv2api.SubnetSelector, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
+func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, vpcID string, selector *elbv2api.SubnetSelector, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
 	resolveOpts := defaultSubnetsResolveOptions()
 	resolveOpts.ApplyOptions(opts)
 
@@ -194,7 +194,7 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 			Filters: []*ec2sdk.Filter{
 				{
 					Name:   awssdk.String("vpc-id"),
-					Values: awssdk.StringSlice([]string{r.vpcID}),
+					Values: awssdk.StringSlice([]string{vpcID}),
 				},
 			},
 		}
@@ -267,7 +267,7 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 	return chosenSubnets, nil
 }
 
-func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, subnetNameOrIDs []string, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
+func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, vpcID string, subnetNameOrIDs []string, opts ...SubnetsResolveOption) ([]*ec2sdk.Subnet, error) {
 	resolveOpts := defaultSubnetsResolveOptions()
 	resolveOpts.ApplyOptions(opts)
 
@@ -301,7 +301,7 @@ func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, su
 				},
 				{
 					Name:   awssdk.String("vpc-id"),
-					Values: awssdk.StringSlice([]string{r.vpcID}),
+					Values: awssdk.StringSlice([]string{vpcID}),
 				},
 			},
 		}

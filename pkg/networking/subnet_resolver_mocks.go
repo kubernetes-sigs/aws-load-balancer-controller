@@ -37,10 +37,10 @@ func (m *MockSubnetsResolver) EXPECT() *MockSubnetsResolverMockRecorder {
 }
 
 // ResolveViaDiscovery mocks base method.
-func (m *MockSubnetsResolver) ResolveViaDiscovery(arg0 context.Context, arg1 ...SubnetsResolveOption) ([]*ec2.Subnet, error) {
+func (m *MockSubnetsResolver) ResolveViaDiscovery(arg0 context.Context, arg1 string, arg2 ...SubnetsResolveOption) ([]*ec2.Subnet, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ResolveViaDiscovery", varargs...)
@@ -50,17 +50,17 @@ func (m *MockSubnetsResolver) ResolveViaDiscovery(arg0 context.Context, arg1 ...
 }
 
 // ResolveViaDiscovery indicates an expected call of ResolveViaDiscovery.
-func (mr *MockSubnetsResolverMockRecorder) ResolveViaDiscovery(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+func (mr *MockSubnetsResolverMockRecorder) ResolveViaDiscovery(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0}, arg1...)
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveViaDiscovery", reflect.TypeOf((*MockSubnetsResolver)(nil).ResolveViaDiscovery), varargs...)
 }
 
 // ResolveViaNameOrIDSlice mocks base method.
-func (m *MockSubnetsResolver) ResolveViaNameOrIDSlice(arg0 context.Context, arg1 []string, arg2 ...SubnetsResolveOption) ([]*ec2.Subnet, error) {
+func (m *MockSubnetsResolver) ResolveViaNameOrIDSlice(arg0 context.Context, arg1 string, arg2 []string, arg3 ...SubnetsResolveOption) ([]*ec2.Subnet, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ResolveViaNameOrIDSlice", varargs...)
@@ -70,17 +70,17 @@ func (m *MockSubnetsResolver) ResolveViaNameOrIDSlice(arg0 context.Context, arg1
 }
 
 // ResolveViaNameOrIDSlice indicates an expected call of ResolveViaNameOrIDSlice.
-func (mr *MockSubnetsResolverMockRecorder) ResolveViaNameOrIDSlice(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockSubnetsResolverMockRecorder) ResolveViaNameOrIDSlice(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveViaNameOrIDSlice", reflect.TypeOf((*MockSubnetsResolver)(nil).ResolveViaNameOrIDSlice), varargs...)
 }
 
 // ResolveViaSelector mocks base method.
-func (m *MockSubnetsResolver) ResolveViaSelector(arg0 context.Context, arg1 *v1beta1.SubnetSelector, arg2 ...SubnetsResolveOption) ([]*ec2.Subnet, error) {
+func (m *MockSubnetsResolver) ResolveViaSelector(arg0 context.Context, arg1 string, arg2 *v1beta1.SubnetSelector, arg3 ...SubnetsResolveOption) ([]*ec2.Subnet, error) {
 	m.ctrl.T.Helper()
-	varargs := []interface{}{arg0, arg1}
-	for _, a := range arg2 {
+	varargs := []interface{}{arg0, arg1, arg2}
+	for _, a := range arg3 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "ResolveViaSelector", varargs...)
@@ -90,8 +90,8 @@ func (m *MockSubnetsResolver) ResolveViaSelector(arg0 context.Context, arg1 *v1b
 }
 
 // ResolveViaSelector indicates an expected call of ResolveViaSelector.
-func (mr *MockSubnetsResolverMockRecorder) ResolveViaSelector(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+func (mr *MockSubnetsResolverMockRecorder) ResolveViaSelector(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	varargs := append([]interface{}{arg0, arg1}, arg2...)
+	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveViaSelector", reflect.TypeOf((*MockSubnetsResolver)(nil).ResolveViaSelector), varargs...)
 }

@@ -233,6 +233,12 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 }
 
 func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
+	vpcID := new(string)
+	vpcIDConfigured := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixVPCID, vpcID, t.service.Annotations)
+	if vpcIDConfigured {
+		t.vpcID = *vpcID
+	}
+	t.stack.SetVPCID(t.vpcID)
 	scheme, err := t.buildLoadBalancerScheme(ctx)
 	if err != nil {
 		return err

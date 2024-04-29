@@ -91,6 +91,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 		SubnetMappings:         subnetMappings,
 		LoadBalancerAttributes: lbAttributes,
 		Tags:                   tags,
+		VpcId:                  t.vpcID,
 	}
 
 	if securityGroupsInboundRulesOnPrivateLink != nil {
@@ -265,7 +266,7 @@ func (t *defaultModelBuildTask) fetchExistingLoadBalancer(ctx context.Context) (
 	var fetchError error
 	t.fetchExistingLoadBalancerOnce.Do(func() {
 		stackTags := t.trackingProvider.StackTags(t.stack)
-		sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, tracking.TagsAsTagFilter(stackTags))
+		sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, t.vpcID, tracking.TagsAsTagFilter(stackTags))
 		if err != nil {
 			fetchError = err
 		}
@@ -393,7 +394,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]*ec2sdk.Subnet, error) {
 	var rawSubnetNameOrIDs []string
 	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSubnets, &rawSubnetNameOrIDs, t.service.Annotations); exists {
-		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, rawSubnetNameOrIDs,
+		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, t.vpcID, rawSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
 		)
@@ -410,7 +411,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 			subnetID := awssdk.StringValue(availabilityZone.SubnetId)
 			subnetIDs = append(subnetIDs, subnetID)
 		}
-		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, subnetIDs,
+		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, t.vpcID, subnetIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
 		)
@@ -422,14 +423,14 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 	ipv4Configured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixPrivateIpv4Addresses, &privateIpv4Addresses, t.service.Annotations)
 	if (scheme == elbv2model.LoadBalancerSchemeInternetFacing) ||
 		((scheme == elbv2model.LoadBalancerSchemeInternal) && !ipv4Configured) {
-		return t.subnetsResolver.ResolveViaDiscovery(ctx,
+		return t.subnetsResolver.ResolveViaDiscovery(ctx, t.vpcID,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),
 			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
 		)
 	}
-	return t.subnetsResolver.ResolveViaDiscovery(ctx,
+	return t.subnetsResolver.ResolveViaDiscovery(ctx, t.vpcID,
 		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 		networking.WithSubnetsResolveLBScheme(scheme),
 		networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),

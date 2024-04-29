@@ -213,7 +213,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 				return nil, errors.Errorf("conflicting IngressClassParams subnet specifications")
 			}
 		}
-		chosenSubnets, err := t.subnetsResolver.ResolveViaSelector(ctx, chosenSubnetSelector,
+		chosenSubnets, err := t.subnetsResolver.ResolveViaSelector(ctx, t.vpcID, chosenSubnetSelector,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
@@ -233,7 +233,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 				return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
 			}
 		}
-		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
+		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, t.vpcID, chosenSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithALBSingleSubnet(t.featureGates.Enabled(config.ALBSingleSubnet)),
@@ -245,13 +245,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 	}
 	stackTags := t.trackingProvider.StackTags(t.stack)
 
-	sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, tracking.TagsAsTagFilter(stackTags))
+	sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, "", tracking.TagsAsTagFilter(stackTags))
 	if err != nil {
 		return nil, err
 	}
 
 	if len(sdkLBs) == 0 || (string(scheme) != awssdk.StringValue(sdkLBs[0].LoadBalancer.Scheme)) {
-		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
+		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx, t.vpcID,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),

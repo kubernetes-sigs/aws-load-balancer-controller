@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -84,7 +85,7 @@ func (s *securityGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 func (s *securityGroupSynthesizer) findSDKSecurityGroups(ctx context.Context) ([]networking.SecurityGroupInfo, error) {
 	stackTags := s.trackingProvider.StackTags(s.stack)
 	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
-	return s.taggingManager.ListSecurityGroups(ctx,
+	return s.taggingManager.ListSecurityGroups(ctx, s.stack.GetVPCID(),
 		tracking.TagsAsTagFilter(stackTags),
 		tracking.TagsAsTagFilter(stackTagsLegacy))
 }

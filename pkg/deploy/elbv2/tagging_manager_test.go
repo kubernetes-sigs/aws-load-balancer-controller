@@ -2,8 +2,9 @@ package elbv2
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/util/cache"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/util/cache"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
@@ -615,7 +616,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 				resourceTagsCacheTTL:  defaultResourceTagsCacheTTL,
 				featureGates:          featureGates,
 			}
-			got, err := m.ListLoadBalancers(context.Background(), tt.args.tagFilters...)
+			got, err := m.ListLoadBalancers(context.Background(), "", tt.args.tagFilters...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1117,7 +1118,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 				resourceTagsCacheTTL:  defaultResourceTagsCacheTTL,
 				featureGates:          featureGates,
 			}
-			got, err := m.ListTargetGroups(context.Background(), tt.args.tagFilters...)
+			got, err := m.ListTargetGroups(context.Background(), "vpc-xxxxxxxxx", tt.args.tagFilters...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

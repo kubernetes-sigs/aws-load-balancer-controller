@@ -1,8 +1,9 @@
 package core
 
 import (
-	"github.com/pkg/errors"
 	"reflect"
+
+	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core/graph"
 )
 
@@ -16,6 +17,12 @@ type Stack interface {
 
 	// Add a dependency relationship between resources.
 	AddDependency(dependee Resource, depender Resource) error
+
+	// Set the VPC ID for the Stack (VPC in which the LoadBalancer and TargetGroup will be created)
+	SetVPCID(vpcID string)
+
+	// Get the VPC ID for the Stack
+	GetVPCID() string
 
 	// ListResources list all resources for specific type.
 	// pResourceSlice must be a pointer to a slice of resources, which will be filled.
@@ -39,6 +46,7 @@ var _ Stack = &defaultStack{}
 
 // default implementation for stack.
 type defaultStack struct {
+	vpcID   string
 	stackID StackID
 
 	resources     map[graph.ResourceUID]Resource
@@ -72,6 +80,15 @@ func (s *defaultStack) AddDependency(dependee Resource, depender Resource) error
 	}
 	s.resourceGraph.AddEdge(dependeeResUID, dependerResUID)
 	return nil
+}
+
+// Set the VPC ID for the Stack (VPC in which the LoadBalancer and TargetGroup will be created)
+func (s *defaultStack) SetVPCID(vpcID string) {
+	s.vpcID = vpcID
+}
+
+func (s *defaultStack) GetVPCID() string {
+	return s.vpcID
 }
 
 // ListResources list all resources for specific type.

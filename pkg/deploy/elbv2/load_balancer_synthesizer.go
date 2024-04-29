@@ -113,7 +113,7 @@ func (s *loadBalancerSynthesizer) PostSynthesize(ctx context.Context) error {
 func (s *loadBalancerSynthesizer) findSDKLoadBalancers(ctx context.Context) ([]LoadBalancerWithTags, error) {
 	stackTags := s.trackingProvider.StackTags(s.stack)
 	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
-	return s.taggingManager.ListLoadBalancers(ctx,
+	return s.taggingManager.ListLoadBalancers(ctx, s.stack.GetVPCID(),
 		tracking.TagsAsTagFilter(stackTags),
 		tracking.TagsAsTagFilter(stackTagsLegacy))
 }
