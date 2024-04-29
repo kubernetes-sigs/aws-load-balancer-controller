@@ -2,8 +2,9 @@ package backend
 
 import (
 	"errors"
-	corev1 "k8s.io/api/core/v1"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,7 +64,7 @@ func TestGetTrafficProxyNodeSelector(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("\"BadOperatorValue\" is not a valid pod selector operator"),
+			wantErr: errors.New("\"BadOperatorValue\" is not a valid label selector operator"),
 		},
 	}
 	for _, tt := range tests {

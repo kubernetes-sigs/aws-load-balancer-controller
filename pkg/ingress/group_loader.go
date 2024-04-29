@@ -86,6 +86,10 @@ func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, 
 	var inactiveMembers []*networking.Ingress
 	for index := range ingList.Items {
 		ing := &ingList.Items[index]
+		if ing.DeletionTimestamp != nil {
+			// It is being deleted.
+			continue
+		}
 		membershipType, classifiedIng, err := m.checkGroupMembershipType(ctx, groupID, ing)
 		if err != nil {
 			return Group{}, errors.Wrapf(err, "Ingress: %v", k8s.NamespacedName(ing))

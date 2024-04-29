@@ -11,7 +11,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -626,9 +625,9 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			k8sSchema := runtime.NewScheme()
-			clientgoscheme.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClient()
+			k8sSchema := k8sClient.Scheme()
+			clientgoscheme.AddToScheme(k8sSchema)
 			for _, svc := range tt.env.svcs {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			}
@@ -1596,9 +1595,9 @@ func Test_defaultEnhancedBackendBuilder_loadBackendServices(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			k8sSchema := runtime.NewScheme()
-			clientgoscheme.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewFakeClient()
+			k8sSchema := k8sClient.Scheme()
+			clientgoscheme.AddToScheme(k8sSchema)
 			for _, svc := range tt.env.svcs {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			}

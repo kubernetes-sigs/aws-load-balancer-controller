@@ -172,8 +172,8 @@ func Test_enqueueRequestsForEndpointsEvent_enqueueImpactedTargetGroupBindings(t 
 				logger:    logr.Discard(),
 			}
 			queue := controllertest.Queue{Interface: workqueue.New()}
-			h.enqueueImpactedTargetGroupBindings(queue, tt.args.eps)
-			gotRequests := testutils.ExtractCTRLRequestsFromQueue(queue)
+			h.enqueueImpactedTargetGroupBindings(&queue, tt.args.eps)
+			gotRequests := testutils.ExtractCTRLRequestsFromQueue(&queue)
 			assert.True(t, cmp.Equal(tt.wantRequests, gotRequests),
 				"diff", cmp.Diff(tt.wantRequests, gotRequests))
 		})
