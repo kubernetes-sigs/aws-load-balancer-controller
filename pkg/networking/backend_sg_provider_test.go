@@ -2,10 +2,11 @@ package networking
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
 	"reflect"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -293,7 +294,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			} else {
 				activeResources = k8s.ToSliceOfNamespacedNames([]*corev1.Service{tt.fields.svcResource})
 			}
-			got, err := sgProvider.Get(context.Background(), ResourceType(resourceType), activeResources)
+			got, err := sgProvider.Get(context.Background(), ResourceType(resourceType), activeResources, nil)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

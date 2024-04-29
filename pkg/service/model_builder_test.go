@@ -6402,7 +6402,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			}
 			backendSGProvider := networking.NewMockBackendSGProvider(ctrl)
 			if tt.enableBackendSG {
-				backendSGProvider.EXPECT().Get(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
+				backendSGProvider.EXPECT().Get(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any(), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
 				backendSGProvider.EXPECT().Release(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(nil).AnyTimes()
 			}
 			sgResolver := networking.NewMockSecurityGroupResolver(ctrl)
