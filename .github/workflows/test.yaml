@@ -20,10 +20,10 @@ jobs:
         sudo snap install yq
         make test
         
-    - name: Codecov
-      uses: codecov/codecov-action@v1
-      with:
-        file: ./cover.out # optional
+    #- name: Codecov
+    #  uses: codecov/codecov-action@v1
+    #  with:
+    #    file: ./cover.out # optional
 
   verify:
     runs-on: ubuntu-latest
