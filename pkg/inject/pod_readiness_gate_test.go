@@ -2,18 +2,18 @@ package inject
 
 import (
 	"context"
+	"testing"
+
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"testing"
 )
 
 func Test_PodReadinessGate_Mutate(t *testing.T) {
@@ -341,10 +341,10 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
-			k8sSchema := runtime.NewScheme()
+			k8sClient := testclient.NewFakeClient()
+			k8sSchema := k8sClient.Scheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			for _, svc := range tt.services {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			}
@@ -354,7 +354,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			ctx = webhook.ContextWithAdmissionRequest(ctx, admission.Request{
 				AdmissionRequest: admissionv1.AdmissionRequest{Namespace: tt.namespace},
 			})
-			readinessGateInjector := NewPodReadinessGate(tt.config, k8sClient, &log.NullLogger{})
+			readinessGateInjector := NewPodReadinessGate(tt.config, k8sClient, logr.Discard())
 			err := readinessGateInjector.Mutate(ctx, tt.pod)
 			if tt.wantError {
 				assert.Error(t, err)

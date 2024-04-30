@@ -6,18 +6,17 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing.T) {
@@ -372,13 +371,13 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			k8sSchema := runtime.NewScheme()
+			k8sClient := testclient.NewFakeClient()
+			k8sSchema := k8sClient.Scheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 
 			m := &defaultResourceManager{
 				k8sClient: k8sClient,
-				logger:    &log.NullLogger{},
+				logger:    logr.Discard(),
 			}
 
 			ctx := context.Background()

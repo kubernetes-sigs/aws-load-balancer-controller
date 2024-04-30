@@ -2,14 +2,16 @@ package webhook
 
 import (
 	"context"
-	admissionv1 "k8s.io/api/admission/v1"
 	"net/http"
+
+	admissionv1 "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var validatingHandlerLog = ctrl.Log.WithName("validating_handler")
-var _ admission.DecoderInjector = &validatingHandler{}
+
+// var _ admission.DecoderInjector = &validatingHandler{}
 var _ admission.Handler = &validatingHandler{}
 
 type validatingHandler struct {

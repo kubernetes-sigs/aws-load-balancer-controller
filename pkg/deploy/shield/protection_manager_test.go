@@ -2,16 +2,17 @@ package shield
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	shieldsdk "github.com/aws/aws-sdk-go/service/shield"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
-	"time"
 )
 
 func Test_defaultProtectionManager_IsSubscribed(t *testing.T) {
@@ -151,7 +152,7 @@ func Test_defaultProtectionManager_IsSubscribed(t *testing.T) {
 
 			m := &defaultProtectionManager{
 				shieldClient:              shieldClient,
-				logger:                    &log.NullLogger{},
+				logger:                    logr.Discard(),
 				subscriptionStateCache:    cache.NewExpiring(),
 				subscriptionStateCacheTTL: tt.fields.subscriptionStateCacheTTL,
 			}

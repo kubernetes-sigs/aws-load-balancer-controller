@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
@@ -318,7 +317,7 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 			i := &defaultReferenceIndexer{
 				enhancedBackendBuilder: enhancedBackendBuilder,
 				authConfigBuilder:      authConfigBuilder,
-				logger:                 &log.NullLogger{},
+				logger:                 logr.Discard(),
 			}
 			got := i.BuildServiceRefIndexes(context.Background(), tt.args.ing)
 			assert.Equal(t, tt.want, got)
@@ -369,7 +368,7 @@ func Test_defaultReferenceIndexer_BuildSecretRefIndexes(t *testing.T) {
 			i := &defaultReferenceIndexer{
 				enhancedBackendBuilder: enhancedBackendBuilder,
 				authConfigBuilder:      authConfigBuilder,
-				logger:                 &log.NullLogger{},
+				logger:                 logr.Discard(),
 			}
 			got := i.BuildSecretRefIndexes(context.Background(), tt.args.ingOrSvc)
 			assert.Equal(t, tt.want, got)

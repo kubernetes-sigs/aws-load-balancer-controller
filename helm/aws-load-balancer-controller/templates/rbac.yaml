@@ -14,6 +14,22 @@ rules:
   resources: [configmaps]
   resourceNames: [aws-load-balancer-controller-leader]
   verbs: [get, patch, update]
+- apiGroups:
+  - "coordination.k8s.io"
+  resources:
+  - leases
+  verbs:
+  - create
+- apiGroups:
+  - "coordination.k8s.io"
+  resources:
+  - leases
+  resourceNames:
+  - aws-load-balancer-controller-leader
+  verbs:
+  - get
+  - update
+  - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

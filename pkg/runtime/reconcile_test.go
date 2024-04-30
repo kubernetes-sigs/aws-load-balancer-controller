@@ -1,12 +1,12 @@
 package runtime
 
 import (
+	"testing"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
-	"time"
 )
 
 func TestHandleReconcileError(t *testing.T) {
@@ -58,7 +58,7 @@ func TestHandleReconcileError(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := HandleReconcileError(tt.args.err, &log.NullLogger{})
+			got, err := HandleReconcileError(tt.args.err, ctrl.Log)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

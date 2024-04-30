@@ -167,5 +167,5 @@ func (v *ingressValidator) checkIngressClassUsage(ctx context.Context, ing *netw
 // +kubebuilder:webhook:path=/validate-networking-v1-ingress,mutating=false,failurePolicy=fail,groups=networking.k8s.io,resources=ingresses,verbs=create;update,versions=v1,name=vingress.elbv2.k8s.aws,sideEffects=None,matchPolicy=Equivalent,webhookVersions=v1,admissionReviewVersions=v1beta1
 
 func (v *ingressValidator) SetupWithManager(mgr ctrl.Manager) {
-	mgr.GetWebhookServer().Register(apiPathValidateNetworkingIngress, webhook.ValidatingWebhookForValidator(v))
+	mgr.GetWebhookServer().Register(apiPathValidateNetworkingIngress, webhook.ValidatingWebhookForValidator(mgr.GetScheme(), v))
 }

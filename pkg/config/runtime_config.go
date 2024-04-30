@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/tls"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -10,7 +11,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	metricserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 const (
@@ -112,24 +116,39 @@ func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
 // BuildRuntimeOptions builds the options for the controller runtime based on config
 func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Options {
 	return ctrl.Options{
-		Scheme:                     scheme,
-		Port:                       rtCfg.WebhookBindPort,
-		CertDir:                    rtCfg.WebhookCertDir,
-		MetricsBindAddress:         rtCfg.MetricsBindAddress,
+		Scheme: scheme,
+		Metrics: metricserver.Options{
+			BindAddress: rtCfg.MetricsBindAddress,
+		},
 		HealthProbeBindAddress:     rtCfg.HealthProbeBindAddress,
 		LeaderElection:             rtCfg.EnableLeaderElection,
-		LeaderElectionResourceLock: resourcelock.ConfigMapsResourceLock,
+		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		LeaderElectionID:           rtCfg.LeaderElectionID,
 		LeaderElectionNamespace:    rtCfg.LeaderElectionNamespace,
-		Namespace:                  rtCfg.WatchNamespace,
-		SyncPeriod:                 &rtCfg.SyncPeriod,
-		ClientDisableCacheFor:      []client.Object{&corev1.Secret{}},
+		// Namespace:                  rtCfg.WatchNamespace,
+		Cache: cache.Options{
+			SyncPeriod: &rtCfg.SyncPeriod,
+			Scheme:     scheme,
+		},
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{&corev1.Secret{}},
+			},
+		},
 	}
 }
 
 // ConfigureWebhookServer set up the server cert for the webhook server.
-func ConfigureWebhookServer(rtCfg RuntimeConfig, mgr ctrl.Manager) {
-	mgr.GetWebhookServer().CertName = rtCfg.WebhookCertName
-	mgr.GetWebhookServer().KeyName = rtCfg.WebhookKeyName
-	mgr.GetWebhookServer().TLSMinVersion = "1.3"
+func ConfigureWebhookServer(rtCfg RuntimeConfig) webhook.Options {
+	return webhook.Options{
+		CertDir:  rtCfg.WebhookCertDir,
+		CertName: rtCfg.WebhookCertName,
+		KeyName:  rtCfg.WebhookKeyName,
+		Port:     rtCfg.WebhookBindPort,
+		TLSOpts: []func(*tls.Config){
+			func(c *tls.Config) {
+				c.MinVersion = tls.VersionTLS13
+			},
+		},
+	}
 }

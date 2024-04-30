@@ -2,6 +2,8 @@ package elbv2
 
 import (
 	"context"
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
@@ -14,7 +16,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"strings"
 )
 
 const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
@@ -185,5 +186,5 @@ func (v *targetGroupBindingValidator) getTargetGroupFromAWS(ctx context.Context,
 // +kubebuilder:webhook:path=/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=false,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=vtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1
 
 func (v *targetGroupBindingValidator) SetupWithManager(mgr ctrl.Manager) {
-	mgr.GetWebhookServer().Register(apiPathValidateELBv2TargetGroupBinding, webhook.ValidatingWebhookForValidator(v))
+	mgr.GetWebhookServer().Register(apiPathValidateELBv2TargetGroupBinding, webhook.ValidatingWebhookForValidator(mgr.GetScheme(), v))
 }

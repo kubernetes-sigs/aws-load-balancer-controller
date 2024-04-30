@@ -2,16 +2,17 @@ package elbv2
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"testing"
 )
 
 func Test_defaultTargetGroupAttributeReconciler_Reconcile(t *testing.T) {
@@ -163,7 +164,7 @@ func Test_defaultTargetGroupAttributeReconciler_Reconcile(t *testing.T) {
 			}
 			r := &defaultTargetGroupAttributeReconciler{
 				elbv2Client: elbv2Client,
-				logger:      &log.NullLogger{},
+				logger:      logr.Discard(),
 			}
 			err := r.Reconcile(context.Background(), tt.args.resTG, tt.args.sdkTG)
 			if tt.wantErr != nil {

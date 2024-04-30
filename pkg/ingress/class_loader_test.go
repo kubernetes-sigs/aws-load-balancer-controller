@@ -2,6 +2,8 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
@@ -11,14 +13,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"testing"
 )
 
 func Test_defaultClassLoader_Load(t *testing.T) {
@@ -485,10 +485,10 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 			defer ctrl.Finish()
 
 			ctx := context.Background()
-			k8sSchema := runtime.NewScheme()
+			k8sClient := testclient.NewFakeClient()
+			k8sSchema := k8sClient.Scheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			for _, ns := range tt.env.nsList {
 				assert.NoError(t, k8sClient.Create(ctx, ns.DeepCopy()))
 			}
@@ -683,10 +683,10 @@ func Test_defaultClassLoader_validateIngressClassParamsNamespaceRestriction(t *t
 			defer ctrl.Finish()
 
 			ctx := context.Background()
-			k8sSchema := runtime.NewScheme()
+			k8sClient := testclient.NewFakeClient()
+			k8sSchema := k8sClient.Scheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			for _, ns := range tt.env.nsList {
 				assert.NoError(t, k8sClient.Create(ctx, ns.DeepCopy()))
 			}

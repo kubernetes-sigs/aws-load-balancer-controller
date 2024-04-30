@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -35,15 +36,23 @@ type enqueueRequestsForServiceEvent struct {
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForServiceEvent) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
-	svcNew := e.Object.(*corev1.Service)
+func (h *enqueueRequestsForServiceEvent) Create(ctx context.Context, e event.CreateEvent, _ workqueue.RateLimitingInterface) {
+	svcNew, ok := e.Object.(*corev1.Service)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedIngresses(svcNew)
 }
 
-func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
-	svcOld := e.ObjectOld.(*corev1.Service)
-	svcNew := e.ObjectNew.(*corev1.Service)
-
+func (h *enqueueRequestsForServiceEvent) Update(ctx context.Context, e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
+	svcOld, ok := e.ObjectOld.(*corev1.Service)
+	if !ok {
+		return
+	}
+	svcNew, ok := e.ObjectNew.(*corev1.Service)
+	if !ok {
+		return
+	}
 	// we only care below update event:
 	//	1. Service annotation updates
 	//	2. Service spec updates
@@ -57,13 +66,19 @@ func (h *enqueueRequestsForServiceEvent) Update(e event.UpdateEvent, _ workqueue
 	h.enqueueImpactedIngresses(svcNew)
 }
 
-func (h *enqueueRequestsForServiceEvent) Delete(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
-	svcOld := e.Object.(*corev1.Service)
+func (h *enqueueRequestsForServiceEvent) Delete(ctx context.Context, e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
+	svcOld, ok := e.Object.(*corev1.Service)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedIngresses(svcOld)
 }
 
-func (h *enqueueRequestsForServiceEvent) Generic(e event.GenericEvent, _ workqueue.RateLimitingInterface) {
-	svc := e.Object.(*corev1.Service)
+func (h *enqueueRequestsForServiceEvent) Generic(ctx context.Context, e event.GenericEvent, _ workqueue.RateLimitingInterface) {
+	svc, ok := e.Object.(*corev1.Service)
+	if !ok {
+		return
+	}
 	h.enqueueImpactedIngresses(svc)
 }
 
