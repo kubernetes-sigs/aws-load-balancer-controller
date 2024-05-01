@@ -2,6 +2,8 @@ package ec2
 
 import (
 	"context"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
@@ -12,7 +14,6 @@ import (
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
-	"time"
 )
 
 const (
@@ -69,7 +70,7 @@ func (m *defaultSecurityGroupManager) Create(ctx context.Context, resSG *ec2mode
 	}
 
 	req := &ec2sdk.CreateSecurityGroupInput{
-		VpcId:       awssdk.String(m.vpcID),
+		VpcId:       awssdk.String(resSG.Spec.VPCID),
 		GroupName:   awssdk.String(resSG.Spec.GroupName),
 		Description: awssdk.String(resSG.Spec.Description),
 		TagSpecifications: []*ec2sdk.TagSpecification{

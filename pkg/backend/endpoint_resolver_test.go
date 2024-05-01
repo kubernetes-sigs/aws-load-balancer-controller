@@ -2589,9 +2589,10 @@ func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 
 func Test_buildPodEndpoint(t *testing.T) {
 	type args struct {
-		pod    k8s.PodInfo
-		epAddr string
-		port   int32
+		pod                  k8s.PodInfo
+		nodeAvailabilityZone string
+		epAddr               string
+		port                 int32
 	}
 	tests := []struct {
 		name string
@@ -2604,12 +2605,14 @@ func Test_buildPodEndpoint(t *testing.T) {
 				pod: k8s.PodInfo{
 					Key: types.NamespacedName{Name: "sample-node"},
 				},
-				epAddr: "192.168.1.1",
-				port:   80,
+				nodeAvailabilityZone: "us-east-1a",
+				epAddr:               "192.168.1.1",
+				port:                 80,
 			},
 			want: PodEndpoint{
-				IP:   "192.168.1.1",
-				Port: 80,
+				AvailabilityZone: "us-east-1a",
+				IP:               "192.168.1.1",
+				Port:             80,
 				Pod: k8s.PodInfo{
 					Key: types.NamespacedName{Name: "sample-node"},
 				},
@@ -2618,7 +2621,7 @@ func Test_buildPodEndpoint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildPodEndpoint(tt.args.pod, tt.args.epAddr, tt.args.port)
+			got := buildPodEndpoint(tt.args.pod, tt.args.nodeAvailabilityZone, tt.args.epAddr, tt.args.port)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -2626,9 +2629,10 @@ func Test_buildPodEndpoint(t *testing.T) {
 
 func Test_buildNodePortEndpoint(t *testing.T) {
 	type args struct {
-		node       *corev1.Node
-		instanceID string
-		nodePort   int32
+		node             *corev1.Node
+		availabilityZone string
+		instanceID       string
+		nodePort         int32
 	}
 	tests := []struct {
 		name string
@@ -2643,8 +2647,9 @@ func Test_buildNodePortEndpoint(t *testing.T) {
 						Name: "sample-node",
 					},
 				},
-				instanceID: "i-xxxxx",
-				nodePort:   33382,
+				availabilityZone: "us-east-1a",
+				instanceID:       "i-xxxxx",
+				nodePort:         33382,
 			},
 			want: NodePortEndpoint{
 				Node: &corev1.Node{
@@ -2652,14 +2657,15 @@ func Test_buildNodePortEndpoint(t *testing.T) {
 						Name: "sample-node",
 					},
 				},
-				InstanceID: "i-xxxxx",
-				Port:       33382,
+				AvailabilityZone: "us-east-1a",
+				InstanceID:       "i-xxxxx",
+				Port:             33382,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildNodePortEndpoint(tt.args.node, tt.args.instanceID, tt.args.nodePort)
+			got := buildNodePortEndpoint(tt.args.node, tt.args.availabilityZone, tt.args.instanceID, tt.args.nodePort)
 			assert.Equal(t, tt.want, got)
 		})
 	}

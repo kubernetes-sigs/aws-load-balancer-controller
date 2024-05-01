@@ -91,7 +91,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 		SubnetMappings:         subnetMappings,
 		LoadBalancerAttributes: lbAttributes,
 		Tags:                   tags,
-		VpcId:                  t.vpcID,
+		VpcId:                  t.stack.GetVPCID(),
 	}
 
 	if securityGroupsInboundRulesOnPrivateLink != nil {
@@ -124,7 +124,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if !t.enableBackendSG {
 			t.backendSGIDToken = managedSG.GroupID()
 		} else {
-			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(t.service)})
+			backendSGID, err := t.backendSGProvider.Get(ctx, t.stack.GetVPCID(), networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(t.service)})
 			if err != nil {
 				return nil, err
 			}
@@ -137,7 +137,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if err != nil {
 			return nil, err
 		}
-		frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, sgNameOrIDs)
+		frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, t.stack.GetVPCID(), sgNameOrIDs)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +148,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 			if !t.enableBackendSG {
 				return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG is manually specified")
 			}
-			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(t.service)})
+			backendSGID, err := t.backendSGProvider.Get(ctx, t.stack.GetVPCID(), networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(t.service)})
 			if err != nil {
 				return nil, err
 			}
@@ -266,7 +266,7 @@ func (t *defaultModelBuildTask) fetchExistingLoadBalancer(ctx context.Context) (
 	var fetchError error
 	t.fetchExistingLoadBalancerOnce.Do(func() {
 		stackTags := t.trackingProvider.StackTags(t.stack)
-		sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, t.vpcID, tracking.TagsAsTagFilter(stackTags))
+		sdkLBs, err := t.elbv2TaggingManager.ListLoadBalancers(ctx, t.stack.GetVPCID(), tracking.TagsAsTagFilter(stackTags))
 		if err != nil {
 			fetchError = err
 		}
@@ -394,7 +394,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]*ec2sdk.Subnet, error) {
 	var rawSubnetNameOrIDs []string
 	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSubnets, &rawSubnetNameOrIDs, t.service.Annotations); exists {
-		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, t.vpcID, rawSubnetNameOrIDs,
+		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, t.stack.GetVPCID(), rawSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
 		)
@@ -411,7 +411,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 			subnetID := awssdk.StringValue(availabilityZone.SubnetId)
 			subnetIDs = append(subnetIDs, subnetID)
 		}
-		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, t.vpcID, subnetIDs,
+		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, t.stack.GetVPCID(), subnetIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
 		)
@@ -423,14 +423,14 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 	ipv4Configured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixPrivateIpv4Addresses, &privateIpv4Addresses, t.service.Annotations)
 	if (scheme == elbv2model.LoadBalancerSchemeInternetFacing) ||
 		((scheme == elbv2model.LoadBalancerSchemeInternal) && !ipv4Configured) {
-		return t.subnetsResolver.ResolveViaDiscovery(ctx, t.vpcID,
+		return t.subnetsResolver.ResolveViaDiscovery(ctx, t.stack.GetVPCID(),
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),
 			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
 		)
 	}
-	return t.subnetsResolver.ResolveViaDiscovery(ctx, t.vpcID,
+	return t.subnetsResolver.ResolveViaDiscovery(ctx, t.stack.GetVPCID(),
 		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 		networking.WithSubnetsResolveLBScheme(scheme),
 		networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),

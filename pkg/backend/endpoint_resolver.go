@@ -111,7 +111,11 @@ func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, 
 		if err != nil {
 			return nil, err
 		}
-		endpoints = append(endpoints, buildNodePortEndpoint(node, instanceID, svcNodePort))
+		availabilityZone, err := k8s.ExtractNodeAvailabilityZone(node)
+		if err != nil {
+			return nil, err
+		}
+		endpoints = append(endpoints, buildNodePortEndpoint(node, availabilityZone, instanceID, svcNodePort))
 	}
 	return endpoints, nil
 }
@@ -170,7 +174,20 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 					containsPotentialReadyEndpoints = true
 					continue
 				}
-				podEndpoint := buildPodEndpoint(pod, epAddr, epPort)
+				// Build the namespaced name for the node the pod is scheduled on.
+				nodeKey := types.NamespacedName{Name: pod.NodeName}
+				node := &corev1.Node{}
+				if err := r.k8sClient.Get(ctx, nodeKey, node); err != nil {
+					r.logger.Error(err, "ignore pod Endpoint without non-exist nodeInfo", "podKey", podKey.String())
+					continue
+				}
+				// Extract the availability zone from the node.
+				availabilityZone, err := k8s.ExtractNodeAvailabilityZone(node)
+				if err != nil {
+					r.logger.Error(err, "unable to extract availability zone from node", "nodeKey", nodeKey.String())
+					return nil, false, err
+				}
+				podEndpoint := buildPodEndpoint(pod, availabilityZone, epAddr, epPort)
 				if ep.Conditions.Ready != nil && *ep.Conditions.Ready {
 					readyPodEndpoints = append(readyPodEndpoints, podEndpoint)
 					continue
@@ -180,12 +197,6 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 					if pod.HasAnyOfReadinessGates(podReadinessGates) {
 						containsPotentialReadyEndpoints = true
 					}
-					continue
-				}
-
-				node := &corev1.Node{}
-				if err := r.k8sClient.Get(ctx, types.NamespacedName{Name: pod.NodeName}, node); err != nil {
-					r.logger.Error(err, "ignore pod Endpoint without non-exist nodeInfo", "podKey", podKey.String())
 					continue
 				}
 
@@ -281,19 +292,21 @@ func buildEndpointsDataFromEndpointSliceList(epsList *discovery.EndpointSliceLis
 	return endpointsDataList
 }
 
-func buildPodEndpoint(pod k8s.PodInfo, epAddr string, port int32) PodEndpoint {
+func buildPodEndpoint(pod k8s.PodInfo, availabilityZone string, epAddr string, port int32) PodEndpoint {
 	return PodEndpoint{
-		IP:   epAddr,
-		Port: int64(port),
-		Pod:  pod,
+		AvailabilityZone: availabilityZone,
+		IP:               epAddr,
+		Port:             int64(port),
+		Pod:              pod,
 	}
 }
 
-func buildNodePortEndpoint(node *corev1.Node, instanceID string, nodePort int32) NodePortEndpoint {
+func buildNodePortEndpoint(node *corev1.Node, availabilityZone string, instanceID string, nodePort int32) NodePortEndpoint {
 	return NodePortEndpoint{
-		InstanceID: instanceID,
-		Port:       int64(nodePort),
-		Node:       node,
+		AvailabilityZone: availabilityZone,
+		InstanceID:       instanceID,
+		Port:             int64(nodePort),
+		Node:             node,
 	}
 }
 

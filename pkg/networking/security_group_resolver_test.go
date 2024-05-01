@@ -263,7 +263,7 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				ec2Client: ec2Client,
 				vpcID:     defaultVPCID,
 			}
-			got, err := r.ResolveViaNameOrID(context.Background(), tt.args.nameOrIDs)
+			got, err := r.ResolveViaNameOrID(context.Background(), "vpc-xxxxxxxx", tt.args.nameOrIDs)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

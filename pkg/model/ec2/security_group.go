@@ -2,6 +2,7 @@ package ec2
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
@@ -61,6 +62,9 @@ type SecurityGroupSpec struct {
 
 	// +optional
 	Ingress []IPPermission `json:"ingress,omitempty"`
+
+	// +optional
+	VPCID string `json:"vpcID,omitempty"`
 }
 
 // SecurityGroupStatus defines the observed state of SecurityGroup

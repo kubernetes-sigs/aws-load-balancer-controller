@@ -213,7 +213,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 				return nil, errors.Errorf("conflicting IngressClassParams subnet specifications")
 			}
 		}
-		chosenSubnets, err := t.subnetsResolver.ResolveViaSelector(ctx, t.vpcID, chosenSubnetSelector,
+		chosenSubnets, err := t.subnetsResolver.ResolveViaSelector(ctx, t.stack.GetVPCID(), chosenSubnetSelector,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
@@ -233,7 +233,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 				return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
 			}
 		}
-		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, t.vpcID, chosenSubnetNameOrIDs,
+		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, t.stack.GetVPCID(), chosenSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithALBSingleSubnet(t.featureGates.Enabled(config.ALBSingleSubnet)),
@@ -251,7 +251,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 	}
 
 	if len(sdkLBs) == 0 || (string(scheme) != awssdk.StringValue(sdkLBs[0].LoadBalancer.Scheme)) {
-		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx, t.vpcID,
+		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx, t.stack.GetVPCID(),
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
 			networking.WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),
@@ -287,7 +287,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if !t.enableBackendSG {
 			t.backendSGIDToken = managedSG.GroupID()
 		} else {
-			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
+			backendSGID, err := t.backendSGProvider.Get(ctx, t.stack.GetVPCID(), networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
 			if err != nil {
 				return nil, err
 			}
@@ -301,7 +301,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if err != nil {
 			return nil, err
 		}
-		frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, sgNameOrIDsViaAnnotation)
+		frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, t.stack.GetVPCID(), sgNameOrIDsViaAnnotation)
 		if err != nil {
 			return nil, err
 		}
@@ -313,7 +313,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 			if !t.enableBackendSG {
 				return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG manually specified")
 			}
-			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
+			backendSGID, err := t.backendSGProvider.Get(ctx, t.stack.GetVPCID(), networking.ResourceTypeIngress, k8s.ToSliceOfNamespacedNames(t.ingGroup.Members))
 			if err != nil {
 				return nil, err
 			}

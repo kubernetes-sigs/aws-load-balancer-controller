@@ -6446,12 +6446,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			}
 			backendSGProvider := networking.NewMockBackendSGProvider(ctrl)
 			if tt.enableBackendSG {
-				backendSGProvider.EXPECT().Get(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
+				backendSGProvider.EXPECT().Get(gomock.Any(), "vpc-xxxxxxxx", networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
 				backendSGProvider.EXPECT().Release(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(nil).AnyTimes()
 			}
 			sgResolver := networking.NewMockSecurityGroupResolver(ctrl)
 			for _, call := range tt.resolveSGViaNameOrIDCall {
-				sgResolver.EXPECT().ResolveViaNameOrID(gomock.Any(), call.args).Return(call.want, call.err)
+				sgResolver.EXPECT().ResolveViaNameOrID(gomock.Any(), "vpc-xxxxxxxx", call.args).Return(call.want, call.err)
 			}
 			var enableIPTargetType bool
 			if tt.enableIPTargetType == nil {
