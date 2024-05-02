@@ -697,7 +697,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
 						TargetType:     &ipTargetType,
-						VpcID:          "vpc-vpc-0bbbbbbb",
+						VpcID:          "vpc-0bbbbbbb",
 					},
 				},
 				oldTGB: &elbv2api.TargetGroupBinding{
