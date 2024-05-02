@@ -1,0 +1,31 @@
+{{- if not .Values.global.podSecurityStandards.enforced }}
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: {{ include "aws-load-balancer-controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    seccomp.security.alpha.kubernetes.io/allowedProfileNames: 'runtime/default'
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+spec:
+  allowPrivilegeEscalation: false
+  volumes:
+  - emptyDir
+  - secret
+  - projected
+  fsGroup:
+    ranges:
+    - max: 65535
+      min: 1
+    rule: MustRunAs
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    ranges:
+    - max: 65535
+      min: 1
+    rule: MustRunAs
+  runAsUser:
+    rule: MustRunAsNonRoot
+{{- end }}

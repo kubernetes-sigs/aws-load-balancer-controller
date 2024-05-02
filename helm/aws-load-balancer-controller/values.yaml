@@ -5,7 +5,8 @@
 replicaCount: 2
 
 image:
-  repository: public.ecr.aws/eks/aws-load-balancer-controller
+  registry: quay.io
+  name: giantswarm/aws-load-balancer-controller
   tag: v2.6.1
   pullPolicy: IfNotPresent
 
@@ -33,6 +34,9 @@ rbac:
 
 podSecurityContext:
   fsGroup: 65534
+  seccompProfile:
+    type: RuntimeDefault
+    runAsNonRoot: true
 
 securityContext:
   # capabilities:
@@ -41,21 +45,23 @@ securityContext:
   readOnlyRootFilesystem: true
   runAsNonRoot: true
   allowPrivilegeEscalation: false
+  seccompProfile:
+    type: RuntimeDefault
 
 # Time period for the controller pod to do a graceful shutdown
 terminationGracePeriodSeconds: 10
 
-resources: {}
+resources:
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
 
 # priorityClassName specifies the PriorityClass to indicate the importance of controller pods
 # ref: https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
@@ -102,12 +108,12 @@ additionalLabels: {}
 enableCertManager: false
 
 # The name of the Kubernetes cluster. A non-empty value is required
-clusterName:
+clusterName: ""
 
 # cluster contains configurations specific to the kubernetes cluster
 cluster:
-    # Cluster DNS domain (required for requesting TLS certificates)
-    dnsDomain: cluster.local
+  # Cluster DNS domain (required for requesting TLS certificates)
+  dnsDomain: cluster.local
 
 # The ingress class this controller will satisfy. If not specified, controller will match all
 # ingresses without ingress class annotation and ingresses of type alb
@@ -294,8 +300,8 @@ defaultTags: {}
 
 # podDisruptionBudget specifies the disruption budget for the controller pods.
 # Disruption budget will be configured only when the replicaCount is greater than 1
-podDisruptionBudget: {}
-#  maxUnavailable: 1
+podDisruptionBudget:
+  minAvailable: 1
 
 # externalManagedTags is the list of tag keys on AWS resources that will be managed externally
 externalManagedTags: []
@@ -338,7 +344,7 @@ objectSelector:
 
 serviceMonitor:
   # Specifies whether a service monitor should be created
-  enabled: false
+  enabled: true
   # Labels to add to the service account
   additionalLabels: {}
   # Prometheus scrape interval
@@ -355,9 +361,16 @@ clusterSecretsPermissions:
   # This is to get backwards compatible behavior, but *NOT* recommended for security reasons
   allowAllSecrets: false
 
+verticalPodAutoscaler:
+  enabled: true
+
 # ingressClassConfig contains configurations specific to the ingress class
 ingressClassConfig:
   default: false
+
+global:
+  podSecurityStandards:
+    enforced: false
 
 # enableServiceMutatorWebhook allows you enable the webhook which makes this controller the default for all new services of type LoadBalancer
 enableServiceMutatorWebhook: true

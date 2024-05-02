@@ -1,0 +1,23 @@
+{{ if .Values.verticalPodAutoscaler.enabled }}
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ template "aws-load-balancer-controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+spec:
+  resourcePolicy:
+    containerPolicies:
+    - containerName: {{ .Chart.Name }}
+      controlledValues: RequestsAndLimits
+      mode: Auto
+      minAllowed:
+        cpu: 50m
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name:  {{ include "aws-load-balancer-controller.fullname" . }}
+  updatePolicy:
+    updateMode: Auto
+{{ end }}

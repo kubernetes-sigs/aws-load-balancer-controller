@@ -54,6 +54,16 @@ metadata:
   labels:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 rules:
+{{- if not .Values.global.podSecurityStandards.enforced }}
+- apiGroups:
+  - extensions
+  resources:
+  - podsecuritypolicies
+  verbs:
+  - use
+  resourceNames:
+  - {{ include "aws-load-balancer-controller.fullname" . }}
+{{- end }}
 - apiGroups: ["elbv2.k8s.aws"]
   resources: [targetgroupbindings]
   verbs: [create, delete, get, list, patch, update, watch]
