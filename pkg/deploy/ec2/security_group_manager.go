@@ -168,6 +168,10 @@ func buildIPPermissionInfo(permission ec2model.IPPermission) (networking.IPPermi
 		labels := networking.NewIPPermissionLabelsForRawDescription(permission.UserIDGroupPairs[0].Description)
 		return networking.NewGroupIDIPPermission(protocol, permission.FromPort, permission.ToPort, permission.UserIDGroupPairs[0].GroupID, labels), nil
 	}
+	if len(permission.PrefixLists) == 1 {
+		labels := networking.NewIPPermissionLabelsForRawDescription(permission.PrefixLists[0].Description)
+		return networking.NewPrefixListIDPermission(protocol, permission.FromPort, permission.ToPort, permission.PrefixLists[0].ListID, labels), nil
+	}
 	return networking.IPPermissionInfo{}, errors.New("invalid ipPermission")
 }
 
