@@ -110,7 +110,7 @@ type listenPortConfig struct {
 }
 
 func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int64]listenPortConfig, error) {
-	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing.Ing)
+	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing)
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
 	var prefixListIDs []string
 	t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroupPrefixLists, &prefixListIDs, ing.Ing.Annotations)
@@ -166,9 +166,12 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 	return listenPortConfigByPort, nil
 }
 
-func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Context, ing *networking.Ingress) []string {
+func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Context, ing *ClassifiedIngress) []string {
+	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.CertficateArn) != 0 {
+		return ing.IngClassConfig.IngClassParams.Spec.CertficateArn
+	}
 	var rawTLSCertARNs []string
-	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixCertificateARN, &rawTLSCertARNs, ing.Annotations)
+	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixCertificateARN, &rawTLSCertARNs, ing.Ing.Annotations)
 	return rawTLSCertARNs
 }
 

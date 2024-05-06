@@ -54,6 +54,13 @@ spec:
           spec:
             description: IngressClassParamsSpec defines the desired state of IngressClassParams
             properties:
+              certficateArn:
+                description:
+                  CertificateARN specifies the ARN of the certificates for
+                  all Ingresses that belong to IngressClass with this IngressClassParams.
+                items:
+                  type: string
+                type: array
               group:
                 description: Group defines the IngressGroup for all Ingresses that
                   belong to IngressClass with this IngressClassParams.
