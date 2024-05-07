@@ -3,18 +3,14 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: {{ include "aws-load-balancer-controller.fullname" . }}
-  {{- if .Values.serviceMonitor.namespace }}
-  namespace: {{ .Values.serviceMonitor.namespace }}
-  {{- else }}
-  namespace: {{ .Release.Namespace | quote }}
-  {{- end }}
+  namespace: {{ default .Release.Namespace .Values.serviceMonitor.namespace }}
   labels:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
-    {{- with .Values.serviceMonitor.additionalLabels }}
+  {{- with .Values.serviceMonitor.additionalLabels }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- end }}
 spec:
-  jobLabel: {{ .Release.Name }}
+  jobLabel: app.kubernetes.io/instance
   namespaceSelector:
     matchNames:
       - {{ .Release.Namespace }}
@@ -29,7 +25,19 @@ spec:
   endpoints:
     - port: metrics-server
       path: /metrics
-      {{- with .Values.serviceMonitor.interval }}
+      scheme: http
+    {{- with .Values.serviceMonitor.interval }}
       interval: {{ . }}
-      {{- end }}
+    {{- end }}
+    {{- with .Values.serviceMonitor.scrapeTimeout  }}
+      scrapeTimeout: {{ . }}
+    {{- end }}
+    {{- with .Values.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
 {{- end -}}
