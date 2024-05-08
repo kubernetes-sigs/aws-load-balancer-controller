@@ -851,6 +851,10 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
             alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=600
             ```
+        - set client_keep_alive to 3600 seconds
+            ```
+            alb.ingress.kubernetes.io/load-balancer-attributes: client_keep_alive.seconds=3600  
+            ```
         - enable [connection logs](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-connection-logs.html)
             ```
             alb.ingress.kubernetes.io/load-balancer-attributes: connection_logs.s3.enabled=true,connection_logs.s3.bucket=my-connection-log-bucket,connection_logs.s3.prefix=my-app
