@@ -17,6 +17,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | Name                                                                                                  | Type                        |Default|Location|MergeBehavior|
 |-------------------------------------------------------------------------------------------------------|-----------------------------|-------|--------|------|
 | [alb.ingress.kubernetes.io/load-balancer-name](#load-balancer-name)                                   | string                      |N/A|Ingress|Exclusive|
+| [alb.ingress.kubernetes.io/load-balancer-name-prefix](#load-balancer-name-prefix)                     | string                      |N/A|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/group.name](#group.name)                                                   | string                      |N/A|Ingress|N/A|
 | [alb.ingress.kubernetes.io/group.order](#group.order)                                                 | integer                     |0|Ingress|N/A|
 | [alb.ingress.kubernetes.io/tags](#tags)                                                               | stringMap                   |N/A|Ingress,Service|Merge|
@@ -33,7 +34,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/listen-ports](#listen-ports)                                               | json                        |'[{"HTTP": 80}]' \| '[{"HTTPS": 443}]'|Ingress|Merge|
 | [alb.ingress.kubernetes.io/ssl-redirect](#ssl-redirect)                                               | integer                     |N/A|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/inbound-cidrs](#inbound-cidrs)                                             | stringList                  |0.0.0.0/0, ::/0|Ingress|Exclusive|
-| [alb.ingress.kubernetes.io/security-group-prefix-lists](#security-group-prefix-lists)                                               | stringList                        |pl-00000000, pl-1111111|Ingress|Exclusive|
+| [alb.ingress.kubernetes.io/security-group-prefix-lists](#security-group-prefix-lists)                 | stringList                        |pl-00000000, pl-1111111|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)                                         | stringList                  |N/A|Ingress|Merge|
 | [alb.ingress.kubernetes.io/ssl-policy](#ssl-policy)                                                   | string                      |ELBSecurityPolicy-2016-08|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/target-type](#target-type)                                                 | instance \| ip              |instance|Ingress,Service|N/A|
@@ -174,6 +175,20 @@ Traffic Routing can be controlled with following annotations:
     !!!example
         ```
         alb.ingress.kubernetes.io/load-balancer-name: custom-name
+        ```
+
+- <a name="load-balancer-name-prefix">`alb.ingress.kubernetes.io/load-balancer-name-prefix`</a> specifies the custom name prefix to use for the load balancer. The provided value will have 11 characters appended to it for uniqueness. Prefixes longer than 21 characters will be treated as an error.
+
+    !!!note "Merge Behavior"
+        `name-prefix` is exclusive across all Ingresses in an IngressGroup.
+
+        - Once defined on a single Ingress, it impacts every Ingress within the IngressGroup.
+
+    !!!example
+        The created load balancer name will be `custom-name-prefix-xxxxxxxxxx`, with the last portion being a unique identifier.
+
+        ```
+        alb.ingress.kubernetes.io/load-balancer-name-prefix: custom-name-prefix
         ```
 
 - <a name="target-type">`alb.ingress.kubernetes.io/target-type`</a> specifies how to route traffic to pods. You can choose between `instance` and `ip`:

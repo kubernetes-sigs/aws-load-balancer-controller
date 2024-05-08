@@ -592,7 +592,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 				},
 				scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			},
-			wantErr: errors.New("load balancer name cannot be longer than 32 characters"),
+			wantErr: errors.New("load-balancer-name cannot be longer than 32 characters"),
 		},
 		{
 			name: "name annotation on single ingress only",
@@ -663,7 +663,101 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 				},
 				scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			},
-			wantErr: errors.New("conflicting load balancer name: map[baz:{} foo:{}]"),
+			wantErr: errors.New("conflicting load-balancer-name: map[baz:{} foo:{}]"),
+		},
+		{
+			name: "name prefix annotation",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "bar"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name-prefix": "foo",
+										"alb.ingress.kubernetes.io/group.name":                "bar",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/group.name": "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			want: "foo-98ea3ca035",
+		},
+		{
+			name: "name prefix annotation conflict",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "bar"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name-prefix": "foo",
+										"alb.ingress.kubernetes.io/group.name":                "bar",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name-prefix": "baz",
+										"alb.ingress.kubernetes.io/group.name":                "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantErr: errors.New("conflicting load-balancer-name-prefix: map[baz:{} foo:{}]"),
+		},
+		{
+			name: "name prefix annotation too long",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "bar"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name-prefix": "this-prefix-is-too-long-error",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantErr: errors.New("load-balancer-name-prefix cannot be longer than 21 characters"),
 		},
 	}
 	for _, tt := range tests {

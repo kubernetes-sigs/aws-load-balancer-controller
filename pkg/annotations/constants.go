@@ -7,6 +7,7 @@ const (
 	AnnotationPrefixIngress = "alb.ingress.kubernetes.io"
 	// Ingress annotation suffixes
 	IngressSuffixLoadBalancerName             = "load-balancer-name"
+	IngressSuffixLoadBalancerNamePrefix       = "load-balancer-name-prefix"
 	IngressSuffixGroupName                    = "group.name"
 	IngressSuffixGroupOrder                   = "group.order"
 	IngressSuffixTags                         = "tags"

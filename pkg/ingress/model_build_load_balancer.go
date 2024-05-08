@@ -26,6 +26,7 @@ import (
 
 const (
 	resourceIDLoadBalancer         = "LoadBalancer"
+	maximumLoadBalancerNameLength  = 32
 	minimalAvailableIPAddressCount = int64(8)
 )
 
@@ -88,30 +89,27 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) (string, error) {
-	explicitNames := sets.String{}
-	for _, member := range t.ingGroup.Members {
-		rawName := ""
-		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixLoadBalancerName, &rawName, member.Ing.Annotations); !exists {
-			continue
-		}
-		explicitNames.Insert(rawName)
+	explicitName, err := t.getNameAnnotation(annotations.IngressSuffixLoadBalancerName, maximumLoadBalancerNameLength)
+
+	if explicitName != "" || err != nil {
+		return explicitName, err
 	}
-	if len(explicitNames) == 1 {
-		name, _ := explicitNames.PopAny()
-		// The name of the loadbalancer can only have up to 32 characters
-		if len(name) > 32 {
-			return "", errors.New("load balancer name cannot be longer than 32 characters")
-		}
-		return name, nil
+
+	prefixName, err := t.getNameAnnotation(annotations.IngressSuffixLoadBalancerNamePrefix, maximumLoadBalancerNameLength-11)
+
+	if err != nil {
+		return "", err
 	}
-	if len(explicitNames) > 1 {
-		return "", errors.Errorf("conflicting load balancer name: %v", explicitNames)
-	}
+
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
 	_, _ = uuidHash.Write([]byte(scheme))
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
+
+	if prefixName != "" {
+		return fmt.Sprintf("%v-%.10s", prefixName, uuid), nil
+	}
 
 	if t.ingGroup.ID.IsExplicit() {
 		payload := invalidLoadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.Name, "")
@@ -121,6 +119,30 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 	sanitizedNamespace := invalidLoadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.Namespace, "")
 	sanitizedName := invalidLoadBalancerNamePattern.ReplaceAllString(t.ingGroup.ID.Name, "")
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid), nil
+}
+
+func (t *defaultModelBuildTask) getNameAnnotation(annotationName string, maxLength int) (string, error) {
+	explicitNames := sets.String{}
+	for _, member := range t.ingGroup.Members {
+		rawName := ""
+		if exists := t.annotationParser.ParseStringAnnotation(annotationName, &rawName, member.Ing.Annotations); !exists {
+			continue
+		}
+		explicitNames.Insert(rawName)
+	}
+	if len(explicitNames) == 1 {
+		name, _ := explicitNames.PopAny()
+		// The name of the loadbalancer can only have up to 32 characters
+		if len(name) > maxLength {
+			return "", errors.Errorf("%v cannot be longer than %v characters", annotationName, maxLength)
+		}
+		return name, nil
+	}
+	if len(explicitNames) > 1 {
+		return "", errors.Errorf("conflicting %v: %v", annotationName, explicitNames)
+	}
+
+	return "", nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerScheme(_ context.Context) (elbv2model.LoadBalancerScheme, error) {
