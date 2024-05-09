@@ -206,7 +206,7 @@ Within any given availability zone, subnets with a cluster tag will be chosen ov
 
 #### spec.ipAddressType
 
-`ipAddressType` is an optional setting. The available options are `ipv4` or `dualstack`.
+`ipAddressType` is an optional setting. The available options are `ipv4`, `dualstack`, or `dualstack-without-public-ipv4`.
 
 Cluster administrators can use `ipAddressType` field to restrict the ipAddressType for all Ingresses that belong to this IngressClass.
 

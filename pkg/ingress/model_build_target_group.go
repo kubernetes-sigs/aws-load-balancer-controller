@@ -233,7 +233,7 @@ func (t *defaultModelBuildTask) buildTargetGroupIPAddressType(_ context.Context,
 		}
 	}
 	if ipv6Configured {
-		if *t.loadBalancer.Spec.IPAddressType != elbv2model.IPAddressTypeDualStack {
+		if !isIPv6Supported(*t.loadBalancer.Spec.IPAddressType) {
 			return "", errors.New("unsupported IPv6 configuration, lb not dual-stack")
 		}
 		return elbv2model.TargetGroupIPAddressTypeIPv6, nil
