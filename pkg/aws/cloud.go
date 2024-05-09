@@ -118,7 +118,6 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		return nil, errors.Wrap(err, "failed to get VPC ID")
 	}
 	cfg.VpcID = vpcID
-
 	return &defaultCloud{
 		cfg:         cfg,
 		ec2:         ec2Service,
@@ -137,7 +136,7 @@ func getVpcID(cfg CloudConfig, ec2Service services.EC2, metadata services.EC2Met
 	}
 
 	if cfg.VpcTags != nil {
-		return inferVPCIDFromTags(ec2Service, cfg.VpcTags[cfg.VpcNameTagKey])
+		return inferVPCIDFromTags(ec2Service, cfg.VpcNameTagKey, cfg.VpcTags[cfg.VpcNameTagKey])
 	}
 
 	return inferVPCID(metadata, ec2Service)
@@ -179,14 +178,12 @@ func inferVPCID(metadata services.EC2Metadata, ec2Service services.EC2) (string,
 	return "", amerrors.NewAggregate(errList)
 }
 
-func inferVPCIDFromTags(ec2Service services.EC2, vpcNameTagKey string) (string, error) {
+func inferVPCIDFromTags(ec2Service services.EC2, VpcNameTagKey string, VpcNameTagValue string) (string, error) {
 	vpcs, err := ec2Service.DescribeVPCsAsList(context.Background(), &ec2.DescribeVpcsInput{
 		Filters: []*ec2.Filter{
 			{
-				Name: &vpcNameTagKey,
-				//Values: []*string{
-				//	aws.String("owned"),
-				//},
+				Name:   aws.String("tag:" + VpcNameTagKey),
+				Values: []*string{aws.String(VpcNameTagValue)},
 			},
 		},
 	})
