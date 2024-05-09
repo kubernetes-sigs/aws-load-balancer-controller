@@ -1136,6 +1136,18 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 			},
 			wantErr: errors.New("ValidationError: vpcID vpcid-123 failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8 or 17 lowercase letters (a-f) or numbers."),
 		},
+		{
+			name: "[err] vpcID is not valid - non alphanumeric value",
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          "vpcid-@34!dv",
+					},
+				},
+			},
+			wantErr: errors.New("ValidationError: vpcID vpcid-@34!dv failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8 or 17 lowercase letters (a-f) or numbers."),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
