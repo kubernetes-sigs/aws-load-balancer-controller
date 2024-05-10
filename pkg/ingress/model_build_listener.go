@@ -167,8 +167,8 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 }
 
 func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Context, ing *ClassifiedIngress) []string {
-	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.CertficateArn) != 0 {
-		return ing.IngClassConfig.IngClassParams.Spec.CertficateArn
+	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.CertificateArn) != 0 {
+		return ing.IngClassConfig.IngClassParams.Spec.CertificateArn
 	}
 	var rawTLSCertARNs []string
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixCertificateARN, &rawTLSCertARNs, ing.Ing.Annotations)

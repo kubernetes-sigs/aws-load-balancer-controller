@@ -86,9 +86,9 @@ type Attribute struct {
 
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 type IngressClassParamsSpec struct {
-	//  CertificateARN specifies the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// CertificateArn specifies the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
-	CertficateArn []string `json:"certficateArn,omitempty"`
+	CertificateArn []string `json:"certificateArn,omitempty"`
 
 	// NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
 	// * if absent or present but empty, it selects all namespaces.
