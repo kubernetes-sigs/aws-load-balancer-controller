@@ -1,5 +1,5 @@
 # Certificate Discovery
-TLS certificates for ALB Listeners can be automatically discovered with hostnames from Ingress resources if the [`alb.ingress.kubernetes.io/certificate-arn`](annotations.md#certificate-arn) annotation is not specified.
+TLS certificates for ALB Listeners can be automatically discovered with hostnames from Ingress resources if the [`spec.certificateArn`](ingress_class.md#speccertificatearn) in [`IngressClassParams`](ingress_class.md#ingressclassparams-specification) or [`alb.ingress.kubernetes.io/certificate-arn`](annotations.md#certificate-arn) annotation is not specified.
 
 The controller will attempt to discover TLS certificates from the `tls` field in Ingress and `host` field in Ingress rules.
 
