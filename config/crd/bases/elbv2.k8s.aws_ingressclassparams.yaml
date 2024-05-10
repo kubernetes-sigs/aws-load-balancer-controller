@@ -83,6 +83,7 @@ spec:
                 enum:
                 - ipv4
                 - dualstack
+                - dualstack-without-public-ipv4
                 type: string
               loadBalancerAttributes:
                 description: LoadBalancerAttributes define the custom attributes to

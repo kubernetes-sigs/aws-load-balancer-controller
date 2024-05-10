@@ -20,7 +20,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/group.name](#group.name)                                                   | string                      |N/A|Ingress|N/A|
 | [alb.ingress.kubernetes.io/group.order](#group.order)                                                 | integer                     |0|Ingress|N/A|
 | [alb.ingress.kubernetes.io/tags](#tags)                                                               | stringMap                   |N/A|Ingress,Service|Merge|
-| [alb.ingress.kubernetes.io/ip-address-type](#ip-address-type)                                         | ipv4 \| dualstack           |ipv4|Ingress|Exclusive|
+| [alb.ingress.kubernetes.io/ip-address-type](#ip-address-type)                                         | ipv4 \| dualstack \|  dualstack-without-public-ipv4           |ipv4|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/scheme](#scheme)                                                           | internal \| internet-facing |internal|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/subnets](#subnets)                                                         | stringList                  |N/A|Ingress|Exclusive|
 | [alb.ingress.kubernetes.io/security-groups](#security-groups)                                         | stringList                  |N/A|Ingress|Exclusive|

@@ -181,6 +181,8 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 		return elbv2model.IPAddressTypeIPV4, nil
 	case string(elbv2model.IPAddressTypeDualStack):
 		return elbv2model.IPAddressTypeDualStack, nil
+	case string(elbv2model.IPAddressTypeDualStackWithoutPublicIPV4):
+		return elbv2model.IPAddressTypeDualStackWithoutPublicIPV4, nil
 	default:
 		return "", errors.Errorf("unknown IPAddressType: %v", rawIPAddressType)
 	}
@@ -411,4 +413,13 @@ func buildLoadBalancerSubnetMappingsWithSubnetIDs(subnetIDs []string) []elbv2mod
 		})
 	}
 	return subnetMappings
+}
+
+func isIPv6Supported(ipAddressType elbv2model.IPAddressType) bool {
+	switch ipAddressType {
+	case elbv2model.IPAddressTypeDualStack, elbv2model.IPAddressTypeDualStackWithoutPublicIPV4:
+		return true
+	default:
+		return false
+	}
 }
