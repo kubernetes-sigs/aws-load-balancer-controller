@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	amerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -131,7 +132,10 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 }
 
 func getVpcID(cfg CloudConfig, ec2Service services.EC2, metadata services.EC2Metadata) (string, error) {
+
+	logger := logr.Logger{}
 	if cfg.VpcID != "" {
+		logger.V(1).Info("vpcid is specified using flag --aws-vpc-id, controller will use the value %s", cfg.VpcID)
 		return cfg.VpcID, nil
 	}
 
