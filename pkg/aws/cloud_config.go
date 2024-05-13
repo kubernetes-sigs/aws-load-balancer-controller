@@ -15,7 +15,7 @@ const (
 	flagAWSVpcTags       = "aws-vpc-tags"
 	flagAWSVpcCacheTTL   = "aws-vpc-cache-ttl"
 	flagAWSMaxRetries    = "aws-max-retries"
-	flagAWSVpcNameTagKey = "aws-vpc-name-tag-key"
+	flagAWSVpcNameTagKey = "aws-vpc-tag-key"
 	defaultVpcID         = ""
 	defaultVpcNameTagKey = "Name"
 	defaultRegion        = ""
