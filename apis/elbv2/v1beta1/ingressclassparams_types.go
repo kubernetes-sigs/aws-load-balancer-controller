@@ -20,13 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// +kubebuilder:validation:Enum=ipv4;dualstack
+// +kubebuilder:validation:Enum=ipv4;dualstack;dualstack-without-public-ipv4
 // IPAddressType is the ip address type of load balancer.
 type IPAddressType string
 
 const (
-	IPAddressTypeIPV4      IPAddressType = "ipv4"
-	IPAddressTypeDualStack IPAddressType = "dualstack"
+	IPAddressTypeIPV4                       IPAddressType = "ipv4"
+	IPAddressTypeDualStack                  IPAddressType = "dualstack"
+	IPAddressTypeDualStackWithoutPublicIPV4 IPAddressType = "dualstack-without-public-ipv4"
 )
 
 // +kubebuilder:validation:Enum=internal;internet-facing
