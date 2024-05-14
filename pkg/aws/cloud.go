@@ -51,7 +51,7 @@ type Cloud interface {
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
+func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger logr.Logger) (Cloud, error) {
 	hasIPv4 := true
 	addrs, err := net.InterfaceAddrs()
 	if err == nil {
@@ -114,7 +114,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 
 	ec2Service := services.NewEC2(sess)
 
-	vpcID, err := getVpcID(cfg, ec2Service, metadata)
+	vpcID, err := getVpcID(cfg, ec2Service, metadata, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get VPC ID")
 	}
@@ -131,11 +131,10 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 	}, nil
 }
 
-func getVpcID(cfg CloudConfig, ec2Service services.EC2, metadata services.EC2Metadata) (string, error) {
+func getVpcID(cfg CloudConfig, ec2Service services.EC2, metadata services.EC2Metadata, logger logr.Logger) (string, error) {
 
-	logger := logr.Logger{}
 	if cfg.VpcID != "" {
-		logger.V(1).Info("vpcid is specified using flag --aws-vpc-id, controller will use the value %s", cfg.VpcID)
+		logger.V(1).Info("vpcid is specified using flag --aws-vpc-id, controller will use the value", "vpc: ", cfg.VpcID)
 		return cfg.VpcID, nil
 	}
 

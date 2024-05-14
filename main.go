@@ -18,6 +18,7 @@ package main
 
 import (
 	"os"
+
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 
 	"github.com/go-logr/logr"
@@ -76,7 +77,7 @@ func main() {
 	}
 	ctrl.SetLogger(getLoggerWithLogLevel(controllerCFG.LogLevel))
 
-	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry)
+	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry, ctrl.Log)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize AWS cloud")
 		os.Exit(1)
