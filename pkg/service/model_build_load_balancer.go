@@ -156,6 +156,17 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 			lbSGTokens = append(lbSGTokens, t.backendSGIDToken)
 		}
 	}
+	var extraSgNameOrIDs []string
+	t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixLoadBalancerExtraSecurityGroups, &extraSgNameOrIDs, t.service.Annotations)
+	if len(extraSgNameOrIDs) != 0 {
+		frontendExtraSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, extraSgNameOrIDs)
+		if err != nil {
+			return nil, err
+		}
+		for _, sgID := range frontendExtraSGIDs {
+			lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
+		}
+	}
 	return lbSGTokens, nil
 }
 
