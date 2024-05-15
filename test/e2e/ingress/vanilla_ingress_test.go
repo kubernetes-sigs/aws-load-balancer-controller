@@ -745,7 +745,12 @@ var _ = Describe("vanilla ingress tests", func() {
 			}
 
 			if tf.Options.IPFamily == "IPv6" {
-				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack-without-public-ipv4"
+				// TODO: annotate to "dualstack-without-public-ipv4" for all regions once it's GA
+				if tf.Options.AWSRegion == "us-west-2" {
+					annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack-without-public-ipv4"
+				} else {
+					annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+				}
 			}
 
 			ing := ingBuilder.
