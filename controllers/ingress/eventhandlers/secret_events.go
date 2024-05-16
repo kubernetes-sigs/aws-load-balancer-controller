@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -16,8 +17,8 @@ import (
 )
 
 // NewEnqueueRequestsForSecretEvent constructs new enqueueRequestsForSecretEvent.
-func NewEnqueueRequestsForSecretEvent(ingEventChan chan<- event.GenericEvent, svcEventChan chan<- event.GenericEvent,
-	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) *enqueueRequestsForSecretEvent {
+func NewEnqueueRequestsForSecretEvent(ingEventChan chan<- event.TypedGenericEvent[*networking.Ingress], svcEventChan chan<- event.TypedGenericEvent[*corev1.Service],
+	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*corev1.Secret] {
 	return &enqueueRequestsForSecretEvent{
 		ingEventChan:  ingEventChan,
 		svcEventChan:  svcEventChan,
@@ -27,24 +28,24 @@ func NewEnqueueRequestsForSecretEvent(ingEventChan chan<- event.GenericEvent, sv
 	}
 }
 
-var _ handler.EventHandler = (*enqueueRequestsForSecretEvent)(nil)
+var _ handler.TypedEventHandler[*corev1.Secret] = (*enqueueRequestsForSecretEvent)(nil)
 
 type enqueueRequestsForSecretEvent struct {
-	ingEventChan  chan<- event.GenericEvent
-	svcEventChan  chan<- event.GenericEvent
+	ingEventChan  chan<- event.TypedGenericEvent[*networking.Ingress]
+	svcEventChan  chan<- event.TypedGenericEvent[*corev1.Service]
 	k8sClient     client.Client
 	eventRecorder record.EventRecorder
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForSecretEvent) Create(e event.CreateEvent, _ workqueue.RateLimitingInterface) {
-	secretNew := e.Object.(*corev1.Secret)
-	h.enqueueImpactedObjects(secretNew)
+func (h *enqueueRequestsForSecretEvent) Create(ctx context.Context, e event.TypedCreateEvent[*corev1.Secret], _ workqueue.RateLimitingInterface) {
+	secretNew := e.Object
+	h.enqueueImpactedObjects(ctx, secretNew)
 }
 
-func (h *enqueueRequestsForSecretEvent) Update(e event.UpdateEvent, _ workqueue.RateLimitingInterface) {
-	secretOld := e.ObjectOld.(*corev1.Secret)
-	secretNew := e.ObjectNew.(*corev1.Secret)
+func (h *enqueueRequestsForSecretEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*corev1.Secret], _ workqueue.RateLimitingInterface) {
+	secretOld := e.ObjectOld
+	secretNew := e.ObjectNew
 
 	// we only care below update event:
 	//	1. Secret data updates
@@ -54,20 +55,20 @@ func (h *enqueueRequestsForSecretEvent) Update(e event.UpdateEvent, _ workqueue.
 		return
 	}
 
-	h.enqueueImpactedObjects(secretNew)
+	h.enqueueImpactedObjects(ctx, secretNew)
 }
 
-func (h *enqueueRequestsForSecretEvent) Delete(e event.DeleteEvent, _ workqueue.RateLimitingInterface) {
-	secretOld := e.Object.(*corev1.Secret)
-	h.enqueueImpactedObjects(secretOld)
+func (h *enqueueRequestsForSecretEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*corev1.Secret], _ workqueue.RateLimitingInterface) {
+	secretOld := e.Object
+	h.enqueueImpactedObjects(ctx, secretOld)
 }
 
-func (h *enqueueRequestsForSecretEvent) Generic(e event.GenericEvent, _ workqueue.RateLimitingInterface) {
-	secretObj := e.Object.(*corev1.Secret)
-	h.enqueueImpactedObjects(secretObj)
+func (h *enqueueRequestsForSecretEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*corev1.Secret], _ workqueue.RateLimitingInterface) {
+	secretObj := e.Object
+	h.enqueueImpactedObjects(ctx, secretObj)
 }
 
-func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(secret *corev1.Secret) {
+func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(ctx context.Context, secret *corev1.Secret) {
 	secretKey := k8s.NamespacedName(secret)
 
 	ingList := &networking.IngressList{}
@@ -83,7 +84,7 @@ func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(secret *corev1.Se
 		h.logger.V(1).Info("enqueue ingress for secret event",
 			"secret", secretKey,
 			"ingress", k8s.NamespacedName(ing))
-		h.ingEventChan <- event.GenericEvent{
+		h.ingEventChan <- event.TypedGenericEvent[*networking.Ingress]{
 			Object: ing,
 		}
 	}
@@ -101,7 +102,7 @@ func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(secret *corev1.Se
 		h.logger.V(1).Info("enqueue service for secret event",
 			"secret", secretKey,
 			"service", k8s.NamespacedName(svc))
-		h.svcEventChan <- event.GenericEvent{
+		h.svcEventChan <- event.TypedGenericEvent[*corev1.Service]{
 			Object: svc,
 		}
 	}

@@ -3,26 +3,28 @@ package webhook
 import (
 	"context"
 	"encoding/json"
-	admissionv1 "k8s.io/api/admission/v1"
 	"net/http"
+
+	admissionv1 "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var mutatingHandlerLog = ctrl.Log.WithName("mutating_handler")
-var _ admission.DecoderInjector = &mutatingHandler{}
+
+// var _ admission.DecoderInjector = &mutatingHandler{}
 var _ admission.Handler = &mutatingHandler{}
 
 type mutatingHandler struct {
 	mutator Mutator
-	decoder *admission.Decoder
+	decoder admission.Decoder
 }
 
-// InjectDecoder injects the decoder into a mutatingHandler.
-func (h *mutatingHandler) InjectDecoder(d *admission.Decoder) error {
-	h.decoder = d
-	return nil
-}
+// // InjectDecoder injects the decoder into a mutatingHandler.
+// func (h *mutatingHandler) InjectDecoder(d *admission.Decoder) error {
+// 	h.decoder = d
+// 	return nil
+// }
 
 // Handle handles admission requests.
 func (h *mutatingHandler) Handle(ctx context.Context, req admission.Request) admission.Response {

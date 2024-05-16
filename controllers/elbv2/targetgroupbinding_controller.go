@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -167,9 +166,9 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&elbv2api.TargetGroupBinding{}).
 			Named(controllerName).
-			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
-			Watches(&source.Kind{Type: &discv1.EndpointSlice{}}, epSliceEventsHandler).
-			Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
+			Watches(&corev1.Service{}, svcEventHandler).
+			Watches(&discv1.EndpointSlice{}, epSliceEventsHandler).
+			Watches(&corev1.Node{}, nodeEventsHandler).
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: r.maxConcurrentReconciles,
 				RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, r.maxExponentialBackoffDelay)}).
@@ -180,9 +179,9 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		return ctrl.NewControllerManagedBy(mgr).
 			For(&elbv2api.TargetGroupBinding{}).
 			Named(controllerName).
-			Watches(&source.Kind{Type: &corev1.Service{}}, svcEventHandler).
-			Watches(&source.Kind{Type: &corev1.Endpoints{}}, epsEventsHandler).
-			Watches(&source.Kind{Type: &corev1.Node{}}, nodeEventsHandler).
+			Watches(&corev1.Service{}, svcEventHandler).
+			Watches(&corev1.Endpoints{}, epsEventsHandler).
+			Watches(&corev1.Node{}, nodeEventsHandler).
 			WithOptions(controller.Options{
 				MaxConcurrentReconciles: r.maxConcurrentReconciles,
 				RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, r.maxExponentialBackoffDelay)}).
