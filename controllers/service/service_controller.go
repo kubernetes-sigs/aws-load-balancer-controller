@@ -213,7 +213,6 @@ func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		r.serviceUtils, r.logger.WithName("eventHandlers").WithName("service"))
 
 	return ctrl.NewControllerManagedBy(mgr).
-		// For(&corev1.Service{}).
 		Named(controllerName).
 		Watches(&corev1.Service{}, svcEventHandler).
 		WithOptions(controller.Options{
@@ -221,12 +220,3 @@ func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 			Reconciler:              r}).
 		Complete(r)
 }
-
-// func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Controller) error {
-// 	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder,
-// 		r.serviceUtils, r.logger.WithName("eventHandlers").WithName("service"))
-// 	if err := c.Watch(source.Kind(c.GetCache(), &corev1.Service{}, &handler.TypedEnqueueRequestForObject[*corev1.Service]{})); err != nil
-// 		return err
-// 	}
-// 	return nil
-// }

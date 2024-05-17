@@ -94,7 +94,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// config.ConfigureWebhookServer(controllerCFG.RuntimeConfig, mgr)
 	clientSet, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
 		setupLog.Error(err, "unable to obtain clientSet")
