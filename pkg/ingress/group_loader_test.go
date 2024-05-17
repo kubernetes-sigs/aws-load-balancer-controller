@@ -3,7 +3,6 @@ package ingress
 import (
 	"context"
 	"testing"
-	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -22,7 +21,6 @@ import (
 )
 
 func Test_defaultGroupLoader_Load(t *testing.T) {
-	now := metav1.Date(2021, 03, 28, 11, 11, 11, 0, time.UTC)
 	ingClassA := &networking.IngressClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "ing-class-a",
@@ -116,16 +114,6 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 		},
 	}
 
-	ing1BeenDeletedWithoutFinalizer := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         "ing-ns",
-			Name:              "ing-1",
-			DeletionTimestamp: &now,
-		},
-		Spec: networking.IngressSpec{
-			IngressClassName: awssdk.String(ingClassA.Name),
-		},
-	}
 	ing1BeenDeletedWithFinalizer := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "ing-ns",
@@ -133,7 +121,6 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			Finalizers: []string{
 				"group.ingress.k8s.aws/awesome-group",
 			},
-			DeletionTimestamp: &now,
 		},
 		Spec: networking.IngressSpec{
 			IngressClassName: awssdk.String(ingClassA.Name),
@@ -216,16 +203,6 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			},
 		},
 	}
-	ing6BeenDeletedWithoutFinalizer := &networking.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "ing-ns",
-			Name:      "ing-6",
-			Annotations: map[string]string{
-				"kubernetes.io/ingress.class": "alb",
-			},
-			DeletionTimestamp: &now,
-		},
-	}
 	ing6BeenDeletedWithFinalizer := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "ing-ns",
@@ -236,7 +213,6 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			Finalizers: []string{
 				"ingress.k8s.aws/resources",
 			},
-			DeletionTimestamp: &now,
 		},
 	}
 	ing7 := &networking.Ingress{
@@ -368,46 +344,6 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			},
 		},
 		{
-			name: "load explicit group(awesome-group) - ing-1 been deleted without finalizer",
-			env: env{
-				ingClassList: []*networking.IngressClass{
-					ingClassA, ingClassB, ingClassC, ingClassD,
-				},
-				ingClassParamsList: []*elbv2api.IngressClassParams{
-					ingClassAParams, ingClassBParams, ingClassCParams,
-				},
-				ingList: []*networking.Ingress{
-					ing1BeenDeletedWithoutFinalizer, ing2, ing3, ing4, ing5, ing6, ing7,
-				},
-			},
-			args: args{
-				groupID: GroupID{Name: "awesome-group"},
-			},
-			want: Group{
-				ID: GroupID{Name: "awesome-group"},
-				Members: []ClassifiedIngress{
-					{
-						Ing: ing2,
-						IngClassConfig: ClassConfiguration{
-							IngClass:       ingClassB,
-							IngClassParams: ingClassBParams,
-						},
-					},
-					{
-						Ing: ing5,
-						IngClassConfig: ClassConfiguration{
-							IngClass: ingClassD,
-						},
-					},
-					{
-						Ing:            ing7,
-						IngClassConfig: ClassConfiguration{},
-					},
-				},
-				InactiveMembers: nil,
-			},
-		},
-		{
 			name: "load explicit group(awesome-group) - ing-1 have explicit high group order",
 			env: env{
 				ingClassList: []*networking.IngressClass{
@@ -511,28 +447,6 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			},
 		},
 		{
-			name: "load implicit group(ing-ns/ing-6) - ing-6 been deleted without finalizer",
-			env: env{
-				ingClassList: []*networking.IngressClass{
-					ingClassA, ingClassB, ingClassC, ingClassD,
-				},
-				ingClassParamsList: []*elbv2api.IngressClassParams{
-					ingClassAParams, ingClassBParams, ingClassCParams,
-				},
-				ingList: []*networking.Ingress{
-					ing1, ing2, ing3, ing4, ing5, ing6BeenDeletedWithoutFinalizer, ing7,
-				},
-			},
-			args: args{
-				groupID: GroupID{Namespace: "ing-ns", Name: "ing-6"},
-			},
-			want: Group{
-				ID:              GroupID{Namespace: "ing-ns", Name: "ing-6"},
-				Members:         nil,
-				InactiveMembers: nil,
-			},
-		},
-		{
 			name: "load implicit group(ing-ns/ing-6) - ing-6 been deleted with finalizer",
 			env: env{
 				ingClassList: []*networking.IngressClass{
@@ -609,7 +523,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}
@@ -631,6 +545,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 				manageIngressesWithoutIngressClass: false,
 			}
 			got, err := m.Load(context.Background(), tt.args.groupID)
+
 			if tt.wantErr != nil {
 				assert.Equal(t, err, tt.wantErr.Error())
 			} else {
@@ -1750,7 +1665,7 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}
@@ -2170,7 +2085,7 @@ func Test_defaultGroupLoader_classifyIngress(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}

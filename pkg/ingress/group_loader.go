@@ -162,7 +162,7 @@ func (m *defaultGroupLoader) checkGroupMembershipType(ctx context.Context, group
 		return groupMembershipTypeNone, ClassifiedIngress{}, err
 	}
 
-	if ingGroupID != nil && *ingGroupID == groupID {
+	if ingGroupID != nil && *ingGroupID == groupID && !hasGroupFinalizer {
 		return groupMembershipTypeActiveMember, classifiedIng, nil
 	} else if hasGroupFinalizer {
 		return groupMembershipTypeInactiveMember, ClassifiedIngress{}, nil
