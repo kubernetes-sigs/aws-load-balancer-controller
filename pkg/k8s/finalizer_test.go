@@ -190,7 +190,6 @@ func Test_defaultFinalizerManager_AddFinalizers(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			//k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().
 				WithScheme(k8sSchema).
 				Build()
@@ -331,8 +330,6 @@ func Test_defaultFinalizerManager_RemoveFinalizers(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-
-			//k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().
 				WithScheme(k8sSchema).
 				Build()

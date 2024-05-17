@@ -278,7 +278,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
@@ -1057,7 +1057,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			v := &targetGroupBindingValidator{
 				k8sClient: k8sClient,
 				logger:    logr.New(&log.NullLogSink{}),
@@ -1156,7 +1156,7 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
