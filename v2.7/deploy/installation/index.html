@@ -1322,13 +1322,13 @@ When installing the AWS LBC in isolated clusters, you need to disable shield, wa
 <li>
 <p>Download an IAM policy for the LBC using one of the following commands:<p>
     If your cluster is in a US Gov Cloud region:
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.0/docs/install/iam_policy_us-gov.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy_us-gov.json
 </code></pre></div>
     If your cluster is in a China region:
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.0/docs/install/iam_policy_cn.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy_cn.json
 </code></pre></div>
     If your cluster is in any other region:
-    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.0/docs/install/iam_policy.json
+    <div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json
 </code></pre></div></p>
 </li>
 <li>
@@ -1354,7 +1354,7 @@ When installing the AWS LBC in isolated clusters, you need to disable shield, wa
 </ol>
 <h3 id="option-b-attach-iam-policies-to-nodes">Option B: Attach IAM policies to nodes<a class="headerlink" href="#option-b-attach-iam-policies-to-nodes" title="Permanent link">&para;</a></h3>
 <p>If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum. Please be aware of the possibility that the controller permissions may be assumed by other users in a pod after retrieving the node role credentials, so the best practice would be using IRSA instead of attaching IAM policy directly.
-<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.0/docs/install/iam_policy.json
+<div class="highlight"><pre><span></span><code>curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json
 </code></pre></div></p>
 <p>The following IAM permissions subset is for those using <code>TargetGroupBinding</code> only and don't plan to use the LBC to manage security group rules:</p>
 <div class="highlight"><pre><span></span><code>{
@@ -1418,7 +1418,7 @@ kubectl apply -f crds.yaml
 <h3 id="apply-yaml">Apply YAML<a class="headerlink" href="#apply-yaml" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Download the spec for the LBC.
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.7.0/v2_7_0_full.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.7.2/v2_7_2_full.yaml
 </code></pre></div></li>
 <li>Edit the saved yaml file, go to the Deployment spec, and set the controller <code>--cluster-name</code> arg value to your EKS cluster name
 <div class="highlight"><pre><span></span><code>apiVersion: apps/v1
@@ -1439,13 +1439,13 @@ spec:
 kind: ServiceAccount
 </code></pre></div></li>
 <li>Apply the yaml file
-<div class="highlight"><pre><span></span><code>kubectl apply -f v2_7_0_full.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f v2_7_2_full.yaml
 </code></pre></div></li>
 <li>Optionally download the default ingressclass and ingressclass params
-<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.7.0/v2_7_0_ingclass.yaml
+<div class="highlight"><pre><span></span><code>wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.7.2/v2_7_2_ingclass.yaml
 </code></pre></div></li>
 <li>Apply the ingressclass and params
-<div class="highlight"><pre><span></span><code>kubectl apply -f v2_7_0_ingclass.yaml
+<div class="highlight"><pre><span></span><code>kubectl apply -f v2_7_2_ingclass.yaml
 </code></pre></div></li>
 </ol>
 </div>

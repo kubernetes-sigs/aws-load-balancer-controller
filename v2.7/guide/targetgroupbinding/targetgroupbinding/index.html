@@ -738,20 +738,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#vpcid" class="md-nav__link">
-    VpcID
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sample-yaml_1" class="md-nav__link">
-    Sample YAML
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#nodeselector" class="md-nav__link">
     NodeSelector
   </a>
@@ -1061,20 +1047,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#vpcid" class="md-nav__link">
-    VpcID
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#sample-yaml_1" class="md-nav__link">
-    Sample YAML
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#nodeselector" class="md-nav__link">
     NodeSelector
   </a>
@@ -1131,7 +1103,7 @@
 <div class="admonition tip">
 <p class="admonition-title">usage to support Ingress and Service</p>
 <p>The AWS LoadBalancer controller internally used TargetGroupBinding to support the functionality for Ingress and Service resource as well.
-It automatically creates TargetGroupBinding in the same namespace of the Service used.</p>
+It automatically creates TargetGroupBinding in the same namespace of the Service used. </p>
 <p>You can view all TargetGroupBindings in a namespace by <code>kubectl get targetgroupbindings -n &lt;your-namespace&gt; -o wide</code></p>
 </div>
 <h2 id="targettype">TargetType<a class="headerlink" href="#targettype" title="Permanent link">&para;</a></h2>
@@ -1149,23 +1121,6 @@ It automatically creates TargetGroupBinding in the same namespace of the Service
     <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">awesome-service</span> <span class="c1"># route traffic to the awesome-service</span>
     <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
   <span class="nt">targetGroupARN</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">&lt;arn-to-targetGroup&gt;</span>
-</code></pre></div>
-<h2 id="vpcid">VpcID<a class="headerlink" href="#vpcid" title="Permanent link">&para;</a></h2>
-<p>TargetGroupBinding CR supports the explicit definition of the Virtual Private Cloud (VPC) of your TargetGroup.</p>
-<div class="admonition tip">
-<p>If the VpcID is not explicitly specified, a mutating webhook will automatically call AWS API to find the VpcID for your TargetGroup and set it to correct value.</p>
-</div>
-<h2 id="sample-yaml_1">Sample YAML<a class="headerlink" href="#sample-yaml_1" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
-<span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
-<span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">serviceRef</span><span class="p">:</span>
-    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">awesome-service</span> <span class="c1"># route traffic to the awesome-service</span>
-    <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-  <span class="nt">targetGroupARN</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">&lt;arn-to-targetGroup&gt;</span>
-  <span class="nt">vpcID</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">&lt;vpcID&gt;</span>
 </code></pre></div>
 <h2 id="nodeselector">NodeSelector<a class="headerlink" href="#nodeselector" title="Permanent link">&para;</a></h2>
 <h3 id="default-node-selector">Default Node Selector<a class="headerlink" href="#default-node-selector" title="Permanent link">&para;</a></h3>
