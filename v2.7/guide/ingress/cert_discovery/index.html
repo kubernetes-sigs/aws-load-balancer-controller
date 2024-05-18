@@ -1030,7 +1030,7 @@
                 
                 
                 <h1 id="certificate-discovery">Certificate Discovery<a class="headerlink" href="#certificate-discovery" title="Permanent link">&para;</a></h1>
-<p>TLS certificates for ALB Listeners can be automatically discovered with hostnames from Ingress resources if the <a href="../annotations/#certificate-arn"><code>alb.ingress.kubernetes.io/certificate-arn</code></a> annotation is not specified.</p>
+<p>TLS certificates for ALB Listeners can be automatically discovered with hostnames from Ingress resources if the <a href="../ingress_class/#speccertificatearn"><code>spec.certificateArn</code></a> in <a href="../ingress_class/#ingressclassparams-specification"><code>IngressClassParams</code></a> or <a href="../annotations/#certificate-arn"><code>alb.ingress.kubernetes.io/certificate-arn</code></a> annotation is not specified.</p>
 <p>The controller will attempt to discover TLS certificates from the <code>tls</code> field in Ingress and <code>host</code> field in Ingress rules.</p>
 <div class="admonition note">
 <p>You need to explicitly specify to use HTTPS listener with <a href="../annotations/#listen-ports">listen-ports</a> annotation.</p>

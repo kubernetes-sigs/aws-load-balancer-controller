@@ -673,6 +673,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#speccertificatearn" class="md-nav__link">
+    spec.certificateArn
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#specsslpolicy" class="md-nav__link">
     spec.sslPolicy
   </a>
@@ -1152,6 +1159,13 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#speccertificatearn" class="md-nav__link">
+    spec.certificateArn
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#specsslpolicy" class="md-nav__link">
     spec.sslPolicy
   </a>
@@ -1358,6 +1372,14 @@ spec:
     - myVal0
     - myVal1
 </code></pre></div></li>
+<li>with certificateArn
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+name: class2048-config
+spec:
+  certificateArn: [&#39;arn:aws:acm:us-east-1:123456789:certificate/test-arn-1&#39;,&#39;arn:aws:acm:us-east-1:123456789:certificate/test-arn-2&#39;]
+</code></pre></div></li>
 </ul>
 </div>
 <h3 id="ingressclassparams-specification">IngressClassParams specification<a class="headerlink" href="#ingressclassparams-specification" title="Permanent link">&para;</a></h3>
@@ -1387,6 +1409,9 @@ If <code>group.name</code> is not specified, Ingresses with this IngressClass ca
 <h4 id="specinboundcidrs">spec.inboundCIDRs<a class="headerlink" href="#specinboundcidrs" title="Permanent link">&para;</a></h4>
 <p>Cluster administrators can use the optional <code>inboundCIDRs</code> field to specify the CIDRs that are allowed to access the load balancers that belong to this IngressClass.
 If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/inbound-cidrs</code> annotation.</p>
+<h4 id="speccertificatearn">spec.certificateArn<a class="headerlink" href="#speccertificatearn" title="Permanent link">&para;</a></h4>
+<p>Cluster administrators can use the optional <code>certificateARN</code> field to specify the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.</p>
+<p>If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/certificate-arn</code> annotation.</p>
 <h4 id="specsslpolicy">spec.sslPolicy<a class="headerlink" href="#specsslpolicy" title="Permanent link">&para;</a></h4>
 <p>Cluster administrators can use the optional <code>sslPolicy</code> field to specify the SSL policy for the load balancers that belong to this IngressClass.
 If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/ssl-policy</code> annotation.</p>
@@ -1401,7 +1426,7 @@ each listed tag key is present and has one of the corresponding tag values.</p>
 <p>Unless the <code>SubnetsClusterTagCheck</code> feature gate is disabled, subnets without a cluster tag and with the cluster tag for another cluster will be excluded.</p>
 <p>Within any given availability zone, subnets with a cluster tag will be chosen over subnets without, then the subnet with the lowest-sorting resource ID will be chosen.</p>
 <h4 id="specipaddresstype">spec.ipAddressType<a class="headerlink" href="#specipaddresstype" title="Permanent link">&para;</a></h4>
-<p><code>ipAddressType</code> is an optional setting. The available options are <code>ipv4</code> or <code>dualstack</code>.</p>
+<p><code>ipAddressType</code> is an optional setting. The available options are <code>ipv4</code>, <code>dualstack</code>, or <code>dualstack-without-public-ipv4</code>.</p>
 <p>Cluster administrators can use <code>ipAddressType</code> field to restrict the ipAddressType for all Ingresses that belong to this IngressClass.</p>
 <ol>
 <li>If <code>ipAddressType</code> specified, all Ingresses with this IngressClass will have the specified ipAddressType.</li>

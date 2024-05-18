@@ -1173,6 +1173,12 @@ documentation is not an accurate reference for the services reconciled by the in
 <td></td>
 </tr>
 <tr>
+<td><a href="#lb-security-group-prefix-lists">service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists</a></td>
+<td>stringList</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
 <td><a href="#lb-type">service.beta.kubernetes.io/aws-load-balancer-type</a></td>
 <td>string</td>
 <td></td>
@@ -1374,7 +1380,7 @@ documentation is not an accurate reference for the services reconciled by the in
 <td><a href="#manage-backend-sg-rules">service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules</a></td>
 <td>boolean</td>
 <td>true</td>
-<td></td>
+<td>If <code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code> is specified, this must also be explicitly specified otherwise it defaults to <code>false</code>.</td>
 </tr>
 <tr>
 <td><a href="#update-security-settings">service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic</a></td>
@@ -1859,6 +1865,23 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/cre
 </div>
 </li>
 <li>
+<p><a name="lb-security-group-prefix-lists"><code>service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists</code></a> specifies the managed prefix lists that are allowed to access the NLB.</p>
+<div class="admonition warning">
+<p>this annotation will be ignored if <code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code> is specified.</p>
+</div>
+<div class="admonition warning">
+<p>If you'd like to use this annotation, make sure your security group rule quota is enough. If you'd like to know how the managed prefix list affects your quota, see the <a href="https://docs.aws.amazon.com/vpc/latest/userguide/working-with-aws-managed-prefix-lists.html#aws-managed-prefix-list-weights">reference</a> in the AWS documentation for more details.</p>
+</div>
+<div class="admonition tip">
+<p>If you only use this annotation without <code>load-balancer-source-ranges</code>, the controller managed security group would ignore the <code>load-balancer-source-ranges</code> default settings.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists: pl-00000000, pl-1111111
+</code></pre></div>
+</div>
+</li>
+<li>
 <p><a name="lb-scheme"><code>service.beta.kubernetes.io/aws-load-balancer-scheme</code></a> specifies whether the NLB will be internet-facing or internal.  Valid values are <code>internal</code>, <code>internet-facing</code>. If not specified, default is <code>internal</code>.</p>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
@@ -1881,7 +1904,7 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/cre
 <li><a name="security-groups"><code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code></a>  specifies the frontend securityGroups you want to attach to an NLB.</li>
 </ul>
 <div class="admonition note">
-<p>When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from <code>inbound-cidrs</code> to the <code>listen-ports</code>.
+<p>When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from <code>load-balancer-source-ranges</code> and <code>aws-load-balancer-security-group-prefix-lists</code> to the <code>listen-ports</code>.
 Also, the securityGroups for target instances/ENIs will be modified to allow inbound traffic from this securityGroup.</p>
 </div>
 <div class="admonition note">
@@ -1899,7 +1922,7 @@ Also, the securityGroups for target instances/ENIs will be modified to allow inb
 <li>
 <p><a name="manage-backend-sg-rules"><code>service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules</code></a> specifies whether the controller should automatically add the ingress rules to the instance/ENI security group.</p>
 <div class="admonition warning">
-<p>If you disable the automatic management of security group rules for an NLB, you will need to manually add appropriate ingress rules to your EC2 instance or ENI security groups to allow access to the traffic and health check ports.</p>
+<p>If you disable the automatic management of security group rules for an NLB (e.g.: by setting <code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code>), you will need to manually add appropriate ingress rules to your EC2 instance or ENI security groups to allow access to the traffic and health check ports.</p>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>

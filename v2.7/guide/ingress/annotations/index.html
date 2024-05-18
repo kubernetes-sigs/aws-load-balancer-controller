@@ -1217,7 +1217,7 @@
 </tr>
 <tr>
 <td><a href="#ip-address-type">alb.ingress.kubernetes.io/ip-address-type</a></td>
-<td>ipv4 | dualstack</td>
+<td>ipv4 | dualstack |  dualstack-without-public-ipv4</td>
 <td>ipv4</td>
 <td>Ingress</td>
 <td>Exclusive</td>
@@ -1303,6 +1303,13 @@
 <td><a href="#inbound-cidrs">alb.ingress.kubernetes.io/inbound-cidrs</a></td>
 <td>stringList</td>
 <td>0.0.0.0/0, ::/0</td>
+<td>Ingress</td>
+<td>Exclusive</td>
+</tr>
+<tr>
+<td><a href="#security-group-prefix-lists">alb.ingress.kubernetes.io/security-group-prefix-lists</a></td>
+<td>stringList</td>
+<td>pl-00000000, pl-1111111</td>
 <td>Ingress</td>
 <td>Exclusive</td>
 </tr>
@@ -1999,7 +2006,7 @@ It can be a either real serviceName or an annotation based action name when serv
 <p><code>inbound-cidrs</code> is merged across all Ingresses in IngressGroup, but is exclusive per listen-port.</p>
 <ul>
 <li>the <code>inbound-cidrs</code> will only impact the ports defined for that Ingress.</li>
-<li>if same listen-port is defined by multiple Ingress within IngressGroup, inbound-cidrs should only be defined on one of the Ingress.</li>
+<li>if same listen-port is defined by multiple Ingress within IngressGroup, <code>inbound-cidrs</code> should only be defined on one of the Ingress.</li>
 </ul>
 </div>
 <div class="admonition note">
@@ -2019,9 +2026,34 @@ It can be a either real serviceName or an annotation based action name when serv
 </div>
 </li>
 <li>
+<p><a name="security-group-prefix-lists"><code>alb.ingress.kubernetes.io/security-group-prefix-lists</code></a> specifies the managed prefix lists that are allowed to access LoadBalancer.</p>
+<div class="admonition note">
+<p class="admonition-title">Merge Behavior</p>
+<p><code>security-group-prefix-lists</code> is merged across all Ingresses in IngressGroup, but is exclusive per listen-port.</p>
+<ul>
+<li>the <code>security-group-prefix-lists</code> will only impact the ports defined for that Ingress.</li>
+<li>if same listen-port is defined by multiple Ingress within IngressGroup, <code>security-group-prefix-lists</code> should only be defined on one of the Ingress.</li>
+</ul>
+</div>
+<div class="admonition warning">
+<p>This annotation will be ignored if <code>alb.ingress.kubernetes.io/security-groups</code> is specified.</p>
+</div>
+<div class="admonition warning">
+<p>If you'd like to use this annotation, make sure your security group rule quota is enough. If you'd like to know how the managed prefix list affects your quota, see the <a href="https://docs.aws.amazon.com/vpc/latest/userguide/working-with-aws-managed-prefix-lists.html#aws-managed-prefix-list-weights">reference</a> in the AWS documentation for more details.</p>
+</div>
+<div class="admonition tip">
+<p>If you only use this annotation without <code>inbound-cidrs</code>, the controller managed security group would ignore the <code>inbound-cidrs</code> default settings.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/security-group-prefix-lists: pl-000000, pl-111111
+</code></pre></div>
+</div>
+</li>
+<li>
 <p><a name="security-groups"><code>alb.ingress.kubernetes.io/security-groups</code></a> specifies the securityGroups you want to attach to LoadBalancer.</p>
 <div class="admonition note">
-<p>When this annotation is not present, the controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from <a href="#inbound-cidrs"><code>inbound-cidrs</code></a> to the <a href="#listen-ports"><code>listen-ports</code></a>.
+<p>When this annotation is not present, the controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from <a href="#inbound-cidrs"><code>inbound-cidrs</code></a> and <a href="#security-group-prefix-lists"><code>security-group-prefix-lists</code></a> to the <a href="#listen-ports"><code>listen-ports</code></a>.
 Also, the securityGroups for Node/Pod will be modified to allow inbound traffic from this securityGroup.</p>
 </div>
 <div class="admonition note">
@@ -2357,6 +2389,9 @@ alb.ingress.kubernetes.io/mutual-authentication: &#39;[{&quot;port&quot;: 80, &q
 </code></pre></div></li>
 <li>set idle_timeout delay to 600 seconds
     <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=600
+</code></pre></div></li>
+<li>set client_keep_alive to 3600 seconds
+    <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/load-balancer-attributes: client_keep_alive.seconds=3600  
 </code></pre></div></li>
 <li>enable <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-connection-logs.html">connection logs</a>
     <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/load-balancer-attributes: connection_logs.s3.enabled=true,connection_logs.s3.bucket=my-connection-log-bucket,connection_logs.s3.prefix=my-app
