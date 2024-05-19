@@ -217,6 +217,6 @@ func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 		Watches(&corev1.Service{}, svcEventHandler).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.maxConcurrentReconciles,
-			Reconciler:              r}).
+		}).
 		Complete(r)
 }
