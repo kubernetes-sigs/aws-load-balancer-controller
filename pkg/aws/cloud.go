@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	amerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -49,7 +51,7 @@ type Cloud interface {
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, error) {
+func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger logr.Logger) (Cloud, error) {
 	hasIPv4 := true
 	addrs, err := net.InterfaceAddrs()
 	if err == nil {
@@ -112,14 +114,11 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 
 	ec2Service := services.NewEC2(sess)
 
-	if len(cfg.VpcID) == 0 {
-		vpcID, err := inferVPCID(metadata, ec2Service)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to introspect vpcID from EC2Metadata or Node name, specify --aws-vpc-id instead if EC2Metadata is unavailable")
-		}
-		cfg.VpcID = vpcID
+	vpcID, err := getVpcID(cfg, ec2Service, metadata, logger)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get VPC ID")
 	}
-
+	cfg.VpcID = vpcID
 	return &defaultCloud{
 		cfg:         cfg,
 		ec2:         ec2Service,
@@ -130,6 +129,20 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer) (Cloud, 
 		shield:      services.NewShield(sess),
 		rgt:         services.NewRGT(sess),
 	}, nil
+}
+
+func getVpcID(cfg CloudConfig, ec2Service services.EC2, metadata services.EC2Metadata, logger logr.Logger) (string, error) {
+
+	if cfg.VpcID != "" {
+		logger.V(1).Info("vpcid is specified using flag --aws-vpc-id, controller will use the value", "vpc: ", cfg.VpcID)
+		return cfg.VpcID, nil
+	}
+
+	if cfg.VpcTags != nil {
+		return inferVPCIDFromTags(ec2Service, cfg.VpcNameTagKey, cfg.VpcTags[cfg.VpcNameTagKey])
+	}
+
+	return inferVPCID(metadata, ec2Service)
 }
 
 func inferVPCID(metadata services.EC2Metadata, ec2Service services.EC2) (string, error) {
@@ -166,6 +179,28 @@ func inferVPCID(metadata services.EC2Metadata, ec2Service services.EC2) (string,
 
 	}
 	return "", amerrors.NewAggregate(errList)
+}
+
+func inferVPCIDFromTags(ec2Service services.EC2, VpcNameTagKey string, VpcNameTagValue string) (string, error) {
+	vpcs, err := ec2Service.DescribeVPCsAsList(context.Background(), &ec2.DescribeVpcsInput{
+		Filters: []*ec2.Filter{
+			{
+				Name:   aws.String("tag:" + VpcNameTagKey),
+				Values: []*string{aws.String(VpcNameTagValue)},
+			},
+		},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch VPC ID with tag: %w", err)
+	}
+	if len(vpcs) == 0 {
+		return "", fmt.Errorf("no VPC exists with tag: %w", err)
+	}
+	if len(vpcs) > 1 {
+		return "", fmt.Errorf("multiple VPCs exists with tag: %w", err)
+	}
+
+	return *vpcs[0].VpcId, nil
 }
 
 var _ Cloud = &defaultCloud{}

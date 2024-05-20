@@ -55,17 +55,17 @@ func InitFramework() (*Framework, error) {
 		return nil, err
 	}
 
+	logger, loggerReporter := utils.NewGinkgoLogger()
+
 	cloud, err := aws.NewCloud(aws.CloudConfig{
 		Region:         globalOptions.AWSRegion,
 		VpcID:          globalOptions.AWSVPCID,
 		MaxRetries:     3,
 		ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig(),
-	}, nil)
+	}, nil, logger)
 	if err != nil {
 		return nil, err
 	}
-
-	logger, loggerReporter := utils.NewGinkgoLogger()
 
 	f := &Framework{
 		Options:   globalOptions,

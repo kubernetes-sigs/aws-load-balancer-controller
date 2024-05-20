@@ -20597,6 +20597,21 @@ func (mr *MockEC2MockRecorder) DescribeTrunkInterfaceAssociationsWithContext(arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTrunkInterfaceAssociationsWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeTrunkInterfaceAssociationsWithContext), varargs...)
 }
 
+// DescribeVPCsAsList mocks base method.
+func (m *MockEC2) DescribeVPCsAsList(arg0 context.Context, arg1 *ec2.DescribeVpcsInput) ([]*ec2.Vpc, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeVPCsAsList", arg0, arg1)
+	ret0, _ := ret[0].([]*ec2.Vpc)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeVPCsAsList indicates an expected call of DescribeVPCsAsList.
+func (mr *MockEC2MockRecorder) DescribeVPCsAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeVPCsAsList", reflect.TypeOf((*MockEC2)(nil).DescribeVPCsAsList), arg0, arg1)
+}
+
 // DescribeVerifiedAccessEndpoints mocks base method.
 func (m *MockEC2) DescribeVerifiedAccessEndpoints(arg0 *ec2.DescribeVerifiedAccessEndpointsInput) (*ec2.DescribeVerifiedAccessEndpointsOutput, error) {
 	m.ctrl.T.Helper()
