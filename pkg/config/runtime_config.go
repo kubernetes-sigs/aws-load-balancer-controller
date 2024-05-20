@@ -124,9 +124,6 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 		LeaderElectionNamespace:    rtCfg.LeaderElectionNamespace,
 		Cache: cache.Options{
 			SyncPeriod: &rtCfg.SyncPeriod,
-			DefaultNamespaces: map[string]cache.Config{
-				rtCfg.WatchNamespace: cache.Config{},
-			},
 		},
 		Client: client.Options{
 			Cache: &client.CacheOptions{
