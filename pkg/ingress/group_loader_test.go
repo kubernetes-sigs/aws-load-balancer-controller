@@ -113,11 +113,21 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			IngressClassName: awssdk.String(ingClassA.Name),
 		},
 	}
-
+	ing1BeenDeletedWithoutFinalizer := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace:   "ing-ns",
+			Name:        "ing-1",
+			Annotations: map[string]string{"unit-test/delete": "true"},
+		},
+		Spec: networking.IngressSpec{
+			IngressClassName: awssdk.String(ingClassA.Name),
+		},
+	}
 	ing1BeenDeletedWithFinalizer := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "ing-ns",
-			Name:      "ing-1",
+			Namespace:   "ing-ns",
+			Name:        "ing-1",
+			Annotations: map[string]string{"unit-test/delete": "true"},
 			Finalizers: []string{
 				"group.ingress.k8s.aws/awesome-group",
 			},
@@ -203,12 +213,23 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			},
 		},
 	}
+	ing6BeenDeletedWithoutFinalizer := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "ing-ns",
+			Name:      "ing-6",
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class": "alb",
+				"unit-test/delete":            "true",
+			},
+		},
+	}
 	ing6BeenDeletedWithFinalizer := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "ing-ns",
 			Name:      "ing-6",
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class": "alb",
+				"unit-test/delete":            "true",
 			},
 			Finalizers: []string{
 				"ingress.k8s.aws/resources",
@@ -344,6 +365,46 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			},
 		},
 		{
+			name: "load explicit group(awesome-group) - ing-1 been deleted without finalizer",
+			env: env{
+				ingClassList: []*networking.IngressClass{
+					ingClassA, ingClassB, ingClassC, ingClassD,
+				},
+				ingClassParamsList: []*elbv2api.IngressClassParams{
+					ingClassAParams, ingClassBParams, ingClassCParams,
+				},
+				ingList: []*networking.Ingress{
+					ing1BeenDeletedWithoutFinalizer, ing2, ing3, ing4, ing5, ing6, ing7,
+				},
+			},
+			args: args{
+				groupID: GroupID{Name: "awesome-group"},
+			},
+			want: Group{
+				ID: GroupID{Name: "awesome-group"},
+				Members: []ClassifiedIngress{
+					{
+						Ing: ing2,
+						IngClassConfig: ClassConfiguration{
+							IngClass:       ingClassB,
+							IngClassParams: ingClassBParams,
+						},
+					},
+					{
+						Ing: ing5,
+						IngClassConfig: ClassConfiguration{
+							IngClass: ingClassD,
+						},
+					},
+					{
+						Ing:            ing7,
+						IngClassConfig: ClassConfiguration{},
+					},
+				},
+				InactiveMembers: nil,
+			},
+		},
+		{
 			name: "load explicit group(awesome-group) - ing-1 have explicit high group order",
 			env: env{
 				ingClassList: []*networking.IngressClass{
@@ -447,6 +508,28 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			},
 		},
 		{
+			name: "load implicit group(ing-ns/ing-6) - ing-6 been deleted without finalizer",
+			env: env{
+				ingClassList: []*networking.IngressClass{
+					ingClassA, ingClassB, ingClassC, ingClassD,
+				},
+				ingClassParamsList: []*elbv2api.IngressClassParams{
+					ingClassAParams, ingClassBParams, ingClassCParams,
+				},
+				ingList: []*networking.Ingress{
+					ing1, ing2, ing3, ing4, ing5, ing6BeenDeletedWithoutFinalizer, ing7,
+				},
+			},
+			args: args{
+				groupID: GroupID{Namespace: "ing-ns", Name: "ing-6"},
+			},
+			want: Group{
+				ID:              GroupID{Namespace: "ing-ns", Name: "ing-6"},
+				Members:         nil,
+				InactiveMembers: nil,
+			},
+		},
+		{
 			name: "load implicit group(ing-ns/ing-6) - ing-6 been deleted with finalizer",
 			env: env{
 				ingClassList: []*networking.IngressClass{
@@ -532,6 +615,14 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			}
 			for _, ing := range tt.env.ingList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ing.DeepCopy()))
+				// controller-runtime versions <0.15 the fake client allowed objects
+				// to be created with a DeletionTimestamp. This no longer works so we add an
+				// annotation to the ingresses we want to delete, and
+				// IgnoreOtherFields(networking.Ingress{}, DeletionTimestamp).
+				//
+				if metav1.HasAnnotation(ing.ObjectMeta, "unit-test/delete") {
+					assert.NoError(t, k8sClient.Delete(context.Background(), ing.DeepCopy()))
+				}
 			}
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
@@ -552,6 +643,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 				assert.NoError(t, err)
 				opt := cmp.Options{
 					equality.IgnoreFakeClientPopulatedFields(),
+					equality.IgnoreOtherFields(networking.Ingress{}, "DeletionTimestamp"),
 				}
 				assert.True(t, cmp.Equal(tt.want, got, opt),
 					"diff: %v", cmp.Diff(tt.want, got, opt))
