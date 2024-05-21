@@ -109,7 +109,7 @@ helm repo add eks https://aws.github.io/eks-charts
 Install the TargetGroupBinding CRDs:
 
 ```shell script
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master"
 ```
 
 Install the AWS Load Balancer controller, if using iamserviceaccount
