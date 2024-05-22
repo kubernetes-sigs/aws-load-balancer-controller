@@ -152,7 +152,7 @@ on the load balancer.
 
     !!!note
         - This configuration is optional, and you can use it to assign static IP addresses to your NLB
-        - You must specify the same number of eip allocations as load balancer subnets [annotation](#subnets)
+        - You must specify the same number of eip allocations as load balancer subnets ([annotation](#subnets) or [discovery](../../deploy/subnet_discovery.md))
         - NLB must be internet-facing
 
     !!!example
