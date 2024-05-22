@@ -35,7 +35,7 @@ type enqueueRequestsForEndpointsEvent struct {
 // Create is called in response to an create event - e.g. Pod Creation.
 func (h *enqueueRequestsForEndpointsEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
 	epNew := e.Object.(*corev1.Endpoints)
-	h.enqueueImpactedTargetGroupBindings(ctx, queue, epNew)
+	h.enqueueImpactedTargetGroupBindings(queue, epNew)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
@@ -43,14 +43,14 @@ func (h *enqueueRequestsForEndpointsEvent) Update(ctx context.Context, e event.U
 	epOld := e.ObjectOld.(*corev1.Endpoints)
 	epNew := e.ObjectNew.(*corev1.Endpoints)
 	if !equality.Semantic.DeepEqual(epOld.Subsets, epNew.Subsets) {
-		h.enqueueImpactedTargetGroupBindings(ctx, queue, epNew)
+		h.enqueueImpactedTargetGroupBindings(queue, epNew)
 	}
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
 func (h *enqueueRequestsForEndpointsEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
 	epOld := e.Object.(*corev1.Endpoints)
-	h.enqueueImpactedTargetGroupBindings(ctx, queue, epOld)
+	h.enqueueImpactedTargetGroupBindings(queue, epOld)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
@@ -58,7 +58,7 @@ func (h *enqueueRequestsForEndpointsEvent) Delete(ctx context.Context, e event.D
 func (h *enqueueRequestsForEndpointsEvent) Generic(context.Context, event.GenericEvent, workqueue.RateLimitingInterface) {
 }
 
-func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedTargetGroupBindings(ctx context.Context, queue workqueue.RateLimitingInterface, ep *corev1.Endpoints) {
+func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedTargetGroupBindings(queue workqueue.RateLimitingInterface, ep *corev1.Endpoints) {
 	tgbList := &elbv2api.TargetGroupBindingList{}
 	if err := h.k8sClient.List(context.Background(), tgbList,
 		client.InNamespace(ep.Namespace),

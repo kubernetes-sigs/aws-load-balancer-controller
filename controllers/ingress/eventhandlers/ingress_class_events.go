@@ -37,7 +37,7 @@ type enqueueRequestsForIngressClassEvent struct {
 
 func (h *enqueueRequestsForIngressClassEvent) Create(ctx context.Context, e event.TypedCreateEvent[*networking.IngressClass], _ workqueue.RateLimitingInterface) {
 	ingClassNew := e.Object
-	h.enqueueImpactedIngresses(ctx, ingClassNew)
+	h.enqueueImpactedIngresses(ingClassNew)
 }
 
 func (h *enqueueRequestsForIngressClassEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*networking.IngressClass], _ workqueue.RateLimitingInterface) {
@@ -52,20 +52,20 @@ func (h *enqueueRequestsForIngressClassEvent) Update(ctx context.Context, e even
 		return
 	}
 
-	h.enqueueImpactedIngresses(ctx, ingClassNew)
+	h.enqueueImpactedIngresses(ingClassNew)
 }
 
 func (h *enqueueRequestsForIngressClassEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*networking.IngressClass], _ workqueue.RateLimitingInterface) {
 	ingClassOld := e.Object
-	h.enqueueImpactedIngresses(ctx, ingClassOld)
+	h.enqueueImpactedIngresses(ingClassOld)
 }
 
 func (h *enqueueRequestsForIngressClassEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*networking.IngressClass], _ workqueue.RateLimitingInterface) {
 	ingClass := e.Object
-	h.enqueueImpactedIngresses(ctx, ingClass)
+	h.enqueueImpactedIngresses(ingClass)
 }
 
-func (h *enqueueRequestsForIngressClassEvent) enqueueImpactedIngresses(ctx context.Context, ingClass *networking.IngressClass) {
+func (h *enqueueRequestsForIngressClassEvent) enqueueImpactedIngresses(ingClass *networking.IngressClass) {
 	ingList := &networking.IngressList{}
 	if err := h.k8sClient.List(context.Background(), ingList,
 		client.MatchingFields{ingress.IndexKeyIngressClassRefName: ingClass.GetName()}); err != nil {
