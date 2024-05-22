@@ -424,3 +424,6 @@ serviceTargetENISGTags:
 
 # Specifies the class of load balancer to use for services. This affects how services are provisioned if type LoadBalancer is used (default service.k8s.aws/nlb)
 loadBalancerClass:
+
+# creator will disable helm default labels, so you can only add yours
+# creator: "me"
