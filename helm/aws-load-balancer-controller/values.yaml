@@ -421,4 +421,4 @@ serviceTargetENISGTags:
 loadBalancerClass:
 
 # Automount API credentials for a Service Account at Pod level.
-automountServiceAccountToken: true
+automountServiceAccountToken: false
