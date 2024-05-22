@@ -419,3 +419,6 @@ serviceTargetENISGTags:
 
 # Specifies the class of load balancer to use for services. This affects how services are provisioned if type LoadBalancer is used (default service.k8s.aws/nlb)
 loadBalancerClass:
+
+# Automount API credentials for a Service Account at Pod level.
+automountServiceAccountToken: true
