@@ -115,7 +115,7 @@ func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
 
 // BuildRuntimeOptions builds the options for the controller runtime based on config
 func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Options {
-	return ctrl.Options{
+	opt := ctrl.Options{
 		Scheme:                     scheme,
 		HealthProbeBindAddress:     rtCfg.HealthProbeBindAddress,
 		LeaderElection:             rtCfg.EnableLeaderElection,
@@ -123,8 +123,7 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 		LeaderElectionID:           rtCfg.LeaderElectionID,
 		LeaderElectionNamespace:    rtCfg.LeaderElectionNamespace,
 		Cache: cache.Options{
-			SyncPeriod:        &rtCfg.SyncPeriod,
-			DefaultNamespaces: map[string]cache.Config{rtCfg.WatchNamespace: cache.Config{}},
+			SyncPeriod: &rtCfg.SyncPeriod,
 		},
 		Client: client.Options{
 			Cache: &client.CacheOptions{
@@ -156,4 +155,14 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 			},
 		}),
 	}
+
+	// cannot set DefaultNamespaces = corev1.NamespaceAll
+	// https://github.com/kubernetes-sigs/controller-runtime/issues/2628
+	if rtCfg.WatchNamespace != corev1.NamespaceAll {
+		opt.Cache.DefaultNamespaces = map[string]cache.Config{
+			rtCfg.WatchNamespace: {},
+		}
+	}
+
+	return opt
 }
