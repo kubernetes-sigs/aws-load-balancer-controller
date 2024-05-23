@@ -119,11 +119,12 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 		Scheme:                     scheme,
 		HealthProbeBindAddress:     rtCfg.HealthProbeBindAddress,
 		LeaderElection:             rtCfg.EnableLeaderElection,
-		LeaderElectionResourceLock: resourcelock.LeasesResourceLock, // resourcelock.ConfigMapsLeasesResourceLock,
+		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		LeaderElectionID:           rtCfg.LeaderElectionID,
 		LeaderElectionNamespace:    rtCfg.LeaderElectionNamespace,
 		Cache: cache.Options{
-			SyncPeriod: &rtCfg.SyncPeriod,
+			SyncPeriod:        &rtCfg.SyncPeriod,
+			DefaultNamespaces: map[string]cache.Config{rtCfg.WatchNamespace: cache.Config{}},
 		},
 		Client: client.Options{
 			Cache: &client.CacheOptions{
