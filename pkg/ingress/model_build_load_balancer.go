@@ -90,13 +90,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) (string, error) {
-	explicitName, err := t.getNameAnnotation(annotations.IngressSuffixLoadBalancerName, maximumLoadBalancerNameLength)
+	explicitName, err := t.parseNameOrNamePrefixFromAnnotation(annotations.IngressSuffixLoadBalancerName, maximumLoadBalancerNameLength)
 
 	if explicitName != "" || err != nil {
 		return explicitName, err
 	}
 
-	prefixName, err := t.getNameAnnotation(
+	prefixName, err := t.parseNameOrNamePrefixFromAnnotation(
 		annotations.IngressSuffixLoadBalancerNamePrefix,
 		maximumLoadBalancerNameLength-nameRandomLength-1, // including the dash
 	)
@@ -125,7 +125,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme 
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.*s", sanitizedNamespace, sanitizedName, nameRandomLength, uuid), nil
 }
 
-func (t *defaultModelBuildTask) getNameAnnotation(annotationName string, maxLength int) (string, error) {
+func (t *defaultModelBuildTask) parseNameOrNamePrefixFromAnnotation(annotationName string, maxLength int) (string, error) {
 	explicitNames := sets.String{}
 	for _, member := range t.ingGroup.Members {
 		rawName := ""
