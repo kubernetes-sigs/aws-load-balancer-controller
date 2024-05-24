@@ -117,3 +117,10 @@ To deploy the CRDs and the container image to a Kubernetes cluster, run the foll
 ```bash
 make deploy
 ```
+
+
+## Running E2E tests
+
+To run the E2E tests, run `make e2e-test`.
+This will spin up an EKS cluster and run the E2E tests against it.
+Resources created during the test run will be cleaned up after the test run.
