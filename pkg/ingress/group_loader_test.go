@@ -3,7 +3,6 @@ package ingress
 import (
 	"context"
 	"testing"
-	"time"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
@@ -22,7 +21,6 @@ import (
 )
 
 func Test_defaultGroupLoader_Load(t *testing.T) {
-	now := metav1.Date(2021, 03, 28, 11, 11, 11, 0, time.UTC)
 	ingClassA := &networking.IngressClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "ing-class-a",
@@ -115,12 +113,11 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			IngressClassName: awssdk.String(ingClassA.Name),
 		},
 	}
-
 	ing1BeenDeletedWithoutFinalizer := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace:         "ing-ns",
-			Name:              "ing-1",
-			DeletionTimestamp: &now,
+			Namespace:   "ing-ns",
+			Name:        "ing-1",
+			Annotations: map[string]string{"unit-test/delete": "true"},
 		},
 		Spec: networking.IngressSpec{
 			IngressClassName: awssdk.String(ingClassA.Name),
@@ -128,12 +125,12 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 	}
 	ing1BeenDeletedWithFinalizer := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "ing-ns",
-			Name:      "ing-1",
+			Namespace:   "ing-ns",
+			Name:        "ing-1",
+			Annotations: map[string]string{"unit-test/delete": "true"},
 			Finalizers: []string{
 				"group.ingress.k8s.aws/awesome-group",
 			},
-			DeletionTimestamp: &now,
 		},
 		Spec: networking.IngressSpec{
 			IngressClassName: awssdk.String(ingClassA.Name),
@@ -222,8 +219,8 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			Name:      "ing-6",
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class": "alb",
+				"unit-test/delete":            "true",
 			},
-			DeletionTimestamp: &now,
 		},
 	}
 	ing6BeenDeletedWithFinalizer := &networking.Ingress{
@@ -232,11 +229,11 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			Name:      "ing-6",
 			Annotations: map[string]string{
 				"kubernetes.io/ingress.class": "alb",
+				"unit-test/delete":            "true",
 			},
 			Finalizers: []string{
 				"ingress.k8s.aws/resources",
 			},
-			DeletionTimestamp: &now,
 		},
 	}
 	ing7 := &networking.Ingress{
@@ -609,7 +606,7 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}
@@ -618,6 +615,14 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 			}
 			for _, ing := range tt.env.ingList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ing.DeepCopy()))
+				// controller-runtime versions <0.15 the fake client allowed objects
+				// to be created with a DeletionTimestamp. This no longer works so we add an
+				// annotation to the ingresses we want to delete, and
+				// IgnoreOtherFields(networking.Ingress{}, DeletionTimestamp).
+				//
+				if metav1.HasAnnotation(ing.ObjectMeta, "unit-test/delete") {
+					assert.NoError(t, k8sClient.Delete(context.Background(), ing.DeepCopy()))
+				}
 			}
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
@@ -631,12 +636,14 @@ func Test_defaultGroupLoader_Load(t *testing.T) {
 				manageIngressesWithoutIngressClass: false,
 			}
 			got, err := m.Load(context.Background(), tt.args.groupID)
+
 			if tt.wantErr != nil {
 				assert.Equal(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
 				opt := cmp.Options{
 					equality.IgnoreFakeClientPopulatedFields(),
+					equality.IgnoreOtherFields(networking.Ingress{}, "DeletionTimestamp"),
 				}
 				assert.True(t, cmp.Equal(tt.want, got, opt),
 					"diff: %v", cmp.Diff(tt.want, got, opt))
@@ -1750,7 +1757,7 @@ func Test_defaultGroupLoader_loadGroupIDIfAnyHelper(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}
@@ -2170,7 +2177,7 @@ func Test_defaultGroupLoader_classifyIngress(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, ingClass := range tt.env.ingClassList {
 				assert.NoError(t, k8sClient.Create(context.Background(), ingClass.DeepCopy()))
 			}

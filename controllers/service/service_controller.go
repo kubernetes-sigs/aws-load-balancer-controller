@@ -25,7 +25,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -210,24 +209,14 @@ func (r *serviceReconciler) cleanupServiceStatus(ctx context.Context, svc *corev
 }
 
 func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	c, err := controller.New(controllerName, mgr, controller.Options{
-		MaxConcurrentReconciles: r.maxConcurrentReconciles,
-		Reconciler:              r,
-	})
-	if err != nil {
-		return err
-	}
-	if err := r.setupWatches(ctx, c); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Controller) error {
 	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder,
 		r.serviceUtils, r.logger.WithName("eventHandlers").WithName("service"))
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
-		return err
-	}
-	return nil
+
+	return ctrl.NewControllerManagedBy(mgr).
+		Named(controllerName).
+		Watches(&corev1.Service{}, svcEventHandler).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: r.maxConcurrentReconciles,
+		}).
+		Complete(r)
 }

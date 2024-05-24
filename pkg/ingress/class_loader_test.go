@@ -648,7 +648,7 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, ns := range tt.env.nsList {
 				assert.NoError(t, k8sClient.Create(ctx, ns.DeepCopy()))
 			}
@@ -847,7 +847,7 @@ func Test_defaultClassLoader_validateIngressClassParamsNamespaceRestriction(t *t
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, ns := range tt.env.nsList {
 				assert.NoError(t, k8sClient.Create(ctx, ns.DeepCopy()))
 			}

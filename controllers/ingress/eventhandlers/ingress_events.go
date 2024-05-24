@@ -3,6 +3,7 @@ package eventhandlers
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -16,7 +17,7 @@ import (
 )
 
 func NewEnqueueRequestsForIngressEvent(groupLoader ingress.GroupLoader, eventRecorder record.EventRecorder,
-	logger logr.Logger) *enqueueRequestsForIngressEvent {
+	logger logr.Logger) handler.TypedEventHandler[*networking.Ingress] {
 	return &enqueueRequestsForIngressEvent{
 		groupLoader:   groupLoader,
 		eventRecorder: eventRecorder,
@@ -24,7 +25,7 @@ func NewEnqueueRequestsForIngressEvent(groupLoader ingress.GroupLoader, eventRec
 	}
 }
 
-var _ handler.EventHandler = (*enqueueRequestsForIngressEvent)(nil)
+var _ handler.TypedEventHandler[*networking.Ingress] = (*enqueueRequestsForIngressEvent)(nil)
 
 type enqueueRequestsForIngressEvent struct {
 	groupLoader   ingress.GroupLoader
@@ -32,13 +33,13 @@ type enqueueRequestsForIngressEvent struct {
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForIngressEvent) Create(e event.CreateEvent, queue workqueue.RateLimitingInterface) {
-	h.enqueueIfBelongsToGroup(queue, e.Object.(*networking.Ingress))
+func (h *enqueueRequestsForIngressEvent) Create(ctx context.Context, e event.TypedCreateEvent[*networking.Ingress], queue workqueue.RateLimitingInterface) {
+	h.enqueueIfBelongsToGroup(ctx, queue, e.Object)
 }
 
-func (h *enqueueRequestsForIngressEvent) Update(e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
-	ingOld := e.ObjectOld.(*networking.Ingress)
-	ingNew := e.ObjectNew.(*networking.Ingress)
+func (h *enqueueRequestsForIngressEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*networking.Ingress], queue workqueue.RateLimitingInterface) {
+	ingOld := e.ObjectOld
+	ingNew := e.ObjectNew
 
 	// we only care below update event:
 	//	1. Ingress annotation updates
@@ -52,22 +53,21 @@ func (h *enqueueRequestsForIngressEvent) Update(e event.UpdateEvent, queue workq
 		}
 	}
 
-	h.enqueueIfBelongsToGroup(queue, ingNew)
+	h.enqueueIfBelongsToGroup(ctx, queue, ingNew)
 }
 
-func (h *enqueueRequestsForIngressEvent) Delete(e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForIngressEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*networking.Ingress], queue workqueue.RateLimitingInterface) {
 	// since we'll always attach an finalizer before doing any reconcile action,
 	// user triggered delete action will actually be an update action with deletionTimestamp set,
 	// which will be handled by update event handler.
 	// so we'll just ignore delete events to avoid unnecessary reconcile call.
 }
 
-func (h *enqueueRequestsForIngressEvent) Generic(e event.GenericEvent, queue workqueue.RateLimitingInterface) {
-	h.enqueueIfBelongsToGroup(queue, e.Object.(*networking.Ingress))
+func (h *enqueueRequestsForIngressEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*networking.Ingress], queue workqueue.RateLimitingInterface) {
+	h.enqueueIfBelongsToGroup(ctx, queue, e.Object)
 }
 
-func (h *enqueueRequestsForIngressEvent) enqueueIfBelongsToGroup(queue workqueue.RateLimitingInterface, ing *networking.Ingress) {
-	ctx := context.Background()
+func (h *enqueueRequestsForIngressEvent) enqueueIfBelongsToGroup(ctx context.Context, queue workqueue.RateLimitingInterface, ing *networking.Ingress) {
 	ingKey := k8s.NamespacedName(ing)
 	groupIDsSet := make(map[ingress.GroupID]struct{})
 
