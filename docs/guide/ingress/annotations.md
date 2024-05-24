@@ -790,17 +790,18 @@ TLS support can be controlled with the following annotations:
 
 - <a name="mutual-authentication">`alb.ingress.kubernetes.io/mutual-authentication`</a>  specifies the mutual authentication configuration that should be assigned to the Application Load Balancer secure listener ports. See [Mutual authentication with TLS](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html) in the AWS documentation for more details.
 
-    !!!note "Configuration Options"
+    !!!note 
         - This annotation is not applicable for Outposts, Local Zones or Wavelength zones.
-        - `port: listen port ` 
-            - Must be a HTTPS port specified by [listen-ports](#listen-ports).
-        - `mode: "off" (default) | "passthrough" | "verify"`
-            - `verify` mode requires an existing trust store resource.
-            -  See [Create a trust store](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html#create-trust-store) in the AWS documentation for more details.
-        - `trustStore: ARN (arn:aws:elasticloadbalancing:trustStoreArn) | Name (my-trust-store)`
-            - Both ARN and Name of trustStore are supported values.
-            - `trustStore` is required when mode is `verify`.
-        - `ignoreClientCertificateExpiry : true | false (default)`
+        - "Configuration Options"
+            - `port: listen port ` 
+               - Must be a HTTPS port specified by [listen-ports](#listen-ports).
+            - `mode: "off" (default) | "passthrough" | "verify"`
+               - `verify` mode requires an existing trust store resource.
+               -  See [Create a trust store](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html#create-trust-store) in the AWS documentation for more details.
+            - `trustStore: ARN (arn:aws:elasticloadbalancing:trustStoreArn) | Name (my-trust-store)`
+               - Both ARN and Name of trustStore are supported values.
+               - `trustStore` is required when mode is `verify`.
+            - `ignoreClientCertificateExpiry : true | false (default)`
         - Once the Mutual Authentication is set, to turn it off, you will have to explicitly pass in this annotation with `mode : "off"`.
   
     !!!example
