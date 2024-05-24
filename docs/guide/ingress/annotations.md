@@ -177,7 +177,7 @@ Traffic Routing can be controlled with following annotations:
         alb.ingress.kubernetes.io/load-balancer-name: custom-name
         ```
 
-- <a name="load-balancer-name-prefix">`alb.ingress.kubernetes.io/load-balancer-name-prefix`</a> specifies the custom name prefix to use for the load balancer. The provided value will have 11 characters appended to it for uniqueness. Prefixes longer than 21 characters will be treated as an error.
+- <a name="load-balancer-name-prefix">`alb.ingress.kubernetes.io/load-balancer-name-prefix`</a> specifies the custom name prefix to use for the load balancer. The provided value will have 11 characters appended to it for uniqueness. Due to AWS load balancer naming constraints, specifying a prefix longer than 21 characters will be treated as an error.
 
     !!!note "Merge Behavior"
         `name-prefix` is exclusive across all Ingresses in an IngressGroup.
