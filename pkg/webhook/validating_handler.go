@@ -2,25 +2,20 @@ package webhook
 
 import (
 	"context"
-	admissionv1 "k8s.io/api/admission/v1"
 	"net/http"
+
+	admissionv1 "k8s.io/api/admission/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var validatingHandlerLog = ctrl.Log.WithName("validating_handler")
-var _ admission.DecoderInjector = &validatingHandler{}
+
 var _ admission.Handler = &validatingHandler{}
 
 type validatingHandler struct {
 	validator Validator
-	decoder   *admission.Decoder
-}
-
-// InjectDecoder injects the decoder into a mutatingHandler.
-func (h *validatingHandler) InjectDecoder(d *admission.Decoder) error {
-	h.decoder = d
-	return nil
+	decoder   admission.Decoder
 }
 
 // Handle handles admission requests.

@@ -92,5 +92,5 @@ func (m *serviceMutator) MutateUpdate(ctx context.Context, obj runtime.Object, o
 // +kubebuilder:webhook:path=/mutate-v1-service,mutating=true,failurePolicy=fail,groups="",resources=services,verbs=create,versions=v1,name=mservice.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1
 
 func (m *serviceMutator) SetupWithManager(mgr ctrl.Manager) {
-	mgr.GetWebhookServer().Register(apiPathMutateService, webhook.MutatingWebhookForMutator(m))
+	mgr.GetWebhookServer().Register(apiPathMutateService, webhook.MutatingWebhookForMutator(m, mgr.GetScheme()))
 }

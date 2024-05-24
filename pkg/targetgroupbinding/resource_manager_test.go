@@ -379,7 +379,7 @@ func Test_defaultResourceManager_updateTargetHealthPodConditionForPod(t *testing
 		t.Run(tt.name, func(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
 			m := &defaultResourceManager{
 				k8sClient: k8sClient,
