@@ -1,9 +1,11 @@
 package networking
 
 import (
+	"context"
+	"net/netip"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
-	"net/netip"
 )
 
 // ParseCIDRs will parse CIDRs in string format into parsed IPPrefix
@@ -71,4 +73,42 @@ func GetSubnetAssociatedIPv6CIDRs(subnet *ec2sdk.Subnet) ([]netip.Prefix, error)
 		ipv6CIDRs = append(ipv6CIDRs, ipv6CIDR)
 	}
 	return ipv6CIDRs, nil
+}
+
+func IsMtlsNotSupportedForSelectedSubnets(ctx context.Context, subnets []*ec2sdk.Subnet, azInfoProvider *defaultAZInfoProvider) (bool, string) {
+	const (
+		zoneTypeLocalZone      string = "local-zone"
+		zoneTypeWavelengthZone string = "wavelength-zone"
+		outPostSubnet          string = "outpost"
+	)
+
+	isAnySubnetInLocalZoneOrOutPostOrWaveLengthZone := false
+	zoneType := ""
+	var azIds []string
+
+	for _, subnet := range subnets {
+		if subnet.OutpostArn != nil && len(*subnet.OutpostArn) != 0 {
+			isAnySubnetInLocalZoneOrOutPostOrWaveLengthZone = true
+			zoneType = outPostSubnet
+			break
+		}
+
+		azIds = append(azIds, awssdk.StringValue(subnet.AvailabilityZoneId))
+
+	}
+
+	azsInfo, _ := azInfoProvider.FetchAZInfos(ctx, azIds)
+
+	for _, azInfo := range azsInfo {
+		if azInfo.ZoneType != nil && (awssdk.StringValue(azInfo.ZoneType) == zoneTypeLocalZone || awssdk.StringValue(azInfo.ZoneType) == zoneTypeWavelengthZone) {
+			isAnySubnetInLocalZoneOrOutPostOrWaveLengthZone = true
+			zoneType = zoneTypeLocalZone
+			if awssdk.StringValue(azInfo.ZoneType) == zoneTypeWavelengthZone {
+				zoneType = zoneTypeWavelengthZone
+			}
+			break
+		}
+	}
+
+	return isAnySubnetInLocalZoneOrOutPostOrWaveLengthZone, zoneType
 }
