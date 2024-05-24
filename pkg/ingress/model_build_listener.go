@@ -4,11 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
-	"strings"
-
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"k8s.io/utils/strings/slices"
+	"net"
+	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/pkg/errors"
@@ -20,7 +19,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	networking2 "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []ClassifiedIngress) (*elbv2model.Listener, error) {
@@ -274,29 +272,11 @@ type MutualAuthenticationConfig struct {
 }
 
 func (t *defaultModelBuildTask) computeIngressMutualAuthentication(ctx context.Context, ing *ClassifiedIngress) (map[int64]*elbv2model.MutualAuthenticationAttributes, error) {
-	
-
-	subnetsSelector := ing.IngClassConfig.IngClassParams.Spec.Subnets
-	subnets, _ := t.subnetsResolver.ResolveViaSelector(ctx, subnetsSelector)
-	azInfoProvider := networking2.NewDefaultAZInfoProvider(t.ec2Client, t.logger)
-
-	isMtlsNotSupportedForSelectedSubnets, zoneType := networking2.IsMtlsNotSupportedForSelectedSubnets(ctx, subnets, azInfoProvider)
-
 	var rawMtlsConfigString string
 	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixMutualAuthentication, &rawMtlsConfigString, ing.Ing.Annotations); !exists {
-		// If both Ingress annotation is missing mutual-authentication config, and the subnet is in Local Zone or Wavelength zone or Outpost, then return nil as API doesn't support MutualAuthentication parameter for these zones
-		if isMtlsNotSupportedForSelectedSubnets {
-			return nil, nil
-		}
-		// If both Ingress annotation is missing mutual-authentication config, return default mutualAuthentication mode
-		return map[int64]*elbv2model.MutualAuthenticationAttributes{443: {
-			Mode: string(elbv2model.MutualAuthenticationOffMode),
-		}}, nil
+		return nil, nil
+	}
 
-	}
-	if isMtlsNotSupportedForSelectedSubnets {
-		return nil, errors.Errorf("Mutual authentication annotation is not applicable for selected subnets because the selected subnets are in %s", zoneType)
-	}
 	var ingressAnnotationEntries []MutualAuthenticationConfig
 
 	if err := json.Unmarshal([]byte(rawMtlsConfigString), &ingressAnnotationEntries); err != nil {
