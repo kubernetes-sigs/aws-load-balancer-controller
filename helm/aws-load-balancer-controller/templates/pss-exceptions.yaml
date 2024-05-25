@@ -28,4 +28,3 @@ spec:
           names:
             - {{ include "aws-load-balancer-controller.fullname" . }}*
 {{- end }}
-
