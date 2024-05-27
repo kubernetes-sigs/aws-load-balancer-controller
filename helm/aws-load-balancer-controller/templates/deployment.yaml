@@ -8,6 +8,8 @@ metadata:
   {{- toYaml .Values.deploymentAnnotations | nindent 4 }}
   {{- end }}
   labels:
+    giantswarm.io/service-type: "managed"
+    giantswarm.io/monitoring_basic_sli: "true"
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
@@ -33,6 +35,7 @@ spec:
         {{- if .Values.podAnnotations }}
         {{- toYaml .Values.podAnnotations | nindent 8 }}
         {{- end }}
+        {{- include "aws-load-balancer-controller.iamPodAnnotation" . | nindent 8 }}
     spec:
     {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
@@ -58,7 +61,11 @@ spec:
       containers:
       - name: {{ .Chart.Name }}
         args:
+        {{- if .Values.clusterName }}
         - --cluster-name={{ required "Chart cannot be installed without a valid clusterName!" .Values.clusterName }}
+        {{ else}}
+        - --cluster-name={{ .Values.clusterID }}
+        {{- end }}
         {{- if .Values.ingressClass }}
         - --ingress-class={{ .Values.ingressClass }}
         {{- end }}
@@ -180,7 +187,8 @@ spec:
         {{- end }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
-        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        image: "{{ .Values.image.registry }}/{{ .Values.image.name }}:{{ .Values.image.tag }}"
+
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs

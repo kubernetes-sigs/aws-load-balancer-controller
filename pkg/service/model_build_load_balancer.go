@@ -57,11 +57,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	securityGropus, err := t.buildLoadBalancerSecurityGroups(ctx, existingLB, ipAddressType)
+	tags, err := t.buildLoadBalancerTags(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	tags, err := t.buildLoadBalancerTags(ctx)
+	securityGropus, err := t.buildLoadBalancerSecurityGroups(ctx, existingLB, ipAddressType, tags)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -87,7 +87,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, existingLB *elbv2deploy.LoadBalancerWithTags,
-	ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
+	ipAddressType elbv2model.IPAddressType, tags map[string]string) ([]core.StringToken, error) {
 	if existingLB != nil && len(existingLB.LoadBalancer.SecurityGroups) == 0 {
 		return nil, nil
 	}
@@ -109,7 +109,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if !t.enableBackendSG {
 			t.backendSGIDToken = managedSG.GroupID()
 		} else {
-			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(t.service)})
+			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(t.service)}, tags)
 			if err != nil {
 				return nil, err
 			}
@@ -133,7 +133,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 			if !t.enableBackendSG {
 				return nil, errors.New("backendSG feature is required to manage worker node SG rules when frontendSG is manually specified")
 			}
-			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(t.service)})
+			backendSGID, err := t.backendSGProvider.Get(ctx, networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(t.service)}, tags)
 			if err != nil {
 				return nil, err
 			}

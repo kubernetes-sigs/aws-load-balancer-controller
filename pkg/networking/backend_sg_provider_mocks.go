@@ -36,18 +36,18 @@ func (m *MockBackendSGProvider) EXPECT() *MockBackendSGProviderMockRecorder {
 }
 
 // Get mocks base method.
-func (m *MockBackendSGProvider) Get(arg0 context.Context, arg1 ResourceType, arg2 []types.NamespacedName) (string, error) {
+func (m *MockBackendSGProvider) Get(arg0 context.Context, arg1 ResourceType, arg2 []types.NamespacedName, arg3 map[string]string) (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Get", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockBackendSGProviderMockRecorder) Get(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockBackendSGProviderMockRecorder) Get(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockBackendSGProvider)(nil).Get), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockBackendSGProvider)(nil).Get), arg0, arg1, arg2, arg3)
 }
 
 // Release mocks base method.

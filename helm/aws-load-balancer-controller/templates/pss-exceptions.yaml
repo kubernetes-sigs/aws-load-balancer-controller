@@ -1,0 +1,30 @@
+{{- if .Values.global.podSecurityStandards.enforced }}
+apiVersion: kyverno.io/v2alpha1
+kind: PolicyException
+metadata:
+  name: {{ include "aws-load-balancer-controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "pre-install,pre-upgrade"
+spec:
+  exceptions:
+    - policyName: disallow-capabilities-strict
+      ruleNames:
+        - require-drop-all
+        - adding-capabilities-strict
+        - autogen-require-drop-all
+        - autogen-adding-capabilities-strict
+  match:
+    any:
+      - resources:
+          kinds:
+            - Deployment
+            - ReplicaSet
+            - Pod
+          namespaces:
+            - {{ .Release.Namespace }}
+          names:
+            - {{ include "aws-load-balancer-controller.fullname" . }}*
+{{- end }}
