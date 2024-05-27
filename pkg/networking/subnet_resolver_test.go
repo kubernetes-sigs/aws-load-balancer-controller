@@ -1166,7 +1166,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				logger:         logr.New(&log.NullLogSink{}),
 			}
 
-			got, err := r.ResolveViaDiscovery(context.Background(), "vpc-xxxxxxxx", tt.args.opts...)
+			got, err := r.ResolveViaDiscovery(context.Background(), tt.fields.vpcID, tt.args.opts...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1785,7 +1785,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				clusterName:    tt.fields.clusterName,
 				logger:         logr.New(&log.NullLogSink{}),
 			}
-			got, err := r.ResolveViaNameOrIDSlice(context.Background(), "vpc-xxxxxxxx", tt.args.subnetNameOrIDs, tt.args.opts...)
+			got, err := r.ResolveViaNameOrIDSlice(context.Background(), tt.fields.vpcID, tt.args.subnetNameOrIDs, tt.args.opts...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

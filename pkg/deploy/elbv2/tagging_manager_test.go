@@ -616,7 +616,7 @@ func Test_defaultTaggingManager_ListLoadBalancers(t *testing.T) {
 				resourceTagsCacheTTL:  defaultResourceTagsCacheTTL,
 				featureGates:          featureGates,
 			}
-			got, err := m.ListLoadBalancers(context.Background(), "", tt.args.tagFilters...)
+			got, err := m.ListLoadBalancers(context.Background(), m.vpcID, tt.args.tagFilters...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1118,7 +1118,7 @@ func Test_defaultTaggingManager_ListTargetGroups(t *testing.T) {
 				resourceTagsCacheTTL:  defaultResourceTagsCacheTTL,
 				featureGates:          featureGates,
 			}
-			got, err := m.ListTargetGroups(context.Background(), "vpc-xxxxxxxxx", tt.args.tagFilters...)
+			got, err := m.ListTargetGroups(context.Background(), m.vpcID, tt.args.tagFilters...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

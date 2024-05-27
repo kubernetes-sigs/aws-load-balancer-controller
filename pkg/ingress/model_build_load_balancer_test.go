@@ -1245,8 +1245,8 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 			defer ctrl.Finish()
 
 			taggingManager := elbv2deploy.NewMockTaggingManager(ctrl)
-			taggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, tagFilters ...tracking.TagFilter) ([]elbv2deploy.LoadBalancerWithTags, error) {
+			taggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).
+				DoAndReturn(func(ctx context.Context, vpcID string, tagFilters ...tracking.TagFilter) ([]elbv2deploy.LoadBalancerWithTags, error) {
 					return nil, fmt.Errorf("called ListLoadBalancers()")
 				}).AnyTimes()
 
@@ -1273,10 +1273,14 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 				logr.New(&log.NullLogSink{}),
 			)
 
+			stack := core.NewDefaultStack(core.StackID(tt.fields.ingGroup.ID))
+			stack.SetVPCID("vpc-1")
+
 			task := &defaultModelBuildTask{
 				featureGates:        config.NewFeatureGates(),
 				ingGroup:            tt.fields.ingGroup,
-				stack:               core.NewDefaultStack(core.StackID(tt.fields.ingGroup.ID)),
+				vpcID:               "vpc-1",
+				stack:               stack,
 				annotationParser:    annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 				elbv2TaggingManager: taggingManager,
 				subnetsResolver:     subnetsResolver,

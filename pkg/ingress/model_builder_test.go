@@ -3641,7 +3641,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			defer ctrl.Finish()
 			elbv2TaggingManager := elbv2.NewMockTaggingManager(ctrl)
 			for _, call := range tt.fields.listLoadBalancersCalls {
-				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.matchedLBs, call.err)
+				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.matchedLBs, call.err)
 			}
 
 			ctx := context.Background()
@@ -3661,7 +3661,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			}
 			subnetsResolver := networkingpkg.NewMockSubnetsResolver(ctrl)
 			for _, call := range tt.fields.resolveViaDiscoveryCalls {
-				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
+				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}
 
 			certDiscovery := NewMockCertDiscovery(ctrl)
@@ -3675,9 +3675,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			sgResolver := networkingpkg.NewDefaultSecurityGroupResolver(ec2Client, vpcID)
 			if tt.fields.enableBackendSG {
 				if len(tt.fields.backendSecurityGroup) > 0 {
-					backendSGProvider.EXPECT().Get(gomock.Any(), "vpc-xxxxxxxx", networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return(tt.fields.backendSecurityGroup, nil).AnyTimes()
+					backendSGProvider.EXPECT().Get(gomock.Any(), gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return(tt.fields.backendSecurityGroup, nil).AnyTimes()
 				} else {
-					backendSGProvider.EXPECT().Get(gomock.Any(), "vpc-xxxxxxxx", networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return("sg-auto", nil).AnyTimes()
+					backendSGProvider.EXPECT().Get(gomock.Any(), gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return("sg-auto", nil).AnyTimes()
 				}
 				backendSGProvider.EXPECT().Release(gomock.Any(), networkingpkg.ResourceType(networkingpkg.ResourceTypeIngress), gomock.Any()).Return(nil).AnyTimes()
 			}

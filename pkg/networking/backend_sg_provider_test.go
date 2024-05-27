@@ -294,7 +294,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			} else {
 				activeResources = k8s.ToSliceOfNamespacedNames([]*corev1.Service{tt.fields.svcResource})
 			}
-			got, err := sgProvider.Get(context.Background(), "vpc-xxxxxxxx", ResourceType(resourceType), activeResources)
+			got, err := sgProvider.Get(context.Background(), defaultVPCID, ResourceType(resourceType), activeResources)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

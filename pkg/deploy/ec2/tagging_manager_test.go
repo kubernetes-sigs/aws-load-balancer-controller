@@ -420,7 +420,7 @@ func Test_defaultTaggingManager_ListSecurityGroups(t *testing.T) {
 				networkingSGManager: networkingSGManager,
 				vpcID:               "vpc-xxxxxxx",
 			}
-			got, err := m.ListSecurityGroups(context.Background(), "vpc-xxxxxxxx", tt.args.tagFilters...)
+			got, err := m.ListSecurityGroups(context.Background(), m.vpcID, tt.args.tagFilters...)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

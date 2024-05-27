@@ -186,6 +186,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-6b0ba8ff70",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internal",
              "securityGroupsInboundRulesOnPrivateLink":"on",
              "ipAddressType":"ipv4",
@@ -336,6 +337,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-4d831c6ca6",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internet-facing",
              "securityGroupsInboundRulesOnPrivateLink":"on",
              "ipAddressType":"dualstack",
@@ -523,6 +525,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-518cdfc227",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internal",
              "securityGroupsInboundRulesOnPrivateLink":"off",
              "ipAddressType":"ipv4",
@@ -850,6 +853,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-33e41aa671",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internet-facing",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -1211,6 +1215,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-instance-7ca1de7e6c",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internal",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -1484,6 +1489,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-app-trafficl-2af705447d",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internet-facing",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -1775,6 +1781,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-6b0ba8ff70",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internal",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -2000,6 +2007,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
       "LoadBalancer": {
         "spec": {
           "ipAddressType": "ipv4",
+          "vpcID": "vpc-xxx",
           "name": "k8s-default-iptarget-b44ef5a42d",
           "subnetMapping": [
             {
@@ -2169,6 +2177,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
       "LoadBalancer": {
         "spec": {
           "ipAddressType": "ipv4",
+          "vpcID": "vpc-xxx",
           "name": "k8s-default-defaulti-b44ef5a42d",
           "subnetMapping": [
             {
@@ -2445,6 +2454,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "name": "k8s-default-trafficl-6652458428",
           "type": "network",
+          "vpcID": "vpc-xxx",
           "scheme": "internal",
           "ipAddressType": "dualstack",
           "subnetMapping": [
@@ -2595,6 +2605,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "name": "k8s-default-trafficl-579592c587",
           "type": "network",
+          "vpcID": "vpc-xxx",
           "scheme": "internet-facing",
           "ipAddressType": "dualstack",
           "subnetMapping": [
@@ -2798,6 +2809,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "name": "k8s-awesome-lbwithcl-6652458428",
           "type": "network",
+          "vpcID": "vpc-xxx",
           "scheme": "internal",
           "ipAddressType": "ipv4",
           "subnetMapping": [
@@ -2966,6 +2978,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-manualsg-7af4592f28",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internal",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -3068,6 +3081,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
        "ManagedLBSecurityGroup": {
           "spec": {
              "groupName": "k8s-default-nlbipsvc-1da4b78715",
+             "vpcID": "vpc-xxx",
              "description": "[k8s] Managed SecurityGroup for LoadBalancer",
              "ingress": [
                 {
@@ -3114,6 +3128,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-6b0ba8ff70",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internal",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -3242,6 +3257,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec": {
              "groupName": "k8s-default-nlbipsvc-1da4b78715",
              "description": "[k8s] Managed SecurityGroup for LoadBalancer",
+             "vpcID": "vpc-xxx",
              "ingress": [
                 {
                    "ipProtocol": "tcp",
@@ -3297,6 +3313,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-4d831c6ca6",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internet-facing",
              "ipAddressType":"dualstack",
              "subnetMapping":[
@@ -3438,6 +3455,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
        "ManagedLBSecurityGroup": {
           "spec": {
              "groupName": "k8s-default-nlbipsvc-51de41384e",
+             "vpcID": "vpc-xxx",
              "description": "[k8s] Managed SecurityGroup for LoadBalancer",
              "ingress": [
                 {
@@ -3517,6 +3535,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-518cdfc227",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internal",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -3748,6 +3767,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
        "ManagedLBSecurityGroup": {
           "spec": {
              "groupName": "k8s-default-nlbipsvc-1b1762b6f6",
+             "vpcID": "vpc-xxx",
              "description": "[k8s] Managed SecurityGroup for LoadBalancer",
              "ingress": [
                 {
@@ -3836,6 +3856,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-33e41aa671",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internet-facing",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -4088,6 +4109,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
        "ManagedLBSecurityGroup": {
           "spec": {
              "groupName": "k8s-default-instance-38fe420757",
+             "vpcID": "vpc-xxx",
              "description": "[k8s] Managed SecurityGroup for LoadBalancer",
              "ingress": [
                 {
@@ -4167,6 +4189,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-instance-7ca1de7e6c",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internal",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -4400,6 +4423,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
        "ManagedLBSecurityGroup": {
           "spec": {
              "groupName": "k8s-app-trafficl-7b81fc143c",
+             "vpcID": "vpc-xxx",
              "description": "[k8s] Managed SecurityGroup for LoadBalancer",
              "ingress": [
                 {
@@ -4499,6 +4523,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-app-trafficl-2af705447d",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internet-facing",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -4750,6 +4775,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
        "ManagedLBSecurityGroup": {
           "spec": {
              "groupName": "k8s-app-trafficl-7b81fc143c",
+             "vpcID": "vpc-xxx",
              "description": "[k8s] Managed SecurityGroup for LoadBalancer",
              "ingress": [
                 {
@@ -4849,6 +4875,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-app-trafficl-2af705447d",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internet-facing",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -5115,6 +5142,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "spec":{
              "name":"k8s-default-nlbipsvc-6b0ba8ff70",
              "type":"network",
+             "vpcID": "vpc-xxx",
              "scheme":"internal",
              "ipAddressType":"ipv4",
              "subnetMapping":[
@@ -5265,6 +5293,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
        "ManagedLBSecurityGroup": {
           "spec": {
              "groupName": "k8s-default-iptarget-b58c2e5bdf",
+             "vpcID": "vpc-xxx",
              "description": "[k8s] Managed SecurityGroup for LoadBalancer",
              "ingress": [
                 {
@@ -5367,7 +5396,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "sg-backend"
 		  ],
           "scheme": "internal",
-          "type": "network"
+          "type": "network",
+          "vpcID": "vpc-xxx"
         }
       }
     },
@@ -5455,6 +5485,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
       "ManagedLBSecurityGroup": {
         "spec": {
           "groupName": "k8s-default-trafficl-27d98646ec",
+          "vpcID": "vpc-xxx",
           "description": "[k8s] Managed SecurityGroup for LoadBalancer",
           "ingress": [
             {
@@ -5511,6 +5542,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "name": "k8s-default-trafficl-6652458428",
           "type": "network",
+          "vpcID": "vpc-xxx",
           "scheme": "internal",
           "ipAddressType": "dualstack",
           "subnetMapping": [
@@ -5639,6 +5671,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
       "ManagedLBSecurityGroup": {
         "spec": {
           "groupName": "k8s-default-trafficl-27d98646ec",
+          "vpcID": "vpc-xxx",
           "description": "[k8s] Managed SecurityGroup for LoadBalancer",
           "ingress": [
             {
@@ -5695,6 +5728,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "name": "k8s-default-trafficl-579592c587",
           "type": "network",
+          "vpcID": "vpc-xxx",
           "scheme": "internet-facing",
           "ipAddressType": "dualstack",
           "subnetMapping": [
@@ -5832,6 +5866,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
        "ManagedLBSecurityGroup": {
           "spec": {
              "groupName": "k8s-awesome-lbwithcl-1054401dd7",
+             "vpcID": "vpc-xxx",
              "description": "[k8s] Managed SecurityGroup for LoadBalancer",
              "ingress": [
                 {
@@ -5878,6 +5913,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "name": "k8s-awesome-lbwithcl-6652458428",
           "type": "network",
+          "vpcID": "vpc-xxx",
           "scheme": "internal",
           "ipAddressType": "ipv4",
           "subnetMapping": [
@@ -6074,6 +6110,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "name": "k8s-default-manualse-6b0ba8ff70",
           "type": "network",
+          "vpcID": "vpc-xxx",
           "scheme": "internal",
           "ipAddressType": "ipv4",
           "subnetMapping": [
@@ -6213,6 +6250,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "name": "k8s-default-manualse-6b0ba8ff70",
           "type": "network",
+          "vpcID": "vpc-xxx",
           "scheme": "internal",
           "ipAddressType": "ipv4",
           "subnetMapping": [
@@ -6415,10 +6453,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 
 			subnetsResolver := networking.NewMockSubnetsResolver(ctrl)
 			for _, call := range tt.resolveViaDiscoveryCalls {
-				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
+				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}
 			for _, call := range tt.resolveViaNameOrIDSliceCalls {
-				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
+				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}
 			featureGates := config.NewFeatureGates()
 			for key, value := range tt.featureGates {
@@ -6433,7 +6471,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 
 			elbv2TaggingManager := elbv2.NewMockTaggingManager(ctrl)
 			for _, call := range tt.listLoadBalancerCalls {
-				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
+				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
 			}
 			vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
 			for _, call := range tt.fetchVPCInfoCalls {
@@ -6446,12 +6484,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			}
 			backendSGProvider := networking.NewMockBackendSGProvider(ctrl)
 			if tt.enableBackendSG {
-				backendSGProvider.EXPECT().Get(gomock.Any(), "vpc-xxxxxxxx", networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
+				backendSGProvider.EXPECT().Get(gomock.Any(), "vpc-xxx", networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
 				backendSGProvider.EXPECT().Release(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(nil).AnyTimes()
 			}
 			sgResolver := networking.NewMockSecurityGroupResolver(ctrl)
 			for _, call := range tt.resolveSGViaNameOrIDCall {
-				sgResolver.EXPECT().ResolveViaNameOrID(gomock.Any(), "vpc-xxxxxxxx", call.args).Return(call.want, call.err)
+				sgResolver.EXPECT().ResolveViaNameOrID(gomock.Any(), "vpc-xxx", call.args).Return(call.want, call.err)
 			}
 			var enableIPTargetType bool
 			if tt.enableIPTargetType == nil {
