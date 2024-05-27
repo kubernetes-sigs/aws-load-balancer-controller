@@ -2,6 +2,7 @@ apiVersion: v2
 name: aws-load-balancer-controller
 description: A controller to help manage Elastic Load Balancers for a Kubernetes cluster
 version: 1.6.1
+appVersion: v2.6.1
 home: https://github.com/giantswarm/aws-load-balancer-controller-app
 icon: https://s.giantswarm.io/app-icons/aws/1/dark.svg
 annotations:
