@@ -406,6 +406,19 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 		return err
 	}
 
+	var subnetRawCIDRs []string
+	subnetInfo, err := m.subnetProvider.ResolveViaSelector(ctx, &elbv2api.SubnetSelector{})
+	if err != nil {
+		return err
+	}
+	for _, si := range subnetInfo {
+		subnetRawCIDRs = append(subnetRawCIDRs, *si.CidrBlock)
+	}
+	subnetCIDRs, err := networking.ParseCIDRs(subnetRawCIDRs)
+	if err != nil {
+		return err
+	}
+
 	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		target := elbv2sdk.TargetDescription{
@@ -416,7 +429,7 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 		if err != nil {
 			return err
 		}
-		if !networking.IsIPWithinCIDRs(podIP, vpcCIDRs) {
+		if !networking.IsIPWithinCIDRs(podIP, vpcCIDRs) || !networking.IsIPWithinCIDRs(podIP, subnetCIDRs) {
 			target.AvailabilityZone = awssdk.String("all")
 		}
 		sdkTargets = append(sdkTargets, target)
