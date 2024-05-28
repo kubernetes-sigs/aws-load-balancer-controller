@@ -37,6 +37,7 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
+	subnetProvider networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider,
 	vpcID string, clusterName string, failOpenEnabled bool, endpointSliceEnabled bool, disabledRestrictedSGRulesFlag bool,
 	endpointSGTags map[string]string,
@@ -57,6 +58,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		eventRecorder:     eventRecorder,
 		logger:            logger,
 		vpcID:             vpcID,
+		subnetProvider:    subnetProvider,
 		vpcInfoProvider:   vpcInfoProvider,
 		podInfoRepo:       podInfoRepo,
 
@@ -74,6 +76,7 @@ type defaultResourceManager struct {
 	networkingManager NetworkingManager
 	eventRecorder     record.EventRecorder
 	logger            logr.Logger
+	subnetProvider    networking.SubnetsResolver
 	vpcInfoProvider   networking.VPCInfoProvider
 	podInfoRepo       k8s.PodInfoRepo
 	vpcID             string
