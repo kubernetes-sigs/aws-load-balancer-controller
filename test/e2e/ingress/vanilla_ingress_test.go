@@ -766,10 +766,15 @@ var _ = Describe("vanilla ingress tests", func() {
 
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
-			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
-			httpExp.GET("/path").Expect().
-				Status(http.StatusOK).
-				Body().Equal("Hello World!")
+
+			//TODO: update the traffic test for dualstack-without-public-ipv4 ALB
+			//      as it may need additional setup compared to dualstack ALB
+			if annotation["alb.ingress.kubernetes.io/ip-address-type"] != "dualstack-without-public-ipv4" {
+				httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
+				httpExp.GET("/path").Expect().
+					Status(http.StatusOK).
+					Body().Equal("Hello World!")
+			}
 		})
 	})
 })
