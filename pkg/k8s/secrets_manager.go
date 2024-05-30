@@ -3,11 +3,12 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sync"
 
 	"github.com/go-logr/logr"
 
@@ -26,7 +27,7 @@ type SecretsManager interface {
 	MonitorSecrets(ingressGroupID string, secrets []types.NamespacedName)
 }
 
-func NewSecretsManager(clientSet kubernetes.Interface, secretsEventChan chan<- event.GenericEvent, logger logr.Logger) *defaultSecretsManager {
+func NewSecretsManager(clientSet kubernetes.Interface, secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret], logger logr.Logger) *defaultSecretsManager {
 	return &defaultSecretsManager{
 		mutex:            sync.Mutex{},
 		secretMap:        make(map[types.NamespacedName]*secretItem),
@@ -41,7 +42,7 @@ var _ SecretsManager = &defaultSecretsManager{}
 type defaultSecretsManager struct {
 	mutex            sync.Mutex
 	secretMap        map[types.NamespacedName]*secretItem
-	secretsEventChan chan<- event.GenericEvent
+	secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret]
 	clientSet        kubernetes.Interface
 	queue            workqueue.RateLimitingInterface
 	logger           logr.Logger
