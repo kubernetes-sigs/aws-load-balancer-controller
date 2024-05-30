@@ -15,9 +15,8 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 		ingGroup Group
 	}
 	type WantStruct struct {
-		port           int64
-		mutualAuthMode string
-		mutualAuth     *elbv2.MutualAuthenticationAttributes
+		port       int64
+		mutualAuth *elbv2.MutualAuthenticationAttributes
 	}
 
 	tests := []struct {
@@ -50,7 +49,7 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 					},
 				},
 			},
-			want: []WantStruct{{port: 443, mutualAuthMode: "off"}, {port: 80, mutualAuthMode: "passthrough"}},
+			want: []WantStruct{{port: 443, mutualAuth: &(elbv2.MutualAuthenticationAttributes{Mode: "off", TrustStoreArn: nil, IgnoreClientCertificateExpiry: nil})}, {port: 80, mutualAuth: &(elbv2.MutualAuthenticationAttributes{Mode: "passthrough", TrustStoreArn: nil, IgnoreClientCertificateExpiry: nil})}},
 		},
 
 		{
@@ -75,7 +74,7 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 					},
 				},
 			},
-			want: []WantStruct{{port: 443, mutualAuthMode: "", mutualAuth: nil}, {port: 80, mutualAuthMode: "", mutualAuth: nil}},
+			want: []WantStruct{{port: 443, mutualAuth: nil}, {port: 80, mutualAuth: nil}},
 		},
 	}
 	for _, tt := range tests {
@@ -91,10 +90,9 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 
 				for i := 0; i < len(tt.want); i++ {
 					port := tt.want[i].port
-					mutualAuthMode := tt.want[i].mutualAuthMode
 					mutualAuth := tt.want[i].mutualAuth
-					if mutualAuthMode != "" {
-						assert.Equal(t, mutualAuthMode, got[port].mutualAuthentication.Mode)
+					if mutualAuth != nil {
+						assert.Equal(t, mutualAuth.Mode, got[port].mutualAuthentication.Mode)
 					} else {
 						assert.Equal(t, mutualAuth, got[port].mutualAuthentication)
 					}
