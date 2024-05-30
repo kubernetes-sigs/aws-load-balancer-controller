@@ -6,24 +6,30 @@ import (
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
 )
 
-func Test_computeIngressListenPortConfigByPort(t *testing.T) {
+func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T) {
 	type fields struct {
 		ingGroup Group
 	}
+	type WantStruct struct {
+		port           int64
+		mutualAuthMode string
+		mutualAuth     *elbv2.MutualAuthenticationAttributes
+	}
 
 	tests := []struct {
-		name           string
-		fields         fields
-		want           map[int64]listenPortConfig
+		name   string
+		fields fields
+
 		wantErr        error
 		mutualAuthMode string
+		want           []WantStruct
 	}{
 		{
-			mutualAuthMode: "off",
-			name:           "Listener Spec when MutualAuthentication annotation is specified",
+			name: "Listener Config when MutualAuthentication annotation is specified",
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Name: "explicit-group"},
@@ -34,8 +40,8 @@ func Test_computeIngressListenPortConfigByPort(t *testing.T) {
 									Namespace: "awesome-ns",
 									Name:      "ing-1",
 									Annotations: map[string]string{
-										"alb.ingress.kubernetes.io/listen-ports":          `[{"HTTPS": 443}]`,
-										"alb.ingress.kubernetes.io/mutual-authentication": `[{"port":443,"mode":"off"}]`,
+										"alb.ingress.kubernetes.io/listen-ports":          `[{"HTTPS": 443}, {"HTTPS": 80}]`,
+										"alb.ingress.kubernetes.io/mutual-authentication": `[{"port":443,"mode":"off"}, {"port":80,"mode":"passthrough"}]`,
 										"alb.ingress.kubernetes.io/certificate-arn":       "arn:aws:iam::123456789:server-certificate/new-clb-cert",
 									},
 								},
@@ -44,11 +50,12 @@ func Test_computeIngressListenPortConfigByPort(t *testing.T) {
 					},
 				},
 			},
+			want: []WantStruct{{port: 443, mutualAuthMode: "off"}, {port: 80, mutualAuthMode: "passthrough"}},
 		},
 
 		{
-			mutualAuthMode: "",
-			name:           "Listener Spec when MutualAuthentication annotation is not specified",
+
+			name: "Listener Config when MutualAuthentication annotation is not specified",
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Name: "explicit-group"},
@@ -59,7 +66,7 @@ func Test_computeIngressListenPortConfigByPort(t *testing.T) {
 									Namespace: "awesome-ns",
 									Name:      "ing-1",
 									Annotations: map[string]string{
-										"alb.ingress.kubernetes.io/listen-ports":    `[{"HTTPS": 443}]`,
+										"alb.ingress.kubernetes.io/listen-ports":    `[{"HTTPS": 443}, {"HTTPS": 80}]`,
 										"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:iam::123456789:server-certificate/new-clb-cert",
 									},
 								},
@@ -68,7 +75,7 @@ func Test_computeIngressListenPortConfigByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int64]listenPortConfig{443: listenPortConfig{protocol: "HTTPS", inboundCIDRv4s: []string(nil), inboundCIDRv6s: []string(nil), prefixLists: []string(nil), sslPolicy: (*string)(nil), tlsCerts: []string{"arn:aws:iam::123456789:server-certificate/new-clb-cert"}, mutualAuthentication: nil}},
+			want: []WantStruct{{port: 443, mutualAuthMode: "", mutualAuth: nil}, {port: 80, mutualAuthMode: "", mutualAuth: nil}},
 		},
 	}
 	for _, tt := range tests {
@@ -82,10 +89,16 @@ func Test_computeIngressListenPortConfigByPort(t *testing.T) {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 
-				if tt.mutualAuthMode != "" {
-					assert.Equal(t, tt.mutualAuthMode, got[443].mutualAuthentication.Mode)
-				} else {
-					assert.Equal(t, tt.want, got)
+				for i := 0; i < len(tt.want); i++ {
+					port := tt.want[i].port
+					mutualAuthMode := tt.want[i].mutualAuthMode
+					mutualAuth := tt.want[i].mutualAuth
+					if mutualAuthMode != "" {
+						assert.Equal(t, mutualAuthMode, got[port].mutualAuthentication.Mode)
+					} else {
+						assert.Equal(t, mutualAuth, got[port].mutualAuthentication)
+					}
+
 				}
 
 			}
