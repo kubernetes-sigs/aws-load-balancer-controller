@@ -81,7 +81,7 @@ func (r *defaultPodENIInfoResolver) Resolve(ctx context.Context, pods []k8s.PodI
 	eniInfoByPodKey := r.fetchENIInfosFromCache(pods)
 	podsWithoutENIInfo := computePodsWithoutENIInfo(pods, eniInfoByPodKey)
 	if len(podsWithoutENIInfo) > 0 {
-		eniInfoByPodKeyViaLookup, err := r.resolveViaCascadedLookup(ctx, podsWithoutENIInfo)
+		eniInfoByPodKeyViaLookup, err := r.resolvePodsViaCascadedLookup(ctx, podsWithoutENIInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -139,20 +139,49 @@ func (r *defaultPodENIInfoResolver) saveENIInfosToCache(pods []k8s.PodInfo, eniI
 	}
 }
 
-func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error) {
+func (r *defaultPodENIInfoResolver) resolvePodsViaCascadedLookup(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error) {
+	podsOnEc2, podsOnFargate, err := r.classifyPodsByComputeType(ctx, pods)
+	if err != nil {
+		return nil, err
+	}
+	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
+	if len(podsOnEc2) > 0 {
+		eniInfoByPodKeyEc2, err := r.resolveViaCascadedLookup(ctx, podsOnEc2, false)
+		if err != nil {
+			return nil, err
+		}
+		eniInfoByPodKey = eniInfoByPodKeyEc2
+	}
+	if len(podsOnFargate) > 0 {
+		eniInfoByPodKeyFargate, err := r.resolveViaCascadedLookup(ctx, podsOnFargate, true)
+		if err != nil {
+			return nil, err
+		}
+		if len(eniInfoByPodKeyFargate) > 0 {
+			for podKey, eniInfo := range eniInfoByPodKeyFargate {
+				eniInfoByPodKey[podKey] = eniInfo
+			}
+		}
+	}
+	return eniInfoByPodKey, nil
+}
+
+func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context, pods []k8s.PodInfo, isFargateNode bool) (map[types.NamespacedName]ENIInfo, error) {
+	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
 	resolveFuncs := []func(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error){
 		r.resolveViaPodENIAnnotation,
 		r.resolveViaNodeENIs,
-		r.resolveViaVPCENIs,
 		// TODO, add support for kubenet CNI plugin(kops) by resolve via routeTable.
 	}
-
-	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
+	if isFargateNode {
+		resolveFuncs = []func(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error){
+			r.resolveViaVPCENIs,
+		}
+	}
 	for _, resolveFunc := range resolveFuncs {
 		if len(pods) == 0 {
 			break
 		}
-
 		resolvedENIInfoByPodKey, err := resolveFunc(ctx, pods)
 		if err != nil {
 			return nil, err
@@ -356,6 +385,35 @@ func (r *defaultPodENIInfoResolver) isPodSupportedByNodeENI(pod k8s.PodInfo, nod
 	}
 
 	return false
+}
+
+// classifyPodsByComputeType classifies in to ec2 and fargate groups
+func (r *defaultPodENIInfoResolver) classifyPodsByComputeType(ctx context.Context, pods []k8s.PodInfo) ([]k8s.PodInfo, []k8s.PodInfo, error) {
+	podsOnFargate := make([]k8s.PodInfo, 0, len(pods))
+	podsOnEc2 := make([]k8s.PodInfo, 0, len(pods))
+	nodeNameByComputeType := make(map[string]string)
+	for _, pod := range pods {
+		if _, exists := nodeNameByComputeType[pod.NodeName]; exists {
+			if nodeNameByComputeType[pod.NodeName] == "fargate" {
+				podsOnFargate = append(podsOnFargate, pod)
+			} else {
+				podsOnEc2 = append(podsOnEc2, pod)
+			}
+		}
+		nodeKey := types.NamespacedName{Name: pod.NodeName}
+		node := &corev1.Node{}
+		if err := r.k8sClient.Get(ctx, nodeKey, node); err != nil {
+			return nil, nil, err
+		}
+		if node.Labels[labelEKSComputeType] == "fargate" {
+			podsOnFargate = append(podsOnFargate, pod)
+			nodeNameByComputeType[pod.NodeName] = "fargate"
+		} else {
+			podsOnEc2 = append(podsOnEc2, pod)
+			nodeNameByComputeType[pod.NodeName] = "ec2"
+		}
+	}
+	return podsOnEc2, podsOnFargate, nil
 }
 
 // computePodENIInfoCacheKey computes the cacheKey for pod's ENIInfo cache.

@@ -628,7 +628,7 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 			ctx := context.Background()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, svc := range tt.env.svcs {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			}
@@ -1598,7 +1598,7 @@ func Test_defaultEnhancedBackendBuilder_loadBackendServices(t *testing.T) {
 			ctx := context.Background()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, svc := range tt.env.svcs {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			}

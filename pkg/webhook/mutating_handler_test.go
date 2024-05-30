@@ -3,6 +3,9 @@ package webhook
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"testing"
+
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -12,27 +15,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"net/http"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"testing"
 )
-
-func Test_mutatingHandler_InjectDecoder(t *testing.T) {
-	h := mutatingHandler{
-		decoder: nil,
-	}
-	decoder := &admission.Decoder{}
-	h.InjectDecoder(decoder)
-
-	assert.Equal(t, decoder, h.decoder)
-}
 
 func Test_mutatingHandler_Handle(t *testing.T) {
 	schema := runtime.NewScheme()
 	clientgoscheme.AddToScheme(schema)
 	// k8sDecoder knows k8s objects
-	decoder, _ := admission.NewDecoder(schema)
+	decoder := admission.NewDecoder(schema)
 	patchTypeJSONPatch := admissionv1.PatchTypeJSONPatch
 
 	initialPod := &corev1.Pod{
@@ -68,7 +59,7 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 		mutatorPrototype    func(req admission.Request) (runtime.Object, error)
 		mutatorMutateCreate func(ctx context.Context, obj runtime.Object) (runtime.Object, error)
 		mutatorMutateUpdate func(ctx context.Context, obj runtime.Object, oldObj runtime.Object) (runtime.Object, error)
-		decoder             *admission.Decoder
+		decoder             admission.Decoder
 	}
 	type args struct {
 		req admission.Request
@@ -174,8 +165,9 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 				AdmissionResponse: admissionv1.AdmissionResponse{
 					Allowed: false,
 					Result: &metav1.Status{
-						Code:   http.StatusForbidden,
-						Reason: "oops, some error happened",
+						Code:    http.StatusForbidden,
+						Message: "oops, some error happened",
+						Reason:  "Forbidden",
 					},
 				},
 			},
@@ -313,8 +305,9 @@ func Test_mutatingHandler_Handle(t *testing.T) {
 				AdmissionResponse: admissionv1.AdmissionResponse{
 					Allowed: false,
 					Result: &metav1.Status{
-						Code:   http.StatusForbidden,
-						Reason: "oops, some error happened",
+						Code:    http.StatusForbidden,
+						Message: "oops, some error happened",
+						Reason:  "Forbidden",
 					},
 				},
 			},

@@ -8,7 +8,7 @@ import (
 )
 
 // NewSecretsStore constructs new conversionStore
-func NewSecretsStore(secretsEventChan chan<- event.GenericEvent, keyFunc cache.KeyFunc, logger logr.Logger) *SecretsStore {
+func NewSecretsStore(secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret], keyFunc cache.KeyFunc, logger logr.Logger) *SecretsStore {
 	return &SecretsStore{
 		secretsEventChan: secretsEventChan,
 		logger:           logger,
@@ -22,7 +22,7 @@ var _ cache.Store = &SecretsStore{}
 // It invokes the eventhandler for Add, Update, Delete events
 type SecretsStore struct {
 	store            cache.Store
-	secretsEventChan chan<- event.GenericEvent
+	secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret]
 	logger           logr.Logger
 }
 
@@ -32,7 +32,7 @@ func (s *SecretsStore) Add(obj interface{}) error {
 		return err
 	}
 	s.logger.V(1).Info("secret created, notifying event handler", "resource", obj)
-	s.secretsEventChan <- event.GenericEvent{
+	s.secretsEventChan <- event.TypedGenericEvent[*corev1.Secret]{
 		Object: obj.(*corev1.Secret),
 	}
 	return nil
@@ -44,7 +44,7 @@ func (s *SecretsStore) Update(obj interface{}) error {
 		return err
 	}
 	s.logger.V(1).Info("secret updated, notifying event handler", "resource", obj)
-	s.secretsEventChan <- event.GenericEvent{
+	s.secretsEventChan <- event.TypedGenericEvent[*corev1.Secret]{
 		Object: obj.(*corev1.Secret),
 	}
 	return nil
@@ -56,7 +56,7 @@ func (s *SecretsStore) Delete(obj interface{}) error {
 		return err
 	}
 	s.logger.V(1).Info("secret deleted, notifying event handler", "resource", obj)
-	s.secretsEventChan <- event.GenericEvent{
+	s.secretsEventChan <- event.TypedGenericEvent[*corev1.Secret]{
 		Object: obj.(*corev1.Secret),
 	}
 	return nil

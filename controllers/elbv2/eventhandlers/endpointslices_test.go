@@ -174,8 +174,8 @@ func Test_enqueueRequestsForEndpointSlicesEvent_enqueueImpactedTargetGroupBindin
 				k8sClient: k8sClient,
 				logger:    logr.New(&log.NullLogSink{}),
 			}
-			queue := controllertest.Queue{Interface: workqueue.New()}
-			h.enqueueImpactedTargetGroupBindings(queue, tt.args.epslice)
+			queue := &controllertest.Queue{Interface: workqueue.New()}
+			h.enqueueImpactedTargetGroupBindings(context.Background(), queue, tt.args.epslice)
 			gotRequests := testutils.ExtractCTRLRequestsFromQueue(queue)
 			assert.True(t, cmp.Equal(tt.wantRequests, gotRequests),
 				"diff", cmp.Diff(tt.wantRequests, gotRequests))
