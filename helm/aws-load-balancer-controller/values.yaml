@@ -8,7 +8,7 @@ revisionHistoryLimit: 10
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.7.0
+  tag: v2.8.0
   pullPolicy: IfNotPresent
 
 runtimeClassName: ""
@@ -281,13 +281,8 @@ env:
 # Use Environment variables credentials from Secret (aws-secret) for aws-load-balancer-controller pod similarly as The EBS CSI Driver does.
 # envSecretName: aws-secret
 
-# Use envFrom to set environment variables from a Secret or ConfigMap
-envFrom: 
-  # valueFrom:
-  #   - secretKeyRef:
-  #       name: aws-load-balancer-controller
-
 # Specifies if aws-load-balancer-controller should be started in hostNetwork mode.
+#
 # This is required if using a custom CNI where the managed control plane nodes are unable to initiate
 # network connections to the pods, for example using Calico CNI plugin on EKS. This is not required or
 # recommended if using the Amazon VPC CNI plugin.
@@ -424,6 +419,3 @@ serviceTargetENISGTags:
 
 # Specifies the class of load balancer to use for services. This affects how services are provisioned if type LoadBalancer is used (default service.k8s.aws/nlb)
 loadBalancerClass:
-
-# creator will disable helm default labels, so you can only add yours
-# creator: "me"
