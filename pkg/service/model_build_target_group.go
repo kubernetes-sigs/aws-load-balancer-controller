@@ -44,7 +44,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 	if err != nil {
 		return nil, err
 	}
-	tgAttrs, err := t.buildTargetGroupAttributes(ctx)
+	tgAttrs, err := t.buildTargetGroupAttributes(ctx, port)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +204,7 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort 
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([]elbv2model.TargetGroupAttribute, error) {
+func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, port corev1.ServicePort) ([]elbv2model.TargetGroupAttribute, error) {
 	var rawAttributes map[string]string
 	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetGroupAttributes, &rawAttributes, t.service.Annotations); err != nil {
 		return nil, err
@@ -215,12 +215,18 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([
 	if _, ok := rawAttributes[tgAttrsProxyProtocolV2Enabled]; !ok {
 		rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
 	}
-	proxyV2Annotation := ""
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations); exists {
-		if proxyV2Annotation != "*" {
-			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
+	var proxyV2Annotations []string
+	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotations, t.service.Annotations); exists {
+		for _, proxySelector := range proxyV2Annotations {
+			if proxySelector == "*" {
+				rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
+				break
+			}
+			if proxySelector == strconv.Itoa(int(port.Port)) {
+				rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
+				break
+			}
 		}
-		rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
 	}
 	if rawPreserveIPEnabled, ok := rawAttributes[tgAttrsPreserveClientIPEnabled]; ok {
 		_, err := strconv.ParseBool(rawPreserveIPEnabled)
