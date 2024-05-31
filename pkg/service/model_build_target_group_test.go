@@ -3,12 +3,13 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/golang/mock/gomock"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sort"
 	"strconv"
 	"testing"
+
+	"github.com/golang/mock/gomock"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -26,6 +27,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 	tests := []struct {
 		testName  string
 		svc       *corev1.Service
+		svcPort   corev1.ServicePort
 		wantError bool
 		wantValue []elbv2.TargetGroupAttribute
 	}{
@@ -35,6 +37,12 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
+			},
+			svcPort: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
 			},
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
@@ -53,6 +61,12 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 					},
 				},
 			},
+			svcPort: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
+			},
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
@@ -62,7 +76,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			},
 		},
 		{
-			testName: "Invalid value",
+			testName: "no matching value",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -70,7 +84,65 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 					},
 				},
 			},
-			wantError: true,
+			svcPort: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   tgAttrsProxyProtocolV2Enabled,
+					Value: "false",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "matching value",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "80",
+					},
+				},
+			},
+			svcPort: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   tgAttrsProxyProtocolV2Enabled,
+					Value: "true",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "multiple values",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "443, 80, 9090",
+					},
+				},
+			},
+			svcPort: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   tgAttrsProxyProtocolV2Enabled,
+					Value: "true",
+				},
+			},
+			wantError: false,
 		},
 		{
 			testName: "target group attributes",
@@ -80,6 +152,12 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "target.group-attr-1=80, t2.enabled=false, preserve_client_ip.enabled=true",
 					},
 				},
+			},
+			svcPort: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
@@ -111,6 +189,12 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 					},
 				},
 			},
+			svcPort: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
+			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
 					Key:   tgAttrsProxyProtocolV2Enabled,
@@ -127,6 +211,12 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 					},
 				},
 			},
+			svcPort: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
+			},
 			wantError: true,
 		},
 		{
@@ -138,6 +228,12 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 					},
 				},
 			},
+			svcPort: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
+			},
 			wantError: true,
 		},
 	}
@@ -148,7 +244,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				service:          tt.svc,
 				annotationParser: parser,
 			}
-			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background())
+			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background(), tt.svcPort)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
