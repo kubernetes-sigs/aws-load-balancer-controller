@@ -381,12 +381,6 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		mergedSSLPolicy = awssdk.String(t.defaultSSLPolicy)
 	}
 
-	if mergedProtocol == elbv2model.ProtocolHTTPS && mergedMtlsAttributes == nil {
-		mergedMtlsAttributes = &elbv2model.MutualAuthenticationAttributes{
-			Mode: string(elbv2model.MutualAuthenticationOffMode),
-		}
-	}
-
 	return listenPortConfig{
 		protocol:             mergedProtocol,
 		inboundCIDRv4s:       mergedInboundCIDRv4s.List(),

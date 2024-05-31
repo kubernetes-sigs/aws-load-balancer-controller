@@ -273,14 +273,10 @@ type MutualAuthenticationConfig struct {
 
 func (t *defaultModelBuildTask) computeIngressMutualAuthentication(ctx context.Context, ing *ClassifiedIngress) (map[int64]*elbv2model.MutualAuthenticationAttributes, error) {
 	var rawMtlsConfigString string
-
-	// If both Ingress annotation is missing mutual-authentication config, return default mutualAuthentication mode
 	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixMutualAuthentication, &rawMtlsConfigString, ing.Ing.Annotations); !exists {
-		return map[int64]*elbv2model.MutualAuthenticationAttributes{443: {
-			Mode: string(elbv2model.MutualAuthenticationOffMode),
-		}}, nil
-
+		return nil, nil
 	}
+
 	var ingressAnnotationEntries []MutualAuthenticationConfig
 
 	if err := json.Unmarshal([]byte(rawMtlsConfigString), &ingressAnnotationEntries); err != nil {
