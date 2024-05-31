@@ -267,7 +267,7 @@ func isSDKListenerSettingsDrifted(lsSpec elbv2model.ListenerSpec, sdkLS Listener
 	if len(lsSpec.ALPNPolicy) != 0 && !cmp.Equal(lsSpec.ALPNPolicy, awssdk.StringValueSlice(sdkLS.Listener.AlpnPolicy), cmpopts.EquateEmpty()) {
 		return true
 	}
-	if !reflect.DeepEqual(desiredDefaultMutualAuthentication, sdkLS.Listener.MutualAuthentication) {
+	if desiredDefaultMutualAuthentication != nil && !reflect.DeepEqual(desiredDefaultMutualAuthentication, sdkLS.Listener.MutualAuthentication) {
 		return true
 	}
 
