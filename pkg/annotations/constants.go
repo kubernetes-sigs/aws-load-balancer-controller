@@ -85,6 +85,7 @@ const (
 	SvcLBSuffixTargetNodeLabels                          = "aws-load-balancer-target-node-labels"
 	SvcLBSuffixLoadBalancerAttributes                    = "aws-load-balancer-attributes"
 	SvcLBSuffixLoadBalancerSecurityGroups                = "aws-load-balancer-security-groups"
+	SvcLBSuffixLoadBalancerExtraSecurityGroups           = "aws-load-balancer-extra-security-groups"
 	SvcLBSuffixManageSGRules                             = "aws-load-balancer-manage-backend-security-group-rules"
 	SvcLBSuffixEnforceSGInboundRulesOnPrivateLinkTraffic = "aws-load-balancer-inbound-sg-rules-on-private-link-traffic"
 	SvcLBSuffixSecurityGroupPrefixLists                  = "aws-load-balancer-security-group-prefix-lists"

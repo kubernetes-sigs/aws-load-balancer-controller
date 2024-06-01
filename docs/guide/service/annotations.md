@@ -49,7 +49,8 @@
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        | 
+| [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-extra-security-groups](##security-groups)          | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      | If `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified, this must also be explicitly specified otherwise it defaults to `false`. |
 | [service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic](#update-security-settings)         | string                  |                           |                                                                                   
 
@@ -494,6 +495,16 @@ Load balancer access can be controlled via following annotations:
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-security-groups: sg-xxxx, nameOfSg1, nameOfSg2
+        ```
+
+- <a name="security-groups">`service.beta.kubernetes.io/aws-load-balancer-extra-security-groups`</a>  Specifies the additional frontend security groups you want to attach to an NLB 
+
+    !!!tip ""
+        Both name and ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-extra-security-groups: sg-xxxx, nameOfSg1, nameOfSg2
         ```
  
 - <a name="manage-backend-sg-rules">`service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules`</a> specifies whether the controller should automatically add the ingress rules to the instance/ENI security group.
