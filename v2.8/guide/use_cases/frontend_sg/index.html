@@ -1162,23 +1162,23 @@
 </ul>
 <h2 id="configure">Configure<a class="headerlink" href="#configure" title="Permanent link">&para;</a></h2>
 <h3 id="1-find-the-vpc-id-of-your-cluster">1. Find the VPC ID of your cluster<a class="headerlink" href="#1-find-the-vpc-id-of-your-cluster" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>$ aws eks describe-cluster --name &lt;cluster-name&gt; --query <span class="s2">&quot;cluster.resourcesVpcConfig.vpcId&quot;</span> --output text
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>aws<span class="w"> </span>eks<span class="w"> </span>describe-cluster<span class="w"> </span>--name<span class="w"> </span>&lt;cluster-name&gt;<span class="w"> </span>--query<span class="w"> </span><span class="s2">&quot;cluster.resourcesVpcConfig.vpcId&quot;</span><span class="w"> </span>--output<span class="w"> </span>text
 
 vpc-0101XXXXa356
 </code></pre></div>
 <p>Ensure you have the right cluster name, AWS region, and the AWS CLI is configured.</p>
 <h3 id="2-create-a-security-group-using-the-vpc-id">2. Create a security group using the VPC ID<a class="headerlink" href="#2-create-a-security-group-using-the-vpc-id" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>$ aws ec2 create-security-group --group-name &lt;sg-name&gt; --description &lt;description&gt; --vpc-id &lt;vpc-id&gt;
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>aws<span class="w"> </span>ec2<span class="w"> </span>create-security-group<span class="w"> </span>--group-name<span class="w"> </span>&lt;sg-name&gt;<span class="w"> </span>--description<span class="w"> </span>&lt;description&gt;<span class="w"> </span>--vpc-id<span class="w"> </span>&lt;vpc-id&gt;
 
 <span class="o">{</span>
-    <span class="s2">&quot;GroupId&quot;</span>: <span class="s2">&quot;sg-0406XXXX645c&quot;</span>
+<span class="w">    </span><span class="s2">&quot;GroupId&quot;</span>:<span class="w"> </span><span class="s2">&quot;sg-0406XXXX645c&quot;</span>
 <span class="o">}</span>
 </code></pre></div>
 <p>Note the security group ID. This will be the frontend security group for the load balancer.</p>
 <h3 id="3-create-your-ingress-rules">3. Create your ingress rules<a class="headerlink" href="#3-create-your-ingress-rules" title="Permanent link">&para;</a></h3>
 <p>Load balancers generally serve as an entrypoint for clients to access your cluster. This makes ingress rules especially important.</p>
 <p>For example, this rule permits all traffic on port 443:</p>
-<div class="highlight"><pre><span></span><code>aws ec2 authorize-security-group-ingress --group-id &lt;sg-id&gt; --protocol all --port <span class="m">443</span> --cidr <span class="m">0</span>.0.0.0/0
+<div class="highlight"><pre><span></span><code>aws<span class="w"> </span>ec2<span class="w"> </span>authorize-security-group-ingress<span class="w"> </span>--group-id<span class="w"> </span>&lt;sg-id&gt;<span class="w"> </span>--protocol<span class="w"> </span>all<span class="w"> </span>--port<span class="w"> </span><span class="m">443</span><span class="w"> </span>--cidr<span class="w"> </span><span class="m">0</span>.0.0.0/0
 </code></pre></div>
 <p>Learn more about how to <a href="https://awscli.amazonaws.com/v2/documentation/api/latest/reference/ec2/authorize-security-group-ingress.html">create an ingress rule with the AWS CLI.</a></p>
 <h3 id="4-determine-your-egress-rules-optional">4. Determine your egress rules (optional)<a class="headerlink" href="#4-determine-your-egress-rules-optional" title="Permanent link">&para;</a></h3>
@@ -1186,40 +1186,40 @@ vpc-0101XXXXa356
 <p>Learn how to <a href="https://awscli.amazonaws.com/v2/documentation/api/latest/reference/ec2/authorize-security-group-egress.html">create an egress rule with the AWS CLI.</a></p>
 <h3 id="5-add-the-security-group-annotation-to-your-ingress-or-service">5. Add the security group annotation to your Ingress or Service<a class="headerlink" href="#5-add-the-security-group-annotation-to-your-ingress-or-service" title="Permanent link">&para;</a></h3>
 <p>For <a href="../../ingress/annotations/">Ingress resources</a>, add the following annotation:</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">frontend</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">alb.ingress.kubernetes.io/security-groups</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">&lt;sg-id&gt;</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frontend</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/security-groups</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;sg-id&gt;</span>
 </code></pre></div>
 <p>For <a href="../../service/annotations/#annotations">Service resources</a>, add the following annotation:</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">frontend</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-security-groups</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">&lt;sg-id&gt;</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">frontend</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">service.beta.kubernetes.io/aws-load-balancer-security-groups</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;sg-id&gt;</span>
 <span class="nt">spec</span><span class="p">:</span>
-    <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
-    <span class="nt">loadBalancerClass</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">service.k8s.aws/nlb</span>
+<span class="w">    </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+<span class="w">    </span><span class="nt">loadBalancerClass</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service.k8s.aws/nlb</span>
 </code></pre></div>
 <p>For Ingress resources, the associated Application Load Balancer will be updated. For Service resources, the associated Network Load Balancer will be updated.</p>
 <h3 id="6-list-your-load-balancers-and-verify-the-security-groups-are-attached">6. List your load balancers and verify the security groups are attached<a class="headerlink" href="#6-list-your-load-balancers-and-verify-the-security-groups-are-attached" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>$ aws elbv2 describe-load-balancers
+<div class="highlight"><pre><span></span><code>$<span class="w"> </span>aws<span class="w"> </span>elbv2<span class="w"> </span>describe-load-balancers
 
 <span class="o">{</span>
-    <span class="s2">&quot;LoadBalancers&quot;</span>: <span class="o">[</span>
-        <span class="o">{</span>
-            <span class="s2">&quot;LoadBalancerArn&quot;</span>: <span class="s2">&quot;arn:aws:elasticloadbalancing:us-east-1:1853XXXX5115:loadbalancer/net/k8s-default-frontend-ae3743b818/3ad6d16fb75ff688&quot;</span>,
-            &lt;...&gt;
-            <span class="s2">&quot;SecurityGroups&quot;</span>: <span class="o">[</span>
-                <span class="s2">&quot;sg-0406XXXX645c&quot;</span>,
-                <span class="s2">&quot;sg-0873XXXX2bef&quot;</span>
-            <span class="o">]</span>,
-            <span class="s2">&quot;IpAddressType&quot;</span>: <span class="s2">&quot;ipv4&quot;</span>
-        <span class="o">}</span>
-    <span class="o">]</span>
+<span class="w">    </span><span class="s2">&quot;LoadBalancers&quot;</span>:<span class="w"> </span><span class="o">[</span>
+<span class="w">        </span><span class="o">{</span>
+<span class="w">            </span><span class="s2">&quot;LoadBalancerArn&quot;</span>:<span class="w"> </span><span class="s2">&quot;arn:aws:elasticloadbalancing:us-east-1:1853XXXX5115:loadbalancer/net/k8s-default-frontend-ae3743b818/3ad6d16fb75ff688&quot;</span>,
+<span class="w">            </span>&lt;...&gt;
+<span class="w">            </span><span class="s2">&quot;SecurityGroups&quot;</span>:<span class="w"> </span><span class="o">[</span>
+<span class="w">                </span><span class="s2">&quot;sg-0406XXXX645c&quot;</span>,
+<span class="w">                </span><span class="s2">&quot;sg-0873XXXX2bef&quot;</span>
+<span class="w">            </span><span class="o">]</span>,
+<span class="w">            </span><span class="s2">&quot;IpAddressType&quot;</span>:<span class="w"> </span><span class="s2">&quot;ipv4&quot;</span>
+<span class="w">        </span><span class="o">}</span>
+<span class="w">    </span><span class="o">]</span>
 <span class="o">}</span>
 </code></pre></div>
 <p>If you don't see the security groups, verify:</p>

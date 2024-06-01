@@ -1209,28 +1209,28 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <p>Setting the <code>--ingress-class</code> argument constrains the controller's scope to ingresses with matching <code>ingressClassName</code> field.</p>
 <p>An example of the container spec portion of the controller, only listening for resources with the class "alb", would be as follows.</p>
 <div class="highlight"><pre><span></span><code><span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">containers</span><span class="p">:</span>
-  <span class="p p-Indicator">-</span> <span class="nt">args</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--ingress-class=alb</span>
+<span class="w">  </span><span class="nt">containers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">args</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--ingress-class=alb</span>
 </code></pre></div>
 <p>Now, only ingress resources with the appropriate class are picked up, as seen below.</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
 <span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">ingressClassName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-  <span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">  </span><span class="nt">ingressClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alb</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </code></pre></div>
 <p>If the ingress class is not specified, the controller will reconcile Ingress objects without the ingress class specified or ingress class <code>alb</code>.</p>
 <h3 id="limiting-namespaces">Limiting Namespaces<a class="headerlink" href="#limiting-namespaces" title="Permanent link">&para;</a></h3>
 <p>Setting the <code>--watch-namespace</code> argument constrains the controller's scope to a single namespace. Ingress events outside of the namespace specified are not be seen by the controller.</p>
 <p>An example of the container spec, for a controller watching only the <code>default</code> namespace, is as follows.</p>
 <div class="highlight"><pre><span></span><code><span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">containers</span><span class="p">:</span>
-  <span class="p p-Indicator">-</span> <span class="nt">args</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--watch-namespace=default</span>
+<span class="w">  </span><span class="nt">containers</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">args</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--watch-namespace=default</span>
 </code></pre></div>
 <div class="admonition note"></div>
 <p>Currently, you can set only 1 namespace to watch in this flag. See <a href="https://github.com/kubernetes/contrib/issues/847">this Kubernetes issue</a> for more details.</p>

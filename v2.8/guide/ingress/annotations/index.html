@@ -1484,7 +1484,7 @@
 <tr>
 <td><a href="#mutual-authentication">alb.ingress.kubernetes.io/mutual-authentication</a></td>
 <td>json</td>
-<td>'[{"port": 443, "mode": "off"}]'</td>
+<td>N/A</td>
 <td>Ingress</td>
 <td>Exclusive</td>
 </tr>
@@ -1725,54 +1725,54 @@ other Kubernetes users may create/modify their Ingresses to belong to the same I
 <li>forward-single-tg: forward to a single targetGroup [<strong>simplified schema</strong>]</li>
 <li>forward-multiple-tg: forward to multiple targetGroups with different weights and stickiness config [<strong>advanced schema</strong>]</li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.response-503</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;503&quot;,&quot;messageBody&quot;:&quot;503 error text&quot;}}</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.redirect-to-eks</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;redirect&quot;,&quot;redirectConfig&quot;:{&quot;host&quot;:&quot;aws.amazon.com&quot;,&quot;path&quot;:&quot;/eks/&quot;,&quot;port&quot;:&quot;443&quot;,&quot;protocol&quot;:&quot;HTTPS&quot;,&quot;query&quot;:&quot;k=v&quot;,&quot;statusCode&quot;:&quot;HTTP_302&quot;}}</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.forward-single-tg</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;forward&quot;,&quot;targetGroupARN&quot;: &quot;arn-of-your-target-group&quot;}</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.forward-multiple-tg</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;forward&quot;,&quot;forwardConfig&quot;:{&quot;targetGroups&quot;:[{&quot;serviceName&quot;:&quot;service-1&quot;,&quot;servicePort&quot;:&quot;http&quot;,&quot;weight&quot;:20},{&quot;serviceName&quot;:&quot;service-2&quot;,&quot;servicePort&quot;:80,&quot;weight&quot;:20},{&quot;targetGroupARN&quot;:&quot;arn-of-your-non-k8s-target-group&quot;,&quot;weight&quot;:60}],&quot;targetGroupStickinessConfig&quot;:{&quot;enabled&quot;:true,&quot;durationSeconds&quot;:200}}}</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.response-503</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;503&quot;,&quot;messageBody&quot;:&quot;503 error text&quot;}}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.redirect-to-eks</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;redirect&quot;,&quot;redirectConfig&quot;:{&quot;host&quot;:&quot;aws.amazon.com&quot;,&quot;path&quot;:&quot;/eks/&quot;,&quot;port&quot;:&quot;443&quot;,&quot;protocol&quot;:&quot;HTTPS&quot;,&quot;query&quot;:&quot;k=v&quot;,&quot;statusCode&quot;:&quot;HTTP_302&quot;}}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.forward-single-tg</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;forward&quot;,&quot;targetGroupARN&quot;: &quot;arn-of-your-target-group&quot;}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.forward-multiple-tg</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;forward&quot;,&quot;forwardConfig&quot;:{&quot;targetGroups&quot;:[{&quot;serviceName&quot;:&quot;service-1&quot;,&quot;servicePort&quot;:&quot;http&quot;,&quot;weight&quot;:20},{&quot;serviceName&quot;:&quot;service-2&quot;,&quot;servicePort&quot;:80,&quot;weight&quot;:20},{&quot;targetGroupARN&quot;:&quot;arn-of-your-non-k8s-target-group&quot;,&quot;weight&quot;:60}],&quot;targetGroupStickinessConfig&quot;:{&quot;enabled&quot;:true,&quot;durationSeconds&quot;:200}}}</span>
 <span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">ingressClassName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/503</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">response-503</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/eks</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">redirect-to-eks</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path1</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">forward-single-tg</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path2</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">forward-multiple-tg</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">  </span><span class="nt">ingressClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alb</span>
+<span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">http</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">paths</span><span class="p">:</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/503</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">response-503</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/eks</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">redirect-to-eks</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path1</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">forward-single-tg</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path2</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">forward-multiple-tg</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
 </code></pre></div>
 </div>
 </li>
@@ -1842,96 +1842,96 @@ It can be a either real serviceName or an annotation based action name when serv
 </ul>
 </li>
 </ul>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path1</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Host is www.example.com OR anno.example.com&quot;}}</span>
-    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path1</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">[{&quot;field&quot;:&quot;host-header&quot;,&quot;hostHeaderConfig&quot;:{&quot;values&quot;:[&quot;anno.example.com&quot;]}}]</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path2</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Path is /path2 OR /anno/path2&quot;}}</span>
-    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path2</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">[{&quot;field&quot;:&quot;path-pattern&quot;,&quot;pathPatternConfig&quot;:{&quot;values&quot;:[&quot;/anno/path2&quot;]}}]</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path3</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Http header HeaderName is HeaderValue1 OR HeaderValue2&quot;}}</span>
-    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path3</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">[{&quot;field&quot;:&quot;http-header&quot;,&quot;httpHeaderConfig&quot;:{&quot;httpHeaderName&quot;: &quot;HeaderName&quot;, &quot;values&quot;:[&quot;HeaderValue1&quot;, &quot;HeaderValue2&quot;]}}]</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path4</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Http request method is GET OR HEAD&quot;}}</span>
-    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path4</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">[{&quot;field&quot;:&quot;http-request-method&quot;,&quot;httpRequestMethodConfig&quot;:{&quot;Values&quot;:[&quot;GET&quot;, &quot;HEAD&quot;]}}]</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path5</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Query string is paramA:valueA1 OR paramA:valueA2&quot;}}</span>
-    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path5</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">[{&quot;field&quot;:&quot;query-string&quot;,&quot;queryStringConfig&quot;:{&quot;values&quot;:[{&quot;key&quot;:&quot;paramA&quot;,&quot;value&quot;:&quot;valueA1&quot;},{&quot;key&quot;:&quot;paramA&quot;,&quot;value&quot;:&quot;valueA2&quot;}]}}]</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path6</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Source IP is 192.168.0.0/16 OR 172.16.0.0/16&quot;}}</span>
-    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path6</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">[{&quot;field&quot;:&quot;source-ip&quot;,&quot;sourceIpConfig&quot;:{&quot;values&quot;:[&quot;192.168.0.0/16&quot;, &quot;172.16.0.0/16&quot;]}}]</span>
-    <span class="nt">alb.ingress.kubernetes.io/actions.rule-path7</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;multiple conditions applies&quot;}}</span>
-    <span class="nt">alb.ingress.kubernetes.io/conditions.rule-path7</span><span class="p">:</span> <span class="p p-Indicator">&gt;</span>
-      <span class="no">[{&quot;field&quot;:&quot;http-header&quot;,&quot;httpHeaderConfig&quot;:{&quot;httpHeaderName&quot;: &quot;HeaderName&quot;, &quot;values&quot;:[&quot;HeaderValue&quot;]}},{&quot;field&quot;:&quot;query-string&quot;,&quot;queryStringConfig&quot;:{&quot;values&quot;:[{&quot;key&quot;:&quot;paramA&quot;,&quot;value&quot;:&quot;valueA&quot;}]}},{&quot;field&quot;:&quot;query-string&quot;,&quot;queryStringConfig&quot;:{&quot;values&quot;:[{&quot;key&quot;:&quot;paramB&quot;,&quot;value&quot;:&quot;valueB&quot;}]}}]</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.rule-path1</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Host is www.example.com OR anno.example.com&quot;}}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/conditions.rule-path1</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[{&quot;field&quot;:&quot;host-header&quot;,&quot;hostHeaderConfig&quot;:{&quot;values&quot;:[&quot;anno.example.com&quot;]}}]</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.rule-path2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Path is /path2 OR /anno/path2&quot;}}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/conditions.rule-path2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[{&quot;field&quot;:&quot;path-pattern&quot;,&quot;pathPatternConfig&quot;:{&quot;values&quot;:[&quot;/anno/path2&quot;]}}]</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.rule-path3</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Http header HeaderName is HeaderValue1 OR HeaderValue2&quot;}}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/conditions.rule-path3</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[{&quot;field&quot;:&quot;http-header&quot;,&quot;httpHeaderConfig&quot;:{&quot;httpHeaderName&quot;: &quot;HeaderName&quot;, &quot;values&quot;:[&quot;HeaderValue1&quot;, &quot;HeaderValue2&quot;]}}]</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.rule-path4</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Http request method is GET OR HEAD&quot;}}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/conditions.rule-path4</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[{&quot;field&quot;:&quot;http-request-method&quot;,&quot;httpRequestMethodConfig&quot;:{&quot;Values&quot;:[&quot;GET&quot;, &quot;HEAD&quot;]}}]</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.rule-path5</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Query string is paramA:valueA1 OR paramA:valueA2&quot;}}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/conditions.rule-path5</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[{&quot;field&quot;:&quot;query-string&quot;,&quot;queryStringConfig&quot;:{&quot;values&quot;:[{&quot;key&quot;:&quot;paramA&quot;,&quot;value&quot;:&quot;valueA1&quot;},{&quot;key&quot;:&quot;paramA&quot;,&quot;value&quot;:&quot;valueA2&quot;}]}}]</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.rule-path6</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;Source IP is 192.168.0.0/16 OR 172.16.0.0/16&quot;}}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/conditions.rule-path6</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[{&quot;field&quot;:&quot;source-ip&quot;,&quot;sourceIpConfig&quot;:{&quot;values&quot;:[&quot;192.168.0.0/16&quot;, &quot;172.16.0.0/16&quot;]}}]</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.rule-path7</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">{&quot;type&quot;:&quot;fixed-response&quot;,&quot;fixedResponseConfig&quot;:{&quot;contentType&quot;:&quot;text/plain&quot;,&quot;statusCode&quot;:&quot;200&quot;,&quot;messageBody&quot;:&quot;multiple conditions applies&quot;}}</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/conditions.rule-path7</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[{&quot;field&quot;:&quot;http-header&quot;,&quot;httpHeaderConfig&quot;:{&quot;httpHeaderName&quot;: &quot;HeaderName&quot;, &quot;values&quot;:[&quot;HeaderValue&quot;]}},{&quot;field&quot;:&quot;query-string&quot;,&quot;queryStringConfig&quot;:{&quot;values&quot;:[{&quot;key&quot;:&quot;paramA&quot;,&quot;value&quot;:&quot;valueA&quot;}]}},{&quot;field&quot;:&quot;query-string&quot;,&quot;queryStringConfig&quot;:{&quot;values&quot;:[{&quot;key&quot;:&quot;paramB&quot;,&quot;value&quot;:&quot;valueB&quot;}]}}]</span>
 <span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">ingressClassName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">host</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">www.example.com</span>
-      <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path1</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path1</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path2</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path2</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path3</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path3</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path4</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path4</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path5</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path5</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path6</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path6</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
-          <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/path7</span>
-            <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Exact</span>
-            <span class="nt">backend</span><span class="p">:</span>
-              <span class="nt">service</span><span class="p">:</span>
-                <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">rule-path7</span>
-                <span class="nt">port</span><span class="p">:</span>
-                  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">  </span><span class="nt">ingressClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alb</span>
+<span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">www.example.com</span>
+<span class="w">      </span><span class="nt">http</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">paths</span><span class="p">:</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path1</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rule-path1</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path2</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rule-path2</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path3</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rule-path3</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path4</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rule-path4</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path5</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rule-path5</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path6</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rule-path6</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/path7</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">rule-path7</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
 </code></pre></div>
 </div>
 <div class="admonition note">
@@ -1940,50 +1940,50 @@ It can be a either real serviceName or an annotation based action name when serv
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example</p>
-<div class="highlight"><pre><span></span><code>    <span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
-    <span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-    <span class="nt">metadata</span><span class="p">:</span>
-    <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
-    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
-    <span class="nt">annotations</span><span class="p">:</span>
-        <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
-        <span class="nt">alb.ingress.kubernetes.io/target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
-        <span class="nt">alb.ingress.kubernetes.io/target-group-attributes</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60</span>
-        <span class="nt">alb.ingress.kubernetes.io/actions.weighted-routing</span><span class="p">:</span> <span class="p p-Indicator">|</span>
-        <span class="p p-Indicator">{</span>
-            <span class="s">&quot;type&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;forward&quot;</span><span class="p p-Indicator">,</span>
-            <span class="s">&quot;forwardConfig&quot;</span><span class="p p-Indicator">:{</span>
-            <span class="s">&quot;targetGroups&quot;</span><span class="p p-Indicator">:[</span>
-                <span class="p p-Indicator">{</span>
-                <span class="s">&quot;serviceName&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;service-1&quot;</span><span class="p p-Indicator">,</span>
-                <span class="s">&quot;servicePort&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;80&quot;</span><span class="p p-Indicator">,</span>
-                <span class="s">&quot;weight&quot;</span><span class="p p-Indicator">:</span><span class="nv">50</span>
-                <span class="p p-Indicator">},</span>
-                <span class="p p-Indicator">{</span>
-                <span class="s">&quot;serviceName&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;service-2&quot;</span><span class="p p-Indicator">,</span>
-                <span class="s">&quot;servicePort&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;80&quot;</span><span class="p p-Indicator">,</span>
-                <span class="s">&quot;weight&quot;</span><span class="p p-Indicator">:</span><span class="nv">50</span>
-                <span class="p p-Indicator">}</span>
-            <span class="p p-Indicator">],</span>
-            <span class="s">&quot;TargetGroupStickinessConfig&quot;</span><span class="p p-Indicator">:</span> <span class="p p-Indicator">{</span>
-                <span class="s">&quot;Enabled&quot;</span><span class="p p-Indicator">:</span> <span class="nv">true</span><span class="p p-Indicator">,</span>
-                <span class="s">&quot;DurationSeconds&quot;</span><span class="p p-Indicator">:</span> <span class="nv">120</span>
-            <span class="p p-Indicator">}</span>
-            <span class="p p-Indicator">}</span>
-        <span class="p p-Indicator">}</span>
-    <span class="nt">spec</span><span class="p">:</span>
-    <span class="nt">ingressClassName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-    <span class="nt">rules</span><span class="p">:</span>
-        <span class="p p-Indicator">-</span> <span class="nt">host</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">www.example.com</span>
-        <span class="nt">http</span><span class="p">:</span>
-            <span class="nt">paths</span><span class="p">:</span>
-            <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/</span>
-                <span class="l l-Scalar l-Scalar-Plain">pathType</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">Prefix</span>
-                <span class="l l-Scalar l-Scalar-Plain">backend</span><span class="p p-Indicator">:</span>
-                <span class="nt">service</span><span class="p">:</span>
-                    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">weighted-routing</span>
-                    <span class="nt">port</span><span class="p">:</span>
-                    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<div class="highlight"><pre><span></span><code><span class="w">    </span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress</span>
+<span class="w">    </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+<span class="w">        </span><span class="nt">alb.ingress.kubernetes.io/target-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
+<span class="w">        </span><span class="nt">alb.ingress.kubernetes.io/target-group-attributes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stickiness.enabled=true,stickiness.lb_cookie.duration_seconds=60</span>
+<span class="w">        </span><span class="nt">alb.ingress.kubernetes.io/actions.weighted-routing</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">        </span><span class="p p-Indicator">{</span>
+<span class="w">            </span><span class="s">&quot;type&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;forward&quot;</span><span class="p p-Indicator">,</span>
+<span class="w">            </span><span class="s">&quot;forwardConfig&quot;</span><span class="p p-Indicator">:{</span>
+<span class="w">            </span><span class="s">&quot;targetGroups&quot;</span><span class="p p-Indicator">:[</span>
+<span class="w">                </span><span class="p p-Indicator">{</span>
+<span class="w">                </span><span class="s">&quot;serviceName&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;service-1&quot;</span><span class="p p-Indicator">,</span>
+<span class="w">                </span><span class="s">&quot;servicePort&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;80&quot;</span><span class="p p-Indicator">,</span>
+<span class="w">                </span><span class="s">&quot;weight&quot;</span><span class="p p-Indicator">:</span><span class="nv">50</span>
+<span class="w">                </span><span class="p p-Indicator">},</span>
+<span class="w">                </span><span class="p p-Indicator">{</span>
+<span class="w">                </span><span class="s">&quot;serviceName&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;service-2&quot;</span><span class="p p-Indicator">,</span>
+<span class="w">                </span><span class="s">&quot;servicePort&quot;</span><span class="p p-Indicator">:</span><span class="s">&quot;80&quot;</span><span class="p p-Indicator">,</span>
+<span class="w">                </span><span class="s">&quot;weight&quot;</span><span class="p p-Indicator">:</span><span class="nv">50</span>
+<span class="w">                </span><span class="p p-Indicator">}</span>
+<span class="w">            </span><span class="p p-Indicator">],</span>
+<span class="w">            </span><span class="s">&quot;TargetGroupStickinessConfig&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="p p-Indicator">{</span>
+<span class="w">                </span><span class="s">&quot;Enabled&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="nv">true</span><span class="p p-Indicator">,</span>
+<span class="w">                </span><span class="s">&quot;DurationSeconds&quot;</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="nv">120</span>
+<span class="w">            </span><span class="p p-Indicator">}</span>
+<span class="w">            </span><span class="p p-Indicator">}</span>
+<span class="w">        </span><span class="p p-Indicator">}</span>
+<span class="w">    </span><span class="nt">spec</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ingressClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alb</span>
+<span class="w">    </span><span class="nt">rules</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">www.example.com</span>
+<span class="w">        </span><span class="nt">http</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">paths</span><span class="p">:</span>
+<span class="w">            </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/</span>
+<span class="w">                </span><span class="l l-Scalar l-Scalar-Plain">pathType</span><span class="p p-Indicator">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix</span>
+<span class="w">                </span><span class="l l-Scalar l-Scalar-Plain">backend</span><span class="p p-Indicator">:</span>
+<span class="w">                </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">weighted-routing</span>
+<span class="w">                    </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
 </code></pre></div>
 </div>
 </li>
@@ -2110,14 +2110,14 @@ Also, the securityGroups for Node/Pod will be modified to allow inbound traffic 
 <p><a name="auth-idp-oidc"><code>alb.ingress.kubernetes.io/auth-idp-oidc</code></a> specifies the oidc idp configuration.</p>
 <div class="admonition tip">
 <p>You need to create an <a href="https://kubernetes.io/docs/concepts/configuration/secret/">secret</a> within the same namespace as Ingress to hold your OIDC clientID and clientSecret. The format of secret is as below:
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Secret</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Secret</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">testcase</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-k8s-secret</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">testcase</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-k8s-secret</span>
 <span class="nt">data</span><span class="p">:</span>
-  <span class="nt">clientID</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientId</span>
-  <span class="nt">clientSecret</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientSecret</span>
+<span class="w">  </span><span class="nt">clientID</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientId</span>
+<span class="w">  </span><span class="nt">clientSecret</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">base64 of your plain text clientSecret</span>
 </code></pre></div></p>
 </div>
 <div class="admonition example">
@@ -2316,23 +2316,22 @@ See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application
 <li>
 <p><a name="mutual-authentication"><code>alb.ingress.kubernetes.io/mutual-authentication</code></a>  specifies the mutual authentication configuration that should be assigned to the Application Load Balancer secure listener ports. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html">Mutual authentication with TLS</a> in the AWS documentation for more details.</p>
 <div class="admonition note">
-<p class="admonition-title">Configuration Options</p>
+<p class="admonition-title">Note</p>
 <ul>
-<li><code>port: listen port</code> <ul>
+<li>This annotation is not applicable for Outposts, Local Zones or Wavelength zones.</li>
+<li>"Configuration Options"<ul>
+<li><code>port: listen port</code> </li>
 <li>Must be a HTTPS port specified by <a href="#listen-ports">listen-ports</a>.</li>
-</ul>
-</li>
-<li><code>mode: "off" (default) | "passthrough" | "verify"</code><ul>
+<li><code>mode: "off" (default) | "passthrough" | "verify"</code></li>
 <li><code>verify</code> mode requires an existing trust store resource.</li>
 <li>See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html#create-trust-store">Create a trust store</a> in the AWS documentation for more details.</li>
-</ul>
-</li>
-<li><code>trustStore: ARN (arn:aws:elasticloadbalancing:trustStoreArn) | Name (my-trust-store)</code><ul>
+<li><code>trustStore: ARN (arn:aws:elasticloadbalancing:trustStoreArn) | Name (my-trust-store)</code></li>
 <li>Both ARN and Name of trustStore are supported values.</li>
 <li><code>trustStore</code> is required when mode is <code>verify</code>.</li>
+<li><code>ignoreClientCertificateExpiry : true | false (default)</code></li>
 </ul>
 </li>
-<li><code>ignoreClientCertificateExpiry : true | false (default)</code></li>
+<li>Once the Mutual Authentication is set, to turn it off, you will have to explicitly pass in this annotation with <code>mode : "off"</code>.</li>
 </ul>
 </div>
 <div class="admonition example">

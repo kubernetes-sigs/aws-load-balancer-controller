@@ -1117,7 +1117,7 @@
 <p class="admonition-title">Secure by default</p>
 <p>Since the <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/tag/v2.2.0"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M7.75 6.5a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5z"/><path fill-rule="evenodd" d="M2.5 1A1.5 1.5 0 0 0 1 2.5v8.44c0 .397.158.779.44 1.06l10.25 10.25a1.5 1.5 0 0 0 2.12 0l8.44-8.44a1.5 1.5 0 0 0 0-2.12L12 1.44A1.5 1.5 0 0 0 10.94 1H2.5zm0 1.5h8.44l10.25 10.25-8.44 8.44L2.5 10.94V2.5z"/></svg></span> v2.2.0</a> release, the LBC provisions an <code>internal</code> NLB by default.</p>
 <p>To create an <code>internet-facing</code> NLB, the following annotation is required on your service:</p>
-<div class="highlight"><pre><span></span><code><span class="nt">service.beta.kubernetes.io/aws-load-balancer-scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+<div class="highlight"><pre><span></span><code><span class="nt">service.beta.kubernetes.io/aws-load-balancer-scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
 </code></pre></div>
 <div class="admonition tip">
 <p>For backwards compatibility, if the <a href="../annotations/#lb-scheme"><code>service.beta.kubernetes.io/aws-load-balancer-scheme</code></a> annotation is absent, an existing NLB's scheme remains unchanged.</p>
@@ -1173,40 +1173,40 @@
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example: instance mode</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-<span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">instance</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="hll"><span class="w">    </span><span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">instance</span>
 </span><span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">selector</span><span class="p">:</span>
-    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">ports</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-      <span class="nt">targetPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8080</span>
-      <span class="nt">protocol</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TCP</span>
-  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
-<span class="hll">  <span class="nt">loadBalancerClass</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">service.k8s.aws/nlb</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="w">      </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+<span class="hll"><span class="w">  </span><span class="nt">loadBalancerClass</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service.k8s.aws/nlb</span>
 </span></code></pre></div>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example: ip mode</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-<span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="hll"><span class="w">    </span><span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
 </span><span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">selector</span><span class="p">:</span>
-    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">ports</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-      <span class="nt">targetPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8080</span>
-      <span class="nt">protocol</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TCP</span>
-  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
-<span class="hll">  <span class="nt">loadBalancerClass</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">service.k8s.aws/nlb</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="w">      </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+<span class="hll"><span class="w">  </span><span class="nt">loadBalancerClass</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service.k8s.aws/nlb</span>
 </span></code></pre></div>
 </div>
 </div>
@@ -1233,40 +1233,40 @@ service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example: instance mode</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-<span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">external</span>
-</span><span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">instance</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="hll"><span class="w">    </span><span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">external</span>
+</span><span class="hll"><span class="w">    </span><span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">instance</span>
 </span><span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">selector</span><span class="p">:</span>
-    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">ports</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-      <span class="nt">targetPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8080</span>
-      <span class="nt">protocol</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TCP</span>
-  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="w">      </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
 </code></pre></div>
 </div>
 <div class="admonition example">
 <p class="admonition-title">Example: ip mode</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Service</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Service</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-<span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">external</span>
-</span><span class="hll">    <span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ip</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="hll"><span class="w">    </span><span class="nt">service.beta.kubernetes.io/aws-load-balancer-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">external</span>
+</span><span class="hll"><span class="w">    </span><span class="nt">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
 </span><span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">selector</span><span class="p">:</span>
-    <span class="nt">app</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">echoserver</span>
-  <span class="nt">ports</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-      <span class="nt">targetPort</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">8080</span>
-      <span class="nt">protocol</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TCP</span>
-  <span class="nt">type</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
+<span class="w">  </span><span class="nt">selector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">app</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">echoserver</span>
+<span class="w">  </span><span class="nt">ports</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">      </span><span class="nt">targetPort</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">8080</span>
+<span class="w">      </span><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCP</span>
+<span class="w">  </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancer</span>
 </code></pre></div>
 </div>
 </div>
@@ -1277,7 +1277,7 @@ service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
 In such cases, you can configure <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#proxy-protocol">NLB proxy protocol v2</a> using an <a href="https://kubernetes.io/docs/concepts/services-networking/service/#proxy-protocol-support-on-aws">annotation</a> if you need visibility into
 the client source IP address on your application pods.</p>
 <p>To enable proxy protocol v2, apply the following annotation to your Service:
-<div class="highlight"><pre><span></span><code><span class="nt">service.beta.kubernetes.io/aws-load-balancer-proxy-protocol</span><span class="p">:</span> <span class="s">&quot;*&quot;</span>
+<div class="highlight"><pre><span></span><code><span class="nt">service.beta.kubernetes.io/aws-load-balancer-proxy-protocol</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;*&quot;</span>
 </code></pre></div></p>
 <div class="admonition note">
 <p>If you enable proxy protocol v2, NLB health checks with HTTP/HTTPS only work if the health check port supports proxy protocol v2. Due to this behavior, you shouldn't configure proxy protocol v2 with NLB instance mode and <code>externalTrafficPolicy</code> set to <code>Local</code>.</p>

@@ -1140,15 +1140,15 @@ It automatically creates TargetGroupBinding in the same namespace of the Service
 <p>If TargetType is not explicitly specified, a mutating webhook will automatically call AWS API to find the TargetType for your TargetGroup and set it to correct value.</p>
 </div>
 <h2 id="sample-yaml">Sample YAML<a class="headerlink" href="#sample-yaml" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
 <span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">serviceRef</span><span class="p">:</span>
-    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">awesome-service</span> <span class="c1"># route traffic to the awesome-service</span>
-    <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-  <span class="nt">targetGroupARN</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">&lt;arn-to-targetGroup&gt;</span>
+<span class="w">  </span><span class="nt">serviceRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">awesome-service</span><span class="w"> </span><span class="c1"># route traffic to the awesome-service</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">  </span><span class="nt">targetGroupARN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;arn-to-targetGroup&gt;</span>
 </code></pre></div>
 <h2 id="vpcid">VpcID<a class="headerlink" href="#vpcid" title="Permanent link">&para;</a></h2>
 <p>TargetGroupBinding CR supports the explicit definition of the Virtual Private Cloud (VPC) of your TargetGroup.</p>
@@ -1156,46 +1156,46 @@ It automatically creates TargetGroupBinding in the same namespace of the Service
 <p>If the VpcID is not explicitly specified, a mutating webhook will automatically call AWS API to find the VpcID for your TargetGroup and set it to correct value.</p>
 </div>
 <h2 id="sample-yaml_1">Sample YAML<a class="headerlink" href="#sample-yaml_1" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
 <span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">serviceRef</span><span class="p">:</span>
-    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">awesome-service</span> <span class="c1"># route traffic to the awesome-service</span>
-    <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-  <span class="nt">targetGroupARN</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">&lt;arn-to-targetGroup&gt;</span>
-  <span class="nt">vpcID</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">&lt;vpcID&gt;</span>
+<span class="w">  </span><span class="nt">serviceRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">awesome-service</span><span class="w"> </span><span class="c1"># route traffic to the awesome-service</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">  </span><span class="nt">targetGroupARN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;arn-to-targetGroup&gt;</span>
+<span class="w">  </span><span class="nt">vpcID</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;vpcID&gt;</span>
 </code></pre></div>
 <h2 id="nodeselector">NodeSelector<a class="headerlink" href="#nodeselector" title="Permanent link">&para;</a></h2>
 <h3 id="default-node-selector">Default Node Selector<a class="headerlink" href="#default-node-selector" title="Permanent link">&para;</a></h3>
 <p>For <code>TargetType: instance</code>, all nodes of a cluster that match the following
 selector are added to the target group by default:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">matchExpressions</span><span class="p">:</span>
-  <span class="p p-Indicator">-</span> <span class="nt">key</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">node-role.kubernetes.io/master</span>
-    <span class="nt">operator</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">DoesNotExist</span>
-  <span class="p p-Indicator">-</span> <span class="nt">key</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">node.kubernetes.io/exclude-from-external-load-balancers</span>
-    <span class="nt">operator</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">DoesNotExist</span>
-  <span class="p p-Indicator">-</span> <span class="nt">key</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alpha.service-controller.kubernetes.io/exclude-balancer</span>
-    <span class="nt">operator</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">DoesNotExist</span>
-  <span class="p p-Indicator">-</span> <span class="nt">key</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">eks.amazonaws.com/compute-type</span>
-    <span class="nt">operator</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">NotIn</span>
-    <span class="nt">values</span><span class="p">:</span> <span class="p p-Indicator">[</span><span class="s">&quot;fargate&quot;</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node-role.kubernetes.io/master</span>
+<span class="w">    </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DoesNotExist</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">node.kubernetes.io/exclude-from-external-load-balancers</span>
+<span class="w">    </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DoesNotExist</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alpha.service-controller.kubernetes.io/exclude-balancer</span>
+<span class="w">    </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">DoesNotExist</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">eks.amazonaws.com/compute-type</span>
+<span class="w">    </span><span class="nt">operator</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">NotIn</span>
+<span class="w">    </span><span class="nt">values</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">&quot;fargate&quot;</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 <h3 id="custom-node-selector">Custom Node Selector<a class="headerlink" href="#custom-node-selector" title="Permanent link">&para;</a></h3>
 <p>TargetGroupBinding CR supports <code>NodeSelector</code> which is a
 <a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#labelselector-v1-meta">LabelSelector</a>. This will select nodes to attach to the
 <code>instance</code> TargetType target group and <strong>is merged with the default node
 selector above</strong>.</p>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
 <span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">nodeSelector</span><span class="p">:</span>
-    <span class="nt">matchLabels</span><span class="p">:</span>
-      <span class="nt">foo</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">bar</span>
-  <span class="l l-Scalar l-Scalar-Plain">...</span>
+<span class="w">  </span><span class="nt">nodeSelector</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">matchLabels</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">foo</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">bar</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </code></pre></div>
 <h2 id="reference">Reference<a class="headerlink" href="#reference" title="Permanent link">&para;</a></h2>
 <p>See the <a href="../spec/">reference</a> for TargetGroupBinding CR</p>

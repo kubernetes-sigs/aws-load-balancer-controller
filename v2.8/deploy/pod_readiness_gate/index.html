@@ -1152,7 +1152,7 @@ nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-1
 nginx-test-5744b9ff84-7ftl9   1/1     Running   0          81s   10.1.2.3   ip-10-1-2-3.ec2.internal   1/1
 </code></pre></div></p>
 <p>If a readiness gate doesn't get ready, you can check the reason via:</p>
-<div class="highlight"><pre><span></span><code><span class="gp">$ </span>kubectl get pod nginx-test-545d8f4d89-l7rcl -o yaml <span class="p">|</span> grep -B7 <span class="s1">&#39;type: target-health&#39;</span>
+<div class="highlight"><pre><span></span><code><span class="gp">$ </span>kubectl<span class="w"> </span>get<span class="w"> </span>pod<span class="w"> </span>nginx-test-545d8f4d89-l7rcl<span class="w"> </span>-o<span class="w"> </span>yaml<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>-B7<span class="w"> </span><span class="s1">&#39;type: target-health&#39;</span>
 <span class="go">status:</span>
 <span class="go">  conditions:</span>
 <span class="go">  - lastProbeTime: null</span>

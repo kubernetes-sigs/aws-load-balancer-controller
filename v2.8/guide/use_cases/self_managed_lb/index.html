@@ -1143,15 +1143,15 @@
 </ol>
 <p>Insert the ARN of the Target Group, as created above.</p>
 <p>Insert the name and port of the target Kubernetes service.</p>
-<p><div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
+<p><div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">elbv2.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupBinding</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-tgb</span>
 <span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">serviceRef</span><span class="p">:</span>
-    <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">awesome-service</span> <span class="c1"># route traffic to the awesome-service</span>
-    <span class="nt">port</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-  <span class="nt">targetGroupARN</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/my-targets/1234567890123456</span>
+<span class="w">  </span><span class="nt">serviceRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">awesome-service</span><span class="w"> </span><span class="c1"># route traffic to the awesome-service</span>
+<span class="w">    </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">  </span><span class="nt">targetGroupARN</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arn:aws:elasticloadbalancing:us-east-2:123456789012:targetgroup/my-targets/1234567890123456</span>
 </code></pre></div>
 2. Apply the CRD</p>
 <p>Apply the TargetGroupBinding CRD CRD file to your Cluster.</p>

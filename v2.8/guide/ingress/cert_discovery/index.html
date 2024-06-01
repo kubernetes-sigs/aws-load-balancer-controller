@@ -1037,61 +1037,63 @@
 </div>
 <h2 id="discover-via-ingress-tls">Discover via Ingress tls<a class="headerlink" href="#discover-via-ingress-tls" title="Permanent link">&para;</a></h2>
 <div class="admonition example">
-<p class="admonition-title">Example<ul>
-<li>attaches certs for <code>www.example.com</code> to the ALB
-    <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
-<span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
-<span class="nt">annotations</span><span class="p">:</span>
-  <span class="nt">alb.ingress.kubernetes.io/listen-ports</span><span class="p">:</span> <span class="s">&#39;[{&quot;HTTPS&quot;:443}]&#39;</span>
-<span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">ingressClassName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-  <span class="nt">tls</span><span class="p">:</span>
-  <span class="p p-Indicator">-</span> <span class="nt">hosts</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">www.example.com</span>
-  <span class="nt">rules</span><span class="p">:</span>
-  <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
-      <span class="nt">paths</span><span class="p">:</span>
-      <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/users</span>
-        <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Prefix</span>
-        <span class="nt">backend</span><span class="p">:</span>
-          <span class="nt">service</span><span class="p">:</span>
-            <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">user-service</span>
-            <span class="nt">port</span><span class="p">:</span>
-              <span class="nt">number</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-</code></pre></div></li>
-</ul>
-</p>
+<p class="admonition-title">Example</p>
+<div class="codehilite"><pre><span></span><code><span class="o">-</span><span class="w"> </span><span class="nv">attaches</span><span class="w"> </span><span class="nv">certs</span><span class="w"> </span><span class="k">for</span><span class="w"> </span>`<span class="nv">www</span>.<span class="nv">example</span>.<span class="nv">com</span>`<span class="w"> </span><span class="nv">to</span><span class="w"> </span><span class="nv">the</span><span class="w"> </span><span class="nv">ALB</span>
+<span class="w">    </span>```<span class="nv">yaml</span>
+<span class="w">    </span><span class="nv">apiVersion</span>:<span class="w"> </span><span class="nv">networking</span>.<span class="nv">k8s</span>.<span class="nv">io</span><span class="o">/</span><span class="nv">v1</span>
+<span class="w">    </span><span class="nv">kind</span>:<span class="w"> </span><span class="nv">Ingress</span>
+<span class="w">    </span><span class="nv">metadata</span>:
+<span class="w">    </span><span class="nv">namespace</span>:<span class="w"> </span><span class="nv">default</span>
+<span class="w">    </span><span class="nv">name</span>:<span class="w"> </span><span class="nv">ingress</span>
+<span class="w">    </span><span class="nv">annotations</span>:
+<span class="w">      </span><span class="nv">alb</span>.<span class="nv">ingress</span>.<span class="nv">kubernetes</span>.<span class="nv">io</span><span class="o">/</span><span class="nv">listen</span><span class="o">-</span><span class="nv">ports</span>:<span class="w"> </span><span class="s1">&#39;[{&quot;HTTPS&quot;:443}]&#39;</span>
+<span class="w">    </span><span class="nv">spec</span>:
+<span class="w">      </span><span class="nv">ingressClassName</span>:<span class="w"> </span><span class="nv">alb</span>
+<span class="w">      </span><span class="nv">tls</span>:
+<span class="w">      </span><span class="o">-</span><span class="w"> </span><span class="nv">hosts</span>:
+<span class="w">        </span><span class="o">-</span><span class="w"> </span><span class="nv">www</span>.<span class="nv">example</span>.<span class="nv">com</span>
+<span class="w">      </span><span class="nv">rules</span>:
+<span class="w">      </span><span class="o">-</span><span class="w"> </span><span class="nv">http</span>:
+<span class="w">          </span><span class="nv">paths</span>:
+<span class="w">          </span><span class="o">-</span><span class="w"> </span><span class="nv">path</span>:<span class="w"> </span><span class="o">/</span><span class="nv">users</span>
+<span class="w">            </span><span class="nv">pathType</span>:<span class="w"> </span><span class="nv">Prefix</span>
+<span class="w">            </span><span class="nv">backend</span>:
+<span class="w">              </span><span class="nv">service</span>:
+<span class="w">                </span><span class="nv">name</span>:<span class="w"> </span><span class="nv">user</span><span class="o">-</span><span class="nv">service</span>
+<span class="w">                </span><span class="nv">port</span>:
+<span class="w">                  </span><span class="nv">number</span>:<span class="w"> </span><span class="mi">80</span>
+<span class="w">    </span>```
+</code></pre></div>
+
 </div>
 <h2 id="discover-via-ingress-rule-host">Discover via Ingress rule host.<a class="headerlink" href="#discover-via-ingress-rule-host" title="Permanent link">&para;</a></h2>
 <div class="admonition example">
-<p class="admonition-title">Example<ul>
-<li>attaches a cert for <code>dev.example.com</code> or <code>*.example.com</code> to the ALB
-    <div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
-<span class="nt">metadata</span><span class="p">:</span>
-<span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
-<span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
-<span class="nt">annotations</span><span class="p">:</span>
-  <span class="nt">alb.ingress.kubernetes.io/listen-ports</span><span class="p">:</span> <span class="s">&#39;[{&quot;HTTPS&quot;:443}]&#39;</span>
-<span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">ingressClassName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-  <span class="nt">rules</span><span class="p">:</span>
-  <span class="p p-Indicator">-</span> <span class="nt">host</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">dev.example.com</span>
-    <span class="nt">http</span><span class="p">:</span>
-      <span class="nt">paths</span><span class="p">:</span>
-      <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/users</span>
-        <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Prefix</span>
-        <span class="nt">backend</span><span class="p">:</span>
-          <span class="nt">service</span><span class="p">:</span>
-            <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">user-service</span>
-            <span class="nt">port</span><span class="p">:</span>
-              <span class="nt">number</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-</code></pre></div></li>
-</ul>
-</p>
+<p class="admonition-title">Example</p>
+<div class="codehilite"><pre><span></span><code><span class="k">-</span> attaches a cert for <span class="sb">`dev.example.com`</span> or <span class="sb">`*.example.com`</span> to the ALB
+    ```yaml
+    apiVersion: networking.k8s.io/v1
+    kind: Ingress
+    metadata:
+    namespace: default
+    name: ingress
+    annotations:
+      alb.ingress.kubernetes.io/listen-ports: &#39;[{&quot;HTTPS&quot;:443}]&#39;
+    spec:
+      ingressClassName: alb
+      rules:
+      <span class="k">-</span> host: dev.example.com
+        http:
+          paths:
+          <span class="k">-</span> path: /users
+            pathType: Prefix
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 80
+    ```
+</code></pre></div>
+
 </div>
                 
               

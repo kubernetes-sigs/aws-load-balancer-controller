@@ -1032,34 +1032,34 @@
                 <h1 id="redirect-traffic-from-http-to-https">Redirect Traffic from HTTP to HTTPS<a class="headerlink" href="#redirect-traffic-from-http-to-https" title="Permanent link">&para;</a></h1>
 <p>You can use the <a href="../../ingress/annotations/#ssl-redirect"><code>alb.ingress.kubernetes.io/ssl-redirect</code></a> annotation to setup an ingress to redirect http traffic to https</p>
 <h2 id="example-ingress-manifest">Example Ingress Manifest<a class="headerlink" href="#example-ingress-manifest" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
-<span class="nt">kind</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="nt">metadata</span><span class="p">:</span>
-  <span class="nt">namespace</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default</span>
-  <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ingress</span>
-  <span class="nt">annotations</span><span class="p">:</span>
-    <span class="nt">alb.ingress.kubernetes.io/certificate-arn</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">arn:aws:acm:us-west-2:xxxx:certificate/xxxxxx</span>
-    <span class="nt">alb.ingress.kubernetes.io/listen-ports</span><span class="p">:</span> <span class="s">&#39;[{&quot;HTTP&quot;:</span><span class="nv"> </span><span class="s">80},</span><span class="nv"> </span><span class="s">{&quot;HTTPS&quot;:443}]&#39;</span>
-    <span class="nt">alb.ingress.kubernetes.io/ssl-redirect</span><span class="p">:</span> <span class="s">&#39;443&#39;</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/certificate-arn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arn:aws:acm:us-west-2:xxxx:certificate/xxxxxx</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/listen-ports</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;[{&quot;HTTP&quot;:</span><span class="nv"> </span><span class="s">80},</span><span class="nv"> </span><span class="s">{&quot;HTTPS&quot;:443}]&#39;</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/ssl-redirect</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;443&#39;</span>
 <span class="nt">spec</span><span class="p">:</span>
-  <span class="nt">ingressClassName</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">alb</span>
-  <span class="nt">rules</span><span class="p">:</span>
-    <span class="p p-Indicator">-</span> <span class="nt">http</span><span class="p">:</span>
-        <span class="nt">paths</span><span class="p">:</span>
-         <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/users/*</span>
-           <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ImplementationSpecific</span>
-           <span class="nt">backend</span><span class="p">:</span>
-             <span class="nt">service</span><span class="p">:</span>
-               <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">user-service</span>
-               <span class="nt">port</span><span class="p">:</span>
-                 <span class="nt">number</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
-         <span class="p p-Indicator">-</span> <span class="nt">path</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">/*</span>
-           <span class="nt">pathType</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">ImplementationSpecific</span>
-           <span class="nt">backend</span><span class="p">:</span>
-             <span class="nt">service</span><span class="p">:</span>
-               <span class="nt">name</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">default-service</span>
-               <span class="nt">port</span><span class="p">:</span>
-                 <span class="nt">number</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">  </span><span class="nt">ingressClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alb</span>
+<span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">http</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">paths</span><span class="p">:</span>
+<span class="w">         </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/users/*</span>
+<span class="w">           </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ImplementationSpecific</span>
+<span class="w">           </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">             </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">               </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">user-service</span>
+<span class="w">               </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                 </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">         </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/*</span>
+<span class="w">           </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ImplementationSpecific</span>
+<span class="w">           </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">             </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">               </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-service</span>
+<span class="w">               </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                 </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
 </code></pre></div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>

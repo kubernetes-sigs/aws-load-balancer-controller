@@ -1076,31 +1076,31 @@
 <ol>
 <li>
 <p>Download sample <code>external-dns</code> manifest</p>
-<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/external-dns.yaml
+<div class="highlight"><pre><span></span><code>wget<span class="w"> </span>https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/external-dns.yaml
 </code></pre></div>
 </li>
 <li>
 <p>Edit the <code>--domain-filter</code> flag to include your hosted zone(s)</p>
 <p>The following example is for a hosted zone <code>test-dns.com</code>:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">args</span><span class="p">:</span>
-<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=service</span>
-<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--source=ingress</span>
-<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--domain-filter=test-dns.com</span> <span class="c1"># will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones</span>
-<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--provider=aws</span>
-<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--policy=upsert-only</span> <span class="c1"># would prevent ExternalDNS from deleting any records, omit to enable full synchronization</span>
-<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--aws-zone-type=public</span> <span class="c1"># only look at public hosted zones (valid values are public, private or no value for both)</span>
-<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--registry=txt</span>
-<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">--txt-owner-id=my-identifier</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--source=service</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--source=ingress</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--domain-filter=test-dns.com</span><span class="w"> </span><span class="c1"># will make ExternalDNS see only the hosted zones matching provided domain, omit to process all available hosted zones</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--provider=aws</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--policy=upsert-only</span><span class="w"> </span><span class="c1"># would prevent ExternalDNS from deleting any records, omit to enable full synchronization</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--aws-zone-type=public</span><span class="w"> </span><span class="c1"># only look at public hosted zones (valid values are public, private or no value for both)</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--registry=txt</span>
+<span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">--txt-owner-id=my-identifier</span>
 </code></pre></div>
 </li>
 <li>
 <p>Deploy external-dns</p>
-<div class="highlight"><pre><span></span><code>kubectl apply -f external-dns.yaml
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>external-dns.yaml
 </code></pre></div>
 </li>
 <li>
 <p>Verify it deployed successfully.</p>
-<div class="highlight"><pre><span></span><code>kubectl logs -f <span class="k">$(</span>kubectl get po <span class="p">|</span> egrep -o <span class="s1">&#39;external-dns[A-Za-z0-9-]+&#39;</span><span class="k">)</span>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span><span class="k">$(</span>kubectl<span class="w"> </span>get<span class="w"> </span>po<span class="w"> </span><span class="p">|</span><span class="w"> </span>egrep<span class="w"> </span>-o<span class="w"> </span><span class="s1">&#39;external-dns[A-Za-z0-9-]+&#39;</span><span class="k">)</span>
 </code></pre></div>
 <p>Should display output similar to the following:
 <div class="highlight"><pre><span></span><code>time=&quot;2019-12-11T10:26:05Z&quot; level=info msg=&quot;config: {Master: KubeConfig: RequestTimeout:30s IstioIngressGateway:istio-system/istio-ingressgateway Sources:[service ingress] Namespace: AnnotationFilter: FQDNTemplate: CombineFQDNAndAnnotation:false Compatibility: PublishInternal:false PublishHostIP:false ConnectorSourceServer:localhost:8080 Provider:aws GoogleProject: DomainFilter:[test-dns.com] ZoneIDFilter:[] AlibabaCloudConfigFile:/etc/kubernetes/alibaba-cloud.json AlibabaCloudZoneType: AWSZoneType:public AWSAssumeRole: AWSBatchChangeSize:4000 AWSBatchChangeInterval:1s AWSEvaluateTargetHealth:true AzureConfigFile:/etc/kubernetes/azure.json AzureResourceGroup: CloudflareProxied:false InfobloxGridHost: InfobloxWapiPort:443 InfobloxWapiUsername:admin InfobloxWapiPassword: InfobloxWapiVersion:2.3.1 InfobloxSSLVerify:true DynCustomerName: DynUsername: DynPassword: DynMinTTLSeconds:0 OCIConfigFile:/etc/kubernetes/oci.yaml InMemoryZones:[] PDNSServer:http://localhost:8081 PDNSAPIKey: PDNSTLSEnabled:false TLSCA: TLSClientCert: TLSClientCertKey: Policy:upsert-only Registry:txt TXTOwnerID:my-identifier TXTPrefix: Interval:1m0s Once:false DryRun:false LogFormat:text MetricsAddress::7979 LogLevel:info TXTCacheInterval:0s ExoscaleEndpoint:https://api.exoscale.ch/dns ExoscaleAPIKey: ExoscaleAPISecret: CRDSourceAPIVersion:externaldns.k8s.io/v1alpha CRDSourceKind:DNSEndpoint ServiceTypeFilter:[] RFC2136Host: RFC2136Port:0 RFC2136Zone: RFC2136Insecure:false RFC2136TSIGKeyName: RFC2136TSIGSecret: RFC2136TSIGSecretAlg: RFC2136TAXFR:false}&quot;
@@ -1113,10 +1113,10 @@ time=&quot;2019-12-11T10:26:05Z&quot; level=info msg=&quot;Created Kubernetes cl
 <li>
 <p>To create a record set in the subdomain, from your ingress which has been created by the ingress-controller, add the following annotation in the ingress objectresource:</p>
 <div class="highlight"><pre><span></span><code><span class="nt">annotations</span><span class="p">:</span>
-  <span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+<span class="w">  </span><span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
 
-  <span class="c1"># external-dns specific configuration for creating route53 record-set</span>
-  <span class="nt">external-dns.alpha.kubernetes.io/hostname</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-app.test-dns.com</span> <span class="c1"># give your domain name here</span>
+<span class="w">  </span><span class="c1"># external-dns specific configuration for creating route53 record-set</span>
+<span class="w">  </span><span class="nt">external-dns.alpha.kubernetes.io/hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-app.test-dns.com</span><span class="w"> </span><span class="c1"># give your domain name here</span>
 </code></pre></div>
 </li>
 <li>
@@ -1128,11 +1128,11 @@ time=&quot;2019-12-11T10:26:08Z&quot; level=info msg=&quot;2 record(s) in zone m
 </li>
 <li>
 <p>External DNS configures <code>Simple</code> routing policy for the route53 records. You can configure <code>Weighted</code> policy by specifying the weight and the identifier via annotation. <code>Weighted</code> policy allows you to split the traffic between multiple load balancers. Here is an example to specify weight and identifier:
-   <div class="highlight"><pre><span></span><code> <span class="nt">annotations</span><span class="p">:</span>
-   <span class="c1"># For creating weighted route53 records</span>
-   <span class="nt">external-dns.alpha.kubernetes.io/hostname</span><span class="p">:</span> <span class="l l-Scalar l-Scalar-Plain">my-app.test-dns.com</span>
-   <span class="nt">external-dns.alpha.kubernetes.io/aws-weight</span><span class="p">:</span> <span class="s">&quot;100&quot;</span>
-   <span class="nt">external-dns.alpha.kubernetes.io/set-identifier</span><span class="p">:</span> <span class="s">&quot;3&quot;</span>
+   <div class="highlight"><pre><span></span><code><span class="w"> </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">   </span><span class="c1"># For creating weighted route53 records</span>
+<span class="w">   </span><span class="nt">external-dns.alpha.kubernetes.io/hostname</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-app.test-dns.com</span>
+<span class="w">   </span><span class="nt">external-dns.alpha.kubernetes.io/aws-weight</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;100&quot;</span>
+<span class="w">   </span><span class="nt">external-dns.alpha.kubernetes.io/set-identifier</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;3&quot;</span>
 </code></pre></div>
    You can refer to the External DNS documentation for further details [<a href="https://kubernetes-sigs.github.io/external-dns/latest/tutorials/aws/#routing-policies">link</a>]. </p>
 </li>

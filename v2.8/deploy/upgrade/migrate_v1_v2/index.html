@@ -1138,7 +1138,7 @@
 <ol>
 <li>
 <p>Determine existing installed AWSALBIngressController version.
-<div class="highlight"><pre><span></span><code><span class="gp">foo@bar:~$ </span>kubectl describe deployment  -n kube-system  alb-ingress-controller <span class="p">|</span> grep Image
+<div class="highlight"><pre><span></span><code><span class="gp">foo@bar:~$ </span>kubectl<span class="w"> </span>describe<span class="w"> </span>deployment<span class="w">  </span>-n<span class="w"> </span>kube-system<span class="w">  </span>alb-ingress-controller<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>Image
 <span class="go">    Image:      docker.io/amazon/aws-alb-ingress-controller:v1.1.9</span>
 </code></pre></div></p>
 </li>

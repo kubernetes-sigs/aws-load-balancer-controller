@@ -1082,14 +1082,14 @@
 <ol>
 <li>
 <p>Deploy all the manifests from GitHub.</p>
-<div class="highlight"><pre><span></span><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/grpc/grpcserver-namespace.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/grpc/grpcserver-service.yaml
-kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/grpc/grpcserver-deployment.yaml
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/grpc/grpcserver-namespace.yaml
+kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/grpc/grpcserver-service.yaml
+kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/grpc/grpcserver-deployment.yaml
 </code></pre></div>
 </li>
 <li>
 <p>Confirm that all resources were created.</p>
-<div class="highlight"><pre><span></span><code>kubectl get -n grpcserver all
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>get<span class="w"> </span>-n<span class="w"> </span>grpcserver<span class="w"> </span>all
 </code></pre></div>
 <p>You should see the pod, service, and deployment.</p>
 <div class="highlight"><pre><span></span><code><span class="go">NAME                             READY   STATUS    RESTARTS   AGE</span>
@@ -1110,7 +1110,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 <ol>
 <li>
 <p>Download the grpcserver ingress manifest.</p>
-<div class="highlight"><pre><span></span><code>wget https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/grpc/grpcserver-ingress.yaml
+<div class="highlight"><pre><span></span><code>wget<span class="w"> </span>https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/examples/grpc/grpcserver-ingress.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1121,7 +1121,7 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 </li>
 <li>
 <p>Deploy the ingress resource for grpcserver.</p>
-<div class="highlight"><pre><span></span><code>kubectl apply -f grpcserver-ingress.yaml
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>apply<span class="w"> </span>-f<span class="w"> </span>grpcserver-ingress.yaml
 </code></pre></div>
 </li>
 <li>
@@ -1129,13 +1129,13 @@ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-bala
 </li>
 <li>
 <p>Check the <code>aws-load-balancer-controller</code> logs to ensure the ALB is created. Also ensure that <code>external-dns</code> creates a DNS record that points your domain to the ALB.</p>
-<div class="highlight"><pre><span></span><code>kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name<span class="o">=</span>aws-load-balancer-controller <span class="p">|</span> grep <span class="s1">&#39;grpcserver\/grpcserver&#39;</span>
-kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name<span class="o">=</span>external-dns <span class="p">|</span> grep <span class="s1">&#39;YOUR_DOMAIN_NAME&#39;</span>
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>kube-system<span class="w"> </span>--tail<span class="w"> </span>-1<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/name<span class="o">=</span>aws-load-balancer-controller<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">&#39;grpcserver\/grpcserver&#39;</span>
+kubectl<span class="w"> </span>logs<span class="w"> </span>-n<span class="w"> </span>kube-system<span class="w"> </span>--tail<span class="w"> </span>-1<span class="w"> </span>-l<span class="w"> </span>app.kubernetes.io/name<span class="o">=</span>external-dns<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span><span class="s1">&#39;YOUR_DOMAIN_NAME&#39;</span>
 </code></pre></div>
 </li>
 <li>
 <p>Next check that your ingress shows the correct ALB address and custom domain name.</p>
-<div class="highlight"><pre><span></span><code>kubectl get ingress -n grpcserver grpcserver
+<div class="highlight"><pre><span></span><code>kubectl<span class="w"> </span>get<span class="w"> </span>ingress<span class="w"> </span>-n<span class="w"> </span>grpcserver<span class="w"> </span>grpcserver
 </code></pre></div>
 <p>You should see similar to the following.</p>
 <div class="highlight"><pre><span></span><code><span class="go">NNAME         CLASS    HOSTS              ADDRESS     PORTS    AGE</span>
@@ -1144,7 +1144,7 @@ kubectl logs -n kube-system --tail -1 -l app.kubernetes.io/name<span class="o">=
 </li>
 <li>
 <p>Finally, test your secure gRPC service by running the greeter client, substituting <code>YOUR_DOMAIN_NAME</code> for the domain you used in the ingress manifest.</p>
-<div class="highlight"><pre><span></span><code>docker run --rm -it --env <span class="nv">BACKEND</span><span class="o">=</span>YOUR_DOMAIN_NAME placeexchange/grpc-demo:latest python greeter_client.py
+<div class="highlight"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>-it<span class="w"> </span>--env<span class="w"> </span><span class="nv">BACKEND</span><span class="o">=</span>YOUR_DOMAIN_NAME<span class="w"> </span>placeexchange/grpc-demo:latest<span class="w"> </span>python<span class="w"> </span>greeter_client.py
 </code></pre></div>
 <p>You should see the following response.
 <div class="highlight"><pre><span></span><code><span class="go">Greeter client received: Hello, you!</span>
