@@ -30,6 +30,7 @@ const (
 	flagWebhookCertDir          = "webhook-cert-dir"
 	flagWebhookCertName         = "webhook-cert-file"
 	flagWebhookKeyName          = "webhook-key-file"
+	flagApiServerClientTimeout  = "kubernetes-apiserver-client-timeout"
 
 	defaultKubeconfig              = ""
 	defaultLeaderElectionID        = "aws-load-balancer-controller-leader"
@@ -44,10 +45,11 @@ const (
 	defaultQPS = 1e6
 	// High enough Burst to fit all expected use cases. Burst=0 is not set here, because
 	// client code is overriding it.
-	defaultBurst           = 1e6
-	defaultWebhookCertDir  = ""
-	defaultWebhookCertName = ""
-	defaultWebhookKeyName  = ""
+	defaultBurst                  = 1e6
+	defaultWebhookCertDir         = ""
+	defaultWebhookCertName        = ""
+	defaultWebhookKeyName         = ""
+	defaultApiServerClientTimeout = 10 * time.Second
 )
 
 // RuntimeConfig stores the configuration for the controller-runtime
@@ -65,6 +67,7 @@ type RuntimeConfig struct {
 	WebhookCertDir          string
 	WebhookCertName         string
 	WebhookKeyName          string
+	ApiServerClientTimeout  time.Duration
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -91,6 +94,8 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.WebhookCertDir, flagWebhookCertDir, defaultWebhookCertDir, "WebhookCertDir is the directory that contains the webhook server key and certificate.")
 	fs.StringVar(&c.WebhookCertName, flagWebhookCertName, defaultWebhookCertName, "WebhookCertName is the webhook server certificate name.")
 	fs.StringVar(&c.WebhookKeyName, flagWebhookKeyName, defaultWebhookKeyName, "WebhookKeyName is the webhook server key name.")
+	fs.DurationVar(&c.ApiServerClientTimeout, flagApiServerClientTimeout, defaultApiServerClientTimeout,
+		"The timeout for the client when connecting to the Kubernetes API server.")
 
 }
 
@@ -110,6 +115,7 @@ func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
 
 	restCFG.QPS = defaultQPS
 	restCFG.Burst = defaultBurst
+	restCFG.Timeout = rtCfg.ApiServerClientTimeout
 	return restCFG, nil
 }
 

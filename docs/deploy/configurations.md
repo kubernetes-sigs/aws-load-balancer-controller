@@ -111,6 +111,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 | webhook-cert-dir                                                                | string                          | /tmp/k8s-webhook-server/serving-certs      | The directory that contains the server key and certificate                                                                                     |
 | webhook-cert-file                                                               | string                          | tls.crt                                    | The server certificate name                                                                                                                    |
 | webhook-key-file                                                                | string                          | tls.key                                    | The server key name                                                                                                                            |
+| kubernetes-apiserver-client-timeout                                             | duration                        | 10s                                    | "The timeout for the client when connecting to the Kubernetes API server.                                                                             |
 
 
 ### disable-ingress-class-annotation
