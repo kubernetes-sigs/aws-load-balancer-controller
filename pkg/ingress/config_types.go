@@ -413,4 +413,8 @@ type AuthIDPConfigOIDC struct {
 	// The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 	// +optional
 	AuthenticationRequestExtraParams map[string]string `json:"authenticationRequestExtraParams,omitempty"`
+
+	// For IdP that supports discovery
+	// +optional
+	DiscoveryEndpoint string `json:"discoveryEndpoint,omitempty"`
 }

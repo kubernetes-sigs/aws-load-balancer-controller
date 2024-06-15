@@ -622,6 +622,14 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
         ```
         alb.ingress.kubernetes.io/auth-idp-oidc: '{"issuer":"https://example.com","authorizationEndpoint":"https://authorization.example.com","tokenEndpoint":"https://token.example.com","userInfoEndpoint":"https://userinfo.example.com","secretName":"my-k8s-secret"}'
         ```
+        
+    !!!tip ""
+        This annotation allows fetching OIDC configuration dynamically from the specified Discovery Endpoint (`https://example.auth0.com`). The endpoint should provide the necessary details: `issuer`, `authorizationEndpoint`, `tokenEndpoint`, and `userInfoEndpoint` in its JSON response. (Note: `discoveryEndpoint` will override other OIDC configuration fields)
+    
+    !!example
+        ```
+        alb.ingress.kubernetes.io/auth-idp-oidc: '{"discoveryEndpoint":"https://example.auth0.com","secretName":"my-k8s-secret","authenticationRequestExtraParams":{"key":"value"}}'
+        ```
 
 - <a name="auth-on-unauthenticated-request">`alb.ingress.kubernetes.io/auth-on-unauthenticated-request`</a> specifies the behavior if the user is not authenticated.
 
