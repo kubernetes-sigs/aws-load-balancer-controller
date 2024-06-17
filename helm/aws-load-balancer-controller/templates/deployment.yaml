@@ -149,6 +149,9 @@ spec:
         {{- if kindIs "bool" .Values.enableBackendSecurityGroup }}
         - --enable-backend-security-group={{ .Values.enableBackendSecurityGroup }}
         {{- end }}
+        {{- if kindIs "bool" .Values.enableAcceptProtobufContentType }}
+        - --accept-protobuf-content-type-enabled={{ .Values.enableAcceptProtobufContentType }}
+        {{- end }}
         {{- if .Values.backendSecurityGroup }}
         - --backend-security-group={{ .Values.backendSecurityGroup }}
         {{- end }}

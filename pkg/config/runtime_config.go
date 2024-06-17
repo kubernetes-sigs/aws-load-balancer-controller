@@ -18,18 +18,20 @@ import (
 )
 
 const (
-	flagMetricsBindAddr         = "metrics-bind-addr"
-	flagHealthProbeBindAddr     = "health-probe-bind-addr"
-	flagWebhookBindPort         = "webhook-bind-port"
-	flagEnableLeaderElection    = "enable-leader-election"
-	flagLeaderElectionID        = "leader-election-id"
-	flagLeaderElectionNamespace = "leader-election-namespace"
-	flagWatchNamespace          = "watch-namespace"
-	flagSyncPeriod              = "sync-period"
-	flagKubeconfig              = "kubeconfig"
-	flagWebhookCertDir          = "webhook-cert-dir"
-	flagWebhookCertName         = "webhook-cert-file"
-	flagWebhookKeyName          = "webhook-key-file"
+	flagMetricsBindAddr           = "metrics-bind-addr"
+	flagHealthProbeBindAddr       = "health-probe-bind-addr"
+	flagWebhookBindPort           = "webhook-bind-port"
+	flagEnableLeaderElection      = "enable-leader-election"
+	flagLeaderElectionID          = "leader-election-id"
+	flagLeaderElectionNamespace   = "leader-election-namespace"
+	flagWatchNamespace            = "watch-namespace"
+	flagSyncPeriod                = "sync-period"
+	flagKubeconfig                = "kubeconfig"
+	flagWebhookCertDir            = "webhook-cert-dir"
+	flagWebhookCertName           = "webhook-cert-file"
+	flagWebhookKeyName            = "webhook-key-file"
+	flagApiServerClientTimeout    = "kubernetes-apiserver-client-timeout"
+	flagAcceptProtobufContentType = "accept-protobuf-content-type-enabled"
 
 	defaultKubeconfig              = ""
 	defaultLeaderElectionID        = "aws-load-balancer-controller-leader"
@@ -52,19 +54,20 @@ const (
 
 // RuntimeConfig stores the configuration for the controller-runtime
 type RuntimeConfig struct {
-	APIServer               string
-	KubeConfig              string
-	WebhookBindPort         int
-	MetricsBindAddress      string
-	HealthProbeBindAddress  string
-	EnableLeaderElection    bool
-	LeaderElectionID        string
-	LeaderElectionNamespace string
-	WatchNamespace          string
-	SyncPeriod              time.Duration
-	WebhookCertDir          string
-	WebhookCertName         string
-	WebhookKeyName          string
+	APIServer                 string
+	KubeConfig                string
+	WebhookBindPort           int
+	MetricsBindAddress        string
+	HealthProbeBindAddress    string
+	EnableLeaderElection      bool
+	LeaderElectionID          string
+	LeaderElectionNamespace   string
+	WatchNamespace            string
+	SyncPeriod                time.Duration
+	WebhookCertDir            string
+	WebhookCertName           string
+	WebhookKeyName            string
+	AcceptProtobufContentType bool
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -91,6 +94,8 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.WebhookCertDir, flagWebhookCertDir, defaultWebhookCertDir, "WebhookCertDir is the directory that contains the webhook server key and certificate.")
 	fs.StringVar(&c.WebhookCertName, flagWebhookCertName, defaultWebhookCertName, "WebhookCertName is the webhook server certificate name.")
 	fs.StringVar(&c.WebhookKeyName, flagWebhookKeyName, defaultWebhookKeyName, "WebhookKeyName is the webhook server key name.")
+	fs.BoolVar(&c.AcceptProtobufContentType, flagAcceptProtobufContentType, false,
+		"Allows the controller to receive kubernetes api responses in protobuf instead of json, if possible. This may improve performance in serialization but is experimental.")
 
 }
 
@@ -110,6 +115,9 @@ func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
 
 	restCFG.QPS = defaultQPS
 	restCFG.Burst = defaultBurst
+	if rtCfg.AcceptProtobufContentType {
+		restCFG.AcceptContentTypes = runtime.ContentTypeProtobuf + "," + runtime.ContentTypeJSON
+	}
 	return restCFG, nil
 }
 
