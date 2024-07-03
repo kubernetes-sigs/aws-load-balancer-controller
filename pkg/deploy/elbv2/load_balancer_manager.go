@@ -161,7 +161,9 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
 		currentSubnets.Insert(awssdk.StringValue(az.SubnetId))
 	}
-	if desiredSubnets.Equal(currentSubnets) {
+	desiredIPAddressType := string(*resLB.Spec.IPAddressType)
+	currentIPAddressType := awssdk.StringValue(sdkLB.LoadBalancer.IpAddressType)
+	if desiredSubnets.Equal(currentSubnets) && desiredIPAddressType == currentIPAddressType {
 		return nil
 	}
 
