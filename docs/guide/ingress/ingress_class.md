@@ -140,6 +140,15 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
     spec:
       certificateArn: ['arn:aws:acm:us-east-1:123456789:certificate/test-arn-1','arn:aws:acm:us-east-1:123456789:certificate/test-arn-2']
     ```
+    - with securityGroups
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+    name: class2048-config
+    spec:
+      securityGroups: ['sg-123','sg-456']
+    ```
 
 ### IngressClassParams specification
 
@@ -212,6 +221,11 @@ Cluster administrators can use `ipAddressType` field to restrict the ipAddressTy
 
 1. If `ipAddressType` specified, all Ingresses with this IngressClass will have the specified ipAddressType.
 2. If `ipAddressType` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/ip-address-type` annotation to specify ipAddressType.
+
+#### spec.securityGroups
+
+Cluster administrators can use the optional `securityGroups` field to specify the security group to attach to the load balancers that belong to this IngressClass.
+If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/security-groups` annotation.
 
 #### spec.tags
 
