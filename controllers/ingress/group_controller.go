@@ -47,25 +47,24 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	finalizerManager k8s.FinalizerManager, networkingSGManager networkingpkg.SecurityGroupManager,
 	vpcEndpointServiceManager networkingpkg.VPCEndpointServiceManager,
 	networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
-	controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider,
+	elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider,
 	sgResolver networkingpkg.SecurityGroupResolver, logger logr.Logger) *groupReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
-	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder)
+	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, controllerConfig.IngressConfig.TolerateNonExistentBackendService, controllerConfig.IngressConfig.TolerateNonExistentBackendAction)
 	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
 	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
-	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerConfig.FeatureGates, cloud.RGT(), logger)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
-		cloud.EC2(), cloud.ACM(),
+		cloud.EC2(), cloud.ELBV2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, backendSGProvider, sgResolver,
-		controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger)
+		controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler,
-		vpcEndpointServiceManager, controllerConfig, ingressTagPrefix, logger)
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, vpcEndpointServiceManager,
+		elbv2TaggingManager, controllerConfig, ingressTagPrefix, logger)
 	classLoader := ingress.NewDefaultClassLoader(k8sClient, true)
 	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)
 	manageIngressesWithoutIngressClass := controllerConfig.IngressConfig.IngressClass == ""
@@ -237,7 +236,7 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer(), ingressClassResourceAvailable); err != nil {
 		return err
 	}
-	if err := r.setupWatches(ctx, c, ingressClassResourceAvailable, clientSet); err != nil {
+	if err := r.setupWatches(ctx, c, mgr, ingressClassResourceAvailable, clientSet); err != nil {
 		return err
 	}
 	return nil
@@ -284,44 +283,44 @@ func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.
 	return nil
 }
 
-func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controller, ingressClassResourceAvailable bool, clientSet *kubernetes.Clientset) error {
-	ingEventChan := make(chan event.GenericEvent)
-	svcEventChan := make(chan event.GenericEvent)
-	secretEventsChan := make(chan event.GenericEvent)
+func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controller, mgr ctrl.Manager, ingressClassResourceAvailable bool, clientSet *kubernetes.Clientset) error {
+	ingEventChan := make(chan event.TypedGenericEvent[*networking.Ingress])
+	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
+	secretEventsChan := make(chan event.TypedGenericEvent[*corev1.Secret])
 	ingEventHandler := eventhandlers.NewEnqueueRequestsForIngressEvent(r.groupLoader, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("ingress"))
 	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(ingEventChan, r.k8sClient, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("service"))
 	secretEventHandler := eventhandlers.NewEnqueueRequestsForSecretEvent(ingEventChan, svcEventChan, r.k8sClient, r.eventRecorder,
 		r.logger.WithName("eventHandlers").WithName("secret"))
-	if err := c.Watch(&source.Channel{Source: ingEventChan}, ingEventHandler); err != nil {
+	if err := c.Watch(source.Channel(ingEventChan, ingEventHandler)); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Channel{Source: svcEventChan}, svcEventHandler); err != nil {
+	if err := c.Watch(source.Channel(svcEventChan, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Kind{Type: &networking.Ingress{}}, ingEventHandler); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &networking.Ingress{}, ingEventHandler)); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
+	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
 		return err
 	}
-	if err := c.Watch(&source.Channel{Source: secretEventsChan}, secretEventHandler); err != nil {
+	if err := c.Watch(source.Channel(secretEventsChan, secretEventHandler)); err != nil {
 		return err
 	}
 	if ingressClassResourceAvailable {
-		ingClassEventChan := make(chan event.GenericEvent)
+		ingClassEventChan := make(chan event.TypedGenericEvent[*networking.IngressClass])
 		ingClassParamsEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassParamsEvent(ingClassEventChan, r.k8sClient, r.eventRecorder,
 			r.logger.WithName("eventHandlers").WithName("ingressClassParams"))
 		ingClassEventHandler := eventhandlers.NewEnqueueRequestsForIngressClassEvent(ingEventChan, r.k8sClient, r.eventRecorder,
 			r.logger.WithName("eventHandlers").WithName("ingressClass"))
-		if err := c.Watch(&source.Channel{Source: ingClassEventChan}, ingClassEventHandler); err != nil {
+		if err := c.Watch(source.Channel(ingClassEventChan, ingClassEventHandler)); err != nil {
 			return err
 		}
-		if err := c.Watch(&source.Kind{Type: &elbv2api.IngressClassParams{}}, ingClassParamsEventHandler); err != nil {
+		if err := c.Watch(source.Kind(mgr.GetCache(), &elbv2api.IngressClassParams{}, ingClassParamsEventHandler)); err != nil {
 			return err
 		}
-		if err := c.Watch(&source.Kind{Type: &networking.IngressClass{}}, ingClassEventHandler); err != nil {
+		if err := c.Watch(source.Kind(mgr.GetCache(), &networking.IngressClass{}, ingClassEventHandler)); err != nil {
 			return err
 		}
 	}

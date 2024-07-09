@@ -4,14 +4,28 @@
 
 replicaCount: 2
 
+revisionHistoryLimit: 10
+
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.6.0
+  tag: v2.7.0
   pullPolicy: IfNotPresent
 
+runtimeClassName: ""
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+
+# AWS LBC only has 1 main working pod, other pods are just standby
+# the purpose of enable hpa is to survive load induced failure by the calls to the aws-load-balancer-webhook-service
+# since the calls from kube-apiserver are sent round-robin to all replicas, and the failure policy on those webhooks is Fail
+# if the pods become overloaded and do not respond within the timeout that could block the creation of pods, targetgroupbindings or ingresses
+# Please keep in mind that the controller pods have `priorityClassName: system-cluster-critical`, enabling HPA may lead to the eviction of other low-priority pods in the node
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -106,8 +120,8 @@ clusterName:
 
 # cluster contains configurations specific to the kubernetes cluster
 cluster:
-    # Cluster DNS domain (required for requesting TLS certificates)
-    dnsDomain: cluster.local
+  # Cluster DNS domain (required for requesting TLS certificates)
+  dnsDomain: cluster.local
 
 # The ingress class this controller will satisfy. If not specified, controller will match all
 # ingresses without ingress class annotation and ingresses of type alb
@@ -196,7 +210,7 @@ webhookTLS:
   cert:
   key:
 
-# array of namespace selectors for the webhook
+# array of namespace selectors for the pod mutator webhook
 webhookNamespaceSelectors:
 # - key: elbv2.k8s.aws/pod-readiness-gate-inject
 #   operator: In
@@ -227,6 +241,12 @@ disableIngressClassAnnotation:
 # disableIngressGroupNameAnnotation disables the usage of alb.ingress.kubernetes.io/group.name annotation, false by default
 disableIngressGroupNameAnnotation:
 
+# tolerateNonExistentBackendService permits rules which specify backend services that don't exist, true by default (When enabled, it will return 503 error if backend service not exist)
+tolerateNonExistentBackendService:
+
+# tolerateNonExistentBackendAction permits rules which specify backend actions that don't exist, true by default (When enabled, it will return 503 error if backend action not exist)
+tolerateNonExistentBackendAction:
+
 # defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners
 defaultSSLPolicy:
 
@@ -240,6 +260,17 @@ livenessProbe:
   initialDelaySeconds: 30
   timeoutSeconds: 10
 
+# readiness probe configuration for the controller
+readinessProbe:
+  failureThreshold: 2
+  httpGet:
+    path: /readyz
+    port: 61779
+    scheme: HTTP
+  successThreshold: 1
+  initialDelaySeconds: 10
+  timeoutSeconds: 10
+
 # Environment variables to set for aws-load-balancer-controller pod.
 # We strongly discourage programming access credentials in the controller environment. You should setup IRSA or
 # comparable solutions like kube2iam, kiam etc instead.
@@ -247,8 +278,16 @@ env:
   # ENV_1: ""
   # ENV_2: ""
 
+# Use Environment variables credentials from Secret (aws-secret) for aws-load-balancer-controller pod similarly as The EBS CSI Driver does.
+# envSecretName: aws-secret
+
+# Use envFrom to set environment variables from a Secret or ConfigMap
+envFrom: 
+  # valueFrom:
+  #   - secretKeyRef:
+  #       name: aws-load-balancer-controller
+
 # Specifies if aws-load-balancer-controller should be started in hostNetwork mode.
-#
 # This is required if using a custom CNI where the managed control plane nodes are unable to initiate
 # network connections to the pods, for example using Calico CNI plugin on EKS. This is not required or
 # recommended if using the Amazon VPC CNI plugin.
@@ -315,6 +354,10 @@ controllerConfig:
   # EnableIPTargetType: true
   # SubnetsClusterTagCheck: true
   # NLBHealthCheckAdvancedConfig: true
+  # ALBSingleSubnet: false
+
+certDiscovery:
+  allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
 
 # objectSelector for webhook
 objectSelector:
@@ -329,12 +372,18 @@ objectSelector:
 serviceMonitor:
   # Specifies whether a service monitor should be created
   enabled: false
-  # Labels to add to the service account
+  # Namespace to create the service monitor in
+  namespace:
+  # Labels to add to the service monitor
   additionalLabels: {}
   # Prometheus scrape interval
   interval: 1m
-  # Namespace to create the service monitor in
-  namespace:
+  # Prometheus scrape timeout
+  scrapeTimeout:
+  # Relabelings to apply to samples before ingestion
+  relabelings:
+  # Metric relabelings to apply to samples before ingestion
+  metricRelabelings:
 
 # clusterSecretsPermissions lets you configure RBAC permissions for secret resources
 # Access to secrets resource is required only if you use the OIDC feature, and instead of
@@ -351,3 +400,30 @@ ingressClassConfig:
 
 # enableServiceMutatorWebhook allows you enable the webhook which makes this controller the default for all new services of type LoadBalancer
 enableServiceMutatorWebhook: true
+
+# serviceMutatorWebhook contains configurations specific to the service mutator webhook
+serviceMutatorWebhookConfig:
+  # whether or not to fail the service creation if the webhook fails
+  failurePolicy: Fail
+  # limit webhook to only mutate services matching the objectSelector
+  objectSelector:
+    matchExpressions: []
+    # - key: <key>
+    #   operator: <operator>
+    #   values:
+    #   - <value>
+    matchLabels: {}
+      # key: value
+  # which operations trigger the webhook
+  operations:
+  - CREATE
+    # - UPDATE
+
+# serviceTargetENISGTags specifies AWS tags, in addition to the cluster tags, for finding the target ENI SG to which to add inbound rules from NLBs.
+serviceTargetENISGTags:
+
+# Specifies the class of load balancer to use for services. This affects how services are provisioned if type LoadBalancer is used (default service.k8s.aws/nlb)
+loadBalancerClass:
+
+# creator will disable helm default labels, so you can only add yours
+# creator: "me"

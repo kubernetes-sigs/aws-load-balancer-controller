@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"k8s.io/utils/strings/slices"
 	"net"
 	"strings"
 
@@ -45,13 +47,14 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 		})
 	}
 	return elbv2model.ListenerSpec{
-		LoadBalancerARN: lbARN,
-		Port:            port,
-		Protocol:        config.protocol,
-		DefaultActions:  defaultActions,
-		Certificates:    certs,
-		SSLPolicy:       config.sslPolicy,
-		Tags:            tags,
+		LoadBalancerARN:      lbARN,
+		Port:                 port,
+		Protocol:             config.protocol,
+		DefaultActions:       defaultActions,
+		Certificates:         certs,
+		SSLPolicy:            config.sslPolicy,
+		MutualAuthentication: config.mutualAuthentication,
+		Tags:                 tags,
 	}, nil
 }
 
@@ -97,17 +100,25 @@ func (t *defaultModelBuildTask) buildListenerTags(_ context.Context, ingList []C
 
 // the listen port config for specific listener port.
 type listenPortConfig struct {
-	protocol       elbv2model.Protocol
-	inboundCIDRv4s []string
-	inboundCIDRv6s []string
-	sslPolicy      *string
-	tlsCerts       []string
+	protocol             elbv2model.Protocol
+	inboundCIDRv4s       []string
+	inboundCIDRv6s       []string
+	prefixLists          []string
+	sslPolicy            *string
+	tlsCerts             []string
+	mutualAuthentication *elbv2model.MutualAuthenticationAttributes
 }
 
 func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int64]listenPortConfig, error) {
-	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing.Ing)
+	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing)
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
+	var prefixListIDs []string
+	t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroupPrefixLists, &prefixListIDs, ing.Ing.Annotations)
 	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
+	if err != nil {
+		return nil, err
+	}
+	mutualAuthenticationAttributes, err := t.computeIngressMutualAuthentication(ctx, ing)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +149,7 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 			protocol:       protocol,
 			inboundCIDRv4s: inboundCIDRv4s,
 			inboundCIDRv6s: inboundCIDRV6s,
+			prefixLists:    prefixListIDs,
 		}
 		if protocol == elbv2model.ProtocolHTTPS {
 			if len(explicitTLSCertARNs) == 0 {
@@ -146,6 +158,7 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 				cfg.tlsCerts = explicitTLSCertARNs
 			}
 			cfg.sslPolicy = explicitSSLPolicy
+			cfg.mutualAuthentication = mutualAuthenticationAttributes[port]
 		}
 		listenPortConfigByPort[port] = cfg
 	}
@@ -153,9 +166,12 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 	return listenPortConfigByPort, nil
 }
 
-func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Context, ing *networking.Ingress) []string {
+func (t *defaultModelBuildTask) computeIngressExplicitTLSCertARNs(_ context.Context, ing *ClassifiedIngress) []string {
+	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.CertificateArn) != 0 {
+		return ing.IngClassConfig.IngClassParams.Spec.CertificateArn
+	}
 	var rawTLSCertARNs []string
-	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixCertificateARN, &rawTLSCertARNs, ing.Annotations)
+	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixCertificateARN, &rawTLSCertARNs, ing.Ing.Annotations)
 	return rawTLSCertARNs
 }
 
@@ -246,4 +262,150 @@ func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Contex
 		return nil
 	}
 	return &rawSSLPolicy
+}
+
+type MutualAuthenticationConfig struct {
+	Port                          int64   `json:"port"`
+	Mode                          string  `json:"mode"`
+	TrustStore                    *string `json:"trustStore,omitempty"`
+	IgnoreClientCertificateExpiry *bool   `json:"ignoreClientCertificateExpiry,omitempty"`
+}
+
+func (t *defaultModelBuildTask) computeIngressMutualAuthentication(ctx context.Context, ing *ClassifiedIngress) (map[int64]*elbv2model.MutualAuthenticationAttributes, error) {
+	var rawMtlsConfigString string
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixMutualAuthentication, &rawMtlsConfigString, ing.Ing.Annotations); !exists {
+		return nil, nil
+	}
+
+	var ingressAnnotationEntries []MutualAuthenticationConfig
+
+	if err := json.Unmarshal([]byte(rawMtlsConfigString), &ingressAnnotationEntries); err != nil {
+		return nil, errors.Wrapf(err, "failed to parse mutualAuthentication configuration from ingress annotation: `%s`", rawMtlsConfigString)
+	}
+	if len(ingressAnnotationEntries) == 0 {
+		return nil, errors.Errorf("empty mutualAuthentication configuration from ingress annotation: `%s`", rawMtlsConfigString)
+	}
+	portAndMtlsAttributesMap, err := t.parseMtlsConfigEntries(ctx, ingressAnnotationEntries)
+	if err != nil {
+		return nil, err
+	}
+
+	parsedPortAndMtlsAttributes, err := t.parseMtlsAttributesForTrustStoreNames(ctx, portAndMtlsAttributesMap)
+	if err != nil {
+		return nil, err
+	}
+	return parsedPortAndMtlsAttributes, nil
+}
+
+func (t *defaultModelBuildTask) parseMtlsConfigEntries(_ context.Context, entries []MutualAuthenticationConfig) (map[int64]*elbv2model.MutualAuthenticationAttributes, error) {
+	portAndMtlsAttributes := make(map[int64]*elbv2model.MutualAuthenticationAttributes, len(entries))
+
+	for _, mutualAuthenticationConfig := range entries {
+		port := mutualAuthenticationConfig.Port
+		mode := mutualAuthenticationConfig.Mode
+		truststoreNameOrArn := awssdk.StringValue(mutualAuthenticationConfig.TrustStore)
+		ignoreClientCert := mutualAuthenticationConfig.IgnoreClientCertificateExpiry
+
+		err := t.validateMutualAuthenticationConfig(port, mode, truststoreNameOrArn, ignoreClientCert)
+		if err != nil {
+			return nil, err
+		}
+
+		if mode == string(elbv2model.MutualAuthenticationVerifyMode) && ignoreClientCert == nil {
+			ignoreClientCert = awssdk.Bool(false)
+		}
+		portAndMtlsAttributes[port] = &elbv2model.MutualAuthenticationAttributes{Mode: mode, TrustStoreArn: awssdk.String(truststoreNameOrArn), IgnoreClientCertificateExpiry: ignoreClientCert}
+	}
+	return portAndMtlsAttributes, nil
+}
+
+func (t *defaultModelBuildTask) validateMutualAuthenticationConfig(port int64, mode string, truststoreNameOrArn string, ignoreClientCert *bool) error {
+	// Verify port value is valid for ALB: [1, 65535]
+	if port < 1 || port > 65535 {
+		return errors.Errorf("listen port must be within [1, 65535]: %v", port)
+	}
+	//Verify if the mutualAuthentication mode is not empty for a port
+	if mode == "" {
+		return errors.Errorf("mutualAuthentication mode cannot be empty for port %v", port)
+	}
+	//Verify if the mutualAuthentication mode is valid
+	validMutualAuthenticationModes := []string{string(elbv2model.MutualAuthenticationOffMode), string(elbv2model.MutualAuthenticationPassthroughMode), string(elbv2model.MutualAuthenticationVerifyMode)}
+	if !slices.Contains(validMutualAuthenticationModes, mode) {
+		return errors.Errorf("mutualAuthentication mode value must be among [%v, %v, %v] for port %v : %s", elbv2model.MutualAuthenticationOffMode, elbv2model.MutualAuthenticationPassthroughMode, elbv2model.MutualAuthenticationVerifyMode, port, mode)
+	}
+	//Verify if the mutualAuthentication truststoreNameOrArn is not empty for Verify mode
+	if mode == string(elbv2model.MutualAuthenticationVerifyMode) && truststoreNameOrArn == "" {
+		return errors.Errorf("trustStore is required when mutualAuthentication mode is verify for port %v", port)
+	}
+	//Verify if the mutualAuthentication truststoreNameOrArn is empty for Off and Passthrough modes
+	if (mode == string(elbv2model.MutualAuthenticationOffMode) || mode == string(elbv2model.MutualAuthenticationPassthroughMode)) && truststoreNameOrArn != "" {
+		return errors.Errorf("Mutual Authentication mode %s does not support trustStore for port %v", mode, port)
+	}
+	//Verify if the mutualAuthentication ignoreClientCert is valid for Off and Passthrough modes
+	if (mode == string(elbv2model.MutualAuthenticationOffMode) || mode == string(elbv2model.MutualAuthenticationPassthroughMode)) && ignoreClientCert != nil {
+		return errors.Errorf("Mutual Authentication mode %s does not support ignoring client certificate expiry for port %v", mode, port)
+	}
+
+	return nil
+}
+
+func (t *defaultModelBuildTask) parseMtlsAttributesForTrustStoreNames(ctx context.Context, portAndMtlsAttributes map[int64]*elbv2model.MutualAuthenticationAttributes) (map[int64]*elbv2model.MutualAuthenticationAttributes, error) {
+	var trustStoreNames []string
+	trustStoreNameAndPortMap := make(map[string][]int64)
+
+	for port, attributes := range portAndMtlsAttributes {
+		mode := attributes.Mode
+		truststoreNameOrArn := awssdk.StringValue(attributes.TrustStoreArn)
+		if mode == string(elbv2model.MutualAuthenticationVerifyMode) && !strings.HasPrefix(truststoreNameOrArn, "arn:") {
+			trustStoreNameAndPortMap[truststoreNameOrArn] = append(trustStoreNameAndPortMap[truststoreNameOrArn], port)
+		}
+	}
+
+	if len(trustStoreNameAndPortMap) != 0 {
+		for names := range trustStoreNameAndPortMap {
+			trustStoreNames = append(trustStoreNames, names)
+		}
+		tsNameAndArnMap, err := t.fetchTrustStoreArnFromName(ctx, trustStoreNames)
+		if err != nil {
+			return nil, err
+		}
+		for name, ports := range trustStoreNameAndPortMap {
+			for _, port := range ports {
+				attributes := portAndMtlsAttributes[port]
+				if awssdk.StringValue(attributes.TrustStoreArn) != "" {
+					attributes.TrustStoreArn = tsNameAndArnMap[name]
+				}
+				portAndMtlsAttributes[port] = attributes
+			}
+		}
+	}
+	return portAndMtlsAttributes, nil
+}
+
+func (t *defaultModelBuildTask) fetchTrustStoreArnFromName(ctx context.Context, trustStoreNames []string) (map[string]*string, error) {
+	tsNameAndArnMap := make(map[string]*string, len(trustStoreNames))
+	req := &elbv2sdk.DescribeTrustStoresInput{
+		Names: awssdk.StringSlice(trustStoreNames),
+	}
+	trustStores, err := t.elbv2Client.DescribeTrustStoresWithContext(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if len(trustStores.TrustStores) == 0 {
+		return nil, errors.Errorf("couldn't find TrustStore with names %v", trustStoreNames)
+	}
+	for _, tsName := range trustStoreNames {
+		for _, ts := range trustStores.TrustStores {
+			if tsName == awssdk.StringValue(ts.Name) {
+				tsNameAndArnMap[tsName] = ts.TrustStoreArn
+			}
+		}
+	}
+	for _, tsName := range trustStoreNames {
+		_, exists := tsNameAndArnMap[tsName]
+		if !exists {
+			return nil, errors.Errorf("couldn't find TrustStore with name %v", tsName)
+		}
+	}
+	return tsNameAndArnMap, nil
 }

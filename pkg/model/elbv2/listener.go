@@ -88,6 +88,24 @@ const (
 	ActionTypeRedirect            ActionType = "redirect"
 )
 
+// MutualAuthenticationMode mTLS mode for mutual TLS authentication config for listener
+type MutualAuthenticationMode string
+
+// Supported mTLS modes
+const (
+	MutualAuthenticationOffMode         MutualAuthenticationMode = "off"
+	MutualAuthenticationPassthroughMode MutualAuthenticationMode = "passthrough"
+	MutualAuthenticationVerifyMode      MutualAuthenticationMode = "verify"
+)
+
+type MutualAuthenticationAttributes struct {
+	Mode string `json:"mode"`
+
+	TrustStoreArn *string `json:"trustStoreArn,omitempty"`
+
+	IgnoreClientCertificateExpiry *bool `json:"ignoreClientCertificateExpiry,omitempty"`
+}
+
 type AuthenticateCognitoActionConditionalBehavior string
 
 const (
@@ -331,6 +349,10 @@ type ListenerSpec struct {
 	// [TLS listener] The name of the Application-Layer Protocol Negotiation (ALPN) policy.
 	// +optional
 	ALPNPolicy []string `json:"alpnPolicy,omitempty"`
+
+	// [HTTPS listener] The mutual TLS authentication config for a secure ALB listener.
+	// +optional
+	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`
 
 	// The tags.
 	// +optional

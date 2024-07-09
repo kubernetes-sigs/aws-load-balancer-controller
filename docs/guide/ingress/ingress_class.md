@@ -104,6 +104,42 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
       - key: idle_timeout.timeout_seconds
         value: "120"
     ```
+    - with subnets.ids
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: awesome-class
+    spec:
+      subnets:
+        ids:
+        - subnet-xxx
+        - subnet-123
+    ```
+    - with subnets.tags
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      subnets:
+      tags:
+        kubernetes.io/role/internal-elb:
+        - "1"
+        myKey:
+        - myVal0
+        - myVal1
+    ```
+    - with certificateArn
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+    name: class2048-config
+    spec:
+      certificateArn: ['arn:aws:acm:us-east-1:123456789:certificate/test-arn-1','arn:aws:acm:us-east-1:123456789:certificate/test-arn-2']
+    ```
 
 ### IngressClassParams specification
 
@@ -140,6 +176,11 @@ Cluster administrators can use the `scheme` field to restrict the scheme for all
 Cluster administrators can use the optional `inboundCIDRs` field to specify the CIDRs that are allowed to access the load balancers that belong to this IngressClass.
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/inbound-cidrs` annotation.
 
+#### spec.certificateArn
+Cluster administrators can use the optional `certificateARN` field to specify the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
+    
+If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/certificate-arn` annotation.
+
 #### spec.sslPolicy
 
 Cluster administrators can use the optional `sslPolicy` field to specify the SSL policy for the load balancers that belong to this IngressClass.
@@ -165,7 +206,7 @@ Within any given availability zone, subnets with a cluster tag will be chosen ov
 
 #### spec.ipAddressType
 
-`ipAddressType` is an optional setting. The available options are `ipv4` or `dualstack`.
+`ipAddressType` is an optional setting. The available options are `ipv4`, `dualstack`, or `dualstack-without-public-ipv4`.
 
 Cluster administrators can use `ipAddressType` field to restrict the ipAddressType for all Ingresses that belong to this IngressClass.
 

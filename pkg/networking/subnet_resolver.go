@@ -48,6 +48,8 @@ type SubnetsResolveOptions struct {
 	AvailableIPAddressCount int64
 	// whether to check the cluster tag
 	SubnetsClusterTagCheck bool
+	// whether to allow using only 1 subnet for provisioning ALB, default to false
+	ALBSingleSubnet bool
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -92,6 +94,13 @@ func WithSubnetsResolveAvailableIPAddressCount(AvailableIPAddressCount int64) Su
 func WithSubnetsClusterTagCheck(SubnetsClusterTagCheck bool) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.SubnetsClusterTagCheck = SubnetsClusterTagCheck
+	}
+}
+
+// WithALBSingleSubnet generate an option that configures ALBSingleSubnet
+func WithALBSingleSubnet(ALBSingleSubnet bool) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.ALBSingleSubnet = ALBSingleSubnet
 	}
 }
 
@@ -189,7 +198,10 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 				},
 			},
 		}
+
+		targetTagKeys := []string{}
 		for key, values := range selector.Tags {
+			targetTagKeys = append(targetTagKeys, key)
 			req.Filters = append(req.Filters, &ec2sdk.Filter{
 				Name:   awssdk.String("tag:" + key),
 				Values: awssdk.StringSlice(values),
@@ -200,7 +212,8 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 		if err != nil {
 			return nil, err
 		}
-		explanation = fmt.Sprintf("%d match VPC and tags", len(allSubnets))
+		explanation = fmt.Sprintf("%d match VPC and tags: %s", len(allSubnets), targetTagKeys)
+
 		var subnets []*ec2sdk.Subnet
 		taggedOtherCluster := 0
 		for _, subnet := range allSubnets {
@@ -364,7 +377,7 @@ func (r *defaultSubnetsResolver) validateSubnetsMinimalCount(subnets []*ec2sdk.S
 // computeSubnetsMinimalCount returns the minimal count requirement for subnets.
 func (r *defaultSubnetsResolver) computeSubnetsMinimalCount(subnetLocale subnetLocaleType, resolveOpts SubnetsResolveOptions) int {
 	minimalCount := 1
-	if resolveOpts.LBType == elbv2model.LoadBalancerTypeApplication && subnetLocale == subnetLocaleTypeAvailabilityZone {
+	if resolveOpts.LBType == elbv2model.LoadBalancerTypeApplication && subnetLocale == subnetLocaleTypeAvailabilityZone && !resolveOpts.ALBSingleSubnet {
 		minimalCount = 2
 	}
 	return minimalCount

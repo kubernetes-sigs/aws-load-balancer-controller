@@ -1295,3 +1295,117 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_buildLoadBalancerIPAddressType(t *testing.T) {
+	type fields struct {
+		ingGroup Group
+	}
+
+	tests := []struct {
+		name    string
+		fields  fields
+		want    elbv2.IPAddressType
+		wantErr error
+	}{
+		{
+			name: "No ip-address-type annotation set",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: "",
+		},
+		{
+			name: "The ip-address-type annotation is set to ipv4",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ip-address-type": "ipv4",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: elbv2.IPAddressTypeIPV4,
+		},
+		{
+			name: "The ip-address-type annotation is set to dualstack",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ip-address-type": "dualstack",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: elbv2.IPAddressTypeDualStack,
+		},
+		{
+			name: "The ip-address-type annotation is set to dualstack-without-public-ipv4",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/ip-address-type": "dualstack-without-public-ipv4",
+										"alb.ingress.kubernetes.io/scheme":          "internet-facing",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: elbv2.IPAddressTypeDualStackWithoutPublicIPV4,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				ingGroup:         tt.fields.ingGroup,
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+			got, err := task.buildLoadBalancerIPAddressType(context.Background())
+			if err != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}

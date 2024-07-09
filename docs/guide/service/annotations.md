@@ -16,6 +16,7 @@
 | Name                                                                                             | Type                    | Default                   | Notes                                                  |
 |--------------------------------------------------------------------------------------------------|-------------------------|---------------------------|--------------------------------------------------------|
 | [service.beta.kubernetes.io/load-balancer-source-ranges](#lb-source-ranges)                      | stringList              |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists](#lb-security-group-prefix-lists)                      | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-type](#lb-type)                                    | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-nlb-target-type](#nlb-target-type)                 | string                  |                           | default `instance` in case of LoadBalancerClass        |
 | [service.beta.kubernetes.io/aws-load-balancer-name](#load-balancer-name)                         | string                  |                           |                                                        |
@@ -48,11 +49,13 @@
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      |                                                        |
-| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-enabled](#endpoint-service-enable)| boolean                 | false                     |                                                        |
-| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required](#endpoint-service-acceptance)| boolean |                           |                                                        |
-| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals](#endpoint-allowed-principals)| stringList |                         |                                                        |
-| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name](#endpoint-private-dns)| string            |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        | 
+| [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      | If `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified, this must also be explicitly specified otherwise it defaults to `false`. |
+| [service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic](#update-security-settings)         | string                  |                           |                                                                                   
+| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-enabled](#endpoint-service-enable)| boolean                | false                     |                                                        |
+| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-acceptance-required](#endpoint-service-acceptance)| boolean|                           |                                                        |
+| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-allowed-principals](#endpoint-allowed-principals)|stringList|                          |                                                        |
+| [service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name](#endpoint-private-dns)| string           |                           |                                                        |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -232,6 +235,10 @@ for proxy protocol v2 configuration.
             ```
             service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
             ```
+        - disable immediate [connection termination for unhealthy targets](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/target-group-health.html#unhealthy-target-connection-termination) and configure a 30s draining interval (available range is  0-360000 seconds)
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: target_health_state.unhealthy.connection_termination.enabled=false,target_health_state.unhealthy.draining_interval_seconds=30
+            ```
 
 
 - <a name="load-balancer-attributes">`service.beta.kubernetes.io/aws-load-balancer-attributes`</a> specifies [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the NLB.
@@ -256,6 +263,10 @@ for proxy protocol v2 configuration.
         - enable cross zone load balancing
         ```
         service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+        ```
+        - enable client availability zone affinity
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
         ```
 
 - <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
@@ -298,6 +309,7 @@ Health check on target groups can be configured with following annotations:
         - you can specify `tcp`, or `http` or `https`, `tcp` is the default
         - `tcp` is the default health check protocol if the service `spec.externalTrafficPolicy` is `Cluster`, `http` if `Local`
         - if the service `spec.externalTrafficPolicy` is `Local`, do **not** use `tcp` for health check
+        - Supports only single protocol per service
 
     !!!example
         ```service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http
@@ -415,7 +427,7 @@ Load balancer access can be controlled via following annotations:
 - <a name="lb-source-ranges">`service.beta.kubernetes.io/load-balancer-source-ranges`</a> specifies the CIDRs that are allowed to access the NLB.
 
     !!!tip
-        we recommend specifying CIDRs in the service `Spec.LoadBalancerSourceRanges` instead
+        we recommend specifying CIDRs in the service `spec.loadBalancerSourceRanges` instead
 
     !!!note "Default"
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"
@@ -431,9 +443,28 @@ Load balancer access can be controlled via following annotations:
         Preserve client IP has no effect on traffic converted from IPv4 to IPv6 and on traffic converted from IPv6 to IPv4. The source IP of this type of traffic is always the private IP address of the Network Load Balancer.
         - This could cause the clients that have their traffic converted to bypass the specified CIDRs that are allowed to access the NLB.
 
+    !!!warning ""
+        this annotation will be ignored if `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified.
+
     !!!example
         ```
         service.beta.kubernetes.io/load-balancer-source-ranges: 10.0.0.0/24
+        ```
+
+- <a name="lb-security-group-prefix-lists">`service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists`</a> specifies the managed prefix lists that are allowed to access the NLB.
+
+    !!!warning ""
+        this annotation will be ignored if `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified.
+
+    !!!warning ""
+        If you'd like to use this annotation, make sure your security group rule quota is enough. If you'd like to know how the managed prefix list affects your quota, see the [reference](https://docs.aws.amazon.com/vpc/latest/userguide/working-with-aws-managed-prefix-lists.html#aws-managed-prefix-list-weights) in the AWS documentation for more details.
+
+    !!!tip ""
+        If you only use this annotation without `load-balancer-source-ranges`, the controller managed security group would ignore the `load-balancer-source-ranges` default settings.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists: pl-00000000, pl-1111111
         ```
 
 - <a name="lb-scheme">`service.beta.kubernetes.io/aws-load-balancer-scheme`</a> specifies whether the NLB will be internet-facing or internal.  Valid values are `internal`, `internet-facing`. If not specified, default is `internal`.
@@ -452,15 +483,38 @@ Load balancer access can be controlled via following annotations:
         ```
         service.beta.kubernetes.io/aws-load-balancer-internal: "true"
         ```
+- <a name="security-groups">`service.beta.kubernetes.io/aws-load-balancer-security-groups`</a>  specifies the frontend securityGroups you want to attach to an NLB.
 
+    !!!note ""
+        When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from `load-balancer-source-ranges` and `aws-load-balancer-security-group-prefix-lists` to the `listen-ports`.
+        Also, the securityGroups for target instances/ENIs will be modified to allow inbound traffic from this securityGroup.
+
+    !!!note ""
+        If you specify this annotation, you need to configure the security groups on your target instances/ENIs to allow inbound traffic from the load balancer. You could also set the [`manage-backend-security-group-rules`](#manage-backend-sg-rules) if you want the controller to manage the security group rules.
+
+    !!!tip ""
+        Both name and ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-security-groups: sg-xxxx, nameOfSg1, nameOfSg2
+        ```
+ 
 - <a name="manage-backend-sg-rules">`service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules`</a> specifies whether the controller should automatically add the ingress rules to the instance/ENI security group.
 
     !!!warning ""
-        If you disable the automatic management of security group rules for an NLB, you will need to manually add appropriate ingress rules to your EC2 instance or ENI security groups to allow access to the traffic and health check ports.
+        If you disable the automatic management of security group rules for an NLB (e.g.: by setting `service.beta.kubernetes.io/aws-load-balancer-security-groups`), you will need to manually add appropriate ingress rules to your EC2 instance or ENI security groups to allow access to the traffic and health check ports.
 
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: "false"
+        ```
+
+- <a name="update-security-settings">`service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic`</a> specifies whether to apply security group rules to traffic sent to the load balancer through AWS PrivateLink. 
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic: "off"
         ```
 
 ## VPC Endpoint Service
@@ -475,6 +529,10 @@ A VPC Endpoint Service can be attached to a controlled loadbalancer via the foll
 - <a name="endpoint-private-dns">`service.alpha.kubernetes.io/aws-load-balancer-endpoint-service-private-dns-name`</a> is the private DNS name given to the Endpoint Service.  This will need to be verified through a valid DNS record.
 
 ## Legacy Cloud Provider
-The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the legacy aws cloud provider. The annotation `service.beta.kubernetes.io/aws-load-balancer-type` is used to determine which controller reconciles the service. If the annotation value is `nlb-ip` or `external`, legacy cloud provider ignores the service resource (provided it has the correct patch) so that the AWS Load Balancer controller can take over. For all other values of the annotation, the legacy cloud provider will handle the service. Note that this annotation should be specified during service creation and not edited later.
+The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the AWS cloud provider's legacy service controller.
 
-The legacy cloud provider patch was added in Kubernetes v1.20 and is backported to Kubernetes v1.18.18+, v1.19.10+.
+- For users on v2.5.0+, The AWS LBC provides a mutating webhook for service resources to set the `spec.loadBalancerCLass` field for Serive of type LoadBalancer, effectively making the AWS LBC the default controller for Service of type LoadBalancer. 
+  Users can disable this feature and revert to using the AWS Cloud Controller Manager as the default service controller by setting the helm chart value `enableServiceMutatorWebhook` to false with `--set enableServiceMutatorWebhook=false` .
+- For users on older versions, the annotation `service.beta.kubernetes.io/aws-load-balancer-type` is used to determine which controller reconciles the service. If the annotation value is `nlb-ip` or `external`,
+  recent versions of the legacy cloud provider ignore the Service resource so that the AWS LBC can take over. For all other values of the annotation, the legacy cloud provider will handle the service. 
+  Note that this annotation should be specified during service creation and not edited later. Support for the annotation was added to the legacy cloud provider in Kubernetes v1.20, and is backported to v1.18.18+ and v1.19.10+.

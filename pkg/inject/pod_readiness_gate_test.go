@@ -346,7 +346,7 @@ func Test_PodReadinessGate_Mutate(t *testing.T) {
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, svc := range tt.services {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			}

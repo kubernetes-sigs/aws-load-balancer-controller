@@ -83,7 +83,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(_ co
 				},
 			})
 		}
-		if ipAddressType == elbv2model.IPAddressTypeDualStack {
+		if isIPv6Supported(ipAddressType) {
 			for _, cidr := range cfg.inboundCIDRv6s {
 				permissions = append(permissions, ec2model.IPPermission{
 					IPProtocol: "tcp",
@@ -96,6 +96,18 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(_ co
 					},
 				})
 			}
+		}
+		for _, prefixID := range cfg.prefixLists {
+			permissions = append(permissions, ec2model.IPPermission{
+				IPProtocol: "tcp",
+				FromPort:   awssdk.Int64(port),
+				ToPort:     awssdk.Int64(port),
+				PrefixLists: []ec2model.PrefixList{
+					{
+						ListID: prefixID,
+					},
+				},
+			})
 		}
 	}
 	return permissions

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	httpexpectv2 "github.com/gavv/httpexpect/v2"
 	"github.com/go-logr/logr"
@@ -39,5 +40,7 @@ func NewGinkgoLogger() (logr.Logger, httpexpectv2.LoggerReporter) {
 		zap.Level(zapraw.InfoLevel),
 		zap.WriteTo(ginkgov2.GinkgoWriter),
 		zap.Encoder(encoder))
+	// this line is to prevent controller runtime complaining about SetupLogger() was never called
+	logf.SetLogger(logger)
 	return logger, &defaultGinkgoLogger{logger: logger}
 }

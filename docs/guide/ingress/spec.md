@@ -1,6 +1,12 @@
 # Ingress specification
 This document covers how ingress resources work in relation to The AWS Load Balancer Controller.
 
+!!!note ""
+    - Beginning from v2.4.3 of the AWS LBC, rules are ordered as follows:  
+        - `pathType: Exact` paths are always ordered first 
+        - followed by `pathType: Prefix` paths, with the longest prefix first
+        - followed by `pathType: ImplementationSpecific` paths, in the order they are listed in the manifest
+
 An example ingress, from [example](../../examples/2048/2048_full.yaml) is as follows.
 
 ```yaml
@@ -18,6 +24,7 @@ spec:
       http:
         paths:
           - path: /*
+            pathType: ImplementationSpecific
             backend:
               service:
                 name: "service-2048"

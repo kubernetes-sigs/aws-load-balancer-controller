@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
@@ -82,8 +83,16 @@ const (
 type IPAddressType string
 
 const (
-	IPAddressTypeIPV4      IPAddressType = "ipv4"
-	IPAddressTypeDualStack IPAddressType = "dualstack"
+	IPAddressTypeIPV4                       IPAddressType = "ipv4"
+	IPAddressTypeDualStack                  IPAddressType = "dualstack"
+	IPAddressTypeDualStackWithoutPublicIPV4 IPAddressType = "dualstack-without-public-ipv4"
+)
+
+type SecurityGroupsInboundRulesOnPrivateLinkStatus string
+
+const (
+	SecurityGroupsInboundRulesOnPrivateLinkOn  SecurityGroupsInboundRulesOnPrivateLinkStatus = "on"
+	SecurityGroupsInboundRulesOnPrivateLinkOff SecurityGroupsInboundRulesOnPrivateLinkStatus = "off"
 )
 
 type LoadBalancerScheme string
@@ -142,6 +151,10 @@ type LoadBalancerSpec struct {
 	// [Application Load Balancers] The IDs of the security groups for the load balancer.
 	// +optional
 	SecurityGroups []core.StringToken `json:"securityGroups,omitempty"`
+
+	// [Network Load Balancers] The status of the security groups inbound rules on private link.
+	// +optional
+	SecurityGroupsInboundRulesOnPrivateLink *SecurityGroupsInboundRulesOnPrivateLinkStatus `json:"securityGroupsInboundRulesOnPrivateLink,omitempty"`
 
 	// [Application Load Balancers on Outposts] The ID of the customer-owned address pool (CoIP pool).
 	// +optional

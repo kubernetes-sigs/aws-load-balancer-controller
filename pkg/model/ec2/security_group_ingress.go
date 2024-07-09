@@ -18,6 +18,12 @@ type UserIDGroupPair struct {
 	Description string `json:"description,omitempty"`
 }
 
+type PrefixList struct {
+	ListID string `json:"listID"`
+	// +optional
+	Description string `json:"description,omitempty"`
+}
+
 type IPPermission struct {
 	IPProtocol string `json:"ipProtocol"`
 	// +optional
@@ -30,4 +36,6 @@ type IPPermission struct {
 	IPv6Range []IPv6Range `json:"ipv6Ranges,omitempty"`
 	// +optional
 	UserIDGroupPairs []UserIDGroupPair `json:"userIDGroupPairs,omitempty"`
+	// +optional
+	PrefixLists []PrefixList `json:"prefixLists,omitempty"`
 }

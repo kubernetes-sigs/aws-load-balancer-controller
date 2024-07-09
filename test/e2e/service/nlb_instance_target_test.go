@@ -29,9 +29,16 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 		Expect(err).NotTo(HaveOccurred())
 	})
 	Context("with NLB instance target configuration", func() {
+		annotation := make(map[string]string)
+		BeforeEach(func() {
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
+		})
 		It("should provision internet-facing load balancer resources", func() {
+			annotation["service.beta.kubernetes.io/aws-load-balancer-scheme"] = "internet-facing"
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, nil)
+				err := stack.Deploy(ctx, tf, annotation)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -156,9 +163,8 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 		})
 		It("should provision internal load-balancer resources", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, map[string]string{
-					"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
-				})
+				annotation["service.beta.kubernetes.io/aws-load-balancer-scheme"] = "internal"
+				err := stack.Deploy(ctx, tf, annotation)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -207,15 +213,19 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 					})
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 		It("should create TLS listeners", func() {
 			if len(tf.Options.CertificateARNs) == 0 {
 				Skip("Skipping tests, certificates not specified")
 			}
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, map[string]string{
-					"service.beta.kubernetes.io/aws-load-balancer-ssl-cert": tf.Options.CertificateARNs,
-				})
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ssl-cert"] = tf.Options.CertificateARNs
+				annotation["service.beta.kubernetes.io/aws-load-balancer-scheme"] = "internet-facing"
+				err := stack.Deploy(ctx, tf, annotation)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -269,12 +279,15 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 					return verifyLoadBalancerListenerCertificates(ctx, tf, lbARN, certs) == nil
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 		It("should enable proxy protocol v2", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, map[string]string{
-					"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "*",
-				})
+				annotation["service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"] = "*"
+				err := stack.Deploy(ctx, tf, annotation)
 				Expect(err).ToNot(HaveOccurred())
 				dnsName = stack.GetLoadBalancerIngressHostName()
 				Expect(dnsName).ToNot(BeEmpty())
@@ -300,15 +313,24 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 					})
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
+			})
 		})
 	})
 
 	Context("with NLB instance target configuration with target node labels", func() {
+		annotation := make(map[string]string)
+		BeforeEach(func() {
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
+		})
 		It("should add only the labelled nodes to the target group", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, map[string]string{
-					"service.beta.kubernetes.io/aws-load-balancer-target-node-labels": "service.node.label/key1=value1",
-				})
+				annotation["service.beta.kubernetes.io/aws-load-balancer-target-node-labels"] = "service.node.label/key1=value1"
+				err := stack.Deploy(ctx, tf, annotation)
 				Expect(err).ToNot(HaveOccurred())
 				dnsName = stack.GetLoadBalancerIngressHostName()
 				Expect(dnsName).ToNot(BeEmpty())
@@ -345,6 +367,10 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 
 				err = verifyTargetGroupNumRegistered(ctx, tf, tgARN, len(nodes))
 				Expect(err).ToNot(HaveOccurred())
+			})
+			By("waiting for load balancer to be available", func() {
+				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

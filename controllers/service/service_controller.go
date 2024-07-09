@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -25,7 +25,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
@@ -39,19 +38,18 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	finalizerManager k8s.FinalizerManager, networkingSGManager networking.SecurityGroupManager,
 	vpcEndpointServiceManager networking.VPCEndpointServiceManager,
 	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
-	vpcInfoProvider networking.VPCInfoProvider, controllerConfig config.ControllerConfig,
+	vpcInfoProvider networking.VPCInfoProvider, elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger) *serviceReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, controllerConfig.ClusterName)
-	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerConfig.FeatureGates, cloud.RGT(), logger)
 	serviceUtils := service.NewServiceUtils(annotationParser, serviceFinalizer, controllerConfig.ServiceConfig.LoadBalancerClass, controllerConfig.FeatureGates)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
 		elbv2TaggingManager, cloud.EC2(), controllerConfig.FeatureGates, controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), serviceUtils,
-		backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules)
+		backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, vpcEndpointServiceManager, controllerConfig, serviceTagPrefix, logger)
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, vpcEndpointServiceManager, elbv2TaggingManager, controllerConfig, serviceTagPrefix, logger)
 	return &serviceReconciler{
 		k8sClient:         k8sClient,
 		eventRecorder:     eventRecorder,
@@ -212,24 +210,14 @@ func (r *serviceReconciler) cleanupServiceStatus(ctx context.Context, svc *corev
 }
 
 func (r *serviceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	c, err := controller.New(controllerName, mgr, controller.Options{
-		MaxConcurrentReconciles: r.maxConcurrentReconciles,
-		Reconciler:              r,
-	})
-	if err != nil {
-		return err
-	}
-	if err := r.setupWatches(ctx, c); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *serviceReconciler) setupWatches(_ context.Context, c controller.Controller) error {
 	svcEventHandler := eventhandlers.NewEnqueueRequestForServiceEvent(r.eventRecorder,
 		r.serviceUtils, r.logger.WithName("eventHandlers").WithName("service"))
-	if err := c.Watch(&source.Kind{Type: &corev1.Service{}}, svcEventHandler); err != nil {
-		return err
-	}
-	return nil
+
+	return ctrl.NewControllerManagedBy(mgr).
+		Named(controllerName).
+		Watches(&corev1.Service{}, svcEventHandler).
+		WithOptions(controller.Options{
+			MaxConcurrentReconciles: r.maxConcurrentReconciles,
+		}).
+		Complete(r)
 }

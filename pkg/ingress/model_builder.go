@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"reflect"
 	"strconv"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -37,19 +38,20 @@ type ModelBuilder interface {
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
 func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventRecorder,
-	ec2Client services.EC2, acmClient services.ACM,
+	ec2Client services.EC2, elbv2Client services.ELBV2, acmClient services.ACM,
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
-	enableBackendSG bool, disableRestrictedSGRules bool, enableIPTargetType bool, logger logr.Logger) *defaultModelBuilder {
-	certDiscovery := NewACMCertDiscovery(acmClient, logger)
+	enableBackendSG bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, logger logr.Logger) *defaultModelBuilder {
+	certDiscovery := NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
 		k8sClient:                k8sClient,
 		eventRecorder:            eventRecorder,
 		ec2Client:                ec2Client,
+		elbv2Client:              elbv2Client,
 		vpcID:                    vpcID,
 		clusterName:              clusterName,
 		annotationParser:         annotationParser,
@@ -81,6 +83,7 @@ type defaultModelBuilder struct {
 	k8sClient     client.Client
 	eventRecorder record.EventRecorder
 	ec2Client     services.EC2
+	elbv2Client   services.ELBV2
 
 	vpcID       string
 	clusterName string
@@ -114,6 +117,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		k8sClient:                b.k8sClient,
 		eventRecorder:            b.eventRecorder,
 		ec2Client:                b.ec2Client,
+		elbv2Client:              b.elbv2Client,
 		vpcID:                    b.vpcID,
 		clusterName:              b.clusterName,
 		annotationParser:         b.annotationParser,
@@ -167,6 +171,7 @@ type defaultModelBuildTask struct {
 	k8sClient              client.Client
 	eventRecorder          record.EventRecorder
 	ec2Client              services.EC2
+	elbv2Client            services.ELBV2
 	vpcID                  string
 	clusterName            string
 	annotationParser       annotations.Parser
@@ -293,11 +298,17 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 	mergedInboundCIDRv6s := sets.NewString()
 	mergedInboundCIDRv4s := sets.NewString()
 
+	var mergedInboundPrefixListsProvider *types.NamespacedName
+	mergedInboundPrefixLists := sets.NewString()
+
 	var mergedSSLPolicyProvider *types.NamespacedName
 	var mergedSSLPolicy *string
 
 	var mergedTLSCerts []string
 	mergedTLSCertsSet := sets.NewString()
+
+	var mergedMtlsAttributesProvider *types.NamespacedName
+	var mergedMtlsAttributes *elbv2model.MutualAuthenticationAttributes
 
 	for _, cfg := range listenPortConfigs {
 		if mergedProtocolProvider == nil {
@@ -321,6 +332,17 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 			}
 		}
 
+		if len(cfg.listenPortConfig.prefixLists) != 0 {
+			cfgInboundPrefixLists := sets.NewString(cfg.listenPortConfig.prefixLists...)
+			if mergedInboundPrefixListsProvider == nil {
+				mergedInboundPrefixListsProvider = &cfg.ingKey
+				mergedInboundPrefixLists = cfgInboundPrefixLists
+			} else if !mergedInboundPrefixLists.Equal(cfgInboundPrefixLists) {
+				return listenPortConfig{}, errors.Errorf("conflicting inbound-prefix-lists, %v: %v | %v: %v",
+					*mergedInboundPrefixListsProvider, mergedInboundPrefixLists.List(), cfg.ingKey, cfgInboundPrefixLists.List())
+			}
+		}
+
 		if cfg.listenPortConfig.sslPolicy != nil {
 			if mergedSSLPolicyProvider == nil {
 				mergedSSLPolicyProvider = &cfg.ingKey
@@ -338,9 +360,20 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 			mergedTLSCertsSet.Insert(cert)
 			mergedTLSCerts = append(mergedTLSCerts, cert)
 		}
+
+		if cfg.listenPortConfig.mutualAuthentication != nil {
+			if mergedMtlsAttributesProvider == nil {
+				mergedMtlsAttributesProvider = &cfg.ingKey
+				mergedMtlsAttributes = cfg.listenPortConfig.mutualAuthentication
+			} else if !reflect.DeepEqual(mergedMtlsAttributes, cfg.listenPortConfig.mutualAuthentication) {
+				return listenPortConfig{}, errors.Errorf("conflicting mTLS Attributes, %v: %v | %v: %v",
+					*mergedMtlsAttributesProvider, mergedMtlsAttributes, cfg.ingKey, cfg.listenPortConfig.mutualAuthentication)
+			}
+		}
+
 	}
 
-	if len(mergedInboundCIDRv4s) == 0 && len(mergedInboundCIDRv6s) == 0 {
+	if len(mergedInboundCIDRv4s) == 0 && len(mergedInboundCIDRv6s) == 0 && len(mergedInboundPrefixLists) == 0 {
 		mergedInboundCIDRv4s.Insert("0.0.0.0/0")
 		mergedInboundCIDRv6s.Insert("::/0")
 	}
@@ -349,11 +382,13 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 	}
 
 	return listenPortConfig{
-		protocol:       mergedProtocol,
-		inboundCIDRv4s: mergedInboundCIDRv4s.List(),
-		inboundCIDRv6s: mergedInboundCIDRv6s.List(),
-		sslPolicy:      mergedSSLPolicy,
-		tlsCerts:       mergedTLSCerts,
+		protocol:             mergedProtocol,
+		inboundCIDRv4s:       mergedInboundCIDRv4s.List(),
+		inboundCIDRv6s:       mergedInboundCIDRv6s.List(),
+		prefixLists:          mergedInboundPrefixLists.List(),
+		sslPolicy:            mergedSSLPolicy,
+		tlsCerts:             mergedTLSCerts,
+		mutualAuthentication: mergedMtlsAttributes,
 	}, nil
 }
 

@@ -28,11 +28,11 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 	networkingSGManager networking.SecurityGroupManager,
 	networkingSGReconciler networking.SecurityGroupReconciler,
 	vpcEndpointServiceManager networking.VPCEndpointServiceManager,
+	elbv2TaggingManager elbv2.TaggingManager,
 	config config.ControllerConfig, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
 
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
 	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, vpcEndpointServiceManager, cloud.VpcID(), logger)
-	elbv2TaggingManager := elbv2.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), config.FeatureGates, cloud.RGT(), logger)
 
 	return &defaultStackDeployer{
 		cloud:                               cloud,

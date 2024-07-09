@@ -6,12 +6,13 @@ replicaCount: 2
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.6.0
+  tag: v2.7.0
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
+runtimeClassName: ""
 
 serviceAccount:
   # Specifies whether a service account should be created
@@ -209,6 +210,12 @@ disableIngressClassAnnotation:
 # disableIngressGroupNameAnnotation disables the usage of alb.ingress.kubernetes.io/group.name annotation, false by default
 disableIngressGroupNameAnnotation:
 
+# tolerateNonExistentBackendService permits rules which specify backend services that don't exist, true by default (When enabled, it will return 503 error if backend service not exist)
+tolerateNonExistentBackendService:
+
+# tolerateNonExistentBackendAction permits rules which specify backend actions that don't exist, true by default (When enabled, it will return 503 error if backend action not exist)
+tolerateNonExistentBackendAction:
+
 # defaultSSLPolicy specifies the default SSL policy to use for TLS/HTTPS listeners
 defaultSSLPolicy:
 
@@ -324,3 +331,25 @@ clusterSecretsPermissions:
 # ingressClassConfig contains configurations specific to the ingress class
 ingressClassConfig:
   default: false
+
+# enableServiceMutatorWebhook allows you enable the webhook which makes this controller the default for all new services of type LoadBalancer
+# should deprecate this in favor of serviceMutatorWebhook.enabled
+enableServiceMutatorWebhook: true
+
+# serviceMutatorWebhook contains configurations specific to the service mutator webhook
+serviceMutatorWebhookConfig:
+  # whether or not to fail the service creation if the webhook fails
+  failurePolicy: Fail
+  # limit webhook to only mutate services matching the objectSelector
+  objectSelector:
+    matchExpressions: []
+    # - key: <key>
+    #   operator: <operator>
+    #   values:
+    #   - <value>
+    matchLabels: {}
+      # key: value
+  # which operations trigger the webhook
+  operations:
+  - CREATE
+  # - UPDATE

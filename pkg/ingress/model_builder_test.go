@@ -308,6 +308,7 @@ const baseStackJSON = `
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
                             },
                             "targetType":"instance",
+                            "vpcID": "vpc-dummy",
                             "ipAddressType":"ipv4",
                             "serviceRef":{
                                 "name":"svc-1",
@@ -350,6 +351,7 @@ const baseStackJSON = `
                             },
                             "targetType":"instance",
                             "ipAddressType":"ipv4",
+                            "vpcID": "vpc-dummy",
                             "serviceRef":{
                                 "name":"svc-2",
                                 "port":"http"
@@ -390,6 +392,7 @@ const baseStackJSON = `
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
                             },
                             "targetType":"ip",
+                            "vpcID": "vpc-dummy",
                             "ipAddressType":"ipv4",
                             "serviceRef":{
                                 "name":"svc-3",
@@ -1017,8 +1020,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 								Namespace: "ns-1",
 								Name:      "ing-1",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/scheme":          "internet-facing",
-									"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-east-1:9999999:certificate/22222222,arn:aws:acm:us-east-1:9999999:certificate/33333333,arn:aws:acm:us-east-1:9999999:certificate/11111111,,arn:aws:acm:us-east-1:9999999:certificate/11111111",
+									"alb.ingress.kubernetes.io/scheme":                "internet-facing",
+									"alb.ingress.kubernetes.io/certificate-arn":       "arn:aws:acm:us-east-1:9999999:certificate/22222222,arn:aws:acm:us-east-1:9999999:certificate/33333333,arn:aws:acm:us-east-1:9999999:certificate/11111111,,arn:aws:acm:us-east-1:9999999:certificate/11111111",
+									"alb.ingress.kubernetes.io/mutual-authentication": `[{"port":443,"mode":"off"}]`,
 								},
 							},
 								Spec: networking.IngressSpec{
@@ -1130,7 +1134,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 					"port": 443,
 					"protocol": "HTTPS",
-					"sslPolicy": "ELBSecurityPolicy-2016-08"
+					"sslPolicy": "ELBSecurityPolicy-2016-08",
+                    "mutualAuthentication" : {
+						"mode" : "off",
+                        "trustStoreArn": ""
+					}
 				}
 			},
 			"80": null
@@ -1439,6 +1447,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						"spec": {
 							"ipAddressType": "ipv4",
+							"vpcID": "vpc-dummy",
 							"networking": {
 								"ingress": [
 									{
@@ -1736,6 +1745,271 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					"port": 443,
 					"protocol": "HTTPS",
 					"sslPolicy": "ingress-class-policy"
+				}
+			},
+			"80": null
+		},
+		"AWS::ElasticLoadBalancingV2::ListenerRule": {
+			"443:1": {
+				"spec": {
+					"actions": [
+						{
+							"forwardConfig": {
+								"targetGroups": [
+									{
+										"targetGroupARN": {
+											"$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
+										}
+									}
+								]
+							},
+							"type": "forward"
+						}
+					],
+					"conditions": [
+						{
+							"field": "host-header",
+							"hostHeaderConfig": {
+								"values": [
+									"app-1.example.com"
+								]
+							}
+						},
+						{
+							"field": "path-pattern",
+							"pathPatternConfig": {
+								"values": [
+									"/svc-1"
+								]
+							}
+						}
+					],
+					"listenerARN": {
+						"$ref": "#/resources/AWS::ElasticLoadBalancingV2::Listener/443/status/listenerARN"
+					},
+					"priority": 1
+				}
+			},
+			"443:2": {
+				"spec": {
+					"actions": [
+						{
+							"forwardConfig": {
+								"targetGroups": [
+									{
+										"targetGroupARN": {
+											"$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-2:http/status/targetGroupARN"
+										}
+									}
+								]
+							},
+							"type": "forward"
+						}
+					],
+					"conditions": [
+						{
+							"field": "host-header",
+							"hostHeaderConfig": {
+								"values": [
+									"app-1.example.com"
+								]
+							}
+						},
+						{
+							"field": "path-pattern",
+							"pathPatternConfig": {
+								"values": [
+									"/svc-2"
+								]
+							}
+						}
+					],
+					"listenerARN": {
+						"$ref": "#/resources/AWS::ElasticLoadBalancingV2::Listener/443/status/listenerARN"
+					},
+					"priority": 2
+				}
+			},
+			"443:3": {
+				"spec": {
+					"actions": [
+						{
+							"forwardConfig": {
+								"targetGroups": [
+									{
+										"targetGroupARN": {
+											"$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
+										}
+									}
+								]
+							},
+							"type": "forward"
+						}
+					],
+					"conditions": [
+						{
+							"field": "host-header",
+							"hostHeaderConfig": {
+								"values": [
+									"app-2.example.com"
+								]
+							}
+						},
+						{
+							"field": "path-pattern",
+							"pathPatternConfig": {
+								"values": [
+									"/svc-3"
+								]
+							}
+						}
+					],
+					"listenerARN": {
+						"$ref": "#/resources/AWS::ElasticLoadBalancingV2::Listener/443/status/listenerARN"
+					},
+					"priority": 3
+				}
+			},
+			"80:1": null,
+			"80:2": null,
+			"80:3": null
+		}
+	}
+}`,
+		},
+		{
+			name: "Ingress - certificate-arn in IngressClassParams",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										CertificateArn: []string{"arn:aws:acm:us-east-1:9999999:certificate/ingress-class-certificate-arn"},
+									},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-east-1:9999999:certificate/annotated-certificate-arn",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::EC2::SecurityGroup": {
+			"ManagedLBSecurityGroup": {
+				"spec": {
+					"ingress": [
+						{
+							"fromPort": 443,
+							"ipProtocol": "tcp",
+							"ipRanges": [
+								{
+									"cidrIP": "0.0.0.0/0"
+								}
+							],
+							"toPort": 443
+						}
+					]
+				}
+			}
+		},
+		"AWS::ElasticLoadBalancingV2::Listener": {
+			"443": {
+				"spec": {
+					"certificates": [
+						{
+							"certificateARN": "arn:aws:acm:us-east-1:9999999:certificate/ingress-class-certificate-arn"
+						}
+					],
+					"defaultActions": [
+						{
+							"fixedResponseConfig": {
+								"contentType": "text/plain",
+								"statusCode": "404"
+							},
+							"type": "fixed-response"
+						}
+					],
+					"loadBalancerARN": {
+						"$ref": "#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+					},
+					"port": 443,
+					"protocol": "HTTPS",
+					"sslPolicy": "ELBSecurityPolicy-2016-08"
 				}
 			},
 			"80": null
@@ -2423,6 +2697,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						"spec": {
 							"ipAddressType": "ipv6",
+							"vpcID": "vpc-dummy",
 							"networking": {
 								"ingress": [
 									{
@@ -2689,6 +2964,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						"spec": {
 							"ipAddressType": "ipv4",
+							"vpcID": "vpc-dummy",
 							"networking": {
 								"ingress": [
 									{
@@ -2848,6 +3124,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 						},
 						"spec": {
 							"ipAddressType": "ipv4",
+							"vpcID": "vpc-dummy",
 							"networking": {
 								"ingress": [
 									{
@@ -2883,6 +3160,476 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 	}
 }`,
 		},
+		{
+			name: "Ingress - default IPv4 CIDR when no IP range",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace:   "ns-1",
+								Name:        "ing-1",
+								Annotations: map[string]string{},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::EC2::SecurityGroup": {
+			"ManagedLBSecurityGroup": {
+				"spec": {
+					"ingress": [
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"ipRanges": [
+								{
+									"cidrIP": "0.0.0.0/0"
+								}
+							],
+							"toPort": 80
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
+		},
+		{
+			name: "Ingress - default dualstack CIDR when no IP range",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/ip-address-type": "dualstack",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::EC2::SecurityGroup": {
+			"ManagedLBSecurityGroup": {
+				"spec": {
+					"ingress": [
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"ipRanges": [
+								{
+									"cidrIP": "0.0.0.0/0"
+								}
+							],
+							"toPort": 80
+						},
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"ipv6Ranges": [
+								{
+									"cidrIPv6": "::/0"
+								}
+							],
+							"toPort": 80
+						}
+					]
+				}
+			}
+		},
+		"AWS::ElasticLoadBalancingV2::LoadBalancer": {
+			"LoadBalancer": {
+				"spec": {
+					"ipAddressType": "dualstack"
+				}
+			}
+		}
+	}
+}`,
+		},
+		{
+			name: "Ingress - ingress with managed prefix list",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::EC2::SecurityGroup": {
+			"ManagedLBSecurityGroup": {
+				"spec": {
+					"ingress": [
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"prefixLists": [
+								{
+									"listID": "pl-00000000"
+								}
+							],
+							"toPort": 80
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
+		},
+		{
+			name: "Ingress - ingress mixed ip address & managed prefix list",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/inbound-cidrs":               "20.45.16.0/26",
+									"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::EC2::SecurityGroup": {
+			"ManagedLBSecurityGroup": {
+				"spec": {
+					"ingress": [
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"ipRanges": [
+								{
+									"cidrIP": "20.45.16.0/26"
+								}
+							],
+							"toPort": 80
+						},
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"prefixLists": [
+								{
+									"listID": "pl-00000000"
+								}
+							],
+							"toPort": 80
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2896,7 +3643,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			ctx := context.Background()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewFakeClientWithScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 			for _, svc := range tt.env.svcs {
 				assert.NoError(t, k8sClient.Create(ctx, svc.DeepCopy()))
 			}
@@ -2904,6 +3651,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			vpcID := "vpc-dummy"
 			clusterName := "cluster-dummy"
 			ec2Client := services.NewMockEC2(ctrl)
+			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, res := range tt.fields.describeSecurityGroupsResult {
 				ec2Client.EXPECT().DescribeSecurityGroupsAsList(gomock.Any(), gomock.Any()).Return(res.securityGroups, res.err)
 			}
@@ -2915,7 +3663,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			certDiscovery := NewMockCertDiscovery(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
-			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder)
+			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, true, true)
 			ruleOptimizer := NewDefaultRuleOptimizer(logr.New(&log.NullLogSink{}))
 			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
 			stackMarshaller := deploy.NewDefaultStackMarshaller()
@@ -2938,6 +3686,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				k8sClient:              k8sClient,
 				eventRecorder:          eventRecorder,
 				ec2Client:              ec2Client,
+				elbv2Client:            elbv2Client,
 				vpcID:                  vpcID,
 				clusterName:            clusterName,
 				annotationParser:       annotationParser,

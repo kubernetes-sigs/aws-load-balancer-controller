@@ -11,6 +11,7 @@ metadata:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
       {{- include "aws-load-balancer-controller.selectorLabels" . | nindent 6 }}
@@ -38,6 +39,9 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
     {{- end }}
+    {{- with .Values.runtimeClassName }}
+      runtimeClassName: {{ .Values.runtimeClassName }}
+    {{- end }}
       serviceAccountName: {{ include "aws-load-balancer-controller.serviceAccountName" . }}
       volumes:
       - name: cert
@@ -58,15 +62,17 @@ spec:
       containers:
       - name: {{ .Chart.Name }}
         args:
-        - --cluster-name={{ required "Chart cannot be installed without a valid clusterName!" .Values.clusterName }}
+        - --cluster-name={{ required "Chart cannot be installed without a valid clusterName!" (tpl (default "" .Values.clusterName) .) }}
         {{- if .Values.ingressClass }}
         - --ingress-class={{ .Values.ingressClass }}
         {{- end }}
-        {{- if .Values.region }}
+        {{- $region := tpl (default "" .Values.region) . }}
+        {{- if $region }}
         - --aws-region={{ .Values.region }}
         {{- end }}
-        {{- if .Values.vpcId }}
-        - --aws-vpc-id={{ .Values.vpcId }}
+        {{- $vpcID := tpl (default "" .Values.vpcId) . }}
+        {{- if $vpcID }}
+        - --aws-vpc-id={{ $vpcID }}
         {{- end }}
         {{- if .Values.awsApiEndpoints }}
         - --aws-api-endpoints={{ .Values.awsApiEndpoints }}
@@ -122,6 +128,12 @@ spec:
         {{- if kindIs "bool" .Values.disableIngressGroupNameAnnotation }}
         - --disable-ingress-group-name-annotation={{ .Values.disableIngressGroupNameAnnotation }}
         {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendService }}
+        - --tolerate-non-existent-backend-service={{ .Values.tolerateNonExistentBackendService }}
+        {{- end }}
+        {{- if kindIs "bool" .Values.tolerateNonExistentBackendAction }}
+        - --tolerate-non-existent-backend-action={{ .Values.tolerateNonExistentBackendAction }}
+        {{- end }}
         {{- if .Values.defaultSSLPolicy }}
         - --default-ssl-policy={{ .Values.defaultSSLPolicy }}
         {{- end }}
@@ -149,11 +161,39 @@ spec:
         {{- if ne .Values.defaultTargetType "instance" }}
         - --default-target-type={{ .Values.defaultTargetType }}
         {{- end }}
-        {{- if .Values.env }}
+        {{- if .Values.serviceTargetENISGTags }}
+        - --service-target-eni-security-group-tags={{ .Values.serviceTargetENISGTags }}
+        {{- end }}
+        {{- if .Values.certDiscovery.allowedCertificateAuthorityARNs }}
+        - --allowed-certificate-authority-arns={{ .Values.certDiscovery.allowedCertificateAuthorityARNs }}
+        {{- end }}
+        {{- if .Values.loadBalancerClass }}
+        - --load-balancer-class={{ .Values.loadBalancerClass }}
+        {{- end }}
+        {{- if or .Values.env .Values.envSecretName .Values.envFrom }}
         env:
+        {{- if .Values.env}}
         {{- range $key, $value := .Values.env }}
         - name: {{ $key }}
           value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
+        {{- if .Values.envFrom }}
+        {{ .Values.envFrom | toYaml | nindent 8 }}
+        {{- end }}
+        {{- if .Values.envSecretName  }}
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.envSecretName }}
+              key: key_id
+              optional: true
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.envSecretName }}
+              key: access_key
+              optional: true
         {{- end }}
         {{- end }}
         securityContext:
@@ -178,6 +218,10 @@ spec:
           {{- toYaml .Values.resources | nindent 10 }}
         {{- with .Values.livenessProbe }}
         livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.readinessProbe }}
+        readinessProbe:
           {{- toYaml . | nindent 10 }}
         {{- end }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
