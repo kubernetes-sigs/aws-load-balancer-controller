@@ -7,6 +7,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/pkg/errors"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
@@ -35,6 +36,7 @@ type defaultSecurityGroupResolver struct {
 func (r *defaultSecurityGroupResolver) ResolveViaNameOrID(ctx context.Context, sgNameOrIDs []string) ([]string, error) {
 	sgIDs, sgNames := r.splitIntoSgNameAndIDs(sgNameOrIDs)
 	var resolvedSGs []*ec2sdk.SecurityGroup
+
 	if len(sgIDs) > 0 {
 		sgs, err := r.resolveViaGroupID(ctx, sgIDs)
 		if err != nil {
@@ -42,6 +44,7 @@ func (r *defaultSecurityGroupResolver) ResolveViaNameOrID(ctx context.Context, s
 		}
 		resolvedSGs = append(resolvedSGs, sgs...)
 	}
+
 	if len(sgNames) > 0 {
 		sgs, err := r.resolveViaGroupName(ctx, sgNames)
 		if err != nil {
@@ -49,13 +52,12 @@ func (r *defaultSecurityGroupResolver) ResolveViaNameOrID(ctx context.Context, s
 		}
 		resolvedSGs = append(resolvedSGs, sgs...)
 	}
+
 	resolvedSGIDs := make([]string, 0, len(resolvedSGs))
 	for _, sg := range resolvedSGs {
 		resolvedSGIDs = append(resolvedSGIDs, awssdk.StringValue(sg.GroupId))
 	}
-	if len(resolvedSGIDs) != len(sgNameOrIDs) {
-		return nil, errors.Errorf("couldn't find all securityGroups, nameOrIDs: %v, found: %v", sgNameOrIDs, resolvedSGIDs)
-	}
+
 	return resolvedSGIDs, nil
 }
 
@@ -63,14 +65,31 @@ func (r *defaultSecurityGroupResolver) resolveViaGroupID(ctx context.Context, sg
 	req := &ec2sdk.DescribeSecurityGroupsInput{
 		GroupIds: awssdk.StringSlice(sgIDs),
 	}
+
 	sgs, err := r.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}
+
+	resolvedSGIDs := make([]string, 0, len(sgs))
+	for _, sg := range sgs {
+		resolvedSGIDs = append(resolvedSGIDs, awssdk.StringValue(sg.GroupId))
+	}
+
+	if len(sgIDs) != len(resolvedSGIDs) {
+		return nil, errors.Errorf(
+			"couldn't find all securityGroups, requested ids: [%s], found: [%s]",
+			strings.Join(sgIDs, ", "),
+			strings.Join(resolvedSGIDs, ", "),
+		)
+	}
+
 	return sgs, nil
 }
 
 func (r *defaultSecurityGroupResolver) resolveViaGroupName(ctx context.Context, sgNames []string) ([]*ec2sdk.SecurityGroup, error) {
+	sgNames = algorithm.RemoveSliceDuplicates(sgNames)
+
 	req := &ec2sdk.DescribeSecurityGroupsInput{
 		Filters: []*ec2sdk.Filter{
 			{
@@ -83,10 +102,31 @@ func (r *defaultSecurityGroupResolver) resolveViaGroupName(ctx context.Context, 
 			},
 		},
 	}
+
 	sgs, err := r.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}
+
+	resolvedSGNames := make([]string, 0, len(sgs))
+	for _, sg := range sgs {
+		for _, tag := range sg.Tags {
+			if awssdk.StringValue(tag.Key) == "Name" {
+				resolvedSGNames = append(resolvedSGNames, awssdk.StringValue(tag.Value))
+			}
+		}
+	}
+
+	resolvedSGNames = algorithm.RemoveSliceDuplicates(resolvedSGNames)
+
+	if len(sgNames) != len(resolvedSGNames) {
+		return nil, errors.Errorf(
+			"couldn't find all securityGroups, requested names: [%s], found: [%s]",
+			strings.Join(sgNames, ", "),
+			strings.Join(resolvedSGNames, ", "),
+		)
+	}
+
 	return sgs, nil
 }
 
