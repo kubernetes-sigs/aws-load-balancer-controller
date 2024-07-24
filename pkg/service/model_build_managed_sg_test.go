@@ -5,12 +5,16 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
+	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
@@ -20,10 +24,11 @@ func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
 		prefixListsConfigured bool
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		want    []string
-		wantErr bool
+		name      string
+		fields    fields
+		setupMock func(MockVPCInfoProvider *networking.MockVPCInfoProvider)
+		want      []string
+		wantErr   bool
 	}{
 		{
 			name: "default IPv4",
@@ -36,7 +41,8 @@ func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
 				ipAddressType:         elbv2model.IPAddressTypeIPV4,
 				prefixListsConfigured: false,
 			},
-			wantErr: false,
+			setupMock: func(MockVPCInfoProvider *networking.MockVPCInfoProvider) {},
+			wantErr:   false,
 			want: []string{
 				"0.0.0.0/0",
 			},
@@ -54,7 +60,8 @@ func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
 				ipAddressType:         elbv2model.IPAddressTypeDualStack,
 				prefixListsConfigured: false,
 			},
-			wantErr: false,
+			setupMock: func(MockVPCInfoProvider *networking.MockVPCInfoProvider) {},
+			wantErr:   false,
 			want: []string{
 				"0.0.0.0/0",
 				"::/0",
@@ -73,16 +80,79 @@ func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
 				ipAddressType:         elbv2model.IPAddressTypeDualStack,
 				prefixListsConfigured: true,
 			},
+			setupMock: func(MockVPCInfoProvider *networking.MockVPCInfoProvider) {},
+			wantErr:   false,
+			want:      nil,
+		},
+		{
+			name: "fetch vpc info for internal scheme",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
+						},
+					},
+				},
+				ipAddressType:         elbv2model.IPAddressTypeDualStack,
+				prefixListsConfigured: false,
+			},
+			setupMock: func(MockVPCInfoProvider *networking.MockVPCInfoProvider) {
+				vpcInfo := networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2sdk.VpcCidrBlockAssociation{
+							{
+								CidrBlock:      aws.String("192.168.0.0/16"),
+								CidrBlockState: &ec2sdk.VpcCidrBlockState{State: aws.String(ec2sdk.VpcCidrBlockStateCodeAssociated)},
+							},
+						},
+						Ipv6CidrBlockAssociationSet: []*ec2sdk.VpcIpv6CidrBlockAssociation{
+							{
+								Ipv6CidrBlock:      aws.String("fd00::/8"),
+								Ipv6CidrBlockState: &ec2sdk.VpcCidrBlockState{State: aws.String(ec2sdk.VpcCidrBlockStateCodeAssociated)},
+							},
+						},
+					}
+					MockVPCInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), "vpc-1234", gomock.Any()).Return(vpcInfo, nil)
+				},
 			wantErr: false,
+			want: []string{
+				"192.168.0.0/16",
+				"fd00::/8",
+			},
+		},
+		{
+			name: "error fetching vpc info",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
+						},
+					},
+				},
+				ipAddressType:         elbv2model.IPAddressTypeDualStack,
+				prefixListsConfigured: false,
+			},
+			setupMock: func(MockVPCInfoProvider *networking.MockVPCInfoProvider) {
+				MockVPCInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), "vpc-1234", gomock.Any()).Return(networking.VPCInfo{}, errors.New("failed to fetch vpcInfo"))
+			},
+			wantErr: true,
 			want:    nil,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t1 *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockVPCInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+			tt.setupMock(mockVPCInfoProvider)
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			task := &defaultModelBuildTask{
 				annotationParser: annotationParser,
 				service:          tt.fields.svc,
+				vpcID:            "vpc-1234",
+				vpcInfoProvider: mockVPCInfoProvider,
 			}
 			got, err := task.buildCIDRsFromSourceRanges(context.Background(), tt.fields.ipAddressType, tt.fields.prefixListsConfigured)
 			if tt.wantErr {

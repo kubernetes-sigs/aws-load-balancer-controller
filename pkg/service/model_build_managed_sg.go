@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 const (
@@ -115,7 +116,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 	return permissions, nil
 }
 
-func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(_ context.Context, ipAddressType elbv2model.IPAddressType, prefixListsConfigured bool) ([]string, error) {
+func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(ctx context.Context, ipAddressType elbv2model.IPAddressType, prefixListsConfigured bool) ([]string, error) {
 	var cidrs []string
 	for _, cidr := range t.service.Spec.LoadBalancerSourceRanges {
 		cidrs = append(cidrs, cidr)
@@ -132,9 +133,22 @@ func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(_ context.Context, ip
 		if prefixListsConfigured {
 			return cidrs, nil
 		}
-		cidrs = append(cidrs, "0.0.0.0/0")
-		if ipAddressType == elbv2model.IPAddressTypeDualStack {
-			cidrs = append(cidrs, "::/0")
+		var scheme string
+		ok := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixScheme, &scheme, t.service.Annotations)
+		if ok && (scheme == string(elbv2model.LoadBalancerSchemeInternal) || scheme == "") {
+			vpcInfo, err := t.vpcInfoProvider.FetchVPCInfo(ctx, t.vpcID, networking.FetchVPCInfoWithoutCache())
+			if err != nil {
+				return cidrs, err
+			}
+			cidrs = append(cidrs, vpcInfo.AssociatedIPv4CIDRs()...)
+			if ipAddressType == elbv2model.IPAddressTypeDualStack {
+				cidrs = append(cidrs, vpcInfo.AssociatedIPv6CIDRs()...)
+			}
+		} else {
+			cidrs = append(cidrs, "0.0.0.0/0")
+			if ipAddressType == elbv2model.IPAddressTypeDualStack {
+				cidrs = append(cidrs, "::/0")
+			}
 		}
 	}
 	return cidrs, nil
