@@ -3427,9 +3427,23 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			},
 			enableBackendSG:          true,
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForTwoSubnet},
-			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			backendSecurityGroup:     "sg-backend",
-			wantError:                false,
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("192.168.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: &cidrBlockStateAssociated,
+								},
+							},
+						},
+					},
+				},
+			},
+			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			backendSecurityGroup:  "sg-backend",
+			wantError:             false,
 			wantValue: `
 {
  "id":"default/nlb-ip-svc",
@@ -3446,7 +3460,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 80,
                    "ipRanges": [
                       {
-                         "cidrIP": "0.0.0.0/0"
+                         "cidrIP": "192.168.0.0/16"
                       }
                    ]
                 },
@@ -3456,7 +3470,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 83,
                    "ipRanges": [
                       {
-                         "cidrIP": "0.0.0.0/0"
+                         "cidrIP": "192.168.0.0/16"
                       }
                    ]
                 }
