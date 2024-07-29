@@ -1486,7 +1486,7 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			Name:      "svc-2",
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type: corev1.ServiceTypeExternalName,
 			Ports: []corev1.ServicePort{
 				{
 					Name:     "http",
@@ -1652,7 +1652,7 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "clusterIP service is not supported",
+			name: "ExternalName service is not supported",
 			env: env{
 				nodes:    []*corev1.Node{node1, node2, node3, node4},
 				services: []*corev1.Service{svc2},
@@ -1662,7 +1662,7 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 				port:   intstr.FromString("http"),
 				opts:   []EndpointResolveOption{WithNodeSelector(labels.Set{"labelA": "valueA"}.AsSelectorPreValidated())},
 			},
-			wantErr: errors.New("service type must be either 'NodePort' or 'LoadBalancer': test-ns/svc-2"),
+			wantErr: errors.New("service type must be either 'NodePort' or 'LoadBalancer' or 'ClusterIP': test-ns/svc-2"),
 		},
 		{
 			name: "service not found",
