@@ -204,7 +204,7 @@ func (m *defaultNetworkingManager) reconcileWithIngressPermissionsPerSG(ctx cont
 	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
 	var sgReconciliationErrors []error
 	for sgID, permissions := range aggregatedIngressPermissionsPerSG {
-		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, permissions,
+		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, permissions, m.clusterName,
 			networking.WithPermissionSelector(permissionSelector),
 			networking.WithAuthorizeOnly(!computedForAllTGBs)); err != nil {
 			sgReconciliationErrors = append(sgReconciliationErrors, err)
@@ -485,7 +485,7 @@ func (m *defaultNetworkingManager) gcIngressPermissionsFromUnusedEndpointSGs(ctx
 
 	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
 	for sgID := range unusedEndpointSGs {
-		err := m.sgReconciler.ReconcileIngress(ctx, sgID, nil,
+		err := m.sgReconciler.ReconcileIngress(ctx, sgID, nil, m.clusterName,
 			networking.WithPermissionSelector(permissionSelector))
 		if err != nil {
 			if isEC2SecurityGroupNotFoundError(err) {

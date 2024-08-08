@@ -90,7 +90,7 @@ func (m *defaultSecurityGroupManager) Create(ctx context.Context, resSG *ec2mode
 		"resourceID", resSG.ID(),
 		"securityGroupID", sgID)
 
-	if err := m.networkingSGReconciler.ReconcileIngress(ctx, sgID, permissionInfos); err != nil {
+	if err := m.networkingSGReconciler.ReconcileIngress(ctx, sgID, permissionInfos, m.trackingProvider.GetClusterName()); err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
 
@@ -107,7 +107,7 @@ func (m *defaultSecurityGroupManager) Update(ctx context.Context, resSG *ec2mode
 	if err := m.updateSDKSecurityGroupGroupWithTags(ctx, resSG, sdkSG); err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
-	if err := m.networkingSGReconciler.ReconcileIngress(ctx, sdkSG.SecurityGroupID, permissionInfos); err != nil {
+	if err := m.networkingSGReconciler.ReconcileIngress(ctx, sdkSG.SecurityGroupID, permissionInfos, m.trackingProvider.GetClusterName()); err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
 	return ec2model.SecurityGroupStatus{
