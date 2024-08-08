@@ -907,35 +907,53 @@ In addition, you can use annotations to specify additional tags
 
 ## Addons
 
-!!!note
-    If waf-acl-arn is specified via the ingress annotations, the controller will make sure the waf-acl is associated to the provisioned ALB with the ingress. 
-    If there is not such annotation, the controller will make sure no waf-acl is associated, so it may remove the existing waf-acl on the ALB provisioned. 
-    If users do not want the controller to manage the waf-acl on the ALBs, they can disable the feature by setting controller command line flags `--enable-waf=false` or `--enable-wafv2=false`
-
-- <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amazon WAF web ACL.
+- <a name="waf-acl-id">`alb.ingress.kubernetes.io/waf-acl-id`</a> specifies the identifier for the Amazon WAF Classic web ACL.
 
     !!!warning ""
-        Only Regional WAF is supported.
+        Only Regional WAF Classic is supported.
+
+    !!!note ""
+        When this annotation is absent or empty, the controller will keep LoadBalancer WAF Classic settings unchanged.
+        To disable WAF Classic, explicitly set the annotation value to 'none'.
 
     !!!example
-        ```alb.ingress.kubernetes.io/waf-acl-id: 499e8b99-6671-4614-a86d-adb1810b7fbe
-        ```
+        - enable WAF Classic
+            ```alb.ingress.kubernetes.io/waf-acl-id: 499e8b99-6671-4614-a86d-adb1810b7fbe
+            ```
+        - disable WAF Classic
+            ```alb.ingress.kubernetes.io/waf-acl-id: none
+            ```
 
 - <a name="wafv2-acl-arn">`alb.ingress.kubernetes.io/wafv2-acl-arn`</a> specifies ARN for the Amazon WAFv2 web ACL.
 
     !!!warning ""
         Only Regional WAFv2 is supported.
 
+    !!!note ""
+        When this annotation is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged.
+        To disable WAFv2, explicitly set the annotation value to 'none'.
+
     !!!tip ""
         To get the WAFv2 Web ACL ARN from the Console, click the gear icon in the upper right and enable the ARN column.
 
     !!!example
-        ```alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:us-west-2:xxxxx:regional/webacl/xxxxxxx/3ab78708-85b0-49d3-b4e1-7a9615a6613b
-        ```
-
+        - enable WAFv2
+            ```alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:us-west-2:xxxxx:regional/webacl/xxxxxxx/3ab78708-85b0-49d3-b4e1-7a9615a6613b
+            ```
+        - disable WAFV2
+            ```alb.ingress.kubernetes.io/wafv2-acl-arn: none
+            ```
+  
 - <a name="shield-advanced-protection">`alb.ingress.kubernetes.io/shield-advanced-protection`</a> turns on / off the AWS Shield Advanced protection for the load balancer.
 
-    !!!example
-        ```alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
-        ```
+    !!!note ""
+        When this annotation is absent, the controller will keep LoadBalancer shield protection settings unchanged.
+        To disable shield protection, explicitly set the annotation value to 'false'.
 
+    !!!example
+        - enable shield protection
+            ```alb.ingress.kubernetes.io/shield-advanced-protection: 'true'
+            ```
+        - disable shield protection
+            ```alb.ingress.kubernetes.io/shield-advanced-protection: 'false'
+            ```
