@@ -127,13 +127,25 @@ func (m *defaultSecurityGroupManager) FetchSGInfosByRequest(ctx context.Context,
 
 func (m *defaultSecurityGroupManager) AuthorizeSGIngress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error {
 	sdkIPPermissions := buildSDKIPPermissions(permissions)
+	tags := []*ec2sdk.Tag{
+		&ec2sdk.Tag{
+			Key:   awssdk.String(tagKeyK8sCluster),
+			Value: awssdk.String("clusterName"),
+		},
+	}
 	req := &ec2sdk.AuthorizeSecurityGroupIngressInput{
 		GroupId:       awssdk.String(sgID),
 		IpPermissions: sdkIPPermissions,
+		TagSpecifications: []*ec2sdk.TagSpecification{
+			{
+				ResourceType: awssdk.String("security-group-rule"),
+				Tags:         tags,
+			},
+		},
 	}
 	m.logger.Info("authorizing securityGroup ingress",
 		"securityGroupID", sgID,
-		"permission", sdkIPPermissions)
+		"permission", sdkIPPermissions, "Tags", tags)
 	if _, err := m.ec2Client.AuthorizeSecurityGroupIngressWithContext(ctx, req); err != nil {
 		return err
 	}
