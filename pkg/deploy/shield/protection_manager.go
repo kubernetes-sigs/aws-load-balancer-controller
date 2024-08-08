@@ -16,6 +16,7 @@ const (
 	// service subscription rarely changes, cache it with longer period.
 	defaultSubscriptionStateCacheTTL = 2 * time.Hour
 	subscriptionStateCacheKey        = "subscriptionState"
+	tagKeyK8sCluster                 = "elbv2.k8s.aws/cluster"
 )
 
 type ProtectionManager interface {
@@ -48,6 +49,7 @@ var _ ProtectionManager = &defaultProtectionManager{}
 
 type defaultProtectionManager struct {
 	shieldClient services.Shield
+	clusterName  string
 	logger       logr.Logger
 
 	protectionInfoByResourceARNCache    *cache.Expiring
@@ -65,6 +67,12 @@ func (m *defaultProtectionManager) CreateProtection(ctx context.Context, resourc
 	req := &shieldsdk.CreateProtectionInput{
 		ResourceArn: awssdk.String(resourceARN),
 		Name:        awssdk.String(protectionName),
+		Tags: []*shieldsdk.Tag{
+			&shieldsdk.Tag{
+				Key:   awssdk.String(tagKeyK8sCluster),
+				Value: awssdk.String(m.clusterName),
+			},
+		},
 	}
 	m.logger.Info("enabling shield protection",
 		"resourceARN", resourceARN,
