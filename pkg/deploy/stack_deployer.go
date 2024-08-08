@@ -46,7 +46,7 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 		elbv2TGBManager:                     elbv2.NewDefaultTargetGroupBindingManager(k8sClient, trackingProvider, logger),
 		wafv2WebACLAssociationManager:       wafv2.NewDefaultWebACLAssociationManager(cloud.WAFv2(), logger),
 		wafRegionalWebACLAssociationManager: wafregional.NewDefaultWebACLAssociationManager(cloud.WAFRegional(), logger),
-		shieldProtectionManager:             shield.NewDefaultProtectionManager(cloud.Shield(), logger),
+		shieldProtectionManager:             shield.NewDefaultProtectionManager(cloud.Shield(), config.ClusterName, logger),
 		featureGates:                        config.FeatureGates,
 		vpcID:                               cloud.VpcID(),
 		logger:                              logger,
@@ -106,6 +106,8 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) err
 			d.logger.Error(err, "unable to determine AWS Shield subscription state, skipping AWS shield reconciliation")
 		} else if shieldSubscribed {
 			synthesizers = append(synthesizers, shield.NewProtectionSynthesizer(d.shieldProtectionManager, d.logger, stack))
+		} else if !shieldSubscribed {
+			d.logger.Info("Shield enabled but not subscribed, skipping AWS shield reconciliation.")
 		}
 	}
 

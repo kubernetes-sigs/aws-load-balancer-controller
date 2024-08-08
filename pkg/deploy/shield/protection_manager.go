@@ -34,9 +34,10 @@ type ProtectionManager interface {
 	IsSubscribed(ctx context.Context) (bool, error)
 }
 
-func NewDefaultProtectionManager(shieldClient services.Shield, logger logr.Logger) *defaultProtectionManager {
+func NewDefaultProtectionManager(shieldClient services.Shield, clusterName string, logger logr.Logger) *defaultProtectionManager {
 	return &defaultProtectionManager{
 		shieldClient:                        shieldClient,
+		clusterName:                         clusterName,
 		logger:                              logger,
 		protectionInfoByResourceARNCache:    cache.NewExpiring(),
 		protectionInfoByResourceARNCacheTTL: defaultProtectionInfoByResourceARNCacheTTL,
@@ -76,7 +77,7 @@ func (m *defaultProtectionManager) CreateProtection(ctx context.Context, resourc
 	}
 	m.logger.Info("enabling shield protection",
 		"resourceARN", resourceARN,
-		"protectionName", protectionName)
+		"protectionName", protectionName, "TagKey", tagKeyK8sCluster, "TagValue", m.clusterName)
 	resp, err := m.shieldClient.CreateProtectionWithContext(ctx, req)
 	if err != nil {
 		return "", err
