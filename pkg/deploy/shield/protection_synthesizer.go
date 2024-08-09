@@ -2,11 +2,11 @@ package shield
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/shield"
 )
 
@@ -32,25 +32,18 @@ type protectionSynthesizer struct {
 
 func (s *protectionSynthesizer) Synthesize(ctx context.Context) error {
 	var resProtections []*shieldmodel.Protection
-	s.stack.ListResources(&resProtections)
+	if err := s.stack.ListResources(&resProtections); err != nil {
+		return fmt.Errorf("[should never happen] failed to list resources: %w", err)
+	}
+	if len(resProtections) == 0 {
+		return nil
+	}
 	resProtectionsByResARN, err := mapResProtectionByResourceARN(resProtections)
 	if err != nil {
 		return err
 	}
-
-	var resLBs []*elbv2model.LoadBalancer
-	s.stack.ListResources(&resLBs)
-	for _, resLB := range resLBs {
-		// shield protection can only be associated with ALB for now.
-		if resLB.Spec.Type != elbv2model.LoadBalancerTypeApplication {
-			continue
-		}
-		lbARN, err := resLB.LoadBalancerARN().Resolve(ctx)
-		if err != nil {
-			return err
-		}
-		resProtections := resProtectionsByResARN[lbARN]
-		if err := s.synthesizeProtectionsOnLB(ctx, lbARN, resProtections); err != nil {
+	for resARN, protections := range resProtectionsByResARN {
+		if err := s.synthesizeProtectionsOnLB(ctx, resARN, protections); err != nil {
 			return err
 		}
 	}
@@ -63,18 +56,13 @@ func (s *protectionSynthesizer) PostSynthesize(ctx context.Context) error {
 }
 
 func (s *protectionSynthesizer) synthesizeProtectionsOnLB(ctx context.Context, lbARN string, resProtections []*shieldmodel.Protection) error {
-	if len(resProtections) > 1 {
-		return errors.Errorf("[should never happen] multiple shield protection desired on LoadBalancer: %v", lbARN)
+	if len(resProtections) != 1 {
+		return errors.Errorf("[should never happen] should be exactly one shield protection desired on LoadBalancer: %v", lbARN)
 	}
-
-	enableProtection := false
-	if len(resProtections) == 1 {
-		enableProtection = true
-	}
-
+	enableProtection := resProtections[0].Spec.Enabled
 	protectionInfo, err := s.protectionManager.GetProtection(ctx, lbARN)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get shield protection on LoadBalancer")
 	}
 	switch {
 	case !enableProtection && protectionInfo != nil:
