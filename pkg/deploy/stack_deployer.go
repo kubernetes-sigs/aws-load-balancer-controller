@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -24,18 +25,21 @@ type StackDeployer interface {
 
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
 func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
-	networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
+	networkingSGManager networking.SecurityGroupManager,
+	networkingSGReconciler networking.SecurityGroupReconciler,
+	vpcEndpointServiceManager networking.VPCEndpointServiceManager,
 	elbv2TaggingManager elbv2.TaggingManager,
 	config config.ControllerConfig, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
 
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
-	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, cloud.VpcID(), logger)
+	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, vpcEndpointServiceManager, cloud.VpcID(), logger)
 
 	return &defaultStackDeployer{
 		cloud:                               cloud,
 		k8sClient:                           k8sClient,
 		addonsConfig:                        config.AddonsConfig,
 		trackingProvider:                    trackingProvider,
+		ec2ESManager:                        ec2.NewDefaultEndpointServiceManager(cloud.EC2(), cloud.VpcID(), logger, trackingProvider, ec2TaggingManager, config.ExternalManagedTags),
 		ec2TaggingManager:                   ec2TaggingManager,
 		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), trackingProvider, ec2TaggingManager, networkingSGReconciler, cloud.VpcID(), config.ExternalManagedTags, logger),
 		elbv2TaggingManager:                 elbv2TaggingManager,
@@ -61,6 +65,7 @@ type defaultStackDeployer struct {
 	k8sClient                           client.Client
 	addonsConfig                        config.AddonsConfig
 	trackingProvider                    tracking.Provider
+	ec2ESManager                        ec2.EndpointServiceManager
 	ec2TaggingManager                   ec2.TaggingManager
 	ec2SGManager                        ec2.SecurityGroupManager
 	elbv2TaggingManager                 elbv2.TaggingManager
@@ -107,6 +112,11 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) err
 		} else if shieldSubscribed {
 			synthesizers = append(synthesizers, shield.NewProtectionSynthesizer(d.shieldProtectionManager, d.logger, stack))
 		}
+	}
+	if d.addonsConfig.EndpointServiceEnabled {
+		// We need to synthesize endpoints before load balancers so we insert
+		// the endpoint synthesizer to the start of the list.
+		synthesizers = append([]ResourceSynthesizer{ec2.NewEndpointServiceSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2ESManager, d.vpcID, d.logger, stack)}, synthesizers...)
 	}
 
 	for _, synthesizer := range synthesizers {

@@ -23,6 +23,9 @@ type EC2 interface {
 	// DescribeSubnetsAsList wraps the DescribeSubnetsPagesWithContext API, which aggregates paged results into list.
 	DescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error)
 
+	// wrapper to DescribeVpcEndpointServiceConfigurationsPagesWithContext API, which aggregates paged results into list.
+	DescribeVpcEndpointServicesAsList(ctx context.Context, input *ec2.DescribeVpcEndpointServiceConfigurationsInput) ([]*ec2.ServiceConfiguration, error)
+
 	// DescribeVPCsAsList wraps the DescribeVpcsPagesWithContext API, which aggregates paged results into list.
 	DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeVpcsInput) ([]*ec2.Vpc, error)
 }
@@ -77,6 +80,17 @@ func (c *defaultEC2) DescribeSubnetsAsList(ctx context.Context, input *ec2.Descr
 	var result []*ec2.Subnet
 	if err := c.DescribeSubnetsPagesWithContext(ctx, input, func(output *ec2.DescribeSubnetsOutput, _ bool) bool {
 		result = append(result, output.Subnets...)
+		return true
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (c *defaultEC2) DescribeVpcEndpointServicesAsList(ctx context.Context, input *ec2.DescribeVpcEndpointServiceConfigurationsInput) ([]*ec2.ServiceConfiguration, error) {
+	var result []*ec2.ServiceConfiguration
+	if err := c.DescribeVpcEndpointServiceConfigurationsPagesWithContext(ctx, input, func(output *ec2.DescribeVpcEndpointServiceConfigurationsOutput, _ bool) bool {
+		result = append(result, output.ServiceConfigurations...)
 		return true
 	}); err != nil {
 		return nil, err

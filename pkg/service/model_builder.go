@@ -2,9 +2,6 @@ package service
 
 import (
 	"context"
-	"strconv"
-	"sync"
-
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -19,6 +16,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"strconv"
+	"sync"
 )
 
 const (
@@ -144,6 +143,9 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckTimeoutForInstanceModeLocal:            6,
 		defaultHealthCheckHealthyThresholdForInstanceModeLocal:   2,
 		defaultHealthCheckUnhealthyThresholdForInstanceModeLocal: 2,
+
+		defaultEndpointServiceAcceptanceRequired: true,
+		defaultEndpointServicePrivateDnsName:     "",
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -213,6 +215,10 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckTimeoutForInstanceModeLocal            int64
 	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int64
 	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int64
+
+	// Default VPC Endpoint Service settings
+	defaultEndpointServiceAcceptanceRequired bool
+	defaultEndpointServicePrivateDnsName     string
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {
@@ -246,6 +252,10 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 		return err
 	}
 	err = t.buildListeners(ctx, scheme)
+	if err != nil {
+		return err
+	}
+	err = t.buildEndpointService(ctx)
 	if err != nil {
 		return err
 	}
