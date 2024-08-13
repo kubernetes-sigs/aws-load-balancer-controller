@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -88,7 +89,7 @@ func (s *targetGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 func (s *targetGroupSynthesizer) findSDKTargetGroups(ctx context.Context) ([]TargetGroupWithTags, error) {
 	stackTags := s.trackingProvider.StackTags(s.stack)
 	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
-	return s.taggingManager.ListTargetGroups(ctx,
+	return s.taggingManager.ListTargetGroups(ctx, s.stack.GetVPCID(),
 		tracking.TagsAsTagFilter(stackTags),
 		tracking.TagsAsTagFilter(stackTagsLegacy))
 }

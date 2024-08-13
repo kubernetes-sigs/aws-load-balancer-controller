@@ -9,6 +9,8 @@ import (
 
 // An endpoint provided by pod directly.
 type PodEndpoint struct {
+	// Availability zone of Node on which Pod is scheduled
+	AvailabilityZone string
 	// Pod's IP.
 	IP string
 	// Pod's container port.
@@ -19,6 +21,8 @@ type PodEndpoint struct {
 
 // An endpoint provided by nodePort as traffic proxy.
 type NodePortEndpoint struct {
+	// Node's availability zone
+	AvailabilityZone string
 	// Node's instanceID.
 	InstanceID string
 	// Node's NodePort.

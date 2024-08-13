@@ -1,10 +1,11 @@
 package k8s
 
 import (
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	"regexp"
 	"strings"
+
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 )
 
 var awsInstanceIDRegex = regexp.MustCompile("^i-[^/]*$")
@@ -32,4 +33,15 @@ func ExtractNodeInstanceID(node *corev1.Node) (string, error) {
 		return "", errors.Errorf("providerID %s is invalid for EC2 instances, node: %s", providerID, node.Name)
 	}
 	return instanceID, nil
+}
+
+func ExtractNodeAvailabilityZone(node *corev1.Node) (string, error) {
+	providerID := node.Spec.ProviderID
+	if providerID == "" {
+		return "", errors.Errorf("providerID is not specified for node: %s", node.Name)
+	}
+
+	providerIDParts := strings.Split(providerID, "/")
+	availabilityZone := providerIDParts[len(providerIDParts)-2]
+	return availabilityZone, nil
 }

@@ -44,6 +44,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Contex
 		Description: "[k8s] Managed SecurityGroup for LoadBalancer",
 		Tags:        tags,
 		Ingress:     ingressPermissions,
+		VPCID:       t.stack.GetVPCID(),
 	}, nil
 }
 

@@ -167,6 +167,10 @@ type LoadBalancerSpec struct {
 	// The tags.
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// The VPC ID in which the LoadBalancer resides
+	// +optional
+	VpcId string `json:"vpcID,omitempty"`
 }
 
 // LoadBalancerStatus defines the observed state of LoadBalancer

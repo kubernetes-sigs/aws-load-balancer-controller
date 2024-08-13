@@ -35,16 +35,16 @@ func (m *MockSecurityGroupResolver) EXPECT() *MockSecurityGroupResolverMockRecor
 }
 
 // ResolveViaNameOrID mocks base method.
-func (m *MockSecurityGroupResolver) ResolveViaNameOrID(arg0 context.Context, arg1 []string) ([]string, error) {
+func (m *MockSecurityGroupResolver) ResolveViaNameOrID(arg0 context.Context, arg1 string, arg2 []string) ([]string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveViaNameOrID", arg0, arg1)
+	ret := m.ctrl.Call(m, "ResolveViaNameOrID", arg0, arg1, arg2)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ResolveViaNameOrID indicates an expected call of ResolveViaNameOrID.
-func (mr *MockSecurityGroupResolverMockRecorder) ResolveViaNameOrID(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockSecurityGroupResolverMockRecorder) ResolveViaNameOrID(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveViaNameOrID", reflect.TypeOf((*MockSecurityGroupResolver)(nil).ResolveViaNameOrID), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveViaNameOrID", reflect.TypeOf((*MockSecurityGroupResolver)(nil).ResolveViaNameOrID), arg0, arg1, arg2)
 }

@@ -767,14 +767,16 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			},
 			want: []PodEndpoint{
 				{
-					IP:   "192.168.1.1",
-					Port: 8080,
-					Pod:  pod1,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.1",
+					Port:             8080,
+					Pod:              pod1,
 				},
 				{
-					IP:   "192.168.1.4",
-					Port: 8080,
-					Pod:  pod4,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.4",
+					Port:             8080,
+					Pod:              pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -839,14 +841,16 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			},
 			want: []PodEndpoint{
 				{
-					IP:   "192.168.1.1",
-					Port: 8080,
-					Pod:  pod1,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.1",
+					Port:             8080,
+					Pod:              pod1,
 				},
 				{
-					IP:   "192.168.1.4",
-					Port: 8080,
-					Pod:  pod4,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.4",
+					Port:             8080,
+					Pod:              pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -911,14 +915,16 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			},
 			want: []PodEndpoint{
 				{
-					IP:   "192.168.1.1",
-					Port: 8080,
-					Pod:  pod1,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.1",
+					Port:             8080,
+					Pod:              pod1,
 				},
 				{
-					IP:   "192.168.1.4",
-					Port: 8080,
-					Pod:  pod4,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.4",
+					Port:             8080,
+					Pod:              pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -973,19 +979,22 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			},
 			want: []PodEndpoint{
 				{
-					IP:   "192.168.1.2",
-					Port: 8080,
-					Pod:  pod2,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.2",
+					Port:             8080,
+					Pod:              pod2,
 				},
 				{
-					IP:   "192.168.1.5",
-					Port: 8080,
-					Pod:  pod5,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.5",
+					Port:             8080,
+					Pod:              pod5,
 				},
 				{
-					IP:   "192.168.1.8",
-					Port: 8080,
-					Pod:  pod8,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.8",
+					Port:             8080,
+					Pod:              pod8,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -1101,14 +1110,16 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			},
 			want: []PodEndpoint{
 				{
-					IP:   "192.168.1.1",
-					Port: 8080,
-					Pod:  pod1,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.1",
+					Port:             8080,
+					Pod:              pod1,
 				},
 				{
-					IP:   "192.168.1.4",
-					Port: 8080,
-					Pod:  pod4,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.4",
+					Port:             8080,
+					Pod:              pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: true,
@@ -1168,14 +1179,16 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			},
 			want: []PodEndpoint{
 				{
-					IP:   "192.168.1.1",
-					Port: 8080,
-					Pod:  pod1,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.1",
+					Port:             8080,
+					Pod:              pod1,
 				},
 				{
-					IP:   "192.168.1.4",
-					Port: 8080,
-					Pod:  pod4,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.4",
+					Port:             8080,
+					Pod:              pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: false,
@@ -1235,9 +1248,10 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			},
 			want: []PodEndpoint{
 				{
-					IP:   "192.168.1.4",
-					Port: 8080,
-					Pod:  pod4,
+					AvailabilityZone: "us-west-2b",
+					IP:               "192.168.1.4",
+					Port:             8080,
+					Pod:              pod4,
 				},
 			},
 			wantContainsPotentialReadyEndpoints: true,
@@ -1538,14 +1552,16 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			},
 			want: []NodePortEndpoint{
 				{
-					InstanceID: "i-abcdefg1",
-					Port:       18080,
-					Node:       node1,
+					AvailabilityZone: "us-west-2b",
+					InstanceID:       "i-abcdefg1",
+					Port:             18080,
+					Node:             node1,
 				},
 				{
-					InstanceID: "i-abcdefg2",
-					Port:       18080,
-					Node:       node2,
+					AvailabilityZone: "us-west-2b",
+					InstanceID:       "i-abcdefg2",
+					Port:             18080,
+					Node:             node2,
 				},
 			},
 		},
@@ -1565,14 +1581,16 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			},
 			want: []NodePortEndpoint{
 				{
-					InstanceID: "i-abcdefg1",
-					Port:       18080,
-					Node:       node1,
+					AvailabilityZone: "us-west-2b",
+					InstanceID:       "i-abcdefg1",
+					Port:             18080,
+					Node:             node1,
 				},
 				{
-					InstanceID: "i-abcdefg2",
-					Port:       18080,
-					Node:       node2,
+					AvailabilityZone: "us-west-2b",
+					InstanceID:       "i-abcdefg2",
+					Port:             18080,
+					Node:             node2,
 				},
 			},
 		},
@@ -1592,14 +1610,16 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			},
 			want: []NodePortEndpoint{
 				{
-					InstanceID: "i-abcdefg3",
-					Port:       18080,
-					Node:       node3,
+					AvailabilityZone: "us-west-2b",
+					InstanceID:       "i-abcdefg3",
+					Port:             18080,
+					Node:             node3,
 				},
 				{
-					InstanceID: "i-abcdefg4",
-					Port:       18080,
-					Node:       node4,
+					AvailabilityZone: "us-west-2b",
+					InstanceID:       "i-abcdefg4",
+					Port:             18080,
+					Node:             node4,
 				},
 			},
 		},
@@ -1632,9 +1652,10 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			},
 			want: []NodePortEndpoint{
 				{
-					InstanceID: "i-abcdefg1",
-					Port:       18080,
-					Node:       node1,
+					AvailabilityZone: "us-west-2b",
+					InstanceID:       "i-abcdefg1",
+					Port:             18080,
+					Node:             node1,
 				},
 			},
 		},
@@ -2589,9 +2610,10 @@ func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 
 func Test_buildPodEndpoint(t *testing.T) {
 	type args struct {
-		pod    k8s.PodInfo
-		epAddr string
-		port   int32
+		pod                  k8s.PodInfo
+		nodeAvailabilityZone string
+		epAddr               string
+		port                 int32
 	}
 	tests := []struct {
 		name string
@@ -2604,12 +2626,14 @@ func Test_buildPodEndpoint(t *testing.T) {
 				pod: k8s.PodInfo{
 					Key: types.NamespacedName{Name: "sample-node"},
 				},
-				epAddr: "192.168.1.1",
-				port:   80,
+				nodeAvailabilityZone: "us-east-1a",
+				epAddr:               "192.168.1.1",
+				port:                 80,
 			},
 			want: PodEndpoint{
-				IP:   "192.168.1.1",
-				Port: 80,
+				AvailabilityZone: "us-east-1a",
+				IP:               "192.168.1.1",
+				Port:             80,
 				Pod: k8s.PodInfo{
 					Key: types.NamespacedName{Name: "sample-node"},
 				},
@@ -2618,7 +2642,7 @@ func Test_buildPodEndpoint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildPodEndpoint(tt.args.pod, tt.args.epAddr, tt.args.port)
+			got := buildPodEndpoint(tt.args.pod, tt.args.nodeAvailabilityZone, tt.args.epAddr, tt.args.port)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -2626,9 +2650,10 @@ func Test_buildPodEndpoint(t *testing.T) {
 
 func Test_buildNodePortEndpoint(t *testing.T) {
 	type args struct {
-		node       *corev1.Node
-		instanceID string
-		nodePort   int32
+		node             *corev1.Node
+		availabilityZone string
+		instanceID       string
+		nodePort         int32
 	}
 	tests := []struct {
 		name string
@@ -2643,8 +2668,9 @@ func Test_buildNodePortEndpoint(t *testing.T) {
 						Name: "sample-node",
 					},
 				},
-				instanceID: "i-xxxxx",
-				nodePort:   33382,
+				availabilityZone: "us-east-1a",
+				instanceID:       "i-xxxxx",
+				nodePort:         33382,
 			},
 			want: NodePortEndpoint{
 				Node: &corev1.Node{
@@ -2652,14 +2678,15 @@ func Test_buildNodePortEndpoint(t *testing.T) {
 						Name: "sample-node",
 					},
 				},
-				InstanceID: "i-xxxxx",
-				Port:       33382,
+				AvailabilityZone: "us-east-1a",
+				InstanceID:       "i-xxxxx",
+				Port:             33382,
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildNodePortEndpoint(tt.args.node, tt.args.instanceID, tt.args.nodePort)
+			got := buildNodePortEndpoint(tt.args.node, tt.args.availabilityZone, tt.args.instanceID, tt.args.nodePort)
 			assert.Equal(t, tt.want, got)
 		})
 	}

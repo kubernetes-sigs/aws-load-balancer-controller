@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	awssdk "github.com/aws/aws-sdk-go/aws"
 	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
@@ -53,7 +54,7 @@ type TaggingManager interface {
 	ReconcileTags(ctx context.Context, resID string, desiredTags map[string]string, opts ...ReconcileTagsOption) error
 
 	// ListSecurityGroups returns SecurityGroups that matches any of the tagging requirements.
-	ListSecurityGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]networking.SecurityGroupInfo, error)
+	ListSecurityGroups(ctx context.Context, vpcID string, tagFilters ...tracking.TagFilter) ([]networking.SecurityGroupInfo, error)
 }
 
 // NewDefaultTaggingManager constructs new defaultTaggingManager.
@@ -128,10 +129,10 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, resID string,
 	return nil
 }
 
-func (m *defaultTaggingManager) ListSecurityGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]networking.SecurityGroupInfo, error) {
+func (m *defaultTaggingManager) ListSecurityGroups(ctx context.Context, externalVpcID string, tagFilters ...tracking.TagFilter) ([]networking.SecurityGroupInfo, error) {
 	sgInfoByID := make(map[string]networking.SecurityGroupInfo)
 	for _, tagFilter := range tagFilters {
-		sgInfoByIDForTagFilter, err := m.listSecurityGroupsWithTagFilter(ctx, tagFilter)
+		sgInfoByIDForTagFilter, err := m.listSecurityGroupsWithTagFilter(ctx, externalVpcID, tagFilter)
 		if err != nil {
 			return nil, err
 		}
@@ -147,12 +148,19 @@ func (m *defaultTaggingManager) ListSecurityGroups(ctx context.Context, tagFilte
 	return sgInfos, nil
 }
 
-func (m *defaultTaggingManager) listSecurityGroupsWithTagFilter(ctx context.Context, tagFilter tracking.TagFilter) (map[string]networking.SecurityGroupInfo, error) {
+func (m *defaultTaggingManager) listSecurityGroupsWithTagFilter(ctx context.Context, externalVpcID string, tagFilter tracking.TagFilter) (map[string]networking.SecurityGroupInfo, error) {
+	// The VPC ID can be either that where the EC2 instance is running or the one of the Stack (where the load balancer is deployed)
+	// We might have frontend and backend security groups
+	vpcIDs := []string{m.vpcID}
+	if externalVpcID != m.vpcID {
+		vpcIDs = append(vpcIDs, externalVpcID)
+	}
+
 	req := &ec2sdk.DescribeSecurityGroupsInput{
 		Filters: []*ec2sdk.Filter{
 			{
 				Name:   awssdk.String("vpc-id"),
-				Values: awssdk.StringSlice([]string{m.vpcID}),
+				Values: awssdk.StringSlice(vpcIDs),
 			},
 		},
 	}

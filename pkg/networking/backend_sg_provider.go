@@ -51,7 +51,7 @@ const (
 // BackendSGProvider is responsible for providing backend security groups
 type BackendSGProvider interface {
 	// Get returns the backend security group to use
-	Get(ctx context.Context, resourceType ResourceType, activeResources []types.NamespacedName) (string, error)
+	Get(ctx context.Context, vpcID string, resourceType ResourceType, activeResources []types.NamespacedName) (string, error)
 	// Release cleans up the auto-generated backend SG if necessary
 	Release(ctx context.Context, resourceType ResourceType, inactiveResources []types.NamespacedName) error
 }
@@ -119,12 +119,12 @@ type defaultBackendSGProvider struct {
 	defaultDeletionTimeout      time.Duration
 }
 
-func (p *defaultBackendSGProvider) Get(ctx context.Context, resourceType ResourceType, activeResources []types.NamespacedName) (string, error) {
+func (p *defaultBackendSGProvider) Get(ctx context.Context, vpcID string, resourceType ResourceType, activeResources []types.NamespacedName) (string, error) {
 	if len(p.backendSG) > 0 {
 		return p.backendSG, nil
 	}
 	// Auto generate Backend Security group, and return the id
-	if err := p.allocateBackendSG(ctx, resourceType, activeResources); err != nil {
+	if err := p.allocateBackendSG(ctx, vpcID, resourceType, activeResources); err != nil {
 		p.logger.Error(err, "Failed to auto-create backend SG")
 		return "", err
 	}
@@ -216,7 +216,7 @@ func (p *defaultBackendSGProvider) existsInObjectMap(resourceType ResourceType, 
 	return false
 }
 
-func (p *defaultBackendSGProvider) allocateBackendSG(ctx context.Context, resourceType ResourceType, activeResources []types.NamespacedName) error {
+func (p *defaultBackendSGProvider) allocateBackendSG(ctx context.Context, vpcID string, resourceType ResourceType, activeResources []types.NamespacedName) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -226,7 +226,7 @@ func (p *defaultBackendSGProvider) allocateBackendSG(ctx context.Context, resour
 	}
 
 	sgName := p.getBackendSGName()
-	sgID, err := p.getBackendSGFromEC2(ctx, sgName, p.vpcID)
+	sgID, err := p.getBackendSGFromEC2(ctx, sgName, vpcID)
 	if err != nil {
 		return err
 	}
@@ -237,7 +237,7 @@ func (p *defaultBackendSGProvider) allocateBackendSG(ctx context.Context, resour
 	}
 
 	createReq := &ec2sdk.CreateSecurityGroupInput{
-		VpcId:             awssdk.String(p.vpcID),
+		VpcId:             awssdk.String(vpcID),
 		GroupName:         awssdk.String(sgName),
 		Description:       awssdk.String(sgDescription),
 		TagSpecifications: p.buildBackendSGTags(ctx),

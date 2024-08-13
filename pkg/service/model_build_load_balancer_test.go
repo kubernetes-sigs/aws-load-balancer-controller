@@ -1141,15 +1141,15 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 
 			elbv2TaggingManager := elbv2deploy.NewMockTaggingManager(ctrl)
 			for _, call := range tt.listLoadBalancersCalls {
-				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
+				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
 			}
 
 			subnetsResolver := networking.NewMockSubnetsResolver(ctrl)
 			for _, call := range tt.resolveViaDiscoveryCalls {
-				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
+				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}
 			for _, call := range tt.resolveViaNameOrIDSliceCalls {
-				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
+				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 

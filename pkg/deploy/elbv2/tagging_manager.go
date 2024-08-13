@@ -89,10 +89,10 @@ type TaggingManager interface {
 	ReconcileTags(ctx context.Context, arn string, desiredTags map[string]string, opts ...ReconcileTagsOption) error
 
 	// ListLoadBalancers returns LoadBalancers that matches any of the tagging requirements.
-	ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error)
+	ListLoadBalancers(ctx context.Context, vpcID string, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error)
 
 	// ListTargetGroups returns TargetGroups that matches any of the tagging requirements.
-	ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error)
+	ListTargetGroups(ctx context.Context, vpcID string, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error)
 
 	// ListListeners returns the LoadBalancer listeners along with tags
 	ListListeners(ctx context.Context, lbARN string) ([]ListenerWithTags, error)
@@ -257,20 +257,20 @@ func (m *defaultTaggingManager) ListListenerRules(ctx context.Context, lsARN str
 }
 
 // TODO: we can refactor this by store provisioned LB's ARN as annotations on Ingress/Service, thus avoid this heavy lookup calls when RGT is not available.
-func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
+func (m *defaultTaggingManager) ListLoadBalancers(ctx context.Context, vpcID string, tagFilters ...tracking.TagFilter) ([]LoadBalancerWithTags, error) {
 	if m.featureGates.Enabled(config.EnableRGTAPI) {
 		m.logger.V(1).Info("ResourceGroupTagging enabled, list the load balancers via RGT API")
 		return m.listLoadBalancersRGT(ctx, tagFilters)
 	}
-	return m.listLoadBalancersNative(ctx, tagFilters)
+	return m.listLoadBalancersNative(ctx, vpcID, tagFilters)
 }
 
-func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
+func (m *defaultTaggingManager) ListTargetGroups(ctx context.Context, vpcID string, tagFilters ...tracking.TagFilter) ([]TargetGroupWithTags, error) {
 	if m.featureGates.Enabled(config.EnableRGTAPI) {
 		m.logger.V(1).Info("ResourceGroupTagging enabled, list the target groups via RGT API")
 		return m.listTargetGroupsRGT(ctx, tagFilters)
 	}
-	return m.listTargetGroupsNative(ctx, tagFilters)
+	return m.listTargetGroupsNative(ctx, vpcID, tagFilters)
 }
 
 func (m *defaultTaggingManager) listLoadBalancersRGT(ctx context.Context, tagFilters []tracking.TagFilter) ([]LoadBalancerWithTags, error) {
@@ -311,7 +311,7 @@ func (m *defaultTaggingManager) listLoadBalancersRGT(ctx context.Context, tagFil
 	return matchedLBs, nil
 }
 
-func (m *defaultTaggingManager) listLoadBalancersNative(ctx context.Context, tagFilters []tracking.TagFilter) ([]LoadBalancerWithTags, error) {
+func (m *defaultTaggingManager) listLoadBalancersNative(ctx context.Context, vpcID string, tagFilters []tracking.TagFilter) ([]LoadBalancerWithTags, error) {
 	req := &elbv2sdk.DescribeLoadBalancersInput{}
 	lbs, err := m.elbv2Client.DescribeLoadBalancersAsList(ctx, req)
 	if err != nil {
@@ -320,7 +320,8 @@ func (m *defaultTaggingManager) listLoadBalancersNative(ctx context.Context, tag
 	lbARNsWithinVPC := make([]string, 0, len(lbs))
 	lbByARNWithinVPC := make(map[string]*elbv2sdk.LoadBalancer, len(lbs))
 	for _, lb := range lbs {
-		if awssdk.StringValue(lb.VpcId) != m.vpcID {
+		// If the VPC ID is the empty string, consider all the VPCs
+		if vpcID != "" && awssdk.StringValue(lb.VpcId) != vpcID {
 			continue
 		}
 		lbARN := awssdk.StringValue(lb.LoadBalancerArn)
@@ -390,7 +391,7 @@ func (m *defaultTaggingManager) listTargetGroupsRGT(ctx context.Context, tagFilt
 	return matchedTGs, nil
 }
 
-func (m *defaultTaggingManager) listTargetGroupsNative(ctx context.Context, tagFilters []tracking.TagFilter) ([]TargetGroupWithTags, error) {
+func (m *defaultTaggingManager) listTargetGroupsNative(ctx context.Context, vpcID string, tagFilters []tracking.TagFilter) ([]TargetGroupWithTags, error) {
 	req := &elbv2sdk.DescribeTargetGroupsInput{}
 	tgs, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
 	if err != nil {
@@ -400,7 +401,7 @@ func (m *defaultTaggingManager) listTargetGroupsNative(ctx context.Context, tagF
 	tgARNsWithinVPC := make([]string, 0, len(tgs))
 	tgByARNWithinVPC := make(map[string]*elbv2sdk.TargetGroup, len(tgs))
 	for _, tg := range tgs {
-		if awssdk.StringValue(tg.VpcId) != m.vpcID {
+		if awssdk.StringValue(tg.VpcId) != vpcID {
 			continue
 		}
 		tgARN := awssdk.StringValue(tg.TargetGroupArn)
