@@ -34,23 +34,31 @@ type defaultSecurityGroupResolver struct {
 }
 
 func (r *defaultSecurityGroupResolver) ResolveViaNameOrID(ctx context.Context, sgNameOrIDs []string) ([]string, error) {
-	sgIDs, sgNames := r.splitIntoSgNameAndIDs(sgNameOrIDs)
 	var resolvedSGs []*ec2sdk.SecurityGroup
+	var errMessages []string
+
+	sgIDs, sgNames := r.splitIntoSgNameAndIDs(sgNameOrIDs)
 
 	if len(sgIDs) > 0 {
 		sgs, err := r.resolveViaGroupID(ctx, sgIDs)
 		if err != nil {
-			return nil, err
+			errMessages = append(errMessages, err.Error())
+		} else {
+			resolvedSGs = append(resolvedSGs, sgs...)
 		}
-		resolvedSGs = append(resolvedSGs, sgs...)
 	}
 
 	if len(sgNames) > 0 {
 		sgs, err := r.resolveViaGroupName(ctx, sgNames)
 		if err != nil {
-			return nil, err
+			errMessages = append(errMessages, err.Error())
+		} else {
+			resolvedSGs = append(resolvedSGs, sgs...)
 		}
-		resolvedSGs = append(resolvedSGs, sgs...)
+	}
+
+	if len(errMessages) > 0 {
+		return nil, errors.Errorf("couldn't find all security groups: %s", strings.Join(errMessages, ", "))
 	}
 
 	resolvedSGIDs := make([]string, 0, len(resolvedSGs))
@@ -77,11 +85,7 @@ func (r *defaultSecurityGroupResolver) resolveViaGroupID(ctx context.Context, sg
 	}
 
 	if len(sgIDs) != len(resolvedSGIDs) {
-		return nil, errors.Errorf(
-			"couldn't find all securityGroups, requested ids: [%s], found: [%s]",
-			strings.Join(sgIDs, ", "),
-			strings.Join(resolvedSGIDs, ", "),
-		)
+		return nil, errors.Errorf("requested ids [%s] but found [%s]", strings.Join(sgIDs, ", "), strings.Join(resolvedSGIDs, ", "))
 	}
 
 	return sgs, nil
@@ -120,11 +124,7 @@ func (r *defaultSecurityGroupResolver) resolveViaGroupName(ctx context.Context, 
 	resolvedSGNames = algorithm.RemoveSliceDuplicates(resolvedSGNames)
 
 	if len(sgNames) != len(resolvedSGNames) {
-		return nil, errors.Errorf(
-			"couldn't find all securityGroups, requested names: [%s], found: [%s]",
-			strings.Join(sgNames, ", "),
-			strings.Join(resolvedSGNames, ", "),
-		)
+		return nil, errors.Errorf("requested names [%s] but found [%s]", strings.Join(sgNames, ", "), strings.Join(resolvedSGNames, ", "))
 	}
 
 	return sgs, nil
