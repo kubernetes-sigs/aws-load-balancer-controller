@@ -13,6 +13,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
@@ -22,6 +23,7 @@ func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
 		svc                   *corev1.Service
 		ipAddressType         elbv2model.IPAddressType
 		prefixListsConfigured bool
+		scheme                elbv2model.LoadBalancerScheme
 	}
 	tests := []struct {
 		name      string
@@ -87,33 +89,28 @@ func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
 		{
 			name: "fetch vpc info for internal scheme",
 			fields: fields{
-				svc: &corev1.Service{
-					ObjectMeta: metav1.ObjectMeta{
-						Annotations: map[string]string{
-							"service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
-						},
-					},
-				},
+				svc:                   &corev1.Service{},
 				ipAddressType:         elbv2model.IPAddressTypeDualStack,
 				prefixListsConfigured: false,
+				scheme:                elbv2.LoadBalancerSchemeInternal,
 			},
 			setupMock: func(MockVPCInfoProvider *networking.MockVPCInfoProvider) {
 				vpcInfo := networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2sdk.VpcCidrBlockAssociation{
-							{
-								CidrBlock:      aws.String("192.168.0.0/16"),
-								CidrBlockState: &ec2sdk.VpcCidrBlockState{State: aws.String(ec2sdk.VpcCidrBlockStateCodeAssociated)},
-							},
+					CidrBlockAssociationSet: []*ec2sdk.VpcCidrBlockAssociation{
+						{
+							CidrBlock:      aws.String("192.168.0.0/16"),
+							CidrBlockState: &ec2sdk.VpcCidrBlockState{State: aws.String(ec2sdk.VpcCidrBlockStateCodeAssociated)},
 						},
-						Ipv6CidrBlockAssociationSet: []*ec2sdk.VpcIpv6CidrBlockAssociation{
-							{
-								Ipv6CidrBlock:      aws.String("fd00::/8"),
-								Ipv6CidrBlockState: &ec2sdk.VpcCidrBlockState{State: aws.String(ec2sdk.VpcCidrBlockStateCodeAssociated)},
-							},
+					},
+					Ipv6CidrBlockAssociationSet: []*ec2sdk.VpcIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock:      aws.String("fd00::/8"),
+							Ipv6CidrBlockState: &ec2sdk.VpcCidrBlockState{State: aws.String(ec2sdk.VpcCidrBlockStateCodeAssociated)},
 						},
-					}
-					MockVPCInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), "vpc-1234", gomock.Any()).Return(vpcInfo, nil)
-				},
+					},
+				}
+				MockVPCInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), "vpc-1234", gomock.Any()).Return(vpcInfo, nil)
+			},
 			wantErr: false,
 			want: []string{
 				"192.168.0.0/16",
@@ -132,6 +129,7 @@ func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
 				},
 				ipAddressType:         elbv2model.IPAddressTypeDualStack,
 				prefixListsConfigured: false,
+				scheme:                elbv2.LoadBalancerSchemeInternal,
 			},
 			setupMock: func(MockVPCInfoProvider *networking.MockVPCInfoProvider) {
 				MockVPCInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), "vpc-1234", gomock.Any()).Return(networking.VPCInfo{}, errors.New("failed to fetch vpcInfo"))
@@ -152,9 +150,9 @@ func Test_buildCIDRsFromSourceRanges_buildCIDRsFromSourceRanges(t *testing.T) {
 				annotationParser: annotationParser,
 				service:          tt.fields.svc,
 				vpcID:            "vpc-1234",
-				vpcInfoProvider: mockVPCInfoProvider,
+				vpcInfoProvider:  mockVPCInfoProvider,
 			}
-			got, err := task.buildCIDRsFromSourceRanges(context.Background(), tt.fields.ipAddressType, tt.fields.prefixListsConfigured)
+			got, err := task.buildCIDRsFromSourceRanges(context.Background(), tt.fields.ipAddressType, tt.fields.prefixListsConfigured, tt.fields.scheme)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -169,6 +167,7 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 	type fields struct {
 		svc           *corev1.Service
 		ipAddressType elbv2model.IPAddressType
+		scheme        elbv2model.LoadBalancerScheme
 	}
 	tests := []struct {
 		name    string
@@ -348,7 +347,7 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 				annotationParser: annotationParser,
 				service:          tt.fields.svc,
 			}
-			got, err := task.buildManagedSecurityGroupIngressPermissions(context.Background(), tt.fields.ipAddressType)
+			got, err := task.buildManagedSecurityGroupIngressPermissions(context.Background(), tt.fields.ipAddressType, tt.fields.scheme)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

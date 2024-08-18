@@ -21,8 +21,8 @@ const (
 	resourceIDManagedSecurityGroup = "ManagedLBSecurityGroup"
 )
 
-func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
-	sgSpec, err := t.buildManagedSecurityGroupSpec(ctx, ipAddressType)
+func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme) (*ec2model.SecurityGroup, error) {
+	sgSpec, err := t.buildManagedSecurityGroupSpec(ctx, ipAddressType, scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -30,13 +30,13 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, i
 	return sg, nil
 }
 
-func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Context, ipAddressType elbv2model.IPAddressType) (ec2model.SecurityGroupSpec, error) {
+func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme) (ec2model.SecurityGroupSpec, error) {
 	name := t.buildManagedSecurityGroupName(ctx)
 	tags, err := t.buildManagedSecurityGroupTags(ctx)
 	if err != nil {
 		return ec2model.SecurityGroupSpec{}, err
 	}
-	ingressPermissions, err := t.buildManagedSecurityGroupIngressPermissions(ctx, ipAddressType)
+	ingressPermissions, err := t.buildManagedSecurityGroupIngressPermissions(ctx, ipAddressType, scheme)
 	if err != nil {
 		return ec2model.SecurityGroupSpec{}, err
 	}
@@ -63,11 +63,11 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupName(_ context.Context)
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx context.Context, ipAddressType elbv2model.IPAddressType) ([]ec2model.IPPermission, error) {
+func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme) ([]ec2model.IPPermission, error) {
 	var permissions []ec2model.IPPermission
 	var prefixListIDs []string
 	prefixListsConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSecurityGroupPrefixLists, &prefixListIDs, t.service.Annotations)
-	cidrs, err := t.buildCIDRsFromSourceRanges(ctx, ipAddressType, prefixListsConfigured)
+	cidrs, err := t.buildCIDRsFromSourceRanges(ctx, ipAddressType, prefixListsConfigured, scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 	return permissions, nil
 }
 
-func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(ctx context.Context, ipAddressType elbv2model.IPAddressType, prefixListsConfigured bool) ([]string, error) {
+func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(ctx context.Context, ipAddressType elbv2model.IPAddressType, prefixListsConfigured bool, scheme elbv2model.LoadBalancerScheme) ([]string, error) {
 	var cidrs []string
 	for _, cidr := range t.service.Spec.LoadBalancerSourceRanges {
 		cidrs = append(cidrs, cidr)
@@ -133,9 +133,7 @@ func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(ctx context.Context, 
 		if prefixListsConfigured {
 			return cidrs, nil
 		}
-		var scheme string
-		ok := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixScheme, &scheme, t.service.Annotations)
-		if ok && (scheme == string(elbv2model.LoadBalancerSchemeInternal) || scheme == "") {
+		if scheme == elbv2model.LoadBalancerSchemeInternal {
 			vpcInfo, err := t.vpcInfoProvider.FetchVPCInfo(ctx, t.vpcID, networking.FetchVPCInfoWithoutCache())
 			if err != nil {
 				return cidrs, err

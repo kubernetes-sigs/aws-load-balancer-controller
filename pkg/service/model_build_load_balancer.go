@@ -61,7 +61,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	securityGroups, err := t.buildLoadBalancerSecurityGroups(ctx, existingLB, ipAddressType)
+	securityGroups, err := t.buildLoadBalancerSecurityGroups(ctx, existingLB, scheme, ipAddressType)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -101,7 +101,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, existingLB *elbv2deploy.LoadBalancerWithTags,
-	ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
+	scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
 	if existingLB != nil && len(existingLB.LoadBalancer.SecurityGroups) == 0 {
 		return nil, nil
 	}
@@ -115,7 +115,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 	var lbSGTokens []core.StringToken
 	t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixLoadBalancerSecurityGroups, &sgNameOrIDs, t.service.Annotations)
 	if len(sgNameOrIDs) == 0 {
-		managedSG, err := t.buildManagedSecurityGroup(ctx, ipAddressType)
+		managedSG, err := t.buildManagedSecurityGroup(ctx, ipAddressType, scheme)
 		if err != nil {
 			return nil, err
 		}
