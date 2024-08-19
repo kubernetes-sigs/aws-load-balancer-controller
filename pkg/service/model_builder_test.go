@@ -2236,8 +2236,29 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
-			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			wantError:                true,
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("192.160.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: aws.String("associated"),
+								},
+							},
+							{
+								CidrBlock: aws.String("100.64.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: aws.String("associated"),
+								},
+							},
+						},
+					},
+					err: nil,
+				},
+			},
+			listLoadBalancerCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			wantError:             true,
 		},
 		{
 			testName: "list load balancers error",
@@ -2363,7 +2384,22 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			},
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
-			wantError:                true,
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						Ipv6CidrBlockAssociationSet: []*ec2.VpcIpv6CidrBlockAssociation{
+							{
+								Ipv6CidrBlock: aws.String("2600:1f00:1000::/56"),
+								Ipv6CidrBlockState: &ec2.VpcCidrBlockState{
+									State: aws.String("associated"),
+								},
+							},
+						},
+					},
+					err: nil,
+				},
+			},
+			wantError: true,
 		},
 		{
 			testName: "ipv6 for NLB",
@@ -3060,6 +3096,21 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			backendSecurityGroup:     "sg-backend",
 			wantError:                false,
+			fetchVPCInfoCalls: []fetchVPCInfoCall{
+				{
+					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("10.0.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: aws.String("associated"),
+								},
+							},
+						},
+					},
+					err: nil,
+				},
+			},
 			wantValue: `
 {
  "id":"default/nlb-ip-svc-tls",
@@ -3076,7 +3127,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 80,
                    "ipRanges": [
                       {
-                         "cidrIP": "0.0.0.0/0"
+                         "cidrIP": "10.0.0.0/16"
                       }
                    ]
                 }
@@ -4110,7 +4161,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 80,
                    "ipRanges": [
                       {
-                         "cidrIP": "0.0.0.0/0"
+                         "cidrIP": "192.168.0.0/16"
                       }
                    ]
                 },
@@ -4120,7 +4171,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 83,
                    "ipRanges": [
                       {
-                         "cidrIP": "0.0.0.0/0"
+                         "cidrIP":"192.168.0.0/16"
                       }
                    ]
                 }
@@ -5287,7 +5338,17 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 80,
                    "ipRanges": [
                       {
-                         "cidrIP": "0.0.0.0/0"
+                         "cidrIP": "192.160.0.0/16"
+                      }
+                   ]
+                },
+                {
+                 "ipProtocol": "tcp",
+                   "fromPort": 80,
+                   "toPort": 80,
+                   "ipRanges": [
+                      {
+                         "cidrIP": "100.64.0.0/16"
                       }
                    ]
                 }
@@ -5447,6 +5508,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
+						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+							{
+								CidrBlock: aws.String("10.0.0.0/16"),
+								CidrBlockState: &ec2.VpcCidrBlockState{
+									State: aws.String("associated"),
+								},
+							},
+						},
 						Ipv6CidrBlockAssociationSet: []*ec2.VpcIpv6CidrBlockAssociation{
 							{
 								Ipv6CidrBlock: aws.String("2600:1fe3:3c0:1d00::/56"),
@@ -5477,7 +5546,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
               "toPort": 80,
               "ipRanges": [
                 {
-                  "cidrIP": "0.0.0.0/0"
+                  "cidrIP": "10.0.0.0/16"
                 }
               ]
             },
@@ -5487,7 +5556,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
               "toPort": 80,
               "ipv6Ranges": [
                 {
-                  "cidrIPv6": "::/0"
+                  "cidrIPv6": "2600:1fe3:3c0:1d00::/56"
                 }
               ]
             }
@@ -5854,7 +5923,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                    "toPort": 80,
                    "ipRanges": [
                       {
-                         "cidrIP": "0.0.0.0/0"
+                         "cidrIP": "192.168.0.0/16"
                       }
                    ]
                 }
