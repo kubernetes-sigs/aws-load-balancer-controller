@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -41,6 +42,7 @@ var _ LoadBalancerManager = &defaultLoadBalancerManager{}
 // defaultLoadBalancerManager implement LoadBalancerManager
 type defaultLoadBalancerManager struct {
 	elbv2Client          services.ELBV2
+	ec2Client            *ec2.EC2
 	trackingProvider     tracking.Provider
 	taggingManager       TaggingManager
 	attributesReconciler LoadBalancerAttributeReconciler
@@ -161,9 +163,49 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
 		currentSubnets.Insert(awssdk.StringValue(az.SubnetId))
 	}
-	desiredIPAddressType := string(*resLB.Spec.IPAddressType)
-	currentIPAddressType := awssdk.StringValue(sdkLB.LoadBalancer.IpAddressType)
-	if desiredSubnets.Equal(currentSubnets) && desiredIPAddressType == currentIPAddressType {
+
+	subnetIDs := make([]*string, len(resLB.Spec.SubnetMappings))
+	for i, mapping := range resLB.Spec.SubnetMappings {
+		subnetIDs[i] = awssdk.String(mapping.SubnetID)
+	}
+
+	describeSubnetsOutput, err := m.ec2Client.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{
+		SubnetIds: subnetIDs,
+	})
+	if err != nil {
+		return err
+	}
+
+	desiredIPv6Addresses := make(map[string]sets.Set[string])
+	for _, mapping := range resLB.Spec.SubnetMappings {
+		if mapping.IPv6Address != nil {
+			if _, ok := desiredIPv6Addresses[mapping.SubnetID]; !ok {
+				desiredIPv6Addresses[mapping.SubnetID] = sets.New[string]()
+			}
+			desiredIPv6Addresses[mapping.SubnetID].Insert(awssdk.StringValue(mapping.IPv6Address))
+		}
+	}
+
+	currentIPv6Addresses := make(map[string]sets.Set[string])
+	for _, subnet := range describeSubnetsOutput.Subnets {
+		subnetID := awssdk.StringValue(subnet.SubnetId)
+		currentIPv6s := sets.New[string]()
+		for _, ipv6 := range subnet.Ipv6CidrBlockAssociationSet {
+			if ipv6.Ipv6CidrBlock != nil {
+				currentIPv6s.Insert(awssdk.StringValue(ipv6.Ipv6CidrBlock))
+			}
+		}
+		currentIPv6Addresses[subnetID] = currentIPv6s
+	}
+
+	ipv6AddressesEqual := true
+	for subnetID, desiredIPv6s := range desiredIPv6Addresses {
+		if currentIPv6s, ok := currentIPv6Addresses[subnetID]; !ok || !desiredIPv6s.Equal(currentIPv6s) {
+			ipv6AddressesEqual = false
+		}
+	}
+
+	if desiredSubnets.Equal(currentSubnets) && ipv6AddressesEqual {
 		return nil
 	}
 
