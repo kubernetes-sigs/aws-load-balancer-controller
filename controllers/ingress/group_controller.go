@@ -2,7 +2,10 @@ package ingress
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -168,12 +171,24 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 		return nil, nil, err
 	}
 	r.logger.Info("successfully built model", "model", stackJSON)
+	currentCheckpoint := r.computeReconcileCheckpoint(ctx, stackJSON)
+	originalCheckpoint := r.getReconcileCheckpoint(ctx, ingGroup)
+	if currentCheckpoint == originalCheckpoint {
+		r.logger.Info("ingress hasn't changed, skip deploying model")
+		// TODO: this whole bit code needs some refactors,
+		// e.g. when skip deploy model we should log a "Successfully reconciled" event.
+		return nil, nil, nil
+	}
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		return nil, nil, err
 	}
 	r.logger.Info("successfully deployed model", "ingressGroup", ingGroup.ID)
+	if err := r.saveReconcileCheckpoint(ctx, ingGroup, currentCheckpoint); err != nil {
+		return nil, nil, err
+	}
+
 	r.secretsManager.MonitorSecrets(ingGroup.ID.String(), secrets)
 	var inactiveResources []types.NamespacedName
 	inactiveResources = append(inactiveResources, k8s.ToSliceOfNamespacedNames(ingGroup.InactiveMembers)...)
@@ -213,6 +228,42 @@ func (r *groupReconciler) updateIngressStatus(ctx context.Context, lbDNS string,
 		}
 		if err := r.k8sClient.Status().Patch(ctx, ing, client.MergeFrom(ingOld)); err != nil {
 			return errors.Wrapf(err, "failed to update ingress status: %v", k8s.NamespacedName(ing))
+		}
+	}
+	return nil
+}
+
+// computeReconcileCheckpoint computes a checkpoint based on generated stack json.
+func (r *groupReconciler) computeReconcileCheckpoint(_ context.Context, stackJSON string) string {
+	checkpointHash := sha256.New()
+	_, _ = checkpointHash.Write([]byte(stackJSON))
+	return base64.RawURLEncoding.EncodeToString(checkpointHash.Sum(nil))
+}
+
+// getReconcileCheckpoint retrieves the last known reconciled checkpoint for the ingress group.
+func (r *groupReconciler) getReconcileCheckpoint(_ context.Context, ingGroup ingress.Group) string {
+	checkpoints := sets.NewString()
+	for _, member := range ingGroup.Members {
+		if ingCheckpoint, ok := member.Ing.Annotations[annotations.AnnotationCheckPoint]; ok {
+			checkpoints.Insert(ingCheckpoint)
+		}
+	}
+	if len(checkpoints) == 1 {
+		checkpoint, _ := checkpoints.PopAny()
+		return checkpoint
+	}
+	return ""
+}
+
+// saveReconcileCheckpoint persists reconcile checkpoint into ingressGroup as annotation
+func (r *groupReconciler) saveReconcileCheckpoint(ctx context.Context, ingGroup ingress.Group, checkpoint string) error {
+	for _, member := range ingGroup.Members {
+		if ingCheckpoint := member.Ing.Annotations[annotations.AnnotationCheckPoint]; ingCheckpoint != checkpoint {
+			ingNew := member.Ing.DeepCopy()
+			ingNew.Annotations[annotations.AnnotationCheckPoint] = checkpoint
+			if err := r.k8sClient.Patch(ctx, ingNew, client.MergeFrom(member.Ing)); err != nil {
+				return errors.Wrapf(err, "failed to update reconcile checkpoint: %v", k8s.NamespacedName(ingNew))
+			}
 		}
 	}
 	return nil

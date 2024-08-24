@@ -2,8 +2,9 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -97,29 +98,42 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) err
 	if err := r.k8sClient.Get(ctx, req.NamespacedName, svc); err != nil {
 		return client.IgnoreNotFound(err)
 	}
-	stack, lb, backendSGRequired, err := r.buildModel(ctx, svc)
+	stack, lb, backendSGRequired, stackJSON, err := r.buildModel(ctx, svc)
 	if err != nil {
 		return err
 	}
 	if lb == nil {
 		return r.cleanupLoadBalancerResources(ctx, svc, stack)
 	}
-	return r.reconcileLoadBalancerResources(ctx, svc, stack, lb, backendSGRequired)
+
+	currentCheckpoint := r.computeReconcileCheckpoint(ctx, stackJSON)
+	originalCheckpoint := r.getReconcileCheckpoint(ctx, svc)
+	if currentCheckpoint == originalCheckpoint {
+		r.logger.Info("service hasn't changed, skip deploying model")
+		// TODO: this whole bit code in this file needs some refactors,
+		// e.g. stackJson shouldn't be returned from buildModel
+		return nil
+	}
+
+	if err := r.reconcileLoadBalancerResources(ctx, svc, stack, lb, backendSGRequired); err != nil {
+		return err
+	}
+	return r.saveReconcileCheckpoint(ctx, svc, currentCheckpoint)
 }
 
-func (r *serviceReconciler) buildModel(ctx context.Context, svc *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
+func (r *serviceReconciler) buildModel(ctx context.Context, svc *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, bool, string, error) {
 	stack, lb, backendSGRequired, err := r.modelBuilder.Build(ctx, svc)
 	if err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
-		return nil, nil, false, err
+		return nil, nil, false, "", err
 	}
 	stackJSON, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
-		return nil, nil, false, err
+		return nil, nil, false, "", err
 	}
 	r.logger.Info("successfully built model", "model", stackJSON)
-	return stack, lb, backendSGRequired, nil
+	return stack, lb, backendSGRequired, stackJSON, nil
 }
 
 func (r *serviceReconciler) deployModel(ctx context.Context, svc *corev1.Service, stack core.Stack) error {
@@ -204,6 +218,28 @@ func (r *serviceReconciler) cleanupServiceStatus(ctx context.Context, svc *corev
 	svc.Status.LoadBalancer = corev1.LoadBalancerStatus{}
 	if err := r.k8sClient.Status().Patch(ctx, svc, client.MergeFrom(svcOld)); err != nil {
 		return errors.Wrapf(err, "failed to cleanup service status: %v", k8s.NamespacedName(svc))
+	}
+	return nil
+}
+
+func (r *serviceReconciler) computeReconcileCheckpoint(_ context.Context, stackJSON string) string {
+	checkpointHash := sha256.New()
+	_, _ = checkpointHash.Write([]byte(stackJSON))
+	return base64.RawURLEncoding.EncodeToString(checkpointHash.Sum(nil))
+}
+
+func (r *serviceReconciler) getReconcileCheckpoint(_ context.Context, svc *corev1.Service) string {
+	if svcCheckpoint, ok := svc.Annotations[annotations.AnnotationCheckPoint]; ok {
+		return svcCheckpoint
+	}
+	return ""
+}
+
+func (r *serviceReconciler) saveReconcileCheckpoint(ctx context.Context, svc *corev1.Service, checkpoint string) error {
+	svcNew := svc.DeepCopy()
+	svcNew.Annotations[annotations.AnnotationCheckPoint] = checkpoint
+	if err := r.k8sClient.Patch(ctx, svcNew, client.MergeFrom(svc)); err != nil {
+		return errors.Wrapf(err, "failed to update reconcile checkpoint: %v", k8s.NamespacedName(svcNew))
 	}
 	return nil
 }
