@@ -3630,6 +3630,146 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 	}
 }`,
 		},
+		{
+			name: "Ingress - ingress mixed inbound ip address & security groups",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				describeSecurityGroupsResult: []describeSecurityGroupsResult{
+					{
+						securityGroups: []*ec2sdk.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-903004f8"),
+							},
+							{
+								GroupId: awssdk.String("sg-903004f1"),
+							},
+						},
+					},
+				},
+				enableBackendSG: true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/inbound-cidrs":           "20.45.16.0/26",
+										"alb.ingress.kubernetes.io/inbound-security-groups": "sg-903004f8, sg-903004f1",
+									},
+								},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+  "resources": {
+    "AWS::EC2::SecurityGroup": {
+      "ManagedLBSecurityGroup": {
+        "spec": {
+          "ingress": [
+            {
+              "fromPort": 80,
+              "ipProtocol": "tcp",
+              "ipRanges": [
+                {
+                  "cidrIP": "20.45.16.0/26"
+                }
+              ],
+              "toPort": 80
+            },
+            {
+              "fromPort": 80,
+              "ipProtocol": "tcp",
+              "toPort": 80,
+              "userIDGroupPairs": [
+                {
+                  "groupID": "sg-903004f1"
+                }
+              ]
+            },
+            {
+              "fromPort": 80,
+              "ipProtocol": "tcp",
+              "toPort": 80,
+              "userIDGroupPairs": [
+                {
+                  "groupID": "sg-903004f8"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

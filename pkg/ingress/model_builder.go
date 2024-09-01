@@ -310,6 +310,9 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 	var mergedMtlsAttributesProvider *types.NamespacedName
 	var mergedMtlsAttributes *elbv2model.MutualAuthenticationAttributes
 
+	var mergedSecurityGroupProvider *types.NamespacedName
+	mergedSecurityGroups := sets.NewString()
+
 	for _, cfg := range listenPortConfigs {
 		if mergedProtocolProvider == nil {
 			mergedProtocolProvider = &cfg.ingKey
@@ -340,6 +343,17 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 			} else if !mergedInboundPrefixLists.Equal(cfgInboundPrefixLists) {
 				return listenPortConfig{}, errors.Errorf("conflicting inbound-prefix-lists, %v: %v | %v: %v",
 					*mergedInboundPrefixListsProvider, mergedInboundPrefixLists.List(), cfg.ingKey, cfgInboundPrefixLists.List())
+			}
+		}
+
+		if len(cfg.listenPortConfig.securityGroupIDs) != 0 {
+			cfgSecurityGroups := sets.NewString(cfg.listenPortConfig.securityGroupIDs...)
+			if mergedSecurityGroupProvider == nil {
+				mergedSecurityGroupProvider = &cfg.ingKey
+				mergedSecurityGroups = cfgSecurityGroups
+			} else if !mergedSecurityGroups.Equal(cfgSecurityGroups) {
+				return listenPortConfig{}, errors.Errorf("conflicting security groups, %v: %v | %v: %v",
+					*mergedSecurityGroupProvider, mergedSecurityGroups.List(), cfg.ingKey, cfgSecurityGroups.List())
 			}
 		}
 
@@ -389,6 +403,7 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		sslPolicy:            mergedSSLPolicy,
 		tlsCerts:             mergedTLSCerts,
 		mutualAuthentication: mergedMtlsAttributes,
+		securityGroupIDs:     mergedSecurityGroups.List(),
 	}, nil
 }
 
