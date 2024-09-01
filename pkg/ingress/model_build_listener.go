@@ -107,6 +107,7 @@ type listenPortConfig struct {
 	sslPolicy            *string
 	tlsCerts             []string
 	mutualAuthentication *elbv2model.MutualAuthenticationAttributes
+	securityGroupIDs     []string
 }
 
 func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int64]listenPortConfig, error) {
@@ -114,10 +115,17 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
 	var prefixListIDs []string
 	t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroupPrefixLists, &prefixListIDs, ing.Ing.Annotations)
+
+	securityGroupIDs, err := t.computeIngressExplicitSecurityGroupIDs(ctx, ing)
+	if err != nil {
+		return nil, err
+	}
+
 	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
 	if err != nil {
 		return nil, err
 	}
+
 	mutualAuthenticationAttributes, err := t.computeIngressMutualAuthentication(ctx, ing)
 	if err != nil {
 		return nil, err
@@ -146,10 +154,11 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 	listenPortConfigByPort := make(map[int64]listenPortConfig, len(listenPorts))
 	for port, protocol := range listenPorts {
 		cfg := listenPortConfig{
-			protocol:       protocol,
-			inboundCIDRv4s: inboundCIDRv4s,
-			inboundCIDRv6s: inboundCIDRV6s,
-			prefixLists:    prefixListIDs,
+			protocol:         protocol,
+			inboundCIDRv4s:   inboundCIDRv4s,
+			inboundCIDRv6s:   inboundCIDRV6s,
+			prefixLists:      prefixListIDs,
+			securityGroupIDs: securityGroupIDs,
 		}
 		if protocol == elbv2model.ProtocolHTTPS {
 			if len(explicitTLSCertARNs) == 0 {
@@ -223,6 +232,20 @@ func (t *defaultModelBuildTask) computeIngressListenPorts(_ context.Context, ing
 		}
 	}
 	return portAndProtocols, nil
+}
+
+func (t *defaultModelBuildTask) computeIngressExplicitSecurityGroupIDs(ctx context.Context, ing *ClassifiedIngress) ([]string, error) {
+	var rawSecurityGroups []string
+	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixInboundSecurityGroups, &rawSecurityGroups, ing.Ing.Annotations); !exists {
+		return nil, nil
+	}
+
+	securityGroupIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, rawSecurityGroups)
+	if err != nil {
+		return nil, fmt.Errorf("invalid %v settings on Ingress: %v: %w", annotations.IngressSuffixInboundSecurityGroups, k8s.NamespacedName(ing.Ing), err)
+	}
+
+	return securityGroupIDs, nil
 }
 
 func (t *defaultModelBuildTask) computeIngressExplicitInboundCIDRs(_ context.Context, ing *ClassifiedIngress) ([]string, []string, error) {

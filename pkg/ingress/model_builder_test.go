@@ -3,12 +3,12 @@ package ingress
 import (
 	"context"
 	"encoding/json"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 	"time"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
@@ -442,7 +442,7 @@ const baseStackJSON = `
 
 func Test_defaultModelBuilder_Build(t *testing.T) {
 	type resolveViaDiscoveryCall struct {
-		subnets []*ec2sdk.Subnet
+		subnets []ec2types.Subnet
 		err     error
 	}
 	type env struct {
@@ -453,7 +453,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		err        error
 	}
 	type describeSecurityGroupsResult struct {
-		securityGroups []*ec2sdk.SecurityGroup
+		securityGroups []ec2types.SecurityGroup
 		err            error
 	}
 	type fields struct {
@@ -576,7 +576,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 	}
 
 	resolveViaDiscoveryCallForInternalLB := resolveViaDiscoveryCall{
-		subnets: []*ec2sdk.Subnet{
+		subnets: []ec2types.Subnet{
 			{
 				SubnetId:  awssdk.String("subnet-a"),
 				CidrBlock: awssdk.String("192.168.0.0/19"),
@@ -588,7 +588,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		},
 	}
 	resolveViaDiscoveryCallForInternetFacingLB := resolveViaDiscoveryCall{
-		subnets: []*ec2sdk.Subnet{
+		subnets: []ec2types.Subnet{
 			{
 				SubnetId:  awssdk.String("subnet-c"),
 				CidrBlock: awssdk.String("192.168.64.0/19"),
@@ -605,14 +605,15 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
-		env                env
-		defaultTargetType  string
-		enableIPTargetType *bool
-		args               args
-		fields             fields
-		wantStackPatch     string
-		wantErr            string
+		name                      string
+		env                       env
+		defaultTargetType         string
+		defaultLoadBalancerScheme string
+		enableIPTargetType        *bool
+		args                      args
+		fields                    fields
+		wantStackPatch            string
+		wantErr                   string
 	}{
 		{
 			name: "Ingress - vanilla internal",
@@ -2152,9 +2153,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					{
 						matchedLBs: []elbv2.LoadBalancerWithTags{
 							{
-								LoadBalancer: &elbv2sdk.LoadBalancer{
+								LoadBalancer: &elbv2types.LoadBalancer{
 									LoadBalancerArn: awssdk.String("lb-1"),
-									AvailabilityZones: []*elbv2sdk.AvailabilityZone{
+									AvailabilityZones: []elbv2types.AvailabilityZone{
 										{
 											SubnetId: awssdk.String("subnet-e"),
 										},
@@ -2162,7 +2163,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 											SubnetId: awssdk.String("subnet-f"),
 										},
 									},
-									Scheme: awssdk.String("internal"),
+									Scheme: elbv2types.LoadBalancerSchemeEnumInternal,
 								},
 								Tags: map[string]string{
 									"elbv2.k8s.aws/cluster": "cluster-name",
@@ -2170,9 +2171,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 								},
 							},
 							{
-								LoadBalancer: &elbv2sdk.LoadBalancer{
+								LoadBalancer: &elbv2types.LoadBalancer{
 									LoadBalancerArn: awssdk.String("lb-2"),
-									AvailabilityZones: []*elbv2sdk.AvailabilityZone{
+									AvailabilityZones: []elbv2types.AvailabilityZone{
 										{
 											SubnetId: awssdk.String("subnet-e"),
 										},
@@ -2180,7 +2181,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 											SubnetId: awssdk.String("subnet-f"),
 										},
 									},
-									Scheme: awssdk.String("internal"),
+									Scheme: elbv2types.LoadBalancerSchemeEnumInternal,
 								},
 								Tags: map[string]string{
 									"keyA": "valueA2",
@@ -2188,9 +2189,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 								},
 							},
 							{
-								LoadBalancer: &elbv2sdk.LoadBalancer{
+								LoadBalancer: &elbv2types.LoadBalancer{
 									LoadBalancerArn: awssdk.String("lb-3"),
-									AvailabilityZones: []*elbv2sdk.AvailabilityZone{
+									AvailabilityZones: []elbv2types.AvailabilityZone{
 										{
 											SubnetId: awssdk.String("subnet-e"),
 										},
@@ -2198,7 +2199,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 											SubnetId: awssdk.String("subnet-f"),
 										},
 									},
-									Scheme: awssdk.String("internal"),
+									Scheme: elbv2types.LoadBalancerSchemeEnumInternal,
 								},
 								Tags: map[string]string{
 									"keyA": "valueA3",
@@ -2339,7 +2340,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				describeSecurityGroupsResult: []describeSecurityGroupsResult{
 					{
-						securityGroups: []*ec2sdk.SecurityGroup{
+						securityGroups: []ec2types.SecurityGroup{
 							{
 								GroupId: awssdk.String("sg-manual"),
 							},
@@ -2478,7 +2479,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				describeSecurityGroupsResult: []describeSecurityGroupsResult{
 					{
-						securityGroups: []*ec2sdk.SecurityGroup{
+						securityGroups: []ec2types.SecurityGroup{
 							{
 								GroupId: awssdk.String("sg-manual"),
 							},
@@ -3630,6 +3631,108 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 	}
 }`,
 		},
+		{
+			name: "Ingress - vanilla with default-load-balancer-scheme internet-facing",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			defaultLoadBalancerScheme: string(elbv2model.LoadBalancerSchemeInternetFacing),
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::ElasticLoadBalancingV2::LoadBalancer": {
+			"LoadBalancer": {
+				"spec": {
+					"name": "k8s-ns1-ing1-159dd7a143",
+					"scheme": "internet-facing",
+					"subnetMapping": [
+						{
+							"subnetID": "subnet-c"
+						},
+						{
+							"subnetID": "subnet-d"
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -3681,6 +3784,10 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			if defaultTargetType == "" {
 				defaultTargetType = "instance"
 			}
+			defaultLoadBalancerScheme := tt.defaultLoadBalancerScheme
+			if defaultLoadBalancerScheme == "" {
+				defaultLoadBalancerScheme = string(elbv2model.LoadBalancerSchemeInternal)
+			}
 
 			b := &defaultModelBuilder{
 				k8sClient:              k8sClient,
@@ -3703,8 +3810,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				featureGates:           config.NewFeatureGates(),
 				logger:                 logr.New(&log.NullLogSink{}),
 
-				defaultSSLPolicy:  "ELBSecurityPolicy-2016-08",
-				defaultTargetType: elbv2model.TargetType(defaultTargetType),
+				defaultSSLPolicy:          "ELBSecurityPolicy-2016-08",
+				defaultTargetType:         elbv2model.TargetType(defaultTargetType),
+				defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
 			}
 
 			if tt.enableIPTargetType == nil {
@@ -3768,7 +3876,7 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 		ingGroup Group
 	}
 	type args struct {
-		listenPortConfigByPort map[int64]listenPortConfig
+		listenPortConfigByPort map[int32]listenPortConfig
 	}
 	tests := []struct {
 		name    string
@@ -3818,7 +3926,7 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 				},
 			},
 			args: args{
-				listenPortConfigByPort: map[int64]listenPortConfig{
+				listenPortConfigByPort: map[int32]listenPortConfig{
 					80: {
 						protocol: elbv2model.ProtocolHTTP,
 					},
@@ -3874,7 +3982,7 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 				},
 			},
 			args: args{
-				listenPortConfigByPort: map[int64]listenPortConfig{
+				listenPortConfigByPort: map[int32]listenPortConfig{
 					80: {
 						protocol: elbv2model.ProtocolHTTP,
 					},
@@ -3933,7 +4041,7 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 				},
 			},
 			args: args{
-				listenPortConfigByPort: map[int64]listenPortConfig{
+				listenPortConfigByPort: map[int32]listenPortConfig{
 					80: {
 						protocol: elbv2model.ProtocolHTTP,
 					},
@@ -3989,7 +4097,7 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 				},
 			},
 			args: args{
-				listenPortConfigByPort: map[int64]listenPortConfig{
+				listenPortConfigByPort: map[int32]listenPortConfig{
 					80: {
 						protocol: elbv2model.ProtocolHTTP,
 					},
@@ -4073,7 +4181,7 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 				},
 			},
 			args: args{
-				listenPortConfigByPort: map[int64]listenPortConfig{
+				listenPortConfigByPort: map[int32]listenPortConfig{
 					80: {
 						protocol: elbv2model.ProtocolHTTP,
 					},
@@ -4160,7 +4268,7 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 				},
 			},
 			args: args{
-				listenPortConfigByPort: map[int64]listenPortConfig{
+				listenPortConfigByPort: map[int32]listenPortConfig{
 					80: {
 						protocol: elbv2model.ProtocolHTTP,
 					},
@@ -4253,7 +4361,7 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 				},
 			},
 			args: args{
-				listenPortConfigByPort: map[int64]listenPortConfig{
+				listenPortConfigByPort: map[int32]listenPortConfig{
 					80: {
 						protocol: elbv2model.ProtocolHTTP,
 					},
@@ -4346,7 +4454,7 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 				},
 			},
 			args: args{
-				listenPortConfigByPort: map[int64]listenPortConfig{
+				listenPortConfigByPort: map[int32]listenPortConfig{
 					80: {
 						protocol: elbv2model.ProtocolHTTP,
 					},
