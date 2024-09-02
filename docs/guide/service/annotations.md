@@ -202,6 +202,7 @@ NLB resource attributes can be controlled via the following annotations:
 
 - <a name="proxy-protocol-v2">service.beta.kubernetes.io/aws-load-balancer-proxy-protocol</a> specifies whether to enable proxy protocol v2 on the target group.
 This annotation takes precedence over the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes` for proxy protocol v2 configuration.
+If you specify `*`, proxy protocol v2 is enabled for all ports. If you specify a list of one or more ports, proxy protocol v2 is enabled only for those ports.
 
     !!!example
         - enable proxy protocol for all ports
