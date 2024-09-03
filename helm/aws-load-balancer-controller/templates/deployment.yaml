@@ -170,6 +170,9 @@ spec:
         {{- if .Values.loadBalancerClass }}
         - --load-balancer-class={{ .Values.loadBalancerClass }}
         {{- end }}
+        {{- if .Values.leaseDuration }}
+        - --leader-election-lease-duration={{ .Values.leaseDuration }}
+        {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:
         {{- if .Values.env}}
