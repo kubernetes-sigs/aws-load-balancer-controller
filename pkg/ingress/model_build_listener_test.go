@@ -15,7 +15,7 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 		ingGroup Group
 	}
 	type WantStruct struct {
-		port       int64
+		port       int32
 		mutualAuth *elbv2.MutualAuthenticationAttributes
 	}
 

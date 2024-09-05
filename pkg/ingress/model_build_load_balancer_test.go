@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"strings"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -683,15 +684,15 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 }
 
 var (
-	subnet1 = &ec2.Subnet{
+	subnet1 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-1"),
 		AvailabilityZone: awssdk.String("az1"),
 		VpcId:            awssdk.String("vpc-1"),
 	}
-	subnet2 = &ec2.Subnet{
+	subnet2 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-2"),
 		AvailabilityZone: awssdk.String("az2"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
 				Value: awssdk.String("namedsubnet"),
@@ -699,15 +700,15 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet3 = &ec2.Subnet{
+	subnet3 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-3"),
 		AvailabilityZone: awssdk.String("az3"),
 		VpcId:            awssdk.String("vpc-1"),
 	}
-	subnet4 = &ec2.Subnet{
+	subnet4 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-4"),
 		AvailabilityZone: awssdk.String("az4"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
 				Value: awssdk.String("othername"),
@@ -715,10 +716,10 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet5 = &ec2.Subnet{
+	subnet5 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-5"),
 		AvailabilityZone: awssdk.String("az5"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
 				Value: awssdk.String("namedsubnet"),
@@ -726,10 +727,10 @@ var (
 		},
 		VpcId: awssdk.String("vpc-2"),
 	}
-	subnet6 = &ec2.Subnet{
+	subnet6 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-6"),
 		AvailabilityZone: awssdk.String("az6"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
 				Value: awssdk.String("subnet-1"),
@@ -737,10 +738,10 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet7 = &ec2.Subnet{
+	subnet7 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-7"),
 		AvailabilityZone: awssdk.String("az7"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
 				Value: awssdk.String("subnet-1"),
@@ -751,10 +752,10 @@ var (
 			}},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet8 = &ec2.Subnet{
+	subnet8 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-8"),
 		AvailabilityZone: awssdk.String("az8"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("alb"),
 				Value: awssdk.String("test"),
@@ -762,10 +763,10 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet9 = &ec2.Subnet{
+	subnet9 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-9"),
 		AvailabilityZone: awssdk.String("az9"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
 				Value: awssdk.String("subnet-12"),
@@ -780,10 +781,10 @@ var (
 			}},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet10 = &ec2.Subnet{
+	subnet10 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-10"),
 		AvailabilityZone: awssdk.String("az10"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("alb"),
 				Value: awssdk.String("testing"),
@@ -795,10 +796,10 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet11 = &ec2.Subnet{
+	subnet11 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-11"),
 		AvailabilityZone: awssdk.String("az11"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest"),
 				Value: awssdk.String("1"),
@@ -810,10 +811,10 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet12 = &ec2.Subnet{
+	subnet12 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-12"),
 		AvailabilityZone: awssdk.String("az12"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest"),
 				Value: awssdk.String("1"),
@@ -821,10 +822,10 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet13 = &ec2.Subnet{
+	subnet13 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-13"),
 		AvailabilityZone: awssdk.String("az13"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest"),
 				Value: awssdk.String("1"),
@@ -836,10 +837,10 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet14 = &ec2.Subnet{
+	subnet14 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-14"),
 		AvailabilityZone: awssdk.String("az14"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest2"),
 				Value: awssdk.String("1"),
@@ -847,10 +848,10 @@ var (
 		},
 		VpcId: awssdk.String("vpc-1"),
 	}
-	subnet15 = &ec2.Subnet{
+	subnet15 = ec2types.Subnet{
 		SubnetId:         awssdk.String("subnet-15"),
 		AvailabilityZone: awssdk.String("az14"),
-		Tags: []*ec2.Tag{
+		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest2"),
 				Value: awssdk.String("1"),
@@ -864,8 +865,8 @@ var (
 	}
 )
 
-func stubDescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]*ec2.Subnet, error) {
-	subnets := []*ec2.Subnet{
+func stubDescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]ec2types.Subnet, error) {
+	subnets := []ec2types.Subnet{
 		subnet1,
 		subnet2,
 		subnet3,
@@ -883,10 +884,10 @@ func stubDescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsIn
 		subnet15,
 	}
 	if input.SubnetIds != nil {
-		var filtered []*ec2.Subnet
+		var filtered []ec2types.Subnet
 		for _, subnet := range subnets {
 			for _, id := range input.SubnetIds {
-				if awssdk.StringValue(subnet.SubnetId) == awssdk.StringValue(id) {
+				if awssdk.ToString(subnet.SubnetId) == id {
 					filtered = append(filtered, subnet)
 					continue
 				}
@@ -895,30 +896,30 @@ func stubDescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsIn
 		subnets = filtered
 	}
 	if input.Filters != nil {
-		var filtered []*ec2.Subnet
+		var filtered []ec2types.Subnet
 	subnetLoop:
 		for _, subnet := range subnets {
 			for _, filter := range input.Filters {
 				eligible := false
-				if awssdk.StringValue(filter.Name) == "vpc-id" {
+				if awssdk.ToString(filter.Name) == "vpc-id" {
 					for _, name := range filter.Values {
-						if awssdk.StringValue(subnet.VpcId) == awssdk.StringValue(name) {
+						if awssdk.ToString(subnet.VpcId) == name {
 							eligible = true
 							continue
 						}
 					}
-				} else if strings.HasPrefix(awssdk.StringValue(filter.Name), "tag:") {
-					key := strings.TrimPrefix(awssdk.StringValue(filter.Name), "tag:")
+				} else if strings.HasPrefix(awssdk.ToString(filter.Name), "tag:") {
+					key := strings.TrimPrefix(awssdk.ToString(filter.Name), "tag:")
 					for _, value := range filter.Values {
 						for _, tag := range subnet.Tags {
-							if awssdk.StringValue(tag.Key) == key && awssdk.StringValue(tag.Value) == awssdk.StringValue(value) {
+							if awssdk.ToString(tag.Key) == key && awssdk.ToString(tag.Value) == value {
 								eligible = true
 								continue
 							}
 						}
 					}
 				} else {
-					return nil, fmt.Errorf("unexpected filter %q", awssdk.StringValue(filter.Name))
+					return nil, fmt.Errorf("unexpected filter %q", awssdk.ToString(filter.Name))
 				}
 				if !eligible {
 					continue subnetLoop
@@ -1257,10 +1258,10 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 
 			azInfoProvider := networking2.NewMockAZInfoProvider(ctrl)
 			azInfoProvider.EXPECT().FetchAZInfos(gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2.AvailabilityZone, error) {
-					ret := make(map[string]ec2.AvailabilityZone, len(availabilityZoneIDs))
+				DoAndReturn(func(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2types.AvailabilityZone, error) {
+					ret := make(map[string]ec2types.AvailabilityZone, len(availabilityZoneIDs))
 					for _, id := range availabilityZoneIDs {
-						ret[id] = ec2.AvailabilityZone{ZoneType: awssdk.String("availability-zone")}
+						ret[id] = ec2types.AvailabilityZone{ZoneType: awssdk.String("availability-zone")}
 					}
 					return ret, nil
 				}).AnyTimes()

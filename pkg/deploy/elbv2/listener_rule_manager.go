@@ -2,8 +2,9 @@ package elbv2
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
@@ -74,7 +75,7 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 			return err
 		}
 		sdkLR = ListenerRuleWithTags{
-			ListenerRule: resp.Rules[0],
+			ListenerRule: &resp.Rules[0],
 			Tags:         ruleTags,
 		}
 		return nil
@@ -84,7 +85,7 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 	m.logger.Info("created listener rule",
 		"stackID", resLR.Stack().StackID(),
 		"resourceID", resLR.ID(),
-		"arn", awssdk.StringValue(sdkLR.ListenerRule.RuleArn))
+		"arn", awssdk.ToString(sdkLR.ListenerRule.RuleArn))
 
 	return buildResListenerRuleStatus(sdkLR), nil
 }
@@ -106,12 +107,12 @@ func (m *defaultListenerRuleManager) Delete(ctx context.Context, sdkLR ListenerR
 		RuleArn: sdkLR.ListenerRule.RuleArn,
 	}
 	m.logger.Info("deleting listener rule",
-		"arn", awssdk.StringValue(req.RuleArn))
+		"arn", awssdk.ToString(req.RuleArn))
 	if _, err := m.elbv2Client.DeleteRuleWithContext(ctx, req); err != nil {
 		return err
 	}
 	m.logger.Info("deleted listener rule",
-		"arn", awssdk.StringValue(req.RuleArn))
+		"arn", awssdk.ToString(req.RuleArn))
 	return nil
 }
 
@@ -130,26 +131,26 @@ func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx conte
 	m.logger.Info("modifying listener rule",
 		"stackID", resLR.Stack().StackID(),
 		"resourceID", resLR.ID(),
-		"arn", awssdk.StringValue(sdkLR.ListenerRule.RuleArn))
+		"arn", awssdk.ToString(sdkLR.ListenerRule.RuleArn))
 	if _, err := m.elbv2Client.ModifyRuleWithContext(ctx, req); err != nil {
 		return err
 	}
 	m.logger.Info("modified listener rule",
 		"stackID", resLR.Stack().StackID(),
 		"resourceID", resLR.ID(),
-		"arn", awssdk.StringValue(sdkLR.ListenerRule.RuleArn))
+		"arn", awssdk.ToString(sdkLR.ListenerRule.RuleArn))
 	return nil
 }
 
 func (m *defaultListenerRuleManager) updateSDKListenerRuleWithTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) error {
 	desiredTags := m.trackingProvider.ResourceTags(resLR.Stack(), resLR, resLR.Spec.Tags)
-	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkLR.ListenerRule.RuleArn), desiredTags,
+	return m.taggingManager.ReconcileTags(ctx, awssdk.ToString(sdkLR.ListenerRule.RuleArn), desiredTags,
 		WithCurrentTags(sdkLR.Tags),
 		WithIgnoredTagKeys(m.externalManagedTags))
 }
 
 func isSDKListenerRuleSettingsDrifted(lrSpec elbv2model.ListenerRuleSpec, sdkLR ListenerRuleWithTags,
-	desiredActions []*elbv2sdk.Action, desiredConditions []*elbv2sdk.RuleCondition) bool {
+	desiredActions []elbv2types.Action, desiredConditions []elbv2types.RuleCondition) bool {
 
 	if !cmp.Equal(desiredActions, sdkLR.ListenerRule.Actions, elbv2equality.CompareOptionForActions()) {
 		return true
@@ -169,7 +170,7 @@ func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, feature
 	}
 	sdkObj := &elbv2sdk.CreateRuleInput{}
 	sdkObj.ListenerArn = awssdk.String(lsARN)
-	sdkObj.Priority = awssdk.Int64(lrSpec.Priority)
+	sdkObj.Priority = awssdk.Int32(lrSpec.Priority)
 	actions, err := buildSDKActions(lrSpec.Actions, featureGates)
 	if err != nil {
 		return nil, err
@@ -179,7 +180,7 @@ func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, feature
 	return sdkObj, nil
 }
 
-func buildSDKModifyListenerRuleInput(_ elbv2model.ListenerRuleSpec, desiredActions []*elbv2sdk.Action, desiredConditions []*elbv2sdk.RuleCondition) *elbv2sdk.ModifyRuleInput {
+func buildSDKModifyListenerRuleInput(_ elbv2model.ListenerRuleSpec, desiredActions []elbv2types.Action, desiredConditions []elbv2types.RuleCondition) *elbv2sdk.ModifyRuleInput {
 	sdkObj := &elbv2sdk.ModifyRuleInput{}
 	sdkObj.Actions = desiredActions
 	sdkObj.Conditions = desiredConditions
@@ -188,6 +189,6 @@ func buildSDKModifyListenerRuleInput(_ elbv2model.ListenerRuleSpec, desiredActio
 
 func buildResListenerRuleStatus(sdkLR ListenerRuleWithTags) elbv2model.ListenerRuleStatus {
 	return elbv2model.ListenerRuleStatus{
-		RuleARN: awssdk.StringValue(sdkLR.ListenerRule.RuleArn),
+		RuleARN: awssdk.ToString(sdkLR.ListenerRule.RuleArn),
 	}
 }

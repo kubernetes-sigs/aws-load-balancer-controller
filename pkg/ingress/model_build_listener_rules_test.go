@@ -1,7 +1,7 @@
 package ingress
 
 import (
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"

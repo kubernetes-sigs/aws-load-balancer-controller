@@ -3,10 +3,11 @@ package networking
 import (
 	"context"
 	"errors"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
@@ -20,12 +21,12 @@ import (
 func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 	type describeSubnetsAsListCall struct {
 		input  *ec2sdk.DescribeSubnetsInput
-		output []*ec2sdk.Subnet
+		output []ec2types.Subnet
 		err    error
 	}
 	type fetchAZInfosCall struct {
 		availabilityZoneIDs []string
-		azInfoByAZID        map[string]ec2sdk.AvailabilityZone
+		azInfoByAZID        map[string]ec2types.AvailabilityZone
 		err                 error
 	}
 	type fields struct {
@@ -38,14 +39,14 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 		opts []SubnetsResolveOption
 	}
 	const (
-		minimalAvailableIPAddressCount = int64(8)
+		minimalAvailableIPAddressCount = int32(8)
 		defaultSubnetsClusterTagCheck  = true
 	)
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
-		want    []*ec2sdk.Subnet
+		want    []ec2types.Subnet
 		wantErr error
 	}{
 		{
@@ -56,18 +57,18 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -86,7 +87,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -95,7 +96,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					},
 					{
 						availabilityZoneIDs: []string{"usw2-az2"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az2": {
 								ZoneId:   awssdk.String("usw2-az2"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -110,7 +111,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -133,18 +134,18 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -163,7 +164,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -172,7 +173,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					},
 					{
 						availabilityZoneIDs: []string{"usw2-az2"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az2": {
 								ZoneId:   awssdk.String("usw2-az2"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -187,7 +188,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -210,14 +211,14 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
@@ -241,14 +242,14 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
@@ -272,18 +273,18 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -296,7 +297,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -311,7 +312,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -328,18 +329,18 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -352,7 +353,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -377,18 +378,18 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2-lax-1a"),
@@ -401,7 +402,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-lax1-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-lax1-az1": {
 								ZoneId:   awssdk.String("usw2-lax1-az1"),
 								ZoneType: awssdk.String("local-zone"),
@@ -416,7 +417,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2-lax-1a"),
@@ -433,18 +434,18 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -462,7 +463,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -480,18 +481,18 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-3"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -522,7 +523,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -531,7 +532,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					},
 					{
 						availabilityZoneIDs: []string{"usw2-az2"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az2": {
 								ZoneId:   awssdk.String("usw2-az2"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -546,7 +547,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -569,18 +570,18 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -600,7 +601,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -625,14 +626,14 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/internal-elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
@@ -656,18 +657,18 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2b"),
@@ -679,7 +680,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 								AvailabilityZone:   awssdk.String("us-west-2b"),
 								AvailabilityZoneId: awssdk.String("usw2-az2"),
 								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{
 										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
 										Value: awssdk.String("owned"),
@@ -692,7 +693,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az2"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az2": {
 								ZoneId:   awssdk.String("usw2-az2"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -707,13 +708,13 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-2"),
 					AvailabilityZone:   awssdk.String("us-west-2b"),
 					AvailabilityZoneId: awssdk.String("usw2-az2"),
 					VpcId:              awssdk.String("vpc-1"),
-					Tags: []*ec2sdk.Tag{
+					Tags: []ec2types.Tag{
 						{
 							Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
 							Value: awssdk.String("owned"),
@@ -730,24 +731,24 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
 								AvailabilityZoneId: awssdk.String("usw2-az1"),
 								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{
 										Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
 										Value: awssdk.String("owned"),
@@ -759,7 +760,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 								AvailabilityZone:   awssdk.String("us-west-2a"),
 								AvailabilityZoneId: awssdk.String("usw2-az1"),
 								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{
 										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
 										Value: awssdk.String("owned"),
@@ -771,7 +772,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 								AvailabilityZone:   awssdk.String("us-west-2b"),
 								AvailabilityZoneId: awssdk.String("usw2-az2"),
 								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{
 										Key:   awssdk.String("kubernetes.io/cluster/no-cluster"),
 										Value: awssdk.String("owned"),
@@ -783,7 +784,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 								AvailabilityZone:   awssdk.String("us-west-2a"),
 								AvailabilityZoneId: awssdk.String("usw2-az1"),
 								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{
 										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
 										Value: awssdk.String("owned"),
@@ -802,7 +803,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -811,7 +812,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					},
 					{
 						availabilityZoneIDs: []string{"usw2-az3"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az3": {
 								ZoneId:   awssdk.String("usw2-az3"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -827,13 +828,13 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsClusterTagCheck(defaultSubnetsClusterTagCheck),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-2"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
 					AvailabilityZoneId: awssdk.String("usw2-az1"),
 					VpcId:              awssdk.String("vpc-1"),
-					Tags: []*ec2sdk.Tag{
+					Tags: []ec2types.Tag{
 						{
 							Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
 							Value: awssdk.String("owned"),
@@ -856,24 +857,24 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-3"),
 								AvailabilityZone:   awssdk.String("us-west-2c"),
 								AvailabilityZoneId: awssdk.String("usw2-az3"),
 								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{
 										Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
 										Value: awssdk.String("owned"),
@@ -885,7 +886,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 								AvailabilityZone:   awssdk.String("us-west-2a"),
 								AvailabilityZoneId: awssdk.String("usw2-az1"),
 								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{
 										Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
 										Value: awssdk.String("owned"),
@@ -897,7 +898,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 								AvailabilityZone:   awssdk.String("us-west-2c"),
 								AvailabilityZoneId: awssdk.String("usw2-az3"),
 								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{
 										Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
 										Value: awssdk.String("owned"),
@@ -910,7 +911,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -919,7 +920,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					},
 					{
 						availabilityZoneIDs: []string{"usw2-az3"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az3": {
 								ZoneId:   awssdk.String("usw2-az3"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -935,13 +936,13 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsClusterTagCheck(false),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
 					AvailabilityZoneId: awssdk.String("usw2-az1"),
 					VpcId:              awssdk.String("vpc-1"),
-					Tags: []*ec2sdk.Tag{
+					Tags: []ec2types.Tag{
 						{
 							Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
 							Value: awssdk.String("owned"),
@@ -953,7 +954,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					AvailabilityZone:   awssdk.String("us-west-2c"),
 					AvailabilityZoneId: awssdk.String("usw2-az3"),
 					VpcId:              awssdk.String("vpc-1"),
-					Tags: []*ec2sdk.Tag{
+					Tags: []ec2types.Tag{
 						{
 							Key:   awssdk.String("kubernetes.io/cluster/kube-cluster"),
 							Value: awssdk.String("owned"),
@@ -970,24 +971,24 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
 								AvailabilityZoneId: awssdk.String("usw2-az1"),
 								VpcId:              awssdk.String("vpc-1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{
 										Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
 										Value: awssdk.String("owned"),
@@ -1004,7 +1005,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1019,13 +1020,13 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
 					AvailabilityZoneId: awssdk.String("usw2-az1"),
 					VpcId:              awssdk.String("vpc-1"),
-					Tags: []*ec2sdk.Tag{
+					Tags: []ec2types.Tag{
 						{
 							Key:   awssdk.String("kubernetes.io/cluster/some-other-cluster"),
 							Value: awssdk.String("owned"),
@@ -1046,52 +1047,52 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 								{
 									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
-									Values: awssdk.StringSlice([]string{"", "1"}),
+									Values: []string{"", "1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:                awssdk.String("subnet-1"),
 								AvailabilityZone:        awssdk.String("us-west-2a"),
 								AvailabilityZoneId:      awssdk.String("usw2-az1"),
 								VpcId:                   awssdk.String("vpc-1"),
-								AvailableIpAddressCount: awssdk.Int64(0),
+								AvailableIpAddressCount: awssdk.Int32(0),
 							},
 							{
 								SubnetId:                awssdk.String("subnet-3"),
 								AvailabilityZone:        awssdk.String("us-west-2a"),
 								AvailabilityZoneId:      awssdk.String("usw2-az1"),
 								VpcId:                   awssdk.String("vpc-1"),
-								AvailableIpAddressCount: awssdk.Int64(8),
+								AvailableIpAddressCount: awssdk.Int32(8),
 							},
 							{
 								SubnetId:                awssdk.String("subnet-4"),
 								AvailabilityZone:        awssdk.String("us-west-2b"),
 								AvailabilityZoneId:      awssdk.String("usw2-az2"),
 								VpcId:                   awssdk.String("vpc-1"),
-								AvailableIpAddressCount: awssdk.Int64(25),
+								AvailableIpAddressCount: awssdk.Int32(25),
 							},
 							{
 								SubnetId:                awssdk.String("subnet-2"),
 								AvailabilityZone:        awssdk.String("us-west-2a"),
 								AvailabilityZoneId:      awssdk.String("usw2-az1"),
 								VpcId:                   awssdk.String("vpc-1"),
-								AvailableIpAddressCount: awssdk.Int64(2),
+								AvailableIpAddressCount: awssdk.Int32(2),
 							},
 							{
 								SubnetId:                awssdk.String("subnet-5"),
 								AvailabilityZone:        awssdk.String("us-west-2b"),
 								AvailabilityZoneId:      awssdk.String("usw2-az2"),
 								VpcId:                   awssdk.String("vpc-1"),
-								AvailableIpAddressCount: awssdk.Int64(10),
+								AvailableIpAddressCount: awssdk.Int32(10),
 							},
 						},
 					},
@@ -1099,7 +1100,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1108,7 +1109,7 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					},
 					{
 						availabilityZoneIDs: []string{"usw2-az2"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az2": {
 								ZoneId:   awssdk.String("usw2-az2"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1124,20 +1125,20 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:                awssdk.String("subnet-3"),
 					AvailabilityZone:        awssdk.String("us-west-2a"),
 					AvailabilityZoneId:      awssdk.String("usw2-az1"),
 					VpcId:                   awssdk.String("vpc-1"),
-					AvailableIpAddressCount: awssdk.Int64(8),
+					AvailableIpAddressCount: awssdk.Int32(8),
 				},
 				{
 					SubnetId:                awssdk.String("subnet-4"),
 					AvailabilityZone:        awssdk.String("us-west-2b"),
 					AvailabilityZoneId:      awssdk.String("usw2-az2"),
 					VpcId:                   awssdk.String("vpc-1"),
-					AvailableIpAddressCount: awssdk.Int64(25),
+					AvailableIpAddressCount: awssdk.Int32(25),
 				},
 			},
 		},
@@ -1171,9 +1172,13 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
-				opts := cmpopts.SortSlices(func(lhs *ec2sdk.Subnet, rhs *ec2sdk.Subnet) bool {
-					return awssdk.StringValue(lhs.SubnetId) < awssdk.StringValue(rhs.SubnetId)
-				})
+				opts := cmp.Options{
+					cmpopts.SortSlices(func(lhs *ec2types.Subnet, rhs *ec2types.Subnet) bool {
+						return awssdk.ToString(lhs.SubnetId) < awssdk.ToString(rhs.SubnetId)
+					}),
+					cmpopts.IgnoreUnexported(ec2types.Subnet{}),
+					cmpopts.IgnoreUnexported(ec2types.Tag{}),
+				}
 				assert.True(t, cmp.Equal(tt.want, got, opts), "diff", cmp.Diff(tt.want, got, opts))
 			}
 		})
@@ -1183,12 +1188,12 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 	type describeSubnetsAsListCall struct {
 		input  *ec2sdk.DescribeSubnetsInput
-		output []*ec2sdk.Subnet
+		output []ec2types.Subnet
 		err    error
 	}
 	type fetchAZInfosCall struct {
 		availabilityZoneIDs []string
-		azInfoByAZID        map[string]ec2sdk.AvailabilityZone
+		azInfoByAZID        map[string]ec2types.AvailabilityZone
 		err                 error
 	}
 	type fields struct {
@@ -1205,7 +1210,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    []*ec2sdk.Subnet
+		want    []ec2types.Subnet
 		wantErr error
 	}{
 		{
@@ -1216,9 +1221,9 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							SubnetIds: awssdk.StringSlice([]string{"subnet-1", "subnet-2"}),
+							SubnetIds: []string{"subnet-1", "subnet-2"},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1237,7 +1242,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1246,7 +1251,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					},
 					{
 						availabilityZoneIDs: []string{"usw2-az2"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az2": {
 								ZoneId:   awssdk.String("usw2-az2"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1262,7 +1267,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1285,18 +1290,18 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("tag:Name"),
-									Values: awssdk.StringSlice([]string{"my-name-1", "my-name-2"}),
+									Values: []string{"my-name-1", "my-name-2"},
 								},
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1315,7 +1320,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1324,7 +1329,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					},
 					{
 						availabilityZoneIDs: []string{"usw2-az2"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az2": {
 								ZoneId:   awssdk.String("usw2-az2"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1340,7 +1345,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1363,9 +1368,9 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							SubnetIds: awssdk.StringSlice([]string{"subnet-1"}),
+							SubnetIds: []string{"subnet-1"},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1376,18 +1381,18 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					},
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("tag:Name"),
-									Values: awssdk.StringSlice([]string{"my-name-2"}),
+									Values: []string{"my-name-2"},
 								},
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-2"),
 								AvailabilityZone:   awssdk.String("us-west-2b"),
@@ -1400,7 +1405,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1409,7 +1414,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					},
 					{
 						availabilityZoneIDs: []string{"usw2-az2"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az2": {
 								ZoneId:   awssdk.String("usw2-az2"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1425,7 +1430,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1448,18 +1453,18 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("tag:Name"),
-									Values: awssdk.StringSlice([]string{"my-name-1", "my-name-2", "my-name-3"}),
+									Values: []string{"my-name-1", "my-name-2", "my-name-3"},
 								},
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-1"}),
+									Values: []string{"vpc-1"},
 								},
 							},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:         awssdk.String("subnet-1"),
 								AvailabilityZone: awssdk.String("us-west-2a"),
@@ -1507,9 +1512,9 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							SubnetIds: awssdk.StringSlice([]string{"subnet-1", "subnet-2", "subnet-3"}),
+							SubnetIds: []string{"subnet-1", "subnet-2", "subnet-3"},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:         awssdk.String("subnet-1"),
 								AvailabilityZone: awssdk.String("us-west-2a"),
@@ -1546,9 +1551,9 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							SubnetIds: awssdk.StringSlice([]string{"subnet-1", "subnet-2"}),
+							SubnetIds: []string{"subnet-1", "subnet-2"},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1568,7 +1573,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1594,9 +1599,9 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							SubnetIds: awssdk.StringSlice([]string{"subnet-1"}),
+							SubnetIds: []string{"subnet-1"},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1609,7 +1614,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1635,9 +1640,9 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							SubnetIds: awssdk.StringSlice([]string{"subnet-1"}),
+							SubnetIds: []string{"subnet-1"},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2-lax-1a"),
@@ -1650,7 +1655,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-lax1-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-lax1-az1": {
 								ZoneId:   awssdk.String("usw2-lax1-az1"),
 								ZoneType: awssdk.String("local-zone"),
@@ -1666,7 +1671,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2-lax-1a"),
@@ -1683,9 +1688,9 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							SubnetIds: awssdk.StringSlice([]string{"subnet-1"}),
+							SubnetIds: []string{"subnet-1"},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1704,7 +1709,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1722,9 +1727,9 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
 					{
 						input: &ec2sdk.DescribeSubnetsInput{
-							SubnetIds: awssdk.StringSlice([]string{"subnet-1"}),
+							SubnetIds: []string{"subnet-1"},
 						},
-						output: []*ec2sdk.Subnet{
+						output: []ec2types.Subnet{
 							{
 								SubnetId:           awssdk.String("subnet-1"),
 								AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1737,7 +1742,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1753,7 +1758,7 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternal),
 				},
 			},
-			want: []*ec2sdk.Subnet{
+			want: []ec2types.Subnet{
 				{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
@@ -1790,9 +1795,13 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
-				opts := cmpopts.SortSlices(func(lhs *ec2sdk.Subnet, rhs *ec2sdk.Subnet) bool {
-					return awssdk.StringValue(lhs.SubnetId) < awssdk.StringValue(rhs.SubnetId)
-				})
+				opts := cmp.Options{
+					cmpopts.SortSlices(func(lhs *ec2types.Subnet, rhs *ec2types.Subnet) bool {
+						return awssdk.ToString(lhs.SubnetId) < awssdk.ToString(rhs.SubnetId)
+					}),
+					cmpopts.IgnoreUnexported(ec2types.Subnet{}),
+					cmpopts.IgnoreUnexported(ec2types.Tag{}),
+				}
 				assert.True(t, cmp.Equal(tt.want, got, opts), "diff", cmp.Diff(tt.want, got, opts))
 			}
 		})
@@ -1802,14 +1811,14 @@ func Test_defaultSubnetsResolver_ResolveViaNameOrIDSlice(t *testing.T) {
 func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 	type fetchAZInfosCall struct {
 		availabilityZoneIDs []string
-		azInfoByAZID        map[string]ec2sdk.AvailabilityZone
+		azInfoByAZID        map[string]ec2types.AvailabilityZone
 		err                 error
 	}
 	type fields struct {
 		fetchAZInfosCalls []fetchAZInfosCall
 	}
 	type args struct {
-		subnet *ec2sdk.Subnet
+		subnet ec2types.Subnet
 	}
 	tests := []struct {
 		name    string
@@ -1824,7 +1833,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("availability-zone"),
@@ -1834,7 +1843,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				},
 			},
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
 					AvailabilityZoneId: awssdk.String("usw2-az1"),
@@ -1849,7 +1858,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-lax1-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-lax1-az1": {
 								ZoneId:   awssdk.String("usw2-lax1-az1"),
 								ZoneType: awssdk.String("local-zone"),
@@ -1859,7 +1868,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				},
 			},
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2-lax-1a"),
 					AvailabilityZoneId: awssdk.String("usw2-lax1-az1"),
@@ -1874,7 +1883,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-wl1-las-wlz1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-wl1-las-wlz1": {
 								ZoneId:   awssdk.String("usw2-lax1-az1"),
 								ZoneType: awssdk.String("wavelength-zone"),
@@ -1884,7 +1893,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				},
 			},
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2-wl1-las-wlz-1"),
 					AvailabilityZoneId: awssdk.String("usw2-wl1-las-wlz1"),
@@ -1899,7 +1908,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				fetchAZInfosCalls: nil,
 			},
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
 					AvailabilityZoneId: awssdk.String("usw2-az1"),
@@ -1920,7 +1929,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				},
 			},
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("invalid-zone"),
 					AvailabilityZoneId: awssdk.String("invalid-zone-id"),
@@ -1935,7 +1944,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				fetchAZInfosCalls: []fetchAZInfosCall{
 					{
 						availabilityZoneIDs: []string{"usw2-az1"},
-						azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
 							"usw2-az1": {
 								ZoneId:   awssdk.String("usw2-az1"),
 								ZoneType: awssdk.String("unknown"),
@@ -1945,7 +1954,7 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 				},
 			},
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					SubnetId:           awssdk.String("subnet-1"),
 					AvailabilityZone:   awssdk.String("us-west-2a"),
 					AvailabilityZoneId: awssdk.String("usw2-az1"),
@@ -1981,17 +1990,17 @@ func Test_defaultSubnetsResolver_buildSDKSubnetLocaleType(t *testing.T) {
 
 func Test_sortSubnetsByID(t *testing.T) {
 	type args struct {
-		subnets []*ec2sdk.Subnet
+		subnets []ec2types.Subnet
 	}
 	tests := []struct {
 		name        string
 		args        args
-		wantSubnets []*ec2sdk.Subnet
+		wantSubnets []ec2types.Subnet
 	}{
 		{
 			name: "subnets already sorted",
 			args: args{
-				subnets: []*ec2sdk.Subnet{
+				subnets: []ec2types.Subnet{
 					{
 						SubnetId: awssdk.String("subnet-a"),
 					},
@@ -2002,7 +2011,7 @@ func Test_sortSubnetsByID(t *testing.T) {
 					},
 				},
 			},
-			wantSubnets: []*ec2sdk.Subnet{
+			wantSubnets: []ec2types.Subnet{
 				{
 					SubnetId: awssdk.String("subnet-a"),
 				},
@@ -2016,7 +2025,7 @@ func Test_sortSubnetsByID(t *testing.T) {
 		{
 			name: "subnets not sorted",
 			args: args{
-				subnets: []*ec2sdk.Subnet{
+				subnets: []ec2types.Subnet{
 					{
 						SubnetId: awssdk.String("subnet-c"),
 					},
@@ -2028,7 +2037,7 @@ func Test_sortSubnetsByID(t *testing.T) {
 					},
 				},
 			},
-			wantSubnets: []*ec2sdk.Subnet{
+			wantSubnets: []ec2types.Subnet{
 				{
 					SubnetId: awssdk.String("subnet-a"),
 				},

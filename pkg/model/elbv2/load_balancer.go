@@ -138,11 +138,11 @@ type LoadBalancerSpec struct {
 	// The nodes of an Internet-facing load balancer have public IP addresses.
 	// The nodes of an internal load balancer have only private IP addresses.
 	// +optional
-	Scheme *LoadBalancerScheme `json:"scheme,omitempty"`
+	Scheme LoadBalancerScheme `json:"scheme,omitempty"`
 
 	// The type of IP addresses used by the subnets for your load balancer.
 	// +optional
-	IPAddressType *IPAddressType `json:"ipAddressType,omitempty"`
+	IPAddressType IPAddressType `json:"ipAddressType,omitempty"`
 
 	// The IDs of the public subnets. You can specify only one subnet per Availability Zone.
 	// +optional

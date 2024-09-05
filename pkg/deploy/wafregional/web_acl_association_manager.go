@@ -2,8 +2,8 @@ package wafregional
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	wafregionalsdk "github.com/aws/aws-sdk-go/service/wafregional"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	wafregionalsdk "github.com/aws/aws-sdk-go-v2/service/wafregional"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -97,7 +97,7 @@ func (m *defaultWebACLAssociationManager) GetAssociatedWebACL(ctx context.Contex
 	}
 	var webACLID string
 	if resp.WebACLSummary != nil {
-		webACLID = awssdk.StringValue(resp.WebACLSummary.WebACLId)
+		webACLID = awssdk.ToString(resp.WebACLSummary.WebACLId)
 	}
 
 	m.webACLIDByResourceARNCache.Set(resourceARN, webACLID, m.webACLIDByResourceARNCacheTTL)

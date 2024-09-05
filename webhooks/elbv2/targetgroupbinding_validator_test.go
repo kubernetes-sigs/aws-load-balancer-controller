@@ -2,10 +2,11 @@ package elbv2
 
 import (
 	"context"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -27,7 +28,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 	targetGroupIPAddressTypeIPv6 := elbv2api.TargetGroupIPAddressTypeIPv6
 	type describeTargetGroupsAsListCall struct {
 		req  *elbv2sdk.DescribeTargetGroupsInput
-		resp []*elbv2sdk.TargetGroup
+		resp []elbv2types.TargetGroup
 		err  error
 	}
 
@@ -64,12 +65,12 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     awssdk.String("instance"),
+								TargetType:     elbv2types.TargetTypeEnum("instance"),
 							},
 						},
 					},
@@ -103,12 +104,12 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     awssdk.String("instance"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
 							},
 						},
 					},
@@ -131,13 +132,13 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     awssdk.String("instance"),
-								IpAddressType:  awssdk.String("ipv4"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv4,
 							},
 						},
 					},
@@ -160,13 +161,13 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     awssdk.String("instance"),
-								IpAddressType:  awssdk.String("ipv6"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
 							},
 						},
 					},
@@ -188,26 +189,26 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     awssdk.String("instance"),
-								IpAddressType:  awssdk.String("ipv6"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
 								VpcId:          &clusterVpcID,
 							},
 						},
 					},
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     awssdk.String("instance"),
-								IpAddressType:  awssdk.String("ipv6"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
 								VpcId:          &clusterVpcID,
 							},
 						},
@@ -232,26 +233,26 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     awssdk.String("instance"),
-								IpAddressType:  awssdk.String("ipv6"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
 								VpcId:          &clusterVpcID,
 							},
 						},
 					},
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     awssdk.String("instance"),
-								IpAddressType:  awssdk.String("ipv6"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
 								VpcId:          &clusterVpcID,
 							},
 						},
@@ -1081,7 +1082,7 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 	}
 	type describeTargetGroupsAsListCall struct {
 		req  *elbv2sdk.DescribeTargetGroupsInput
-		resp []*elbv2sdk.TargetGroup
+		resp []elbv2types.TargetGroup
 		err  error
 	}
 	type fields struct {
@@ -1108,7 +1109,7 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
 						err: errors.New("vpcid not found"),
 					},

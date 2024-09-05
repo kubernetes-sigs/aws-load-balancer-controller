@@ -1,9 +1,9 @@
 package networking
 
 import (
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -20,21 +20,21 @@ func Test_defaultSecurityGroupReconciler_shouldRetryWithoutCache(t *testing.T) {
 		{
 			name: "should retry without cache when got duplicated permission error",
 			args: args{
-				err: awserr.New("InvalidPermission.Duplicate", "", nil),
+				err: &smithy.GenericAPIError{Code: "InvalidPermission.Duplicate", Message: ""},
 			},
 			want: true,
 		},
 		{
 			name: "should retry without cache when got not found permission error",
 			args: args{
-				err: awserr.New("InvalidPermission.NotFound", "", nil),
+				err: &smithy.GenericAPIError{Code: "InvalidPermission.NotFound", Message: ""},
 			},
 			want: true,
 		},
 		{
 			name: "shouldn't retry when got some other error",
 			args: args{
-				err: awserr.New("SomeOtherError", "", nil),
+				err: &smithy.GenericAPIError{Code: "SomeOtherError", Message: ""},
 			},
 			want: false,
 		},
@@ -63,11 +63,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 			args: args{
 				source: []IPPermissionInfo{
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -75,11 +75,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.171.0.0/16"),
 								},
@@ -87,11 +87,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.170.0.0/16"),
 								},
@@ -101,11 +101,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 				},
 				target: []IPPermissionInfo{
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -113,11 +113,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.170.0.0/16"),
 								},
@@ -128,11 +128,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 			},
 			want: []IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
-						FromPort:   awssdk.Int64(80),
-						ToPort:     awssdk.Int64(8080),
-						IpRanges: []*ec2sdk.IpRange{
+						FromPort:   awssdk.Int32(80),
+						ToPort:     awssdk.Int32(8080),
+						IpRanges: []ec2types.IpRange{
 							{
 								CidrIp: awssdk.String("192.171.0.0/16"),
 							},
@@ -146,11 +146,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 			args: args{
 				source: []IPPermissionInfo{
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -158,11 +158,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.170.0.0/16"),
 								},
@@ -172,11 +172,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 				},
 				target: []IPPermissionInfo{
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -184,11 +184,11 @@ func Test_diffIPPermissionInfos(t *testing.T) {
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.170.0.0/16"),
 								},

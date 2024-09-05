@@ -2,9 +2,10 @@ package ec2
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -72,9 +73,9 @@ func (m *defaultSecurityGroupManager) Create(ctx context.Context, resSG *ec2mode
 		VpcId:       awssdk.String(m.vpcID),
 		GroupName:   awssdk.String(resSG.Spec.GroupName),
 		Description: awssdk.String(resSG.Spec.Description),
-		TagSpecifications: []*ec2sdk.TagSpecification{
+		TagSpecifications: []ec2types.TagSpecification{
 			{
-				ResourceType: awssdk.String("security-group"),
+				ResourceType: "security-group",
 				Tags:         sdkTags,
 			},
 		},
@@ -85,7 +86,7 @@ func (m *defaultSecurityGroupManager) Create(ctx context.Context, resSG *ec2mode
 	if err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
-	sgID := awssdk.StringValue(resp.GroupId)
+	sgID := awssdk.ToString(resp.GroupId)
 	m.logger.Info("created securityGroup",
 		"resourceID", resSG.ID(),
 		"securityGroupID", sgID)
@@ -176,9 +177,9 @@ func buildIPPermissionInfo(permission ec2model.IPPermission) (networking.IPPermi
 }
 
 func isSecurityGroupDependencyViolationError(err error) bool {
-	var awsErr awserr.Error
-	if errors.As(err, &awsErr) {
-		return awsErr.Code() == "DependencyViolation"
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "DependencyViolation"
 	}
 	return false
 }

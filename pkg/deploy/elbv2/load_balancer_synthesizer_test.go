@@ -1,10 +1,10 @@
 package elbv2
 
 import (
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -45,7 +45,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 				},
 				sdkLBs: []LoadBalancerWithTags{
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -53,7 +53,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 						},
 					},
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2"),
 						},
 						Tags: map[string]string{
@@ -72,7 +72,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 						},
 					},
 					sdkLB: LoadBalancerWithTags{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -88,7 +88,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 						},
 					},
 					sdkLB: LoadBalancerWithTags{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2"),
 						},
 						Tags: map[string]string{
@@ -117,7 +117,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 				},
 				sdkLBs: []LoadBalancerWithTags{
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -136,7 +136,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 						},
 					},
 					sdkLB: LoadBalancerWithTags{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -167,7 +167,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 				},
 				sdkLBs: []LoadBalancerWithTags{
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -175,7 +175,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 						},
 					},
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2"),
 						},
 						Tags: map[string]string{
@@ -194,7 +194,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 						},
 					},
 					sdkLB: LoadBalancerWithTags{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -205,7 +205,7 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 			},
 			want2: []LoadBalancerWithTags{
 				{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
+					LoadBalancer: &elbv2types.LoadBalancer{
 						LoadBalancerArn: awssdk.String("arn-2"),
 					},
 					Tags: map[string]string{
@@ -228,18 +228,18 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 				},
 				sdkLBs: []LoadBalancerWithTags{
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
-							Type:            awssdk.String("application"),
+							Type:            elbv2types.LoadBalancerTypeEnum("application"),
 						},
 						Tags: map[string]string{
 							"ingress.k8s.aws/resource": "id-1",
 						},
 					},
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2"),
-							Type:            awssdk.String("network"),
+							Type:            elbv2types.LoadBalancerTypeEnum("network"),
 						},
 						Tags: map[string]string{
 							"ingress.k8s.aws/resource": "id-1",
@@ -258,9 +258,9 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 						},
 					},
 					sdkLB: LoadBalancerWithTags{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2"),
-							Type:            awssdk.String("network"),
+							Type:            elbv2types.LoadBalancerTypeEnum("network"),
 						},
 						Tags: map[string]string{
 							"ingress.k8s.aws/resource": "id-1",
@@ -270,9 +270,9 @@ func Test_matchResAndSDKLoadBalancers(t *testing.T) {
 			},
 			want2: []LoadBalancerWithTags{
 				{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
+					LoadBalancer: &elbv2types.LoadBalancer{
 						LoadBalancerArn: awssdk.String("arn-1"),
-						Type:            awssdk.String("application"),
+						Type:            elbv2types.LoadBalancerTypeEnum("application"),
 					},
 					Tags: map[string]string{
 						"ingress.k8s.aws/resource": "id-1",
@@ -364,7 +364,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 			args: args{
 				sdkLBs: []LoadBalancerWithTags{
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -372,7 +372,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 						},
 					},
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2"),
 						},
 						Tags: map[string]string{
@@ -385,7 +385,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 			want: map[string][]LoadBalancerWithTags{
 				"id-1": {
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -395,7 +395,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 				},
 				"id-2": {
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2"),
 						},
 						Tags: map[string]string{
@@ -410,7 +410,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 			args: args{
 				sdkLBs: []LoadBalancerWithTags{
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -418,7 +418,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 						},
 					},
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2A"),
 						},
 						Tags: map[string]string{
@@ -426,7 +426,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 						},
 					},
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2B"),
 						},
 						Tags: map[string]string{
@@ -439,7 +439,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 			want: map[string][]LoadBalancerWithTags{
 				"id-1": {
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{
@@ -449,7 +449,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 				},
 				"id-2": {
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2A"),
 						},
 						Tags: map[string]string{
@@ -457,7 +457,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 						},
 					},
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-2B"),
 						},
 						Tags: map[string]string{
@@ -472,7 +472,7 @@ func Test_mapSDKLoadBalancerByResourceID(t *testing.T) {
 			args: args{
 				sdkLBs: []LoadBalancerWithTags{
 					{
-						LoadBalancer: &elbv2sdk.LoadBalancer{
+						LoadBalancer: &elbv2types.LoadBalancer{
 							LoadBalancerArn: awssdk.String("arn-1"),
 						},
 						Tags: map[string]string{},
@@ -511,16 +511,16 @@ func Test_isSDKLoadBalancerRequiresReplacement(t *testing.T) {
 			name: "don't need replacement",
 			args: args{
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
-						Type:             awssdk.String("application"),
-						Scheme:           awssdk.String("internet-facing"),
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnum("application"),
+						Scheme:           elbv2types.LoadBalancerSchemeEnum("internet-facing"),
 						LoadBalancerName: awssdk.String("my-lb"),
 					},
 				},
 				resLB: &elbv2model.LoadBalancer{
 					Spec: elbv2model.LoadBalancerSpec{
 						Type:   elbv2model.LoadBalancerTypeApplication,
-						Scheme: &schemaInternetFacing,
+						Scheme: schemaInternetFacing,
 						Name:   "my-lb",
 					},
 				},
@@ -531,16 +531,16 @@ func Test_isSDKLoadBalancerRequiresReplacement(t *testing.T) {
 			name: "name-only change shouldn't need replacement",
 			args: args{
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
-						Type:             awssdk.String("application"),
-						Scheme:           awssdk.String("internet-facing"),
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnum("application"),
+						Scheme:           elbv2types.LoadBalancerSchemeEnum("internet-facing"),
 						LoadBalancerName: awssdk.String("my-lb1"),
 					},
 				},
 				resLB: &elbv2model.LoadBalancer{
 					Spec: elbv2model.LoadBalancerSpec{
 						Type:   elbv2model.LoadBalancerTypeApplication,
-						Scheme: &schemaInternetFacing,
+						Scheme: schemaInternetFacing,
 						Name:   "my-lb",
 					},
 				},
@@ -551,16 +551,16 @@ func Test_isSDKLoadBalancerRequiresReplacement(t *testing.T) {
 			name: "type change need replacement",
 			args: args{
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
-						Type:             awssdk.String("network"),
-						Scheme:           awssdk.String("internet-facing"),
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnum("network"),
+						Scheme:           elbv2types.LoadBalancerSchemeEnum("internet-facing"),
 						LoadBalancerName: awssdk.String("my-lb"),
 					},
 				},
 				resLB: &elbv2model.LoadBalancer{
 					Spec: elbv2model.LoadBalancerSpec{
 						Type:   elbv2model.LoadBalancerTypeApplication,
-						Scheme: &schemaInternetFacing,
+						Scheme: schemaInternetFacing,
 						Name:   "my-lb",
 					},
 				},
@@ -571,16 +571,16 @@ func Test_isSDKLoadBalancerRequiresReplacement(t *testing.T) {
 			name: "scheme change need replacement",
 			args: args{
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
-						Type:             awssdk.String("application"),
-						Scheme:           awssdk.String("internal"),
+					LoadBalancer: &elbv2types.LoadBalancer{
+						Type:             elbv2types.LoadBalancerTypeEnumApplication,
+						Scheme:           elbv2types.LoadBalancerSchemeEnumInternal,
 						LoadBalancerName: awssdk.String("my-lb"),
 					},
 				},
 				resLB: &elbv2model.LoadBalancer{
 					Spec: elbv2model.LoadBalancerSpec{
 						Type:   elbv2model.LoadBalancerTypeApplication,
-						Scheme: &schemaInternetFacing,
+						Scheme: schemaInternetFacing,
 						Name:   "my-lb",
 					},
 				},

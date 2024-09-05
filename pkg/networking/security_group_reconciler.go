@@ -2,7 +2,7 @@ package networking
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -117,9 +117,9 @@ func (r *defaultSecurityGroupReconciler) reconcileIngressWithSGInfo(ctx context.
 
 // shouldRetryWithoutCache tests whether we should retry SecurityGroup rules reconcile without cache.
 func (r *defaultSecurityGroupReconciler) shouldRetryWithoutCache(err error) bool {
-	var awsErr awserr.Error
-	if errors.As(err, &awsErr) {
-		return awsErr.Code() == "InvalidPermission.Duplicate" || awsErr.Code() == "InvalidPermission.NotFound"
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "InvalidPermission.Duplicate" || apiErr.ErrorCode() == "InvalidPermission.NotFound"
 	}
 	return false
 }

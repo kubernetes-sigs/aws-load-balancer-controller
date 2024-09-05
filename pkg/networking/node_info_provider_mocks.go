@@ -8,10 +8,10 @@ import (
 	context "context"
 	reflect "reflect"
 
-	ec2 "github.com/aws/aws-sdk-go/service/ec2"
+	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/api/core/v1"
-	types "k8s.io/apimachinery/pkg/types"
+	types0 "k8s.io/apimachinery/pkg/types"
 )
 
 // MockNodeInfoProvider is a mock of NodeInfoProvider interface.
@@ -38,10 +38,10 @@ func (m *MockNodeInfoProvider) EXPECT() *MockNodeInfoProviderMockRecorder {
 }
 
 // FetchNodeInstances mocks base method.
-func (m *MockNodeInfoProvider) FetchNodeInstances(arg0 context.Context, arg1 []*v1.Node) (map[types.NamespacedName]*ec2.Instance, error) {
+func (m *MockNodeInfoProvider) FetchNodeInstances(arg0 context.Context, arg1 []*v1.Node) (map[types0.NamespacedName]*types.Instance, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FetchNodeInstances", arg0, arg1)
-	ret0, _ := ret[0].(map[types.NamespacedName]*ec2.Instance)
+	ret0, _ := ret[0].(map[types0.NamespacedName]*types.Instance)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

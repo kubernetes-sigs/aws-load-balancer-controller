@@ -1,8 +1,8 @@
 package elbv2
 
 import (
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/stretchr/testify/assert"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"testing"
@@ -12,9 +12,9 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 	type args struct {
 		lsSpec                             elbv2model.ListenerSpec
 		sdkLS                              ListenerWithTags
-		desiredDefaultActions              []*elbv2sdk.Action
-		desiredDefaultCerts                []*elbv2sdk.Certificate
-		desiredDefaultMutualAuthentication *elbv2sdk.MutualAuthenticationAttributes
+		desiredDefaultActions              []elbv2types.Action
+		desiredDefaultCerts                []elbv2types.Certificate
+		desiredDefaultMutualAuthentication *elbv2types.MutualAuthenticationAttributes
 	}
 	tests := []struct {
 		name string
@@ -31,45 +31,45 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
-					Listener: &elbv2sdk.Listener{
-						Port:     awssdk.Int64(80),
-						Protocol: awssdk.String("HTTPS"),
-						Certificates: []*elbv2sdk.Certificate{
+					Listener: &elbv2types.Listener{
+						Port:     awssdk.Int32(80),
+						Protocol: elbv2types.ProtocolEnum("HTTPS"),
+						Certificates: []elbv2types.Certificate{
 							{
 								CertificateArn: awssdk.String("cert-arn1"),
 								IsDefault:      awssdk.Bool(true),
 							},
 						},
-						DefaultActions: []*elbv2sdk.Action{
+						DefaultActions: []elbv2types.Action{
 							{
-								Type: awssdk.String("fixed-response"),
-								FixedResponseConfig: &elbv2sdk.FixedResponseActionConfig{
+								Type: elbv2types.ActionTypeEnum("fixed-response"),
+								FixedResponseConfig: &elbv2types.FixedResponseActionConfig{
 									StatusCode: awssdk.String("404"),
 								},
 							},
 						},
 						SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
-						AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
-						MutualAuthentication: &elbv2sdk.MutualAuthenticationAttributes{
+						AlpnPolicy: []string{"HTTP2Preferred"},
+						MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
 							Mode: awssdk.String("off"),
 						},
 					},
 				},
-				desiredDefaultCerts: []*elbv2sdk.Certificate{
+				desiredDefaultCerts: []elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-arn1"),
 						IsDefault:      awssdk.Bool(true),
 					},
 				},
-				desiredDefaultActions: []*elbv2sdk.Action{
+				desiredDefaultActions: []elbv2types.Action{
 					{
-						Type: awssdk.String("fixed-response"),
-						FixedResponseConfig: &elbv2sdk.FixedResponseActionConfig{
+						Type: elbv2types.ActionTypeEnum("fixed-response"),
+						FixedResponseConfig: &elbv2types.FixedResponseActionConfig{
 							StatusCode: awssdk.String("404"),
 						},
 					},
 				},
-				desiredDefaultMutualAuthentication: &elbv2sdk.MutualAuthenticationAttributes{
+				desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
 					Mode: awssdk.String("off"),
 				},
 			},
@@ -92,45 +92,45 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 					},
 				},
 				sdkLS: ListenerWithTags{
-					Listener: &elbv2sdk.Listener{
-						Port:     awssdk.Int64(80),
-						Protocol: awssdk.String("HTTPS"),
-						Certificates: []*elbv2sdk.Certificate{
+					Listener: &elbv2types.Listener{
+						Port:     awssdk.Int32(80),
+						Protocol: elbv2types.ProtocolEnum("HTTPS"),
+						Certificates: []elbv2types.Certificate{
 							{
 								CertificateArn: awssdk.String("cert-arn1"),
 								IsDefault:      awssdk.Bool(true),
 							},
 						},
-						DefaultActions: []*elbv2sdk.Action{
+						DefaultActions: []elbv2types.Action{
 							{
-								Type: awssdk.String("fixed-response"),
-								FixedResponseConfig: &elbv2sdk.FixedResponseActionConfig{
+								Type: elbv2types.ActionTypeEnum("fixed-response"),
+								FixedResponseConfig: &elbv2types.FixedResponseActionConfig{
 									StatusCode: awssdk.String("404"),
 								},
 							},
 						},
 						SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
-						AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
-						MutualAuthentication: &elbv2sdk.MutualAuthenticationAttributes{
+						AlpnPolicy: []string{"HTTP2Preferred"},
+						MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
 							Mode: awssdk.String("off"),
 						},
 					},
 				},
-				desiredDefaultCerts: []*elbv2sdk.Certificate{
+				desiredDefaultCerts: []elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-arn1"),
 						IsDefault:      awssdk.Bool(true),
 					},
 				},
-				desiredDefaultActions: []*elbv2sdk.Action{
+				desiredDefaultActions: []elbv2types.Action{
 					{
-						Type: awssdk.String("fixed-response"),
-						FixedResponseConfig: &elbv2sdk.FixedResponseActionConfig{
+						Type: elbv2types.ActionTypeEnum("fixed-response"),
+						FixedResponseConfig: &elbv2types.FixedResponseActionConfig{
 							StatusCode: awssdk.String("404"),
 						},
 					},
 				},
-				desiredDefaultMutualAuthentication: &elbv2sdk.MutualAuthenticationAttributes{
+				desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
 					Mode: awssdk.String("off"),
 				},
 			},
@@ -144,20 +144,20 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
 				},
 				sdkLS: ListenerWithTags{
-					Listener: &elbv2sdk.Listener{
-						Port:     awssdk.Int64(80),
-						Protocol: awssdk.String("HTTPS"),
-						Certificates: []*elbv2sdk.Certificate{
+					Listener: &elbv2types.Listener{
+						Port:     awssdk.Int32(80),
+						Protocol: elbv2types.ProtocolEnum("HTTPS"),
+						Certificates: []elbv2types.Certificate{
 							{
 								CertificateArn: awssdk.String("cert-arn1"),
 								IsDefault:      awssdk.Bool(true),
 							},
 						},
-						DefaultActions: []*elbv2sdk.Action{
+						DefaultActions: []elbv2types.Action{
 							{
-								Type: awssdk.String("forward-config"),
-								ForwardConfig: &elbv2sdk.ForwardActionConfig{
-									TargetGroups: []*elbv2sdk.TargetGroupTuple{
+								Type: elbv2types.ActionTypeEnum("forward-config"),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
 											TargetGroupArn: awssdk.String("target-group"),
 										},
@@ -166,23 +166,23 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 							},
 						},
 						SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
-						AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
-						MutualAuthentication: &elbv2sdk.MutualAuthenticationAttributes{
+						AlpnPolicy: []string{"HTTP2Preferred"},
+						MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
 							Mode: awssdk.String("off"),
 						},
 					},
 				},
-				desiredDefaultCerts: []*elbv2sdk.Certificate{
+				desiredDefaultCerts: []elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-arn1"),
 						IsDefault:      awssdk.Bool(true),
 					},
 				},
-				desiredDefaultActions: []*elbv2sdk.Action{
+				desiredDefaultActions: []elbv2types.Action{
 					{
-						Type: awssdk.String("forward-config"),
-						ForwardConfig: &elbv2sdk.ForwardActionConfig{
-							TargetGroups: []*elbv2sdk.TargetGroupTuple{
+						Type: elbv2types.ActionTypeEnum("forward-config"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
 								{
 									TargetGroupArn: awssdk.String("target-group"),
 								},
@@ -190,7 +190,7 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 						},
 					},
 				},
-				desiredDefaultMutualAuthentication: &elbv2sdk.MutualAuthenticationAttributes{
+				desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
 					Mode: awssdk.String("off"),
 				},
 			},
@@ -208,20 +208,20 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 					},
 				},
 				sdkLS: ListenerWithTags{
-					Listener: &elbv2sdk.Listener{
-						Port:     awssdk.Int64(80),
-						Protocol: awssdk.String("HTTPS"),
-						Certificates: []*elbv2sdk.Certificate{
+					Listener: &elbv2types.Listener{
+						Port:     awssdk.Int32(80),
+						Protocol: elbv2types.ProtocolEnum("HTTPS"),
+						Certificates: []elbv2types.Certificate{
 							{
 								CertificateArn: awssdk.String("cert-arn1"),
 								IsDefault:      awssdk.Bool(true),
 							},
 						},
-						DefaultActions: []*elbv2sdk.Action{
+						DefaultActions: []elbv2types.Action{
 							{
-								Type: awssdk.String("forward-config"),
-								ForwardConfig: &elbv2sdk.ForwardActionConfig{
-									TargetGroups: []*elbv2sdk.TargetGroupTuple{
+								Type: elbv2types.ActionTypeEnum("forward-config"),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
 											TargetGroupArn: awssdk.String("target-group"),
 										},
@@ -230,25 +230,25 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 							},
 						},
 						SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
-						AlpnPolicy: awssdk.StringSlice([]string{"HTTP2Preferred"}),
-						MutualAuthentication: &elbv2sdk.MutualAuthenticationAttributes{
+						AlpnPolicy: []string{"HTTP2Preferred"},
+						MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
 							Mode:                          awssdk.String("verify"),
 							TrustStoreArn:                 awssdk.String("arn:aws:elasticloadbalancing:us-east-1:123456789123:truststore/ts-1/8786hghf"),
 							IgnoreClientCertificateExpiry: awssdk.Bool(false),
 						},
 					},
 				},
-				desiredDefaultCerts: []*elbv2sdk.Certificate{
+				desiredDefaultCerts: []elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-arn1"),
 						IsDefault:      awssdk.Bool(true),
 					},
 				},
-				desiredDefaultActions: []*elbv2sdk.Action{
+				desiredDefaultActions: []elbv2types.Action{
 					{
-						Type: awssdk.String("forward-config"),
-						ForwardConfig: &elbv2sdk.ForwardActionConfig{
-							TargetGroups: []*elbv2sdk.TargetGroupTuple{
+						Type: elbv2types.ActionTypeEnum("forward-config"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
 								{
 									TargetGroupArn: awssdk.String("target-group"),
 								},
@@ -256,7 +256,7 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 						},
 					},
 				},
-				desiredDefaultMutualAuthentication: &elbv2sdk.MutualAuthenticationAttributes{
+				desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
 					Mode:                          awssdk.String("verify"),
 					TrustStoreArn:                 awssdk.String("arn:aws:elasticloadbalancing:us-east-1:123456789123:truststore/ts-1/8786hghf"),
 					IgnoreClientCertificateExpiry: awssdk.Bool(false),

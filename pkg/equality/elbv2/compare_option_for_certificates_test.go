@@ -1,8 +1,8 @@
 package elbv2
 
 import (
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -10,8 +10,8 @@ import (
 
 func TestCompareOptionForCertificate(t *testing.T) {
 	type args struct {
-		lhs elbv2sdk.Certificate
-		rhs elbv2sdk.Certificate
+		lhs elbv2types.Certificate
+		rhs elbv2types.Certificate
 	}
 	tests := []struct {
 		name string
@@ -21,10 +21,10 @@ func TestCompareOptionForCertificate(t *testing.T) {
 		{
 			name: "two certificate equals exactly",
 			args: args{
-				lhs: elbv2sdk.Certificate{
+				lhs: elbv2types.Certificate{
 					CertificateArn: awssdk.String("cert-A"),
 				},
-				rhs: elbv2sdk.Certificate{
+				rhs: elbv2types.Certificate{
 					CertificateArn: awssdk.String("cert-A"),
 				},
 			},
@@ -33,10 +33,10 @@ func TestCompareOptionForCertificate(t *testing.T) {
 		{
 			name: "two certificate are not equals if certARN mismatch",
 			args: args{
-				lhs: elbv2sdk.Certificate{
+				lhs: elbv2types.Certificate{
 					CertificateArn: awssdk.String("cert-A"),
 				},
-				rhs: elbv2sdk.Certificate{
+				rhs: elbv2types.Certificate{
 					CertificateArn: awssdk.String("cert-B"),
 				},
 			},
@@ -45,10 +45,10 @@ func TestCompareOptionForCertificate(t *testing.T) {
 		{
 			name: "two certificate equals exactly irrelevant of their isDefault",
 			args: args{
-				lhs: elbv2sdk.Certificate{
+				lhs: elbv2types.Certificate{
 					CertificateArn: awssdk.String("cert-A"),
 				},
-				rhs: elbv2sdk.Certificate{
+				rhs: elbv2types.Certificate{
 					CertificateArn: awssdk.String("cert-A"),
 					IsDefault:      awssdk.Bool(true),
 				},
@@ -66,8 +66,8 @@ func TestCompareOptionForCertificate(t *testing.T) {
 
 func TestCompareOptionForCertificates(t *testing.T) {
 	type args struct {
-		lhs []*elbv2sdk.Certificate
-		rhs []*elbv2sdk.Certificate
+		lhs []*elbv2types.Certificate
+		rhs []*elbv2types.Certificate
 	}
 	tests := []struct {
 		name string
@@ -77,12 +77,12 @@ func TestCompareOptionForCertificates(t *testing.T) {
 		{
 			name: "two certificates slice are equal exactly",
 			args: args{
-				lhs: []*elbv2sdk.Certificate{
+				lhs: []*elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-A"),
 					},
 				},
-				rhs: []*elbv2sdk.Certificate{
+				rhs: []*elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-A"),
 					},
@@ -93,12 +93,12 @@ func TestCompareOptionForCertificates(t *testing.T) {
 		{
 			name: "two certificates slice are not equal if certARN mismatches",
 			args: args{
-				lhs: []*elbv2sdk.Certificate{
+				lhs: []*elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-A"),
 					},
 				},
-				rhs: []*elbv2sdk.Certificate{
+				rhs: []*elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-B"),
 					},
@@ -109,7 +109,7 @@ func TestCompareOptionForCertificates(t *testing.T) {
 		{
 			name: "two certificates slice are equal if they are equal after sorted",
 			args: args{
-				lhs: []*elbv2sdk.Certificate{
+				lhs: []*elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-A"),
 					},
@@ -117,7 +117,7 @@ func TestCompareOptionForCertificates(t *testing.T) {
 						CertificateArn: awssdk.String("cert-B"),
 					},
 				},
-				rhs: []*elbv2sdk.Certificate{
+				rhs: []*elbv2types.Certificate{
 					{
 						CertificateArn: awssdk.String("cert-B"),
 					},
@@ -131,7 +131,7 @@ func TestCompareOptionForCertificates(t *testing.T) {
 		{
 			name: "two certificates slice are equal for nil and empty slice",
 			args: args{
-				lhs: []*elbv2sdk.Certificate{},
+				lhs: []*elbv2types.Certificate{},
 				rhs: nil,
 			},
 			want: true,

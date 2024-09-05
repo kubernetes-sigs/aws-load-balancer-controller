@@ -2,8 +2,9 @@ package elbv2
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
@@ -47,7 +48,7 @@ func (r *defaultLoadBalancerAttributeReconciler) Reconcile(ctx context.Context, 
 			Attributes:      nil,
 		}
 		for _, attrKey := range sets.StringKeySet(attributesToUpdate).List() {
-			req.Attributes = append(req.Attributes, &elbv2sdk.LoadBalancerAttribute{
+			req.Attributes = append(req.Attributes, elbv2types.LoadBalancerAttribute{
 				Key:   awssdk.String(attrKey),
 				Value: awssdk.String(attributesToUpdate[attrKey]),
 			})
@@ -56,7 +57,7 @@ func (r *defaultLoadBalancerAttributeReconciler) Reconcile(ctx context.Context, 
 		r.logger.Info("modifying loadBalancer attributes",
 			"stackID", resLB.Stack().StackID(),
 			"resourceID", resLB.ID(),
-			"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
+			"arn", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn),
 			"change", attributesToUpdate)
 		if _, err := r.elbv2Client.ModifyLoadBalancerAttributesWithContext(ctx, req); err != nil {
 			return err
@@ -64,7 +65,7 @@ func (r *defaultLoadBalancerAttributeReconciler) Reconcile(ctx context.Context, 
 		r.logger.Info("modified loadBalancer attributes",
 			"stackID", resLB.Stack().StackID(),
 			"resourceID", resLB.ID(),
-			"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn))
+			"arn", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn))
 	}
 	return nil
 }
@@ -88,7 +89,7 @@ func (r *defaultLoadBalancerAttributeReconciler) getCurrentLoadBalancerAttribute
 
 	lbAttributes := make(map[string]string, len(resp.Attributes))
 	for _, attr := range resp.Attributes {
-		lbAttributes[awssdk.StringValue(attr.Key)] = awssdk.StringValue(attr.Value)
+		lbAttributes[awssdk.ToString(attr.Key)] = awssdk.ToString(attr.Value)
 	}
 	return lbAttributes, nil
 }

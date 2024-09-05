@@ -14,7 +14,7 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int64, protocol elbv2model.Protocol, ingList []ClassifiedIngress) error {
+func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN core.StringToken, port int32, protocol elbv2model.Protocol, ingList []ClassifiedIngress) error {
 	if t.sslRedirectConfig != nil && protocol == elbv2model.ProtocolHTTP {
 		return nil
 	}
@@ -61,7 +61,7 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 		return err
 	}
 
-	priority := int64(1)
+	priority := int32(1)
 	for _, rule := range optimizedRules {
 		ruleResID := fmt.Sprintf("%v:%v", port, priority)
 		_ = elbv2model.NewListenerRule(t.stack, ruleResID, elbv2model.ListenerRuleSpec{

@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +21,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 		ingKey            types.NamespacedName
 		svc               *corev1.Service
 		port              intstr.IntOrString
-		tgPort            int64
+		tgPort            int32
 		targetType        elbv2model.TargetType
 		tgProtocol        elbv2model.Protocol
 		tgProtocolVersion elbv2model.ProtocolVersion
@@ -144,7 +144,7 @@ func Test_defaultModelBuildTask_buildTargetGroupPort(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want int64
+		want int32
 	}{
 		{
 			name: "instance targetGroup should use nodePort as port",

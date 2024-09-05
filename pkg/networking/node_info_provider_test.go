@@ -2,10 +2,11 @@ package networking
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -20,7 +21,7 @@ import (
 func Test_defaultNodeInfoProvider_FetchNodeInstances(t *testing.T) {
 	type describeInstancesAsListCall struct {
 		req  *ec2sdk.DescribeInstancesInput
-		resp []*ec2sdk.Instance
+		resp []ec2types.Instance
 		err  error
 	}
 	type fields struct {
@@ -33,7 +34,7 @@ func Test_defaultNodeInfoProvider_FetchNodeInstances(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    map[types.NamespacedName]*ec2sdk.Instance
+		want    map[types.NamespacedName]*ec2types.Instance
 		wantErr error
 	}{
 		{
@@ -42,9 +43,9 @@ func Test_defaultNodeInfoProvider_FetchNodeInstances(t *testing.T) {
 				describeInstancesAsListCalls: []describeInstancesAsListCall{
 					{
 						req: &ec2sdk.DescribeInstancesInput{
-							InstanceIds: awssdk.StringSlice([]string{"i-0fa2d0064e848c69e", "i-0fa2d0064e848c69f", "i-0fa2d0064e848c69g"}),
+							InstanceIds: []string{"i-0fa2d0064e848c69e", "i-0fa2d0064e848c69f", "i-0fa2d0064e848c69g"},
 						},
-						resp: []*ec2sdk.Instance{
+						resp: []ec2types.Instance{
 							{
 								InstanceId: awssdk.String("i-0fa2d0064e848c69e"),
 							},
@@ -86,7 +87,7 @@ func Test_defaultNodeInfoProvider_FetchNodeInstances(t *testing.T) {
 					},
 				},
 			},
-			want: map[types.NamespacedName]*ec2sdk.Instance{
+			want: map[types.NamespacedName]*ec2types.Instance{
 				types.NamespacedName{Name: "node-1"}: {
 					InstanceId: awssdk.String("i-0fa2d0064e848c69e"),
 				},
@@ -104,7 +105,7 @@ func Test_defaultNodeInfoProvider_FetchNodeInstances(t *testing.T) {
 				describeInstancesAsListCalls: []describeInstancesAsListCall{
 					{
 						req: &ec2sdk.DescribeInstancesInput{
-							InstanceIds: awssdk.StringSlice([]string{"i-0fa2d0064e848c69e", "i-0fa2d0064e848c69f", "i-0fa2d0064e848c69g"}),
+							InstanceIds: []string{"i-0fa2d0064e848c69e", "i-0fa2d0064e848c69f", "i-0fa2d0064e848c69g"},
 						},
 						err: errors.New("some AWS API error"),
 					},

@@ -1,15 +1,15 @@
 package networking
 
 import (
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func TestIPPermissionInfo_HashCode(t *testing.T) {
 	type fields struct {
-		Permission ec2sdk.IpPermission
+		Permission ec2types.IpPermission
 		Labels     map[string]string
 	}
 	tests := []struct {
@@ -20,11 +20,11 @@ func TestIPPermissionInfo_HashCode(t *testing.T) {
 		{
 			name: "IpRange permission",
 			fields: fields{
-				Permission: ec2sdk.IpPermission{
+				Permission: ec2types.IpPermission{
 					IpProtocol: awssdk.String("tcp"),
-					FromPort:   awssdk.Int64(80),
-					ToPort:     awssdk.Int64(8080),
-					IpRanges: []*ec2sdk.IpRange{
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(8080),
+					IpRanges: []ec2types.IpRange{
 						{
 							CidrIp: awssdk.String("192.168.0.0/16"),
 						},
@@ -36,11 +36,11 @@ func TestIPPermissionInfo_HashCode(t *testing.T) {
 		{
 			name: "Ipv6Range permission",
 			fields: fields{
-				Permission: ec2sdk.IpPermission{
+				Permission: ec2types.IpPermission{
 					IpProtocol: awssdk.String("tcp"),
-					FromPort:   awssdk.Int64(80),
-					ToPort:     awssdk.Int64(8080),
-					Ipv6Ranges: []*ec2sdk.Ipv6Range{
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(8080),
+					Ipv6Ranges: []ec2types.Ipv6Range{
 						{
 							CidrIpv6: awssdk.String("::/0"),
 						},
@@ -52,11 +52,11 @@ func TestIPPermissionInfo_HashCode(t *testing.T) {
 		{
 			name: "PrefixListId permission",
 			fields: fields{
-				Permission: ec2sdk.IpPermission{
+				Permission: ec2types.IpPermission{
 					IpProtocol: awssdk.String("tcp"),
-					FromPort:   awssdk.Int64(80),
-					ToPort:     awssdk.Int64(8080),
-					PrefixListIds: []*ec2sdk.PrefixListId{
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(8080),
+					PrefixListIds: []ec2types.PrefixListId{
 						{
 							PrefixListId: awssdk.String("pl-123456abcde123456"),
 						},
@@ -68,11 +68,11 @@ func TestIPPermissionInfo_HashCode(t *testing.T) {
 		{
 			name: "UserIdGroupPair permission",
 			fields: fields{
-				Permission: ec2sdk.IpPermission{
+				Permission: ec2types.IpPermission{
 					IpProtocol: awssdk.String("tcp"),
-					FromPort:   awssdk.Int64(80),
-					ToPort:     awssdk.Int64(8080),
-					UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(8080),
+					UserIdGroupPairs: []ec2types.UserIdGroupPair{
 						{
 							GroupId: awssdk.String("sg-xxxx"),
 						},
