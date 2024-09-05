@@ -2864,7 +2864,7 @@ func Test_defaultGroupLoader_sortGroupMembers(t *testing.T) {
 				},
 			},
 			want:    nil,
-			wantErr: errors.New("failed to load Ingress group order for ingress: namespace/ingress: failed to parse int64 annotation, alb.ingress.kubernetes.io/group.order: x: strconv.ParseInt: parsing \"x\": invalid syntax"),
+			wantErr: errors.New("failed to load Ingress group order for ingress: namespace/ingress: failed to parse int32 annotation, alb.ingress.kubernetes.io/group.order: x: strconv.ParseInt: parsing \"x\": invalid syntax"),
 		},
 		{
 			name: "two ingress with the same order should be sorted lexically",

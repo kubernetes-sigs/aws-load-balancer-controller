@@ -227,7 +227,7 @@ func isListenerNotFoundError(err error) bool {
 	if errors.As(err, &apiErr) {
 		code := apiErr.ErrorCode()
 
-		return code == "ResourceInUse"
+		return code == "ListenerNotFound"
 	}
 	return false
 }
