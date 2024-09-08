@@ -205,7 +205,7 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 		}
 	}
 
-	if desiredSubnets.Equal(currentSubnets) && ipv6AddressesEqual {
+	if desiredSubnets.Equal(currentSubnets) && ipv6AddressesEqual && resLB.Spec.Type != elbv2model.LoadBalancerTypeApplication {
 		return nil
 	}
 
