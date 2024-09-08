@@ -1146,7 +1146,7 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("ValidationError: vpcID vpcid-@34!dv failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8 or 17 lowercase letters (a-f) or numbers."),
+			wantErr: errors.New("ValidationError: vpcID vpcid-@34!dv failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8, 17 or 32 lowercase letters (a-f) or numbers."),
 		},
 	}
 	for _, tt := range tests {
