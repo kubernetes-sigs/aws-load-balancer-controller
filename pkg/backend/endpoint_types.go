@@ -9,7 +9,7 @@ import (
 )
 
 type Endpoint interface {
-	GetIdentifier() string
+	GetIdentifier(includeTimestamp bool) string
 }
 
 // An endpoint provided by pod directly.
@@ -22,8 +22,11 @@ type PodEndpoint struct {
 	Pod k8s.PodInfo
 }
 
-func (e PodEndpoint) GetIdentifier() string {
-	return fmt.Sprintf("%s:%d:%d", e.IP, e.Port, e.Pod.CreationTime.UnixMilli())
+func (e PodEndpoint) GetIdentifier(includeTimestamp bool) string {
+	if includeTimestamp {
+		return fmt.Sprintf("%s:%d:%d", e.IP, e.Port, e.Pod.CreationTime.UnixMilli())
+	}
+	return fmt.Sprintf("%s:%d", e.IP, e.Port)
 }
 
 // An endpoint provided by nodePort as traffic proxy.
@@ -36,8 +39,11 @@ type NodePortEndpoint struct {
 	Node *corev1.Node
 }
 
-func (e NodePortEndpoint) GetIdentifier() string {
-	return fmt.Sprintf("%s:%d:%d", e.InstanceID, e.Port, e.Node.CreationTimestamp.UnixMilli())
+func (e NodePortEndpoint) GetIdentifier(includeTimestamp bool) string {
+	if includeTimestamp {
+		return fmt.Sprintf("%s:%d:%d", e.InstanceID, e.Port, e.Node.CreationTimestamp.UnixMilli())
+	}
+	return fmt.Sprintf("%s:%d", e.InstanceID, e.Port)
 }
 
 type EndpointsData struct {

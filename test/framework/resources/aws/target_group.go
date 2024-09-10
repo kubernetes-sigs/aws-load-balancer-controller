@@ -15,6 +15,8 @@ type TargetGroupManager interface {
 	CheckTargetGroupHealthy(ctx context.Context, tgARN string, expectedTargetCount int) (bool, error)
 	GetCurrentTargetCount(ctx context.Context, tgARN string) (int, error)
 	GetTargetGroupAttributes(ctx context.Context, tgARN string) ([]elbv2types.TargetGroupAttribute, error)
+	GetCurrentTargets(ctx context.Context, tgARN string) ([]elbv2types.TargetHealthDescription, error)
+	RegisterTargets(ctx context.Context, tgARN string, targets []elbv2types.TargetDescription) error
 }
 
 // NewDefaultTargetGroupManager constructs new defaultTargetGroupManager.
@@ -44,16 +46,24 @@ func (m *defaultTargetGroupManager) GetTargetGroupsForLoadBalancer(ctx context.C
 	return targetGroups.TargetGroups, nil
 }
 
-// GetCurrentTargetCount returns the count of all the targets in the target group that are currently in initial, healthy or unhealthy state
-func (m *defaultTargetGroupManager) GetCurrentTargetCount(ctx context.Context, tgARN string) (int, error) {
+func (m *defaultTargetGroupManager) GetCurrentTargets(ctx context.Context, tgARN string) ([]elbv2types.TargetHealthDescription, error) {
 	resp, err := m.elbv2Client.DescribeTargetHealthWithContext(ctx, &elbv2sdk.DescribeTargetHealthInput{
 		TargetGroupArn: awssdk.String(tgARN),
 	})
 	if err != nil {
+		return nil, err
+	}
+	return resp.TargetHealthDescriptions, nil
+}
+
+// GetCurrentTargetCount returns the count of all the targets in the target group that are currently in initial, healthy or unhealthy state
+func (m *defaultTargetGroupManager) GetCurrentTargetCount(ctx context.Context, tgARN string) (int, error) {
+	targets, err := m.GetCurrentTargets(ctx, tgARN)
+	if err != nil {
 		return 0, err
 	}
 	count := 0
-	for _, thd := range resp.TargetHealthDescriptions {
+	for _, thd := range targets {
 		state := string(thd.TargetHealth.State)
 		if elbv2types.TargetHealthStateEnum(state) == elbv2types.TargetHealthStateEnumHealthy || elbv2types.TargetHealthStateEnum(state) == elbv2types.TargetHealthStateEnumInitial ||
 			elbv2types.TargetHealthStateEnum(state) == elbv2types.TargetHealthStateEnumUnhealthy {
@@ -91,4 +101,14 @@ func (m *defaultTargetGroupManager) CheckTargetGroupHealthy(ctx context.Context,
 		}
 	}
 	return true, nil
+}
+
+// RegisterTargets register targets to the target group.
+func (m *defaultTargetGroupManager) RegisterTargets(ctx context.Context, tgARN string, targets []elbv2types.TargetDescription) error {
+	_, err := m.elbv2Client.RegisterTargetsWithContext(ctx, &elbv2sdk.RegisterTargetsInput{
+		TargetGroupArn: awssdk.String(tgARN),
+		Targets:        targets,
+	})
+
+	return err
 }

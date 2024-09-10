@@ -37,7 +37,7 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcInfoProvider networking.VPCInfoProvider,
+	vpcInfoProvider networking.VPCInfoProvider, multiClusterManager MultiClusterManager,
 	vpcID string, clusterName string, failOpenEnabled bool, endpointSliceEnabled bool, disabledRestrictedSGRulesFlag bool,
 	endpointSGTags map[string]string,
 	eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
@@ -50,15 +50,16 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 
 	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, endpointSGTags, logger, disabledRestrictedSGRulesFlag)
 	return &defaultResourceManager{
-		k8sClient:         k8sClient,
-		targetsManager:    targetsManager,
-		endpointResolver:  endpointResolver,
-		networkingManager: networkingManager,
-		eventRecorder:     eventRecorder,
-		logger:            logger,
-		vpcID:             vpcID,
-		vpcInfoProvider:   vpcInfoProvider,
-		podInfoRepo:       podInfoRepo,
+		k8sClient:           k8sClient,
+		targetsManager:      targetsManager,
+		endpointResolver:    endpointResolver,
+		networkingManager:   networkingManager,
+		eventRecorder:       eventRecorder,
+		logger:              logger,
+		vpcID:               vpcID,
+		vpcInfoProvider:     vpcInfoProvider,
+		podInfoRepo:         podInfoRepo,
+		multiClusterManager: multiClusterManager,
 
 		requeueDuration: defaultRequeueDuration,
 	}
@@ -68,15 +69,16 @@ var _ ResourceManager = &defaultResourceManager{}
 
 // default implementation for ResourceManager.
 type defaultResourceManager struct {
-	k8sClient         client.Client
-	targetsManager    TargetsManager
-	endpointResolver  backend.EndpointResolver
-	networkingManager NetworkingManager
-	eventRecorder     record.EventRecorder
-	logger            logr.Logger
-	vpcInfoProvider   networking.VPCInfoProvider
-	podInfoRepo       k8s.PodInfoRepo
-	vpcID             string
+	k8sClient           client.Client
+	targetsManager      TargetsManager
+	endpointResolver    backend.EndpointResolver
+	networkingManager   NetworkingManager
+	eventRecorder       record.EventRecorder
+	logger              logr.Logger
+	vpcInfoProvider     networking.VPCInfoProvider
+	podInfoRepo         k8s.PodInfoRepo
+	multiClusterManager MultiClusterManager
+	vpcID               string
 
 	requeueDuration time.Duration
 }
@@ -112,12 +114,18 @@ func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.Targ
 	if err := m.cleanupTargets(ctx, tgb); err != nil {
 		return err
 	}
+
+	if err := m.multiClusterManager.CleanUp(ctx, tgb); err != nil {
+		return err
+	}
+
 	if err := m.networkingManager.Cleanup(ctx, tgb); err != nil {
 		return err
 	}
 	if err := m.updatePodAsHealthyForDeletedTGB(ctx, tgb); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -163,6 +171,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if err != nil {
 		return "", "", false, err
 	}
+
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
 	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
 
@@ -197,15 +206,38 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		}
 	}
 
+	updateTrackedTargets := false
 	if len(unmatchedTargets) > 0 {
-		if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
+		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets)
+		if err != nil {
 			return "", "", false, err
 		}
 	}
+
 	if len(unmatchedEndpoints) > 0 {
+		// In order to support multicluster tgb, we have to write the endpoint map _before_ calling register.
+		// By only writing the map when registerPodEndpoints() completes, we could leak targets when
+		// registerPodEndpoints() fails however the registration does happen. The specific example is:
+		// The ELB API succeeds in registering the targets, however the response isn't returned to us
+		// (perhaps the network dropped the response). If this happens and the pod is terminated before
+		// the next reconcile then we would leak the target as it would not exist in our endpoint map.
+
+		// We don't want to duplicate write calls, so if we are doing target registration and deregistration
+		// in the same reconcile loop, then we can de-dupe these tracking calls. As the tracked targets are used
+		// for deregistration, it's safe to update the map here as we have completed all deregister calls already.
+		updateTrackedTargets = false
+
+		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, true, endpoints, tgb); err != nil {
+			return "", "", false, err
+		}
+
 		if err := m.registerPodEndpoints(ctx, tgARN, vpcID, unmatchedEndpoints); err != nil {
 			return "", "", false, err
 		}
+	}
+
+	if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, updateTrackedTargets, endpoints, tgb); err != nil {
+		return "", "", false, err
 	}
 
 	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints)
@@ -268,7 +300,9 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if err != nil {
 		return "", "", false, err
 	}
+
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
+
 	_, unmatchedEndpoints, unmatchedTargets := matchNodePortEndpointWithTargets(endpoints, notDrainingTargets)
 
 	if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
@@ -285,16 +319,30 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		}
 	}
 
+	updateTrackedTargets := false
+
 	if len(unmatchedTargets) > 0 {
-		if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
+		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets)
+		if err != nil {
 			return "", "", false, err
 		}
 	}
+
 	if len(unmatchedEndpoints) > 0 {
+		updateTrackedTargets = false
+		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, true, endpoints, tgb); err != nil {
+			return "", "", false, err
+		}
+
 		if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
 			return "", "", false, err
 		}
 	}
+
+	if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, updateTrackedTargets, endpoints, tgb); err != nil {
+		return "", "", false, err
+	}
+
 	tgbScopedLogger.Info("Successful reconcile", "checkpoint", newCheckPoint)
 	return newCheckPoint, oldCheckPoint, false, nil
 }
@@ -309,7 +357,10 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 		}
 		return err
 	}
-	if err := m.deregisterTargets(ctx, tgb.Spec.TargetGroupARN, targets); err != nil {
+
+	_, err = m.deregisterTargets(ctx, tgb, tgb.Spec.TargetGroupARN, targets)
+
+	if err != nil {
 		if isELBV2TargetGroupNotFoundError(err) {
 			return nil
 		} else if isELBV2TargetGroupARNInvalidError(err) {
@@ -467,12 +518,21 @@ func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Con
 	return nil
 }
 
-func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN string, targets []TargetInfo) error {
+func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, tgARN string, targets []TargetInfo) (bool, error) {
+	filteredTargets, updateTrackedTargets, err := m.multiClusterManager.FilterTargetsForDeregistration(ctx, tgb, targets)
+	if err != nil {
+		return false, err
+	}
+
+	if len(filteredTargets) == 0 {
+		return updateTrackedTargets, nil
+	}
+
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(targets))
-	for _, target := range targets {
+	for _, target := range filteredTargets {
 		sdkTargets = append(sdkTargets, target.Target)
 	}
-	return m.targetsManager.DeregisterTargets(ctx, tgARN, sdkTargets)
+	return true, m.targetsManager.DeregisterTargets(ctx, tgARN, sdkTargets)
 }
 
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN, tgVpcID string, endpoints []backend.PodEndpoint) error {

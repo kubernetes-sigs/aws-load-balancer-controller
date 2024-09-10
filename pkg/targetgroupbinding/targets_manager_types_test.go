@@ -4,6 +4,7 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	"testing"
 )
 
@@ -252,6 +253,51 @@ func TestUniqueIDForTargetDescription(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := UniqueIDForTargetDescription(tt.args.target)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestGetIdentifier(t *testing.T) {
+	tests := []struct {
+		name       string
+		endpoint   backend.Endpoint
+		targetInfo TargetInfo
+		want       string
+	}{
+		{
+			name: "instance",
+			endpoint: backend.NodePortEndpoint{
+				InstanceID: "i-12345",
+				Port:       80,
+			},
+			targetInfo: TargetInfo{
+				Target: elbv2types.TargetDescription{
+					Id:   awssdk.String("i-12345"),
+					Port: awssdk.Int32(80),
+				},
+			},
+			want: "i-12345:80",
+		},
+		{
+			name: "ip",
+			endpoint: backend.PodEndpoint{
+				IP:   "127.0.0.1",
+				Port: 80,
+			},
+			targetInfo: TargetInfo{
+				Target: elbv2types.TargetDescription{
+					Id:   awssdk.String("127.0.0.1"),
+					Port: awssdk.Int32(80),
+				},
+			},
+			want: "127.0.0.1:80",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.targetInfo.GetIdentifier())
+			assert.Equal(t, tt.want, tt.endpoint.GetIdentifier(false))
 		})
 	}
 }

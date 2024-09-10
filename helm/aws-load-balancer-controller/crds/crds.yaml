@@ -392,6 +392,10 @@ spec:
                 - name
                 - port
                 type: object
+              multiClusterTargetGroup:
+                description: multiClusterTargetGroup Denotes if the TargetGroup is shared
+                  among multiple clusters
+                type: boolean
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
@@ -616,6 +620,10 @@ spec:
                 - name
                 - port
                 type: object
+              multiClusterTargetGroup:
+                description: multiClusterTargetGroup Denotes if the TargetGroup is shared
+                  among multiple clusters
+                type: boolean
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
