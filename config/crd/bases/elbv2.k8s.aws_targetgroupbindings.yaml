@@ -32,6 +32,10 @@ spec:
       name: ARN
       priority: 1
       type: string
+    - description: Denotes if the TargetGroup is shared among multiple clusters
+      jsonPath: .spec.sharedTargetGroup
+      name: SHARED-TG
+      type: boolean
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -152,6 +156,10 @@ spec:
                 - name
                 - port
                 type: object
+              sharedTargetGroup:
+                description: sharedTargetGroup Denotes if the TargetGroup is shared
+                  among multiple clusters
+                type: boolean
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
@@ -198,6 +206,10 @@ spec:
       name: ARN
       priority: 1
       type: string
+    - description: Denotes if the TargetGroup is shared among multiple clusters
+      jsonPath: .spec.sharedTargetGroup
+      name: SHARED-TG
+      type: boolean
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -376,6 +388,10 @@ spec:
                 - name
                 - port
                 type: object
+              sharedTargetGroup:
+                description: sharedTargetGroup Denotes if the TargetGroup is shared
+                  among multiple clusters
+                type: boolean
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.

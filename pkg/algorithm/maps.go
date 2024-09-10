@@ -1,5 +1,7 @@
 package algorithm
 
+import "strings"
+
 // MapFindFirst get from list of maps until first found.
 func MapFindFirst(key string, maps ...map[string]string) (string, bool) {
 	for _, m := range maps {
@@ -46,4 +48,22 @@ func DiffStringMap(desired map[string]string, current map[string]string) (map[st
 	}
 
 	return modify, remove
+}
+
+func CSVToMap(csv string) map[string]bool {
+	m := map[string]bool{}
+
+	for _, v := range strings.Split(csv, ",") {
+		m[v] = true
+	}
+
+	return m
+}
+
+func MapToCSV(m map[string]bool) string {
+	keyList := make([]string, 0, len(m))
+	for k := range m {
+		keyList = append(keyList, k)
+	}
+	return strings.Join(keyList, ",")
 }

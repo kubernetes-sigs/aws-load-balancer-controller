@@ -109,6 +109,10 @@ type TargetGroupBindingSpec struct {
 	// targetGroupARN is the Amazon Resource Name (ARN) for the TargetGroup.
 	TargetGroupARN string `json:"targetGroupARN"`
 
+	// sharedTargetGroup Denotes if the TargetGroup is shared among multiple clusters
+	// +optional
+	SharedTargetGroup bool `json:"sharedTargetGroup,omitempty"`
+
 	// targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
 	TargetType *TargetType `json:"targetType,omitempty"`
@@ -134,6 +138,7 @@ type TargetGroupBindingStatus struct {
 // +kubebuilder:printcolumn:name="SERVICE-PORT",type="string",JSONPath=".spec.serviceRef.port",description="The Kubernetes Service's port"
 // +kubebuilder:printcolumn:name="TARGET-TYPE",type="string",JSONPath=".spec.targetType",description="The AWS TargetGroup's TargetType"
 // +kubebuilder:printcolumn:name="ARN",type="string",JSONPath=".spec.targetGroupARN",description="The AWS TargetGroup's Amazon Resource Name",priority=1
+// +kubebuilder:printcolumn:name="SHARED-TG",type="boolean",JSONPath=".spec.sharedTargetGroup",description="Denotes if the TargetGroup is shared among multiple clusters"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // TargetGroupBinding is the Schema for the TargetGroupBinding API
 type TargetGroupBinding struct {

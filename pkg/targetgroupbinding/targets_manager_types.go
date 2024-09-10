@@ -16,6 +16,11 @@ type TargetInfo struct {
 	TargetHealth *elbv2types.TargetHealth
 }
 
+// GetIdentifier this should match backend.Endpoint
+func (t *TargetInfo) GetIdentifier() string {
+	return fmt.Sprintf("%s:%d", *t.Target.Id, *t.Target.Port)
+}
+
 // IsHealthy returns whether target is healthy.
 func (t *TargetInfo) IsHealthy() bool {
 	if t.TargetHealth == nil {
