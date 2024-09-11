@@ -107,6 +107,10 @@ type TargetGroupBindingSpec struct {
 	// VpcID is the VPC of the TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
 	VpcID string `json:"vpcID,omitempty"`
+
+	// sharedTargetGroup Denotes if the TargetGroup is shared among multiple clusters
+	// +optional
+	SharedTargetGroup bool `json:"sharedTargetGroup,omitempty"`
 }
 
 // Template for TargetGroupBinding Custom Resource.

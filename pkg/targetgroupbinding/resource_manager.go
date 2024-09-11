@@ -149,24 +149,28 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		needNetworkingRequeue = true
 	}
 
-	anyChange := false
+	updateTrackedTargets := false
 	if len(unmatchedTargets) > 0 {
-		anyChange = true
+		updateTrackedTargets = true
 		if err := m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets); err != nil {
 			return err
 		}
 	}
-	if len(unmatchedEndpoints) > 0 {
-		anyChange = true
-		// In order to support multicluster tgb, we have to write the endpoint map twice.
-		// By only writing the map once registerPodEndpoints() completes, we could leak targets when
-		// registerPodEndpoints() fails however the registration does happen. The specific case is
-		// registerPodEndpoints() fails due ELB API call succeeds but the response is never received,
-		// the pod is terminated. Without the initial write, we would leak the terminated pod.
 
-		// The strategy is simply this, first update the endpoint map with the endpoints we are trying to update, but not
-		// remove any of the existing endpoints.
-		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, merge, endpoints, tgb); err != nil {
+	if len(unmatchedEndpoints) > 0 {
+		// In order to support multicluster tgb, we have to write the endpoint map _before_ calling register.
+		// By only writing the map when registerPodEndpoints() completes, we could leak targets when
+		// registerPodEndpoints() fails however the registration does happen. The specific example is:
+		// The ELB API succeeds in registering the targets, however the response isn't returned to us
+		// (perhaps the network dropped the response). If this happens and the pod is terminated before
+		// the next reconcile then we would leak the target as it would not exist in our endpoint map.
+
+		// We don't want to duplicate write calls, so if we are doing target registration and deregistration
+		// in the same reconcile loop, then we can de-dupe these tracking calls. As the tracked targets are used
+		// for deregistration, it's safe to update the map here as we have completed all deregister calls already.
+		updateTrackedTargets = false
+
+		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, endpoints, tgb); err != nil {
 			return err
 		}
 
@@ -175,9 +179,9 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		}
 	}
 
-	if anyChange {
+	if updateTrackedTargets {
 		// For changes that get to here, we want to replace the endpoint map with the current endpoint set.
-		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, replace, endpoints, tgb); err != nil {
+		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, endpoints, tgb); err != nil {
 			return err
 		}
 	}
@@ -235,20 +239,20 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		return err
 	}
 
-	// See comments in the IP target logic as to why we do two update tracked targets calls.
+	// See comments in the IP target logic for the thinking behind updateTrackedTargets.
 
-	anyChange := false
+	updateTrackedTargets := false
 
 	if len(unmatchedTargets) > 0 {
-		anyChange = true
+		updateTrackedTargets = true
 		if err := m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets); err != nil {
 			return err
 		}
 	}
 
 	if len(unmatchedEndpoints) > 0 {
-		anyChange = true
-		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, merge, endpoints, tgb); err != nil {
+		updateTrackedTargets = false
+		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, endpoints, tgb); err != nil {
 			return err
 		}
 
@@ -257,8 +261,8 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		}
 	}
 
-	if anyChange {
-		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, replace, endpoints, tgb); err != nil {
+	if updateTrackedTargets {
+		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, endpoints, tgb); err != nil {
 			return err
 		}
 	}
@@ -428,7 +432,7 @@ func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Con
 }
 
 func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, tgARN string, targets []TargetInfo) error {
-	filteredTargets, err := m.multiClusterManager.FilterTargets(ctx, tgb, targets)
+	filteredTargets, err := m.multiClusterManager.FilterTargetsForDeregistration(ctx, tgb, targets)
 	if err != nil {
 		return err
 	}

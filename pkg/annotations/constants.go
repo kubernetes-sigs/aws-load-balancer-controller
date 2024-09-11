@@ -90,4 +90,5 @@ const (
 	SvcLBSuffixEnforceSGInboundRulesOnPrivateLinkTraffic = "aws-load-balancer-inbound-sg-rules-on-private-link-traffic"
 	SvcLBSuffixSecurityGroupPrefixLists                  = "aws-load-balancer-security-group-prefix-lists"
 	SvcLBSuffixlsAttsAnnotationPrefix                    = "aws-load-balancer-listener-attributes"
+	SvcLBSuffixSharedTargetGroup                         = "aws-load-balancer-shared-target-group"
 )
