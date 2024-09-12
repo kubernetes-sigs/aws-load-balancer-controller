@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -42,7 +41,6 @@ var _ LoadBalancerManager = &defaultLoadBalancerManager{}
 // defaultLoadBalancerManager implement LoadBalancerManager
 type defaultLoadBalancerManager struct {
 	elbv2Client          services.ELBV2
-	ec2Client            *ec2.EC2
 	trackingProvider     tracking.Provider
 	taggingManager       TaggingManager
 	attributesReconciler LoadBalancerAttributeReconciler
