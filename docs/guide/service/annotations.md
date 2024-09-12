@@ -364,7 +364,7 @@ Health check on target groups can be configured with following annotations:
 - <a name="healthcheck-timeout">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout`</a> specifies the target group health check timeout. The target has to respond within the timeout for a successful health check.
 
     !!!note
-        The controller currently ignores the timeout configuration due to the limitations on the AWS NLB. The default timeout for TCP is 10s and HTTP is 6s.
+        The feature-gate `NLBHealthCheckAdvancedConfiguration` need to be enabled for supporting NLB health check timeout. The range is 2–120 seconds. The default timeout for TCP and HTTPS health checks are 10s and for HTTP it is 6s.
 
     !!!example
         ```

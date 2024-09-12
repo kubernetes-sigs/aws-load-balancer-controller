@@ -156,56 +156,24 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithIPAddressType(ctx 
 
 func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
 	desiredSubnets := sets.NewString()
+	desiredIPv6Addresses := sets.NewString()
 	for _, mapping := range resLB.Spec.SubnetMappings {
 		desiredSubnets.Insert(mapping.SubnetID)
+		desiredIPv6Addresses.Insert(awssdk.StringValue(mapping.IPv6Address))
 	}
+
 	currentSubnets := sets.NewString()
+	currentIPv6Addresses := sets.NewString()
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
 		currentSubnets.Insert(awssdk.StringValue(az.SubnetId))
-	}
-
-	subnetIDs := make([]*string, len(resLB.Spec.SubnetMappings))
-	for i, mapping := range resLB.Spec.SubnetMappings {
-		subnetIDs[i] = awssdk.String(mapping.SubnetID)
-	}
-
-	describeSubnetsOutput, err := m.ec2Client.DescribeSubnetsWithContext(ctx, &ec2.DescribeSubnetsInput{
-		SubnetIds: subnetIDs,
-	})
-	if err != nil {
-		return err
-	}
-
-	desiredIPv6Addresses := make(map[string]sets.Set[string])
-	for _, mapping := range resLB.Spec.SubnetMappings {
-		if mapping.IPv6Address != nil {
-			if _, ok := desiredIPv6Addresses[mapping.SubnetID]; !ok {
-				desiredIPv6Addresses[mapping.SubnetID] = sets.New[string]()
-			}
-			desiredIPv6Addresses[mapping.SubnetID].Insert(awssdk.StringValue(mapping.IPv6Address))
+		if len(az.LoadBalancerAddresses) > 0 && az.LoadBalancerAddresses[0].IPv6Address != nil {
+			currentIPv6Addresses.Insert(awssdk.StringValue(az.LoadBalancerAddresses[0].IPv6Address))
 		}
 	}
 
-	currentIPv6Addresses := make(map[string]sets.Set[string])
-	for _, subnet := range describeSubnetsOutput.Subnets {
-		subnetID := awssdk.StringValue(subnet.SubnetId)
-		currentIPv6s := sets.New[string]()
-		for _, ipv6 := range subnet.Ipv6CidrBlockAssociationSet {
-			if ipv6.Ipv6CidrBlock != nil {
-				currentIPv6s.Insert(awssdk.StringValue(ipv6.Ipv6CidrBlock))
-			}
-		}
-		currentIPv6Addresses[subnetID] = currentIPv6s
-	}
+	isIpv6AddressesEqual := desiredIPv6Addresses.Equal(currentIPv6Addresses)
 
-	ipv6AddressesEqual := true
-	for subnetID, desiredIPv6s := range desiredIPv6Addresses {
-		if currentIPv6s, ok := currentIPv6Addresses[subnetID]; !ok || !desiredIPv6s.Equal(currentIPv6s) {
-			ipv6AddressesEqual = false
-		}
-	}
-
-	if desiredSubnets.Equal(currentSubnets) && ipv6AddressesEqual && resLB.Spec.Type != elbv2model.LoadBalancerTypeApplication {
+	if desiredSubnets.Equal(currentSubnets) && isIpv6AddressesEqual {
 		return nil
 	}
 
