@@ -50,8 +50,12 @@ func DiffStringMap(desired map[string]string, current map[string]string) (map[st
 	return modify, remove
 }
 
-func CSVToMap(csv string) map[string]bool {
+func CSVToStringSet(csv string) map[string]bool {
 	m := map[string]bool{}
+
+	if len(csv) == 0 {
+		return m
+	}
 
 	for _, v := range strings.Split(csv, ",") {
 		m[v] = true
@@ -60,7 +64,7 @@ func CSVToMap(csv string) map[string]bool {
 	return m
 }
 
-func MapToCSV(m map[string]bool) string {
+func StringSetToCSV(m map[string]bool) string {
 	keyList := make([]string, 0, len(m))
 	for k := range m {
 		keyList = append(keyList, k)

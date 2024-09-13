@@ -35,6 +35,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
 	tgSpec, err := t.buildTargetGroupSpec(ctx, ing, svc, port, svcPort)
 	if err != nil {
 		return nil, err
@@ -45,12 +46,12 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
 	}
 	tg := elbv2model.NewTargetGroup(t.stack, tgResID, tgSpec)
 	t.tgByResID[tgResID] = tg
-	_, err = t.buildTargetGroupBinding(ctx, tg, svc, port, svcPort, nodeSelector)
+	_, err = t.buildTargetGroupBinding(ctx, tg, svc, port, svcPort, nodeSelector, ing)
 	return tg, err
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector) (*elbv2model.TargetGroupBindingResource, error) {
-	tgbSpec, err := t.buildTargetGroupBindingSpec(ctx, tg, svc, port, svcPort, nodeSelector)
+func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector, ing ClassifiedIngress) (*elbv2model.TargetGroupBindingResource, error) {
+	tgbSpec, err := t.buildTargetGroupBindingSpec(ctx, tg, svc, port, svcPort, nodeSelector, ing)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg 
 	return tgb, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector) (elbv2model.TargetGroupBindingResourceSpec, error) {
+func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector, ing ClassifiedIngress) (elbv2model.TargetGroupBindingResourceSpec, error) {
 	targetType := elbv2api.TargetType(tg.Spec.TargetType)
 	targetPort := svcPort.TargetPort
 	if targetType == elbv2api.TargetTypeInstance {
@@ -66,7 +67,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}
 	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, *tg.Spec.HealthCheckConfig.Port)
 
-	sharedTg, err := t.buildTargetGroupBindingSharedFlag(svc)
+	sharedTg, err := t.buildTargetGroupBindingSharedFlag(ing, svc)
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceSpec{}, err
 	}
@@ -487,9 +488,22 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingSharedFlag(svc *corev1.Service) (bool, error) {
+func (t *defaultModelBuildTask) buildTargetGroupBindingSharedFlag(ing ClassifiedIngress, svc *corev1.Service) (bool, error) {
+	enabled, err := t.getSharedTgFlag(ing.Ing.Annotations)
+	if err != nil {
+		return false, err
+	}
+
+	if enabled {
+		return true, nil
+	}
+
+	return t.getSharedTgFlag(svc.Annotations)
+}
+
+func (t *defaultModelBuildTask) getSharedTgFlag(annotationMap map[string]string) (bool, error) {
 	var rawEnabled bool
-	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixSharedTargetGroup, &rawEnabled, svc.Annotations)
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.IngressLBSuffixSharedTargetGroup, &rawEnabled, annotationMap)
 	if err != nil {
 		return false, err
 	}

@@ -275,3 +275,85 @@ func TestDiffStringMap(t *testing.T) {
 		})
 	}
 }
+
+func TestCSVToStringSet(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		output map[string]bool
+	}{
+		{
+			name:   "empty string",
+			input:  "",
+			output: map[string]bool{},
+		},
+		{
+			name:  "one entry",
+			input: "127.0.0.1:80",
+			output: map[string]bool{
+				"127.0.0.1:80": true,
+			},
+		},
+		{
+			name:  "multiple entries",
+			input: "127.0.0.1:80,127.0.0.2:80,127.0.0.3:80,127.0.0.4:80,127.0.0.5:80",
+			output: map[string]bool{
+				"127.0.0.1:80": true,
+				"127.0.0.2:80": true,
+				"127.0.0.3:80": true,
+				"127.0.0.4:80": true,
+				"127.0.0.5:80": true,
+			},
+		},
+		{
+			name:  "duplicate entries",
+			input: "127.0.0.1:80,127.0.0.2:80,127.0.0.1:80,127.0.0.1:80,127.0.0.1:80",
+			output: map[string]bool{
+				"127.0.0.1:80": true,
+				"127.0.0.2:80": true,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.output, CSVToStringSet(tt.input))
+		})
+	}
+}
+
+func TestStringSetToCSV(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  map[string]bool
+		output string
+	}{
+		{
+			name:  "empty string",
+			input: map[string]bool{},
+		},
+		{
+			name: "one entry",
+			input: map[string]bool{
+				"127.0.0.1:80": true,
+			},
+		},
+		{
+			name: "multiple entries",
+			input: map[string]bool{
+				"127.0.0.1:80": true,
+				"127.0.0.2:80": true,
+				"127.0.0.3:80": true,
+				"127.0.0.4:80": true,
+				"127.0.0.5:80": true,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Go doesn't guarantee ordering for map iteration, so we just re-insert into a map to validate correctness.
+			output := StringSetToCSV(tt.input)
+			recreatedSet := CSVToStringSet(output)
+			assert.Equal(t, tt.input, recreatedSet)
+		})
+	}
+}

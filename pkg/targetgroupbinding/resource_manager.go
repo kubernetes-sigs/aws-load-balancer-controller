@@ -88,7 +88,8 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 		return errors.Errorf("targetType is not specified: %v", k8s.NamespacedName(tgb).String())
 	}
 	if *tgb.Spec.TargetType == elbv2api.TargetTypeIP {
-		return m.reconcileWithIPTargetType(ctx, tgb)
+		err := m.reconcileWithIPTargetType(ctx, tgb)
+		return err
 	}
 	return m.reconcileWithInstanceTargetType(ctx, tgb)
 }
@@ -108,6 +109,7 @@ func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.Targ
 	if err := m.updatePodAsHealthyForDeletedTGB(ctx, tgb); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -151,8 +153,8 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	updateTrackedTargets := false
 	if len(unmatchedTargets) > 0 {
-		updateTrackedTargets = true
-		if err := m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets); err != nil {
+		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets)
+		if err != nil {
 			return err
 		}
 	}
@@ -170,7 +172,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		// for deregistration, it's safe to update the map here as we have completed all deregister calls already.
 		updateTrackedTargets = false
 
-		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, endpoints, tgb); err != nil {
+		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, true, endpoints, tgb); err != nil {
 			return err
 		}
 
@@ -179,11 +181,8 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		}
 	}
 
-	if updateTrackedTargets {
-		// For changes that get to here, we want to replace the endpoint map with the current endpoint set.
-		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, endpoints, tgb); err != nil {
-			return err
-		}
+	if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, updateTrackedTargets, endpoints, tgb); err != nil {
+		return err
 	}
 
 	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints)
@@ -244,15 +243,15 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	updateTrackedTargets := false
 
 	if len(unmatchedTargets) > 0 {
-		updateTrackedTargets = true
-		if err := m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets); err != nil {
+		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets)
+		if err != nil {
 			return err
 		}
 	}
 
 	if len(unmatchedEndpoints) > 0 {
 		updateTrackedTargets = false
-		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, endpoints, tgb); err != nil {
+		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, true, endpoints, tgb); err != nil {
 			return err
 		}
 
@@ -261,10 +260,8 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		}
 	}
 
-	if updateTrackedTargets {
-		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, endpoints, tgb); err != nil {
-			return err
-		}
+	if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, updateTrackedTargets, endpoints, tgb); err != nil {
+		return err
 	}
 
 	_ = drainingTargets
@@ -282,7 +279,9 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 		return err
 	}
 
-	if err := m.deregisterTargets(ctx, tgb, tgb.Spec.TargetGroupARN, targets); err != nil {
+	_, err = m.deregisterTargets(ctx, tgb, tgb.Spec.TargetGroupARN, targets)
+
+	if err != nil {
 		if isELBV2TargetGroupNotFoundError(err) {
 			return nil
 		} else if isELBV2TargetGroupARNInvalidError(err) {
@@ -431,21 +430,21 @@ func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Con
 	return nil
 }
 
-func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, tgARN string, targets []TargetInfo) error {
-	filteredTargets, err := m.multiClusterManager.FilterTargetsForDeregistration(ctx, tgb, targets)
+func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, tgARN string, targets []TargetInfo) (bool, error) {
+	filteredTargets, updateTrackedTargets, err := m.multiClusterManager.FilterTargetsForDeregistration(ctx, tgb, targets)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if len(filteredTargets) == 0 {
-		return nil
+		return updateTrackedTargets, nil
 	}
 
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(targets))
 	for _, target := range filteredTargets {
 		sdkTargets = append(sdkTargets, target.Target)
 	}
-	return m.targetsManager.DeregisterTargets(ctx, tgARN, sdkTargets)
+	return true, m.targetsManager.DeregisterTargets(ctx, tgARN, sdkTargets)
 }
 
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN, tgVpcID string, endpoints []backend.PodEndpoint) error {

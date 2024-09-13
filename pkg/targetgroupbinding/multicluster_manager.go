@@ -21,15 +21,14 @@ const (
 
 // MultiClusterManager implements logic to support multiple LBCs managing the same Target Group.
 type MultiClusterManager interface {
-	// FilterTargetsForDeregistration Given a purposed list of targets from a source (probably ELB API), filter the list down to only targets
-	// the cluster should operate on.
-	FilterTargetsForDeregistration(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targetInfo []TargetInfo) ([]TargetInfo, error)
+	// FilterTargetsForDeregistration Given a list of targets, filter the list down to only targets the cluster should operate on.
+	FilterTargetsForDeregistration(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targetInfo []TargetInfo) ([]TargetInfo, bool, error)
 
 	// UpdateTrackedIPTargets Update the tracked target set in persistent storage
-	UpdateTrackedIPTargets(ctx context.Context, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding) error
+	UpdateTrackedIPTargets(ctx context.Context, updateRequested bool, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding) error
 
 	// UpdateTrackedInstanceTargets Update the tracked target set in persistent storage
-	UpdateTrackedInstanceTargets(ctx context.Context, endpoints []backend.NodePortEndpoint, tgb *elbv2api.TargetGroupBinding) error
+	UpdateTrackedInstanceTargets(ctx context.Context, updateRequested bool, endpoints []backend.NodePortEndpoint, tgb *elbv2api.TargetGroupBinding) error
 
 	// CleanUp Removes any resources used to implement multicluster support.
 	CleanUp(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error
@@ -44,44 +43,6 @@ type multiClusterManagerImpl struct {
 	configMapCacheMutex sync.RWMutex
 }
 
-func (m *multiClusterManagerImpl) UpdateTrackedIPTargets(ctx context.Context, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding) error {
-	if !tgb.Spec.SharedTargetGroup {
-		return nil
-	}
-
-	endpointStrings := make([]string, 0, len(endpoints))
-
-	for _, ep := range endpoints {
-		endpointStrings = append(endpointStrings, ep.GetIdentifier())
-	}
-
-	return m.updateTrackedTargets(ctx, endpointStrings, tgb)
-}
-
-func (m *multiClusterManagerImpl) UpdateTrackedInstanceTargets(ctx context.Context, endpoints []backend.NodePortEndpoint, tgb *elbv2api.TargetGroupBinding) error {
-	if !tgb.Spec.SharedTargetGroup {
-		return nil
-	}
-
-	endpointStrings := make([]string, 0, len(endpoints))
-
-	for _, ep := range endpoints {
-		endpointStrings = append(endpointStrings, ep.GetIdentifier())
-	}
-
-	return m.updateTrackedTargets(ctx, endpointStrings, tgb)
-}
-
-func (m *multiClusterManagerImpl) updateTrackedTargets(ctx context.Context, endpoints []string, tgb *elbv2api.TargetGroupBinding) error {
-	persistedEndpoints := make(map[string]bool)
-
-	for _, ep := range endpoints {
-		persistedEndpoints[ep] = true
-	}
-
-	return m.persistConfigMap(ctx, persistedEndpoints, tgb)
-}
-
 // NewMultiClusterManager constructs a multicluster manager that is immediately ready to use.
 func NewMultiClusterManager(kubeClient client.Client, apiReader client.Reader, logger logr.Logger) MultiClusterManager {
 	return &multiClusterManagerImpl{
@@ -93,21 +54,70 @@ func NewMultiClusterManager(kubeClient client.Client, apiReader client.Reader, l
 	}
 }
 
-func (m *multiClusterManagerImpl) FilterTargetsForDeregistration(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []TargetInfo) ([]TargetInfo, error) {
+func (m *multiClusterManagerImpl) UpdateTrackedIPTargets(ctx context.Context, updateRequested bool, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding) error {
+	endpointStringFn := func() []string {
+		endpointStrings := make([]string, 0, len(endpoints))
+
+		for _, ep := range endpoints {
+			endpointStrings = append(endpointStrings, ep.GetIdentifier())
+		}
+		return endpointStrings
+	}
+
+	return m.updateTrackedTargets(ctx, updateRequested, endpointStringFn, tgb)
+}
+
+func (m *multiClusterManagerImpl) UpdateTrackedInstanceTargets(ctx context.Context, updateRequested bool, endpoints []backend.NodePortEndpoint, tgb *elbv2api.TargetGroupBinding) error {
+	endpointStringFn := func() []string {
+		endpointStrings := make([]string, 0, len(endpoints))
+
+		for _, ep := range endpoints {
+			endpointStrings = append(endpointStrings, ep.GetIdentifier())
+		}
+		return endpointStrings
+	}
+
+	return m.updateTrackedTargets(ctx, updateRequested, endpointStringFn, tgb)
+}
+
+func (m *multiClusterManagerImpl) updateTrackedTargets(ctx context.Context, updateRequested bool, endpointStringFn func() []string, tgb *elbv2api.TargetGroupBinding) error {
 	if !tgb.Spec.SharedTargetGroup {
-		return targets, nil
+		return nil
+	}
+
+	// Initial case, we want to create the config map when it doesn't exist.
+	if !updateRequested {
+		cachedData := m.retrieveConfigMapFromCache(getConfigMapName(tgb))
+		if cachedData != nil {
+			return nil
+		}
+	}
+
+	endpoints := endpointStringFn()
+	persistedEndpoints := make(map[string]bool)
+
+	for _, ep := range endpoints {
+		persistedEndpoints[ep] = true
+	}
+
+	return m.persistConfigMap(ctx, persistedEndpoints, tgb)
+}
+
+func (m *multiClusterManagerImpl) FilterTargetsForDeregistration(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []TargetInfo) ([]TargetInfo, bool, error) {
+	if !tgb.Spec.SharedTargetGroup {
+		return targets, false, nil
 	}
 
 	persistedEndpoints, err := m.getConfigMapContents(ctx, tgb)
 
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	if persistedEndpoints == nil {
 		// Initial state after enabling MC or new TGB, we don't have enough data to accurately deregister targets here.
 		m.logger.Info(fmt.Sprintf("Initial data population for multicluster target group. No deregister will occur on this reconcile run for tg: %s", tgb.Spec.TargetGroupARN))
-		return []TargetInfo{}, nil
+		return []TargetInfo{}, true, nil
 	}
 
 	filteredTargets := make([]TargetInfo, 0)
@@ -119,7 +129,7 @@ func (m *multiClusterManagerImpl) FilterTargetsForDeregistration(ctx context.Con
 		}
 	}
 
-	return filteredTargets, nil
+	return filteredTargets, false, nil
 }
 
 func (m *multiClusterManagerImpl) CleanUp(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
@@ -176,7 +186,7 @@ func (m *multiClusterManagerImpl) getConfigMapContents(ctx context.Context, tgb 
 	}, cm)
 
 	if err == nil {
-		targetSet := algorithm.CSVToMap(cm.Data[targetsKey])
+		targetSet := algorithm.CSVToStringSet(cm.Data[targetsKey])
 		m.configMapCache[configMapName] = targetSet
 		return targetSet, nil
 	}
@@ -202,7 +212,7 @@ func (m *multiClusterManagerImpl) retrieveConfigMapFromCache(configMapName strin
 func (m *multiClusterManagerImpl) persistConfigMap(ctx context.Context, endpointMap map[string]bool, tgb *elbv2api.TargetGroupBinding) error {
 
 	configMapName := getConfigMapName(tgb)
-	targetData := algorithm.MapToCSV(endpointMap)
+	targetData := algorithm.StringSetToCSV(endpointMap)
 
 	// Update the cm in kube api, to ensure things work across controller restarts.
 	cm := &corev1.ConfigMap{

@@ -49,6 +49,7 @@ const (
 	IngressSuffixMutualAuthentication         = "mutual-authentication"
 	IngressSuffixSecurityGroupPrefixLists     = "security-group-prefix-lists"
 	IngressSuffixlsAttsAnnotationPrefix       = "listener-attributes"
+	IngressLBSuffixSharedTargetGroup          = "shared-target-group"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io
