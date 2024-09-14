@@ -88,8 +88,7 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 		return errors.Errorf("targetType is not specified: %v", k8s.NamespacedName(tgb).String())
 	}
 	if *tgb.Spec.TargetType == elbv2api.TargetTypeIP {
-		err := m.reconcileWithIPTargetType(ctx, tgb)
-		return err
+		return m.reconcileWithIPTargetType(ctx, tgb)
 	}
 	return m.reconcileWithInstanceTargetType(ctx, tgb)
 }

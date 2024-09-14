@@ -1,6 +1,9 @@
 package algorithm
 
-import "strings"
+import (
+	"k8s.io/apimachinery/pkg/util/sets"
+	"strings"
+)
 
 // MapFindFirst get from list of maps until first found.
 func MapFindFirst(key string, maps ...map[string]string) (string, bool) {
@@ -50,23 +53,23 @@ func DiffStringMap(desired map[string]string, current map[string]string) (map[st
 	return modify, remove
 }
 
-func CSVToStringSet(csv string) map[string]bool {
-	m := map[string]bool{}
+func CSVToStringSet(csv string) sets.Set[string] {
+	s := sets.Set[string]{}
 
 	if len(csv) == 0 {
-		return m
+		return s
 	}
 
 	for _, v := range strings.Split(csv, ",") {
-		m[v] = true
+		s.Insert(v)
 	}
 
-	return m
+	return s
 }
 
-func StringSetToCSV(m map[string]bool) string {
-	keyList := make([]string, 0, len(m))
-	for k := range m {
+func StringSetToCSV(s sets.Set[string]) string {
+	keyList := make([]string, 0, len(s))
+	for k := range s {
 		keyList = append(keyList, k)
 	}
 	return strings.Join(keyList, ",")

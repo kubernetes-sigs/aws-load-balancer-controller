@@ -67,7 +67,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}
 	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, *tg.Spec.HealthCheckConfig.Port)
 
-	sharedTg, err := t.buildTargetGroupBindingSharedFlag(ing, svc)
+	multiTg, err := t.buildTargetGroupBindingMultiClusterFlag(ing, svc)
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceSpec{}, err
 	}
@@ -85,11 +85,11 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 					Name: svc.Name,
 					Port: port,
 				},
-				Networking:        tgbNetworking,
-				NodeSelector:      nodeSelector,
-				IPAddressType:     elbv2api.TargetGroupIPAddressType(tg.Spec.IPAddressType),
-				VpcID:             t.vpcID,
-				SharedTargetGroup: sharedTg,
+				Networking:              tgbNetworking,
+				NodeSelector:            nodeSelector,
+				IPAddressType:           elbv2api.TargetGroupIPAddressType(tg.Spec.IPAddressType),
+				VpcID:                   t.vpcID,
+				MultiClusterTargetGroup: multiTg,
 			},
 		},
 	}, nil
@@ -488,8 +488,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingSharedFlag(ing ClassifiedIngress, svc *corev1.Service) (bool, error) {
-	enabled, err := t.getSharedTgFlag(ing.Ing.Annotations)
+func (t *defaultModelBuildTask) buildTargetGroupBindingMultiClusterFlag(ing ClassifiedIngress, svc *corev1.Service) (bool, error) {
+	enabled, err := t.getMultiClusterTgFlag(ing.Ing.Annotations)
 	if err != nil {
 		return false, err
 	}
@@ -498,12 +498,12 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSharedFlag(ing Classified
 		return true, nil
 	}
 
-	return t.getSharedTgFlag(svc.Annotations)
+	return t.getMultiClusterTgFlag(svc.Annotations)
 }
 
-func (t *defaultModelBuildTask) getSharedTgFlag(annotationMap map[string]string) (bool, error) {
+func (t *defaultModelBuildTask) getMultiClusterTgFlag(annotationMap map[string]string) (bool, error) {
 	var rawEnabled bool
-	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.IngressLBSuffixSharedTargetGroup, &rawEnabled, annotationMap)
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.IngressLBSuffixMultiClusterTargetGroup, &rawEnabled, annotationMap)
 	if err != nil {
 		return false, err
 	}

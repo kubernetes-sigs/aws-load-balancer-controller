@@ -32,10 +32,6 @@ spec:
       name: ARN
       priority: 1
       type: string
-    - description: Denotes if the TargetGroup is shared among multiple clusters
-      jsonPath: .spec.sharedTargetGroup
-      name: SHARED-TG
-      type: boolean
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -64,6 +60,10 @@ spec:
           spec:
             description: TargetGroupBindingSpec defines the desired state of TargetGroupBinding
             properties:
+              multiClusterTargetGroup:
+                description: MultiClusterTargetGroup Denotes if the TargetGroup is
+                  shared among multiple clusters
+                type: boolean
               networking:
                 description: networking provides the networking setup for ELBV2 LoadBalancer
                   to access targets in TargetGroup.
@@ -156,10 +156,6 @@ spec:
                 - name
                 - port
                 type: object
-              sharedTargetGroup:
-                description: sharedTargetGroup Denotes if the TargetGroup is shared
-                  among multiple clusters
-                type: boolean
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
@@ -206,10 +202,6 @@ spec:
       name: ARN
       priority: 1
       type: string
-    - description: Denotes if the TargetGroup is shared among multiple clusters
-      jsonPath: .spec.sharedTargetGroup
-      name: SHARED-TG
-      type: boolean
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -245,6 +237,10 @@ spec:
                 - ipv4
                 - ipv6
                 type: string
+              multiClusterTargetGroup:
+                description: MultiClusterTargetGroup Denotes if the TargetGroup is
+                  shared among multiple clusters
+                type: boolean
               networking:
                 description: networking defines the networking rules to allow ELBV2
                   LoadBalancer to access targets in TargetGroup.
@@ -388,10 +384,6 @@ spec:
                 - name
                 - port
                 type: object
-              sharedTargetGroup:
-                description: sharedTargetGroup Denotes if the TargetGroup is shared
-                  among multiple clusters
-                type: boolean
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.

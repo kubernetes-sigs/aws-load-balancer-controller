@@ -55,7 +55,6 @@ documentation is not an accurate reference for the services reconciled by the in
 | [service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}](#listener-attributes)         | stringMap                  |                           |
 | [service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group](#multi-cluster-target-group)             | boolean                | false                    | If specified, the controller will only operate on targets that exist within the cluster, ignoring targets from other sources.                            |
 
-
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
 
@@ -88,23 +87,23 @@ Traffic Routing can be controlled with following annotations:
 
 - <a name="nlb-target-type">`service.beta.kubernetes.io/aws-load-balancer-nlb-target-type`</a> specifies the target type to configure for NLB. You can choose between
   `instance` and `ip`.
-    - `instance` mode will route traffic to all EC2 instances within cluster on the [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) opened for your service. The kube-proxy on the individual worker nodes sets up the forwarding of the traffic from the NodePort to the pods behind the service.
+  - `instance` mode will route traffic to all EC2 instances within cluster on the [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport) opened for your service. The kube-proxy on the individual worker nodes sets up the forwarding of the traffic from the NodePort to the pods behind the service.
+
+    !!!note ""
+    - service must be of type `NodePort` or `LoadBalancer` for `instance` targets
+    - for k8s 1.22 and later if `spec.allocateLoadBalancerNodePorts` is set to `false`, `NodePort` must be allocated manually
+
+    !!!note "default value"
+    If you configure `spec.loadBalancerClass`, the controller defaults to `instance` target type
+
+    !!!warning "NodePort allocation"
+    k8s version 1.22 and later support disabling NodePort allocation by setting the service field `spec.allocateLoadBalancerNodePorts` to `false`. If the NodePort is not allocated for a service port, the controller will fail to reconcile instance mode NLB.
+
+    - `ip` mode will route traffic directly to the pod IP. In this mode, AWS NLB sends traffic directly to the Kubernetes pods behind the service, eliminating the need for an extra network hop through the worker nodes in the Kubernetes cluster.
 
       !!!note ""
-      - service must be of type `NodePort` or `LoadBalancer` for `instance` targets
-      - for k8s 1.22 and later if `spec.allocateLoadBalancerNodePorts` is set to `false`, `NodePort` must be allocated manually
-
-      !!!note "default value"
-      If you configure `spec.loadBalancerClass`, the controller defaults to `instance` target type
-
-      !!!warning "NodePort allocation"
-      k8s version 1.22 and later support disabling NodePort allocation by setting the service field `spec.allocateLoadBalancerNodePorts` to `false`. If the NodePort is not allocated for a service port, the controller will fail to reconcile instance mode NLB.
-
-        - `ip` mode will route traffic directly to the pod IP. In this mode, AWS NLB sends traffic directly to the Kubernetes pods behind the service, eliminating the need for an extra network hop through the worker nodes in the Kubernetes cluster.
-
-          !!!note ""
-          - `ip` target mode supports pods running on AWS EC2 instances and AWS Fargate
-          - network plugin must use native AWS VPC networking configuration for pod IP, for example [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s).
+      - `ip` target mode supports pods running on AWS EC2 instances and AWS Fargate
+      - network plugin must use native AWS VPC networking configuration for pod IP, for example [Amazon VPC CNI plugin](https://github.com/aws/amazon-vpc-cni-k8s).
 
   !!!example
   ```
@@ -298,12 +297,13 @@ NLB resource attributes can be controlled via the following annotations:
   Target Groups shared with multiple clusters, it's recommended to use an out-of-band Target Group that is not managed by a Load Balancer Controller.
 
   !!!note ""
-    - It is not recommended to change this value frequently, if ever. The recommended way to set this value is on creation of the service.
+  - It is not recommended to change this value frequently, if ever. The recommended way to set this value is on creation of the service.
 
   !!!example
   ```
   service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "true"
   ```
+
 
 ## AWS Resource Tags
 The AWS Load Balancer Controller automatically applies following tags to the AWS resources it creates (NLB/TargetGroups/Listener/ListenerRule):

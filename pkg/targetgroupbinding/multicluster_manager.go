@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
@@ -14,7 +15,6 @@ import (
 )
 
 const (
-	namespace            = "kube-system"
 	trackedTargetsPrefix = "aws-lbc-targets-"
 	targetsKey           = "targets"
 )
@@ -39,7 +39,7 @@ type multiClusterManagerImpl struct {
 	apiReader  client.Reader
 	logger     logr.Logger
 
-	configMapCache      map[string]map[string]bool
+	configMapCache      map[string]sets.Set[string]
 	configMapCacheMutex sync.RWMutex
 }
 
@@ -50,7 +50,7 @@ func NewMultiClusterManager(kubeClient client.Client, apiReader client.Reader, l
 		kubeClient:          kubeClient,
 		logger:              logger,
 		configMapCacheMutex: sync.RWMutex{},
-		configMapCache:      make(map[string]map[string]bool),
+		configMapCache:      make(map[string]sets.Set[string]),
 	}
 }
 
@@ -81,30 +81,30 @@ func (m *multiClusterManagerImpl) UpdateTrackedInstanceTargets(ctx context.Conte
 }
 
 func (m *multiClusterManagerImpl) updateTrackedTargets(ctx context.Context, updateRequested bool, endpointStringFn func() []string, tgb *elbv2api.TargetGroupBinding) error {
-	if !tgb.Spec.SharedTargetGroup {
+	if !tgb.Spec.MultiClusterTargetGroup {
 		return nil
 	}
 
 	// Initial case, we want to create the config map when it doesn't exist.
 	if !updateRequested {
-		cachedData := m.retrieveConfigMapFromCache(getConfigMapName(tgb))
+		cachedData := m.retrieveConfigMapFromCache(tgb)
 		if cachedData != nil {
 			return nil
 		}
 	}
 
 	endpoints := endpointStringFn()
-	persistedEndpoints := make(map[string]bool)
+	persistedEndpoints := make(sets.Set[string])
 
 	for _, ep := range endpoints {
-		persistedEndpoints[ep] = true
+		persistedEndpoints.Insert(ep)
 	}
 
 	return m.persistConfigMap(ctx, persistedEndpoints, tgb)
 }
 
 func (m *multiClusterManagerImpl) FilterTargetsForDeregistration(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []TargetInfo) ([]TargetInfo, bool, error) {
-	if !tgb.Spec.SharedTargetGroup {
+	if !tgb.Spec.MultiClusterTargetGroup {
 		return targets, false, nil
 	}
 
@@ -139,21 +139,19 @@ func (m *multiClusterManagerImpl) CleanUp(ctx context.Context, tgb *elbv2api.Tar
 	// to include the new controller permissions for configmaps.
 	// TL;DR We'll document not to flip between shared / not shared.
 
-	configMapName := getConfigMapName(tgb)
-
 	// Always delete from in memory cache, as it's basically "free" to do so.
 	m.configMapCacheMutex.Lock()
-	delete(m.configMapCache, configMapName)
+	delete(m.configMapCache, getCacheKey(tgb))
 	m.configMapCacheMutex.Unlock()
 
 	// If not using multicluster support currently, just bail here.
-	if !tgb.Spec.SharedTargetGroup {
+	if !tgb.Spec.MultiClusterTargetGroup {
 		return nil
 	}
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
+			Namespace: tgb.Namespace,
 			Name:      getConfigMapName(tgb),
 		},
 	}
@@ -164,30 +162,25 @@ func (m *multiClusterManagerImpl) CleanUp(ctx context.Context, tgb *elbv2api.Tar
 	return client.IgnoreNotFound(err)
 }
 
-func (m *multiClusterManagerImpl) getConfigMapContents(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (map[string]bool, error) {
+func (m *multiClusterManagerImpl) getConfigMapContents(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (sets.Set[string], error) {
 
 	// First load from cache.
-	configMapName := getConfigMapName(tgb)
-	cachedData := m.retrieveConfigMapFromCache(configMapName)
+	cachedData := m.retrieveConfigMapFromCache(tgb)
 	if cachedData != nil {
 		return cachedData, nil
 	}
 
 	// If not available from in-memory cache, acquire write lock, look up data from kube api, store into cache.
-
-	m.configMapCacheMutex.Lock()
-	defer m.configMapCacheMutex.Unlock()
-
 	cm := &corev1.ConfigMap{}
 
 	err := m.apiReader.Get(ctx, client.ObjectKey{
-		Namespace: namespace,
-		Name:      configMapName,
+		Namespace: tgb.Namespace,
+		Name:      getConfigMapName(tgb),
 	}, cm)
 
 	if err == nil {
 		targetSet := algorithm.CSVToStringSet(cm.Data[targetsKey])
-		m.configMapCache[configMapName] = targetSet
+		m.updateCache(tgb, targetSet)
 		return targetSet, nil
 	}
 
@@ -199,26 +192,27 @@ func (m *multiClusterManagerImpl) getConfigMapContents(ctx context.Context, tgb 
 	return nil, nil
 }
 
-func (m *multiClusterManagerImpl) retrieveConfigMapFromCache(configMapName string) map[string]bool {
+func (m *multiClusterManagerImpl) retrieveConfigMapFromCache(tgb *elbv2api.TargetGroupBinding) sets.Set[string] {
 	m.configMapCacheMutex.RLock()
 	defer m.configMapCacheMutex.RUnlock()
 
-	if v, ok := m.configMapCache[configMapName]; ok {
+	cacheKey := getCacheKey(tgb)
+
+	if v, ok := m.configMapCache[cacheKey]; ok {
 		return v
 	}
 	return nil
 }
 
-func (m *multiClusterManagerImpl) persistConfigMap(ctx context.Context, endpointMap map[string]bool, tgb *elbv2api.TargetGroupBinding) error {
+func (m *multiClusterManagerImpl) persistConfigMap(ctx context.Context, endpointMap sets.Set[string], tgb *elbv2api.TargetGroupBinding) error {
 
-	configMapName := getConfigMapName(tgb)
 	targetData := algorithm.StringSetToCSV(endpointMap)
 
 	// Update the cm in kube api, to ensure things work across controller restarts.
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      configMapName,
+			Namespace: tgb.Namespace,
+			Name:      getConfigMapName(tgb),
 		},
 		Data: map[string]string{
 			targetsKey: targetData,
@@ -228,7 +222,7 @@ func (m *multiClusterManagerImpl) persistConfigMap(ctx context.Context, endpoint
 	err := m.kubeClient.Update(ctx, cm)
 
 	if err == nil {
-		m.updateCache(configMapName, endpointMap)
+		m.updateCache(tgb, endpointMap)
 		return nil
 	}
 
@@ -237,7 +231,7 @@ func (m *multiClusterManagerImpl) persistConfigMap(ctx context.Context, endpoint
 	if err == nil {
 		err = m.kubeClient.Create(ctx, cm)
 		if err == nil {
-			m.updateCache(configMapName, endpointMap)
+			m.updateCache(tgb, endpointMap)
 		}
 		return err
 	}
@@ -245,12 +239,19 @@ func (m *multiClusterManagerImpl) persistConfigMap(ctx context.Context, endpoint
 	return err
 }
 
-func (m *multiClusterManagerImpl) updateCache(configMapName string, endpointMap map[string]bool) {
+func (m *multiClusterManagerImpl) updateCache(tgb *elbv2api.TargetGroupBinding, endpointMap sets.Set[string]) {
 	m.configMapCacheMutex.Lock()
 	defer m.configMapCacheMutex.Unlock()
-	m.configMapCache[configMapName] = endpointMap
+	cacheKey := getCacheKey(tgb)
+	m.configMapCache[cacheKey] = endpointMap
 }
 
+// getCacheKey generates a key to use with the k8s api
+func getCacheKey(tgb *elbv2api.TargetGroupBinding) string {
+	return fmt.Sprintf("%s-%s", tgb.Namespace, tgb.Name)
+}
+
+// getConfigMapName generates a config map name to use with the k8s api.
 func getConfigMapName(tgb *elbv2api.TargetGroupBinding) string {
-	return fmt.Sprintf("%s%s-%s", trackedTargetsPrefix, tgb.Namespace, tgb.Name)
+	return fmt.Sprintf("%s%s", trackedTargetsPrefix, tgb.Name)
 }

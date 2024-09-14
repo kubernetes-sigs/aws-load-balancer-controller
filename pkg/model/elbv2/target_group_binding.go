@@ -108,9 +108,9 @@ type TargetGroupBindingSpec struct {
 	// +optional
 	VpcID string `json:"vpcID,omitempty"`
 
-	// sharedTargetGroup Denotes if the TargetGroup is shared among multiple clusters
+	// multiClusterTargetGroup Denotes if the TargetGroup is shared among multiple clusters
 	// +optional
-	SharedTargetGroup bool `json:"sharedTargetGroup,omitempty"`
+	MultiClusterTargetGroup bool `json:"multiClusterTargetGroup,omitempty"`
 }
 
 // Template for TargetGroupBinding Custom Resource.

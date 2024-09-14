@@ -2,6 +2,7 @@ package algorithm
 
 import (
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"testing"
 )
 
@@ -280,37 +281,37 @@ func TestCSVToStringSet(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  string
-		output map[string]bool
+		output sets.Set[string]
 	}{
 		{
 			name:   "empty string",
 			input:  "",
-			output: map[string]bool{},
+			output: sets.Set[string]{},
 		},
 		{
 			name:  "one entry",
 			input: "127.0.0.1:80",
-			output: map[string]bool{
-				"127.0.0.1:80": true,
+			output: sets.Set[string]{
+				"127.0.0.1:80": {},
 			},
 		},
 		{
 			name:  "multiple entries",
 			input: "127.0.0.1:80,127.0.0.2:80,127.0.0.3:80,127.0.0.4:80,127.0.0.5:80",
-			output: map[string]bool{
-				"127.0.0.1:80": true,
-				"127.0.0.2:80": true,
-				"127.0.0.3:80": true,
-				"127.0.0.4:80": true,
-				"127.0.0.5:80": true,
+			output: sets.Set[string]{
+				"127.0.0.1:80": {},
+				"127.0.0.2:80": {},
+				"127.0.0.3:80": {},
+				"127.0.0.4:80": {},
+				"127.0.0.5:80": {},
 			},
 		},
 		{
 			name:  "duplicate entries",
 			input: "127.0.0.1:80,127.0.0.2:80,127.0.0.1:80,127.0.0.1:80,127.0.0.1:80",
-			output: map[string]bool{
-				"127.0.0.1:80": true,
-				"127.0.0.2:80": true,
+			output: sets.Set[string]{
+				"127.0.0.1:80": {},
+				"127.0.0.2:80": {},
 			},
 		},
 	}
@@ -324,27 +325,27 @@ func TestCSVToStringSet(t *testing.T) {
 func TestStringSetToCSV(t *testing.T) {
 	tests := []struct {
 		name   string
-		input  map[string]bool
+		input  sets.Set[string]
 		output string
 	}{
 		{
 			name:  "empty string",
-			input: map[string]bool{},
+			input: sets.Set[string]{},
 		},
 		{
 			name: "one entry",
-			input: map[string]bool{
-				"127.0.0.1:80": true,
+			input: sets.Set[string]{
+				"127.0.0.1:80": {},
 			},
 		},
 		{
 			name: "multiple entries",
-			input: map[string]bool{
-				"127.0.0.1:80": true,
-				"127.0.0.2:80": true,
-				"127.0.0.3:80": true,
-				"127.0.0.4:80": true,
-				"127.0.0.5:80": true,
+			input: sets.Set[string]{
+				"127.0.0.1:80": {},
+				"127.0.0.2:80": {},
+				"127.0.0.3:80": {},
+				"127.0.0.4:80": {},
+				"127.0.0.5:80": {},
 			},
 		},
 	}

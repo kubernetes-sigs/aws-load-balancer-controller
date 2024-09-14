@@ -59,7 +59,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)                                | json                        |N/A| Ingress          | N/A           |
 | [alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)                                   | stringMap                   |N/A| Ingress,Service  | N/A           |
 | [alb.ingress.kubernetes.io/mutual-authentication](#mutual-authentication)                             | json                        |N/A| Ingress          | Exclusive     |
-| [alb.ingress.kubernetes.io/shared-target-group](#shared-target-group)                                 | boolean                     |N/A| Ingress, Service | Merge         |
+| [alb.ingress.kubernetes.io/multi-cluster-target-group](#multi-cluster-target-group)                   | boolean                     |N/A| Ingress, Service | Merge         |
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -887,7 +887,7 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
             alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=weighted_random,load_balancing.algorithm.anomaly_mitigation=on
             ```
-- <a name="shared-target-group">`alb.ingress.kubernetes.io/shared-target-group`</a> Allows you to share the created Target Group ARN with other Load Balancer Controller managed clusters.
+- <a name="multi-cluster-target-group">`alb.ingress.kubernetes.io/multi-cluster-target-group`</a> Allows you to share the created Target Group ARN with other Load Balancer Controller managed clusters.
 
   !!!warning ""
   This feature does not offer any Deletion Protection. Deleting the resource will still delete the Target Group. If you need to support
@@ -898,7 +898,7 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
 
   !!!example
   ```
-  alb.ingress.kubernetes.io/shared-target-group: "true"
+  alb.ingress.kubernetes.io/multi-cluster-target-group: "true"
   ```
 
 

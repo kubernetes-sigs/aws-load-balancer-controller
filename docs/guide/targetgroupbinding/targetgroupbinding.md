@@ -92,14 +92,14 @@ spec:
   ...
 ```
 
-## SharedTargetGroup
+## MultiCluster Target Group
 TargetGroupBinding CR supports sharing the same target group ARN among multiple clusters. Setting this flag will ensure the controller only operates on targets within the cluster.
 
 !!!tip ""
     The default value is false, meaning that the controller assumes full control over the target group ARN and will deregister any targets that are not found within the cluster.
     To set this flag for TGBs managed by the controller use either:
-    ALB: alb.ingress.kubernetes.io/shared-target-group: "true"
-    NLB: service.beta.kubernetes.io/aws-load-balancer-shared-target-group: "true"
+    ALB: alb.ingress.kubernetes.io/multi-cluster-target-group: "true"
+    NLB: service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "true"
 
 
 !!!warning ""
@@ -120,7 +120,7 @@ spec:
     name: awesome-service # route traffic to the awesome-service
     port: 80
   targetGroupARN: <arn-to-targetGroup>
-  sharedTargetGroup: "true"
+  multiClusterTargetGroup: "true"
 ```
 
 

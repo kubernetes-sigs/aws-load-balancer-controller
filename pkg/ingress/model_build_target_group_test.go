@@ -755,7 +755,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 				Ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"alb.ingress.kubernetes.io/shared-target-group": "false",
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "false",
 						},
 					},
 				},
@@ -771,7 +771,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"alb.ingress.kubernetes.io/shared-target-group": "false",
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "false",
 					},
 				},
 			},
@@ -783,7 +783,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 				Ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"alb.ingress.kubernetes.io/shared-target-group": "true",
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "true",
 						},
 					},
 				},
@@ -799,7 +799,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"alb.ingress.kubernetes.io/shared-target-group": "true",
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "true",
 					},
 				},
 			},
@@ -811,7 +811,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 				Ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"alb.ingress.kubernetes.io/shared-target-group": "true",
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "true",
 						},
 					},
 				},
@@ -819,7 +819,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"alb.ingress.kubernetes.io/shared-target-group": "false",
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "false",
 					},
 				},
 			},
@@ -831,7 +831,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 				Ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"alb.ingress.kubernetes.io/shared-target-group": "false",
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "false",
 						},
 					},
 				},
@@ -839,7 +839,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"alb.ingress.kubernetes.io/shared-target-group": "true",
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "true",
 					},
 				},
 			},
@@ -853,7 +853,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"alb.ingress.kubernetes.io/shared-target-group": "cat",
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "cat",
 					},
 				},
 			},
@@ -865,7 +865,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 				Ing: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"alb.ingress.kubernetes.io/shared-target-group": "cat",
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "cat",
 						},
 					},
 				},
@@ -879,7 +879,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			task := &defaultModelBuildTask{
 				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 			}
-			got, err := task.buildTargetGroupBindingSharedFlag(tt.ing, tt.svc)
+			got, err := task.buildTargetGroupBindingMultiClusterFlag(tt.ing, tt.svc)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

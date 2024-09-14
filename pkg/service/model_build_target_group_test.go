@@ -2040,7 +2040,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-shared-target-group": "false",
+						"service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group": "false",
 					},
 				},
 			},
@@ -2051,7 +2051,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-shared-target-group": "true",
+						"service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group": "true",
 					},
 				},
 			},
@@ -2062,7 +2062,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-shared-target-group": "cat",
+						"service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group": "cat",
 					},
 				},
 			},
@@ -2074,7 +2074,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) 
 			task := &defaultModelBuildTask{
 				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
 			}
-			got, err := task.buildTargetGroupBindingSharedFlag(tt.svc)
+			got, err := task.buildTargetGroupBindingMultiClusterFlag(tt.svc)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
