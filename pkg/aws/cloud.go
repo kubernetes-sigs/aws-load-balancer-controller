@@ -4,11 +4,15 @@ import (
 	"context"
 	"fmt"
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	smithymiddleware "github.com/aws/smithy-go/middleware"
 	"net"
 	"os"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/metrics"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
 	"strings"
 
@@ -97,26 +101,37 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 	}
 	awsConfig, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(cfg.Region),
-		config.WithRetryMaxAttempts(cfg.MaxRetries),
+		config.WithRetryer(func() aws.Retryer {
+			return retry.NewStandard(func(o *retry.StandardOptions) {
+				o.RateLimiter = ratelimit.None
+				o.MaxAttempts = cfg.MaxRetries
+			})
+		}),
 		config.WithEC2IMDSEndpointMode(ec2IMDSEndpointMode),
 		config.WithAPIOptions([]func(stack *smithymiddleware.Stack) error{
 			awsmiddleware.AddUserAgentKeyValue(userAgent, version.GitVersion),
 		}),
 	)
 
-	//TODO: ADD metric collection and throttle configuration later
-	//if cfg.ThrottleConfig != nil {
-	//	throttler := throttle.NewThrottler(cfg.ThrottleConfig)
-	//	throttler.InjectHandlers(&sess.Handlers)
-	//}
+	if cfg.ThrottleConfig != nil {
+		throttler := throttle.NewThrottler(cfg.ThrottleConfig)
+		awsConfig.APIOptions = append(awsConfig.APIOptions, func(stack *smithymiddleware.Stack) error {
+			return throttle.WithSDKRequestThrottleMiddleware(throttler)(stack)
+		})
+	}
 
-	//if metricsRegisterer != nil {
-	//	metricsCollector, err := metrics.NewCollector(metricsRegisterer)
-	//	if err != nil {
-	//		return nil, errors.Wrapf(err, "failed to initialize sdk metrics collector")
-	//	}
-	//	awsConfig.APIOptions = append(awsConfig.APIOptions, metricsCollector.CollectAPICallMetricMiddleware())
-	//}
+	if metricsRegisterer != nil {
+		metricsCollector, err := metrics.NewCollector(metricsRegisterer)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to initialize sdk metrics collector")
+		}
+		awsConfig.APIOptions = append(awsConfig.APIOptions, func(stack *smithymiddleware.Stack) error {
+			return metrics.WithSDKCallMetricCollector(metricsCollector)(stack)
+		})
+		awsConfig.APIOptions = append(awsConfig.APIOptions, func(stack *smithymiddleware.Stack) error {
+			return metrics.WithSDKRequestMetricCollector(metricsCollector)(stack)
+		})
+	}
 
 	ec2Service := services.NewEC2(awsConfig)
 

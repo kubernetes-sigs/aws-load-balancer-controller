@@ -18,11 +18,9 @@ type ELBV2 interface {
 	// wrapper to DescribeListenersPagesWithContext API, which aggregates paged results into list.
 	DescribeListenersAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeListenersInput) ([]types.Listener, error)
 
-	// TODO : Implement these when the API paginator is available
 	// wrapper to DescribeListenerCertificatesWithContext API, which aggregates paged results into list.
 	DescribeListenerCertificatesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerCertificatesInput) ([]types.Certificate, error)
 
-	// TODO : Implement these when the API paginator is available
 	// wrapper to DescribeRulesWithContext API, which aggregates paged results into list.
 	DescribeRulesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeRulesInput) ([]types.Rule, error)
 
@@ -61,7 +59,6 @@ type ELBV2 interface {
 }
 
 // NewELBV2 constructs new ELBV2 implementation.
-// TODO custom resolver for gamma endpoint
 func NewELBV2(cfg aws.Config) ELBV2 {
 	client := elasticloadbalancingv2.NewFromConfig(cfg)
 	return &elbv2Client{elbv2Client: client}
@@ -70,24 +67,6 @@ func NewELBV2(cfg aws.Config) ELBV2 {
 // default implementation for ELBV2.
 type elbv2Client struct {
 	elbv2Client *elasticloadbalancingv2.Client
-}
-
-// TODO : Paginate this method once paginators are available
-func (c *elbv2Client) DescribeListenerCertificatesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerCertificatesInput) ([]types.Certificate, error) {
-	output, err := c.elbv2Client.DescribeListenerCertificates(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-	return output.Certificates, nil
-}
-
-// TODO : Paginate this method once paginators are available
-func (c *elbv2Client) DescribeRulesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeRulesInput) ([]types.Rule, error) {
-	output, err := c.elbv2Client.DescribeRules(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-	return output.Rules, nil
 }
 
 func (c *elbv2Client) AddListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.AddListenerCertificatesInput) (*elasticloadbalancingv2.AddListenerCertificatesOutput, error) {
@@ -255,6 +234,32 @@ func (c *elbv2Client) DescribeListenersAsList(ctx context.Context, input *elasti
 			return nil, err
 		}
 		result = append(result, output.Listeners...)
+	}
+	return result, nil
+}
+
+func (c *elbv2Client) DescribeListenerCertificatesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerCertificatesInput) ([]types.Certificate, error) {
+	var result []types.Certificate
+	paginator := elasticloadbalancingv2.NewDescribeListenerCertificatesPaginator(c.elbv2Client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.Certificates...)
+	}
+	return result, nil
+}
+
+func (c *elbv2Client) DescribeRulesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeRulesInput) ([]types.Rule, error) {
+	var result []types.Rule
+	paginator := elasticloadbalancingv2.NewDescribeRulesPaginator(c.elbv2Client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.Rules...)
 	}
 	return result, nil
 }
