@@ -407,7 +407,7 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 	for _, endpoint := range endpoints {
 		target := elbv2types.TargetDescription{
 			Id:   awssdk.String(endpoint.IP),
-			Port: endpoint.Port,
+			Port: awssdk.Int32(endpoint.Port),
 		}
 		podIP, err := netip.ParseAddr(endpoint.IP)
 		if err != nil {
@@ -426,7 +426,7 @@ func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, 
 	for _, endpoint := range endpoints {
 		sdkTargets = append(sdkTargets, elbv2types.TargetDescription{
 			Id:   awssdk.String(endpoint.InstanceID),
-			Port: endpoint.Port,
+			Port: awssdk.Int32(endpoint.Port),
 		})
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)

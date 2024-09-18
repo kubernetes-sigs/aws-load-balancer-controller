@@ -284,7 +284,7 @@ func buildEndpointsDataFromEndpointSliceList(epsList *discovery.EndpointSliceLis
 func buildPodEndpoint(pod k8s.PodInfo, epAddr string, port int32) PodEndpoint {
 	return PodEndpoint{
 		IP:   epAddr,
-		Port: awssdk.Int32(port),
+		Port: port,
 		Pod:  pod,
 	}
 }
@@ -292,7 +292,7 @@ func buildPodEndpoint(pod k8s.PodInfo, epAddr string, port int32) PodEndpoint {
 func buildNodePortEndpoint(node *corev1.Node, instanceID string, nodePort int32) NodePortEndpoint {
 	return NodePortEndpoint{
 		InstanceID: instanceID,
-		Port:       awssdk.Int32(nodePort),
+		Port:       nodePort,
 		Node:       node,
 	}
 }

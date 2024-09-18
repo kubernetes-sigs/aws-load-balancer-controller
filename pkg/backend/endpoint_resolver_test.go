@@ -768,12 +768,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			want: []PodEndpoint{
 				{
 					IP:   "192.168.1.1",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod1,
 				},
 				{
 					IP:   "192.168.1.4",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod4,
 				},
 			},
@@ -840,12 +840,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			want: []PodEndpoint{
 				{
 					IP:   "192.168.1.1",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod1,
 				},
 				{
 					IP:   "192.168.1.4",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod4,
 				},
 			},
@@ -912,12 +912,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			want: []PodEndpoint{
 				{
 					IP:   "192.168.1.1",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod1,
 				},
 				{
 					IP:   "192.168.1.4",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod4,
 				},
 			},
@@ -974,17 +974,17 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			want: []PodEndpoint{
 				{
 					IP:   "192.168.1.2",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod2,
 				},
 				{
 					IP:   "192.168.1.5",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod5,
 				},
 				{
 					IP:   "192.168.1.8",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod8,
 				},
 			},
@@ -1102,12 +1102,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			want: []PodEndpoint{
 				{
 					IP:   "192.168.1.1",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod1,
 				},
 				{
 					IP:   "192.168.1.4",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod4,
 				},
 			},
@@ -1169,12 +1169,12 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			want: []PodEndpoint{
 				{
 					IP:   "192.168.1.1",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod1,
 				},
 				{
 					IP:   "192.168.1.4",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod4,
 				},
 			},
@@ -1236,7 +1236,7 @@ func Test_defaultEndpointResolver_ResolvePodEndpoints(t *testing.T) {
 			want: []PodEndpoint{
 				{
 					IP:   "192.168.1.4",
-					Port: awssdk.Int32(8080),
+					Port: 8080,
 					Pod:  pod4,
 				},
 			},
@@ -1539,12 +1539,12 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			want: []NodePortEndpoint{
 				{
 					InstanceID: "i-abcdefg1",
-					Port:       awssdk.Int32(18080),
+					Port:       18080,
 					Node:       node1,
 				},
 				{
 					InstanceID: "i-abcdefg2",
-					Port:       awssdk.Int32(18080),
+					Port:       18080,
 					Node:       node2,
 				},
 			},
@@ -1566,12 +1566,12 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			want: []NodePortEndpoint{
 				{
 					InstanceID: "i-abcdefg1",
-					Port:       awssdk.Int32(18080),
+					Port:       18080,
 					Node:       node1,
 				},
 				{
 					InstanceID: "i-abcdefg2",
-					Port:       awssdk.Int32(18080),
+					Port:       18080,
 					Node:       node2,
 				},
 			},
@@ -1593,12 +1593,12 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			want: []NodePortEndpoint{
 				{
 					InstanceID: "i-abcdefg3",
-					Port:       awssdk.Int32(18080),
+					Port:       18080,
 					Node:       node3,
 				},
 				{
 					InstanceID: "i-abcdefg4",
-					Port:       awssdk.Int32(18080),
+					Port:       18080,
 					Node:       node4,
 				},
 			},
@@ -1633,7 +1633,7 @@ func Test_defaultEndpointResolver_ResolveNodePortEndpoints(t *testing.T) {
 			want: []NodePortEndpoint{
 				{
 					InstanceID: "i-abcdefg1",
-					Port:       awssdk.Int32(18080),
+					Port:       18080,
 					Node:       node1,
 				},
 			},
@@ -2609,7 +2609,7 @@ func Test_buildPodEndpoint(t *testing.T) {
 			},
 			want: PodEndpoint{
 				IP:   "192.168.1.1",
-				Port: awssdk.Int32(80),
+				Port: 80,
 				Pod: k8s.PodInfo{
 					Key: types.NamespacedName{Name: "sample-node"},
 				},
@@ -2653,7 +2653,7 @@ func Test_buildNodePortEndpoint(t *testing.T) {
 					},
 				},
 				InstanceID: "i-xxxxx",
-				Port:       awssdk.Int32(33382),
+				Port:       33382,
 			},
 		},
 	}
