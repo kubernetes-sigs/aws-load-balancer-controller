@@ -19,6 +19,6 @@ maintainers:
 keywords:
   - eks
   - alb
-  - load balancer
+  - loadbalancer
   - ingress
   - nlb
