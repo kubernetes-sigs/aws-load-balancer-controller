@@ -7,13 +7,14 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
+	logsv1 "k8s.io/component-base/logs/api/v1"
+	_ "k8s.io/component-base/logs/json/register"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 const (
-	flagLogLevel                                     = "log-level"
 	flagK8sClusterName                               = "cluster-name"
 	flagDefaultTags                                  = "default-tags"
 	flagDefaultTargetType                            = "default-target-type"
@@ -27,7 +28,6 @@ const (
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
-	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
@@ -49,8 +49,7 @@ var (
 
 // ControllerConfig contains the controller configuration
 type ControllerConfig struct {
-	// Log level for the controller logs
-	LogLevel string
+	LogOptions logsv1.LoggingConfiguration
 	// Name of the Kubernetes cluster
 	ClusterName string
 	// Configurations for AWS.
@@ -107,8 +106,11 @@ type ControllerConfig struct {
 
 // BindFlags binds the command line flags to the fields in the config object
 func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&cfg.LogLevel, flagLogLevel, defaultLogLevel,
-		"Set the controller log level - info(default), debug")
+	logsv1.AddFlags(&cfg.LogOptions, fs)
+	var deprecated string
+	fs.StringVar(&deprecated, "log-level", "info",
+		"Deprecated way to set log-level. The replacement is --v")
+
 	fs.StringVar(&cfg.ClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
 	fs.StringToStringVar(&cfg.DefaultTags, flagDefaultTags, nil,
 		"Default AWS Tags that will be applied to all AWS resources managed by this controller")

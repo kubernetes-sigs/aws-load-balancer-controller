@@ -6,6 +6,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
@@ -55,7 +56,8 @@ func InitFramework() (*Framework, error) {
 		return nil, err
 	}
 
-	logger, loggerReporter := utils.NewGinkgoLogger()
+	logger := klog.Background()
+	ctrl.SetLogger(logger)
 
 	cloud, err := aws.NewCloud(aws.CloudConfig{
 		Region:         globalOptions.AWSRegion,
@@ -84,7 +86,7 @@ func InitFramework() (*Framework, error) {
 		HTTPVerifier: http.NewDefaultVerifier(),
 
 		Logger:         logger,
-		LoggerReporter: loggerReporter,
+		LoggerReporter: &utils.DefaultGinkgoLogger{Logger: logger},
 	}
 
 	return f, nil

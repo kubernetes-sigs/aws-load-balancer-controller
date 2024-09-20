@@ -21,13 +21,13 @@ import (
 
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 
-	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
-	zapraw "go.uber.org/zap"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	v1 "k8s.io/component-base/logs/api/v1"
+	"k8s.io/klog/v2"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2controller "sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
@@ -38,7 +38,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
 	corewebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/core"
@@ -46,7 +45,6 @@ import (
 	networkingwebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/networking"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	// +kubebuilder:scaffold:imports
 )
@@ -64,18 +62,16 @@ func init() {
 }
 
 func main() {
-	infoLogger := getLoggerWithLogLevel("info")
-	infoLogger.Info("version",
+	setupLog.Info("version",
 		"GitVersion", version.GitVersion,
 		"GitCommit", version.GitCommit,
 		"BuildDate", version.BuildDate,
 	)
 	controllerCFG, err := loadControllerConfig()
 	if err != nil {
-		infoLogger.Error(err, "unable to load controller config")
+		setupLog.Error(err, "unable to load controller config")
 		os.Exit(1)
 	}
-	ctrl.SetLogger(getLoggerWithLogLevel(controllerCFG.LogLevel))
 
 	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry, ctrl.Log)
 	if err != nil {
@@ -196,11 +192,24 @@ func loadControllerConfig() (config.ControllerConfig, error) {
 		},
 		FeatureGates: config.NewFeatureGates(),
 	}
+	v1.SetRecommendedLoggingConfiguration(&controllerCFG.LogOptions)
 
 	fs := pflag.NewFlagSet("", pflag.ExitOnError)
 	controllerCFG.BindFlags(fs)
+	// Set log level 2 as default.
+	if err := fs.Set("v", "2"); err != nil {
+		setupLog.Error(err, "failed to set log level: %v")
+		return config.ControllerConfig{}, err
+	}
+
+	// klog.Background will automatically use the right logger.
+	ctrl.SetLogger(klog.Background())
 
 	if err := fs.Parse(os.Args); err != nil {
+		return config.ControllerConfig{}, err
+	}
+
+	if err := v1.ValidateAndApply(&controllerCFG.LogOptions, nil); err != nil {
 		return config.ControllerConfig{}, err
 	}
 
@@ -208,22 +217,4 @@ func loadControllerConfig() (config.ControllerConfig, error) {
 		return config.ControllerConfig{}, err
 	}
 	return controllerCFG, nil
-}
-
-// getLoggerWithLogLevel returns logger with specific log level.
-func getLoggerWithLogLevel(logLevel string) logr.Logger {
-	var zapLevel zapraw.AtomicLevel
-	switch logLevel {
-	case "info":
-		zapLevel = zapraw.NewAtomicLevelAt(zapraw.InfoLevel)
-	case "debug":
-		zapLevel = zapraw.NewAtomicLevelAt(zapraw.DebugLevel)
-	default:
-		zapLevel = zapraw.NewAtomicLevelAt(zapraw.InfoLevel)
-	}
-
-	logger := zap.New(zap.UseDevMode(false),
-		zap.Level(zapLevel),
-		zap.StacktraceLevel(zapraw.NewAtomicLevelAt(zapraw.FatalLevel)))
-	return runtime.NewConciseLogger(logger)
 }
