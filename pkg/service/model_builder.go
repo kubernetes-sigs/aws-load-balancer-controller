@@ -249,6 +249,9 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := t.buildLoadBalancerAddOns(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 
