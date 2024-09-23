@@ -14,14 +14,15 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 const (
 	resourceIDManagedSecurityGroup = "ManagedLBSecurityGroup"
 )
 
-func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
-	sgSpec, err := t.buildManagedSecurityGroupSpec(ctx, ipAddressType)
+func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme) (*ec2model.SecurityGroup, error) {
+	sgSpec, err := t.buildManagedSecurityGroupSpec(ctx, ipAddressType, scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -29,13 +30,13 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, i
 	return sg, nil
 }
 
-func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Context, ipAddressType elbv2model.IPAddressType) (ec2model.SecurityGroupSpec, error) {
+func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme) (ec2model.SecurityGroupSpec, error) {
 	name := t.buildManagedSecurityGroupName(ctx)
 	tags, err := t.buildManagedSecurityGroupTags(ctx)
 	if err != nil {
 		return ec2model.SecurityGroupSpec{}, err
 	}
-	ingressPermissions, err := t.buildManagedSecurityGroupIngressPermissions(ctx, ipAddressType)
+	ingressPermissions, err := t.buildManagedSecurityGroupIngressPermissions(ctx, ipAddressType, scheme)
 	if err != nil {
 		return ec2model.SecurityGroupSpec{}, err
 	}
@@ -62,11 +63,11 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupName(_ context.Context)
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx context.Context, ipAddressType elbv2model.IPAddressType) ([]ec2model.IPPermission, error) {
+func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme) ([]ec2model.IPPermission, error) {
 	var permissions []ec2model.IPPermission
 	var prefixListIDs []string
 	prefixListsConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSecurityGroupPrefixLists, &prefixListIDs, t.service.Annotations)
-	cidrs, err := t.buildCIDRsFromSourceRanges(ctx, ipAddressType, prefixListsConfigured)
+	cidrs, err := t.buildCIDRsFromSourceRanges(ctx, ipAddressType, prefixListsConfigured, scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 	return permissions, nil
 }
 
-func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(_ context.Context, ipAddressType elbv2model.IPAddressType, prefixListsConfigured bool) ([]string, error) {
+func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(ctx context.Context, ipAddressType elbv2model.IPAddressType, prefixListsConfigured bool, scheme elbv2model.LoadBalancerScheme) ([]string, error) {
 	var cidrs []string
 	for _, cidr := range t.service.Spec.LoadBalancerSourceRanges {
 		cidrs = append(cidrs, cidr)
@@ -132,9 +133,20 @@ func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(_ context.Context, ip
 		if prefixListsConfigured {
 			return cidrs, nil
 		}
-		cidrs = append(cidrs, "0.0.0.0/0")
-		if ipAddressType == elbv2model.IPAddressTypeDualStack {
-			cidrs = append(cidrs, "::/0")
+		if scheme == elbv2model.LoadBalancerSchemeInternal {
+			vpcInfo, err := t.vpcInfoProvider.FetchVPCInfo(ctx, t.vpcID, networking.FetchVPCInfoWithoutCache())
+			if err != nil {
+				return cidrs, err
+			}
+			cidrs = append(cidrs, vpcInfo.AssociatedIPv4CIDRs()...)
+			if ipAddressType == elbv2model.IPAddressTypeDualStack {
+				cidrs = append(cidrs, vpcInfo.AssociatedIPv6CIDRs()...)
+			}
+		} else {
+			cidrs = append(cidrs, "0.0.0.0/0")
+			if ipAddressType == elbv2model.IPAddressTypeDualStack {
+				cidrs = append(cidrs, "::/0")
+			}
 		}
 	}
 	return cidrs, nil
