@@ -233,3 +233,12 @@ Cluster administrators can use `loadBalancerAttributes` field to specify the [Lo
 
 1. If `loadBalancerAttributes` is set, the attributes defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid keys or values for the load balancer attributes, the controller will fail to reconcile ingresses belonging to the particular ingress class.
 2. If `loadBalancerAttributes` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/load-balancer-attributes` annotation to specify the load balancer attributes.
+
+#### spec.prefixListIDs
+
+`prefixListIDs` is an optional setting.
+
+Cluster administrators can use `prefixListIDs` field to specify the managed prefix lists that are allowed to access the load balancers that belong to this IngressClass. You can specify the list of prefix list IDs in the `spec.prefixListIDs` field.
+
+1. If `prefixListIDs` is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.
+2. If `prefixListIDs` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/security-group-prefix-lists` annotation to specify the load balancer prefix lists.

@@ -146,6 +146,9 @@ type IngressClassParamsSpec struct {
 	// Listeners define a list of listeners with their protocol, port and attributes.
 	// +optional
 	Listeners []Listener `json:"listeners,omitempty"`
+
+	// PrefixListsIDs defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
+	PrefixListsIDs []string `json:"PrefixListsIDs,omitempty"`
 }
 
 // +kubebuilder:object:root=true
