@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,11 +44,21 @@ const (
 )
 
 // NewGroupReconciler constructs new GroupReconciler
-func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
-	finalizerManager k8s.FinalizerManager, networkingSGManager networkingpkg.SecurityGroupManager,
-	networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
-	elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider,
-	sgResolver networkingpkg.SecurityGroupResolver, logger logr.Logger) *groupReconciler {
+func NewGroupReconciler(
+	cloud aws.Cloud,
+	k8sClient client.Client,
+	eventRecorder record.EventRecorder,
+	finalizerManager k8s.FinalizerManager,
+	networkingSGManager networkingpkg.SecurityGroupManager,
+	networkingSGReconciler networkingpkg.SecurityGroupReconciler,
+	subnetsResolver networkingpkg.SubnetsResolver,
+	elbv2TaggingManager elbv2deploy.TaggingManager,
+	targetGroupMetric *prometheus.GaugeVec,
+	controllerConfig config.ControllerConfig,
+	backendSGProvider networkingpkg.BackendSGProvider,
+	sgResolver networkingpkg.SecurityGroupResolver,
+	logger logr.Logger,
+) *groupReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
@@ -62,7 +73,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, backendSGProvider, sgResolver,
 		controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, targetGroupMetric,
 		controllerConfig, ingressTagPrefix, logger)
 	classLoader := ingress.NewDefaultClassLoader(k8sClient, true)
 	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)

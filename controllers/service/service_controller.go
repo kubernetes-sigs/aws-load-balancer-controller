@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
@@ -34,11 +35,22 @@ const (
 	controllerName          = "service"
 )
 
-func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
-	finalizerManager k8s.FinalizerManager, networkingSGManager networking.SecurityGroupManager,
-	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
-	vpcInfoProvider networking.VPCInfoProvider, elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig,
-	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger) *serviceReconciler {
+func NewServiceReconciler(
+	cloud aws.Cloud,
+	k8sClient client.Client,
+	eventRecorder record.EventRecorder,
+	finalizerManager k8s.FinalizerManager,
+	networkingSGManager networking.SecurityGroupManager,
+	networkingSGReconciler networking.SecurityGroupReconciler,
+	subnetsResolver networking.SubnetsResolver,
+	vpcInfoProvider networking.VPCInfoProvider,
+	elbv2TaggingManager elbv2deploy.TaggingManager,
+	targetGroupMetric *prometheus.GaugeVec,
+	controllerConfig config.ControllerConfig,
+	backendSGProvider networking.BackendSGProvider,
+	sgResolver networking.SecurityGroupResolver,
+	logger logr.Logger,
+) *serviceReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, controllerConfig.ClusterName)
@@ -48,7 +60,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), serviceUtils,
 		backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, serviceTagPrefix, logger)
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, targetGroupMetric, controllerConfig, serviceTagPrefix, logger)
 	return &serviceReconciler{
 		k8sClient:         k8sClient,
 		eventRecorder:     eventRecorder,
