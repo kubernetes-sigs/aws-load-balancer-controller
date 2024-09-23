@@ -203,7 +203,7 @@ We recommend using the Helm chart to install the controller. The chart supports 
     ### Install `cert-manager`
 
     ```
-    kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.12.3/cert-manager.yaml
+    kubectl apply --validate=false -f https://github.com/cert-manager/cert-manager/releases/download/v1.12.3/cert-manager.yaml
     ```
 
     ### Apply YAML

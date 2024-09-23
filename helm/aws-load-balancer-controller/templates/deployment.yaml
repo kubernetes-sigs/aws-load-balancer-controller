@@ -170,16 +170,13 @@ spec:
         {{- if .Values.loadBalancerClass }}
         - --load-balancer-class={{ .Values.loadBalancerClass }}
         {{- end }}
-        {{- if or .Values.env .Values.envSecretName .Values.envFrom }}
+        {{- if or .Values.env .Values.envSecretName }}
         env:
         {{- if .Values.env}}
         {{- range $key, $value := .Values.env }}
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
-        {{- end }}
-        {{- if .Values.envFrom }}
-        {{ .Values.envFrom | toYaml | nindent 8 }}
         {{- end }}
         {{- if .Values.envSecretName  }}
         - name: AWS_ACCESS_KEY_ID
@@ -195,6 +192,10 @@ spec:
               key: access_key
               optional: true
         {{- end }}
+        {{- end }}
+        {{- if .Values.envFrom }}
+        envFrom:
+        {{- toYaml .Values.envFrom | nindent 10 }}
         {{- end }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}

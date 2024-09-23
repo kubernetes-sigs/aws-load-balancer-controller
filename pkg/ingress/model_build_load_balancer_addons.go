@@ -11,6 +11,13 @@ import (
 	wafv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafv2"
 )
 
+const (
+	// sentinel annotation value to disable wafv2 ACL on resources.
+	wafv2ACLARNNone = "none"
+	// sentinel annotation value to disable wafRegional on resources.
+	webACLIDNone = "none"
+)
+
 func (t *defaultModelBuildTask) buildLoadBalancerAddOns(ctx context.Context, lbARN core.StringToken) error {
 	if _, err := t.buildWAFv2WebACLAssociation(ctx, lbARN); err != nil {
 		return err
@@ -28,7 +35,8 @@ func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(_ context.Context, l
 	explicitWebACLARNs := sets.NewString()
 	for _, member := range t.ingGroup.Members {
 		rawWebACLARN := ""
-		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, member.Ing.Annotations); exists {
+		_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, member.Ing.Annotations)
+		if rawWebACLARN != "" {
 			explicitWebACLARNs.Insert(rawWebACLARN)
 		}
 	}
@@ -39,41 +47,54 @@ func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(_ context.Context, l
 		return nil, errors.Errorf("conflicting WAFv2 WebACL ARNs: %v", explicitWebACLARNs.List())
 	}
 	webACLARN, _ := explicitWebACLARNs.PopAny()
-	if webACLARN != "" {
+	switch webACLARN {
+	case wafv2ACLARNNone:
+		association := wafv2model.NewWebACLAssociation(t.stack, resourceIDLoadBalancer, wafv2model.WebACLAssociationSpec{
+			WebACLARN:   "",
+			ResourceARN: lbARN,
+		})
+		return association, nil
+	default:
 		association := wafv2model.NewWebACLAssociation(t.stack, resourceIDLoadBalancer, wafv2model.WebACLAssociationSpec{
 			WebACLARN:   webACLARN,
 			ResourceARN: lbARN,
 		})
 		return association, nil
 	}
-	return nil, nil
 }
 
 func (t *defaultModelBuildTask) buildWAFRegionalWebACLAssociation(_ context.Context, lbARN core.StringToken) (*wafregionalmodel.WebACLAssociation, error) {
 	explicitWebACLIDs := sets.NewString()
 	for _, member := range t.ingGroup.Members {
-		rawWebACLARN := ""
-		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFACLID, &rawWebACLARN, member.Ing.Annotations); exists {
-			explicitWebACLIDs.Insert(rawWebACLARN)
-		} else if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWebACLID, &rawWebACLARN, member.Ing.Annotations); exists {
-			explicitWebACLIDs.Insert(rawWebACLARN)
+		rawWebACLID := ""
+		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFACLID, &rawWebACLID, member.Ing.Annotations); !exists {
+			_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWebACLID, &rawWebACLID, member.Ing.Annotations)
+		}
+		if rawWebACLID != "" {
+			explicitWebACLIDs.Insert(rawWebACLID)
 		}
 	}
 	if len(explicitWebACLIDs) == 0 {
 		return nil, nil
 	}
 	if len(explicitWebACLIDs) > 1 {
-		return nil, errors.Errorf("conflicting WAFRegional WebACL IDs: %v", explicitWebACLIDs.List())
+		return nil, errors.Errorf("conflicting WAFClassic WebACL IDs: %v", explicitWebACLIDs.List())
 	}
 	webACLID, _ := explicitWebACLIDs.PopAny()
-	if webACLID != "" {
+	switch webACLID {
+	case webACLIDNone:
+		association := wafregionalmodel.NewWebACLAssociation(t.stack, resourceIDLoadBalancer, wafregionalmodel.WebACLAssociationSpec{
+			WebACLID:    "",
+			ResourceARN: lbARN,
+		})
+		return association, nil
+	default:
 		association := wafregionalmodel.NewWebACLAssociation(t.stack, resourceIDLoadBalancer, wafregionalmodel.WebACLAssociationSpec{
 			WebACLID:    webACLID,
 			ResourceARN: lbARN,
 		})
 		return association, nil
 	}
-	return nil, nil
 }
 
 func (t *defaultModelBuildTask) buildShieldProtection(_ context.Context, lbARN core.StringToken) (*shieldmodel.Protection, error) {
@@ -94,11 +115,10 @@ func (t *defaultModelBuildTask) buildShieldProtection(_ context.Context, lbARN c
 	if len(explicitEnableProtections) > 1 {
 		return nil, errors.New("conflicting enable shield advanced protection")
 	}
-	if _, enableProtection := explicitEnableProtections[true]; enableProtection {
-		protection := shieldmodel.NewProtection(t.stack, resourceIDLoadBalancer, shieldmodel.ProtectionSpec{
-			ResourceARN: lbARN,
-		})
-		return protection, nil
-	}
-	return nil, nil
+	_, enableProtection := explicitEnableProtections[true]
+	protection := shieldmodel.NewProtection(t.stack, resourceIDLoadBalancer, shieldmodel.ProtectionSpec{
+		Enabled:     enableProtection,
+		ResourceARN: lbARN,
+	})
+	return protection, nil
 }

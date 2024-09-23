@@ -29,5 +29,6 @@ func (p *Protection) registerDependencies(stack core.Stack) {
 
 // ProtectionSpec defines the desired state of Protection.
 type ProtectionSpec struct {
+	Enabled     bool             `json:"enabled"`
 	ResourceARN core.StringToken `json:"resourceARN"`
 }
