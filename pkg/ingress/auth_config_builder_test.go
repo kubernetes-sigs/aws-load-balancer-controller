@@ -2,9 +2,10 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"testing"
 )
 
 func Test_defaultAuthConfigBuilder_Build(t *testing.T) {
@@ -169,6 +170,66 @@ func Test_defaultAuthConfigBuilder_Build(t *testing.T) {
 					TokenEndpoint:         "https://token.example.com",
 					UserInfoEndpoint:      "https://userinfo.example.com",
 					SecretName:            "my-k8s-secret",
+					AuthenticationRequestExtraParams: map[string]string{
+						"key": "value",
+					},
+				},
+				OnUnauthenticatedRequest: "deny",
+				Scope:                    "email",
+				SessionCookieName:        "my-cookie",
+				SessionTimeout:           86400,
+			},
+		},
+		{
+			name: "oidc configuration using auto discovery",
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/auth-idp-oidc":                   `{"discoveryEndpoint":"https://example.auth0.com","secretName":"my-k8s-secret","authenticationRequestExtraParams":{"key":"value"}}`,
+					"alb.ingress.kubernetes.io/auth-on-unauthenticated-request": "deny",
+					"alb.ingress.kubernetes.io/auth-scope":                      "email",
+					"alb.ingress.kubernetes.io/auth-session-cookie":             "my-cookie",
+					"alb.ingress.kubernetes.io/auth-session-timeout":            "86400",
+				},
+			},
+			want: AuthConfig{
+				Type: AuthTypeNone,
+				IDPConfigOIDC: &AuthIDPConfigOIDC{
+					Issuer:                "https://example.auth0.com/",
+					AuthorizationEndpoint: "https://example.auth0.com/authorize",
+					TokenEndpoint:         "https://example.auth0.com/oauth/token",
+					UserInfoEndpoint:      "https://example.auth0.com/userinfo",
+					SecretName:            "my-k8s-secret",
+					DiscoveryEndpoint:     "https://example.auth0.com",
+					AuthenticationRequestExtraParams: map[string]string{
+						"key": "value",
+					},
+				},
+				OnUnauthenticatedRequest: "deny",
+				Scope:                    "email",
+				SessionCookieName:        "my-cookie",
+				SessionTimeout:           86400,
+			},
+		},
+		{
+			name: "oidc configuration using auto discovery should ovveride issuer, authorizationEndpoint, tokenEndpoint and userInfoEndpoint",
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/auth-idp-oidc":                   `{"issuer":"https://example.com","authorizationEndpoint":"https://authorization.example.com","tokenEndpoint":"https://token.example.com","userInfoEndpoint":"https://userinfo.example.com","discoveryEndpoint":"https://example.auth0.com","secretName":"my-k8s-secret","authenticationRequestExtraParams":{"key":"value"}}`,
+					"alb.ingress.kubernetes.io/auth-on-unauthenticated-request": "deny",
+					"alb.ingress.kubernetes.io/auth-scope":                      "email",
+					"alb.ingress.kubernetes.io/auth-session-cookie":             "my-cookie",
+					"alb.ingress.kubernetes.io/auth-session-timeout":            "86400",
+				},
+			},
+			want: AuthConfig{
+				Type: AuthTypeNone,
+				IDPConfigOIDC: &AuthIDPConfigOIDC{
+					Issuer:                "https://example.auth0.com/",
+					AuthorizationEndpoint: "https://example.auth0.com/authorize",
+					TokenEndpoint:         "https://example.auth0.com/oauth/token",
+					UserInfoEndpoint:      "https://example.auth0.com/userinfo",
+					SecretName:            "my-k8s-secret",
+					DiscoveryEndpoint:     "https://example.auth0.com",
 					AuthenticationRequestExtraParams: map[string]string{
 						"key": "value",
 					},
