@@ -126,6 +126,10 @@ type IngressClassParamsSpec struct {
 	// LoadBalancerAttributes define the custom attributes to LoadBalancers for all Ingress that that belong to IngressClass with this IngressClassParams.
 	// +optional
 	LoadBalancerAttributes []Attribute `json:"loadBalancerAttributes,omitempty"`
+
+	// SecurityGroups defines the security groups for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
+	SecurityGroups []string `json:"securityGroups,omitempty"`
 }
 
 // +kubebuilder:object:root=true

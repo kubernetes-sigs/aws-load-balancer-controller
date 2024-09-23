@@ -157,6 +157,12 @@ spec:
                 - internal
                 - internet-facing
                 type: string
+              securityGroups:
+                description: SecurityGroups defines the security groups for all Ingresses
+                  that belong to IngressClass with this IngressClassParams.
+                items:
+                  type: string
+                type: array
               sslPolicy:
                 description: SSLPolicy specifies the SSL Policy for all Ingresses
                   that belong to IngressClass with this IngressClassParams.

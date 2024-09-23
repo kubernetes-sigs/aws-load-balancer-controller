@@ -273,12 +273,12 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
-	sgNameOrIDsViaAnnotation, err := t.buildFrontendSGNameOrIDsFromAnnotation(ctx)
+	explicitSGNameOrIDs, err := t.buildFrontendSGNameOrIDs(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var lbSGTokens []core.StringToken
-	if len(sgNameOrIDsViaAnnotation) == 0 {
+	if len(explicitSGNameOrIDs) == 0 {
 		managedSG, err := t.buildManagedSecurityGroup(ctx, listenPortConfigByPort, ipAddressType)
 		if err != nil {
 			return nil, err
@@ -301,7 +301,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 		if err != nil {
 			return nil, err
 		}
-		frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, sgNameOrIDsViaAnnotation)
+		frontendSGIDs, err := t.sgResolver.ResolveViaNameOrID(ctx, explicitSGNameOrIDs)
 		if err != nil {
 			return nil, err
 		}
@@ -326,9 +326,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 	return lbSGTokens, nil
 }
 
-func (t *defaultModelBuildTask) buildFrontendSGNameOrIDsFromAnnotation(ctx context.Context) ([]string, error) {
+func (t *defaultModelBuildTask) buildFrontendSGNameOrIDs(ctx context.Context) ([]string, error) {
 	var explicitSGNameOrIDsList [][]string
 	for _, member := range t.ingGroup.Members {
+		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.SecurityGroups != nil {
+			explicitSGNameOrIDsList = append(explicitSGNameOrIDsList, member.IngClassConfig.IngClassParams.Spec.SecurityGroups)
+			continue
+		}
 		var rawSGNameOrIDs []string
 		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroups, &rawSGNameOrIDs, member.Ing.Annotations); !exists {
 			continue
