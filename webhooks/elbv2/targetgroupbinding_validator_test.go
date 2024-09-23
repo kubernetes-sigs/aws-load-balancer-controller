@@ -2,6 +2,11 @@ package elbv2
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
+	"github.com/google/uuid"
+	"math/big"
+	"strings"
 	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go/aws"
@@ -1087,12 +1092,125 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 	type fields struct {
 		describeTargetGroupsAsListCalls []describeTargetGroupsAsListCall
 	}
+	var (
+		vpcID8Chars              = fmt.Sprintf("vpc-%s", generateRandomString(8))
+		vpcID17Chars             = fmt.Sprintf("vpc-%s", generateRandomString(17))
+		vpcIDUUID                = fmt.Sprintf("vpc-%s", generateVpcUUID())
+		vpcID8CharsWrongPrefix   = fmt.Sprintf("vpcid-%s", generateRandomString(8))
+		vpcID8CharsIllegalChars  = fmt.Sprintf("vpc-%s", generateRandomString(6, '@', '!'))
+		vpcID17CharsWrongPrefix  = fmt.Sprintf("vpcid-%s", generateRandomString(17))
+		vpcID17CharsIllegalChars = fmt.Sprintf("vpc-%s", generateRandomString(15, 'G', 'L'))
+		vpcIDUUIDWrongPrefix     = fmt.Sprintf("vpcid-%s", generateRandomString(32))
+		vpcIDUUIDIllegalChars    = fmt.Sprintf("vpc-%s", generateRandomString(30, 'z', 'Y'))
+	)
+
 	tests := []struct {
 		name    string
 		fields  fields
 		args    args
 		wantErr error
 	}{
+		{
+			name: "[ok] Valid VpcID with 8 Characters",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								VpcId: awssdk.String(vpcID8Chars),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          vpcID8Chars,
+					},
+				},
+			},
+		},
+		{
+			name: "[ok] Valid VpcID with 17 Characters",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								VpcId: awssdk.String(vpcID17Chars),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          vpcID17Chars,
+					},
+				},
+			},
+		},
+		{
+			name: "[ok] Valid VpcID with UUID",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								VpcId: awssdk.String(vpcIDUUID),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          vpcIDUUID,
+					},
+				},
+			},
+		},
+		{
+			name: "[err] Provided VpcID doesn't match VpcID from TargetGroup",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								VpcId: awssdk.String(fmt.Sprintf("vpc-%s", generateRandomString(17))),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          vpcID17Chars,
+					},
+				},
+			},
+			wantErr: fmt.Errorf(vpcIDNotMatchErr, vpcID17Chars, "tg-2"),
+		},
 		{
 			name: "[ok] VpcID is not set",
 			args: args{
@@ -1125,28 +1243,76 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 			wantErr: errors.New("unable to get target group VpcID: vpcid not found"),
 		},
 		{
-			name: "[err] vpcID is not valid",
+			name: "[err] vpcID 8 chars is not valid - invalid prefix",
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
-						VpcID:          "vpcid-123",
+						VpcID:          vpcID8CharsWrongPrefix,
 					},
 				},
 			},
-			wantErr: errors.New("ValidationError: vpcID vpcid-123 failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8 or 17 lowercase letters (a-f) or numbers."),
+			wantErr: errors.New(fmt.Sprintf(vpcIDValidationErr, vpcID8CharsWrongPrefix)),
 		},
 		{
-			name: "[err] vpcID is not valid - non alphanumeric value",
+			name: "[err] vpcID 8 chars is not valid - illegal chars",
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
-						VpcID:          "vpcid-@34!dv",
+						VpcID:          vpcID8CharsIllegalChars,
 					},
 				},
 			},
-			wantErr: errors.New("ValidationError: vpcID vpcid-@34!dv failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8 or 17 lowercase letters (a-f) or numbers."),
+			wantErr: errors.New(fmt.Sprintf(vpcIDValidationErr, vpcID8CharsIllegalChars)),
+		},
+		{
+			name: "[err] vpcID 17 chars is not valid - invalid prefix",
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          vpcID17CharsWrongPrefix,
+					},
+				},
+			},
+			wantErr: errors.New(fmt.Sprintf(vpcIDValidationErr, vpcID17CharsWrongPrefix)),
+		},
+		{
+			name: "[err] vpcID 17 chars is not valid - illegal chars",
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          vpcID17CharsIllegalChars,
+					},
+				},
+			},
+			wantErr: errors.New(fmt.Sprintf(vpcIDValidationErr, vpcID17CharsIllegalChars)),
+		},
+		{
+			name: "[err] vpcID UUID is not valid - invalid prefix",
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          vpcIDUUIDWrongPrefix,
+					},
+				},
+			},
+			wantErr: errors.New(fmt.Sprintf(vpcIDValidationErr, vpcIDUUIDWrongPrefix)),
+		},
+		{
+			name: "[err] vpcID UUID is not valid - illegal chars",
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-2",
+						VpcID:          vpcIDUUIDIllegalChars,
+					},
+				},
+			},
+			wantErr: errors.New(fmt.Sprintf(vpcIDValidationErr, vpcIDUUIDIllegalChars)),
 		},
 	}
 	for _, tt := range tests {
@@ -1174,4 +1340,28 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 			}
 		})
 	}
+}
+
+func generateRandomString(n int, addChars ...rune) string {
+	const letters = "0123456789abcdef"
+
+	ret := make([]byte, n)
+	for i := 0; i < n; i++ {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
+		if err != nil {
+			return ""
+		}
+		ret[i] = letters[num.Int64()]
+	}
+
+	w := string(ret)
+	for _, c := range addChars {
+		w += string(c)
+	}
+	return w
+}
+
+func generateVpcUUID() string {
+	u := strings.ToLower(uuid.New().String())
+	return strings.Replace(u, "-", "", -1)
 }

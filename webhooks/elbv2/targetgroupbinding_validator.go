@@ -19,9 +19,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
+const (
+	apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
+	vpcIDValidationErr                     = "ValidationError: vpcID %v failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8, 17 or 32 lowercase letters (a-f) or numbers."
+	vpcIDNotMatchErr                       = "invalid VpcID %v doesnt match VpcID from TargetGroup %v"
+)
 
-var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17})$")
+var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17}|vpc-[0-9a-f]{32})$")
 
 // NewTargetGroupBindingValidator returns a validator for TargetGroupBinding CRD.
 func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, logger logr.Logger) *targetGroupBindingValidator {
@@ -169,14 +173,14 @@ func (v *targetGroupBindingValidator) checkTargetGroupVpcID(ctx context.Context,
 		return nil
 	}
 	if !vpcIDPatternRegex.MatchString(tgb.Spec.VpcID) {
-		return errors.Errorf("ValidationError: vpcID %v failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8 or 17 lowercase letters (a-f) or numbers.", tgb.Spec.VpcID)
+		return errors.Errorf(vpcIDValidationErr, tgb.Spec.VpcID)
 	}
 	vpcID, err := v.getVpcIDFromAWS(ctx, tgb.Spec.TargetGroupARN)
 	if err != nil {
 		return errors.Wrap(err, "unable to get target group VpcID")
 	}
 	if vpcID != tgb.Spec.VpcID {
-		return errors.Errorf("invalid VpcID %v doesnt match VpcID from TargetGroup %v", tgb.Spec.VpcID, tgb.Spec.TargetGroupARN)
+		return errors.Errorf(vpcIDNotMatchErr, tgb.Spec.VpcID, tgb.Spec.TargetGroupARN)
 	}
 	return nil
 }
