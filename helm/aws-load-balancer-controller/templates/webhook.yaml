@@ -181,6 +181,7 @@ webhooks:
     resources:
     - targetgroupbindings
   sideEffects: None
+{{- if not $.Values.webhookConfig.disableIngressValidation }}
 - clientConfig:
     {{ if not $.Values.enableCertManager -}}
     caBundle: {{ $tls.caCert }}
@@ -205,6 +206,7 @@ webhooks:
     resources:
     - ingresses
   sideEffects: None
+{{- end }}
 ---
 {{- if not $.Values.enableCertManager }}
 apiVersion: v1

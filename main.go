@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/klog/v2"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2controller "sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
@@ -75,7 +76,9 @@ func main() {
 		infoLogger.Error(err, "unable to load controller config")
 		os.Exit(1)
 	}
-	ctrl.SetLogger(getLoggerWithLogLevel(controllerCFG.LogLevel))
+	appLogger := getLoggerWithLogLevel(controllerCFG.LogLevel)
+	ctrl.SetLogger(appLogger)
+	klog.SetLoggerWithOptions(appLogger, klog.ContextualLogger(true))
 
 	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry, ctrl.Log)
 	if err != nil {
