@@ -258,3 +258,12 @@ If `capacityUnits` is specified, it must be to valid positive value greater than
 The IPAM pool you choose will be the preferred source of public IPv4 addresses.
 If the pool is depleted, IPv4 addresses will be assigned by AWS.
 To remove the IPAM pool from your ALB, remove `spec.ipv4IPAMPoolId` from the IngressClass definition.
+
+#### spec.prefixListIDs
+
+`prefixListIDs` is an optional setting.
+
+Cluster administrators can use `prefixListIDs` field to specify the managed prefix lists that are allowed to access the load balancers that belong to this IngressClass. You can specify the list of prefix list IDs in the `spec.prefixListIDs` field.
+
+1. If `prefixListIDs` is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.
+2. If `prefixListIDs` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/security-group-prefix-lists` annotation to specify the load balancer prefix lists.

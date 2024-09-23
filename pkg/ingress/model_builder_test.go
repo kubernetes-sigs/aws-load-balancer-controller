@@ -3399,6 +3399,132 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 }`,
 		},
 		{
+			name: "Ingress - ingress with managed prefix list in IngressClassParam",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										PrefixListsIDs: []string{
+											"pl-11111111",
+											"pl-22222222",
+										},
+									},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::EC2::SecurityGroup": {
+			"ManagedLBSecurityGroup": {
+				"spec": {
+					"ingress": [
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"prefixLists": [
+								{
+									"listID": "pl-11111111"
+								}
+							],
+							"toPort": 80
+						},
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"prefixLists": [
+								{
+									"listID": "pl-22222222"
+								}
+							],
+							"toPort": 80
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
+		},
+		{
 			name: "Ingress - ingress with managed prefix list",
 			env: env{
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
