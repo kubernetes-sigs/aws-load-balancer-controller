@@ -2,9 +2,9 @@ package elbv2
 
 import (
 	"context"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"crypto/rand"
 	"fmt"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/google/uuid"
 	"math/big"
 	"strings"
@@ -1117,9 +1117,9 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								VpcId: awssdk.String(vpcID8Chars),
 							},
@@ -1142,9 +1142,9 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								VpcId: awssdk.String(vpcID17Chars),
 							},
@@ -1167,9 +1167,9 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								VpcId: awssdk.String(vpcIDUUID),
 							},
@@ -1192,9 +1192,9 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-2"}),
+							TargetGroupArns: []string{"tg-2"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								VpcId: awssdk.String(fmt.Sprintf("vpc-%s", generateRandomString(17))),
 							},
