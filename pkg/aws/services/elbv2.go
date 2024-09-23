@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"time"
 )
 
@@ -58,9 +59,13 @@ type ELBV2 interface {
 	AddListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.AddListenerCertificatesInput) (*elasticloadbalancingv2.AddListenerCertificatesOutput, error)
 }
 
-// NewELBV2 constructs new ELBV2 implementation.
-func NewELBV2(cfg aws.Config) ELBV2 {
-	client := elasticloadbalancingv2.NewFromConfig(cfg)
+func NewELBV2(cfg aws.Config, endpointsResolver *endpoints.Resolver) ELBV2 {
+	customEndpoint := endpointsResolver.EndpointFor(elasticloadbalancingv2.ServiceID)
+	client := elasticloadbalancingv2.NewFromConfig(cfg, func(o *elasticloadbalancingv2.Options) {
+		if customEndpoint != nil {
+			o.BaseEndpoint = customEndpoint
+		}
+	})
 	return &elbv2Client{elbv2Client: client}
 }
 

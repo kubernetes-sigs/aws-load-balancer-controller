@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 )
 
 type WAFRegional interface {
@@ -15,10 +16,12 @@ type WAFRegional interface {
 }
 
 // NewWAFRegional constructs new WAFRegional implementation.
-func NewWAFRegional(cfg aws.Config, region string) WAFRegional {
+func NewWAFRegional(cfg aws.Config, endpointsResolver *endpoints.Resolver, region string) WAFRegional {
+	customEndpoint := endpointsResolver.EndpointFor(wafregional.ServiceID)
 	return &wafRegionalClient{
 		wafRegionalClient: wafregional.NewFromConfig(cfg, func(o *wafregional.Options) {
 			o.Region = region
+			o.BaseEndpoint = customEndpoint
 		}),
 		region: region,
 	}

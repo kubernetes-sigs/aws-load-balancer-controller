@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
 	"io"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 )
 
 type EC2Metadata interface {
@@ -14,9 +15,14 @@ type EC2Metadata interface {
 }
 
 // NewEC2Metadata constructs new EC2Metadata implementation.
-func NewEC2Metadata(cfg aws.Config) EC2Metadata {
+func NewEC2Metadata(cfg aws.Config, endpointsResolver *endpoints.Resolver) EC2Metadata {
+	customEndpoint := endpointsResolver.EndpointFor(imds.ServiceID)
 	return &ec2metadataClient{
-		ec2metadataClient: imds.NewFromConfig(cfg),
+		ec2metadataClient: imds.NewFromConfig(cfg, func(o *imds.Options) {
+			if customEndpoint != nil {
+				o.Endpoint = aws.ToString(customEndpoint)
+			}
+		}),
 	}
 }
 

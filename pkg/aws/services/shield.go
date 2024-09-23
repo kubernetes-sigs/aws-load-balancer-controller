@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	shieldsdk "github.com/aws/aws-sdk-go-v2/service/shield"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 )
 
 type Shield interface {
@@ -14,10 +15,12 @@ type Shield interface {
 }
 
 // NewShield constructs new Shield implementation.
-func NewShield(cfg aws.Config) Shield {
+func NewShield(cfg aws.Config, endpointsResolver *endpoints.Resolver) Shield {
+	customEndpoint := endpointsResolver.EndpointFor(shieldsdk.ServiceID)
 	// shield is only available as a global API in us-east-1.
 	client := shieldsdk.NewFromConfig(cfg, func(o *shieldsdk.Options) {
 		o.Region = "us-east-1"
+		o.BaseEndpoint = customEndpoint
 	})
 	return &shieldClient{shieldClient: client}
 }

@@ -116,7 +116,7 @@ func (p *suffixAnnotationParser) ParseInt32Annotation(annotation string, value *
 	if !exists {
 		return false, nil
 	}
-	i, err := strconv.ParseInt(raw, 10, 64)
+	i, err := strconv.ParseInt(raw, 10, 32)
 	if err != nil {
 		return true, errors.Wrapf(err, "failed to parse int32 annotation, %v: %v", matchedKey, raw)
 	}

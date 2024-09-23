@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	rgttypes "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 )
 
 const (
@@ -17,8 +18,13 @@ type RGT interface {
 }
 
 // NewRGT constructs new RGT implementation.
-func NewRGT(cfg aws.Config) RGT {
-	client := resourcegroupstaggingapi.NewFromConfig(cfg)
+func NewRGT(cfg aws.Config, endpointsResolver *endpoints.Resolver) RGT {
+	customEndpoint := endpointsResolver.EndpointFor(resourcegroupstaggingapi.ServiceID)
+	client := resourcegroupstaggingapi.NewFromConfig(cfg, func(o *resourcegroupstaggingapi.Options) {
+		if customEndpoint != nil {
+			o.BaseEndpoint = customEndpoint
+		}
+	})
 	return &rgtClient{rgtClient: client}
 }
 

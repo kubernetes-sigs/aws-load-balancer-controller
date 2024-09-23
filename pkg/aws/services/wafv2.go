@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 )
 
 type WAFv2 interface {
@@ -13,8 +14,13 @@ type WAFv2 interface {
 }
 
 // NewWAFv2 constructs new WAFv2 implementation.
-func NewWAFv2(cfg aws.Config) WAFv2 {
-	client := wafv2.NewFromConfig(cfg)
+func NewWAFv2(cfg aws.Config, endpointsResolver *endpoints.Resolver) WAFv2 {
+	customEndpoint := endpointsResolver.EndpointFor(wafv2.ServiceID)
+	client := wafv2.NewFromConfig(cfg, func(o *wafv2.Options) {
+		if customEndpoint != nil {
+			o.BaseEndpoint = customEndpoint
+		}
+	})
 	return &wafv2Client{wafv2Client: client}
 }
 

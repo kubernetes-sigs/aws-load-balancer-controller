@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 )
 
 type EC2 interface {
@@ -36,9 +37,14 @@ type EC2 interface {
 }
 
 // NewEC2 constructs new EC2 implementation.
-func NewEC2(cfg aws.Config) EC2 {
+func NewEC2(cfg aws.Config, endpointsResolver *endpoints.Resolver) EC2 {
+	customEndpoint := endpointsResolver.EndpointFor(ec2.ServiceID)
 	return &ec2Client{
-		ec2Client: ec2.NewFromConfig(cfg),
+		ec2Client: ec2.NewFromConfig(cfg, func(o *ec2.Options) {
+			if customEndpoint != nil {
+				o.BaseEndpoint = customEndpoint
+			}
+		}),
 	}
 }
 

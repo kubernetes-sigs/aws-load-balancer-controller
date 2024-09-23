@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	amerrors "k8s.io/apimachinery/pkg/util/errors"
+	epresolver "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
@@ -77,12 +78,12 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 	} else {
 		ec2IMDSEndpointMode = imds.EndpointModeStateIPv4
 	}
-
+	endpointsResolver := epresolver.NewResolver(cfg.AWSEndpoints)
 	ec2MetadataCfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRetryMaxAttempts(cfg.MaxRetries),
 		config.WithEC2IMDSEndpointMode(ec2IMDSEndpointMode),
 	)
-	ec2Metadata := services.NewEC2Metadata(ec2MetadataCfg)
+	ec2Metadata := services.NewEC2Metadata(ec2MetadataCfg, endpointsResolver)
 
 	if len(cfg.Region) == 0 {
 		region := os.Getenv("AWS_DEFAULT_REGION")
@@ -125,15 +126,10 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to initialize sdk metrics collector")
 		}
-		awsConfig.APIOptions = append(awsConfig.APIOptions, func(stack *smithymiddleware.Stack) error {
-			return metrics.WithSDKCallMetricCollector(metricsCollector)(stack)
-		})
-		awsConfig.APIOptions = append(awsConfig.APIOptions, func(stack *smithymiddleware.Stack) error {
-			return metrics.WithSDKRequestMetricCollector(metricsCollector)(stack)
-		})
+		awsConfig.APIOptions = metrics.WithSDKMetricCollector(metricsCollector, awsConfig.APIOptions)
 	}
 
-	ec2Service := services.NewEC2(awsConfig)
+	ec2Service := services.NewEC2(awsConfig, endpointsResolver)
 
 	vpcID, err := getVpcID(cfg, ec2Service, ec2Metadata, logger)
 	if err != nil {
@@ -143,12 +139,12 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 	return &defaultCloud{
 		cfg:         cfg,
 		ec2:         ec2Service,
-		elbv2:       services.NewELBV2(awsConfig),
-		acm:         services.NewACM(awsConfig),
-		wafv2:       services.NewWAFv2(awsConfig),
-		wafRegional: services.NewWAFRegional(awsConfig, cfg.Region),
-		shield:      services.NewShield(awsConfig), //done
-		rgt:         services.NewRGT(awsConfig),
+		elbv2:       services.NewELBV2(awsConfig, endpointsResolver),
+		acm:         services.NewACM(awsConfig, endpointsResolver),
+		wafv2:       services.NewWAFv2(awsConfig, endpointsResolver),
+		wafRegional: services.NewWAFRegional(awsConfig, endpointsResolver, cfg.Region),
+		shield:      services.NewShield(awsConfig, endpointsResolver), //done
+		rgt:         services.NewRGT(awsConfig, endpointsResolver),
 	}, nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	"github.com/aws/aws-sdk-go-v2/service/acm/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 )
 
 type ACM interface {
@@ -14,9 +15,14 @@ type ACM interface {
 }
 
 // NewACM constructs new ACM implementation.
-func NewACM(cfg aws.Config) ACM {
+func NewACM(cfg aws.Config, endpointsResolver *endpoints.Resolver) ACM {
+	customEndpoint := endpointsResolver.EndpointFor(acm.ServiceID)
 	return &acmClient{
-		acmClient: acm.NewFromConfig(cfg),
+		acmClient: acm.NewFromConfig(cfg, func(o *acm.Options) {
+			if customEndpoint != nil {
+				o.BaseEndpoint = customEndpoint
+			}
+		}),
 	}
 }
 

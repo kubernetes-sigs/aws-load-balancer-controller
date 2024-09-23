@@ -33,6 +33,18 @@ func NewCollector(registerer prometheus.Registerer) (*collector, error) {
 }
 
 /*
+WithSDKMetricCollector is a function that collects prometheus metrics for the AWS SDK Go v2 API calls ad requests
+*/
+func WithSDKMetricCollector(c *collector, apiOptions []func(*smithymiddleware.Stack) error) []func(*smithymiddleware.Stack) error {
+	apiOptions = append(apiOptions, func(stack *smithymiddleware.Stack) error {
+		return WithSDKCallMetricCollector(c)(stack)
+	}, func(stack *smithymiddleware.Stack) error {
+		return WithSDKRequestMetricCollector(c)(stack)
+	})
+	return apiOptions
+}
+
+/*
 WithSDKCallMetricCollector is a middleware for the AWS SDK Go v2 that collects and reports metrics on API calls.
 The call metrics are collected after the call is completed
 */
