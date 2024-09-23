@@ -45,6 +45,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses](#private-ipv4-addresses)   | stringList              |                           | internal lb only. Length must match the number of subnets |
 | [service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses](#ipv6-addresses)                   | stringList              |                           | dualstack lb only. Length must match the number of subnets |
 | [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes) | stringMap               |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-target-group-prefix](#target-group-prefix)         | string                  | k8s-<i>namespace-name</i> | Truncated to 21 characters long                        |
 | [service.beta.kubernetes.io/aws-load-balancer-subnets](#subnets)                                 | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
@@ -236,6 +237,13 @@ for proxy protocol v2 configuration.
             service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: target_health_state.unhealthy.connection_termination.enabled=false,target_health_state.unhealthy.draining_interval_seconds=30
             ```
 
+- <a name="target-group-prefix">`service.beta.kubernetes.io/aws-load-balancer-target-group-prefix`</a> specifies the name prefix given to the Target Group. The prefix is truncated to 22 characters.
+
+    !!!example
+        - set the target group prefix to "my-service", the full name will look like "my-service-8f5fe20735"
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-target-group-prefix: my-service
+            ```
 
 - <a name="load-balancer-attributes">`service.beta.kubernetes.io/aws-load-balancer-attributes`</a> specifies [Load Balancer Attributes](http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html) that should be applied to the NLB.
 

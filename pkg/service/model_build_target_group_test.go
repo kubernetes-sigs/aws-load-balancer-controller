@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/golang/mock/gomock"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sort"
 	"strconv"
 	"testing"
+
+	"github.com/golang/mock/gomock"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -160,6 +162,147 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				})
 				assert.Equal(t, tt.wantValue, tgAttrs)
 			}
+		})
+	}
+}
+
+func Test_defaultModelBuilderTask_targetGroupName(t *testing.T) {
+	port31223 := intstr.FromInt(31223)
+	type args struct {
+		svc        *corev1.Service
+		svcPort    intstr.IntOrString
+		tgPort     int64
+		targetType elbv2model.TargetType
+		tgProtocol elbv2model.Protocol
+		hc         *elbv2model.TargetGroupHealthCheckConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "standard case",
+			args: args{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "name-1",
+						UID:       "my-uuid",
+					},
+				},
+				svcPort:    intstr.FromString("http"),
+				tgPort:     8080,
+				targetType: elbv2model.TargetTypeIP,
+				tgProtocol: elbv2model.ProtocolHTTP,
+				hc: &elbv2.TargetGroupHealthCheckConfig{
+					Port:                    &port31223,
+					Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolHTTP))),
+					Path:                    aws.String("/healthz"),
+					IntervalSeconds:         aws.Int64(10),
+					TimeoutSeconds:          aws.Int64(6),
+					HealthyThresholdCount:   aws.Int64(2),
+					UnhealthyThresholdCount: aws.Int64(2),
+				},
+			},
+			want: "k8s-ns1-name1-81f03d99d5",
+		},
+		{
+			name: "standard case - target port changed",
+			args: args{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "name-1",
+						UID:       "my-uuid",
+					},
+				},
+				svcPort:    intstr.FromString("http"),
+				tgPort:     8081,
+				targetType: elbv2model.TargetTypeIP,
+				tgProtocol: elbv2model.ProtocolHTTP,
+				hc: &elbv2.TargetGroupHealthCheckConfig{
+					Port:                    &port31223,
+					Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolHTTP))),
+					Path:                    aws.String("/healthz"),
+					IntervalSeconds:         aws.Int64(10),
+					TimeoutSeconds:          aws.Int64(6),
+					HealthyThresholdCount:   aws.Int64(2),
+					UnhealthyThresholdCount: aws.Int64(2),
+				},
+			},
+			want: "k8s-ns1-name1-8e5ce10775",
+		},
+		{
+			name: "standard case - prefix annotation",
+			args: args{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "name-1",
+						UID:       "my-uuid",
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-target-group-prefix": "test",
+						},
+					},
+				},
+				svcPort:    intstr.FromString("http"),
+				tgPort:     8080,
+				targetType: elbv2model.TargetTypeIP,
+				tgProtocol: elbv2model.ProtocolHTTP,
+				hc: &elbv2.TargetGroupHealthCheckConfig{
+					Port:                    &port31223,
+					Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolHTTP))),
+					Path:                    aws.String("/healthz"),
+					IntervalSeconds:         aws.Int64(10),
+					TimeoutSeconds:          aws.Int64(6),
+					HealthyThresholdCount:   aws.Int64(2),
+					UnhealthyThresholdCount: aws.Int64(2),
+				},
+			},
+			want: "test-81f03d99d5",
+		},
+		{
+			name: "standard case - long prefix annotation",
+			args: args{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "name-1",
+						UID:       "my-uuid",
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-target-group-prefix": "test-prefix-this-is-too-long",
+						},
+					},
+				},
+				svcPort:    intstr.FromString("http"),
+				tgPort:     8080,
+				targetType: elbv2model.TargetTypeIP,
+				tgProtocol: elbv2model.ProtocolHTTP,
+				hc: &elbv2.TargetGroupHealthCheckConfig{
+					Port:                    &port31223,
+					Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolHTTP))),
+					Path:                    aws.String("/healthz"),
+					IntervalSeconds:         aws.Int64(10),
+					TimeoutSeconds:          aws.Int64(6),
+					HealthyThresholdCount:   aws.Int64(2),
+					UnhealthyThresholdCount: aws.Int64(2),
+				},
+			},
+			want: "test-prefix-this-is-t-81f03d99d5",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{
+				service:          tt.args.svc,
+				annotationParser: parser,
+			}
+			got := builder.buildTargetGroupName(context.Background(),
+				tt.args.svcPort, tt.args.tgPort, tt.args.targetType, tt.args.tgProtocol, tt.args.hc,
+			)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
