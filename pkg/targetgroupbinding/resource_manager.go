@@ -30,7 +30,7 @@ const defaultTargetHealthRequeueDuration = 15 * time.Second
 
 // ResourceManager manages the TargetGroupBinding resource.
 type ResourceManager interface {
-	Reconcile(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error
+	Reconcile(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, bool, error)
 	Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error
 }
 
@@ -81,9 +81,9 @@ type defaultResourceManager struct {
 	targetHealthRequeueDuration time.Duration
 }
 
-func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, bool, error) {
 	if tgb.Spec.TargetType == nil {
-		return errors.Errorf("targetType is not specified: %v", k8s.NamespacedName(tgb).String())
+		return "", false, errors.Errorf("targetType is not specified: %v", k8s.NamespacedName(tgb).String())
 	}
 	if *tgb.Spec.TargetType == elbv2api.TargetTypeIP {
 		return m.reconcileWithIPTargetType(ctx, tgb)
@@ -104,7 +104,7 @@ func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.Targ
 	return nil
 }
 
-func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, bool, error) {
 	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
 
 	targetHealthCondType := BuildTargetHealthPodConditionType(tgb)
@@ -121,16 +121,29 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
-			return m.Cleanup(ctx, tgb)
+			return "", false, m.Cleanup(ctx, tgb)
 		}
-		return err
+		return "", false, err
+	}
+
+	currentCheckPoint, err := calculateTGBReconcileCheckpoint(endpoints, tgb)
+
+	if err != nil {
+		return "", false, err
+	}
+
+	savedCheckPoint := GetTGBReconcileCheckpoint(tgb)
+
+	if currentCheckPoint == savedCheckPoint {
+		m.logger.Info("Skipping targetgroupbinding reconcile", "TGB", k8s.NamespacedName(tgb), "calculated hash", currentCheckPoint)
+		return currentCheckPoint, true, nil
 	}
 
 	tgARN := tgb.Spec.TargetGroupARN
 	vpcID := tgb.Spec.VpcID
 	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
 	if err != nil {
-		return err
+		return "", false, err
 	}
 	notDrainingTargets, drainingTargets := partitionTargetsByDrainingStatus(targets)
 	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
@@ -142,44 +155,45 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	}
 	if len(unmatchedTargets) > 0 {
 		if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
-			return err
+			return "", false, err
 		}
 	}
 	if len(unmatchedEndpoints) > 0 {
 		if err := m.registerPodEndpoints(ctx, tgARN, vpcID, unmatchedEndpoints); err != nil {
-			return err
+			return "", false, err
 		}
 	}
 
 	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints)
 	if err != nil {
-		return err
+		return "", false, err
 	}
 
 	if anyPodNeedFurtherProbe {
 		if containsTargetsInInitialState(matchedEndpointAndTargets) || len(unmatchedEndpoints) != 0 {
-			return runtime.NewRequeueNeededAfter("monitor targetHealth", m.targetHealthRequeueDuration)
+			return "", false, runtime.NewRequeueNeededAfter("monitor targetHealth", m.targetHealthRequeueDuration)
 		}
-		return runtime.NewRequeueNeeded("monitor targetHealth")
+		return "", false, runtime.NewRequeueNeeded("monitor targetHealth")
 	}
 
 	if containsPotentialReadyEndpoints {
-		return runtime.NewRequeueNeeded("monitor potential ready endpoints")
+		return "", false, runtime.NewRequeueNeeded("monitor potential ready endpoints")
 	}
 
 	_ = drainingTargets
 
 	if needNetworkingRequeue {
-		return runtime.NewRequeueNeeded("networking reconciliation")
+		return "", false, runtime.NewRequeueNeeded("networking reconciliation")
 	}
-	return nil
+
+	return currentCheckPoint, false, nil
 }
 
-func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, bool, error) {
 	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
 	nodeSelector, err := backend.GetTrafficProxyNodeSelector(tgb)
 	if err != nil {
-		return err
+		return "", false, err
 	}
 
 	resolveOpts := []backend.EndpointResolveOption{backend.WithNodeSelector(nodeSelector)}
@@ -187,33 +201,48 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
-			return m.Cleanup(ctx, tgb)
+			return "", false, m.Cleanup(ctx, tgb)
 		}
-		return err
+		return "", false, err
 	}
+
+	currentCheckPoint, err := calculateTGBReconcileCheckpoint(endpoints, tgb)
+
+	if err != nil {
+		return "", false, err
+	}
+
+	savedCheckPoint := GetTGBReconcileCheckpoint(tgb)
+
+	if currentCheckPoint == savedCheckPoint {
+		m.logger.Info("Skipping targetgroupbinding reconcile", "TGB", k8s.NamespacedName(tgb), "calculated hash", currentCheckPoint)
+		return currentCheckPoint, true, nil
+	}
+
 	tgARN := tgb.Spec.TargetGroupARN
 	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
 	if err != nil {
-		return err
+		return "", false, err
 	}
 	notDrainingTargets, drainingTargets := partitionTargetsByDrainingStatus(targets)
 	_, unmatchedEndpoints, unmatchedTargets := matchNodePortEndpointWithTargets(endpoints, notDrainingTargets)
 
 	if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
-		return err
+		return "", false, err
 	}
+
 	if len(unmatchedTargets) > 0 {
 		if err := m.deregisterTargets(ctx, tgARN, unmatchedTargets); err != nil {
-			return err
+			return "", false, err
 		}
 	}
 	if len(unmatchedEndpoints) > 0 {
 		if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
-			return err
+			return "", false, err
 		}
 	}
 	_ = drainingTargets
-	return nil
+	return currentCheckPoint, false, nil
 }
 
 func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
