@@ -32,7 +32,7 @@ type EndpointResolver interface {
 
 	// ResolveNodePortEndpoints will resolve endpoints backed by nodePort.
 	ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString,
-		opts ...EndpointResolveOption) ([]NodePortEndpoint, error)
+		opts ...EndpointResolveOption) ([]NodePortEndpoint, bool, error)
 }
 
 // NewDefaultEndpointResolver constructs new defaultEndpointResolver
@@ -75,21 +75,25 @@ func (r *defaultEndpointResolver) ResolvePodEndpoints(ctx context.Context, svcKe
 	return r.resolvePodEndpointsWithEndpointsData(ctx, svcKey, svcPort, endpointsDataList, resolveOpts.PodReadinessGates)
 }
 
-func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, opts ...EndpointResolveOption) ([]NodePortEndpoint, error) {
+func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, svcKey types.NamespacedName, port intstr.IntOrString, opts ...EndpointResolveOption) ([]NodePortEndpoint, bool, error) {
 	resolveOpts := defaultEndpointResolveOptions()
 	resolveOpts.ApplyOptions(opts)
 
 	svc, svcPort, err := r.findServiceAndServicePort(ctx, svcKey, port)
+	isClusterIPType := false
 	if err != nil {
-		return nil, err
+		return nil, isClusterIPType, err
 	}
-	if svc.Spec.Type != corev1.ServiceTypeNodePort && svc.Spec.Type != corev1.ServiceTypeLoadBalancer {
-		return nil, errors.Errorf("service type must be either 'NodePort' or 'LoadBalancer': %v", svcKey)
+	if svc.Spec.Type != corev1.ServiceTypeNodePort && svc.Spec.Type != corev1.ServiceTypeLoadBalancer && svc.Spec.Type != corev1.ServiceTypeClusterIP {
+		return nil, isClusterIPType, errors.Errorf("service type must be either 'NodePort' or 'LoadBalancer' or 'ClusterIP': %v", svcKey)
 	}
 	svcNodePort := svcPort.NodePort
 	nodeList := &corev1.NodeList{}
+	if svc.Spec.Type == corev1.ServiceTypeClusterIP {
+		isClusterIPType = true
+	}
 	if err := r.k8sClient.List(ctx, nodeList, client.MatchingLabelsSelector{Selector: resolveOpts.NodeSelector}); err != nil {
-		return nil, err
+		return nil, isClusterIPType, err
 	}
 
 	var candidateNodes []*corev1.Node
@@ -109,11 +113,11 @@ func (r *defaultEndpointResolver) ResolveNodePortEndpoints(ctx context.Context, 
 	for _, node := range targetNodes {
 		instanceID, err := k8s.ExtractNodeInstanceID(node)
 		if err != nil {
-			return nil, err
+			return nil, isClusterIPType, err
 		}
 		endpoints = append(endpoints, buildNodePortEndpoint(node, instanceID, svcNodePort))
 	}
-	return endpoints, nil
+	return endpoints, isClusterIPType, nil
 }
 
 func (r *defaultEndpointResolver) computeServiceEndpointsData(ctx context.Context, svcKey types.NamespacedName) ([]EndpointsData, error) {

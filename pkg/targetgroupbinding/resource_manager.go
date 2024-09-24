@@ -183,7 +183,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	}
 
 	resolveOpts := []backend.EndpointResolveOption{backend.WithNodeSelector(nodeSelector)}
-	endpoints, err := m.endpointResolver.ResolveNodePortEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
+	endpoints, isClusterIPType, err := m.endpointResolver.ResolveNodePortEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
@@ -208,7 +208,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		}
 	}
 	if len(unmatchedEndpoints) > 0 {
-		if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
+		if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints, isClusterIPType); err != nil {
 			return err
 		}
 	}
@@ -421,13 +421,16 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
 }
 
-func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, tgARN string, endpoints []backend.NodePortEndpoint) error {
+func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, tgARN string, endpoints []backend.NodePortEndpoint, isClusterIPType bool) error {
 	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
-		sdkTargets = append(sdkTargets, elbv2sdk.TargetDescription{
-			Id:   awssdk.String(endpoint.InstanceID),
-			Port: awssdk.Int64(endpoint.Port),
-		})
+		targetDesc := elbv2sdk.TargetDescription{
+			Id: awssdk.String(endpoint.InstanceID),
+		}
+		if !isClusterIPType || (isClusterIPType && endpoint.Port != 0) {
+			targetDesc.Port = awssdk.Int64(endpoint.Port)
+		}
+		sdkTargets = append(sdkTargets, targetDesc)
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
 }
