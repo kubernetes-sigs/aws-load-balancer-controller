@@ -425,7 +425,7 @@ serviceTargetENISGTags:
 loadBalancerClass:
 
 # Specifies the duration that non-leader candidates will wait to force acquire leadership. (default 15s)
-leaseDuration:
+leaseDuration: 15s
 
 # creator will disable helm default labels, so you can only add yours
 # creator: "me"
