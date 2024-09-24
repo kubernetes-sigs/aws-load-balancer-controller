@@ -1,7 +1,6 @@
 package ingress
 
 import (
-	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -77,7 +76,7 @@ type TargetGroupTuple struct {
 
 	// The weight.
 	// +optional
-	Weight *int64 `json:"weight,omitempty"`
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 func (t *TargetGroupTuple) validate() error {
@@ -99,7 +98,7 @@ type TargetGroupStickinessConfig struct {
 
 	// The time period, in seconds, during which requests from a client should be routed to the same target group.
 	// +optional
-	DurationSeconds *int64 `json:"durationSeconds,omitempty"`
+	DurationSeconds *int32 `json:"durationSeconds,omitempty"`
 }
 
 // Information about a forward action.
@@ -162,21 +161,21 @@ type Action struct {
 
 func (a *Action) validate() error {
 	switch a.Type {
-	case elbv2.ActionTypeEnumFixedResponse:
+	case ActionTypeFixedResponse:
 		if a.FixedResponseConfig == nil {
 			return errors.New("missing FixedResponseConfig")
 		}
 		if err := a.FixedResponseConfig.validate(); err != nil {
 			return errors.Wrap(err, "invalid FixedResponseConfig")
 		}
-	case elbv2.ActionTypeEnumRedirect:
+	case ActionTypeRedirect:
 		if a.RedirectConfig == nil {
 			return errors.New("missing RedirectConfig")
 		}
 		if err := a.RedirectConfig.validate(); err != nil {
 			return errors.Wrap(err, "invalid RedirectConfig")
 		}
-	case elbv2.ActionTypeEnumForward:
+	case ActionTypeForward:
 		if (a.TargetGroupARN != nil) == (a.ForwardConfig != nil) {
 			return errors.New("precisely one of TargetGroupArn and ForwardConfig can be specified")
 		}

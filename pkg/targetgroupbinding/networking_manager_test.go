@@ -3,10 +3,10 @@ package targetgroupbinding
 import (
 	"context"
 	"errors"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -54,11 +54,11 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 			},
 			want: []networking.IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
-						FromPort:   awssdk.Int64(8080),
-						ToPort:     awssdk.Int64(8080),
-						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+						FromPort:   awssdk.Int32(8080),
+						ToPort:     awssdk.Int32(8080),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								GroupId:     awssdk.String("sg-abcdefg"),
@@ -101,11 +101,11 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 			},
 			want: []networking.IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
-						FromPort:   awssdk.Int64(8080),
-						ToPort:     awssdk.Int64(8080),
-						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+						FromPort:   awssdk.Int32(8080),
+						ToPort:     awssdk.Int32(8080),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								GroupId:     awssdk.String("sg-abcdefg"),
@@ -115,11 +115,11 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 					Labels: map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue},
 				},
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
-						FromPort:   awssdk.Int64(8443),
-						ToPort:     awssdk.Int64(8443),
-						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+						FromPort:   awssdk.Int32(8443),
+						ToPort:     awssdk.Int32(8443),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								GroupId:     awssdk.String("sg-abcdefg"),
@@ -129,11 +129,11 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 					Labels: map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue},
 				},
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
-						FromPort:   awssdk.Int64(8080),
-						ToPort:     awssdk.Int64(8080),
-						IpRanges: []*ec2sdk.IpRange{
+						FromPort:   awssdk.Int32(8080),
+						ToPort:     awssdk.Int32(8080),
+						IpRanges: []ec2types.IpRange{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								CidrIp:      awssdk.String("192.168.1.1/16"),
@@ -143,11 +143,11 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 					Labels: map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue},
 				},
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
-						FromPort:   awssdk.Int64(8443),
-						ToPort:     awssdk.Int64(8443),
-						IpRanges: []*ec2sdk.IpRange{
+						FromPort:   awssdk.Int32(8443),
+						ToPort:     awssdk.Int32(8443),
+						IpRanges: []ec2types.IpRange{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								CidrIp:      awssdk.String("192.168.1.1/16"),
@@ -196,11 +196,11 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 			},
 			want: []networking.IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
-						FromPort:   awssdk.Int64(8080),
-						ToPort:     awssdk.Int64(8080),
-						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+						FromPort:   awssdk.Int32(8080),
+						ToPort:     awssdk.Int32(8080),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								GroupId:     awssdk.String("sg-abcdefg"),
@@ -210,11 +210,11 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 					Labels: map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue},
 				},
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
-						FromPort:   awssdk.Int64(8443),
-						ToPort:     awssdk.Int64(8443),
-						IpRanges: []*ec2sdk.IpRange{
+						FromPort:   awssdk.Int32(8443),
+						ToPort:     awssdk.Int32(8443),
+						IpRanges: []ec2types.IpRange{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								CidrIp:      awssdk.String("192.168.1.1/16"),
@@ -271,11 +271,11 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 			},
 			want: []networking.IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
-						FromPort:   awssdk.Int64(8080),
-						ToPort:     awssdk.Int64(8080),
-						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+						FromPort:   awssdk.Int32(8080),
+						ToPort:     awssdk.Int32(8080),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								GroupId:     awssdk.String("sg-abcdefg"),
@@ -302,11 +302,11 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 			},
 			want: []networking.IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
-						FromPort:   awssdk.Int64(8080),
-						ToPort:     awssdk.Int64(8080),
-						IpRanges: []*ec2sdk.IpRange{
+						FromPort:   awssdk.Int32(8080),
+						ToPort:     awssdk.Int32(8080),
+						IpRanges: []ec2types.IpRange{
 							{
 								CidrIp:      awssdk.String("192.168.1.1/16"),
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
@@ -333,11 +333,11 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 			},
 			want: []networking.IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
-						FromPort:   awssdk.Int64(8080),
-						ToPort:     awssdk.Int64(8080),
-						Ipv6Ranges: []*ec2sdk.Ipv6Range{
+						FromPort:   awssdk.Int32(8080),
+						ToPort:     awssdk.Int32(8080),
+						Ipv6Ranges: []ec2types.Ipv6Range{
 							{
 								CidrIpv6:    awssdk.String("2002::1234:abcd:ffff:c0a8:101/64"),
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
@@ -383,11 +383,11 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 			},
 			want: []networking.IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
-						FromPort:   awssdk.Int64(80),
-						ToPort:     awssdk.Int64(80),
-						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+						FromPort:   awssdk.Int32(80),
+						ToPort:     awssdk.Int32(80),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								GroupId:     awssdk.String("sg-abcdefg"),
@@ -397,11 +397,11 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 					Labels: map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue},
 				},
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
-						FromPort:   awssdk.Int64(8080),
-						ToPort:     awssdk.Int64(8080),
-						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+						FromPort:   awssdk.Int32(8080),
+						ToPort:     awssdk.Int32(8080),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								GroupId:     awssdk.String("sg-abcdefg"),
@@ -428,11 +428,11 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 			},
 			want: []networking.IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
-						FromPort:   awssdk.Int64(8080),
-						ToPort:     awssdk.Int64(8080),
-						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+						FromPort:   awssdk.Int32(8080),
+						ToPort:     awssdk.Int32(8080),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								GroupId:     awssdk.String("sg-abcdefg"),
@@ -458,11 +458,11 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 			},
 			want: []networking.IPPermissionInfo{
 				{
-					Permission: ec2sdk.IpPermission{
+					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
-						FromPort:   awssdk.Int64(0),
-						ToPort:     awssdk.Int64(65535),
-						UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+						FromPort:   awssdk.Int32(0),
+						ToPort:     awssdk.Int32(65535),
+						UserIdGroupPairs: []ec2types.UserIdGroupPair{
 							{
 								Description: awssdk.String("elbv2.k8s.aws/targetGroupBinding=shared"),
 								GroupId:     awssdk.String("sg-abcdefg"),
@@ -496,7 +496,7 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    []int64
+		want    []int32
 		wantErr error
 	}{
 		{
@@ -505,7 +505,7 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 				port: intstr.FromInt(8080),
 				pods: nil,
 			},
-			want: []int64{8080},
+			want: []int32{8080},
 		},
 		{
 			name: "named port resolves to same numerical port",
@@ -532,7 +532,7 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 					},
 				},
 			},
-			want: []int64{80},
+			want: []int32{80},
 		},
 		{
 			name: "named port resolves to different numerical port",
@@ -559,7 +559,7 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 					},
 				},
 			},
-			want: []int64{80, 8080},
+			want: []int32{80, 8080},
 		},
 		{
 			name: "numerical port cannot be used without pods",
@@ -600,11 +600,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.168.0.0/16"),
 										},
@@ -612,11 +612,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.169.0.0/16"),
 										},
@@ -626,11 +626,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 						},
 						"sg-b": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.168.0.0/16"),
 										},
@@ -644,11 +644,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -656,11 +656,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.169.0.0/16"),
 								},
@@ -670,11 +670,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 				},
 				"sg-b": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -691,11 +691,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.168.0.0/16"),
 										},
@@ -703,11 +703,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.169.0.0/16"),
 										},
@@ -717,11 +717,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 						},
 						"sg-b": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.168.0.0/16"),
 										},
@@ -733,11 +733,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-2"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.168.0.0/16"),
 										},
@@ -745,11 +745,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.170.0.0/16"),
 										},
@@ -759,11 +759,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 						},
 						"sg-c": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.168.0.0/16"),
 										},
@@ -777,11 +777,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -789,11 +789,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.169.0.0/16"),
 								},
@@ -801,11 +801,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.170.0.0/16"),
 								},
@@ -815,11 +815,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 				},
 				"sg-b": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -829,11 +829,11 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 				},
 				"sg-c": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -878,11 +878,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
 									FromPort:   nil,
 									ToPort:     nil,
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
@@ -894,11 +894,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(0),
-							ToPort:     awssdk.Int64(65535),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(0),
+							ToPort:     awssdk.Int32(65535),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-1")},
 							},
 						},
@@ -914,11 +914,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
 									FromPort:   nil,
 									ToPort:     nil,
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
@@ -928,11 +928,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-2"}: {
 						"sg-b": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
 									FromPort:   nil,
 									ToPort:     nil,
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-2")},
 									},
 								},
@@ -944,11 +944,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(0),
-							ToPort:     awssdk.Int64(65535),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(0),
+							ToPort:     awssdk.Int32(65535),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-1")},
 							},
 						},
@@ -957,11 +957,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 				},
 				"sg-b": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(0),
-							ToPort:     awssdk.Int64(65535),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(0),
+							ToPort:     awssdk.Int32(65535),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-2")},
 							},
 						},
@@ -977,11 +977,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(0),
-									ToPort:     awssdk.Int64(65535),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(0),
+									ToPort:     awssdk.Int32(65535),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
@@ -993,11 +993,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(0),
-							ToPort:     awssdk.Int64(65535),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(0),
+							ToPort:     awssdk.Int32(65535),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-1")},
 							},
 						},
@@ -1013,11 +1013,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(0),
-									ToPort:     awssdk.Int64(65535),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(0),
+									ToPort:     awssdk.Int32(65535),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
@@ -1027,11 +1027,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-2"}: {
 						"sg-b": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(0),
-									ToPort:     awssdk.Int64(65535),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(0),
+									ToPort:     awssdk.Int32(65535),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-2")},
 									},
 								},
@@ -1043,11 +1043,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(0),
-							ToPort:     awssdk.Int64(65535),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(0),
+							ToPort:     awssdk.Int32(65535),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-1")},
 							},
 						},
@@ -1056,11 +1056,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 				},
 				"sg-b": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(0),
-							ToPort:     awssdk.Int64(65535),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(0),
+							ToPort:     awssdk.Int32(65535),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-2")},
 							},
 						},
@@ -1076,21 +1076,21 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(30),
-									ToPort:     awssdk.Int64(8080),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(30),
+									ToPort:     awssdk.Int32(8080),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
@@ -1102,11 +1102,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(30),
-							ToPort:     awssdk.Int64(8080),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(30),
+							ToPort:     awssdk.Int32(8080),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-1")},
 							},
 						},
@@ -1122,21 +1122,21 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(30),
-									ToPort:     awssdk.Int64(8080),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(30),
+									ToPort:     awssdk.Int32(8080),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
@@ -1144,21 +1144,21 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 						},
 						"sg-b": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("udp"),
-									FromPort:   awssdk.Int64(8443),
-									ToPort:     awssdk.Int64(8443),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(8443),
+									ToPort:     awssdk.Int32(8443),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-2")},
 									},
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("udp"),
-									FromPort:   awssdk.Int64(8080),
-									ToPort:     awssdk.Int64(8080),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(8080),
+									ToPort:     awssdk.Int32(8080),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-2")},
 									},
 								},
@@ -1170,11 +1170,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(30),
-							ToPort:     awssdk.Int64(8080),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(30),
+							ToPort:     awssdk.Int32(8080),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-1")},
 							},
 						},
@@ -1183,11 +1183,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 				},
 				"sg-b": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("udp"),
-							FromPort:   awssdk.Int64(8080),
-							ToPort:     awssdk.Int64(8443),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(8080),
+							ToPort:     awssdk.Int32(8443),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-2")},
 							},
 						},
@@ -1202,11 +1202,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(80),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(80),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.168.0.0/16"),
 										},
@@ -1214,11 +1214,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(8080),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(8080),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.169.0.0/16"),
 										},
@@ -1226,11 +1226,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(8443),
-									ToPort:     awssdk.Int64(8443),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(8443),
+									ToPort:     awssdk.Int32(8443),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.170.0.0/16"),
 										},
@@ -1244,11 +1244,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(80),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(80),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -1256,11 +1256,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(8080),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(8080),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.169.0.0/16"),
 								},
@@ -1268,11 +1268,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(8443),
-							ToPort:     awssdk.Int64(8443),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(8443),
+							ToPort:     awssdk.Int32(8443),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.170.0.0/16"),
 								},
@@ -1289,11 +1289,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(80),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(80),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.168.0.0/16"),
 										},
@@ -1301,11 +1301,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(8080),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(8080),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.169.0.0/16"),
 										},
@@ -1313,11 +1313,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(80),
-									ToPort:     awssdk.Int64(8080),
-									IpRanges: []*ec2sdk.IpRange{
+									FromPort:   awssdk.Int32(80),
+									ToPort:     awssdk.Int32(8080),
+									IpRanges: []ec2types.IpRange{
 										{
 											CidrIp: awssdk.String("192.170.0.0/16"),
 										},
@@ -1327,21 +1327,21 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 						},
 						"sg-b": {
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(8443),
-									ToPort:     awssdk.Int64(9090),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(8443),
+									ToPort:     awssdk.Int32(9090),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
 							},
 							{
-								Permission: ec2sdk.IpPermission{
+								Permission: ec2types.IpPermission{
 									IpProtocol: awssdk.String("tcp"),
-									FromPort:   awssdk.Int64(8443),
-									ToPort:     awssdk.Int64(32768),
-									UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+									FromPort:   awssdk.Int32(8443),
+									ToPort:     awssdk.Int32(32768),
+									UserIdGroupPairs: []ec2types.UserIdGroupPair{
 										{GroupId: awssdk.String("group-1")},
 									},
 								},
@@ -1353,11 +1353,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 			want: map[string][]networking.IPPermissionInfo{
 				"sg-a": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(80),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(80),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.168.0.0/16"),
 								},
@@ -1365,11 +1365,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(8080),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(8080),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.169.0.0/16"),
 								},
@@ -1377,11 +1377,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 						},
 					},
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(80),
-							ToPort:     awssdk.Int64(8080),
-							IpRanges: []*ec2sdk.IpRange{
+							FromPort:   awssdk.Int32(80),
+							ToPort:     awssdk.Int32(8080),
+							IpRanges: []ec2types.IpRange{
 								{
 									CidrIp: awssdk.String("192.170.0.0/16"),
 								},
@@ -1391,11 +1391,11 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 				},
 				"sg-b": {
 					{
-						Permission: ec2sdk.IpPermission{
+						Permission: ec2types.IpPermission{
 							IpProtocol: awssdk.String("tcp"),
-							FromPort:   awssdk.Int64(8443),
-							ToPort:     awssdk.Int64(32768),
-							UserIdGroupPairs: []*ec2sdk.UserIdGroupPair{
+							FromPort:   awssdk.Int32(8443),
+							ToPort:     awssdk.Int32(32768),
+							UserIdGroupPairs: []ec2types.UserIdGroupPair{
 								{GroupId: awssdk.String("group-1")},
 							},
 						},

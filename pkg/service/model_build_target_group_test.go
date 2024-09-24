@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/golang/mock/gomock"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -10,8 +11,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -185,11 +185,11 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			wantError: false,
 			wantValue: &elbv2.TargetGroupHealthCheckConfig{
 				Port:                    &trafficPort,
-				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
-				IntervalSeconds:         aws.Int64(10),
-				TimeoutSeconds:          aws.Int64(10),
-				HealthyThresholdCount:   aws.Int64(3),
-				UnhealthyThresholdCount: aws.Int64(3),
+				Protocol:                elbv2.ProtocolTCP,
+				IntervalSeconds:         aws.Int32(10),
+				TimeoutSeconds:          aws.Int32(10),
+				HealthyThresholdCount:   aws.Int32(3),
+				UnhealthyThresholdCount: aws.Int32(3),
 			},
 			targetType: elbv2.TargetTypeIP,
 		},
@@ -212,12 +212,12 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			wantError: false,
 			wantValue: &elbv2.TargetGroupHealthCheckConfig{
 				Port:                    &port8888,
-				Protocol:                (*elbv2.Protocol)(aws.String("HTTP")),
+				Protocol:                elbv2.ProtocolHTTP,
 				Path:                    aws.String("/healthz"),
-				IntervalSeconds:         aws.Int64(10),
-				TimeoutSeconds:          aws.Int64(30),
-				HealthyThresholdCount:   aws.Int64(2),
-				UnhealthyThresholdCount: aws.Int64(2),
+				IntervalSeconds:         aws.Int32(10),
+				TimeoutSeconds:          aws.Int32(30),
+				HealthyThresholdCount:   aws.Int32(2),
+				UnhealthyThresholdCount: aws.Int32(2),
 				Matcher: &elbv2.HealthCheckMatcher{
 					HTTPCode: aws.String("200-220,231,250-300,301,302"),
 				},
@@ -236,12 +236,12 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			wantError: false,
 			wantValue: &elbv2.TargetGroupHealthCheckConfig{
 				Port:                    &trafficPort,
-				Protocol:                (*elbv2.Protocol)(aws.String("HTTP")),
+				Protocol:                elbv2.ProtocolHTTP,
 				Path:                    aws.String("/"),
-				IntervalSeconds:         aws.Int64(10),
-				TimeoutSeconds:          aws.Int64(10),
-				HealthyThresholdCount:   aws.Int64(3),
-				UnhealthyThresholdCount: aws.Int64(3),
+				IntervalSeconds:         aws.Int32(10),
+				TimeoutSeconds:          aws.Int32(10),
+				HealthyThresholdCount:   aws.Int32(3),
+				UnhealthyThresholdCount: aws.Int32(3),
 				Matcher: &elbv2.HealthCheckMatcher{
 					HTTPCode: aws.String("200-399"),
 				},
@@ -296,11 +296,11 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			wantError: false,
 			wantValue: &elbv2.TargetGroupHealthCheckConfig{
 				Port:                    &trafficPort,
-				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
-				IntervalSeconds:         aws.Int64(10),
-				TimeoutSeconds:          aws.Int64(10),
-				HealthyThresholdCount:   aws.Int64(3),
-				UnhealthyThresholdCount: aws.Int64(3),
+				Protocol:                elbv2.ProtocolTCP,
+				IntervalSeconds:         aws.Int32(10),
+				TimeoutSeconds:          aws.Int32(10),
+				HealthyThresholdCount:   aws.Int32(3),
+				UnhealthyThresholdCount: aws.Int32(3),
 			},
 			targetType: elbv2.TargetTypeIP,
 		},
@@ -316,12 +316,12 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			wantError: false,
 			wantValue: &elbv2.TargetGroupHealthCheckConfig{
 				Port:                    &port31223,
-				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolHTTP))),
+				Protocol:                elbv2.ProtocolHTTP,
 				Path:                    aws.String("/healthz"),
-				IntervalSeconds:         aws.Int64(10),
-				TimeoutSeconds:          aws.Int64(6),
-				HealthyThresholdCount:   aws.Int64(2),
-				UnhealthyThresholdCount: aws.Int64(2),
+				IntervalSeconds:         aws.Int32(10),
+				TimeoutSeconds:          aws.Int32(6),
+				HealthyThresholdCount:   aws.Int32(2),
+				UnhealthyThresholdCount: aws.Int32(2),
 				Matcher: &elbv2.HealthCheckMatcher{
 					HTTPCode: aws.String("200-399"),
 				},
@@ -350,11 +350,11 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 			wantError: false,
 			wantValue: &elbv2.TargetGroupHealthCheckConfig{
 				Port:                    &port8888,
-				Protocol:                (*elbv2.Protocol)(aws.String(string(elbv2.ProtocolTCP))),
-				IntervalSeconds:         aws.Int64(10),
-				TimeoutSeconds:          aws.Int64(30),
-				HealthyThresholdCount:   aws.Int64(5),
-				UnhealthyThresholdCount: aws.Int64(5),
+				Protocol:                elbv2.ProtocolTCP,
+				IntervalSeconds:         aws.Int32(10),
+				TimeoutSeconds:          aws.Int32(30),
+				HealthyThresholdCount:   aws.Int32(5),
+				UnhealthyThresholdCount: aws.Int32(5),
 			},
 			targetType: elbv2.TargetTypeInstance,
 		},
@@ -403,7 +403,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 	port80 := intstr.FromInt(80)
 	port808 := intstr.FromInt(808)
 	trafficPort := intstr.FromString("traffic-port")
-	cidrBlockStateAssociated := ec2.VpcCidrBlockStateCodeAssociated
+	cidrBlockStateAssociated := ec2types.VpcCidrBlockStateCodeAssociated
 	type fetchVPCInfoCall struct {
 		wantVPCInfo networking.VPCInfo
 		err         error
@@ -414,7 +414,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 		svc               *corev1.Service
 		tgPort            intstr.IntOrString
 		hcPort            intstr.IntOrString
-		subnets           []*ec2.Subnet
+		subnets           []ec2types.Subnet
 		tgProtocol        corev1.Protocol
 		ipAddressType     elbv2.TargetGroupIPAddressType
 		preserveClientIP  bool
@@ -432,7 +432,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			tgPort: port80,
 			hcPort: trafficPort,
-			subnets: []*ec2.Subnet{{
+			subnets: []ec2types.Subnet{{
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
@@ -490,7 +490,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			scheme: elbv2.LoadBalancerSchemeInternal,
 			tgPort: port80,
 			hcPort: port808,
-			subnets: []*ec2.Subnet{{
+			subnets: []ec2types.Subnet{{
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
@@ -542,7 +542,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgPort: port80,
 			hcPort: port808,
 			scheme: elbv2.LoadBalancerSchemeInternetFacing,
-			subnets: []*ec2.Subnet{{
+			subnets: []ec2types.Subnet{{
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
@@ -589,24 +589,24 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgPort: port80,
 			hcPort: port808,
 			scheme: elbv2.LoadBalancerSchemeInternal,
-			subnets: []*ec2.Subnet{{
+			subnets: []ec2types.Subnet{{
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 							{
 								CidrBlock: aws.String("172.16.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 							{
 								CidrBlock: aws.String("1.2.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -661,7 +661,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgPort: port80,
 			hcPort: trafficPort,
 			scheme: elbv2.LoadBalancerSchemeInternetFacing,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
 					SubnetId:  aws.String("sn-1"),
@@ -703,7 +703,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			svc:    &corev1.Service{},
 			tgPort: port80,
 			hcPort: trafficPort,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
 					SubnetId:  aws.String("sn-1"),
@@ -742,7 +742,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			svc:    &corev1.Service{},
 			tgPort: port80,
 			hcPort: trafficPort,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
 					SubnetId:  aws.String("sn-1"),
@@ -759,17 +759,17 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 							{
 								CidrBlock: aws.String("172.16.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 							{
 								CidrBlock: aws.String("1.2.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -806,7 +806,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			svc:    &corev1.Service{},
 			tgPort: port80,
 			hcPort: port808,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
 					SubnetId:  aws.String("sn-1"),
@@ -868,7 +868,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			},
 			tgPort: port80,
 			hcPort: port808,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
 					SubnetId:  aws.String("sn-1"),
@@ -935,7 +935,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			},
 			tgPort: port80,
 			hcPort: port80,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
 					SubnetId:  aws.String("sn-1"),
@@ -1002,7 +1002,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			},
 			tgPort: port80,
 			hcPort: port80,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
 					SubnetId:  aws.String("sn-1"),
@@ -1050,10 +1050,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			svc:    &corev1.Service{},
 			tgPort: port80,
 			hcPort: port80,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
-					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
 						{
 							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/56"),
 						},
@@ -1062,7 +1062,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 				},
 				{
 					CidrBlock: aws.String("1.2.3.4/19"),
-					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
 						{
 							Ipv6CidrBlock: aws.String("2000:1ee3:5d0:fe00::/56"),
 						},
@@ -1098,10 +1098,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			svc:    &corev1.Service{},
 			tgPort: port80,
 			hcPort: port80,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
-					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
 						{
 							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/64"),
 						},
@@ -1110,7 +1110,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 				},
 				{
 					CidrBlock: aws.String("1.2.3.4/19"),
-					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
 						{
 							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1901::/64"),
 						},
@@ -1153,11 +1153,11 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						Ipv6CidrBlockAssociationSet: []*ec2.VpcIpv6CidrBlockAssociation{
+						Ipv6CidrBlockAssociationSet: []ec2types.VpcIpv6CidrBlockAssociation{
 							{
 								Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/56"),
-								Ipv6CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								Ipv6CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -1166,10 +1166,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			},
 			tgPort: port80,
 			hcPort: port80,
-			subnets: []*ec2.Subnet{
+			subnets: []ec2types.Subnet{
 				{
 					CidrBlock: aws.String("172.16.0.0/19"),
-					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
 						{
 							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1900::/64"),
 						},
@@ -1178,7 +1178,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 				},
 				{
 					CidrBlock: aws.String("1.2.3.4/19"),
-					Ipv6CidrBlockAssociationSet: []*ec2.SubnetIpv6CidrBlockAssociation{
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
 						{
 							Ipv6CidrBlock: aws.String("2300:1ab3:ab0:1901::/64"),
 						},
@@ -1220,7 +1220,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			},
 			tgPort: port80,
 			hcPort: port808,
-			subnets: []*ec2.Subnet{{
+			subnets: []ec2types.Subnet{{
 				CidrBlock: aws.String("172.16.0.0/19"),
 				SubnetId:  aws.String("az-1"),
 			}},

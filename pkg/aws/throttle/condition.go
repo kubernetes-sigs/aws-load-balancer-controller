@@ -1,32 +1,27 @@
 package throttle
 
 import (
-	"github.com/aws/aws-sdk-go/aws/request"
+	"context"
+	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"regexp"
 )
 
-type Condition func(r *request.Request) bool
+type Condition func(ctx context.Context) bool
 
 func matchService(serviceID string) Condition {
-	return func(r *request.Request) bool {
-		return r.ClientInfo.ServiceID == serviceID
+	return func(ctx context.Context) bool {
+		return awsmiddleware.GetServiceID(ctx) == serviceID
 	}
 }
 
 func matchServiceOperation(serviceID string, operation string) Condition {
-	return func(r *request.Request) bool {
-		if r.Operation == nil {
-			return false
-		}
-		return r.ClientInfo.ServiceID == serviceID && r.Operation.Name == operation
+	return func(ctx context.Context) bool {
+		return awsmiddleware.GetServiceID(ctx) == serviceID && awsmiddleware.GetOperationName(ctx) == operation
 	}
 }
 
 func matchServiceOperationPattern(serviceID string, operationPtn *regexp.Regexp) Condition {
-	return func(r *request.Request) bool {
-		if r.Operation == nil {
-			return false
-		}
-		return r.ClientInfo.ServiceID == serviceID && operationPtn.Match([]byte(r.Operation.Name))
+	return func(ctx context.Context) bool {
+		return awsmiddleware.GetServiceID(ctx) == serviceID && operationPtn.Match([]byte(awsmiddleware.GetOperationName(ctx)))
 	}
 }

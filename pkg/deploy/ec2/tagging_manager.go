@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
@@ -96,7 +97,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, resID string,
 
 	if len(tagsToUpdate) > 0 {
 		req := &ec2sdk.CreateTagsInput{
-			Resources: []*string{awssdk.String(resID)},
+			Resources: []string{resID},
 			Tags:      convertTagsToSDKTags(tagsToUpdate),
 		}
 
@@ -112,7 +113,7 @@ func (m *defaultTaggingManager) ReconcileTags(ctx context.Context, resID string,
 
 	if len(tagsToRemove) > 0 {
 		req := &ec2sdk.DeleteTagsInput{
-			Resources: []*string{awssdk.String(resID)},
+			Resources: []string{resID},
 			Tags:      convertTagsToSDKTags(tagsToRemove),
 		}
 
@@ -149,41 +150,41 @@ func (m *defaultTaggingManager) ListSecurityGroups(ctx context.Context, tagFilte
 
 func (m *defaultTaggingManager) listSecurityGroupsWithTagFilter(ctx context.Context, tagFilter tracking.TagFilter) (map[string]networking.SecurityGroupInfo, error) {
 	req := &ec2sdk.DescribeSecurityGroupsInput{
-		Filters: []*ec2sdk.Filter{
+		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String("vpc-id"),
-				Values: awssdk.StringSlice([]string{m.vpcID}),
+				Values: []string{m.vpcID},
 			},
 		},
 	}
 
 	for _, tagKey := range sets.StringKeySet(tagFilter).List() {
 		tagValues := tagFilter[tagKey]
-		var filter ec2sdk.Filter
+		var filter ec2types.Filter
 		if len(tagValues) == 0 {
 			tagFilterName := "tag-key"
 			filter.Name = awssdk.String(tagFilterName)
-			filter.Values = awssdk.StringSlice([]string{tagKey})
+			filter.Values = []string{tagKey}
 		} else {
 			tagFilterName := fmt.Sprintf("tag:%v", tagKey)
 			filter.Name = awssdk.String(tagFilterName)
-			filter.Values = awssdk.StringSlice(tagValues)
+			filter.Values = tagValues
 		}
-		req.Filters = append(req.Filters, &filter)
+		req.Filters = append(req.Filters, filter)
 	}
 
 	return m.networkingSGManager.FetchSGInfosByRequest(ctx, req)
 }
 
 // convert tags into AWS SDK tag presentation.
-func convertTagsToSDKTags(tags map[string]string) []*ec2sdk.Tag {
+func convertTagsToSDKTags(tags map[string]string) []ec2types.Tag {
 	if len(tags) == 0 {
 		return nil
 	}
-	sdkTags := make([]*ec2sdk.Tag, 0, len(tags))
+	sdkTags := make([]ec2types.Tag, 0, len(tags))
 
 	for _, key := range sets.StringKeySet(tags).List() {
-		sdkTags = append(sdkTags, &ec2sdk.Tag{
+		sdkTags = append(sdkTags, ec2types.Tag{
 			Key:   awssdk.String(key),
 			Value: awssdk.String(tags[key]),
 		})

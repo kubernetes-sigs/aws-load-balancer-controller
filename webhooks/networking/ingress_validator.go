@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1"
@@ -178,11 +178,11 @@ func (v *ingressValidator) checkIngressClassUsage(ctx context.Context, ing *netw
 
 	if ing.Spec.IngressClassName != nil {
 		usedInNewIng = true
-		newIngressClassName = awssdk.StringValue(ing.Spec.IngressClassName)
+		newIngressClassName = awssdk.ToString(ing.Spec.IngressClassName)
 	}
 	if oldIng != nil && oldIng.Spec.IngressClassName != nil {
 		usedInOldIng = true
-		oldIngressClassName = awssdk.StringValue(oldIng.Spec.IngressClassName)
+		oldIngressClassName = awssdk.ToString(oldIng.Spec.IngressClassName)
 	}
 
 	if usedInNewIng {

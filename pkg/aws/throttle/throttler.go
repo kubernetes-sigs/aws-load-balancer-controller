@@ -1,7 +1,8 @@
 package throttle
 
 import (
-	"github.com/aws/aws-sdk-go/aws/request"
+	"context"
+	smithymiddleware "github.com/aws/smithy-go/middleware"
 	"golang.org/x/time/rate"
 	"regexp"
 )
@@ -53,18 +54,28 @@ func (t *throttler) WithOperationPatternThrottle(serviceID string, operationPtn 
 	return t.WithConditionThrottle(matchServiceOperationPattern(serviceID, operationPtn), r, burst)
 }
 
-func (t *throttler) InjectHandlers(handlers *request.Handlers) {
-	handlers.Sign.PushFrontNamed(request.NamedHandler{
-		Name: sdkHandlerRequestThrottle,
-		Fn:   t.beforeSign,
-	})
+/*
+WithSDKRequestThrottleMiddleware is a middleware that applies client side rate limiting to the clients. This is added in finalize step of middleware stack
+and is called before each request in middleware chain
+*/
+func WithSDKRequestThrottleMiddleware(throttler *throttler) func(stack *smithymiddleware.Stack) error {
+	return func(stack *smithymiddleware.Stack) error {
+		return stack.Finalize.Add(smithymiddleware.FinalizeMiddlewareFunc(sdkHandlerRequestThrottle, func(
+			ctx context.Context, input smithymiddleware.FinalizeInput, next smithymiddleware.FinalizeHandler,
+		) (
+			output smithymiddleware.FinalizeOutput, metadata smithymiddleware.Metadata, err error,
+		) {
+			throttler.beforeSign(ctx)
+			return next.HandleFinalize(ctx, input)
+		}), smithymiddleware.Before)
+	}
 }
 
-// beforeSign is added to the Sign chain; called before each request
-func (t *throttler) beforeSign(r *request.Request) {
+// beforeSign is added to the Finalize step of middleware stack; called before each request
+func (t *throttler) beforeSign(ctx context.Context) {
 	for _, conditionLimiter := range t.conditionLimiters {
-		if conditionLimiter.condition(r) {
-			conditionLimiter.limiter.Wait(r.Context())
+		if conditionLimiter.condition(ctx) {
+			conditionLimiter.limiter.Wait(ctx)
 		}
 	}
 }

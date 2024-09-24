@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -147,10 +147,10 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 
 	for _, epsData := range endpointsDataList {
 		for _, port := range epsData.Ports {
-			if len(svcPort.Name) != 0 && svcPort.Name != awssdk.StringValue(port.Name) {
+			if len(svcPort.Name) != 0 && svcPort.Name != awssdk.ToString(port.Name) {
 				continue
 			}
-			epPort := awssdk.Int32Value(port.Port)
+			epPort := awssdk.ToInt32(port.Port)
 			for _, ep := range epsData.Endpoints {
 				if ep.TargetRef == nil || ep.TargetRef.Kind != "Pod" {
 					continue
@@ -284,7 +284,7 @@ func buildEndpointsDataFromEndpointSliceList(epsList *discovery.EndpointSliceLis
 func buildPodEndpoint(pod k8s.PodInfo, epAddr string, port int32) PodEndpoint {
 	return PodEndpoint{
 		IP:   epAddr,
-		Port: int64(port),
+		Port: port,
 		Pod:  pod,
 	}
 }
@@ -292,7 +292,7 @@ func buildPodEndpoint(pod k8s.PodInfo, epAddr string, port int32) PodEndpoint {
 func buildNodePortEndpoint(node *corev1.Node, instanceID string, nodePort int32) NodePortEndpoint {
 	return NodePortEndpoint{
 		InstanceID: instanceID,
-		Port:       int64(nodePort),
+		Port:       nodePort,
 		Node:       node,
 	}
 }

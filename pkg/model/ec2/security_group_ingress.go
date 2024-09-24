@@ -27,9 +27,9 @@ type PrefixList struct {
 type IPPermission struct {
 	IPProtocol string `json:"ipProtocol"`
 	// +optional
-	FromPort *int64 `json:"fromPort,omitempty"`
+	FromPort *int32 `json:"fromPort,omitempty"`
 	// +optional
-	ToPort *int64 `json:"toPort,omitempty"`
+	ToPort *int32 `json:"toPort,omitempty"`
 	// +optional
 	IPRanges []IPRange `json:"ipRanges,omitempty"`
 	// +optional

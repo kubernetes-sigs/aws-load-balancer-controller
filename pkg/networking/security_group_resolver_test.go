@@ -2,11 +2,12 @@ package networking
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/smithy-go"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -16,7 +17,7 @@ import (
 func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 	type describeSecurityGroupsAsListCall struct {
 		req  *ec2sdk.DescribeSecurityGroupsInput
-		resp []*ec2sdk.SecurityGroup
+		resp []ec2types.SecurityGroup
 		err  error
 	}
 	type args struct {
@@ -43,9 +44,9 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							GroupIds: awssdk.StringSlice([]string{"sg-xx1", "sg-xx2"}),
+							GroupIds: []string{"sg-xx1", "sg-xx2"},
 						},
-						resp: []*ec2sdk.SecurityGroup{
+						resp: []ec2types.SecurityGroup{
 							{
 								GroupId: awssdk.String("sg-xx1"),
 							},
@@ -71,30 +72,30 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name: awssdk.String("tag:Name"),
-									Values: awssdk.StringSlice([]string{
+									Values: []string{
 										"sg group one",
 										"sg group two",
-									}),
+									},
 								},
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{defaultVPCID}),
+									Values: []string{defaultVPCID},
 								},
 							},
 						},
-						resp: []*ec2sdk.SecurityGroup{
+						resp: []ec2types.SecurityGroup{
 							{
 								GroupId: awssdk.String("sg-0912f63b"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{Key: awssdk.String("Name"), Value: awssdk.String("sg group one")},
 								},
 							},
 							{
 								GroupId: awssdk.String("sg-08982de7"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{Key: awssdk.String("Name"), Value: awssdk.String("sg group two")},
 								},
 							},
@@ -116,29 +117,29 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name: awssdk.String("tag:Name"),
-									Values: awssdk.StringSlice([]string{
+									Values: []string{
 										"sg group one",
-									}),
+									},
 								},
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{defaultVPCID}),
+									Values: []string{defaultVPCID},
 								},
 							},
 						},
-						resp: []*ec2sdk.SecurityGroup{
+						resp: []ec2types.SecurityGroup{
 							{
 								GroupId: awssdk.String("sg-id1"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{Key: awssdk.String("Name"), Value: awssdk.String("sg group one")},
 								},
 							},
 							{
 								GroupId: awssdk.String("sg-id2"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{Key: awssdk.String("Name"), Value: awssdk.String("sg group one")},
 								},
 							},
@@ -161,23 +162,23 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name: awssdk.String("tag:Name"),
-									Values: awssdk.StringSlice([]string{
+									Values: []string{
 										"sg group one",
-									}),
+									},
 								},
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{defaultVPCID}),
+									Values: []string{defaultVPCID},
 								},
 							},
 						},
-						resp: []*ec2sdk.SecurityGroup{
+						resp: []ec2types.SecurityGroup{
 							{
 								GroupId: awssdk.String("sg-0912f63b"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{Key: awssdk.String("Name"), Value: awssdk.String("sg group one")},
 								},
 							},
@@ -185,9 +186,9 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 					},
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							GroupIds: awssdk.StringSlice([]string{"sg-id1"}),
+							GroupIds: []string{"sg-id1"},
 						},
-						resp: []*ec2sdk.SecurityGroup{
+						resp: []ec2types.SecurityGroup{
 							{
 								GroupId: awssdk.String("sg-id1"),
 							},
@@ -209,13 +210,13 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							GroupIds: awssdk.StringSlice([]string{"sg-id"}),
+							GroupIds: []string{"sg-id"},
 						},
-						err: awserr.New("Describe.Error", "unable to describe security groups", nil),
+						err: &smithy.GenericAPIError{Code: "Describe.Error", Message: "unable to describe security groups"},
 					},
 				},
 			},
-			wantErr: errors.New("couldn't find all security groups: Describe.Error: unable to describe security groups"),
+			wantErr: errors.New("couldn't find all security groups: api error Describe.Error: unable to describe security groups"),
 		},
 		{
 			name: "describe by name returns error",
@@ -226,22 +227,22 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("tag:Name"),
-									Values: awssdk.StringSlice([]string{"sg group name"}),
+									Values: []string{"sg group name"},
 								},
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{defaultVPCID}),
+									Values: []string{defaultVPCID},
 								},
 							},
 						},
-						err: awserr.New("Describe.Error", "unable to describe security groups", nil),
+						err: &smithy.GenericAPIError{Code: "Describe.Error", Message: "unable to describe security groups"},
 					},
 				},
 			},
-			wantErr: errors.New("couldn't find all security groups: Describe.Error: unable to describe security groups"),
+			wantErr: errors.New("couldn't find all security groups: api error Describe.Error: unable to describe security groups"),
 		},
 		{
 			name: "unable to resolve security groups by id",
@@ -253,9 +254,9 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							GroupIds: awssdk.StringSlice([]string{"sg-id1", "sg-id404"}),
+							GroupIds: []string{"sg-id1", "sg-id404"},
 						},
-						resp: []*ec2sdk.SecurityGroup{
+						resp: []ec2types.SecurityGroup{
 							{
 								GroupId: awssdk.String("sg-id1"),
 							},
@@ -275,24 +276,24 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name: awssdk.String("tag:Name"),
-									Values: awssdk.StringSlice([]string{
+									Values: []string{
 										"sg group one",
 										"sg group two",
-									}),
+									},
 								},
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{defaultVPCID}),
+									Values: []string{defaultVPCID},
 								},
 							},
 						},
-						resp: []*ec2sdk.SecurityGroup{
+						resp: []ec2types.SecurityGroup{
 							{
 								GroupId: awssdk.String("sg-0912f63b"),
-								Tags: []*ec2sdk.Tag{
+								Tags: []ec2types.Tag{
 									{Key: awssdk.String("Name"), Value: awssdk.String("sg group one")},
 								},
 							},
@@ -312,24 +313,24 @@ func Test_defaultSecurityGroupResolver_ResolveViaNameOrID(t *testing.T) {
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							GroupIds: awssdk.StringSlice([]string{"sg-08982de7"}),
+							GroupIds: []string{"sg-08982de7"},
 						},
-						resp: []*ec2sdk.SecurityGroup{},
+						resp: []ec2types.SecurityGroup{},
 					},
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("tag:Name"),
-									Values: awssdk.StringSlice([]string{"sg group one"}),
+									Values: []string{"sg group one"},
 								},
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{defaultVPCID}),
+									Values: []string{defaultVPCID},
 								},
 							},
 						},
-						resp: []*ec2sdk.SecurityGroup{},
+						resp: []ec2types.SecurityGroup{},
 					},
 				},
 			},

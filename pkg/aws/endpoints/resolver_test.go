@@ -1,22 +1,22 @@
 package endpoints
 
 import (
-	"testing"
-
-	awsendpoints "github.com/aws/aws-sdk-go/aws/endpoints"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestAWSEndpointResolver_EndpointFor(t *testing.T) {
 	configuration := map[string]string{
-		awsendpoints.Ec2ServiceID:                  "https://ec2.domain.com",
-		awsendpoints.ElasticloadbalancingServiceID: "https://elbv2.domain.com",
+		ec2.ServiceID:                    "https://ec2.domain.com",
+		elasticloadbalancingv2.ServiceID: "https://elbv2.domain.com",
 	}
-	c := &resolver{
+	c := &Resolver{
 		configuration: configuration,
 	}
-
-	testRegion := "region"
 
 	type args struct {
 		val string
@@ -25,22 +25,20 @@ func TestAWSEndpointResolver_EndpointFor(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *awsendpoints.ResolvedEndpoint
+		want    *string
 		wantErr error
 	}{
 		{
 			name: "when custom endpoint is configured",
 			args: args{
-				val: awsendpoints.Ec2ServiceID,
+				val: ec2.ServiceID,
 			},
-			want: &awsendpoints.ResolvedEndpoint{
-				URL: configuration[awsendpoints.Ec2ServiceID],
-			},
+			want: aws.String(configuration[ec2.ServiceID]),
 		},
 		{
 			name: "when custom endpoint is unconfigured",
 			args: args{
-				val: awsendpoints.WafServiceID,
+				val: wafv2.ServiceID,
 			},
 			want: nil,
 		},
@@ -48,19 +46,8 @@ func TestAWSEndpointResolver_EndpointFor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			res, err := c.EndpointFor(tt.args.val, testRegion)
-			if tt.wantErr != nil {
-				assert.EqualError(t, err, tt.wantErr.Error())
-			} else {
-				assert.NoError(t, err)
-				if tt.want != nil {
-					assert.Equal(t, *tt.want, res)
-				} else {
-					defaultEndpoint, err := awsendpoints.DefaultResolver().EndpointFor(tt.args.val, testRegion)
-					assert.NoError(t, err)
-					assert.Equal(t, defaultEndpoint, res)
-				}
-			}
+			res := c.EndpointFor(tt.args.val)
+			assert.Equal(t, tt.want, res)
 		})
 	}
 }

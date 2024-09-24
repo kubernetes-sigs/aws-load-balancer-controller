@@ -2,8 +2,9 @@ package networking
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -12,14 +13,14 @@ import (
 
 // AZInfoProvider is responsible for provide AZ info.
 type AZInfoProvider interface {
-	FetchAZInfos(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2sdk.AvailabilityZone, error)
+	FetchAZInfos(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2types.AvailabilityZone, error)
 }
 
 // NewDefaultAZInfoProvider constructs new defaultAZInfoProvider.
 func NewDefaultAZInfoProvider(ec2Client services.EC2, logger logr.Logger) *defaultAZInfoProvider {
 	return &defaultAZInfoProvider{
 		ec2Client:        ec2Client,
-		azInfoCache:      make(map[string]ec2sdk.AvailabilityZone),
+		azInfoCache:      make(map[string]ec2types.AvailabilityZone),
 		azInfoCacheMutex: sync.RWMutex{},
 		logger:           logger,
 	}
@@ -31,13 +32,13 @@ var _ AZInfoProvider = &defaultAZInfoProvider{}
 // AZ info for each zone is cached indefinitely.
 type defaultAZInfoProvider struct {
 	ec2Client        services.EC2
-	azInfoCache      map[string]ec2sdk.AvailabilityZone
+	azInfoCache      map[string]ec2types.AvailabilityZone
 	azInfoCacheMutex sync.RWMutex
 
 	logger logr.Logger
 }
 
-func (p *defaultAZInfoProvider) FetchAZInfos(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2sdk.AvailabilityZone, error) {
+func (p *defaultAZInfoProvider) FetchAZInfos(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2types.AvailabilityZone, error) {
 	azInfoByAZID := p.fetchAZInfosFromCache(availabilityZoneIDs)
 	azIDsWithoutAZInfo := computeAZIDsWithoutAZInfo(availabilityZoneIDs, azInfoByAZID)
 	if len(azIDsWithoutAZInfo) == 0 {
@@ -62,11 +63,11 @@ func (p *defaultAZInfoProvider) FetchAZInfos(ctx context.Context, availabilityZo
 	return azInfoByAZID, nil
 }
 
-func (p *defaultAZInfoProvider) fetchAZInfosFromCache(availabilityZoneIDs []string) map[string]ec2sdk.AvailabilityZone {
+func (p *defaultAZInfoProvider) fetchAZInfosFromCache(availabilityZoneIDs []string) map[string]ec2types.AvailabilityZone {
 	p.azInfoCacheMutex.RLock()
 	defer p.azInfoCacheMutex.RUnlock()
 
-	azInfoByAZID := make(map[string]ec2sdk.AvailabilityZone)
+	azInfoByAZID := make(map[string]ec2types.AvailabilityZone)
 	for _, azID := range availabilityZoneIDs {
 		if azInfo, exists := p.azInfoCache[azID]; exists {
 			azInfoByAZID[azID] = azInfo
@@ -75,7 +76,7 @@ func (p *defaultAZInfoProvider) fetchAZInfosFromCache(availabilityZoneIDs []stri
 	return azInfoByAZID
 }
 
-func (p *defaultAZInfoProvider) saveAZInfosToCache(azInfoByAZID map[string]ec2sdk.AvailabilityZone) {
+func (p *defaultAZInfoProvider) saveAZInfosToCache(azInfoByAZID map[string]ec2types.AvailabilityZone) {
 	p.azInfoCacheMutex.Lock()
 	defer p.azInfoCacheMutex.Unlock()
 
@@ -86,23 +87,23 @@ func (p *defaultAZInfoProvider) saveAZInfosToCache(azInfoByAZID map[string]ec2sd
 
 // fetchAZInfosFromAWS will fetch AZ info from AWS API.
 // the availabilityZoneIDs shouldn't be empty.
-func (p *defaultAZInfoProvider) fetchAZInfosFromAWS(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2sdk.AvailabilityZone, error) {
+func (p *defaultAZInfoProvider) fetchAZInfosFromAWS(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2types.AvailabilityZone, error) {
 	req := &ec2sdk.DescribeAvailabilityZonesInput{
-		ZoneIds: awssdk.StringSlice(availabilityZoneIDs),
+		ZoneIds: availabilityZoneIDs,
 	}
 	resp, err := p.ec2Client.DescribeAvailabilityZonesWithContext(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	azInfoByAZID := make(map[string]ec2sdk.AvailabilityZone)
+	azInfoByAZID := make(map[string]ec2types.AvailabilityZone)
 	for _, azInfo := range resp.AvailabilityZones {
-		azInfoByAZID[awssdk.StringValue(azInfo.ZoneId)] = *azInfo
+		azInfoByAZID[awssdk.ToString(azInfo.ZoneId)] = azInfo
 	}
 	return azInfoByAZID, nil
 }
 
 // computeAZIDsWithoutAZInfo computes az IDs that don't have az Info.
-func computeAZIDsWithoutAZInfo(availabilityZoneIDs []string, azInfoByAZID map[string]ec2sdk.AvailabilityZone) []string {
+func computeAZIDsWithoutAZInfo(availabilityZoneIDs []string, azInfoByAZID map[string]ec2types.AvailabilityZone) []string {
 	azIDsWithoutAZInfo := make([]string, 0, len(availabilityZoneIDs)-len(azInfoByAZID))
 	for _, azID := range availabilityZoneIDs {
 		if _, ok := azInfoByAZID[azID]; !ok {

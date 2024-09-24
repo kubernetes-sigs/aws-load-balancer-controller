@@ -1,8 +1,8 @@
 package targetgroupbinding
 
 import (
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -16,9 +16,9 @@ func TestTargetInfo_IsHealthy(t *testing.T) {
 		{
 			name: "target with unknown TargetHealth",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
 				TargetHealth: nil,
 			},
@@ -27,13 +27,13 @@ func TestTargetInfo_IsHealthy(t *testing.T) {
 		{
 			name: "target with initial state and elbRegistrationInProgress reason",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
-				TargetHealth: &elbv2sdk.TargetHealth{
-					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+				TargetHealth: &elbv2types.TargetHealth{
+					Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+					State:  elbv2types.TargetHealthStateEnumInitial,
 				},
 			},
 			want: false,
@@ -41,12 +41,12 @@ func TestTargetInfo_IsHealthy(t *testing.T) {
 		{
 			name: "target with healthy state",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
-				TargetHealth: &elbv2sdk.TargetHealth{
-					State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+				TargetHealth: &elbv2types.TargetHealth{
+					State: elbv2types.TargetHealthStateEnumHealthy,
 				},
 			},
 			want: true,
@@ -54,13 +54,13 @@ func TestTargetInfo_IsHealthy(t *testing.T) {
 		{
 			name: "target with unhealthy state and targetTimeout reason",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
-				TargetHealth: &elbv2sdk.TargetHealth{
-					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+				TargetHealth: &elbv2types.TargetHealth{
+					Reason: elbv2types.TargetHealthReasonEnumTimeout,
+					State:  elbv2types.TargetHealthStateEnumUnhealthy,
 				},
 			},
 			want: false,
@@ -83,9 +83,9 @@ func TestTargetInfo_IsNotRegistered(t *testing.T) {
 		{
 			name: "target with unknown TargetHealth",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
 				TargetHealth: nil,
 			},
@@ -94,13 +94,13 @@ func TestTargetInfo_IsNotRegistered(t *testing.T) {
 		{
 			name: "target with unused state and targetNotInUse reason",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
-				TargetHealth: &elbv2sdk.TargetHealth{
-					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetNotInUse),
-					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnused),
+				TargetHealth: &elbv2types.TargetHealth{
+					Reason: elbv2types.TargetHealthReasonEnumNotInUse,
+					State:  elbv2types.TargetHealthStateEnumUnused,
 				},
 			},
 			want: false,
@@ -108,13 +108,13 @@ func TestTargetInfo_IsNotRegistered(t *testing.T) {
 		{
 			name: "target with unused state and targetNotRegistered reason",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
-				TargetHealth: &elbv2sdk.TargetHealth{
-					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetNotRegistered),
-					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnused),
+				TargetHealth: &elbv2types.TargetHealth{
+					Reason: elbv2types.TargetHealthReasonEnumNotRegistered,
+					State:  elbv2types.TargetHealthStateEnumUnused,
 				},
 			},
 			want: true,
@@ -137,13 +137,13 @@ func TestTargetInfo_IsInitial(t *testing.T) {
 		{
 			name: "target with initial state and initial healthCheck reason",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
-				TargetHealth: &elbv2sdk.TargetHealth{
-					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbInitialHealthChecking),
-					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+				TargetHealth: &elbv2types.TargetHealth{
+					Reason: elbv2types.TargetHealthReasonEnumInitialHealthChecking,
+					State:  elbv2types.TargetHealthStateEnumInitial,
 				},
 			},
 			want: true,
@@ -151,13 +151,13 @@ func TestTargetInfo_IsInitial(t *testing.T) {
 		{
 			name: "target with initial state and elb registrationInProgress reason",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
-				TargetHealth: &elbv2sdk.TargetHealth{
-					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+				TargetHealth: &elbv2types.TargetHealth{
+					Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+					State:  elbv2types.TargetHealthStateEnumInitial,
 				},
 			},
 			want: true,
@@ -165,9 +165,9 @@ func TestTargetInfo_IsInitial(t *testing.T) {
 		{
 			name: "target with unknown TargetHealth",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
 				TargetHealth: nil,
 			},
@@ -176,13 +176,13 @@ func TestTargetInfo_IsInitial(t *testing.T) {
 		{
 			name: "target with unused state and targetNotInUse reason",
 			target: TargetInfo{
-				Target: elbv2sdk.TargetDescription{
+				Target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
-				TargetHealth: &elbv2sdk.TargetHealth{
-					Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetNotInUse),
-					State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnused),
+				TargetHealth: &elbv2types.TargetHealth{
+					Reason: elbv2types.TargetHealthReasonEnumNotInUse,
+					State:  elbv2types.TargetHealthStateEnumUnused,
 				},
 			},
 			want: false,
@@ -198,7 +198,7 @@ func TestTargetInfo_IsInitial(t *testing.T) {
 
 func TestUniqueIDForTargetDescription(t *testing.T) {
 	type args struct {
-		target elbv2sdk.TargetDescription
+		target elbv2types.TargetDescription
 	}
 	tests := []struct {
 		name string
@@ -208,9 +208,9 @@ func TestUniqueIDForTargetDescription(t *testing.T) {
 		{
 			name: "instance target",
 			args: args{
-				target: elbv2sdk.TargetDescription{
+				target: elbv2types.TargetDescription{
 					Id:   awssdk.String("i-038a5c60b6c3c7799"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
 			},
 			want: "i-038a5c60b6c3c7799:8080",
@@ -218,9 +218,9 @@ func TestUniqueIDForTargetDescription(t *testing.T) {
 		{
 			name: "instance target - with AZ info",
 			args: args{
-				target: elbv2sdk.TargetDescription{
+				target: elbv2types.TargetDescription{
 					Id:               awssdk.String("i-038a5c60b6c3c7799"),
-					Port:             awssdk.Int64(8080),
+					Port:             awssdk.Int32(8080),
 					AvailabilityZone: awssdk.String("all"),
 				},
 			},
@@ -229,9 +229,9 @@ func TestUniqueIDForTargetDescription(t *testing.T) {
 		{
 			name: "ip target",
 			args: args{
-				target: elbv2sdk.TargetDescription{
+				target: elbv2types.TargetDescription{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
 			},
 			want: "192.168.1.1:8080",
@@ -239,9 +239,9 @@ func TestUniqueIDForTargetDescription(t *testing.T) {
 		{
 			name: "ip target - with AZ info",
 			args: args{
-				target: elbv2sdk.TargetDescription{
+				target: elbv2types.TargetDescription{
 					Id:               awssdk.String("192.168.1.1"),
-					Port:             awssdk.Int64(8080),
+					Port:             awssdk.Int32(8080),
 					AvailabilityZone: awssdk.String("all"),
 				},
 			},

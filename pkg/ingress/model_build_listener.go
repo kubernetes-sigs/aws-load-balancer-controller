@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"k8s.io/utils/strings/slices"
 	"net"
 	"strings"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,7 +21,7 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []ClassifiedIngress) (*elbv2model.Listener, error) {
+func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.StringToken, port int32, config listenPortConfig, ingList []ClassifiedIngress) (*elbv2model.Listener, error) {
 	lsSpec, err := t.buildListenerSpec(ctx, lbARN, port, config, ingList)
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func (t *defaultModelBuildTask) buildListener(ctx context.Context, lbARN core.St
 	return ls, nil
 }
 
-func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN core.StringToken, port int64, config listenPortConfig, ingList []ClassifiedIngress) (elbv2model.ListenerSpec, error) {
+func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN core.StringToken, port int32, config listenPortConfig, ingList []ClassifiedIngress) (elbv2model.ListenerSpec, error) {
 	defaultActions, err := t.buildListenerDefaultActions(ctx, config.protocol, ingList)
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
@@ -109,7 +109,7 @@ type listenPortConfig struct {
 	mutualAuthentication *elbv2model.MutualAuthenticationAttributes
 }
 
-func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int64]listenPortConfig, error) {
+func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int32]listenPortConfig, error) {
 	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing)
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
 	var prefixListIDs []string
@@ -143,7 +143,7 @@ func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context
 		}
 	}
 
-	listenPortConfigByPort := make(map[int64]listenPortConfig, len(listenPorts))
+	listenPortConfigByPort := make(map[int32]listenPortConfig, len(listenPorts))
 	for port, protocol := range listenPorts {
 		cfg := listenPortConfig{
 			protocol:       protocol,
@@ -188,16 +188,16 @@ func (t *defaultModelBuildTask) computeIngressInferredTLSCertARNs(ctx context.Co
 	return t.certDiscovery.Discover(ctx, hosts.List())
 }
 
-func (t *defaultModelBuildTask) computeIngressListenPorts(_ context.Context, ing *networking.Ingress, preferTLS bool) (map[int64]elbv2model.Protocol, error) {
+func (t *defaultModelBuildTask) computeIngressListenPorts(_ context.Context, ing *networking.Ingress, preferTLS bool) (map[int32]elbv2model.Protocol, error) {
 	rawListenPorts := ""
 	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixListenPorts, &rawListenPorts, ing.Annotations); !exists {
 		if preferTLS {
-			return map[int64]elbv2model.Protocol{443: elbv2model.ProtocolHTTPS}, nil
+			return map[int32]elbv2model.Protocol{443: elbv2model.ProtocolHTTPS}, nil
 		}
-		return map[int64]elbv2model.Protocol{80: elbv2model.ProtocolHTTP}, nil
+		return map[int32]elbv2model.Protocol{80: elbv2model.ProtocolHTTP}, nil
 	}
 
-	var entries []map[string]int64
+	var entries []map[string]int32
 	if err := json.Unmarshal([]byte(rawListenPorts), &entries); err != nil {
 		return nil, errors.Wrapf(err, "failed to parse listen-ports configuration: `%s`", rawListenPorts)
 	}
@@ -205,7 +205,7 @@ func (t *defaultModelBuildTask) computeIngressListenPorts(_ context.Context, ing
 		return nil, errors.Errorf("empty listen-ports configuration: `%s`", rawListenPorts)
 	}
 
-	portAndProtocols := make(map[int64]elbv2model.Protocol, len(entries))
+	portAndProtocols := make(map[int32]elbv2model.Protocol, len(entries))
 	for _, entry := range entries {
 		for protocol, port := range entry {
 			// Verify port value is valid for ALB: [1, 65535]
@@ -265,13 +265,13 @@ func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Contex
 }
 
 type MutualAuthenticationConfig struct {
-	Port                          int64   `json:"port"`
+	Port                          int32   `json:"port"`
 	Mode                          string  `json:"mode"`
 	TrustStore                    *string `json:"trustStore,omitempty"`
 	IgnoreClientCertificateExpiry *bool   `json:"ignoreClientCertificateExpiry,omitempty"`
 }
 
-func (t *defaultModelBuildTask) computeIngressMutualAuthentication(ctx context.Context, ing *ClassifiedIngress) (map[int64]*elbv2model.MutualAuthenticationAttributes, error) {
+func (t *defaultModelBuildTask) computeIngressMutualAuthentication(ctx context.Context, ing *ClassifiedIngress) (map[int32]*elbv2model.MutualAuthenticationAttributes, error) {
 	var rawMtlsConfigString string
 	if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixMutualAuthentication, &rawMtlsConfigString, ing.Ing.Annotations); !exists {
 		return nil, nil
@@ -297,13 +297,13 @@ func (t *defaultModelBuildTask) computeIngressMutualAuthentication(ctx context.C
 	return parsedPortAndMtlsAttributes, nil
 }
 
-func (t *defaultModelBuildTask) parseMtlsConfigEntries(_ context.Context, entries []MutualAuthenticationConfig) (map[int64]*elbv2model.MutualAuthenticationAttributes, error) {
-	portAndMtlsAttributes := make(map[int64]*elbv2model.MutualAuthenticationAttributes, len(entries))
+func (t *defaultModelBuildTask) parseMtlsConfigEntries(_ context.Context, entries []MutualAuthenticationConfig) (map[int32]*elbv2model.MutualAuthenticationAttributes, error) {
+	portAndMtlsAttributes := make(map[int32]*elbv2model.MutualAuthenticationAttributes, len(entries))
 
 	for _, mutualAuthenticationConfig := range entries {
 		port := mutualAuthenticationConfig.Port
 		mode := mutualAuthenticationConfig.Mode
-		truststoreNameOrArn := awssdk.StringValue(mutualAuthenticationConfig.TrustStore)
+		truststoreNameOrArn := awssdk.ToString(mutualAuthenticationConfig.TrustStore)
 		ignoreClientCert := mutualAuthenticationConfig.IgnoreClientCertificateExpiry
 
 		err := t.validateMutualAuthenticationConfig(port, mode, truststoreNameOrArn, ignoreClientCert)
@@ -319,7 +319,7 @@ func (t *defaultModelBuildTask) parseMtlsConfigEntries(_ context.Context, entrie
 	return portAndMtlsAttributes, nil
 }
 
-func (t *defaultModelBuildTask) validateMutualAuthenticationConfig(port int64, mode string, truststoreNameOrArn string, ignoreClientCert *bool) error {
+func (t *defaultModelBuildTask) validateMutualAuthenticationConfig(port int32, mode string, truststoreNameOrArn string, ignoreClientCert *bool) error {
 	// Verify port value is valid for ALB: [1, 65535]
 	if port < 1 || port > 65535 {
 		return errors.Errorf("listen port must be within [1, 65535]: %v", port)
@@ -349,13 +349,13 @@ func (t *defaultModelBuildTask) validateMutualAuthenticationConfig(port int64, m
 	return nil
 }
 
-func (t *defaultModelBuildTask) parseMtlsAttributesForTrustStoreNames(ctx context.Context, portAndMtlsAttributes map[int64]*elbv2model.MutualAuthenticationAttributes) (map[int64]*elbv2model.MutualAuthenticationAttributes, error) {
+func (t *defaultModelBuildTask) parseMtlsAttributesForTrustStoreNames(ctx context.Context, portAndMtlsAttributes map[int32]*elbv2model.MutualAuthenticationAttributes) (map[int32]*elbv2model.MutualAuthenticationAttributes, error) {
 	var trustStoreNames []string
-	trustStoreNameAndPortMap := make(map[string][]int64)
+	trustStoreNameAndPortMap := make(map[string][]int32)
 
 	for port, attributes := range portAndMtlsAttributes {
 		mode := attributes.Mode
-		truststoreNameOrArn := awssdk.StringValue(attributes.TrustStoreArn)
+		truststoreNameOrArn := awssdk.ToString(attributes.TrustStoreArn)
 		if mode == string(elbv2model.MutualAuthenticationVerifyMode) && !strings.HasPrefix(truststoreNameOrArn, "arn:") {
 			trustStoreNameAndPortMap[truststoreNameOrArn] = append(trustStoreNameAndPortMap[truststoreNameOrArn], port)
 		}
@@ -372,7 +372,7 @@ func (t *defaultModelBuildTask) parseMtlsAttributesForTrustStoreNames(ctx contex
 		for name, ports := range trustStoreNameAndPortMap {
 			for _, port := range ports {
 				attributes := portAndMtlsAttributes[port]
-				if awssdk.StringValue(attributes.TrustStoreArn) != "" {
+				if awssdk.ToString(attributes.TrustStoreArn) != "" {
 					attributes.TrustStoreArn = tsNameAndArnMap[name]
 				}
 				portAndMtlsAttributes[port] = attributes
@@ -385,7 +385,7 @@ func (t *defaultModelBuildTask) parseMtlsAttributesForTrustStoreNames(ctx contex
 func (t *defaultModelBuildTask) fetchTrustStoreArnFromName(ctx context.Context, trustStoreNames []string) (map[string]*string, error) {
 	tsNameAndArnMap := make(map[string]*string, len(trustStoreNames))
 	req := &elbv2sdk.DescribeTrustStoresInput{
-		Names: awssdk.StringSlice(trustStoreNames),
+		Names: trustStoreNames,
 	}
 	trustStores, err := t.elbv2Client.DescribeTrustStoresWithContext(ctx, req)
 	if err != nil {
@@ -396,7 +396,7 @@ func (t *defaultModelBuildTask) fetchTrustStoreArnFromName(ctx context.Context, 
 	}
 	for _, tsName := range trustStoreNames {
 		for _, ts := range trustStores.TrustStores {
-			if tsName == awssdk.StringValue(ts.Name) {
+			if tsName == awssdk.ToString(ts.Name) {
 				tsNameAndArnMap[tsName] = ts.TrustStoreArn
 			}
 		}

@@ -3,7 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -108,7 +108,7 @@ func (t *defaultModelBuildTask) buildForwardAction(ctx context.Context, ing Clas
 		} else {
 			svcKey := types.NamespacedName{
 				Namespace: ing.Ing.Namespace,
-				Name:      awssdk.StringValue(tgt.ServiceName),
+				Name:      awssdk.ToString(tgt.ServiceName),
 			}
 			svc := t.backendServices[svcKey]
 			tg, err := t.buildTargetGroup(ctx, ing, svc, *tgt.ServicePort)
@@ -151,7 +151,7 @@ func (t *defaultModelBuildTask) buildAuthenticateCognitoAction(_ context.Context
 			UserPoolClientID:                 authCfg.IDPConfigCognito.UserPoolClientID,
 			UserPoolDomain:                   authCfg.IDPConfigCognito.UserPoolDomain,
 			AuthenticationRequestExtraParams: authCfg.IDPConfigCognito.AuthenticationRequestExtraParams,
-			OnUnauthenticatedRequest:         &onUnauthenticatedRequest,
+			OnUnauthenticatedRequest:         onUnauthenticatedRequest,
 			Scope:                            &authCfg.Scope,
 			SessionCookieName:                &authCfg.SessionCookieName,
 			SessionTimeout:                   &authCfg.SessionTimeout,
@@ -198,7 +198,7 @@ func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context,
 			ClientID:                         clientID,
 			ClientSecret:                     clientSecret,
 			AuthenticationRequestExtraParams: authCfg.IDPConfigOIDC.AuthenticationRequestExtraParams,
-			OnUnauthenticatedRequest:         &onUnauthenticatedRequest,
+			OnUnauthenticatedRequest:         onUnauthenticatedRequest,
 			Scope:                            &authCfg.Scope,
 			SessionCookieName:                &authCfg.SessionCookieName,
 			SessionTimeout:                   &authCfg.SessionTimeout,

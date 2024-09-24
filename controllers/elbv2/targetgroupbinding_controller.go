@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	discv1 "k8s.io/api/discovery/v1"
@@ -138,7 +138,7 @@ func (r *targetGroupBindingReconciler) cleanupTargetGroupBinding(ctx context.Con
 }
 
 func (r *targetGroupBindingReconciler) updateTargetGroupBindingStatus(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	if aws.Int64Value(tgb.Status.ObservedGeneration) == tgb.Generation {
+	if aws.ToInt64(tgb.Status.ObservedGeneration) == tgb.Generation {
 		return nil
 	}
 	tgbOld := tgb.DeepCopy()

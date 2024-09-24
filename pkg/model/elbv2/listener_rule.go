@@ -130,7 +130,7 @@ type ListenerRuleSpec struct {
 	// The Amazon Resource Name (ARN) of the listener.
 	ListenerARN core.StringToken `json:"listenerARN"`
 	// The rule priority.
-	Priority int64 `json:"priority"`
+	Priority int32 `json:"priority"`
 	// The actions.
 	Actions []Action `json:"actions"`
 	// The conditions.

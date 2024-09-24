@@ -2,12 +2,13 @@ package networking
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"strings"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/pkg/errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
@@ -34,7 +35,7 @@ type defaultSecurityGroupResolver struct {
 }
 
 func (r *defaultSecurityGroupResolver) ResolveViaNameOrID(ctx context.Context, sgNameOrIDs []string) ([]string, error) {
-	var resolvedSGs []*ec2sdk.SecurityGroup
+	var resolvedSGs []ec2types.SecurityGroup
 	var errMessages []string
 
 	sgIDs, sgNames := r.splitIntoSgNameAndIDs(sgNameOrIDs)
@@ -63,15 +64,15 @@ func (r *defaultSecurityGroupResolver) ResolveViaNameOrID(ctx context.Context, s
 
 	resolvedSGIDs := make([]string, 0, len(resolvedSGs))
 	for _, sg := range resolvedSGs {
-		resolvedSGIDs = append(resolvedSGIDs, awssdk.StringValue(sg.GroupId))
+		resolvedSGIDs = append(resolvedSGIDs, awssdk.ToString(sg.GroupId))
 	}
 
 	return resolvedSGIDs, nil
 }
 
-func (r *defaultSecurityGroupResolver) resolveViaGroupID(ctx context.Context, sgIDs []string) ([]*ec2sdk.SecurityGroup, error) {
+func (r *defaultSecurityGroupResolver) resolveViaGroupID(ctx context.Context, sgIDs []string) ([]ec2types.SecurityGroup, error) {
 	req := &ec2sdk.DescribeSecurityGroupsInput{
-		GroupIds: awssdk.StringSlice(sgIDs),
+		GroupIds: sgIDs,
 	}
 
 	sgs, err := r.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
@@ -81,7 +82,7 @@ func (r *defaultSecurityGroupResolver) resolveViaGroupID(ctx context.Context, sg
 
 	resolvedSGIDs := make([]string, 0, len(sgs))
 	for _, sg := range sgs {
-		resolvedSGIDs = append(resolvedSGIDs, awssdk.StringValue(sg.GroupId))
+		resolvedSGIDs = append(resolvedSGIDs, awssdk.ToString(sg.GroupId))
 	}
 
 	if len(sgIDs) != len(resolvedSGIDs) {
@@ -91,18 +92,18 @@ func (r *defaultSecurityGroupResolver) resolveViaGroupID(ctx context.Context, sg
 	return sgs, nil
 }
 
-func (r *defaultSecurityGroupResolver) resolveViaGroupName(ctx context.Context, sgNames []string) ([]*ec2sdk.SecurityGroup, error) {
+func (r *defaultSecurityGroupResolver) resolveViaGroupName(ctx context.Context, sgNames []string) ([]ec2types.SecurityGroup, error) {
 	sgNames = algorithm.RemoveSliceDuplicates(sgNames)
 
 	req := &ec2sdk.DescribeSecurityGroupsInput{
-		Filters: []*ec2sdk.Filter{
+		Filters: []ec2types.Filter{
 			{
 				Name:   awssdk.String("tag:Name"),
-				Values: awssdk.StringSlice(sgNames),
+				Values: sgNames,
 			},
 			{
 				Name:   awssdk.String("vpc-id"),
-				Values: awssdk.StringSlice([]string{r.vpcID}),
+				Values: []string{r.vpcID},
 			},
 		},
 	}
@@ -115,8 +116,8 @@ func (r *defaultSecurityGroupResolver) resolveViaGroupName(ctx context.Context, 
 	resolvedSGNames := make([]string, 0, len(sgs))
 	for _, sg := range sgs {
 		for _, tag := range sg.Tags {
-			if awssdk.StringValue(tag.Key) == "Name" {
-				resolvedSGNames = append(resolvedSGNames, awssdk.StringValue(tag.Value))
+			if awssdk.ToString(tag.Key) == "Name" {
+				resolvedSGNames = append(resolvedSGNames, awssdk.ToString(tag.Value))
 			}
 		}
 	}

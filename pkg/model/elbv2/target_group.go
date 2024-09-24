@@ -81,7 +81,7 @@ type TargetGroupHealthCheckConfig struct {
 
 	// The protocol the load balancer uses when performing health checks on targets.
 	// +optional
-	Protocol *Protocol `json:"protocol,omitempty"`
+	Protocol Protocol `json:"protocol,omitempty"`
 
 	// [HTTP/HTTPS health checks] The ping path that is the destination on the targets for health checks.
 	// +optional
@@ -93,19 +93,19 @@ type TargetGroupHealthCheckConfig struct {
 
 	// The approximate amount of time, in seconds, between health checks of an individual target.
 	// +optional
-	IntervalSeconds *int64 `json:"intervalSeconds,omitempty"`
+	IntervalSeconds *int32 `json:"intervalSeconds,omitempty"`
 
 	// The amount of time, in seconds, during which no response from a target means a failed health check.
 	// +optional
-	TimeoutSeconds *int64 `json:"timeoutSeconds,omitempty"`
+	TimeoutSeconds *int32 `json:"timeoutSeconds,omitempty"`
 
 	// The number of consecutive health checks successes required before considering an unhealthy target healthy.
 	// +optional
-	HealthyThresholdCount *int64 `json:"healthyThresholdCount,omitempty"`
+	HealthyThresholdCount *int32 `json:"healthyThresholdCount,omitempty"`
 
 	// The number of consecutive health check failures required before considering a target unhealthy.
 	// +optional
-	UnhealthyThresholdCount *int64 `json:"unhealthyThresholdCount,omitempty"`
+	UnhealthyThresholdCount *int32 `json:"unhealthyThresholdCount,omitempty"`
 }
 
 // Specifies a target group attribute.
@@ -126,7 +126,7 @@ type TargetGroupSpec struct {
 	TargetType TargetType `json:"targetType"`
 
 	// The port on which the targets receive traffic.
-	Port int64 `json:"port"`
+	Port *int32 `json:"port"`
 
 	// The protocol to use for routing traffic to the targets.
 	Protocol Protocol `json:"protocol"`
@@ -137,7 +137,7 @@ type TargetGroupSpec struct {
 
 	// Target group IP address type IPv4 or IPv6
 	// +optional
-	IPAddressType *TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
+	IPAddressType TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
 
 	// Configuration for TargetGroup's HealthCheck.
 	// +optional

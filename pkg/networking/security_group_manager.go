@@ -2,8 +2,9 @@ package networking
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -97,7 +98,7 @@ func (m *defaultSecurityGroupManager) FetchSGInfosByID(ctx context.Context, sgID
 	unFetchedSGIDs := sgIDsSet.Difference(fetchedSGIDsSet).List()
 	if len(unFetchedSGIDs) > 0 {
 		req := &ec2sdk.DescribeSecurityGroupsInput{
-			GroupIds: awssdk.StringSlice(unFetchedSGIDs),
+			GroupIds: unFetchedSGIDs,
 		}
 		sgInfoByIDFromAWS, err := m.fetchSGInfosFromAWS(ctx, req)
 		if err != nil {
@@ -200,7 +201,7 @@ func (m *defaultSecurityGroupManager) fetchSGInfosFromAWS(ctx context.Context, r
 	}
 	sgInfoByID := make(map[string]SecurityGroupInfo, len(sgs))
 	for _, sg := range sgs {
-		sgID := awssdk.StringValue(sg.GroupId)
+		sgID := awssdk.ToString(sg.GroupId)
 		sgInfo := NewRawSecurityGroupInfo(sg)
 		sgInfoByID[sgID] = sgInfo
 	}
@@ -209,13 +210,13 @@ func (m *defaultSecurityGroupManager) fetchSGInfosFromAWS(ctx context.Context, r
 
 // buildSDKIPPermissions converts slice of IPPermissionInfo into slice of pointers to IPPermission
 // if targets is empty or nil, nil will be returned.
-func buildSDKIPPermissions(permissions []IPPermissionInfo) []*ec2sdk.IpPermission {
+func buildSDKIPPermissions(permissions []IPPermissionInfo) []ec2types.IpPermission {
 	if len(permissions) == 0 {
 		return nil
 	}
-	sdkPermissions := make([]*ec2sdk.IpPermission, 0, len(permissions))
+	sdkPermissions := make([]ec2types.IpPermission, 0, len(permissions))
 	for i := range permissions {
-		sdkPermissions = append(sdkPermissions, &permissions[i].Permission)
+		sdkPermissions = append(sdkPermissions, permissions[i].Permission)
 	}
 	return sdkPermissions
 }

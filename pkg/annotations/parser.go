@@ -44,6 +44,10 @@ type Parser interface {
 	// returns whether annotation exists and parser error if any.
 	ParseInt64Annotation(annotation string, value *int64, annotations map[string]string, opts ...ParseOption) (bool, error)
 
+	// ParseInt32Annotation parses annotation into int32 value,
+	// returns whether annotation exists and parser error if any.
+	ParseInt32Annotation(annotation string, value *int32, annotations map[string]string, opts ...ParseOption) (bool, error)
+
 	// ParseStringSliceAnnotation parses comma separated values from the annotation into string slice
 	// returns true if the annotation exists
 	ParseStringSliceAnnotation(annotation string, value *[]string, annotations map[string]string, opts ...ParseOption) bool
@@ -103,6 +107,20 @@ func (p *suffixAnnotationParser) ParseInt64Annotation(annotation string, value *
 		return true, errors.Wrapf(err, "failed to parse int64 annotation, %v: %v", matchedKey, raw)
 	}
 	*value = i
+	return true, nil
+}
+
+func (p *suffixAnnotationParser) ParseInt32Annotation(annotation string, value *int32, annotations map[string]string, opts ...ParseOption) (bool, error) {
+	raw := ""
+	exists, matchedKey := p.parseStringAnnotation(annotation, &raw, annotations, opts...)
+	if !exists {
+		return false, nil
+	}
+	i, err := strconv.ParseInt(raw, 10, 32)
+	if err != nil {
+		return true, errors.Wrapf(err, "failed to parse int32 annotation, %v: %v", matchedKey, raw)
+	}
+	*value = int32(i)
 	return true, nil
 }
 

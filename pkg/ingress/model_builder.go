@@ -2,11 +2,11 @@ package ingress
 
 import (
 	"context"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"reflect"
 	"strconv"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -206,10 +206,10 @@ type defaultModelBuildTask struct {
 	defaultBackendProtocolVersion             elbv2model.ProtocolVersion
 	defaultHealthCheckPathHTTP                string
 	defaultHealthCheckPathGRPC                string
-	defaultHealthCheckTimeoutSeconds          int64
-	defaultHealthCheckIntervalSeconds         int64
-	defaultHealthCheckHealthyThresholdCount   int64
-	defaultHealthCheckUnhealthyThresholdCount int64
+	defaultHealthCheckTimeoutSeconds          int32
+	defaultHealthCheckIntervalSeconds         int32
+	defaultHealthCheckHealthyThresholdCount   int32
+	defaultHealthCheckUnhealthyThresholdCount int32
 	defaultHealthCheckMatcherHTTPCode         string
 	defaultHealthCheckMatcherGRPCCode         string
 
@@ -235,8 +235,8 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 		return nil
 	}
 
-	ingListByPort := make(map[int64][]ClassifiedIngress)
-	listenPortConfigsByPort := make(map[int64][]listenPortConfigWithIngress)
+	ingListByPort := make(map[int32][]ClassifiedIngress)
+	listenPortConfigsByPort := make(map[int32][]listenPortConfigWithIngress)
 	for _, member := range t.ingGroup.Members {
 		ingKey := k8s.NamespacedName(member.Ing)
 		listenPortConfigByPortForIngress, err := t.computeIngressListenPortConfigByPort(ctx, &member)
@@ -252,7 +252,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 		}
 	}
 
-	listenPortConfigByPort := make(map[int64]listenPortConfig)
+	listenPortConfigByPort := make(map[int32]listenPortConfig)
 	for port, cfgs := range listenPortConfigsByPort {
 		mergedCfg, err := t.mergeListenPortConfigs(ctx, cfgs)
 		if err != nil {
@@ -347,9 +347,9 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 			if mergedSSLPolicyProvider == nil {
 				mergedSSLPolicyProvider = &cfg.ingKey
 				mergedSSLPolicy = cfg.listenPortConfig.sslPolicy
-			} else if awssdk.StringValue(mergedSSLPolicy) != awssdk.StringValue(cfg.listenPortConfig.sslPolicy) {
+			} else if awssdk.ToString(mergedSSLPolicy) != awssdk.ToString(cfg.listenPortConfig.sslPolicy) {
 				return listenPortConfig{}, errors.Errorf("conflicting sslPolicy, %v: %v | %v: %v",
-					*mergedSSLPolicyProvider, awssdk.StringValue(mergedSSLPolicy), cfg.ingKey, awssdk.StringValue(cfg.listenPortConfig.sslPolicy))
+					*mergedSSLPolicyProvider, awssdk.ToString(mergedSSLPolicy), cfg.ingKey, awssdk.ToString(cfg.listenPortConfig.sslPolicy))
 			}
 		}
 
@@ -393,11 +393,11 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 }
 
 // buildSSLRedirectConfig computes the SSLRedirect config for the IngressGroup. Returns nil if there is no SSLRedirect configured.
-func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig) (*SSLRedirectConfig, error) {
-	explicitSSLRedirectPorts := sets.Int64{}
+func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig) (*SSLRedirectConfig, error) {
+	explicitSSLRedirectPorts := sets.Int32{}
 	for _, member := range t.ingGroup.Members {
-		var rawSSLRedirectPort int64
-		exists, err := t.annotationParser.ParseInt64Annotation(annotations.IngressSuffixSSLRedirect, &rawSSLRedirectPort, member.Ing.Annotations)
+		var rawSSLRedirectPort int32
+		exists, err := t.annotationParser.ParseInt32Annotation(annotations.IngressSuffixSSLRedirect, &rawSSLRedirectPort, member.Ing.Annotations)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(member.Ing))
 		}
@@ -421,7 +421,7 @@ func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, list
 
 	return &SSLRedirectConfig{
 		SSLPort:    rawSSLRedirectPort,
-		StatusCode: elbv2sdk.RedirectActionStatusCodeEnumHttp301,
+		StatusCode: string(elbv2types.RedirectActionStatusCodeEnumHttp301),
 	}, nil
 }
 

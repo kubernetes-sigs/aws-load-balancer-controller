@@ -2,8 +2,8 @@ package wafv2
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	wafv2sdk "github.com/aws/aws-sdk-go/service/wafv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	wafv2sdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -97,7 +97,7 @@ func (m *defaultWebACLAssociationManager) GetAssociatedWebACL(ctx context.Contex
 	}
 	var webACLARN string
 	if resp.WebACL != nil {
-		webACLARN = awssdk.StringValue(resp.WebACL.ARN)
+		webACLARN = awssdk.ToString(resp.WebACL.ARN)
 	}
 
 	m.webACLARNByResourceARNCache.Set(resourceARN, webACLARN, m.webACLARNByResourceARNCacheTTL)

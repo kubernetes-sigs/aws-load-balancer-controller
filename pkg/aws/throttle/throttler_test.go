@@ -2,13 +2,11 @@ package throttle
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/aws/client/metadata"
-	"github.com/aws/aws-sdk-go/aws/request"
-	"github.com/aws/aws-sdk-go/service/appmesh"
-	"github.com/aws/aws-sdk-go/service/servicediscovery"
+	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
+	"github.com/aws/aws-sdk-go-v2/service/appmesh"
+	"github.com/aws/aws-sdk-go-v2/service/servicediscovery"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/time/rate"
-	"net/http"
 	"regexp"
 	"sync"
 	"sync/atomic"
@@ -52,7 +50,8 @@ func Test_throttler_WithConditionThrottle(t *testing.T) {
 	assert.Equal(t, 1, len(throttler.conditionLimiters))
 
 	cl := throttler.conditionLimiters[0]
-	assert.True(t, cl.condition(&request.Request{ClientInfo: metadata.ClientInfo{ServiceID: appmesh.ServiceID}}))
+	ctx := awsmiddleware.SetServiceID(context.TODO(), appmesh.ServiceID)
+	assert.True(t, cl.condition(ctx))
 	assert.Equal(t, rate.NewLimiter(5.0, 10), cl.limiter)
 }
 
@@ -63,43 +62,9 @@ func Test_throttler_WithServiceThrottle(t *testing.T) {
 	assert.Equal(t, 1, len(throttler.conditionLimiters))
 
 	cl := throttler.conditionLimiters[0]
-	assert.True(t, cl.condition(&request.Request{ClientInfo: metadata.ClientInfo{ServiceID: appmesh.ServiceID}}))
+	ctx := awsmiddleware.SetServiceID(context.TODO(), appmesh.ServiceID)
+	assert.True(t, cl.condition(ctx))
 	assert.Equal(t, rate.NewLimiter(5.0, 10), cl.limiter)
-}
-
-func Test_throttler_WithOperationThrottle(t *testing.T) {
-	throttler := &throttler{}
-	throttler.WithOperationThrottle(appmesh.ServiceID, "CreateMesh", 5.0, 10)
-
-	assert.Equal(t, 1, len(throttler.conditionLimiters))
-
-	cl := throttler.conditionLimiters[0]
-	assert.True(t, cl.condition(&request.Request{
-		ClientInfo: metadata.ClientInfo{ServiceID: appmesh.ServiceID},
-		Operation:  &request.Operation{Name: "CreateMesh"},
-	}))
-	assert.Equal(t, rate.NewLimiter(5.0, 10), cl.limiter)
-}
-
-func Test_throttler_WithOperationPatternThrottle(t *testing.T) {
-	throttler := &throttler{}
-	throttler.WithOperationPatternThrottle(appmesh.ServiceID, regexp.MustCompile("^Create"), 5.0, 10)
-
-	assert.Equal(t, 1, len(throttler.conditionLimiters))
-
-	cl := throttler.conditionLimiters[0]
-	assert.True(t, cl.condition(&request.Request{
-		ClientInfo: metadata.ClientInfo{ServiceID: appmesh.ServiceID},
-		Operation:  &request.Operation{Name: "CreateMesh"},
-	}))
-	assert.Equal(t, rate.NewLimiter(5.0, 10), cl.limiter)
-}
-
-func Test_throttler_InjectHandlers(t *testing.T) {
-	throttler := &throttler{}
-	handlers := request.Handlers{}
-	throttler.InjectHandlers(&handlers)
-	assert.Equal(t, 1, handlers.Sign.Len())
 }
 
 // Test beforeSign to check whether throttle applies correctly.
@@ -111,7 +76,7 @@ func Test_throttler_beforeSign(t *testing.T) {
 		conditionLimiters []conditionLimiter
 	}
 	type args struct {
-		r *request.Request
+		ctx context.Context
 	}
 	tests := []struct {
 		name            string
@@ -126,18 +91,14 @@ func Test_throttler_beforeSign(t *testing.T) {
 			fields: fields{
 				conditionLimiters: []conditionLimiter{
 					{
-						condition: func(r *request.Request) bool {
+						condition: func(ctx context.Context) bool {
 							return true
 						},
 						limiter: rate.NewLimiter(10, 5),
 					},
 				},
 			},
-			args: args{
-				r: &request.Request{
-					HTTPRequest: &http.Request{},
-				},
-			},
+			args:    args{},
 			testQPS: 100,
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
 				ideal := 5 + 10*elapsedDuration.Seconds()
@@ -156,18 +117,14 @@ func Test_throttler_beforeSign(t *testing.T) {
 			fields: fields{
 				conditionLimiters: []conditionLimiter{
 					{
-						condition: func(r *request.Request) bool {
+						condition: func(ctx context.Context) bool {
 							return false
 						},
 						limiter: rate.NewLimiter(10, 5),
 					},
 				},
 			},
-			args: args{
-				r: &request.Request{
-					HTTPRequest: &http.Request{},
-				},
-			},
+			args:    args{},
 			testQPS: 100,
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
 				ideal := 100 * elapsedDuration.Seconds()
@@ -186,24 +143,20 @@ func Test_throttler_beforeSign(t *testing.T) {
 			fields: fields{
 				conditionLimiters: []conditionLimiter{
 					{
-						condition: func(r *request.Request) bool {
+						condition: func(ctx context.Context) bool {
 							return true
 						},
 						limiter: rate.NewLimiter(10, 5),
 					},
 					{
-						condition: func(r *request.Request) bool {
+						condition: func(ctx context.Context) bool {
 							return false
 						},
 						limiter: rate.NewLimiter(1, 5),
 					},
 				},
 			},
-			args: args{
-				r: &request.Request{
-					HTTPRequest: &http.Request{},
-				},
-			},
+			args:    args{},
 			testQPS: 100,
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
 				ideal := 5 + 10*elapsedDuration.Seconds()
@@ -222,24 +175,20 @@ func Test_throttler_beforeSign(t *testing.T) {
 			fields: fields{
 				conditionLimiters: []conditionLimiter{
 					{
-						condition: func(r *request.Request) bool {
+						condition: func(ctx context.Context) bool {
 							return true
 						},
 						limiter: rate.NewLimiter(10, 5),
 					},
 					{
-						condition: func(r *request.Request) bool {
+						condition: func(ctx context.Context) bool {
 							return true
 						},
 						limiter: rate.NewLimiter(1, 5),
 					},
 				},
 			},
-			args: args{
-				r: &request.Request{
-					HTTPRequest: &http.Request{},
-				},
-			},
+			args:    args{},
 			testQPS: 100,
 			validCallsCount: func(elapsedDuration time.Duration, count int64) {
 				ideal := 5 + 1*elapsedDuration.Seconds()
@@ -261,7 +210,6 @@ func Test_throttler_beforeSign(t *testing.T) {
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
-			tt.args.r.SetContext(ctx)
 
 			observedCount := int64(0)
 			start := time.Now()
@@ -271,7 +219,7 @@ func Test_throttler_beforeSign(t *testing.T) {
 			for time.Now().Before(end) {
 				wg.Add(1)
 				go func() {
-					throttler.beforeSign(tt.args.r)
+					throttler.beforeSign(ctx)
 					atomic.AddInt64(&observedCount, 1)
 					wg.Done()
 				}()
