@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -348,7 +348,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(targetGroups)).To(Equal(1))
-				tgARN := awssdk.StringValue(targetGroups[0].TargetGroupArn)
+				tgARN := awssdk.ToString(targetGroups[0].TargetGroupArn)
 
 				err = verifyTargetGroupNumRegistered(ctx, tf, tgARN, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -360,7 +360,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(targetGroups)).To(Equal(1))
-				tgARN := awssdk.StringValue(targetGroups[0].TargetGroupArn)
+				tgARN := awssdk.ToString(targetGroups[0].TargetGroupArn)
 
 				nodes, err := stack.GetWorkerNodes(ctx, tf)
 				Expect(err).ToNot(HaveOccurred())

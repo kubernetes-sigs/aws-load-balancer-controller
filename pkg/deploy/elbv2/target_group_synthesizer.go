@@ -2,7 +2,7 @@ package elbv2
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -154,7 +154,7 @@ func mapSDKTargetGroupByResourceID(sdkTGs []TargetGroupWithTags, resourceIDTagKe
 	for _, sdkTG := range sdkTGs {
 		resourceID, ok := sdkTG.Tags[resourceIDTagKey]
 		if !ok {
-			return nil, errors.Errorf("unexpected targetGroup with no resourceID: %v", awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn))
+			return nil, errors.Errorf("unexpected targetGroup with no resourceID: %v", awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn))
 		}
 		sdkTGsByID[resourceID] = append(sdkTGsByID[resourceID], sdkTG)
 	}
@@ -163,14 +163,14 @@ func mapSDKTargetGroupByResourceID(sdkTGs []TargetGroupWithTags, resourceIDTagKe
 
 // isSDKTargetGroupRequiresReplacement checks whether a sdk TargetGroup requires replacement to fulfill a TargetGroup resource.
 func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2model.TargetGroup, featureGates config.FeatureGates) bool {
-	if string(resTG.Spec.TargetType) != awssdk.StringValue(sdkTG.TargetGroup.TargetType) {
+	if string(resTG.Spec.TargetType) != string(sdkTG.TargetGroup.TargetType) {
 		return true
 	}
-	if string(resTG.Spec.Protocol) != awssdk.StringValue(sdkTG.TargetGroup.Protocol) {
+	if string(resTG.Spec.Protocol) != string(sdkTG.TargetGroup.Protocol) {
 		return true
 	}
 	if resTG.Spec.ProtocolVersion != nil {
-		if string(*resTG.Spec.ProtocolVersion) != awssdk.StringValue(sdkTG.TargetGroup.ProtocolVersion) {
+		if string(*resTG.Spec.ProtocolVersion) != awssdk.ToString(sdkTG.TargetGroup.ProtocolVersion) {
 			return true
 		}
 	}
@@ -189,16 +189,16 @@ func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWit
 	}
 	sdkObj := sdkTG.TargetGroup
 	hcConfig := *resTG.Spec.HealthCheckConfig
-	if hcConfig.Protocol != nil && string(*hcConfig.Protocol) != awssdk.StringValue(sdkObj.HealthCheckProtocol) {
+	if &hcConfig.Protocol != nil && string(hcConfig.Protocol) != string(sdkObj.HealthCheckProtocol) {
 		return true
 	}
-	if hcConfig.Matcher != nil && (sdkObj.Matcher == nil || awssdk.StringValue(hcConfig.Matcher.GRPCCode) != awssdk.StringValue(sdkObj.Matcher.GrpcCode) || awssdk.StringValue(hcConfig.Matcher.HTTPCode) != awssdk.StringValue(sdkObj.Matcher.HttpCode)) {
+	if hcConfig.Matcher != nil && (sdkObj.Matcher == nil || awssdk.ToString(hcConfig.Matcher.GRPCCode) != awssdk.ToString(sdkObj.Matcher.GrpcCode) || awssdk.ToString(hcConfig.Matcher.HTTPCode) != awssdk.ToString(sdkObj.Matcher.HttpCode)) {
 		return true
 	}
-	if hcConfig.IntervalSeconds != nil && awssdk.Int64Value(hcConfig.IntervalSeconds) != awssdk.Int64Value(sdkObj.HealthCheckIntervalSeconds) {
+	if hcConfig.IntervalSeconds != nil && awssdk.ToInt32(hcConfig.IntervalSeconds) != awssdk.ToInt32(sdkObj.HealthCheckIntervalSeconds) {
 		return true
 	}
-	if hcConfig.TimeoutSeconds != nil && awssdk.Int64Value(hcConfig.TimeoutSeconds) != awssdk.Int64Value(sdkObj.HealthCheckTimeoutSeconds) {
+	if hcConfig.TimeoutSeconds != nil && awssdk.ToInt32(hcConfig.TimeoutSeconds) != awssdk.ToInt32(sdkObj.HealthCheckTimeoutSeconds) {
 		return true
 	}
 	return false

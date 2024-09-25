@@ -2,11 +2,12 @@ package elbv2
 
 import (
 	"context"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"regexp"
 	"strings"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,9 +20,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-const apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
+const (
+	apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
+	vpcIDValidationErr                     = "ValidationError: vpcID %v failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8, 17 or 32 lowercase letters (a-f) or numbers."
+	vpcIDNotMatchErr                       = "invalid VpcID %v doesnt match VpcID from TargetGroup %v"
+)
 
-var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17})$")
+var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17}|vpc-[0-9a-f]{32})$")
 
 // NewTargetGroupBindingValidator returns a validator for TargetGroupBinding CRD.
 func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, logger logr.Logger) *targetGroupBindingValidator {
@@ -169,14 +174,14 @@ func (v *targetGroupBindingValidator) checkTargetGroupVpcID(ctx context.Context,
 		return nil
 	}
 	if !vpcIDPatternRegex.MatchString(tgb.Spec.VpcID) {
-		return errors.Errorf("ValidationError: vpcID %v failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8 or 17 lowercase letters (a-f) or numbers.", tgb.Spec.VpcID)
+		return errors.Errorf(vpcIDValidationErr, tgb.Spec.VpcID)
 	}
 	vpcID, err := v.getVpcIDFromAWS(ctx, tgb.Spec.TargetGroupARN)
 	if err != nil {
 		return errors.Wrap(err, "unable to get target group VpcID")
 	}
 	if vpcID != tgb.Spec.VpcID {
-		return errors.Errorf("invalid VpcID %v doesnt match VpcID from TargetGroup %v", tgb.Spec.VpcID, tgb.Spec.TargetGroupARN)
+		return errors.Errorf(vpcIDNotMatchErr, tgb.Spec.VpcID, tgb.Spec.TargetGroupARN)
 	}
 	return nil
 }
@@ -188,21 +193,21 @@ func (v *targetGroupBindingValidator) getTargetGroupIPAddressTypeFromAWS(ctx con
 		return "", err
 	}
 	var ipAddressType elbv2api.TargetGroupIPAddressType
-	switch awssdk.StringValue(targetGroup.IpAddressType) {
-	case elbv2sdk.TargetGroupIpAddressTypeEnumIpv6:
+	switch string(targetGroup.IpAddressType) {
+	case string(elbv2types.TargetGroupIpAddressTypeEnumIpv6):
 		ipAddressType = elbv2api.TargetGroupIPAddressTypeIPv6
-	case elbv2sdk.TargetGroupIpAddressTypeEnumIpv4, "":
+	case string(elbv2types.TargetGroupIpAddressTypeEnumIpv4), "":
 		ipAddressType = elbv2api.TargetGroupIPAddressTypeIPv4
 	default:
-		return "", errors.Errorf("unsupported IPAddressType: %v", awssdk.StringValue(targetGroup.IpAddressType))
+		return "", errors.Errorf("unsupported IPAddressType: %v", string(targetGroup.IpAddressType))
 	}
 	return ipAddressType, nil
 }
 
 // getTargetGroupFromAWS returns the AWS target group corresponding to the ARN
-func (v *targetGroupBindingValidator) getTargetGroupFromAWS(ctx context.Context, tgARN string) (*elbv2sdk.TargetGroup, error) {
+func (v *targetGroupBindingValidator) getTargetGroupFromAWS(ctx context.Context, tgARN string) (*elbv2types.TargetGroup, error) {
 	req := &elbv2sdk.DescribeTargetGroupsInput{
-		TargetGroupArns: awssdk.StringSlice([]string{tgARN}),
+		TargetGroupArns: []string{tgARN},
 	}
 	tgList, err := v.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
 	if err != nil {
@@ -211,7 +216,7 @@ func (v *targetGroupBindingValidator) getTargetGroupFromAWS(ctx context.Context,
 	if len(tgList) != 1 {
 		return nil, errors.Errorf("expecting a single targetGroup but got %v", len(tgList))
 	}
-	return tgList[0], nil
+	return &tgList[0], nil
 }
 
 func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgARN string) (string, error) {
@@ -219,7 +224,7 @@ func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgARN
 	if err != nil {
 		return "", err
 	}
-	return awssdk.StringValue(targetGroup.VpcId), nil
+	return awssdk.ToString(targetGroup.VpcId), nil
 }
 
 // +kubebuilder:webhook:path=/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=false,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=vtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1

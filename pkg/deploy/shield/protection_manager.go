@@ -2,10 +2,11 @@ package shield
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	shieldsdk "github.com/aws/aws-sdk-go/service/shield"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	shieldsdk "github.com/aws/aws-sdk-go-v2/service/shield"
+	shieldtypes "github.com/aws/aws-sdk-go-v2/service/shield/types"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"time"
@@ -73,7 +74,7 @@ func (m *defaultProtectionManager) CreateProtection(ctx context.Context, resourc
 	if err != nil {
 		return "", err
 	}
-	protectionID := awssdk.StringValue(resp.ProtectionId)
+	protectionID := awssdk.ToString(resp.ProtectionId)
 	m.logger.Info("enabled shield protection",
 		"resourceARN", resourceARN,
 		"protectionName", protectionName,
@@ -117,8 +118,8 @@ func (m *defaultProtectionManager) GetProtection(ctx context.Context, resourceAR
 	resp, err := m.shieldClient.DescribeProtectionWithContext(ctx, req)
 	var protectionInfo *ProtectionInfo
 	if err != nil {
-		aerr, ok := err.(awserr.Error)
-		if ok && aerr.Code() == shieldsdk.ErrCodeResourceNotFoundException {
+		var resourceNotFoundException *shieldtypes.ResourceNotFoundException
+		if errors.As(err, &resourceNotFoundException) {
 			protectionInfo = nil
 		} else {
 			return nil, err
@@ -126,8 +127,8 @@ func (m *defaultProtectionManager) GetProtection(ctx context.Context, resourceAR
 	}
 	if resp.Protection != nil {
 		protectionInfo = &ProtectionInfo{
-			Name: awssdk.StringValue(resp.Protection.Name),
-			ID:   awssdk.StringValue(resp.Protection.Id),
+			Name: awssdk.ToString(resp.Protection.Name),
+			ID:   awssdk.ToString(resp.Protection.Id),
 		}
 	}
 	m.protectionInfoByResourceARNCache.Set(resourceARN, protectionInfo, m.protectionInfoByResourceARNCacheTTL)
@@ -137,8 +138,8 @@ func (m *defaultProtectionManager) GetProtection(ctx context.Context, resourceAR
 func (m *defaultProtectionManager) IsSubscribed(ctx context.Context) (bool, error) {
 	rawCacheItem, exists := m.subscriptionStateCache.Get(subscriptionStateCacheKey)
 	if exists {
-		subscriptionState := rawCacheItem.(string)
-		return subscriptionState == shieldsdk.SubscriptionStateActive, nil
+		subscriptionState := rawCacheItem.(shieldtypes.SubscriptionState)
+		return shieldtypes.SubscriptionStateActive == subscriptionState, nil
 	}
 
 	req := &shieldsdk.GetSubscriptionStateInput{}
@@ -146,7 +147,7 @@ func (m *defaultProtectionManager) IsSubscribed(ctx context.Context) (bool, erro
 	if err != nil {
 		return false, err
 	}
-	subscriptionState := awssdk.StringValue(resp.SubscriptionState)
+	subscriptionState := resp.SubscriptionState
 	m.subscriptionStateCache.Set(subscriptionStateCacheKey, subscriptionState, m.subscriptionStateCacheTTL)
-	return subscriptionState == shieldsdk.SubscriptionStateActive, nil
+	return shieldtypes.SubscriptionStateActive == subscriptionState, nil
 }

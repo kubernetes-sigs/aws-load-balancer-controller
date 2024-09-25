@@ -2,18 +2,18 @@ package targetgroupbinding
 
 import (
 	"fmt"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 )
 
 // TargetInfo contains information about a TargetGroup target.
 type TargetInfo struct {
 	// The target's description
-	Target elbv2sdk.TargetDescription
+	Target elbv2types.TargetDescription
 
 	// The target's health information.
 	// If absent, the target's health information is unknown.
-	TargetHealth *elbv2sdk.TargetHealth
+	TargetHealth *elbv2types.TargetHealth
 }
 
 // IsHealthy returns whether target is healthy.
@@ -21,7 +21,7 @@ func (t *TargetInfo) IsHealthy() bool {
 	if t.TargetHealth == nil {
 		return false
 	}
-	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumHealthy
+	return elbv2types.TargetHealthStateEnumHealthy == t.TargetHealth.State
 }
 
 // IsNotRegistered returns whether target is not registered.
@@ -29,8 +29,8 @@ func (t *TargetInfo) IsNotRegistered() bool {
 	if t.TargetHealth == nil {
 		return false
 	}
-	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumUnused &&
-		awssdk.StringValue(t.TargetHealth.Reason) == elbv2sdk.TargetHealthReasonEnumTargetNotRegistered
+	return elbv2types.TargetHealthStateEnumUnused == t.TargetHealth.State &&
+		elbv2types.TargetHealthReasonEnumNotRegistered == t.TargetHealth.Reason
 }
 
 // IsDraining returns whether target is in draining state.
@@ -38,8 +38,8 @@ func (t *TargetInfo) IsDraining() bool {
 	if t.TargetHealth == nil {
 		return false
 	}
-	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumDraining ||
-		awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumUnhealthyDraining
+	return elbv2types.TargetHealthStateEnumDraining == t.TargetHealth.State ||
+		elbv2types.TargetHealthStateEnumUnhealthyDraining == t.TargetHealth.State
 }
 
 // IsInitial returns whether target is in initial state.
@@ -47,10 +47,10 @@ func (t *TargetInfo) IsInitial() bool {
 	if t.TargetHealth == nil {
 		return false
 	}
-	return awssdk.StringValue(t.TargetHealth.State) == elbv2sdk.TargetHealthStateEnumInitial
+	return elbv2types.TargetHealthStateEnumInitial == t.TargetHealth.State
 }
 
 // UniqueIDForTargetDescription generates a unique ID to differentiate targets.
-func UniqueIDForTargetDescription(target elbv2sdk.TargetDescription) string {
-	return fmt.Sprintf("%v:%v", awssdk.StringValue(target.Id), awssdk.Int64Value(target.Port))
+func UniqueIDForTargetDescription(target elbv2types.TargetDescription) string {
+	return fmt.Sprintf("%v:%v", awssdk.ToString(target.Id), awssdk.ToInt32(target.Port))
 }

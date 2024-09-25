@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,9 +80,9 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context, tgProt
 	return elbv2model.TargetGroupSpec{
 		Name:                  tgName,
 		TargetType:            targetType,
-		Port:                  targetPort,
+		Port:                  awssdk.Int32(targetPort),
 		Protocol:              tgProtocol,
-		IPAddressType:         &ipAddressType,
+		IPAddressType:         ipAddressType,
 		HealthCheckConfig:     healthCheckConfig,
 		TargetGroupAttributes: tgAttrs,
 		Tags:                  tags,
@@ -127,7 +127,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigDefault(ctx con
 	}
 	return &elbv2model.TargetGroupHealthCheckConfig{
 		Port:                    &healthCheckPort,
-		Protocol:                &healthCheckProtocol,
+		Protocol:                healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
 		Matcher:                 healthCheckMatcherPtr,
 		IntervalSeconds:         &intervalSeconds,
@@ -166,7 +166,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 	}
 	return &elbv2model.TargetGroupHealthCheckConfig{
 		Port:                    &healthCheckPort,
-		Protocol:                &healthCheckProtocol,
+		Protocol:                healthCheckProtocol,
 		Path:                    healthCheckPathPtr,
 		Matcher:                 healthCheckMatcherPtr,
 		IntervalSeconds:         &intervalSeconds,
@@ -178,15 +178,15 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckConfigForInstanceMode
 
 var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
-func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort intstr.IntOrString, tgPort int64,
+func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort intstr.IntOrString, tgPort int32,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, hc *elbv2model.TargetGroupHealthCheckConfig) string {
 	healthCheckProtocol := string(elbv2model.ProtocolTCP)
-	healthCheckInterval := strconv.FormatInt(t.defaultHealthCheckInterval, 10)
-	if hc.Protocol != nil {
-		healthCheckProtocol = string(*hc.Protocol)
+	healthCheckInterval := strconv.FormatInt(int64(t.defaultHealthCheckInterval), 10)
+	if &hc.Protocol != nil {
+		healthCheckProtocol = string(hc.Protocol)
 	}
 	if hc.IntervalSeconds != nil {
-		healthCheckInterval = strconv.FormatInt(*hc.IntervalSeconds, 10)
+		healthCheckInterval = strconv.FormatInt(int64(*hc.IntervalSeconds), 10)
 	}
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
@@ -263,12 +263,12 @@ func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, tar
 // buildTargetGroupPort constructs the TargetGroup's port.
 // Note: TargetGroup's port is not in the data path as we always register targets with port specified.
 // so this setting don't really matter to our controller, and we do our best to use the most appropriate port as targetGroup's port to avoid UX confusion.
-func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetType elbv2model.TargetType, svcPort corev1.ServicePort) int64 {
+func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetType elbv2model.TargetType, svcPort corev1.ServicePort) int32 {
 	if targetType == elbv2model.TargetTypeInstance {
-		return int64(svcPort.NodePort)
+		return svcPort.NodePort
 	}
 	if svcPort.TargetPort.Type == intstr.Int {
-		return int64(svcPort.TargetPort.IntValue())
+		return int32(svcPort.TargetPort.IntValue())
 	}
 
 	// when a literal targetPort is used, we just use a fixed 1 here as this setting is not in the data path.
@@ -334,36 +334,36 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckMatcher(_ context.Con
 	}
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ context.Context, defaultHealthCheckInterval int64) (int64, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckIntervalSeconds(_ context.Context, defaultHealthCheckInterval int32) (int32, error) {
 	intervalSeconds := defaultHealthCheckInterval
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCInterval, &intervalSeconds, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseInt32Annotation(annotations.SvcLBSuffixHCInterval, &intervalSeconds, t.service.Annotations); err != nil {
 		return 0, err
 	}
 	return intervalSeconds, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int64) (*int64, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckTimeoutSeconds(_ context.Context, defaultHealthCheckTimeout int32) (*int32, error) {
 	timeoutSeconds := defaultHealthCheckTimeout
 	if !t.featureGates.Enabled(config.NLBHealthCheckAdvancedConfig) {
-		return &timeoutSeconds, nil
+		return awssdk.Int32(timeoutSeconds), nil
 	}
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseInt32Annotation(annotations.SvcLBSuffixHCTimeout, &timeoutSeconds, t.service.Annotations); err != nil {
 		return nil, err
 	}
-	return &timeoutSeconds, nil
+	return awssdk.Int32(timeoutSeconds), nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount(_ context.Context, defaultHealthCheckHealthyThreshold int64) (int64, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckHealthyThresholdCount(_ context.Context, defaultHealthCheckHealthyThreshold int32) (int32, error) {
 	healthyThresholdCount := defaultHealthCheckHealthyThreshold
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCHealthyThreshold, &healthyThresholdCount, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseInt32Annotation(annotations.SvcLBSuffixHCHealthyThreshold, &healthyThresholdCount, t.service.Annotations); err != nil {
 		return 0, err
 	}
 	return healthyThresholdCount, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCount(_ context.Context, defaultHealthCheckUnhealthyThreshold int64) (int64, error) {
+func (t *defaultModelBuildTask) buildTargetGroupHealthCheckUnhealthyThresholdCount(_ context.Context, defaultHealthCheckUnhealthyThreshold int32) (int32, error) {
 	unhealthyThresholdCount := defaultHealthCheckUnhealthyThreshold
-	if _, err := t.annotationParser.ParseInt64Annotation(annotations.SvcLBSuffixHCUnhealthyThreshold, &unhealthyThresholdCount, t.service.Annotations); err != nil {
+	if _, err := t.annotationParser.ParseInt32Annotation(annotations.SvcLBSuffixHCUnhealthyThreshold, &unhealthyThresholdCount, t.service.Annotations); err != nil {
 		return 0, err
 	}
 	return unhealthyThresholdCount, nil
@@ -421,7 +421,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}
 	var tgbNetworking *elbv2model.TargetGroupBindingNetworking
 	if len(t.loadBalancer.Spec.SecurityGroups) == 0 {
-		tgbNetworking, err = t.buildTargetGroupBindingNetworkingLegacy(ctx, targetPort, *hc.Port, port, scheme, *targetGroup.Spec.IPAddressType)
+		tgbNetworking, err = t.buildTargetGroupBindingNetworkingLegacy(ctx, targetPort, *hc.Port, port, scheme, targetGroup.Spec.IPAddressType)
 	} else {
 		tgbNetworking, err = t.buildTargetGroupBindingNetworking(ctx, targetPort, *hc.Port, port)
 	}
@@ -443,7 +443,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 				},
 				Networking:    tgbNetworking,
 				NodeSelector:  nodeSelector,
-				IPAddressType: (*elbv2api.TargetGroupIPAddressType)(targetGroup.Spec.IPAddressType),
+				IPAddressType: elbv2api.TargetGroupIPAddressType(targetGroup.Spec.IPAddressType),
 				VpcID:         t.vpcID,
 			},
 		},
@@ -620,10 +620,10 @@ func (t *defaultModelBuildTask) getLoadBalancerSubnetsSourceRanges(targetGroupIP
 	var subnetCIDRs []string
 	for _, subnet := range t.ec2Subnets {
 		if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv4 {
-			subnetCIDRs = append(subnetCIDRs, aws.StringValue(subnet.CidrBlock))
+			subnetCIDRs = append(subnetCIDRs, awssdk.ToString(subnet.CidrBlock))
 		} else {
 			for _, ipv6CIDRBlockAssoc := range subnet.Ipv6CidrBlockAssociationSet {
-				subnetCIDRs = append(subnetCIDRs, aws.StringValue(ipv6CIDRBlockAssoc.Ipv6CidrBlock))
+				subnetCIDRs = append(subnetCIDRs, awssdk.ToString(ipv6CIDRBlockAssoc.Ipv6CidrBlock))
 			}
 		}
 	}
@@ -639,7 +639,7 @@ func (t *defaultModelBuildTask) buildTargetGroupIPAddressType(_ context.Context,
 		}
 	}
 	if ipv6Configured {
-		if *t.loadBalancer.Spec.IPAddressType != elbv2model.IPAddressTypeDualStack {
+		if elbv2model.IPAddressTypeDualStack != t.loadBalancer.Spec.IPAddressType {
 			return "", errors.New("unsupported IPv6 configuration, lb not dual-stack")
 		}
 		return elbv2model.TargetGroupIPAddressTypeIPv6, nil

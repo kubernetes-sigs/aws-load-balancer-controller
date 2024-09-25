@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -75,7 +75,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 	defaultActions := t.buildListenerDefaultActions(ctx, targetGroup)
 	return elbv2model.ListenerSpec{
 		LoadBalancerARN: t.loadBalancer.LoadBalancerARN(),
-		Port:            int64(port.Port),
+		Port:            port.Port,
 		Protocol:        listenerProtocol,
 		Certificates:    certificates,
 		SSLPolicy:       sslPolicy,

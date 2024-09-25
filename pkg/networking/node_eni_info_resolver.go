@@ -2,8 +2,8 @@ package networking
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -128,13 +128,13 @@ func (r *defaultNodeENIInfoResolver) resolveViaInstanceID(ctx context.Context, n
 }
 
 // findInstancePrimaryENI returns the primary ENI among list of eni on an EC2 instance
-func findInstancePrimaryENI(enis []*ec2sdk.InstanceNetworkInterface) (*ec2sdk.InstanceNetworkInterface, error) {
+func findInstancePrimaryENI(enis []ec2types.InstanceNetworkInterface) (ec2types.InstanceNetworkInterface, error) {
 	for _, eni := range enis {
-		if awssdk.Int64Value(eni.Attachment.DeviceIndex) == 0 {
+		if awssdk.ToInt32(eni.Attachment.DeviceIndex) == 0 {
 			return eni, nil
 		}
 	}
-	return nil, errors.Errorf("[this should never happen] no primary ENI found")
+	return ec2types.InstanceNetworkInterface{}, errors.Errorf("[this should never happen] no primary ENI found")
 }
 
 // computeNodeENIInfoCacheKey computes the cacheKey for node's ENIInfo cache.

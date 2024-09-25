@@ -1,7 +1,7 @@
 package ec2
 
 import (
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -19,14 +19,14 @@ func Test_isSecurityGroupDependencyViolationError(t *testing.T) {
 		{
 			name: "is DependencyViolation error",
 			args: args{
-				err: awserr.New("DependencyViolation", "some message", nil),
+				err: &smithy.GenericAPIError{Code: "DependencyViolation", Message: "some message"},
 			},
 			want: true,
 		},
 		{
 			name: "wraps DependencyViolation error",
 			args: args{
-				err: errors.Wrap(awserr.New("DependencyViolation", "some message", nil), "wrapped message"),
+				err: errors.Wrap(&smithy.GenericAPIError{Code: "DependencyViolation", Message: "some message"}, "wrapped message"),
 			},
 			want: true,
 		},

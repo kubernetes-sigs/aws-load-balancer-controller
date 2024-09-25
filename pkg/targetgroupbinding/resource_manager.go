@@ -3,14 +3,14 @@ package targetgroupbinding
 import (
 	"context"
 	"fmt"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/smithy-go"
 	"net/netip"
 	"time"
 
 	"k8s.io/client-go/tools/record"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -257,9 +257,9 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 
 	for _, endpoint := range unmatchedEndpoints {
 		pod := endpoint.Pod
-		targetHealth := &elbv2sdk.TargetHealth{
-			State:       awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
-			Reason:      awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
+		targetHealth := &elbv2types.TargetHealth{
+			State:       elbv2types.TargetHealthStateEnumInitial,
+			Reason:      elbv2types.TargetHealthReasonEnumRegistrationInProgress,
 			Description: awssdk.String("Target registration is in progress"),
 		}
 		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
@@ -276,7 +276,7 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 // updateTargetHealthPodConditionForPod updates pod's targetHealth condition for a single pod and its matched target.
 // returns whether further probe is needed or not.
 func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx context.Context, pod k8s.PodInfo,
-	targetHealth *elbv2sdk.TargetHealth, targetHealthCondType corev1.PodConditionType) (bool, error) {
+	targetHealth *elbv2types.TargetHealth, targetHealthCondType corev1.PodConditionType) (bool, error) {
 	if !pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
 		return false, nil
 	}
@@ -284,14 +284,14 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 	targetHealthCondStatus := corev1.ConditionUnknown
 	var reason, message string
 	if targetHealth != nil {
-		if awssdk.StringValue(targetHealth.State) == elbv2sdk.TargetHealthStateEnumHealthy {
+		if string(targetHealth.State) == string(elbv2types.TargetHealthStateEnumHealthy) {
 			targetHealthCondStatus = corev1.ConditionTrue
 		} else {
 			targetHealthCondStatus = corev1.ConditionFalse
 		}
 
-		reason = awssdk.StringValue(targetHealth.Reason)
-		message = awssdk.StringValue(targetHealth.Description)
+		reason = string(targetHealth.Reason)
+		message = awssdk.ToString(targetHealth.Description)
 	}
 	needFurtherProbe := targetHealthCondStatus != corev1.ConditionTrue
 
@@ -362,8 +362,8 @@ func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Con
 			continue
 		}
 		if pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
-			targetHealth := &elbv2sdk.TargetHealth{
-				State:       awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+			targetHealth := &elbv2types.TargetHealth{
+				State:       elbv2types.TargetHealthStateEnumHealthy,
 				Description: awssdk.String("Target Group Binding is deleted"),
 			}
 			_, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
@@ -376,7 +376,7 @@ func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Con
 }
 
 func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgARN string, targets []TargetInfo) error {
-	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(targets))
+	sdkTargets := make([]elbv2types.TargetDescription, 0, len(targets))
 	for _, target := range targets {
 		sdkTargets = append(sdkTargets, target.Target)
 	}
@@ -403,11 +403,11 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 		return err
 	}
 
-	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(endpoints))
+	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
-		target := elbv2sdk.TargetDescription{
+		target := elbv2types.TargetDescription{
 			Id:   awssdk.String(endpoint.IP),
-			Port: awssdk.Int64(endpoint.Port),
+			Port: awssdk.Int32(endpoint.Port),
 		}
 		podIP, err := netip.ParseAddr(endpoint.IP)
 		if err != nil {
@@ -422,11 +422,11 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 }
 
 func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, tgARN string, endpoints []backend.NodePortEndpoint) error {
-	sdkTargets := make([]elbv2sdk.TargetDescription, 0, len(endpoints))
+	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
-		sdkTargets = append(sdkTargets, elbv2sdk.TargetDescription{
+		sdkTargets = append(sdkTargets, elbv2types.TargetDescription{
 			Id:   awssdk.String(endpoint.InstanceID),
-			Port: awssdk.Int64(endpoint.Port),
+			Port: awssdk.Int32(endpoint.Port),
 		})
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
@@ -471,7 +471,7 @@ func matchPodEndpointWithTargets(endpoints []backend.PodEndpoint, targets []Targ
 	}
 	targetsByUID := make(map[string]TargetInfo, len(targets))
 	for _, target := range targets {
-		targetUID := fmt.Sprintf("%v:%v", awssdk.StringValue(target.Target.Id), awssdk.Int64Value(target.Target.Port))
+		targetUID := fmt.Sprintf("%v:%v", awssdk.ToString(target.Target.Id), awssdk.ToInt32(target.Target.Port))
 		targetsByUID[targetUID] = target
 	}
 	endpointUIDs := sets.StringKeySet(endpointsByUID)
@@ -510,7 +510,7 @@ func matchNodePortEndpointWithTargets(endpoints []backend.NodePortEndpoint, targ
 	}
 	targetsByUID := make(map[string]TargetInfo, len(targets))
 	for _, target := range targets {
-		targetUID := fmt.Sprintf("%v:%v", awssdk.StringValue(target.Target.Id), awssdk.Int64Value(target.Target.Port))
+		targetUID := fmt.Sprintf("%v:%v", awssdk.ToString(target.Target.Id), awssdk.ToInt32(target.Target.Port))
 		targetsByUID[targetUID] = target
 	}
 	endpointUIDs := sets.StringKeySet(endpointsByUID)
@@ -533,17 +533,23 @@ func matchNodePortEndpointWithTargets(endpoints []backend.NodePortEndpoint, targ
 }
 
 func isELBV2TargetGroupNotFoundError(err error) bool {
-	var awsErr awserr.Error
+	var awsErr *elbv2types.TargetGroupNotFoundException
 	if errors.As(err, &awsErr) {
-		return awsErr.Code() == "TargetGroupNotFound"
+		return true
 	}
 	return false
 }
 
 func isELBV2TargetGroupARNInvalidError(err error) bool {
-	var awsErr awserr.Error
+	var awsErr *elbv2types.InvalidTargetException
 	if errors.As(err, &awsErr) {
-		return awsErr.Code() == "ValidationError"
+		return true
+	}
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		code := apiErr.ErrorCode()
+
+		return code == "ValidationError"
 	}
 	return false
 }

@@ -2,10 +2,11 @@ package networking
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -29,7 +30,7 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 	}
 	type fetchAZInfoCall struct {
 		args    args
-		want    map[string]ec2sdk.AvailabilityZone
+		want    map[string]ec2types.AvailabilityZone
 		wantErr error
 	}
 	tests := []struct {
@@ -43,10 +44,10 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 				describeAvailabilityZonesCalls: []describeAvailabilityZonesCall{
 					{
 						input: &ec2sdk.DescribeAvailabilityZonesInput{
-							ZoneIds: awssdk.StringSlice([]string{"usw2-az1"}),
+							ZoneIds: []string{"usw2-az1"},
 						},
 						output: &ec2sdk.DescribeAvailabilityZonesOutput{
-							AvailabilityZones: []*ec2sdk.AvailabilityZone{
+							AvailabilityZones: []ec2types.AvailabilityZone{
 								{
 									ZoneId:   awssdk.String("usw2-az1"),
 									ZoneType: awssdk.String("availability-zone"),
@@ -56,10 +57,10 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 					},
 					{
 						input: &ec2sdk.DescribeAvailabilityZonesInput{
-							ZoneIds: awssdk.StringSlice([]string{"usw2-az2"}),
+							ZoneIds: []string{"usw2-az2"},
 						},
 						output: &ec2sdk.DescribeAvailabilityZonesOutput{
-							AvailabilityZones: []*ec2sdk.AvailabilityZone{
+							AvailabilityZones: []ec2types.AvailabilityZone{
 								{
 									ZoneId:   awssdk.String("usw2-az2"),
 									ZoneType: awssdk.String("availability-zone"),
@@ -74,7 +75,7 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 					args: args{
 						availabilityZoneIDs: []string{"usw2-az1"},
 					},
-					want: map[string]ec2sdk.AvailabilityZone{
+					want: map[string]ec2types.AvailabilityZone{
 						"usw2-az1": {
 							ZoneId:   awssdk.String("usw2-az1"),
 							ZoneType: awssdk.String("availability-zone"),
@@ -85,7 +86,7 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 					args: args{
 						availabilityZoneIDs: []string{"usw2-az2"},
 					},
-					want: map[string]ec2sdk.AvailabilityZone{
+					want: map[string]ec2types.AvailabilityZone{
 						"usw2-az2": {
 							ZoneId:   awssdk.String("usw2-az2"),
 							ZoneType: awssdk.String("availability-zone"),
@@ -100,10 +101,10 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 				describeAvailabilityZonesCalls: []describeAvailabilityZonesCall{
 					{
 						input: &ec2sdk.DescribeAvailabilityZonesInput{
-							ZoneIds: awssdk.StringSlice([]string{"usw2-az1", "usw2-az2"}),
+							ZoneIds: []string{"usw2-az1", "usw2-az2"},
 						},
 						output: &ec2sdk.DescribeAvailabilityZonesOutput{
-							AvailabilityZones: []*ec2sdk.AvailabilityZone{
+							AvailabilityZones: []ec2types.AvailabilityZone{
 								{
 									ZoneId:   awssdk.String("usw2-az1"),
 									ZoneType: awssdk.String("availability-zone"),
@@ -122,7 +123,7 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 					args: args{
 						availabilityZoneIDs: []string{"usw2-az1", "usw2-az2"},
 					},
-					want: map[string]ec2sdk.AvailabilityZone{
+					want: map[string]ec2types.AvailabilityZone{
 						"usw2-az1": {
 							ZoneId:   awssdk.String("usw2-az1"),
 							ZoneType: awssdk.String("availability-zone"),
@@ -141,10 +142,10 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 				describeAvailabilityZonesCalls: []describeAvailabilityZonesCall{
 					{
 						input: &ec2sdk.DescribeAvailabilityZonesInput{
-							ZoneIds: awssdk.StringSlice([]string{"usw2-az1"}),
+							ZoneIds: []string{"usw2-az1"},
 						},
 						output: &ec2sdk.DescribeAvailabilityZonesOutput{
-							AvailabilityZones: []*ec2sdk.AvailabilityZone{
+							AvailabilityZones: []ec2types.AvailabilityZone{
 								{
 									ZoneId:   awssdk.String("usw2-az1"),
 									ZoneType: awssdk.String("availability-zone"),
@@ -154,10 +155,10 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 					},
 					{
 						input: &ec2sdk.DescribeAvailabilityZonesInput{
-							ZoneIds: awssdk.StringSlice([]string{"usw2-az2"}),
+							ZoneIds: []string{"usw2-az2"},
 						},
 						output: &ec2sdk.DescribeAvailabilityZonesOutput{
-							AvailabilityZones: []*ec2sdk.AvailabilityZone{
+							AvailabilityZones: []ec2types.AvailabilityZone{
 								{
 									ZoneId:   awssdk.String("usw2-az2"),
 									ZoneType: awssdk.String("availability-zone"),
@@ -172,7 +173,7 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 					args: args{
 						availabilityZoneIDs: []string{"usw2-az1"},
 					},
-					want: map[string]ec2sdk.AvailabilityZone{
+					want: map[string]ec2types.AvailabilityZone{
 						"usw2-az1": {
 							ZoneId:   awssdk.String("usw2-az1"),
 							ZoneType: awssdk.String("availability-zone"),
@@ -183,7 +184,7 @@ func Test_defaultAZInfoProvider_FetchAZInfos(t *testing.T) {
 					args: args{
 						availabilityZoneIDs: []string{"usw2-az1", "usw2-az2"},
 					},
-					want: map[string]ec2sdk.AvailabilityZone{
+					want: map[string]ec2types.AvailabilityZone{
 						"usw2-az1": {
 							ZoneId:   awssdk.String("usw2-az1"),
 							ZoneType: awssdk.String("availability-zone"),
@@ -238,7 +239,7 @@ func Test_defaultAZInfoProvider_fetchAZInfosFromAWS(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    map[string]ec2sdk.AvailabilityZone
+		want    map[string]ec2types.AvailabilityZone
 		wantErr error
 	}{
 		{
@@ -247,10 +248,10 @@ func Test_defaultAZInfoProvider_fetchAZInfosFromAWS(t *testing.T) {
 				describeAvailabilityZonesCalls: []describeAvailabilityZonesCall{
 					{
 						input: &ec2sdk.DescribeAvailabilityZonesInput{
-							ZoneIds: awssdk.StringSlice([]string{"usw2-az1"}),
+							ZoneIds: []string{"usw2-az1"},
 						},
 						output: &ec2sdk.DescribeAvailabilityZonesOutput{
-							AvailabilityZones: []*ec2sdk.AvailabilityZone{
+							AvailabilityZones: []ec2types.AvailabilityZone{
 								{
 									ZoneId:   awssdk.String("usw2-az1"),
 									ZoneType: awssdk.String("availability-zone"),
@@ -263,7 +264,7 @@ func Test_defaultAZInfoProvider_fetchAZInfosFromAWS(t *testing.T) {
 			args: args{
 				availabilityZoneIDs: []string{"usw2-az1"},
 			},
-			want: map[string]ec2sdk.AvailabilityZone{
+			want: map[string]ec2types.AvailabilityZone{
 				"usw2-az1": {
 					ZoneId:   awssdk.String("usw2-az1"),
 					ZoneType: awssdk.String("availability-zone"),
@@ -276,10 +277,10 @@ func Test_defaultAZInfoProvider_fetchAZInfosFromAWS(t *testing.T) {
 				describeAvailabilityZonesCalls: []describeAvailabilityZonesCall{
 					{
 						input: &ec2sdk.DescribeAvailabilityZonesInput{
-							ZoneIds: awssdk.StringSlice([]string{"usw2-az1", "usw2-az2"}),
+							ZoneIds: []string{"usw2-az1", "usw2-az2"},
 						},
 						output: &ec2sdk.DescribeAvailabilityZonesOutput{
-							AvailabilityZones: []*ec2sdk.AvailabilityZone{
+							AvailabilityZones: []ec2types.AvailabilityZone{
 								{
 									ZoneId:   awssdk.String("usw2-az1"),
 									ZoneType: awssdk.String("availability-zone"),
@@ -296,7 +297,7 @@ func Test_defaultAZInfoProvider_fetchAZInfosFromAWS(t *testing.T) {
 			args: args{
 				availabilityZoneIDs: []string{"usw2-az1", "usw2-az2"},
 			},
-			want: map[string]ec2sdk.AvailabilityZone{
+			want: map[string]ec2types.AvailabilityZone{
 				"usw2-az1": {
 					ZoneId:   awssdk.String("usw2-az1"),
 					ZoneType: awssdk.String("availability-zone"),
@@ -313,7 +314,7 @@ func Test_defaultAZInfoProvider_fetchAZInfosFromAWS(t *testing.T) {
 				describeAvailabilityZonesCalls: []describeAvailabilityZonesCall{
 					{
 						input: &ec2sdk.DescribeAvailabilityZonesInput{
-							ZoneIds: awssdk.StringSlice([]string{"usw2-az1", "wrong-az-id"}),
+							ZoneIds: []string{"usw2-az1", "wrong-az-id"},
 						},
 						output: nil,
 						err:    errors.New("Invalid availability zone-id: wrong-az-id"),
@@ -353,7 +354,7 @@ func Test_defaultAZInfoProvider_fetchAZInfosFromAWS(t *testing.T) {
 func Test_computeAZIDsWithoutAZInfo(t *testing.T) {
 	type args struct {
 		availabilityZoneIDs []string
-		azInfoByAZID        map[string]ec2sdk.AvailabilityZone
+		azInfoByAZID        map[string]ec2types.AvailabilityZone
 	}
 	tests := []struct {
 		name string
@@ -364,7 +365,7 @@ func Test_computeAZIDsWithoutAZInfo(t *testing.T) {
 			name: "all AZs have AZInfo",
 			args: args{
 				availabilityZoneIDs: []string{"usw2-az1", "usw2-az2"},
-				azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+				azInfoByAZID: map[string]ec2types.AvailabilityZone{
 					"usw2-az1": {},
 					"usw2-az2": {},
 				},
@@ -375,7 +376,7 @@ func Test_computeAZIDsWithoutAZInfo(t *testing.T) {
 			name: "some AZ don't have AZInfo - non-empty azInfoByAZID",
 			args: args{
 				availabilityZoneIDs: []string{"usw2-az1", "usw2-az2"},
-				azInfoByAZID: map[string]ec2sdk.AvailabilityZone{
+				azInfoByAZID: map[string]ec2types.AvailabilityZone{
 					"usw2-az1": {},
 				},
 			},

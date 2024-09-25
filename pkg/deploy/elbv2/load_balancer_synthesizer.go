@@ -2,10 +2,11 @@ package elbv2
 
 import (
 	"context"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"strings"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -64,7 +65,7 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 		if err := s.lbManager.Delete(ctx, sdkLB); err != nil {
 			errMessage := err.Error()
 			if strings.Contains(errMessage, "OperationNotPermitted") && strings.Contains(errMessage, "deletion protection") {
-				s.disableDeletionProtection(sdkLB.LoadBalancer)
+				s.disableDeletionProtection(ctx, sdkLB.LoadBalancer)
 				if err = s.lbManager.Delete(ctx, sdkLB); err != nil {
 					return err
 				}
@@ -90,9 +91,9 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 	return nil
 }
 
-func (s *loadBalancerSynthesizer) disableDeletionProtection(lb *elbv2sdk.LoadBalancer) error {
+func (s *loadBalancerSynthesizer) disableDeletionProtection(ctx context.Context, lb *elbv2types.LoadBalancer) error {
 	input := &elbv2sdk.ModifyLoadBalancerAttributesInput{
-		Attributes: []*elbv2sdk.LoadBalancerAttribute{
+		Attributes: []elbv2types.LoadBalancerAttribute{
 			{
 				Key:   awssdk.String(lbAttrsDeletionProtectionEnabled),
 				Value: awssdk.String("false"),
@@ -100,7 +101,7 @@ func (s *loadBalancerSynthesizer) disableDeletionProtection(lb *elbv2sdk.LoadBal
 		},
 		LoadBalancerArn: lb.LoadBalancerArn,
 	}
-	_, err := s.elbv2Client.ModifyLoadBalancerAttributes(input)
+	_, err := s.elbv2Client.ModifyLoadBalancerAttributesWithContext(ctx, input)
 	return err
 }
 
@@ -179,7 +180,7 @@ func mapSDKLoadBalancerByResourceID(sdkLBs []LoadBalancerWithTags, resourceIDTag
 	for _, sdkLB := range sdkLBs {
 		resourceID, ok := sdkLB.Tags[resourceIDTagKey]
 		if !ok {
-			return nil, errors.Errorf("unexpected loadBalancer with no resourceID: %v", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn))
+			return nil, errors.Errorf("unexpected loadBalancer with no resourceID: %v", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn))
 		}
 		sdkLBsByID[resourceID] = append(sdkLBsByID[resourceID], sdkLB)
 	}
@@ -188,10 +189,10 @@ func mapSDKLoadBalancerByResourceID(sdkLBs []LoadBalancerWithTags, resourceIDTag
 
 // isSDKLoadBalancerRequiresReplacement checks whether a sdk LoadBalancer requires replacement to fulfill a LoadBalancer resource.
 func isSDKLoadBalancerRequiresReplacement(sdkLB LoadBalancerWithTags, resLB *elbv2model.LoadBalancer) bool {
-	if string(resLB.Spec.Type) != awssdk.StringValue(sdkLB.LoadBalancer.Type) {
+	if string(resLB.Spec.Type) != string(sdkLB.LoadBalancer.Type) {
 		return true
 	}
-	if resLB.Spec.Scheme != nil && string(*resLB.Spec.Scheme) != awssdk.StringValue(sdkLB.LoadBalancer.Scheme) {
+	if &resLB.Spec.Scheme != nil && string(resLB.Spec.Scheme) != string(sdkLB.LoadBalancer.Scheme) {
 		return true
 	}
 	return false

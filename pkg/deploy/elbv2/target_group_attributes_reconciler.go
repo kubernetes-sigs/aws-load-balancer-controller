@@ -2,8 +2,9 @@ package elbv2
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
@@ -47,7 +48,7 @@ func (r *defaultTargetGroupAttributeReconciler) Reconcile(ctx context.Context, r
 			Attributes:     nil,
 		}
 		for _, attrKey := range sets.StringKeySet(attributesToUpdate).List() {
-			req.Attributes = append(req.Attributes, &elbv2sdk.TargetGroupAttribute{
+			req.Attributes = append(req.Attributes, elbv2types.TargetGroupAttribute{
 				Key:   awssdk.String(attrKey),
 				Value: awssdk.String(attributesToUpdate[attrKey]),
 			})
@@ -56,7 +57,7 @@ func (r *defaultTargetGroupAttributeReconciler) Reconcile(ctx context.Context, r
 		r.logger.Info("modifying targetGroup attributes",
 			"stackID", resTG.Stack().StackID(),
 			"resourceID", resTG.ID(),
-			"arn", awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn),
+			"arn", awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn),
 			"change", attributesToUpdate)
 		if _, err := r.elbv2Client.ModifyTargetGroupAttributesWithContext(ctx, req); err != nil {
 			return err
@@ -64,7 +65,7 @@ func (r *defaultTargetGroupAttributeReconciler) Reconcile(ctx context.Context, r
 		r.logger.Info("modified targetGroup attributes",
 			"stackID", resTG.Stack().StackID(),
 			"resourceID", resTG.ID(),
-			"arn", awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn))
+			"arn", awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn))
 	}
 	return nil
 }
@@ -89,7 +90,7 @@ func (r *defaultTargetGroupAttributeReconciler) getCurrentTargetGroupAttributes(
 
 	tgAttributes := make(map[string]string, len(resp.Attributes))
 	for _, attr := range resp.Attributes {
-		tgAttributes[awssdk.StringValue(attr.Key)] = awssdk.StringValue(attr.Value)
+		tgAttributes[awssdk.ToString(attr.Key)] = awssdk.ToString(attr.Value)
 	}
 	return tgAttributes, nil
 }

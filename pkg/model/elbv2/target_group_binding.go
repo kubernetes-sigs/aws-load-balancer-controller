@@ -102,7 +102,7 @@ type TargetGroupBindingSpec struct {
 
 	// ipAddressType specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.
 	// +optional
-	IPAddressType *elbv2api.TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
+	IPAddressType elbv2api.TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
 
 	// VpcID is the VPC of the TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional

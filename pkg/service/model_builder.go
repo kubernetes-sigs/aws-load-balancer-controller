@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"strconv"
 	"sync"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -173,7 +173,7 @@ type defaultModelBuildTask struct {
 	stack                    core.Stack
 	loadBalancer             *elbv2model.LoadBalancer
 	tgByResID                map[string]*elbv2model.TargetGroup
-	ec2Subnets               []*ec2.Subnet
+	ec2Subnets               []ec2types.Subnet
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
 	backendSGIDToken         core.StringToken
@@ -196,10 +196,10 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckProtocol           elbv2model.Protocol
 	defaultHealthCheckPort               string
 	defaultHealthCheckPath               string
-	defaultHealthCheckInterval           int64
-	defaultHealthCheckTimeout            int64
-	defaultHealthCheckHealthyThreshold   int64
-	defaultHealthCheckUnhealthyThreshold int64
+	defaultHealthCheckInterval           int32
+	defaultHealthCheckTimeout            int32
+	defaultHealthCheckHealthyThreshold   int32
+	defaultHealthCheckUnhealthyThreshold int32
 	defaultHealthCheckMatcherHTTPCode    string
 	defaultDeletionProtectionEnabled     bool
 	defaultIPv4SourceRanges              []string
@@ -209,10 +209,10 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckProtocolForInstanceModeLocal           elbv2model.Protocol
 	defaultHealthCheckPortForInstanceModeLocal               string
 	defaultHealthCheckPathForInstanceModeLocal               string
-	defaultHealthCheckIntervalForInstanceModeLocal           int64
-	defaultHealthCheckTimeoutForInstanceModeLocal            int64
-	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int64
-	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int64
+	defaultHealthCheckIntervalForInstanceModeLocal           int32
+	defaultHealthCheckTimeoutForInstanceModeLocal            int32
+	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int32
+	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int32
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {

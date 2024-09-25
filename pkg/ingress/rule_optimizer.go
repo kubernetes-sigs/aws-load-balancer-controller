@@ -3,7 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -17,7 +17,7 @@ type Rule struct {
 
 // RuleOptimizer will optimize the listener Rules for a single Listener.
 type RuleOptimizer interface {
-	Optimize(ctx context.Context, port int64, protocol elbv2model.Protocol, rules []Rule) ([]Rule, error)
+	Optimize(ctx context.Context, port int32, protocol elbv2model.Protocol, rules []Rule) ([]Rule, error)
 }
 
 // NewDefaultRuleOptimizer constructs new defaultRuleOptimizer.
@@ -43,13 +43,13 @@ type defaultRuleOptimizer struct {
 	logger logr.Logger
 }
 
-func (o *defaultRuleOptimizer) Optimize(_ context.Context, port int64, protocol elbv2model.Protocol, rules []Rule) ([]Rule, error) {
+func (o *defaultRuleOptimizer) Optimize(_ context.Context, port int32, protocol elbv2model.Protocol, rules []Rule) ([]Rule, error) {
 	optimizedRules := o.omitInfiniteRedirectRules(port, protocol, rules)
 	optimizedRules = o.omitOvershadowedRulesAfterRedirectRules(optimizedRules)
 	return optimizedRules, nil
 }
 
-func (o *defaultRuleOptimizer) omitInfiniteRedirectRules(port int64, protocol elbv2model.Protocol, rules []Rule) []Rule {
+func (o *defaultRuleOptimizer) omitInfiniteRedirectRules(port int32, protocol elbv2model.Protocol, rules []Rule) []Rule {
 	var optimizedRules []Rule
 	for _, rule := range rules {
 		if isInfiniteRedirectRule(port, protocol, rule) {
@@ -84,7 +84,7 @@ func (o *defaultRuleOptimizer) omitOvershadowedRulesAfterRedirectRules(rules []R
 }
 
 // isInfiniteRedirectRule checks whether specified rule will cause a infinite redirect loop.
-func isInfiniteRedirectRule(port int64, protocol elbv2model.Protocol, rule Rule) bool {
+func isInfiniteRedirectRule(port int32, protocol elbv2model.Protocol, rule Rule) bool {
 	redirectActionCFG := findRedirectActionConfig(rule.Actions)
 	if redirectActionCFG == nil {
 		return false
@@ -102,32 +102,32 @@ func isInfiniteRedirectRule(port int64, protocol elbv2model.Protocol, rule Rule)
 	}
 
 	if redirectActionCFG.Host != nil {
-		redirectHost := awssdk.StringValue(redirectActionCFG.Host)
+		redirectHost := awssdk.ToString(redirectActionCFG.Host)
 		if redirectHost != "#{host}" && !ruleHosts.Has(redirectHost) {
 			return false
 		}
 	}
 	if redirectActionCFG.Path != nil {
-		redirectPath := awssdk.StringValue(redirectActionCFG.Path)
+		redirectPath := awssdk.ToString(redirectActionCFG.Path)
 		if redirectPath != "/#{path}" && !rulePaths.Has(redirectPath) {
 			return false
 		}
 	}
 	if redirectActionCFG.Port != nil {
-		redirectPort := awssdk.StringValue(redirectActionCFG.Port)
+		redirectPort := awssdk.ToString(redirectActionCFG.Port)
 		rulePort := fmt.Sprintf("%v", port)
 		if redirectPort != "#{port}" && redirectPort != rulePort {
 			return false
 		}
 	}
 	if redirectActionCFG.Protocol != nil {
-		redirectProtocol := awssdk.StringValue(redirectActionCFG.Protocol)
+		redirectProtocol := awssdk.ToString(redirectActionCFG.Protocol)
 		if redirectProtocol != "#{protocol}" && redirectProtocol != string(protocol) {
 			return false
 		}
 	}
 	if redirectActionCFG.Query != nil {
-		redirectQuery := awssdk.StringValue(redirectActionCFG.Query)
+		redirectQuery := awssdk.ToString(redirectActionCFG.Query)
 		if redirectQuery != "#{query}" {
 			return false
 		}

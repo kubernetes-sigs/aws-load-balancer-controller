@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -53,15 +53,15 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 			ProviderID: "aws:///us-west-2a/i-0fa2d0064e848c69d",
 		},
 	}
-	instanceA := &ec2sdk.Instance{
+	instanceA := &ec2types.Instance{
 		InstanceId: awssdk.String("i-0fa2d0064e848c69a"),
-		NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+		NetworkInterfaces: []ec2types.InstanceNetworkInterface{
 			{
 				NetworkInterfaceId: awssdk.String("eni-a-1"),
-				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-					DeviceIndex: awssdk.Int64(0),
+				Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int32(0),
 				},
-				Groups: []*ec2sdk.GroupIdentifier{
+				Groups: []ec2types.GroupIdentifier{
 					{
 						GroupId: awssdk.String("sg-a-1"),
 					},
@@ -69,15 +69,15 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 			},
 		},
 	}
-	instanceB := &ec2sdk.Instance{
+	instanceB := &ec2types.Instance{
 		InstanceId: awssdk.String("i-0fa2d0064e848c69b"),
-		NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+		NetworkInterfaces: []ec2types.InstanceNetworkInterface{
 			{
 				NetworkInterfaceId: awssdk.String("eni-b-1"),
-				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-					DeviceIndex: awssdk.Int64(0),
+				Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int32(0),
 				},
-				Groups: []*ec2sdk.GroupIdentifier{
+				Groups: []ec2types.GroupIdentifier{
 					{
 						GroupId: awssdk.String("sg-b-1"),
 					},
@@ -85,15 +85,15 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 			},
 		},
 	}
-	instanceC := &ec2sdk.Instance{
+	instanceC := &ec2types.Instance{
 		InstanceId: awssdk.String("i-0fa2d0064e848c69c"),
-		NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+		NetworkInterfaces: []ec2types.InstanceNetworkInterface{
 			{
 				NetworkInterfaceId: awssdk.String("eni-c-1"),
-				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-					DeviceIndex: awssdk.Int64(0),
+				Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int32(0),
 				},
-				Groups: []*ec2sdk.GroupIdentifier{
+				Groups: []ec2types.GroupIdentifier{
 					{
 						GroupId: awssdk.String("sg-c-1"),
 					},
@@ -101,15 +101,15 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 			},
 		},
 	}
-	instanceD := &ec2sdk.Instance{
+	instanceD := &ec2types.Instance{
 		InstanceId: awssdk.String("i-0fa2d0064e848c69d"),
-		NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+		NetworkInterfaces: []ec2types.InstanceNetworkInterface{
 			{
 				NetworkInterfaceId: awssdk.String("eni-d-1"),
-				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-					DeviceIndex: awssdk.Int64(0),
+				Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int32(0),
 				},
-				Groups: []*ec2sdk.GroupIdentifier{
+				Groups: []ec2types.GroupIdentifier{
 					{
 						GroupId: awssdk.String("sg-d-1"),
 					},
@@ -119,7 +119,7 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 	}
 	type fetchNodeInstancesCall struct {
 		nodes                 []*corev1.Node
-		nodeInstanceByNodeKey map[types.NamespacedName]*ec2sdk.Instance
+		nodeInstanceByNodeKey map[types.NamespacedName]*ec2types.Instance
 		err                   error
 	}
 	type fields struct {
@@ -144,14 +144,14 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
 					{
 						nodes: []*corev1.Node{nodeA, nodeB},
-						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2types.Instance{
 							types.NamespacedName{Name: "node-a"}: instanceA,
 							types.NamespacedName{Name: "node-b"}: instanceB,
 						},
 					},
 					{
 						nodes: []*corev1.Node{nodeC, nodeD},
-						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2types.Instance{
 							types.NamespacedName{Name: "node-c"}: instanceC,
 							types.NamespacedName{Name: "node-d"}: instanceD,
 						},
@@ -197,14 +197,14 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
 					{
 						nodes: []*corev1.Node{nodeA, nodeB},
-						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2types.Instance{
 							types.NamespacedName{Name: "node-a"}: instanceA,
 							types.NamespacedName{Name: "node-b"}: instanceB,
 						},
 					},
 					{
 						nodes: []*corev1.Node{nodeC},
-						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2types.Instance{
 							types.NamespacedName{Name: "node-c"}: instanceC,
 						},
 					},
@@ -249,7 +249,7 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
 					{
 						nodes: []*corev1.Node{nodeA, nodeB},
-						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2types.Instance{
 							types.NamespacedName{Name: "node-a"}: instanceA,
 							types.NamespacedName{Name: "node-b"}: instanceB,
 						},
@@ -291,7 +291,7 @@ func Test_defaultNodeENIInfoResolver_Resolve(t *testing.T) {
 				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
 					{
 						nodes: []*corev1.Node{nodeA, nodeB},
-						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2types.Instance{
 							types.NamespacedName{Name: "node-a"}: instanceA,
 							types.NamespacedName{Name: "node-b"}: instanceB,
 						},
@@ -371,7 +371,7 @@ func Test_defaultNodeENIInfoResolver_resolveViaInstanceID(t *testing.T) {
 	}
 	type fetchNodeInstancesCall struct {
 		nodes                 []*corev1.Node
-		nodeInstanceByNodeKey map[types.NamespacedName]*ec2sdk.Instance
+		nodeInstanceByNodeKey map[types.NamespacedName]*ec2types.Instance
 		err                   error
 	}
 	type fields struct {
@@ -393,16 +393,16 @@ func Test_defaultNodeENIInfoResolver_resolveViaInstanceID(t *testing.T) {
 				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
 					{
 						nodes: []*corev1.Node{nodeA, nodeB},
-						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2types.Instance{
 							types.NamespacedName{Name: "node-a"}: {
 								InstanceId: awssdk.String("i-0fa2d0064e848c69a"),
-								NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+								NetworkInterfaces: []ec2types.InstanceNetworkInterface{
 									{
 										NetworkInterfaceId: awssdk.String("eni-a-1"),
-										Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-											DeviceIndex: awssdk.Int64(0),
+										Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+											DeviceIndex: awssdk.Int32(0),
 										},
-										Groups: []*ec2sdk.GroupIdentifier{
+										Groups: []ec2types.GroupIdentifier{
 											{
 												GroupId: awssdk.String("sg-a-1"),
 											},
@@ -412,13 +412,13 @@ func Test_defaultNodeENIInfoResolver_resolveViaInstanceID(t *testing.T) {
 							},
 							types.NamespacedName{Name: "node-b"}: {
 								InstanceId: awssdk.String("i-0fa2d0064e848c69b"),
-								NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+								NetworkInterfaces: []ec2types.InstanceNetworkInterface{
 									{
 										NetworkInterfaceId: awssdk.String("eni-b-1"),
-										Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-											DeviceIndex: awssdk.Int64(0),
+										Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+											DeviceIndex: awssdk.Int32(0),
 										},
-										Groups: []*ec2sdk.GroupIdentifier{
+										Groups: []ec2types.GroupIdentifier{
 											{
 												GroupId: awssdk.String("sg-b-1"),
 											},
@@ -450,16 +450,16 @@ func Test_defaultNodeENIInfoResolver_resolveViaInstanceID(t *testing.T) {
 				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
 					{
 						nodes: []*corev1.Node{nodeA, nodeB},
-						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2types.Instance{
 							types.NamespacedName{Name: "node-b"}: {
 								InstanceId: awssdk.String("i-0fa2d0064e848c69b"),
-								NetworkInterfaces: []*ec2sdk.InstanceNetworkInterface{
+								NetworkInterfaces: []ec2types.InstanceNetworkInterface{
 									{
 										NetworkInterfaceId: awssdk.String("eni-b-1"),
-										Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-											DeviceIndex: awssdk.Int64(0),
+										Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+											DeviceIndex: awssdk.Int32(0),
 										},
-										Groups: []*ec2sdk.GroupIdentifier{
+										Groups: []ec2types.GroupIdentifier{
 											{
 												GroupId: awssdk.String("sg-b-1"),
 											},
@@ -502,7 +502,7 @@ func Test_defaultNodeENIInfoResolver_resolveViaInstanceID(t *testing.T) {
 				fetchNodeInstancesCalls: []fetchNodeInstancesCall{
 					{
 						nodes: []*corev1.Node{nodeA},
-						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2sdk.Instance{
+						nodeInstanceByNodeKey: map[types.NamespacedName]*ec2types.Instance{
 							types.NamespacedName{Name: "node-a"}: {
 								InstanceId: awssdk.String("i-0fa2d0064e848c69a"),
 							},
@@ -542,72 +542,72 @@ func Test_defaultNodeENIInfoResolver_resolveViaInstanceID(t *testing.T) {
 
 func Test_findInstancePrimaryENI(t *testing.T) {
 	type args struct {
-		enis []*ec2sdk.InstanceNetworkInterface
+		enis []ec2types.InstanceNetworkInterface
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *ec2sdk.InstanceNetworkInterface
+		want    ec2types.InstanceNetworkInterface
 		wantErr error
 	}{
 		{
 			name: "one eni",
 			args: args{
-				enis: []*ec2sdk.InstanceNetworkInterface{
+				enis: []ec2types.InstanceNetworkInterface{
 					{
 						NetworkInterfaceId: awssdk.String("eni-1"),
-						Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-							DeviceIndex: awssdk.Int64(0),
+						Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+							DeviceIndex: awssdk.Int32(0),
 						},
 					},
 				},
 			},
-			want: &ec2sdk.InstanceNetworkInterface{
+			want: ec2types.InstanceNetworkInterface{
 				NetworkInterfaceId: awssdk.String("eni-1"),
-				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-					DeviceIndex: awssdk.Int64(0),
+				Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int32(0),
 				},
 			},
 		},
 		{
 			name: "two eni",
 			args: args{
-				enis: []*ec2sdk.InstanceNetworkInterface{
+				enis: []ec2types.InstanceNetworkInterface{
 					{
 						NetworkInterfaceId: awssdk.String("eni-1"),
-						Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-							DeviceIndex: awssdk.Int64(1),
+						Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+							DeviceIndex: awssdk.Int32(1),
 						},
 					},
 					{
 						NetworkInterfaceId: awssdk.String("eni-2"),
-						Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-							DeviceIndex: awssdk.Int64(0),
+						Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+							DeviceIndex: awssdk.Int32(0),
 						},
 					},
 				},
 			},
-			want: &ec2sdk.InstanceNetworkInterface{
+			want: ec2types.InstanceNetworkInterface{
 				NetworkInterfaceId: awssdk.String("eni-2"),
-				Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-					DeviceIndex: awssdk.Int64(0),
+				Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+					DeviceIndex: awssdk.Int32(0),
 				},
 			},
 		},
 		{
 			name: "no primary ENI",
 			args: args{
-				enis: []*ec2sdk.InstanceNetworkInterface{
+				enis: []ec2types.InstanceNetworkInterface{
 					{
 						NetworkInterfaceId: awssdk.String("eni-1"),
-						Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-							DeviceIndex: awssdk.Int64(1),
+						Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+							DeviceIndex: awssdk.Int32(1),
 						},
 					},
 					{
 						NetworkInterfaceId: awssdk.String("eni-2"),
-						Attachment: &ec2sdk.InstanceNetworkInterfaceAttachment{
-							DeviceIndex: awssdk.Int64(2),
+						Attachment: &ec2types.InstanceNetworkInterfaceAttachment{
+							DeviceIndex: awssdk.Int32(2),
 						},
 					},
 				},

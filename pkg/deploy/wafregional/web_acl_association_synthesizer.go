@@ -2,10 +2,10 @@ package wafregional
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	wafregionalmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafregional"
 )
 
@@ -26,25 +26,18 @@ type webACLAssociationSynthesizer struct {
 
 func (s *webACLAssociationSynthesizer) Synthesize(ctx context.Context) error {
 	var resAssociations []*wafregionalmodel.WebACLAssociation
-	s.stack.ListResources(&resAssociations)
+	if err := s.stack.ListResources(&resAssociations); err != nil {
+		return fmt.Errorf("[should never happen] failed to list resources: %w", err)
+	}
+	if len(resAssociations) == 0 {
+		return nil
+	}
 	resAssociationsByResARN, err := mapResWebACLAssociationByResourceARN(resAssociations)
 	if err != nil {
 		return err
 	}
-
-	var resLBs []*elbv2model.LoadBalancer
-	s.stack.ListResources(&resLBs)
-	for _, resLB := range resLBs {
-		// wafRegional WebACL can only be associated with ALB for now.
-		if resLB.Spec.Type != elbv2model.LoadBalancerTypeApplication {
-			continue
-		}
-		lbARN, err := resLB.LoadBalancerARN().Resolve(ctx)
-		if err != nil {
-			return err
-		}
-		resAssociations := resAssociationsByResARN[lbARN]
-		if err := s.synthesizeWebACLAssociationsOnLB(ctx, lbARN, resAssociations); err != nil {
+	for resARN, webACLAssociations := range resAssociationsByResARN {
+		if err := s.synthesizeWebACLAssociationsOnLB(ctx, resARN, webACLAssociations); err != nil {
 			return err
 		}
 	}
@@ -57,30 +50,26 @@ func (s *webACLAssociationSynthesizer) PostSynthesize(ctx context.Context) error
 }
 
 func (s *webACLAssociationSynthesizer) synthesizeWebACLAssociationsOnLB(ctx context.Context, lbARN string, resAssociations []*wafregionalmodel.WebACLAssociation) error {
-	if len(resAssociations) > 1 {
-		return errors.Errorf("[should never happen] multiple WAFRegional webACL desired on LoadBalancer: %v", lbARN)
+	if len(resAssociations) != 1 {
+		return errors.Errorf("[should never happen] should be exactly one WAFClassic webACL desired on LoadBalancer: %v", lbARN)
 	}
-
-	var desiredWebACLID string
-	if len(resAssociations) == 1 {
-		desiredWebACLID = resAssociations[0].Spec.WebACLID
-	}
+	desiredWebACLID := resAssociations[0].Spec.WebACLID
 	currentWebACLID, err := s.associationManager.GetAssociatedWebACL(ctx, lbARN)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "failed to get WAFClassic webACL association on LoadBalancer")
 	}
 	switch {
 	case desiredWebACLID == "" && currentWebACLID != "":
 		if err := s.associationManager.DisassociateWebACL(ctx, lbARN); err != nil {
-			return errors.Wrap(err, "failed to delete WAFv2 WAFRegional association on LoadBalancer")
+			return errors.Wrap(err, "failed to delete WAFClassic webACL association on LoadBalancer")
 		}
 	case desiredWebACLID != "" && currentWebACLID == "":
 		if err := s.associationManager.AssociateWebACL(ctx, lbARN, desiredWebACLID); err != nil {
-			return errors.Wrap(err, "failed to create WAFv2 WAFRegional association on LoadBalancer")
+			return errors.Wrap(err, "failed to create WAFClassic webACL association on LoadBalancer")
 		}
-	case desiredWebACLID != "" && currentWebACLID != "" && desiredWebACLID != currentWebACLID:
+	case desiredWebACLID != "" && desiredWebACLID != currentWebACLID:
 		if err := s.associationManager.AssociateWebACL(ctx, lbARN, desiredWebACLID); err != nil {
-			return errors.Wrap(err, "failed to update WAFv2 WAFRegional association on LoadBalancer")
+			return errors.Wrap(err, "failed to update WAFClassic webACL association on LoadBalancer")
 		}
 	}
 	return nil

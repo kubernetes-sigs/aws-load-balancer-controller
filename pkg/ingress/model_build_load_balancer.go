@@ -5,10 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"regexp"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -26,10 +26,10 @@ import (
 
 const (
 	resourceIDLoadBalancer         = "LoadBalancer"
-	minimalAvailableIPAddressCount = int64(8)
+	minimalAvailableIPAddressCount = int32(8)
 )
 
-func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig) (*elbv2model.LoadBalancer, error) {
+func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig) (*elbv2model.LoadBalancer, error) {
 	lbSpec, err := t.buildLoadBalancerSpec(ctx, listenPortConfigByPort)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, listenPor
 	return lb, nil
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig) (elbv2model.LoadBalancerSpec, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig) (elbv2model.LoadBalancerSpec, error) {
 	scheme, err := t.buildLoadBalancerScheme(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
@@ -75,8 +75,8 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 	return elbv2model.LoadBalancerSpec{
 		Name:                   name,
 		Type:                   elbv2model.LoadBalancerTypeApplication,
-		Scheme:                 &scheme,
-		IPAddressType:          &ipAddressType,
+		Scheme:                 scheme,
+		IPAddressType:          ipAddressType,
 		SubnetMappings:         subnetMappings,
 		SecurityGroups:         securityGroups,
 		CustomerOwnedIPv4Pool:  coIPv4Pool,
@@ -250,7 +250,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		return nil, err
 	}
 
-	if len(sdkLBs) == 0 || (string(scheme) != awssdk.StringValue(sdkLBs[0].LoadBalancer.Scheme)) {
+	if len(sdkLBs) == 0 || (string(scheme) != string(sdkLBs[0].LoadBalancer.Scheme)) {
 		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
@@ -266,13 +266,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 	availabilityZones := sdkLBs[0].LoadBalancer.AvailabilityZones
 	subnetIDs := make([]string, 0, len(availabilityZones))
 	for _, availabilityZone := range availabilityZones {
-		subnetID := awssdk.StringValue(availabilityZone.SubnetId)
+		subnetID := awssdk.ToString(availabilityZone.SubnetId)
 		subnetIDs = append(subnetIDs, subnetID)
 	}
 	return buildLoadBalancerSubnetMappingsWithSubnetIDs(subnetIDs), nil
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig, ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
 	sgNameOrIDsViaAnnotation, err := t.buildFrontendSGNameOrIDsFromAnnotation(ctx)
 	if err != nil {
 		return nil, err
@@ -395,11 +395,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(_ context.Context) (map[st
 	return algorithm.MergeStringMap(t.defaultTags, ingGroupTags), nil
 }
 
-func buildLoadBalancerSubnetMappingsWithSubnets(subnets []*ec2sdk.Subnet) []elbv2model.SubnetMapping {
+func buildLoadBalancerSubnetMappingsWithSubnets(subnets []ec2types.Subnet) []elbv2model.SubnetMapping {
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnets))
 	for _, subnet := range subnets {
 		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
-			SubnetID: awssdk.StringValue(subnet.SubnetId),
+			SubnetID: awssdk.ToString(subnet.SubnetId),
 		})
 	}
 	return subnetMappings

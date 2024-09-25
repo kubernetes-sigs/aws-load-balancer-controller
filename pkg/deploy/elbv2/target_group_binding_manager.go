@@ -2,7 +2,7 @@ package elbv2
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -142,7 +142,7 @@ func (m *defaultTargetGroupBindingManager) waitUntilTargetGroupBindingObserved(c
 		if err := m.k8sClient.Get(ctx, k8s.NamespacedName(tgb), observedTGB); err != nil {
 			return false, err
 		}
-		if awssdk.Int64Value(observedTGB.Status.ObservedGeneration) >= tgb.Generation {
+		if awssdk.ToInt64(observedTGB.Status.ObservedGeneration) >= tgb.Generation {
 			return true, nil
 		}
 
@@ -186,7 +186,7 @@ func buildK8sTargetGroupBindingSpec(ctx context.Context, resTGB *elbv2model.Targ
 		k8sTGBSpec.Networking = &k8sTGBNetworking
 	}
 	k8sTGBSpec.NodeSelector = resTGB.Spec.Template.Spec.NodeSelector
-	k8sTGBSpec.IPAddressType = resTGB.Spec.Template.Spec.IPAddressType
+	k8sTGBSpec.IPAddressType = &resTGB.Spec.Template.Spec.IPAddressType
 	k8sTGBSpec.VpcID = resTGB.Spec.Template.Spec.VpcID
 	return k8sTGBSpec, nil
 }

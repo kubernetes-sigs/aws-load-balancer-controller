@@ -2,7 +2,7 @@ package elbv2
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -97,7 +97,7 @@ func (s *listenerRuleSynthesizer) findSDKListenersRulesOnLS(ctx context.Context,
 	}
 	nonDefaultRules := make([]ListenerRuleWithTags, 0, len(sdkLRs))
 	for _, rule := range sdkLRs {
-		if awssdk.BoolValue(rule.ListenerRule.IsDefault) {
+		if awssdk.ToBool(rule.ListenerRule.IsDefault) {
 			continue
 		}
 		nonDefaultRules = append(nonDefaultRules, rule)
@@ -117,8 +117,8 @@ func matchResAndSDKListenerRules(resLRs []*elbv2model.ListenerRule, sdkLRs []Lis
 
 	resLRByPriority := mapResListenerRuleByPriority(resLRs)
 	sdkLRByPriority := mapSDKListenerRuleByPriority(sdkLRs)
-	resLRPriorities := sets.Int64KeySet(resLRByPriority)
-	sdkLRPriorities := sets.Int64KeySet(sdkLRByPriority)
+	resLRPriorities := sets.Int32KeySet(resLRByPriority)
+	sdkLRPriorities := sets.Int32KeySet(sdkLRByPriority)
 	for _, priority := range resLRPriorities.Intersection(sdkLRPriorities).List() {
 		resLR := resLRByPriority[priority]
 		sdkLR := sdkLRByPriority[priority]
@@ -137,19 +137,19 @@ func matchResAndSDKListenerRules(resLRs []*elbv2model.ListenerRule, sdkLRs []Lis
 	return matchedResAndSDKLRs, unmatchedResLRs, unmatchedSDKLRs
 }
 
-func mapResListenerRuleByPriority(resLRs []*elbv2model.ListenerRule) map[int64]*elbv2model.ListenerRule {
-	resLRByPriority := make(map[int64]*elbv2model.ListenerRule, len(resLRs))
+func mapResListenerRuleByPriority(resLRs []*elbv2model.ListenerRule) map[int32]*elbv2model.ListenerRule {
+	resLRByPriority := make(map[int32]*elbv2model.ListenerRule, len(resLRs))
 	for _, resLR := range resLRs {
 		resLRByPriority[resLR.Spec.Priority] = resLR
 	}
 	return resLRByPriority
 }
 
-func mapSDKListenerRuleByPriority(sdkLRs []ListenerRuleWithTags) map[int64]ListenerRuleWithTags {
-	sdkLRByPriority := make(map[int64]ListenerRuleWithTags, len(sdkLRs))
+func mapSDKListenerRuleByPriority(sdkLRs []ListenerRuleWithTags) map[int32]ListenerRuleWithTags {
+	sdkLRByPriority := make(map[int32]ListenerRuleWithTags, len(sdkLRs))
 	for _, sdkLR := range sdkLRs {
-		priority, _ := strconv.ParseInt(awssdk.StringValue(sdkLR.ListenerRule.Priority), 10, 64)
-		sdkLRByPriority[priority] = sdkLR
+		priority, _ := strconv.ParseInt(awssdk.ToString(sdkLR.ListenerRule.Priority), 10, 64)
+		sdkLRByPriority[int32(priority)] = sdkLR
 	}
 	return sdkLRByPriority
 }

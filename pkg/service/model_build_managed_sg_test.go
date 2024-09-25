@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -130,8 +130,8 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 			want: []ec2model.IPPermission{
 				{
 					IPProtocol: "",
-					FromPort:   aws.Int64(80),
-					ToPort:     aws.Int64(80),
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
 							CIDRIP: "0.0.0.0/0",
@@ -166,8 +166,8 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 			want: []ec2model.IPPermission{
 				{
 					IPProtocol: "",
-					FromPort:   aws.Int64(80),
-					ToPort:     aws.Int64(80),
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
 					IPRanges: []ec2model.IPRange{
 						{
 							CIDRIP: "0.0.0.0/0",
@@ -176,8 +176,8 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 				},
 				{
 					IPProtocol: "",
-					FromPort:   aws.Int64(80),
-					ToPort:     aws.Int64(80),
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
 					IPv6Range: []ec2model.IPv6Range{
 						{
 							CIDRIPv6: "::/0",
@@ -213,8 +213,8 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 			want: []ec2model.IPPermission{
 				{
 					IPProtocol: "",
-					FromPort:   aws.Int64(80),
-					ToPort:     aws.Int64(80),
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
 					PrefixLists: []ec2model.PrefixList{
 						{
 							ListID: "pl-xxxxx",
@@ -250,8 +250,8 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 			want: []ec2model.IPPermission{
 				{
 					IPProtocol: "",
-					FromPort:   aws.Int64(80),
-					ToPort:     aws.Int64(80),
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
 					PrefixLists: []ec2model.PrefixList{
 						{
 							ListID: "pl-xxxxx",
@@ -260,8 +260,8 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 				},
 				{
 					IPProtocol: "",
-					FromPort:   aws.Int64(80),
-					ToPort:     aws.Int64(80),
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
 					PrefixLists: []ec2model.PrefixList{
 						{
 							ListID: "pl-yyyyyy",

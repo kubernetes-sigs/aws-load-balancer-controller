@@ -1,30 +1,24 @@
 package endpoints
 
-import (
-	awsendpoints "github.com/aws/aws-sdk-go/aws/endpoints"
-)
+import "github.com/aws/aws-sdk-go-v2/aws"
 
-func NewResolver(configuration map[string]string) *resolver {
-	return &resolver{
+func NewResolver(configuration map[string]string) *Resolver {
+	return &Resolver{
 		configuration: configuration,
 	}
 }
 
-var _ awsendpoints.Resolver = &resolver{}
-
-// resolver is an AWS endpoints.Resolver that allows to customize AWS API endpoints.
+// Resolver is an AWS endpoints.Resolver that allows to customize AWS API endpoints.
 // It can be configured using the following format "${AWSServiceID}=${URL}"
-// e.g. "ec2=https://ec2.domain.com,elasticloadbalancing=https://elbv2.domain.com"
-type resolver struct {
+// e.g. "EC2=https://ec2.domain.com,Elastic Load Balancing v2=https://elbv2.domain.com"
+type Resolver struct {
 	configuration map[string]string
 }
 
-func (c *resolver) EndpointFor(service, region string, opts ...func(*awsendpoints.Options)) (awsendpoints.ResolvedEndpoint, error) {
-	customEndpoint := c.configuration[service]
+func (c *Resolver) EndpointFor(serviceId string) *string {
+	customEndpoint := c.configuration[serviceId]
 	if len(customEndpoint) != 0 {
-		return awsendpoints.ResolvedEndpoint{
-			URL: customEndpoint,
-		}, nil
+		return aws.String(customEndpoint)
 	}
-	return awsendpoints.DefaultResolver().EndpointFor(service, region, opts...)
+	return nil
 }

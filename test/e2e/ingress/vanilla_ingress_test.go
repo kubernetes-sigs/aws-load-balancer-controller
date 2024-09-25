@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gavv/httpexpect/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -374,7 +374,7 @@ var _ = Describe("vanilla ingress tests", func() {
 
 			sdkLB, err := tf.LBManager.GetLoadBalancerFromARN(ctx, lbARN)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(awssdk.StringValue(sdkLB.LoadBalancerName)).Should(Equal(lbName))
+			Expect(awssdk.ToString(sdkLB.LoadBalancerName)).Should(Equal(lbName))
 
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)

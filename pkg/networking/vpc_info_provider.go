@@ -2,11 +2,12 @@ package networking
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"sync"
 	"time"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -14,16 +15,16 @@ import (
 
 const defaultVPCInfoCacheTTL = 10 * time.Minute
 
-type VPCInfo ec2sdk.Vpc
+type VPCInfo ec2types.Vpc
 
 // AssociatedIPv4CIDRs computes associated IPv4CIDRs for VPC.
 func (vpc *VPCInfo) AssociatedIPv4CIDRs() []string {
 	var ipv4CIDRs []string
 	for _, cidr := range vpc.CidrBlockAssociationSet {
-		if awssdk.StringValue(cidr.CidrBlockState.State) != ec2sdk.VpcCidrBlockStateCodeAssociated {
+		if cidr.CidrBlockState.State != ec2types.VpcCidrBlockStateCodeAssociated {
 			continue
 		}
-		ipv4CIDRs = append(ipv4CIDRs, awssdk.StringValue(cidr.CidrBlock))
+		ipv4CIDRs = append(ipv4CIDRs, awssdk.ToString(cidr.CidrBlock))
 	}
 	return ipv4CIDRs
 }
@@ -32,10 +33,10 @@ func (vpc *VPCInfo) AssociatedIPv4CIDRs() []string {
 func (vpc *VPCInfo) AssociatedIPv6CIDRs() []string {
 	var ipv6CIDRs []string
 	for _, cidr := range vpc.Ipv6CidrBlockAssociationSet {
-		if awssdk.StringValue(cidr.Ipv6CidrBlockState.State) != ec2sdk.VpcCidrBlockStateCodeAssociated {
+		if cidr.Ipv6CidrBlockState.State != ec2types.VpcCidrBlockStateCodeAssociated {
 			continue
 		}
-		ipv6CIDRs = append(ipv6CIDRs, awssdk.StringValue(cidr.Ipv6CidrBlock))
+		ipv6CIDRs = append(ipv6CIDRs, awssdk.ToString(cidr.Ipv6CidrBlock))
 	}
 	return ipv6CIDRs
 }
@@ -132,12 +133,12 @@ func (p *defaultVPCInfoProvider) saveVPCInfoToCache(vpcID string, vpcInfo VPCInf
 // fetchVPCInfoFromAWS will fetch VPC info from the AWS API.
 func (p *defaultVPCInfoProvider) fetchVPCInfoFromAWS(ctx context.Context, vpcID string) (VPCInfo, error) {
 	req := &ec2sdk.DescribeVpcsInput{
-		VpcIds: []*string{awssdk.String(vpcID)},
+		VpcIds: []string{vpcID},
 	}
 	resp, err := p.ec2Client.DescribeVpcsWithContext(ctx, req)
 	if err != nil {
 		return VPCInfo{}, err
 	}
 
-	return VPCInfo(*resp.Vpcs[0]), nil
+	return VPCInfo(resp.Vpcs[0]), nil
 }

@@ -1,7 +1,7 @@
 package elbv2
 
 import (
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -19,14 +19,14 @@ func Test_isListenerNotFoundError(t *testing.T) {
 		{
 			name: "is ListenerNotFound error",
 			args: args{
-				err: awserr.New("ListenerNotFound", "some message", nil),
+				err: &smithy.GenericAPIError{Code: "ListenerNotFound", Message: "some message"},
 			},
 			want: true,
 		},
 		{
 			name: "wraps ListenerNotFound error",
 			args: args{
-				err: errors.Wrap(awserr.New("ListenerNotFound", "some message", nil), "wrapped message"),
+				err: errors.Wrap(&smithy.GenericAPIError{Code: "ListenerNotFound", Message: "some message"}, "wrapped message"),
 			},
 			want: true,
 		},
