@@ -48,6 +48,7 @@ const (
 	IngressSuffixManageSecurityGroupRules     = "manage-backend-security-group-rules"
 	IngressSuffixMutualAuthentication         = "mutual-authentication"
 	IngressSuffixSecurityGroupPrefixLists     = "security-group-prefix-lists"
+	IngressSuffixlsAttsAnnotationPrefix       = "listener-attributes"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io
@@ -88,4 +89,5 @@ const (
 	SvcLBSuffixManageSGRules                             = "aws-load-balancer-manage-backend-security-group-rules"
 	SvcLBSuffixEnforceSGInboundRulesOnPrivateLinkTraffic = "aws-load-balancer-inbound-sg-rules-on-private-link-traffic"
 	SvcLBSuffixSecurityGroupPrefixLists                  = "aws-load-balancer-security-group-prefix-lists"
+	SvcLBSuffixlsAttsAnnotationPrefix                    = "aws-load-balancer-listener-attributes"
 )
