@@ -52,10 +52,29 @@ Kubernetes meta/v1.ObjectMeta
 </em>
 </td>
 <td>
-Refer to the Kubernetes API documentation for the fields of the
+<table>
+<tr><td><code>annotations</code></td><td>
+
+<table>
+<tr><td><code>alb.ingress.kubernetes.io/IamRoleArnToAssume</code><br><i>string</i></td>
+<td><i>(Optional)</i> In case the target group is in a differet AWS account, you put here the role that needs to be assumed in order to manipulate the target group.
+</td></tr>
+<tr><td><code>alb.ingress.kubernetes.io/AssumeRoleExternalId</code><br><i>string</i></td>
+<td><i>(Optional)</i> The external ID for the assume role operation. Optional, but recommended. It helps you to prevent the <a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html" target="_blank">confused deputy problem</a>.
+</td></tr>
+</table>
+
+<tr><td colspan=2>
+Refer to the Kubernetes API documentation for the other fields of the
 <code>metadata</code> field.
+</td></tr>
+</table></td></tr>
+
+
+
 </td>
 </tr>
+
 <tr>
 <td>
 <code>spec</code></br>
