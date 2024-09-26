@@ -2,11 +2,12 @@ package services
 
 import (
 	"context"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
-	"time"
 )
 
 type ELBV2 interface {
@@ -57,6 +58,8 @@ type ELBV2 interface {
 	DescribeTrustStoresWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeTrustStoresInput) (*elasticloadbalancingv2.DescribeTrustStoresOutput, error)
 	RemoveListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.RemoveListenerCertificatesInput) (*elasticloadbalancingv2.RemoveListenerCertificatesOutput, error)
 	AddListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.AddListenerCertificatesInput) (*elasticloadbalancingv2.AddListenerCertificatesOutput, error)
+	DescribeListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerAttributesInput) (*elasticloadbalancingv2.DescribeListenerAttributesOutput, error)
+	ModifyListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error)
 }
 
 func NewELBV2(cfg aws.Config, endpointsResolver *endpoints.Resolver) ELBV2 {
@@ -267,4 +270,12 @@ func (c *elbv2Client) DescribeRulesAsList(ctx context.Context, input *elasticloa
 		result = append(result, output.Rules...)
 	}
 	return result, nil
+}
+
+func (c *elbv2Client) DescribeListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerAttributesInput) (*elasticloadbalancingv2.DescribeListenerAttributesOutput, error) {
+	return c.elbv2Client.DescribeListenerAttributes(ctx, input)
+}
+
+func (c *elbv2Client) ModifyListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error) {
+	return c.elbv2Client.ModifyListenerAttributes(ctx, input)
 }

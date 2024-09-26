@@ -84,6 +84,36 @@ spec:
                 - dualstack
                 - dualstack-without-public-ipv4
                 type: string
+              listeners:
+                description: Listeners define a list of listeners with their protocol,
+                  port and attributes.
+                items:
+                  properties:
+                    listenerAttributes:
+                      description: The attributes of the listener
+                      items:
+                        description: Attributes defines custom attributes on resources.
+                        properties:
+                          key:
+                            description: The key of the attribute.
+                            type: string
+                          value:
+                            description: The value of the attribute.
+                            type: string
+                        required:
+                        - key
+                        - value
+                        type: object
+                      type: array
+                    port:
+                      description: The port of the listener
+                      format: int32
+                      type: integer
+                    protocol:
+                      description: The protocol of the listener
+                      type: string
+                  type: object
+                type: array
               loadBalancerAttributes:
                 description: LoadBalancerAttributes define the custom attributes to
                   LoadBalancers for all Ingress that that belong to IngressClass with

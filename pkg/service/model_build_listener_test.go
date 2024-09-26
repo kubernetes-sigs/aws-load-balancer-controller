@@ -182,3 +182,122 @@ func Test_defaultModelBuilderTask_buildListenerConfig(t *testing.T) {
 		})
 	}
 }
+
+const tcpIdleTimeoutSeconds = "tcp.idle_timeout.seconds"
+
+func Test_defaultModelBuilderTask_buildListenerAttributes(t *testing.T) {
+	tests := []struct {
+		testName  string
+		svc       *corev1.Service
+		wantError bool
+		wantValue [][]elbv2model.ListenerAttribute
+	}{
+		{
+			testName: "Listener attribute annotation value is not stringMap",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":                       "instance",
+						"service.beta.kubernetes.io/aws-load-balancer-listener-attributes.TCP-80": "tcp.idle_timeout.seconds",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(8080),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   38888,
+						},
+					},
+				},
+			},
+			wantError: true,
+		},
+		{
+			testName: "Listener attribute annotation is not specified",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type": "instance",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(8080),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   38888,
+						},
+					},
+				},
+			},
+			wantError: false,
+			wantValue: [][]elbv2model.ListenerAttribute{
+				{},
+			},
+		},
+		{
+			testName: "Listener attribute annotation is specified",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":                       "ip",
+						"service.beta.kubernetes.io/aws-load-balancer-listener-attributes.TCP-80": "tcp.idle_timeout.seconds=400",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "test1",
+							Port:       80,
+							TargetPort: intstr.FromInt(8080),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   38888,
+						},
+						{
+							Name:       "test2",
+							Port:       80,
+							TargetPort: intstr.FromInt(8080),
+							Protocol:   corev1.ProtocolUDP,
+							NodePort:   38888,
+						},
+					},
+				},
+			},
+			wantError: false,
+			wantValue: [][]elbv2model.ListenerAttribute{
+				{
+					{
+						Key:   tcpIdleTimeoutSeconds,
+						Value: "400",
+					},
+				},
+				{},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{
+				service:          tt.svc,
+				annotationParser: parser,
+			}
+
+			for index, port := range tt.svc.Spec.Ports {
+				listenerAttributes, err := builder.buildListenerAttributes(context.Background(), tt.svc.Annotations, port.Port, elbv2model.Protocol(port.Protocol))
+
+				if tt.wantError {
+					assert.Error(t, err)
+				} else {
+					assert.ElementsMatch(t, tt.wantValue[index], listenerAttributes)
+				}
+			}
+
+		})
+	}
+}

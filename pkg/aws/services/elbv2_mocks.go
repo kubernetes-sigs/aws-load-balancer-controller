@@ -201,6 +201,21 @@ func (mr *MockELBV2MockRecorder) DeregisterTargetsWithContext(arg0, arg1 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargetsWithContext", reflect.TypeOf((*MockELBV2)(nil).DeregisterTargetsWithContext), arg0, arg1)
 }
 
+// DescribeListenerAttributesWithContext mocks base method.
+func (m *MockELBV2) DescribeListenerAttributesWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.DescribeListenerAttributesInput) (*elasticloadbalancingv2.DescribeListenerAttributesOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeListenerAttributesWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*elasticloadbalancingv2.DescribeListenerAttributesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeListenerAttributesWithContext indicates an expected call of DescribeListenerAttributesWithContext.
+func (mr *MockELBV2MockRecorder) DescribeListenerAttributesWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeListenerAttributesWithContext", reflect.TypeOf((*MockELBV2)(nil).DescribeListenerAttributesWithContext), arg0, arg1)
+}
+
 // DescribeListenerCertificatesAsList mocks base method.
 func (m *MockELBV2) DescribeListenerCertificatesAsList(arg0 context.Context, arg1 *elasticloadbalancingv2.DescribeListenerCertificatesInput) ([]types.Certificate, error) {
 	m.ctrl.T.Helper()
@@ -409,6 +424,21 @@ func (m *MockELBV2) DescribeTrustStoresWithContext(arg0 context.Context, arg1 *e
 func (mr *MockELBV2MockRecorder) DescribeTrustStoresWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTrustStoresWithContext", reflect.TypeOf((*MockELBV2)(nil).DescribeTrustStoresWithContext), arg0, arg1)
+}
+
+// ModifyListenerAttributesWithContext mocks base method.
+func (m *MockELBV2) ModifyListenerAttributesWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyListenerAttributesWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*elasticloadbalancingv2.ModifyListenerAttributesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifyListenerAttributesWithContext indicates an expected call of ModifyListenerAttributesWithContext.
+func (mr *MockELBV2MockRecorder) ModifyListenerAttributesWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyListenerAttributesWithContext", reflect.TypeOf((*MockELBV2)(nil).ModifyListenerAttributesWithContext), arg0, arg1)
 }
 
 // ModifyListenerWithContext mocks base method.

@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -20,6 +21,7 @@ type LoadBalancerManager interface {
 	GetLoadBalancerAttributes(ctx context.Context, lbARN string) ([]elbv2types.LoadBalancerAttribute, error)
 	GetLoadBalancerResourceTags(ctx context.Context, resARN string) ([]elbv2types.Tag, error)
 	GetLoadBalancerListenerRules(ctx context.Context, lsARN string) ([]elbv2types.Rule, error)
+	GetListenerAttributes(ctx context.Context, lsARN string) ([]elbv2types.ListenerAttribute, error)
 }
 
 // NewDefaultLoadBalancerManager constructs new defaultLoadBalancerManager.
@@ -117,4 +119,14 @@ func (m *defaultLoadBalancerManager) GetLoadBalancerListenerRules(ctx context.Co
 		return nil, err
 	}
 	return listenersRules.Rules, nil
+}
+
+func (m *defaultLoadBalancerManager) GetListenerAttributes(ctx context.Context, lsARN string) ([]elbv2types.ListenerAttribute, error) {
+	resp, err := m.elbv2Client.DescribeListenerAttributesWithContext(ctx, &elbv2sdk.DescribeListenerAttributesInput{
+		ListenerArn: awssdk.String(lsARN),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Attributes, nil
 }

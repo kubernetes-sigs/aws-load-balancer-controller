@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
-	"k8s.io/utils/strings/slices"
 	"net"
 	"strings"
+
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"k8s.io/utils/strings/slices"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
@@ -46,6 +47,10 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 			CertificateARN: awssdk.String(certARN),
 		})
 	}
+	lsAttributes, attributesErr := t.buildListenerAttributes(ctx, ingList, port, config.protocol)
+	if attributesErr != nil {
+		return elbv2model.ListenerSpec{}, attributesErr
+	}
 	return elbv2model.ListenerSpec{
 		LoadBalancerARN:      lbARN,
 		Port:                 port,
@@ -55,6 +60,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, lbARN cor
 		SSLPolicy:            config.sslPolicy,
 		MutualAuthentication: config.mutualAuthentication,
 		Tags:                 tags,
+		ListenerAttributes:   lsAttributes,
 	}, nil
 }
 
@@ -96,6 +102,14 @@ func (t *defaultModelBuildTask) buildListenerTags(_ context.Context, ingList []C
 		return nil, err
 	}
 	return algorithm.MergeStringMap(t.defaultTags, ingGroupTags), nil
+}
+
+func (t *defaultModelBuildTask) buildListenerAttributes(ctx context.Context, ingList []ClassifiedIngress, port int32, listenerProtocol elbv2model.Protocol) ([]elbv2model.ListenerAttribute, error) {
+	ingGroupListenerAttributes, err := t.buildIngressGroupListenerAttributes(ctx, ingList, listenerProtocol, port)
+	if err != nil {
+		return nil, err
+	}
+	return ingGroupListenerAttributes, nil
 }
 
 // the listen port config for specific listener port.
@@ -408,4 +422,72 @@ func (t *defaultModelBuildTask) fetchTrustStoreArnFromName(ctx context.Context, 
 		}
 	}
 	return tsNameAndArnMap, nil
+}
+
+func (t *defaultModelBuildTask) buildIngressGroupListenerAttributes(ctx context.Context, ingList []ClassifiedIngress, listenerProtocol elbv2model.Protocol, port int32) ([]elbv2model.ListenerAttribute, error) {
+	rawIngGrouplistenerAttributes := make(map[string]string)
+	for _, ing := range ingList {
+		ingAttributes, err := t.buildIngressListenerAttributes(ctx, ing.Ing.Annotations, port, listenerProtocol)
+		if err != nil {
+			return nil, err
+		}
+		for _, attribute := range ingAttributes {
+			attributeKey := attribute.Key
+			attributeValue := attribute.Value
+			if existingAttributeValue, exists := rawIngGrouplistenerAttributes[attributeKey]; exists && existingAttributeValue != attributeValue {
+				return nil, errors.Errorf("conflicting attributes %v: %v | %v", attributeKey, existingAttributeValue, attributeValue)
+			}
+			rawIngGrouplistenerAttributes[attributeKey] = attributeValue
+		}
+	}
+	if len(ingList) > 0 {
+		ingClassAttributes, err := t.buildIngressClassListenerAttributes(ingList[0].IngClassConfig, listenerProtocol, port)
+		if err != nil {
+			return nil, err
+		}
+		rawIngGrouplistenerAttributes = algorithm.MergeStringMap(ingClassAttributes, rawIngGrouplistenerAttributes)
+	}
+	attributes := make([]elbv2model.ListenerAttribute, 0, len(rawIngGrouplistenerAttributes))
+	for attrKey, attrValue := range rawIngGrouplistenerAttributes {
+		attributes = append(attributes, elbv2model.ListenerAttribute{
+			Key:   attrKey,
+			Value: attrValue,
+		})
+	}
+	return attributes, nil
+}
+
+// buildIngressClassLoadBalancerAttributes builds the LB attributes for an IngressClass.
+func (t *defaultModelBuildTask) buildIngressClassListenerAttributes(ingClassConfig ClassConfiguration, listenerProtocol elbv2model.Protocol, port int32) (map[string]string, error) {
+	if ingClassConfig.IngClassParams == nil || len(ingClassConfig.IngClassParams.Spec.Listeners) == 0 {
+		return nil, nil
+	}
+	listeners := ingClassConfig.IngClassParams.Spec.Listeners
+	ingressClassListenerAttributes := make(map[string]string)
+	for _, listenerConfig := range listeners {
+		if string(listenerConfig.Protocol) == string(listenerProtocol) && listenerConfig.Port == port {
+			for _, attr := range listenerConfig.ListenerAttributes {
+				ingressClassListenerAttributes[attr.Key] = attr.Value
+			}
+			return ingressClassListenerAttributes, nil
+		}
+	}
+	return nil, nil
+}
+
+// Build attributes for listener
+func (t *defaultModelBuildTask) buildIngressListenerAttributes(ctx context.Context, ingressAnnotations map[string]string, port int32, listenerProtocol elbv2model.Protocol) ([]elbv2model.ListenerAttribute, error) {
+	var rawAttributes map[string]string
+	annotationKey := fmt.Sprintf("%v.%v-%v", annotations.IngressSuffixlsAttsAnnotationPrefix, listenerProtocol, port)
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotationKey, &rawAttributes, ingressAnnotations); err != nil {
+		return nil, err
+	}
+	attributes := make([]elbv2model.ListenerAttribute, 0, len(rawAttributes))
+	for attrKey, attrValue := range rawAttributes {
+		attributes = append(attributes, elbv2model.ListenerAttribute{
+			Key:   attrKey,
+			Value: attrValue,
+		})
+	}
+	return attributes, nil
 }
