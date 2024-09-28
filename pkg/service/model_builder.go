@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"strconv"
 	"sync"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -249,7 +250,7 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := t.buildLoadBalancerAddOns(ctx); err != nil {
+	if err := t.buildLoadBalancerAddOns(ctx, t.loadBalancer.LoadBalancerARN()); err != nil {
 		return err
 	}
 	return nil
