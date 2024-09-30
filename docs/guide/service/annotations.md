@@ -16,6 +16,7 @@
 | Name                                                                                             | Type                    | Default                   | Notes                                                  |
 |--------------------------------------------------------------------------------------------------|-------------------------|---------------------------|--------------------------------------------------------|
 | [service.beta.kubernetes.io/load-balancer-source-ranges](#lb-source-ranges)                      | stringList              |                           |                                                        |
+| [service.beta.kubernetes.io/aws-load-balancer-nlb-shield-advanced-protection](#shield-advanced-protection)                      | boolean              | false                          |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists](#lb-security-group-prefix-lists)                      | stringList              |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-type](#lb-type)                                    | string                  |                           |                                                        |
 | [service.beta.kubernetes.io/aws-load-balancer-nlb-target-type](#nlb-target-type)                 | string                  |                           | default `instance` in case of LoadBalancerClass        |
@@ -527,6 +528,20 @@ Load balancer access can be controlled via following annotations:
         service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic: "off"
         ```
 
+
+- <a name="shield-advanced-protection">`service.beta.kubernetes.io/aws-load-balancer-nlb-shield-advanced-protection`</a> turns on / off the AWS Shield Advanced protection for the network load balancer.
+
+    !!!note ""
+        When this annotation is absent, the controller will keep LoadBalancer shield protection settings unchanged.
+        To disable shield protection, explicitly set the annotation value to 'false'.
+
+    !!!example
+        - enable shield protection
+            ```service.beta.kubernetes.io/aws-load-balancer-nlb-shield-advanced-protection: 'true'
+            ```
+        - disable shield protection
+            ```service.beta.kubernetes.io/aws-load-balancer-nlb-shield-advanced-protection: 'false'
+            ```
 
 ## Legacy Cloud Provider
 The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the AWS cloud provider's legacy service controller.
