@@ -113,7 +113,7 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 		return err
 	}
 
-	checkPoint, deferred, err := r.tgbResourceManager.Reconcile(ctx, tgb)
+	deferred, err := r.tgbResourceManager.Reconcile(ctx, tgb)
 
 	if err != nil {
 		return err
@@ -124,7 +124,7 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 		return nil
 	}
 
-	if err := r.updateTargetGroupBindingStatus(ctx, tgb, checkPoint); err != nil {
+	if err := r.updateTargetGroupBindingStatus(ctx, tgb); err != nil {
 		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return err
 	}
@@ -147,18 +147,12 @@ func (r *targetGroupBindingReconciler) cleanupTargetGroupBinding(ctx context.Con
 	return nil
 }
 
-func (r *targetGroupBindingReconciler) updateTargetGroupBindingStatus(ctx context.Context, tgb *elbv2api.TargetGroupBinding, newCheckPoint string) error {
-	savedCheckPoint := targetgroupbinding.GetTGBReconcileCheckpoint(tgb)
-	if aws.ToInt64(tgb.Status.ObservedGeneration) == tgb.Generation && savedCheckPoint == newCheckPoint {
+func (r *targetGroupBindingReconciler) updateTargetGroupBindingStatus(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	if aws.ToInt64(tgb.Status.ObservedGeneration) == tgb.Generation {
 		return nil
 	}
 
 	tgbOld := tgb.DeepCopy()
-	targetgroupbinding.SaveTGBReconcileCheckpoint(tgb, newCheckPoint)
-
-	if err := r.k8sClient.Patch(ctx, tgb, client.MergeFrom(tgbOld)); err != nil {
-		return errors.Wrapf(err, "failed to update targetGroupBinding checkpoint: %v", k8s.NamespacedName(tgb))
-	}
 
 	tgb.Status.ObservedGeneration = aws.Int64(tgb.Generation)
 	if err := r.k8sClient.Status().Patch(ctx, tgb, client.MergeFrom(tgbOld)); err != nil {
