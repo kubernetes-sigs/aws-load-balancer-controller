@@ -9,7 +9,6 @@ metadata:
   {{- end }}
   labels:
     giantswarm.io/service-type: "managed"
-    giantswarm.io/monitoring_basic_sli: "true"
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
