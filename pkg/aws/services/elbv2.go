@@ -25,7 +25,6 @@ type ELBV2 interface {
 
 	// wrapper to DescribeRulesWithContext API, which aggregates paged results into list.
 	DescribeRulesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeRulesInput) ([]types.Rule, error)
-
 	AddTagsWithContext(ctx context.Context, input *elasticloadbalancingv2.AddTagsInput) (*elasticloadbalancingv2.AddTagsOutput, error)
 	RemoveTagsWithContext(ctx context.Context, input *elasticloadbalancingv2.RemoveTagsInput) (*elasticloadbalancingv2.RemoveTagsOutput, error)
 	DescribeTagsWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeTagsInput) (*elasticloadbalancingv2.DescribeTagsOutput, error)
@@ -60,21 +59,30 @@ type ELBV2 interface {
 	AddListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.AddListenerCertificatesInput) (*elasticloadbalancingv2.AddListenerCertificatesOutput, error)
 	DescribeListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerAttributesInput) (*elasticloadbalancingv2.DescribeListenerAttributesOutput, error)
 	ModifyListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error)
+	AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) ELBV2
 }
 
-func NewELBV2(cfg aws.Config, endpointsResolver *endpoints.Resolver) ELBV2 {
+func NewELBV2(cfg aws.Config, endpointsResolver *endpoints.Resolver, cloud Cloud) ELBV2 {
 	customEndpoint := endpointsResolver.EndpointFor(elasticloadbalancingv2.ServiceID)
 	client := elasticloadbalancingv2.NewFromConfig(cfg, func(o *elasticloadbalancingv2.Options) {
 		if customEndpoint != nil {
 			o.BaseEndpoint = customEndpoint
 		}
 	})
-	return &elbv2Client{elbv2Client: client}
+	return &elbv2Client{elbv2Client: client, cloud: cloud}
 }
 
 // default implementation for ELBV2.
 type elbv2Client struct {
 	elbv2Client *elasticloadbalancingv2.Client
+	cloud       Cloud
+}
+
+func (c *elbv2Client) AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) ELBV2 {
+	if assumeRoleArn == "" {
+		return c
+	}
+	return c.cloud.GetAssumedRoleELBV2(ctx, assumeRoleArn, externalId)
 }
 
 func (c *elbv2Client) AddListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.AddListenerCertificatesInput) (*elasticloadbalancingv2.AddListenerCertificatesOutput, error) {
