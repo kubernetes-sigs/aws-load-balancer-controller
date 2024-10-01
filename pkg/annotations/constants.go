@@ -23,6 +23,7 @@ const (
 	IngressSuffixListenPorts                  = "listen-ports"
 	IngressSuffixSSLRedirect                  = "ssl-redirect"
 	IngressSuffixInboundCIDRs                 = "inbound-cidrs"
+	IngressSuffixInboundSecurityGroups        = "inbound-security-groups"
 	IngressSuffixCertificateARN               = "certificate-arn"
 	IngressSuffixSSLPolicy                    = "ssl-policy"
 	IngressSuffixTargetType                   = "target-type"
