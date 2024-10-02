@@ -2,12 +2,12 @@ package elbv2
 
 import (
 	"context"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"reflect"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -20,6 +20,14 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 )
+
+var PROTOCOLS_SUPPORTING_LISTENER_ATTRIBUTES = map[elbv2model.Protocol]bool{
+	elbv2model.ProtocolHTTP:  false,
+	elbv2model.ProtocolHTTPS: false,
+	elbv2model.ProtocolTCP:   true,
+	elbv2model.ProtocolUDP:   false,
+	elbv2model.ProtocolTLS:   false,
+}
 
 // ListenerManager is responsible for create/update/delete Listener resources.
 type ListenerManager interface {
@@ -41,6 +49,7 @@ func NewDefaultListenerManager(elbv2Client services.ELBV2, trackingProvider trac
 		logger:                      logger,
 		waitLSExistencePollInterval: defaultWaitLSExistencePollInterval,
 		waitLSExistenceTimeout:      defaultWaitLSExistenceTimeout,
+		attributesReconciler:        NewDefaultListenerAttributesReconciler(elbv2Client, logger),
 	}
 }
 
@@ -57,6 +66,7 @@ type defaultListenerManager struct {
 
 	waitLSExistencePollInterval time.Duration
 	waitLSExistenceTimeout      time.Duration
+	attributesReconciler        ListenerAttributesReconciler
 }
 
 func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.Listener) (elbv2model.ListenerStatus, error) {
@@ -91,6 +101,11 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	}); err != nil {
 		return elbv2model.ListenerStatus{}, errors.Wrap(err, "failed to update extra certificates on listener")
 	}
+	if areListenerAttributesSupported(resLS.Spec.Protocol) {
+		if err := m.attributesReconciler.Reconcile(ctx, resLS, sdkLS); err != nil {
+			return elbv2model.ListenerStatus{}, err
+		}
+	}
 	return buildResListenerStatus(sdkLS), nil
 }
 
@@ -105,6 +120,11 @@ func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.L
 	}
 	if err := m.updateSDKListenerWithExtraCertificates(ctx, resLS, sdkLS, false); err != nil {
 		return elbv2model.ListenerStatus{}, err
+	}
+	if areListenerAttributesSupported(resLS.Spec.Protocol) {
+		if err := m.attributesReconciler.Reconcile(ctx, resLS, sdkLS); err != nil {
+			return elbv2model.ListenerStatus{}, err
+		}
 	}
 	return buildResListenerStatus(sdkLS), nil
 }
@@ -353,4 +373,9 @@ func buildResListenerStatus(sdkLS ListenerWithTags) elbv2model.ListenerStatus {
 	return elbv2model.ListenerStatus{
 		ListenerARN: awssdk.ToString(sdkLS.Listener.ListenerArn),
 	}
+}
+
+func areListenerAttributesSupported(protocol elbv2model.Protocol) bool {
+	supported, exists := PROTOCOLS_SUPPORTING_LISTENER_ATTRIBUTES[protocol]
+	return exists && supported
 }

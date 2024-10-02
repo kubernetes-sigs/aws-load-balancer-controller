@@ -3,6 +3,7 @@ package elbv2
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
@@ -357,10 +358,19 @@ type ListenerSpec struct {
 	// The tags.
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// Listener attributes
+	// +optional
+	ListenerAttributes []ListenerAttribute `json:"listenerAttributes,omitempty"`
 }
 
 // ListenerStatus defines the observed state of Listener
 type ListenerStatus struct {
 	// The Amazon Resource Name (ARN) of the listener.
 	ListenerARN string `json:"listenerARN"`
+}
+
+type ListenerAttribute struct {
+	Key   string `type:"string"`
+	Value string `type:"string"`
 }

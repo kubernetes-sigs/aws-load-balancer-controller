@@ -11,9 +11,11 @@ func CompareOptionForRuleCondition() cmp.Option {
 	return cmp.Options{
 		cmpopts.IgnoreUnexported(elbv2types.RuleCondition{}),
 		cmpopts.IgnoreUnexported(elbv2types.HostHeaderConditionConfig{}),
+		cmpopts.IgnoreUnexported(elbv2types.HttpHeaderConditionConfig{}),
 		cmpopts.IgnoreUnexported(elbv2types.HttpRequestMethodConditionConfig{}),
 		cmpopts.IgnoreUnexported(elbv2types.PathPatternConditionConfig{}),
 		cmpopts.IgnoreUnexported(elbv2types.QueryStringConditionConfig{}),
+		cmpopts.IgnoreUnexported(elbv2types.QueryStringKeyValuePair{}),
 		cmpopts.IgnoreUnexported(elbv2types.SourceIpConditionConfig{}),
 		cmpopts.IgnoreFields(elbv2types.RuleCondition{}, "Values"),
 	}

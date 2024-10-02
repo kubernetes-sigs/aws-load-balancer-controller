@@ -52,6 +52,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        | 
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      | If `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified, this must also be explicitly specified otherwise it defaults to `false`. |
 | [service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic](#update-security-settings)         | string                  |                           |                                                                                   
+| [service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}](#listener-attributes)         | stringMap                  |                           |   
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -264,6 +265,19 @@ for proxy protocol v2 configuration.
         ```
         service.beta.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
         ```
+
+    
+- <a name="listener-attributes">`service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}`</a> specifies listener attributes that should be applied to the listener.
+
+    !!!warning ""
+        Only attributes defined in the annotation will be updated. To reset any AWS defaults, the values need to be explicitly set to the original values and omitting it is not sufficient.
+  
+    !!!example
+        - configure [TCP idle timeout](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/update-idle-timeout.html) value. 
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-listener-attributes.TCP-80: tcp.idle_timeout.seconds=400
+        ```
+
 
 - <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
 

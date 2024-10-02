@@ -2,14 +2,15 @@ package service
 
 import (
 	"context"
+	"sort"
+	"strconv"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"sort"
-	"strconv"
 )
 
 type TargetGroupHC struct {
@@ -246,4 +247,27 @@ func verifyTargetGroupAttributes(ctx context.Context, f *framework.Framework, lb
 		}
 	}
 	return matchedAttrs == len(expectedAttributes)
+}
+
+func verifyListenerAttributes(ctx context.Context, f *framework.Framework, lsARN string, expectedAttrs map[string]string) error {
+	lsAttrs, err := f.LBManager.GetListenerAttributes(ctx, lsARN)
+	Expect(err).NotTo(HaveOccurred())
+	for _, attr := range lsAttrs {
+		if val, ok := expectedAttrs[awssdk.ToString(attr.Key)]; ok && val != awssdk.ToString(attr.Value) {
+			return errors.Errorf("Attribute %v, expected %v, actual %v", awssdk.ToString(attr.Key), val, awssdk.ToString(attr.Value))
+		}
+	}
+	return nil
+}
+
+func getLoadBalancerListenerARN(ctx context.Context, f *framework.Framework, lbARN string, port string) string {
+	lsARN := ""
+	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
+	Expect(err).ToNot(HaveOccurred())
+	for _, ls := range listeners {
+		if strconv.Itoa(int(awssdk.ToInt32(ls.Port))) == port {
+			lsARN = awssdk.ToString(ls.ListenerArn)
+		}
+	}
+	return lsARN
 }

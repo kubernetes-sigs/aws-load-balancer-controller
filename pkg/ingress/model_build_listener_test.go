@@ -2,12 +2,14 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T) {
@@ -100,6 +102,193 @@ func Test_computeIngressListenPortConfigByPort_MutualAuthentication(t *testing.T
 				}
 
 			}
+		})
+	}
+}
+func Test_buildListenerAttributes(t *testing.T) {
+	type fields struct {
+		ingGroup Group
+	}
+
+	tests := []struct {
+		name   string
+		fields fields
+
+		wantErr   bool
+		wantValue []elbv2model.ListenerAttribute
+	}{
+		{
+			name: "Listener attribute annotation value is not stringMap",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
+										"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "attrKey",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Listener attribute annotation is not specified",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-2",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports": `[{"HTTP": 80}]`,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr:   false,
+			wantValue: []elbv2model.ListenerAttribute{},
+		},
+		{
+			name: "Listener attribute annotation is specified",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-3",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
+										"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "routing.http.response.server.enabled=false",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantValue: []elbv2model.ListenerAttribute{
+				{
+					Key:   "routing.http.response.server.enabled",
+					Value: "false",
+				},
+			},
+		},
+		{
+			name: "Listener attribute conflict",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-4",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
+										"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "routing.http.response.server.enabled=false",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-5",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
+										"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "routing.http.response.server.enabled=true",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "merge Listener attributes",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-4",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
+										"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "attrKey1=attrValue1",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-5",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
+										"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "attrKey2=attrValue2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantValue: []elbv2model.ListenerAttribute{
+				{
+					Key:   "attrKey1",
+					Value: "attrValue1",
+				},
+				{
+					Key:   "attrKey2",
+					Value: "attrValue2",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				ingGroup:         tt.fields.ingGroup,
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+
+			listenerAttributes, err := task.buildListenerAttributes(context.Background(), tt.fields.ingGroup.Members, 80, "HTTP")
+			t.Log(listenerAttributes)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.ElementsMatch(t, tt.wantValue, listenerAttributes)
+			}
+
 		})
 	}
 }

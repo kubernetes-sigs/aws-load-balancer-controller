@@ -30,6 +30,7 @@ func CompareOptionForForwardActionConfig() cmp.Option {
 	return cmp.Options{
 		equality.IgnoreLeftHandUnset(elbv2types.ForwardActionConfig{}, "TargetGroupStickinessConfig"),
 		cmpopts.IgnoreUnexported(elbv2types.ForwardActionConfig{}),
+		cmpopts.IgnoreUnexported(elbv2types.TargetGroupStickinessConfig{}),
 		CompareOptionForTargetGroupTuples(),
 	}
 }
