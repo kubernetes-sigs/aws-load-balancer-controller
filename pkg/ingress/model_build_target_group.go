@@ -35,6 +35,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+
 	tgSpec, err := t.buildTargetGroupSpec(ctx, ing, svc, port, svcPort)
 	if err != nil {
 		return nil, err
@@ -45,23 +46,32 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
 	}
 	tg := elbv2model.NewTargetGroup(t.stack, tgResID, tgSpec)
 	t.tgByResID[tgResID] = tg
-	_ = t.buildTargetGroupBinding(ctx, tg, svc, port, svcPort, nodeSelector)
-	return tg, nil
+	_, err = t.buildTargetGroupBinding(ctx, tg, svc, port, svcPort, nodeSelector, ing)
+	return tg, err
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector) *elbv2model.TargetGroupBindingResource {
-	tgbSpec := t.buildTargetGroupBindingSpec(ctx, tg, svc, port, svcPort, nodeSelector)
+func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector, ing ClassifiedIngress) (*elbv2model.TargetGroupBindingResource, error) {
+	tgbSpec, err := t.buildTargetGroupBindingSpec(ctx, tg, svc, port, svcPort, nodeSelector, ing)
+	if err != nil {
+		return nil, err
+	}
 	tgb := elbv2model.NewTargetGroupBindingResource(t.stack, tg.ID(), tgbSpec)
-	return tgb
+	return tgb, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector) elbv2model.TargetGroupBindingResourceSpec {
+func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector, ing ClassifiedIngress) (elbv2model.TargetGroupBindingResourceSpec, error) {
 	targetType := elbv2api.TargetType(tg.Spec.TargetType)
 	targetPort := svcPort.TargetPort
 	if targetType == elbv2api.TargetTypeInstance {
 		targetPort = intstr.FromInt(int(svcPort.NodePort))
 	}
 	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, *tg.Spec.HealthCheckConfig.Port)
+
+	multiTg, err := t.buildTargetGroupBindingMultiClusterFlag(ing, svc)
+	if err != nil {
+		return elbv2model.TargetGroupBindingResourceSpec{}, err
+	}
+
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -75,13 +85,14 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 					Name: svc.Name,
 					Port: port,
 				},
-				Networking:    tgbNetworking,
-				NodeSelector:  nodeSelector,
-				IPAddressType: elbv2api.TargetGroupIPAddressType(tg.Spec.IPAddressType),
-				VpcID:         t.vpcID,
+				Networking:              tgbNetworking,
+				NodeSelector:            nodeSelector,
+				IPAddressType:           elbv2api.TargetGroupIPAddressType(tg.Spec.IPAddressType),
+				VpcID:                   t.vpcID,
+				MultiClusterTargetGroup: multiTg,
 			},
 		},
-	}
+	}, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString) *elbv2model.TargetGroupBindingNetworking {
@@ -475,4 +486,29 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 	return &metav1.LabelSelector{
 		MatchLabels: targetNodeLabels,
 	}, nil
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupBindingMultiClusterFlag(ing ClassifiedIngress, svc *corev1.Service) (bool, error) {
+	enabled, err := t.getMultiClusterTgFlag(ing.Ing.Annotations)
+	if err != nil {
+		return false, err
+	}
+
+	if enabled {
+		return true, nil
+	}
+
+	return t.getMultiClusterTgFlag(svc.Annotations)
+}
+
+func (t *defaultModelBuildTask) getMultiClusterTgFlag(annotationMap map[string]string) (bool, error) {
+	var rawEnabled bool
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.IngressLBSuffixMultiClusterTargetGroup, &rawEnabled, annotationMap)
+	if err != nil {
+		return false, err
+	}
+	if exists {
+		return rawEnabled, nil
+	}
+	return false, nil
 }

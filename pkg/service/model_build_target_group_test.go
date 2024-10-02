@@ -2022,3 +2022,65 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_buildTargetGroupBindingMultiClusterFlag(t *testing.T) {
+	tests := []struct {
+		name    string
+		svc     *corev1.Service
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "no annotation",
+			svc:  &corev1.Service{},
+			want: false,
+		},
+		{
+			name: "false annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group": "false",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "true annotation",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group": "true",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "not a bool",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group": "cat",
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
+			}
+			got, err := task.buildTargetGroupBindingMultiClusterFlag(tt.svc)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
