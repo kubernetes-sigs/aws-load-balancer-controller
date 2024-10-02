@@ -93,7 +93,7 @@ spec:
 ```
 
 ## MultiCluster Target Group
-TargetGroupBinding CR supports sharing the same target group ARN among multiple clusters. Setting this flag will ensure the controller only operates on targets within the cluster.
+TargetGroupBinding CRD supports sharing the same target group ARN among multiple clusters. Setting this flag will ensure the controller only operates on targets within the cluster.
 
 !!!tip ""
     The default value is false, meaning that the controller assumes full control over the target group ARN and will deregister any targets that are not found within the cluster.

@@ -733,7 +733,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T
 	}
 }
 
-func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) {
+func Test_defaultModelBuildTask_buildTargetGroupBindingMultiClusterFlag(t *testing.T) {
 	tests := []struct {
 		name    string
 		ing     ClassifiedIngress

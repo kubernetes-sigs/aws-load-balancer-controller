@@ -2023,7 +2023,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 	}
 }
 
-func Test_defaultModelBuildTask_buildTargetGroupBindingSharedFlag(t *testing.T) {
+func Test_defaultModelBuildTask_buildTargetGroupBindingMultiClusterFlag(t *testing.T) {
 	tests := []struct {
 		name    string
 		svc     *corev1.Service
