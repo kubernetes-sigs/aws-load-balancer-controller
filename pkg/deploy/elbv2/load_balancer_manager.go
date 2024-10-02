@@ -3,6 +3,7 @@ package elbv2
 import (
 	"context"
 	"fmt"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -157,15 +158,15 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 	desiredIPv6Addresses := sets.NewString()
 	for _, mapping := range resLB.Spec.SubnetMappings {
 		desiredSubnets.Insert(mapping.SubnetID)
-		desiredIPv6Addresses.Insert(awssdk.StringValue(mapping.IPv6Address))
+		desiredIPv6Addresses.Insert(awssdk.ToString(mapping.IPv6Address))
 	}
 
 	currentSubnets := sets.NewString()
 	currentIPv6Addresses := sets.NewString()
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
-		currentSubnets.Insert(awssdk.StringValue(az.SubnetId))
+		currentSubnets.Insert(awssdk.ToString(az.SubnetId))
 		if len(az.LoadBalancerAddresses) > 0 && az.LoadBalancerAddresses[0].IPv6Address != nil {
-			currentIPv6Addresses.Insert(awssdk.StringValue(az.LoadBalancerAddresses[0].IPv6Address))
+			currentIPv6Addresses.Insert(awssdk.ToString(az.LoadBalancerAddresses[0].IPv6Address))
 		}
 		currentSubnets.Insert(awssdk.ToString(az.SubnetId))
 	}
