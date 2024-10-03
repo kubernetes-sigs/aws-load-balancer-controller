@@ -122,6 +122,7 @@ func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.Targ
 }
 
 func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, string, bool, error) {
+	tgbScopedLogger := m.logger.WithValues("tgb", k8s.NamespacedName(tgb))
 	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
 
 	targetHealthCondType := BuildTargetHealthPodConditionType(tgb)
@@ -152,7 +153,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 
 	if !containsPotentialReadyEndpoints && oldCheckPoint == newCheckPoint {
-		m.logger.Info("Skipping targetgroupbinding reconcile", "TGB", k8s.NamespacedName(tgb), "calculated hash", newCheckPoint)
+		tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
 		return newCheckPoint, oldCheckPoint, true, nil
 	}
 
@@ -167,7 +168,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	needNetworkingRequeue := false
 	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
-		m.logger.Error(err, "Requesting network requeue due to error from ReconcileForPodEndpoints")
+		tgbScopedLogger.Error(err, "Requesting network requeue due to error from ReconcileForPodEndpoints")
 		m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedNetworkReconcile, err.Error())
 		needNetworkingRequeue = true
 	}
@@ -180,7 +181,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		// 3. The next reconcile loop has no knowledge that it needs to deregister the pod ip, therefore it skips deregistering the removed pod ip.
 		err = m.updateTGBCheckPoint(ctx, tgb, "", oldCheckPoint)
 		if err != nil {
-			m.logger.Error(err, "Unable to update checkpoint before mutating change")
+			tgbScopedLogger.Error(err, "Unable to update checkpoint before mutating change")
 			return "", "", false, err
 		}
 	}
@@ -202,25 +203,26 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	}
 
 	if anyPodNeedFurtherProbe {
-		m.logger.Info("Requeue for target monitor target health")
+		tgbScopedLogger.Info("Requeue for target monitor target health")
 		return "", "", false, runtime.NewRequeueNeededAfter("monitor targetHealth", m.requeueDuration)
 	}
 
 	if containsPotentialReadyEndpoints {
-		m.logger.Info("Requeue for potentially ready endpoints")
+		tgbScopedLogger.Info("Requeue for potentially ready endpoints")
 		return "", "", false, runtime.NewRequeueNeededAfter("monitor potential ready endpoints", m.requeueDuration)
 	}
 
 	if needNetworkingRequeue {
-		m.logger.Info("Requeue for networking requeue")
+		tgbScopedLogger.Info("Requeue for networking requeue")
 		return "", "", false, runtime.NewRequeueNeededAfter("networking reconciliation", m.requeueDuration)
 	}
 
-	m.logger.Info("Successful reconcile", "checkpoint", newCheckPoint, "TGB", k8s.NamespacedName(tgb))
+	tgbScopedLogger.Info("Successful reconcile", "checkpoint", newCheckPoint)
 	return newCheckPoint, oldCheckPoint, false, nil
 }
 
 func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, string, bool, error) {
+	tgbScopedLogger := m.logger.WithValues("tgb", k8s.NamespacedName(tgb))
 	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
 	nodeSelector, err := backend.GetTrafficProxyNodeSelector(tgb)
 	if err != nil {
@@ -246,7 +248,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 
 	if newCheckPoint == oldCheckPoint {
-		m.logger.Info("Skipping targetgroupbinding reconcile", "TGB", k8s.NamespacedName(tgb), "calculated hash", newCheckPoint)
+		tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
 		return newCheckPoint, oldCheckPoint, true, nil
 	}
 
@@ -259,7 +261,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	_, unmatchedEndpoints, unmatchedTargets := matchNodePortEndpointWithTargets(endpoints, notDrainingTargets)
 
 	if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
-		m.logger.Error(err, "Requesting network requeue due to error from ReconcileForNodePortEndpoints")
+		tgbScopedLogger.Error(err, "Requesting network requeue due to error from ReconcileForNodePortEndpoints")
 		return "", "", false, err
 	}
 
@@ -267,7 +269,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		// Same thought process, see the IP target registration code as to why we clear out the check point.
 		err = m.updateTGBCheckPoint(ctx, tgb, "", oldCheckPoint)
 		if err != nil {
-			m.logger.Error(err, "Unable to update checkpoint before mutating change")
+			tgbScopedLogger.Error(err, "Unable to update checkpoint before mutating change")
 			return "", "", false, err
 		}
 	}
@@ -282,7 +284,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 			return "", "", false, err
 		}
 	}
-	m.logger.Info("Successful reconcile", "checkpoint", newCheckPoint)
+	tgbScopedLogger.Info("Successful reconcile", "checkpoint", newCheckPoint)
 	return newCheckPoint, oldCheckPoint, false, nil
 }
 
