@@ -248,6 +248,8 @@ Traffic Routing can be controlled with following annotations:
         ARN can be used in forward action(both simplified schema and advanced schema), it must be an targetGroup created outside of k8s, typically an targetGroup for legacy application.
     !!!note "use ServiceName/ServicePort in forward Action"
         ServiceName/ServicePort can be used in forward action(advanced schema only).
+    !!!note "use ServiceNamespace in forward Action"
+        ServiceNamespace can be used in combination with ServiceName/ServicePort in forward action to reference a Service in a different namespace than the Ingress resource (advanced schema only).
 
     !!!warning ""
         [Auth related annotations](#authentication) on Service object will only be respected if a single TargetGroup in is used.
@@ -257,6 +259,7 @@ Traffic Routing can be controlled with following annotations:
         - redirect-to-eks: redirect to an external url
         - forward-single-tg: forward to a single targetGroup [**simplified schema**]
         - forward-multiple-tg: forward to multiple targetGroups with different weights and stickiness config [**advanced schema**]
+        - forward-multiple-tg-multiple-ns: forward to multiple targetGroups with services in different namespaces
 
         ```yaml
         apiVersion: networking.k8s.io/v1
@@ -274,6 +277,8 @@ Traffic Routing can be controlled with following annotations:
               {"type":"forward","targetGroupARN": "arn-of-your-target-group"}
             alb.ingress.kubernetes.io/actions.forward-multiple-tg: >
               {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"service-1","servicePort":"http","weight":20},{"serviceName":"service-2","servicePort":80,"weight":20},{"targetGroupARN":"arn-of-your-non-k8s-target-group","weight":60}],"targetGroupStickinessConfig":{"enabled":true,"durationSeconds":200}}}
+            alb.ingress.kubernetes.io/actions.forward-multiple-tg-multiple-ns: >
+              {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"service-1","servicePort":"http","weight":20},{"serviceName":"service-2","servicePort":80,"serviceNamespace": "other-namespace", "weight":20}]}}
         spec:
           ingressClassName: alb
           rules:
@@ -305,6 +310,13 @@ Traffic Routing can be controlled with following annotations:
                     backend:
                       service:
                         name: forward-multiple-tg
+                        port:
+                          name: use-annotation
+                  - path: /path3
+                    pathType: Exact
+                    backend:
+                      service:
+                        name: forward-multiple-tg-multiple-ns
                         port:
                           name: use-annotation
         ```
