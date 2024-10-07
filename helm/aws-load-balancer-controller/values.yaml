@@ -428,5 +428,9 @@ serviceTargetENISGTags:
 # Specifies the class of load balancer to use for services. This affects how services are provisioned if type LoadBalancer is used (default service.k8s.aws/nlb)
 loadBalancerClass:
 
+# When set, it will disable automountServiceAccountToken on service account
+# and set the true or false value on pod template
+automountServiceAccountToken:
+
 # creator will disable helm default labels, so you can only add yours
 # creator: "me"
