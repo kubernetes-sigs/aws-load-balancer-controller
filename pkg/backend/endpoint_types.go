@@ -1,11 +1,16 @@
 package backend
 
 import (
+	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	discv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 )
+
+type Endpoint interface {
+	GetIdentifier() string
+}
 
 // An endpoint provided by pod directly.
 type PodEndpoint struct {
@@ -17,6 +22,10 @@ type PodEndpoint struct {
 	Pod k8s.PodInfo
 }
 
+func (e PodEndpoint) GetIdentifier() string {
+	return fmt.Sprintf("%s:%d:%d", e.IP, e.Port, e.Pod.CreationTime.UnixMilli())
+}
+
 // An endpoint provided by nodePort as traffic proxy.
 type NodePortEndpoint struct {
 	// Node's instanceID.
@@ -25,6 +34,10 @@ type NodePortEndpoint struct {
 	Port int32
 	// Node that provides this endpoint.
 	Node *corev1.Node
+}
+
+func (e NodePortEndpoint) GetIdentifier() string {
+	return fmt.Sprintf("%s:%d:%d", e.InstanceID, e.Port, e.Node.CreationTimestamp.UnixMilli())
 }
 
 type EndpointsData struct {

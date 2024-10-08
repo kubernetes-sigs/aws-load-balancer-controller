@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"k8s.io/client-go/util/workqueue"
 	"os"
 
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
@@ -124,9 +125,14 @@ func main() {
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager,
 		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"))
+
+	delayingQueue := workqueue.NewDelayingQueueWithConfig(workqueue.DelayingQueueConfig{
+		Name: "delayed-target-group-binding",
+	})
+
+	deferredTGBQueue := elbv2controller.NewDeferredTargetGroupBindingReconciler(delayingQueue, controllerCFG.RuntimeConfig.SyncPeriod, mgr.GetClient(), ctrl.Log.WithName("deferredTGBQueue"))
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
-		finalizerManager, tgbResManager,
-		controllerCFG, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
+		finalizerManager, tgbResManager, controllerCFG, deferredTGBQueue, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
 
 	ctx := ctrl.SetupSignalHandler()
 	if err = ingGroupReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {
@@ -180,6 +186,12 @@ func main() {
 			os.Exit(1)
 		}
 	}()
+
+	go func() {
+		setupLog.Info("starting deferred tgb reconciler")
+		deferredTGBQueue.Run()
+	}()
+
 	if err := podInfoRepo.WaitForCacheSync(ctx); err != nil {
 		setupLog.Error(err, "problem wait for podInfo repo sync")
 		os.Exit(1)

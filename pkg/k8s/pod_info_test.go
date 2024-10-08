@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"testing"
+	"time"
 )
 
 func TestPodInfo_HasAnyOfReadinessGates(t *testing.T) {
@@ -149,6 +150,7 @@ func TestPodInfo_GetPodCondition(t *testing.T) {
 	type args struct {
 		conditionType corev1.PodConditionType
 	}
+
 	tests := []struct {
 		name       string
 		pod        PodInfo
@@ -312,6 +314,9 @@ func Test_buildPodInfo(t *testing.T) {
 	type args struct {
 		pod *corev1.Pod
 	}
+
+	timeNow := time.Now()
+
 	tests := []struct {
 		name string
 		args args
@@ -325,6 +330,9 @@ func Test_buildPodInfo(t *testing.T) {
 						Namespace: "my-ns",
 						Name:      "pod-1",
 						UID:       "pod-uuid",
+						CreationTimestamp: metav1.Time{
+							Time: timeNow,
+						},
 					},
 					Spec: corev1.PodSpec{
 						NodeName: "ip-192-168-13-198.us-west-2.compute.internal",
@@ -409,8 +417,9 @@ func Test_buildPodInfo(t *testing.T) {
 						Status: corev1.ConditionTrue,
 					},
 				},
-				NodeName: "ip-192-168-13-198.us-west-2.compute.internal",
-				PodIP:    "192.168.1.1",
+				NodeName:     "ip-192-168-13-198.us-west-2.compute.internal",
+				PodIP:        "192.168.1.1",
+				CreationTime: metav1.Time{Time: timeNow},
 			},
 		},
 		{
@@ -424,6 +433,9 @@ func Test_buildPodInfo(t *testing.T) {
 						Annotations: map[string]string{
 							"vpc.amazonaws.com/pod-eni": `[{"eniId":"eni-06a712e1622fda4a0","ifAddress":"02:34:a5:25:0b:63","privateIp":"192.168.219.103","vlanId":3,"subnetCidr":"192.168.192.0/19"}]`,
 						},
+						CreationTimestamp: metav1.Time{
+							Time: timeNow,
+						},
 					},
 					Spec: corev1.PodSpec{
 						NodeName: "ip-192-168-13-198.us-west-2.compute.internal",
@@ -508,8 +520,9 @@ func Test_buildPodInfo(t *testing.T) {
 						Status: corev1.ConditionTrue,
 					},
 				},
-				NodeName: "ip-192-168-13-198.us-west-2.compute.internal",
-				PodIP:    "192.168.1.1",
+				NodeName:     "ip-192-168-13-198.us-west-2.compute.internal",
+				PodIP:        "192.168.1.1",
+				CreationTime: metav1.Time{Time: timeNow},
 				ENIInfos: []PodENIInfo{
 					{
 						ENIID:     "eni-06a712e1622fda4a0",
