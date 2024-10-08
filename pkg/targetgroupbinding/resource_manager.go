@@ -173,7 +173,18 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		needNetworkingRequeue = true
 	}
 
-	if len(unmatchedEndpoints) > 0 || len(unmatchedTargets) > 0 || needNetworkingRequeue {
+	preflightNeedFurtherProbe := false
+	for _, endpointAndTarget := range matchedEndpointAndTargets {
+		_, localPreflight := m.calculateReadinessGateTransition(endpointAndTarget.endpoint.Pod, targetHealthCondType, endpointAndTarget.target.TargetHealth)
+		if localPreflight {
+			preflightNeedFurtherProbe = true
+			break
+		}
+	}
+
+	// Any change that we perform should reset the checkpoint.
+	// TODO - How to make this cleaner?
+	if len(unmatchedEndpoints) > 0 || len(unmatchedTargets) > 0 || needNetworkingRequeue || containsPotentialReadyEndpoints || preflightNeedFurtherProbe {
 		// Set to an empty checkpoint, to ensure that no matter what we try to reconcile atleast one more time.
 		// Consider this ordering of events (without using this method of overriding the checkpoint)
 		// 1. Register some pod IP, don't update TGB checkpoint.
@@ -353,19 +364,13 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 		return false, nil
 	}
 
-	targetHealthCondStatus := corev1.ConditionUnknown
 	var reason, message string
 	if targetHealth != nil {
-		if string(targetHealth.State) == string(elbv2types.TargetHealthStateEnumHealthy) {
-			targetHealthCondStatus = corev1.ConditionTrue
-		} else {
-			targetHealthCondStatus = corev1.ConditionFalse
-		}
-
 		reason = string(targetHealth.Reason)
 		message = awssdk.ToString(targetHealth.Description)
 	}
-	needFurtherProbe := targetHealthCondStatus != corev1.ConditionTrue
+
+	targetHealthCondStatus, needFurtherProbe := m.calculateReadinessGateTransition(pod, targetHealthCondType, targetHealth)
 
 	existingTargetHealthCond, hasExistingTargetHealthCond := pod.GetPodCondition(targetHealthCondType)
 	// we skip patch pod if it matches current computed status/reason/message.
@@ -413,6 +418,21 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 	}
 
 	return needFurtherProbe, nil
+}
+
+func (m *defaultResourceManager) calculateReadinessGateTransition(pod k8s.PodInfo, targetHealthCondType corev1.PodConditionType, targetHealth *elbv2types.TargetHealth) (corev1.ConditionStatus, bool) {
+	if !pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
+		return corev1.ConditionTrue, false
+	}
+	targetHealthCondStatus := corev1.ConditionUnknown
+	if targetHealth != nil {
+		if string(targetHealth.State) == string(elbv2types.TargetHealthStateEnumHealthy) {
+			targetHealthCondStatus = corev1.ConditionTrue
+		} else {
+			targetHealthCondStatus = corev1.ConditionFalse
+		}
+	}
+	return targetHealthCondStatus, targetHealthCondStatus != corev1.ConditionTrue
 }
 
 // updatePodAsHealthyForDeletedTGB updates pod's targetHealth condition as healthy when deleting a TGB
