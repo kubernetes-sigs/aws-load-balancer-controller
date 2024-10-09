@@ -160,20 +160,23 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
-			By("modifying listener attributes", func() {
-				err := stack.UpdateServiceAnnotations(ctx, tf, map[string]string{
-					"service.beta.kubernetes.io/aws-load-balancer-listener-attributes.TCP-80": "tcp.idle_timeout.seconds=400",
+			// remove this once listener attributes are available in isolated region
+			if !strings.Contains(tf.Options.AWSRegion, "-iso-") {
+				By("modifying listener attributes", func() {
+					err := stack.UpdateServiceAnnotations(ctx, tf, map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-listener-attributes.TCP-80": "tcp.idle_timeout.seconds=400",
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					lsARN := getLoadBalancerListenerARN(ctx, tf, lbARN, "80")
+
+					Eventually(func() bool {
+						return verifyListenerAttributes(ctx, tf, lsARN, map[string]string{
+							"tcp.idle_timeout.seconds": "400",
+						}) == nil
+					}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 				})
-				Expect(err).NotTo(HaveOccurred())
-
-				lsARN := getLoadBalancerListenerARN(ctx, tf, lbARN, "80")
-
-				Eventually(func() bool {
-					return verifyListenerAttributes(ctx, tf, lsARN, map[string]string{
-						"tcp.idle_timeout.seconds": "400",
-					}) == nil
-				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
-			})
+			}
 		})
 		It("should provision internal load-balancer resources", func() {
 			By("deploying stack", func() {

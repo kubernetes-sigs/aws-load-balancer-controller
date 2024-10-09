@@ -3,6 +3,7 @@ package elbv2
 import (
 	"context"
 	"reflect"
+	"strings"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -101,7 +102,8 @@ func (m *defaultListenerManager) Create(ctx context.Context, resLS *elbv2model.L
 	}); err != nil {
 		return elbv2model.ListenerStatus{}, errors.Wrap(err, "failed to update extra certificates on listener")
 	}
-	if areListenerAttributesSupported(resLS.Spec.Protocol) {
+	listenerARN := awssdk.ToString(sdkLS.Listener.ListenerArn)
+	if !isIsolatedRegion(getRegionFromARN(listenerARN)) && areListenerAttributesSupported(resLS.Spec.Protocol) {
 		if err := m.attributesReconciler.Reconcile(ctx, resLS, sdkLS); err != nil {
 			return elbv2model.ListenerStatus{}, err
 		}
@@ -121,7 +123,8 @@ func (m *defaultListenerManager) Update(ctx context.Context, resLS *elbv2model.L
 	if err := m.updateSDKListenerWithExtraCertificates(ctx, resLS, sdkLS, false); err != nil {
 		return elbv2model.ListenerStatus{}, err
 	}
-	if areListenerAttributesSupported(resLS.Spec.Protocol) {
+	listenerARN := awssdk.ToString(sdkLS.Listener.ListenerArn)
+	if !isIsolatedRegion(getRegionFromARN(listenerARN)) && areListenerAttributesSupported(resLS.Spec.Protocol) {
 		if err := m.attributesReconciler.Reconcile(ctx, resLS, sdkLS); err != nil {
 			return elbv2model.ListenerStatus{}, err
 		}
@@ -378,4 +381,18 @@ func buildResListenerStatus(sdkLS ListenerWithTags) elbv2model.ListenerStatus {
 func areListenerAttributesSupported(protocol elbv2model.Protocol) bool {
 	supported, exists := PROTOCOLS_SUPPORTING_LISTENER_ATTRIBUTES[protocol]
 	return exists && supported
+}
+
+func getRegionFromARN(arn string) string {
+	if strings.HasPrefix(arn, "arn:") {
+		arnElements := strings.Split(arn, ":")
+		if len(arnElements) > 3 {
+			return arnElements[3]
+		}
+	}
+	return ""
+}
+
+func isIsolatedRegion(region string) bool {
+	return strings.Contains(strings.ToLower(region), "-iso-")
 }
