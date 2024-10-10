@@ -162,7 +162,7 @@ If running on EC2, the default values are obtained from the instance metadata se
 
 
 ### Feature Gates
-They are a set of kye=value pairs that describe AWS load balance controller features. You can use it as flags `--feature-gates=key1=value1,key2=value2`
+There are a set of key=value pairs that describe AWS load balancer controller features. You can use it as flags `--feature-gates=key1=value1,key2=value2`
 
 |Features-gate Supported Key            | Type                            | Default Value | Description                                                                                                                                                                          |
 |---------------------------------------|---------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
