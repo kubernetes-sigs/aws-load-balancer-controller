@@ -3,15 +3,16 @@ package service
 import (
 	"context"
 	"errors"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"github.com/golang/mock/gomock"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sort"
 	"strconv"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/golang/mock/gomock"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1227,6 +1228,59 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgProtocol:    corev1.ProtocolTCP,
 			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
 			want:          nil,
+		},
+		{
+			name:   "tcpudp-service with no source ranges configuration",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port808,
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []ec2types.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("az-1"),
+				},
+			},
+			tgProtocol:    corev1.Protocol("TCP_UDP"),
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
+							},
+						},
+					},
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "172.16.0.0/19",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
