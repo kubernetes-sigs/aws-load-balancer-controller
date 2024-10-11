@@ -32,7 +32,7 @@ all: controller
 
 # Run tests
 test: generate fmt vet manifests helm-lint
-	go test -race ./pkg/... ./webhooks/... -coverprofile cover.out
+	go test -race ./pkg/... ./webhooks/... ./controllers/... -coverprofile cover.out
 
 # Build controller binary
 controller: generate fmt vet
