@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -23,6 +24,7 @@ type PodInfo struct {
 	Conditions     []corev1.PodCondition
 	NodeName       string
 	PodIP          string
+	CreationTime   v1.Time
 
 	ENIInfos []PodENIInfo
 }
@@ -104,6 +106,7 @@ func buildPodInfo(pod *corev1.Pod) PodInfo {
 		Conditions:     pod.Status.Conditions,
 		NodeName:       pod.Spec.NodeName,
 		PodIP:          pod.Status.PodIP,
+		CreationTime:   pod.CreationTimestamp,
 
 		ENIInfos: podENIInfos,
 	}

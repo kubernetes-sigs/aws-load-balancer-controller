@@ -7,6 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"testing"
+	"time"
 )
 
 func Test_podInfoKeyFunc(t *testing.T) {
@@ -55,6 +56,8 @@ func Test_podInfoConversionFunc(t *testing.T) {
 	type args struct {
 		obj interface{}
 	}
+
+	timeNow := time.Now()
 	tests := []struct {
 		name    string
 		args    args
@@ -69,12 +72,16 @@ func Test_podInfoConversionFunc(t *testing.T) {
 						Namespace: "ns-1",
 						Name:      "pod-a",
 						UID:       "pod-uuid",
+						CreationTimestamp: metav1.Time{
+							Time: timeNow,
+						},
 					},
 				},
 			},
 			want: &PodInfo{
-				Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-a"},
-				UID: "pod-uuid",
+				Key:          types.NamespacedName{Namespace: "ns-1", Name: "pod-a"},
+				UID:          "pod-uuid",
+				CreationTime: metav1.Time{Time: timeNow},
 			},
 		},
 		{

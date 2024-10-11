@@ -1,6 +1,13 @@
 package annotations
 
 const (
+	// AnnotationCheckPoint is the annotation used to store a checkpoint for resources.
+	// It contains an opaque value that represents the last known reconciled state.
+	AnnotationCheckPoint = "elbv2.k8s.aws/checkpoint"
+
+	// AnnotationCheckPointTimestamp is the annotation used to store the last checkpointed time. The value is stored in seconds.
+	AnnotationCheckPointTimestamp = AnnotationCheckPoint + "-timestamp"
+
 	// IngressClass
 	IngressClass = "kubernetes.io/ingress.class"
 
