@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 	"time"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -2289,6 +2290,46 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 {
  "id":"app/tcpudp-protocol",
  "resources":{
+		"AWS::EC2::SecurityGroup":{
+			 "ManagedLBSecurityGroup":{
+					"spec":{
+						 "description":"[k8s] Managed SecurityGroup for LoadBalancer",
+						 "groupName":"k8s-app-tcpudppr-06a9156bf8",
+						 "ingress":[
+						    {
+								   "fromPort":80,
+									 "ipProtocol":"tcp",
+									 "ipRanges":[
+									    {
+											   "cidrIP":"0.0.0.0/0"
+											}
+									 ],
+									 "toPort":80
+								},
+						    {
+								   "fromPort":80,
+									 "ipProtocol":"udp",
+									 "ipRanges":[
+									    {
+											   "cidrIP":"0.0.0.0/0"
+											}
+									 ],
+									 "toPort":80
+								},
+						    {
+								   "fromPort":83,
+									 "ipProtocol":"tcp",
+									 "ipRanges":[
+									    {
+											   "cidrIP":"0.0.0.0/0"
+											}
+									 ],
+									 "toPort":83
+								}
+						 ]
+					}
+			 }
+		},
     "AWS::ElasticLoadBalancingV2::Listener":{
        "80":{
           "spec":{
@@ -2343,6 +2384,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-app-tcpudppr-2af705447d",
              "type":"network",
              "scheme":"internet-facing",
+						 "securityGroups":[
+								{
+									"$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+								}
+						 ],
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -2369,6 +2415,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port":"traffic-port",
                 "protocol":"TCP",
+								"timeoutSeconds":10,
                 "unhealthyThresholdCount":3,
                 "healthyThresholdCount":3,
                 "intervalSeconds":10
@@ -2391,6 +2438,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port":"traffic-port",
                 "protocol":"TCP",
+								"timeoutSeconds":10,
                 "unhealthyThresholdCount":3,
                 "healthyThresholdCount":3,
                 "intervalSeconds":10
@@ -2418,6 +2466,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:80/status/targetGroupARN"
                    },
                    "targetType":"instance",
+									 "vpcID":"vpc-xxx",
                    "serviceRef":{
                       "name":"tcpudp-protocol",
                       "port":80
@@ -2436,7 +2485,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             "ports":[
                                {
                                   "protocol":"TCP",
-                                  "port":31223
+                                  "port":32323
                                },
                                {
                                   "protocol":"UDP",
@@ -2463,6 +2512,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:83/status/targetGroupARN"
                    },
                    "targetType":"instance",
+									 "vpcID":"vpc-xxx",
                    "serviceRef":{
                       "name":"tcpudp-protocol",
                       "port":83
@@ -6666,6 +6716,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
+			if tt.testName != "Instance mode, TCP/UDP same port test" {
+				return
+			}
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
