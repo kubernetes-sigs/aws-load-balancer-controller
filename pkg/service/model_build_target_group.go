@@ -484,6 +484,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 				Protocol: &protocolTCP,
 				Port:     &tgPort,
 			})
+		case corev1.Protocol("TCP_UDP"):
+			fallthrough
 		case corev1.ProtocolUDP:
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolUDP,
@@ -567,18 +569,19 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 	trafficSource := loadBalancerSubnetCIDRs
 	defaultRangeUsed := false
 	var trafficPorts []elbv2api.NetworkingPort
-	switch networkingProtocol {
-	case elbv2api.NetworkingProtocolTCP_UDP:
-		tcpProtocol := elbv2api.NetworkingProtocolTCP
-		udpProtocol := elbv2api.NetworkingProtocolUDP
+	if networkingProtocol == elbv2api.NetworkingProtocolUDP || t.preserveClientIP {
 		trafficSource = t.getLoadBalancerSourceRanges(ctx)
 		if len(trafficSource) == 0 {
-			trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, port.Protocol, scheme)
+			trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, tgProtocol, scheme)
 			if err != nil {
 				return nil, err
 			}
 			defaultRangeUsed = true
 		}
+	}
+	if networkingProtocol == elbv2api.NetworkingProtocolTCP_UDP {
+		tcpProtocol := elbv2api.NetworkingProtocolTCP
+		udpProtocol := elbv2api.NetworkingProtocolUDP
 		trafficPorts = []elbv2api.NetworkingPort{
 			{
 				Port:     &tgPort,
@@ -589,17 +592,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 				Protocol: &udpProtocol,
 			},
 		}
-	default:
-		if networkingProtocol == elbv2api.NetworkingProtocolUDP || t.preserveClientIP {
-			trafficSource = t.getLoadBalancerSourceRanges(ctx)
-			if len(trafficSource) == 0 {
-				trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, port.Protocol, scheme)
-				if err != nil {
-					return nil, err
-				}
-				defaultRangeUsed = true
-			}
-		}
+	} else {
 		trafficPorts = []elbv2api.NetworkingPort{
 			{
 				Port:     &tgPort,
@@ -640,7 +633,7 @@ func (t *defaultModelBuildTask) getDefaultIPSourceRanges(ctx context.Context, ta
 	if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
 		defaultSourceRanges = t.defaultIPv6SourceRanges
 	}
-	if (protocol == corev1.ProtocolUDP || t.preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
+	if (protocol == corev1.Protocol("TCP_UDP") || protocol == corev1.ProtocolUDP || t.preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
 		vpcInfo, err := t.vpcInfoProvider.FetchVPCInfo(ctx, t.vpcID, networking.FetchVPCInfoWithoutCache())
 		if err != nil {
 			return nil, err
