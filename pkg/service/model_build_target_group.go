@@ -504,6 +504,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 				Protocol: &protocolTCP,
 				Port:     &tgPort,
 			})
+		case corev1.Protocol("TCP_UDP"):
+			fallthrough
 		case corev1.ProtocolUDP:
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolUDP,
@@ -581,15 +583,43 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 	loadBalancerSubnetCIDRs := t.getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType)
 	trafficSource := loadBalancerSubnetCIDRs
 	defaultRangeUsed := false
+<<<<<<< HEAD
+=======
+	var trafficPorts []elbv2api.NetworkingPort
+>>>>>>> 08431ef8 (Attempt to address remaining errors)
 	if networkingProtocol == elbv2api.NetworkingProtocolUDP || t.preserveClientIP {
 		trafficSource = t.getLoadBalancerSourceRanges(ctx)
 		if len(trafficSource) == 0 {
-			trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, port.Protocol, scheme)
+			trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, tgProtocol, scheme)
 			if err != nil {
 				return nil, err
 			}
 			defaultRangeUsed = true
 		}
+<<<<<<< HEAD
+=======
+	}
+	if networkingProtocol == elbv2api.NetworkingProtocolTCP_UDP {
+		tcpProtocol := elbv2api.NetworkingProtocolTCP
+		udpProtocol := elbv2api.NetworkingProtocolUDP
+		trafficPorts = []elbv2api.NetworkingPort{
+			{
+				Port:     &tgPort,
+				Protocol: &tcpProtocol,
+			},
+			{
+				Port:     &tgPort,
+				Protocol: &udpProtocol,
+			},
+		}
+	} else {
+		trafficPorts = []elbv2api.NetworkingPort{
+			{
+				Port:     &tgPort,
+				Protocol: &networkingProtocol,
+			},
+		}
+>>>>>>> 08431ef8 (Attempt to address remaining errors)
 	}
 	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
 		Ingress: []elbv2model.NetworkingIngressRule{
@@ -629,7 +659,7 @@ func (t *defaultModelBuildTask) getDefaultIPSourceRanges(ctx context.Context, ta
 	if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
 		defaultSourceRanges = t.defaultIPv6SourceRanges
 	}
-	if (protocol == corev1.ProtocolUDP || t.preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
+	if (protocol == corev1.Protocol("TCP_UDP") || protocol == corev1.ProtocolUDP || t.preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
 		vpcInfo, err := t.vpcInfoProvider.FetchVPCInfo(ctx, t.vpcID, networking.FetchVPCInfoWithoutCache())
 		if err != nil {
 			return nil, err
