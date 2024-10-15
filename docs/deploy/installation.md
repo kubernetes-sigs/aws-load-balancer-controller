@@ -272,6 +272,7 @@ Review the [worker nodes security group](https://docs.aws.amazon.com/eks/latest/
 If you use [eksctl](https://eksctl.io/usage/vpc-networking/), this is the default configuration.
 
 If you use custom networking, please refer to the [EKS Best Practices Guides](https://aws.github.io/aws-eks-best-practices/networking/custom-networking/#use-custom-networking-when) for network configuration.
+
 ## Add controller to cluster
 
 We recommend using the Helm chart to install the controller. The chart supports Fargate and facilitates updating the controller.
