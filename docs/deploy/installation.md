@@ -43,9 +43,134 @@ Instead of depending on IMDSv2, you can specify the AWS Region via the controlle
 
 The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB APIs with IAM permissions.
 
-The IAM permissions can either be setup using [IAM roles for service accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) or can be attached directly to the worker node IAM roles. The best practice is using IRSA if you're using Amazon EKS. If you're using kOps or self-hosted Kubernetes, you must manually attach polices to node instances.
+The IAM permissions can be setup using any of:
 
-### Option A: Recommended, IAM roles for service accounts (IRSA)
+- [Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) associations
+- [IAM roles for service accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
+- Attached IAM permissions directly to the worker node IAM roles. 
+
+The best practice is using Pod Identity associations if you're using Amazon EKS. If you're using kOps or self-hosted Kubernetes, you must manually attach polices to node instances.
+
+### Required IAM policy
+
+The IAM policy that must be attached to a service account may differ based on the region. Download an IAM policy for AWS Load Balancer Controller for your region using one of the following commands:<p>
+    If your cluster is in a US Gov Cloud region:
+    ```
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.9.0/docs/install/iam_policy_us-gov.json
+    ```
+    If your cluster is in a China region:
+    ```
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.9.0/docs/install/iam_policy_cn.json
+    ```
+    If your cluster is in any other region:
+    ```
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.9.0/docs/install/iam_policy.json
+    ```
+
+### Option A: Recommended, EKS Pod Identity
+
+Instructions are shown from the aws and eksctl CLIs, as well as with terraform. Terraform must be set up with the terrafrom aws provider (version `~>5.0`). Appropriate permissions for the CLI or terraform provider must be provisioned.
+
+1. Download an IAM policy as [defined above](#required-iam-policy). 
+
+1. Create an IAM policy from the downloaded policy JSON document. If you downloaded a different policy, replace `iam-policy` with the name of the policy that you downloaded.
+    ```bash
+    aws iam create-policy \
+        --policy-name AWSLoadBalancerControllerIAMPolicy \
+        --policy-document file://iam-policy.json
+    ```    
+    The equivalent operation in Terrform is:
+    ```hcl
+    resource "aws_iam_policy" "albc_service_account" {
+        name   = "albc-service-account"
+        policy = file("path/to/iam-policy.json")
+    }
+    ```
+1. Create an IAM role for the service account to assume, and set an assume policy for it. 
+    ```bash
+    cat > assume-albc-service-account-role-policy.json <<EOF
+    {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "pods.eks.amazonaws.com"
+                },
+                "Action": [
+                    "sts:TagSession",
+                    "sts:AssumeRole"
+                ]
+            }
+        ]
+    }
+    EOF
+    aws iam create-role \
+        --role-name albc-service-account-role \
+        --assume-role-policy-document file://assume-albc-service-account-role-policy.json
+    ```
+    Note the role arn for the created role for use later, as `$ALBC_ROLE_ARN`. 
+
+    The equivalent operation in Terrform is:
+    ```hcl
+    data "aws_iam_policy_document" "assume_albc_service_account_doc" {
+        statement {
+            effect = "Allow"
+                principals {
+                    type        = "Service"
+                    identifiers = ["pods.eks.amazonaws.com"]
+                }
+            actions = [
+                "sts:AssumeRole",
+                "sts:TagSession"
+            ]
+        }
+    }
+
+    resource "aws_iam_role" "albc_service_account" {
+        name               = "albc-service-account-role"
+        assume_role_policy = data.aws_iam_policy_document.assume_albc_service_account_doc.json
+    }
+    ```
+
+1. Attach policy to role.
+    ```bash
+    aws iam attach-role-policy \
+        --role-name albc-service-account-role \
+        --policy-arn $ALBC_POLICY_ARN
+    ```
+    The equivalent operation in Terrform is:
+    ```hcl
+    resource "aws_iam_role_policy_attachment" "ablc_service_account" {
+        policy_arn = aws_iam_policy.ablc_service_account.arn
+        role       = aws_iam_role.albc_service_account.name
+    }
+    ```
+
+1. Create the pod identity association. The service account and associated namespace may be created at this step, or left to be created afterwards. These command assume that the namespace will be `kube-system` and the service account named `aws-load-balancer-controller`. The EKS cluster name must be obtained and stored in `$EKS_CLUSTER_NAME` (or referenced from data as shown in terraform).
+    ```bash
+    eksctl create podidentityassociation \
+        --cluster $EKS_CLUSTER_NAME \
+        --namespace kube-system \
+        --service-account-name aws-load-balancer-controller \
+        --role-arn $ALBC_ROLE_ARN
+    ```
+    The default 
+    The equivalent operation in Terrform is:
+    ```hcl
+    resource "aws_eks_pod_identity_association" "ablc" {
+        cluster_name    = data.aws_eks_cluster.prod.name
+        namespace       = "kube-system"
+        service_account = "aws-load-balancer-controller"
+        role_arn        = aws_iam_role.albc_service_account.arn
+    }
+    ```
+
+    Be sure that the EKS add on for the Pod Identity Agent [is installed](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html) before the pod identity association is created. 
+
+1. The load balancer controller can be installed with the helm chart either before or after the pod identity association is created. To set the created service account name to `aws-load-balancer-controler`, pass that same string as the `--name` argument when creating the helm chart. 
+
+### Option B: IAM roles for service accounts (IRSA)
 
 The reference IAM policies contain the following permissive configuration:
 ```
@@ -87,21 +212,9 @@ Example condition for cluster name resource tag:
         --approve
     ```
 
-2. Download an IAM policy for the LBC using one of the following commands:<p>
-    If your cluster is in a US Gov Cloud region:
-    ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.9.0/docs/install/iam_policy_us-gov.json
-    ```
-    If your cluster is in a China region:
-    ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.9.0/docs/install/iam_policy_cn.json
-    ```
-    If your cluster is in any other region:
-    ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.9.0/docs/install/iam_policy.json
-    ```
+1. Download an IAM policy as [defined above](#required-iam-policy). 
 
-3. Create an IAM policy named `AWSLoadBalancerControllerIAMPolicy`. If you downloaded a different policy, replace `iam-policy` with the name of the policy that you downloaded.
+1. Create an IAM policy named `AWSLoadBalancerControllerIAMPolicy`. If you downloaded a different policy, replace `iam-policy` with the name of the policy that you downloaded.
     ```
     aws iam create-policy \
         --policy-name AWSLoadBalancerControllerIAMPolicy \
@@ -109,7 +222,7 @@ Example condition for cluster name resource tag:
     ```
     Take note of the policy ARN that's returned.
 
-4. Create an IAM role and Kubernetes `ServiceAccount` for the LBC. Use the ARN from the previous step.
+1. Create an IAM role and Kubernetes `ServiceAccount` for the LBC. Use the ARN from the previous step.
     ```
     eksctl create iamserviceaccount \
     --cluster=<cluster-name> \
@@ -121,7 +234,7 @@ Example condition for cluster name resource tag:
     --approve
     ```
 
-### Option B: Attach IAM policies to nodes
+### Option C: Attach IAM policies to nodes
 If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum. Please be aware of the possibility that the controller permissions may be assumed by other users in a pod after retrieving the node role credentials, so the best practice would be using IRSA instead of attaching IAM policy directly.
 ```
 curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.9.0/docs/install/iam_policy.json
