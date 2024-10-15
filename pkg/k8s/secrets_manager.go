@@ -7,7 +7,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/go-logr/logr"
@@ -44,7 +43,6 @@ type defaultSecretsManager struct {
 	secretMap        map[types.NamespacedName]*secretItem
 	secretsEventChan chan<- event.TypedGenericEvent[*corev1.Secret]
 	clientSet        kubernetes.Interface
-	queue            workqueue.RateLimitingInterface
 	logger           logr.Logger
 }
 
