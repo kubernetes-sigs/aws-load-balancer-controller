@@ -807,7 +807,7 @@ func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_EC2(t *testing.T) {
 				describeNetworkInterfacesIPChunkSize: 2,
 			}
 
-			got, err := r.resolveViaCascadedLookup(context.Background(), tt.args.pods, false, false)
+			got, err := r.resolveViaCascadedLookup(context.Background(), tt.args.pods, false)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -988,7 +988,7 @@ func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_Fargate(t *testing.
 				describeNetworkInterfacesIPChunkSize: 2,
 			}
 
-			got, err := r.resolveViaCascadedLookup(context.Background(), tt.args.pods, true, false)
+			got, err := r.resolveViaCascadedLookup(context.Background(), tt.args.pods, true)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1169,7 +1169,7 @@ func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_SageMakerHyperPod(t
 				describeNetworkInterfacesIPChunkSize: 2,
 			}
 
-			got, err := r.resolveViaCascadedLookup(context.Background(), tt.args.pods, false, true)
+			got, err := r.resolveViaCascadedLookup(context.Background(), tt.args.pods, true)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

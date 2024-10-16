@@ -148,14 +148,14 @@ func (r *defaultPodENIInfoResolver) resolvePodsViaCascadedLookup(ctx context.Con
 	}
 	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
 	if len(podsOnEc2) > 0 {
-		eniInfoByPodKeyEc2, err := r.resolveViaCascadedLookup(ctx, podsOnEc2, false, false)
+		eniInfoByPodKeyEc2, err := r.resolveViaCascadedLookup(ctx, podsOnEc2, false)
 		if err != nil {
 			return nil, err
 		}
 		eniInfoByPodKey = eniInfoByPodKeyEc2
 	}
 	if len(podsOnFargate) > 0 {
-		eniInfoByPodKeyFargate, err := r.resolveViaCascadedLookup(ctx, podsOnFargate, true, false)
+		eniInfoByPodKeyFargate, err := r.resolveViaCascadedLookup(ctx, podsOnFargate, true)
 		if err != nil {
 			return nil, err
 		}
@@ -166,7 +166,7 @@ func (r *defaultPodENIInfoResolver) resolvePodsViaCascadedLookup(ctx context.Con
 		}
 	}
 	if len(podsOnSageMakerHyperPod) > 0 {
-		eniInfoByPodKeySageMakerHyperPod, err := r.resolveViaCascadedLookup(ctx, podsOnSageMakerHyperPod, false, true)
+		eniInfoByPodKeySageMakerHyperPod, err := r.resolveViaCascadedLookup(ctx, podsOnSageMakerHyperPod, true)
 		if err != nil {
 			return nil, err
 		}
@@ -179,14 +179,14 @@ func (r *defaultPodENIInfoResolver) resolvePodsViaCascadedLookup(ctx context.Con
 	return eniInfoByPodKey, nil
 }
 
-func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context, pods []k8s.PodInfo, isFargateNode bool, isSageMakerHyperPodNode bool) (map[types.NamespacedName]ENIInfo, error) {
+func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context, pods []k8s.PodInfo, isNonEc2Pod bool) (map[types.NamespacedName]ENIInfo, error) {
 	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
 	resolveFuncs := []func(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error){
 		r.resolveViaPodENIAnnotation,
 		r.resolveViaNodeENIs,
 		// TODO, add support for kubenet CNI plugin(kops) by resolve via routeTable.
 	}
-	if isFargateNode || isSageMakerHyperPodNode {
+	if isNonEc2Pod {
 		resolveFuncs = []func(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error){
 			r.resolveViaVPCENIs,
 		}
