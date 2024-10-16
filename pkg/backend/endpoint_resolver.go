@@ -170,8 +170,10 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 					containsPotentialReadyEndpoints = true
 					continue
 				}
+
 				podEndpoint := buildPodEndpoint(pod, epAddr, epPort)
-				if ep.Conditions.Ready != nil && *ep.Conditions.Ready {
+				// Recommendation from Kubernetes is to consider unknown ready status as ready (ready == nil)
+				if ep.Conditions.Ready == nil || *ep.Conditions.Ready {
 					readyPodEndpoints = append(readyPodEndpoints, podEndpoint)
 					continue
 				}
