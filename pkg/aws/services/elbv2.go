@@ -2,12 +2,11 @@ package services
 
 import (
 	"context"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 )
 
 type ELBV2 interface {
@@ -62,154 +61,284 @@ type ELBV2 interface {
 	ModifyListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error)
 }
 
-func NewELBV2(cfg aws.Config, endpointsResolver *endpoints.Resolver) ELBV2 {
-	customEndpoint := endpointsResolver.EndpointFor(elasticloadbalancingv2.ServiceID)
-	client := elasticloadbalancingv2.NewFromConfig(cfg, func(o *elasticloadbalancingv2.Options) {
-		if customEndpoint != nil {
-			o.BaseEndpoint = customEndpoint
-		}
-	})
-	return &elbv2Client{elbv2Client: client}
+func NewELBV2(awsClientsProvider provider.AWSClientsProvider) ELBV2 {
+	return &elbv2Client{
+		awsClientsProvider: awsClientsProvider,
+	}
 }
 
 // default implementation for ELBV2.
 type elbv2Client struct {
-	elbv2Client *elasticloadbalancingv2.Client
+	awsClientsProvider provider.AWSClientsProvider
 }
 
 func (c *elbv2Client) AddListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.AddListenerCertificatesInput) (*elasticloadbalancingv2.AddListenerCertificatesOutput, error) {
-	return c.elbv2Client.AddListenerCertificates(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "AddListenerCertificates")
+	if err != nil {
+		return nil, err
+	}
+	return client.AddListenerCertificates(ctx, input)
 }
 
 func (c *elbv2Client) RemoveListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.RemoveListenerCertificatesInput) (*elasticloadbalancingv2.RemoveListenerCertificatesOutput, error) {
-	return c.elbv2Client.RemoveListenerCertificates(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "RemoveListenerCertificates")
+	if err != nil {
+		return nil, err
+	}
+	return client.RemoveListenerCertificates(ctx, input)
 }
 
 func (c *elbv2Client) DescribeListenersWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeListenersInput) (*elasticloadbalancingv2.DescribeListenersOutput, error) {
-	return c.elbv2Client.DescribeListeners(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeListeners")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeListeners(ctx, input)
 }
 
 func (c *elbv2Client) DescribeRulesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeRulesInput) (*elasticloadbalancingv2.DescribeRulesOutput, error) {
-	return c.elbv2Client.DescribeRules(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeRules")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeRules(ctx, input)
 }
 
 func (c *elbv2Client) RegisterTargetsWithContext(ctx context.Context, input *elasticloadbalancingv2.RegisterTargetsInput) (*elasticloadbalancingv2.RegisterTargetsOutput, error) {
-	return c.elbv2Client.RegisterTargets(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "RegisterTargets")
+	if err != nil {
+		return nil, err
+	}
+	return client.RegisterTargets(ctx, input)
 }
 
 func (c *elbv2Client) DeregisterTargetsWithContext(ctx context.Context, input *elasticloadbalancingv2.DeregisterTargetsInput) (*elasticloadbalancingv2.DeregisterTargetsOutput, error) {
-	return c.elbv2Client.DeregisterTargets(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DeregisterTargets")
+	if err != nil {
+		return nil, err
+	}
+	return client.DeregisterTargets(ctx, input)
 }
 
 func (c *elbv2Client) DescribeTrustStoresWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeTrustStoresInput) (*elasticloadbalancingv2.DescribeTrustStoresOutput, error) {
-	return c.elbv2Client.DescribeTrustStores(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeTrustStores")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeTrustStores(ctx, input)
 }
 
 func (c *elbv2Client) ModifyRuleWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyRuleInput) (*elasticloadbalancingv2.ModifyRuleOutput, error) {
-	return c.elbv2Client.ModifyRule(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "ModifyRule")
+	if err != nil {
+		return nil, err
+	}
+	return client.ModifyRule(ctx, input)
 }
 
 func (c *elbv2Client) DeleteRuleWithContext(ctx context.Context, input *elasticloadbalancingv2.DeleteRuleInput) (*elasticloadbalancingv2.DeleteRuleOutput, error) {
-	return c.elbv2Client.DeleteRule(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DeleteRule")
+	if err != nil {
+		return nil, err
+	}
+	return client.DeleteRule(ctx, input)
 }
 
 func (c *elbv2Client) CreateRuleWithContext(ctx context.Context, input *elasticloadbalancingv2.CreateRuleInput) (*elasticloadbalancingv2.CreateRuleOutput, error) {
-	return c.elbv2Client.CreateRule(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "CreateRule")
+	if err != nil {
+		return nil, err
+	}
+	return client.CreateRule(ctx, input)
 }
 
 func (c *elbv2Client) WaitUntilLoadBalancerAvailableWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeLoadBalancersInput) error {
-	waiter := elasticloadbalancingv2.NewLoadBalancerAvailableWaiter(c.elbv2Client)
-	err := waiter.Wait(ctx, input, 5*time.Minute)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeLoadBalancers")
+	if err != nil {
+		return err
+	}
+	waiter := elasticloadbalancingv2.NewLoadBalancerAvailableWaiter(client)
+	err = waiter.Wait(ctx, input, 5*time.Minute)
 	return err
 }
 
 func (c *elbv2Client) DescribeLoadBalancersWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeLoadBalancersInput) (*elasticloadbalancingv2.DescribeLoadBalancersOutput, error) {
-	return c.elbv2Client.DescribeLoadBalancers(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeLoadBalancers")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeLoadBalancers(ctx, input)
 }
 
 func (c *elbv2Client) DescribeTargetHealthWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeTargetHealthInput) (*elasticloadbalancingv2.DescribeTargetHealthOutput, error) {
-	return c.elbv2Client.DescribeTargetHealth(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeTargetHealth")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeTargetHealth(ctx, input)
 }
 
 func (c *elbv2Client) DescribeTargetGroupsWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeTargetGroupsInput) (*elasticloadbalancingv2.DescribeTargetGroupsOutput, error) {
-	return c.elbv2Client.DescribeTargetGroups(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeTargetGroups")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeTargetGroups(ctx, input)
 }
 
 func (c *elbv2Client) DeleteTargetGroupWithContext(ctx context.Context, input *elasticloadbalancingv2.DeleteTargetGroupInput) (*elasticloadbalancingv2.DeleteTargetGroupOutput, error) {
-	return c.elbv2Client.DeleteTargetGroup(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DeleteTargetGroup")
+	if err != nil {
+		return nil, err
+	}
+	return client.DeleteTargetGroup(ctx, input)
 }
 
 func (c *elbv2Client) ModifyTargetGroupWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyTargetGroupInput) (*elasticloadbalancingv2.ModifyTargetGroupOutput, error) {
-	return c.elbv2Client.ModifyTargetGroup(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "ModifyTargetGroup")
+	if err != nil {
+		return nil, err
+	}
+	return client.ModifyTargetGroup(ctx, input)
 }
 
 func (c *elbv2Client) CreateTargetGroupWithContext(ctx context.Context, input *elasticloadbalancingv2.CreateTargetGroupInput) (*elasticloadbalancingv2.CreateTargetGroupOutput, error) {
-	return c.elbv2Client.CreateTargetGroup(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "CreateTargetGroup")
+	if err != nil {
+		return nil, err
+	}
+	return client.CreateTargetGroup(ctx, input)
 }
 
 func (c *elbv2Client) DescribeTargetGroupAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeTargetGroupAttributesInput) (*elasticloadbalancingv2.DescribeTargetGroupAttributesOutput, error) {
-	return c.elbv2Client.DescribeTargetGroupAttributes(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeTargetGroupAttributes")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeTargetGroupAttributes(ctx, input)
 }
 
 func (c *elbv2Client) ModifyTargetGroupAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyTargetGroupAttributesInput) (*elasticloadbalancingv2.ModifyTargetGroupAttributesOutput, error) {
-	return c.elbv2Client.ModifyTargetGroupAttributes(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "ModifyTargetGroupAttributes")
+	if err != nil {
+		return nil, err
+	}
+	return client.ModifyTargetGroupAttributes(ctx, input)
 }
 
 func (c *elbv2Client) SetSecurityGroupsWithContext(ctx context.Context, input *elasticloadbalancingv2.SetSecurityGroupsInput) (*elasticloadbalancingv2.SetSecurityGroupsOutput, error) {
-	return c.elbv2Client.SetSecurityGroups(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "SetSecurityGroups")
+	if err != nil {
+		return nil, err
+	}
+	return client.SetSecurityGroups(ctx, input)
 }
 
 func (c *elbv2Client) SetSubnetsWithContext(ctx context.Context, input *elasticloadbalancingv2.SetSubnetsInput) (*elasticloadbalancingv2.SetSubnetsOutput, error) {
-	return c.elbv2Client.SetSubnets(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "SetSubnets")
+	if err != nil {
+		return nil, err
+	}
+	return client.SetSubnets(ctx, input)
 }
 
 func (c *elbv2Client) SetIpAddressTypeWithContext(ctx context.Context, input *elasticloadbalancingv2.SetIpAddressTypeInput) (*elasticloadbalancingv2.SetIpAddressTypeOutput, error) {
-	return c.elbv2Client.SetIpAddressType(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "SetIpAddressType")
+	if err != nil {
+		return nil, err
+	}
+	return client.SetIpAddressType(ctx, input)
 }
 
 func (c *elbv2Client) DeleteLoadBalancerWithContext(ctx context.Context, input *elasticloadbalancingv2.DeleteLoadBalancerInput) (*elasticloadbalancingv2.DeleteLoadBalancerOutput, error) {
-	return c.elbv2Client.DeleteLoadBalancer(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DeleteLoadBalancer")
+	if err != nil {
+		return nil, err
+	}
+	return client.DeleteLoadBalancer(ctx, input)
 }
 
 func (c *elbv2Client) CreateLoadBalancerWithContext(ctx context.Context, input *elasticloadbalancingv2.CreateLoadBalancerInput) (*elasticloadbalancingv2.CreateLoadBalancerOutput, error) {
-	return c.elbv2Client.CreateLoadBalancer(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "CreateLoadBalancer")
+	if err != nil {
+		return nil, err
+	}
+	return client.CreateLoadBalancer(ctx, input)
 }
 
 func (c *elbv2Client) DescribeLoadBalancerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeLoadBalancerAttributesInput) (*elasticloadbalancingv2.DescribeLoadBalancerAttributesOutput, error) {
-	return c.elbv2Client.DescribeLoadBalancerAttributes(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeLoadBalancerAttributes")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeLoadBalancerAttributes(ctx, input)
 }
 
 func (c *elbv2Client) ModifyLoadBalancerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyLoadBalancerAttributesInput) (*elasticloadbalancingv2.ModifyLoadBalancerAttributesOutput, error) {
-	return c.elbv2Client.ModifyLoadBalancerAttributes(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "ModifyLoadBalancerAttributes")
+	if err != nil {
+		return nil, err
+	}
+	return client.ModifyLoadBalancerAttributes(ctx, input)
 }
 
 func (c *elbv2Client) ModifyListenerWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerInput) (*elasticloadbalancingv2.ModifyListenerOutput, error) {
-	return c.elbv2Client.ModifyListener(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "ModifyListener")
+	if err != nil {
+		return nil, err
+	}
+	return client.ModifyListener(ctx, input)
 }
 
 func (c *elbv2Client) DeleteListenerWithContext(ctx context.Context, input *elasticloadbalancingv2.DeleteListenerInput) (*elasticloadbalancingv2.DeleteListenerOutput, error) {
-	return c.elbv2Client.DeleteListener(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DeleteListener")
+	if err != nil {
+		return nil, err
+	}
+	return client.DeleteListener(ctx, input)
 }
 
 func (c *elbv2Client) CreateListenerWithContext(ctx context.Context, input *elasticloadbalancingv2.CreateListenerInput) (*elasticloadbalancingv2.CreateListenerOutput, error) {
-	return c.elbv2Client.CreateListener(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "CreateListener")
+	if err != nil {
+		return nil, err
+	}
+	return client.CreateListener(ctx, input)
 }
 
 func (c *elbv2Client) DescribeTagsWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeTagsInput) (*elasticloadbalancingv2.DescribeTagsOutput, error) {
-	return c.elbv2Client.DescribeTags(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeTags")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeTags(ctx, input)
 }
 
 func (c *elbv2Client) AddTagsWithContext(ctx context.Context, input *elasticloadbalancingv2.AddTagsInput) (*elasticloadbalancingv2.AddTagsOutput, error) {
-	return c.elbv2Client.AddTags(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "AddTags")
+	if err != nil {
+		return nil, err
+	}
+	return client.AddTags(ctx, input)
 }
 
 func (c *elbv2Client) RemoveTagsWithContext(ctx context.Context, input *elasticloadbalancingv2.RemoveTagsInput) (*elasticloadbalancingv2.RemoveTagsOutput, error) {
-	return c.elbv2Client.RemoveTags(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "RemoveTags")
+	if err != nil {
+		return nil, err
+	}
+	return client.RemoveTags(ctx, input)
 }
 
 func (c *elbv2Client) DescribeLoadBalancersAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeLoadBalancersInput) ([]types.LoadBalancer, error) {
 	var result []types.LoadBalancer
-	paginator := elasticloadbalancingv2.NewDescribeLoadBalancersPaginator(c.elbv2Client, input)
+	var client *elasticloadbalancingv2.Client
+	var err error
+	client, err = c.awsClientsProvider.GetELBV2Client(ctx, "DescribeLoadBalancers")
+	if err != nil {
+		return nil, err
+	}
+	paginator := elasticloadbalancingv2.NewDescribeLoadBalancersPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -222,7 +351,13 @@ func (c *elbv2Client) DescribeLoadBalancersAsList(ctx context.Context, input *el
 
 func (c *elbv2Client) DescribeTargetGroupsAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeTargetGroupsInput) ([]types.TargetGroup, error) {
 	var result []types.TargetGroup
-	paginator := elasticloadbalancingv2.NewDescribeTargetGroupsPaginator(c.elbv2Client, input)
+	var client *elasticloadbalancingv2.Client
+	var err error
+	client, err = c.awsClientsProvider.GetELBV2Client(ctx, "DescribeTargetGroups")
+	if err != nil {
+		return nil, err
+	}
+	paginator := elasticloadbalancingv2.NewDescribeTargetGroupsPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -235,7 +370,13 @@ func (c *elbv2Client) DescribeTargetGroupsAsList(ctx context.Context, input *ela
 
 func (c *elbv2Client) DescribeListenersAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeListenersInput) ([]types.Listener, error) {
 	var result []types.Listener
-	paginator := elasticloadbalancingv2.NewDescribeListenersPaginator(c.elbv2Client, input)
+	var client *elasticloadbalancingv2.Client
+	var err error
+	client, err = c.awsClientsProvider.GetELBV2Client(ctx, "DescribeListeners")
+	if err != nil {
+		return nil, err
+	}
+	paginator := elasticloadbalancingv2.NewDescribeListenersPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -248,7 +389,13 @@ func (c *elbv2Client) DescribeListenersAsList(ctx context.Context, input *elasti
 
 func (c *elbv2Client) DescribeListenerCertificatesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerCertificatesInput) ([]types.Certificate, error) {
 	var result []types.Certificate
-	paginator := elasticloadbalancingv2.NewDescribeListenerCertificatesPaginator(c.elbv2Client, input)
+	var client *elasticloadbalancingv2.Client
+	var err error
+	client, err = c.awsClientsProvider.GetELBV2Client(ctx, "DescribeListenerCertificates")
+	if err != nil {
+		return nil, err
+	}
+	paginator := elasticloadbalancingv2.NewDescribeListenerCertificatesPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -261,7 +408,13 @@ func (c *elbv2Client) DescribeListenerCertificatesAsList(ctx context.Context, in
 
 func (c *elbv2Client) DescribeRulesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeRulesInput) ([]types.Rule, error) {
 	var result []types.Rule
-	paginator := elasticloadbalancingv2.NewDescribeRulesPaginator(c.elbv2Client, input)
+	var client *elasticloadbalancingv2.Client
+	var err error
+	client, err = c.awsClientsProvider.GetELBV2Client(ctx, "DescribeRules")
+	if err != nil {
+		return nil, err
+	}
+	paginator := elasticloadbalancingv2.NewDescribeRulesPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -273,9 +426,17 @@ func (c *elbv2Client) DescribeRulesAsList(ctx context.Context, input *elasticloa
 }
 
 func (c *elbv2Client) DescribeListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerAttributesInput) (*elasticloadbalancingv2.DescribeListenerAttributesOutput, error) {
-	return c.elbv2Client.DescribeListenerAttributes(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "DescribeListenerAttributes")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeListenerAttributes(ctx, input)
 }
 
 func (c *elbv2Client) ModifyListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error) {
-	return c.elbv2Client.ModifyListenerAttributes(ctx, input)
+	client, err := c.awsClientsProvider.GetELBV2Client(ctx, "ModifyListenerAttributes")
+	if err != nil {
+		return nil, err
+	}
+	return client.ModifyListenerAttributes(ctx, input)
 }

@@ -132,7 +132,7 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 
 	if awsClientsProvider == nil {
 		var err error
-		awsClientsProvider, err = NewDefaultAWSClientsProvider(awsConfig, endpointsResolver)
+		awsClientsProvider, err = provider.NewDefaultAWSClientsProvider(awsConfig, endpointsResolver)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create aws clients provider")
 		}
@@ -147,17 +147,16 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 	return &defaultCloud{
 		cfg:         cfg,
 		ec2:         ec2Service,
-		elbv2:       services.NewELBV2(awsConfig, endpointsResolver),
-		acm:         services.NewACM(awsConfig, endpointsResolver),
-		wafv2:       services.NewWAFv2(awsConfig, endpointsResolver),
-		wafRegional: services.NewWAFRegional(awsConfig, endpointsResolver, cfg.Region),
-		shield:      services.NewShield(awsConfig, endpointsResolver), //done
-		rgt:         services.NewRGT(awsConfig, endpointsResolver),
+		elbv2:       services.NewELBV2(awsClientsProvider),
+		acm:         services.NewACM(awsClientsProvider),
+		wafv2:       services.NewWAFv2(awsClientsProvider),
+		wafRegional: services.NewWAFRegional(awsClientsProvider, cfg.Region),
+		shield:      services.NewShield(awsClientsProvider),
+		rgt:         services.NewRGT(awsClientsProvider),
 	}, nil
 }
 
 func getVpcID(cfg CloudConfig, ec2Service services.EC2, ec2Metadata services.EC2Metadata, logger logr.Logger) (string, error) {
-
 	if cfg.VpcID != "" {
 		logger.V(1).Info("vpcid is specified using flag --aws-vpc-id, controller will use the value", "vpc: ", cfg.VpcID)
 		return cfg.VpcID, nil

@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	rgttypes "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 )
 
 const (
@@ -18,23 +18,23 @@ type RGT interface {
 }
 
 // NewRGT constructs new RGT implementation.
-func NewRGT(cfg aws.Config, endpointsResolver *endpoints.Resolver) RGT {
-	customEndpoint := endpointsResolver.EndpointFor(resourcegroupstaggingapi.ServiceID)
-	client := resourcegroupstaggingapi.NewFromConfig(cfg, func(o *resourcegroupstaggingapi.Options) {
-		if customEndpoint != nil {
-			o.BaseEndpoint = customEndpoint
-		}
-	})
-	return &rgtClient{rgtClient: client}
+func NewRGT(awsClientsProvider provider.AWSClientsProvider) RGT {
+	return &rgtClient{
+		awsClientsProvider: awsClientsProvider,
+	}
 }
 
 type rgtClient struct {
-	rgtClient *resourcegroupstaggingapi.Client
+	awsClientsProvider provider.AWSClientsProvider
 }
 
 func (c *rgtClient) GetResourcesAsList(ctx context.Context, input *resourcegroupstaggingapi.GetResourcesInput) ([]rgttypes.ResourceTagMapping, error) {
+	client, err := c.awsClientsProvider.GetRGTClient(ctx, "GetResources")
+	if err != nil {
+		return nil, err
+	}
 	var result []rgttypes.ResourceTagMapping
-	paginator := resourcegroupstaggingapi.NewGetResourcesPaginator(c.rgtClient, input)
+	paginator := resourcegroupstaggingapi.NewGetResourcesPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {

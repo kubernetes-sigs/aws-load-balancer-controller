@@ -2,9 +2,8 @@ package services
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 )
 
 type WAFv2 interface {
@@ -14,28 +13,36 @@ type WAFv2 interface {
 }
 
 // NewWAFv2 constructs new WAFv2 implementation.
-func NewWAFv2(cfg aws.Config, endpointsResolver *endpoints.Resolver) WAFv2 {
-	customEndpoint := endpointsResolver.EndpointFor(wafv2.ServiceID)
-	client := wafv2.NewFromConfig(cfg, func(o *wafv2.Options) {
-		if customEndpoint != nil {
-			o.BaseEndpoint = customEndpoint
-		}
-	})
-	return &wafv2Client{wafv2Client: client}
+func NewWAFv2(awsClientsProvider provider.AWSClientsProvider) WAFv2 {
+	return &wafv2Client{
+		awsClientsProvider: awsClientsProvider,
+	}
 }
 
 type wafv2Client struct {
-	wafv2Client *wafv2.Client
+	awsClientsProvider provider.AWSClientsProvider
 }
 
 func (c *wafv2Client) AssociateWebACLWithContext(ctx context.Context, req *wafv2.AssociateWebACLInput) (*wafv2.AssociateWebACLOutput, error) {
-	return c.wafv2Client.AssociateWebACL(ctx, req)
+	client, err := c.awsClientsProvider.GetWAFv2Client(ctx, "AssociateWebACL")
+	if err != nil {
+		return nil, err
+	}
+	return client.AssociateWebACL(ctx, req)
 }
 
 func (c *wafv2Client) DisassociateWebACLWithContext(ctx context.Context, req *wafv2.DisassociateWebACLInput) (*wafv2.DisassociateWebACLOutput, error) {
-	return c.wafv2Client.DisassociateWebACL(ctx, req)
+	client, err := c.awsClientsProvider.GetWAFv2Client(ctx, "DisassociateWebACL")
+	if err != nil {
+		return nil, err
+	}
+	return client.DisassociateWebACL(ctx, req)
 }
 
 func (c *wafv2Client) GetWebACLForResourceWithContext(ctx context.Context, req *wafv2.GetWebACLForResourceInput) (*wafv2.GetWebACLForResourceOutput, error) {
-	return c.wafv2Client.GetWebACLForResource(ctx, req)
+	client, err := c.awsClientsProvider.GetWAFv2Client(ctx, "GetWebACLForResource")
+	if err != nil {
+		return nil, err
+	}
+	return client.GetWebACLForResource(ctx, req)
 }
