@@ -2,10 +2,9 @@ package services
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 )
 
 type EC2 interface {
@@ -37,28 +36,31 @@ type EC2 interface {
 }
 
 // NewEC2 constructs new EC2 implementation.
-func NewEC2(cfg aws.Config, endpointsResolver *endpoints.Resolver) EC2 {
-	customEndpoint := endpointsResolver.EndpointFor(ec2.ServiceID)
+func NewEC2(awsClientsProvider provider.AWSClientsProvider) EC2 {
 	return &ec2Client{
-		ec2Client: ec2.NewFromConfig(cfg, func(o *ec2.Options) {
-			if customEndpoint != nil {
-				o.BaseEndpoint = customEndpoint
-			}
-		}),
+		awsClientsProvider: awsClientsProvider,
 	}
 }
 
 type ec2Client struct {
-	ec2Client *ec2.Client
+	awsClientsProvider provider.AWSClientsProvider
 }
 
 func (c *ec2Client) DescribeInstancesWithContext(ctx context.Context, input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
-	return c.ec2Client.DescribeInstances(ctx, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeInstances")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeInstances(ctx, input)
 }
 
 func (c *ec2Client) DescribeInstancesAsList(ctx context.Context, input *ec2.DescribeInstancesInput) ([]types.Instance, error) {
 	var result []types.Instance
-	paginator := ec2.NewDescribeInstancesPaginator(c.ec2Client, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeInstances")
+	if err != nil {
+		return nil, err
+	}
+	paginator := ec2.NewDescribeInstancesPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -73,7 +75,11 @@ func (c *ec2Client) DescribeInstancesAsList(ctx context.Context, input *ec2.Desc
 
 func (c *ec2Client) DescribeNetworkInterfacesAsList(ctx context.Context, input *ec2.DescribeNetworkInterfacesInput) ([]types.NetworkInterface, error) {
 	var result []types.NetworkInterface
-	paginator := ec2.NewDescribeNetworkInterfacesPaginator(c.ec2Client, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeNetworkInterfaces")
+	if err != nil {
+		return nil, err
+	}
+	paginator := ec2.NewDescribeNetworkInterfacesPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -86,7 +92,11 @@ func (c *ec2Client) DescribeNetworkInterfacesAsList(ctx context.Context, input *
 
 func (c *ec2Client) DescribeSecurityGroupsAsList(ctx context.Context, input *ec2.DescribeSecurityGroupsInput) ([]types.SecurityGroup, error) {
 	var result []types.SecurityGroup
-	paginator := ec2.NewDescribeSecurityGroupsPaginator(c.ec2Client, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeSecurityGroups")
+	if err != nil {
+		return nil, err
+	}
+	paginator := ec2.NewDescribeSecurityGroupsPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -99,7 +109,11 @@ func (c *ec2Client) DescribeSecurityGroupsAsList(ctx context.Context, input *ec2
 
 func (c *ec2Client) DescribeSubnetsAsList(ctx context.Context, input *ec2.DescribeSubnetsInput) ([]types.Subnet, error) {
 	var result []types.Subnet
-	paginator := ec2.NewDescribeSubnetsPaginator(c.ec2Client, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeSubnets")
+	if err != nil {
+		return nil, err
+	}
+	paginator := ec2.NewDescribeSubnetsPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -112,7 +126,11 @@ func (c *ec2Client) DescribeSubnetsAsList(ctx context.Context, input *ec2.Descri
 
 func (c *ec2Client) DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeVpcsInput) ([]types.Vpc, error) {
 	var result []types.Vpc
-	paginator := ec2.NewDescribeVpcsPaginator(c.ec2Client, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeVPCs")
+	if err != nil {
+		return nil, err
+	}
+	paginator := ec2.NewDescribeVpcsPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -124,33 +142,65 @@ func (c *ec2Client) DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeV
 }
 
 func (c *ec2Client) CreateTagsWithContext(ctx context.Context, input *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error) {
-	return c.ec2Client.CreateTags(ctx, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "CreateTags")
+	if err != nil {
+		return nil, err
+	}
+	return client.CreateTags(ctx, input)
 }
 
 func (c *ec2Client) DeleteTagsWithContext(ctx context.Context, input *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error) {
-	return c.ec2Client.DeleteTags(ctx, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DeleteTags")
+	if err != nil {
+		return nil, err
+	}
+	return client.DeleteTags(ctx, input)
 }
 
 func (c *ec2Client) CreateSecurityGroupWithContext(ctx context.Context, input *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error) {
-	return c.ec2Client.CreateSecurityGroup(ctx, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "CreateSecurityGroup")
+	if err != nil {
+		return nil, err
+	}
+	return client.CreateSecurityGroup(ctx, input)
 }
 
 func (c *ec2Client) DeleteSecurityGroupWithContext(ctx context.Context, input *ec2.DeleteSecurityGroupInput) (*ec2.DeleteSecurityGroupOutput, error) {
-	return c.ec2Client.DeleteSecurityGroup(ctx, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DeleteSecurityGroup")
+	if err != nil {
+		return nil, err
+	}
+	return client.DeleteSecurityGroup(ctx, input)
 }
 
 func (c *ec2Client) AuthorizeSecurityGroupIngressWithContext(ctx context.Context, input *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
-	return c.ec2Client.AuthorizeSecurityGroupIngress(ctx, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "AuthorizeSecurityGroupIngress")
+	if err != nil {
+		return nil, err
+	}
+	return client.AuthorizeSecurityGroupIngress(ctx, input)
 }
 
 func (c *ec2Client) RevokeSecurityGroupIngressWithContext(ctx context.Context, input *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error) {
-	return c.ec2Client.RevokeSecurityGroupIngress(ctx, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "RevokeSecurityGroupIngress")
+	if err != nil {
+		return nil, err
+	}
+	return client.RevokeSecurityGroupIngress(ctx, input)
 }
 
 func (c *ec2Client) DescribeAvailabilityZonesWithContext(ctx context.Context, input *ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error) {
-	return c.ec2Client.DescribeAvailabilityZones(ctx, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeAvailabilityZones")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeAvailabilityZones(ctx, input)
 }
 
 func (c *ec2Client) DescribeVpcsWithContext(ctx context.Context, input *ec2.DescribeVpcsInput) (*ec2.DescribeVpcsOutput, error) {
-	return c.ec2Client.DescribeVpcs(ctx, input)
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeVpcs")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeVpcs(ctx, input)
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	amerrors "k8s.io/apimachinery/pkg/util/errors"
 	epresolver "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
@@ -59,7 +60,7 @@ type Cloud interface {
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger logr.Logger) (Cloud, error) {
+func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger logr.Logger, awsClientsProvider provider.AWSClientsProvider) (Cloud, error) {
 	hasIPv4 := true
 	addrs, err := net.InterfaceAddrs()
 	if err == nil {
@@ -129,7 +130,14 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 		awsConfig.APIOptions = metrics.WithSDKMetricCollector(metricsCollector, awsConfig.APIOptions)
 	}
 
-	ec2Service := services.NewEC2(awsConfig, endpointsResolver)
+	if awsClientsProvider == nil {
+		var err error
+		awsClientsProvider, err = NewDefaultAWSClientsProvider(awsConfig, endpointsResolver)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create aws clients provider")
+		}
+	}
+	ec2Service := services.NewEC2(awsClientsProvider)
 
 	vpcID, err := getVpcID(cfg, ec2Service, ec2Metadata, logger)
 	if err != nil {
