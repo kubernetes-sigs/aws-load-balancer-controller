@@ -99,6 +99,9 @@ updateStrategy: {}
   #   maxSurge: 1
   #   maxUnavailable: 1
 
+# webhookAnnotations contains annotations to be added to webhooks.
+webhookAnnotations: {}
+
 # serviceAnnotations contains annotations to be added to the provisioned webhook service resource
 serviceAnnotations: {}
 

@@ -3,9 +3,14 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-{{- if $.Values.enableCertManager }}
+{{- if or $.Values.enableCertManager $.Values.webhookAnnotations }}
   annotations:
+  {{- if $.Values.webhookAnnotations }}
+    {{- toYaml $.Values.webhookAnnotations | nindent 4}}
+  {{- end }}
+  {{- if $.Values.enableCertManager }}
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ template "aws-load-balancer-controller.namePrefix" . }}-serving-cert
+  {{- end }}
 {{- end }}
   name: {{ include "aws-load-balancer-controller.namePrefix" . }}-webhook
   labels:
@@ -121,9 +126,14 @@ webhooks:
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-{{- if $.Values.enableCertManager }}
+{{- if or $.Values.enableCertManager $.Values.webhookAnnotations }}
   annotations:
+  {{- if $.Values.webhookAnnotations }}
+    {{- toYaml $.Values.webhookAnnotations | nindent 4}}
+  {{- end }}
+  {{- if $.Values.enableCertManager }}
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/{{ template "aws-load-balancer-controller.namePrefix" . }}-serving-cert
+  {{- end }}
 {{- end }}
   name: {{ include "aws-load-balancer-controller.namePrefix" . }}-webhook
   labels:
