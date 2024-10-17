@@ -73,4 +73,4 @@ Adequate roles and policies must be configured in AWS and available to the node(
       external-dns.alpha.kubernetes.io/aws-weight: "100"
       external-dns.alpha.kubernetes.io/set-identifier: "3"
    ```
-   You can refer to the External DNS documentation for further details [[link](https://kubernetes-sigs.github.io/external-dns/latest/tutorials/aws/#routing-policies)]. 
+   You can refer to the External DNS documentation for further details [[link](https://kubernetes-sigs.github.io/external-dns/latest/docs/tutorials/aws/#routing-policies)]. 
