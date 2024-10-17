@@ -8,7 +8,7 @@ revisionHistoryLimit: 10
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.9.1
+  tag: v2.9.2
   pullPolicy: IfNotPresent
 
 runtimeClassName: ""
