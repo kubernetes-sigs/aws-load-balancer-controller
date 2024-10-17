@@ -43,7 +43,7 @@ func calculateTGBReconcileCheckpoint[V backend.Endpoint](endpoints []V, tgb *elb
 	endpointStrings := make([]string, 0, len(endpoints))
 
 	for _, ep := range endpoints {
-		endpointStrings = append(endpointStrings, ep.GetIdentifier())
+		endpointStrings = append(endpointStrings, ep.GetIdentifier(true))
 	}
 
 	slices.Sort(endpointStrings)

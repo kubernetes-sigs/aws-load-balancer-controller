@@ -127,6 +127,10 @@ type TargetGroupBindingSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	TargetGroupARN string `json:"targetGroupARN"`
 
+	// MultiClusterTargetGroup Denotes if the TargetGroup is shared among multiple clusters
+	// +optional
+	MultiClusterTargetGroup bool `json:"multiClusterTargetGroup,omitempty"`
+
 	// targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
 	TargetType *TargetType `json:"targetType,omitempty"`

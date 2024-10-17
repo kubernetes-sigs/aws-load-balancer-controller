@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -163,6 +166,104 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					return getTargetGroupHealthCheckProtocol(ctx, tf, lbARN) == "HTTP"
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 
+				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+					Type:       "network",
+					Scheme:     "internet-facing",
+					TargetType: "ip",
+					Listeners: map[string]string{
+						"80": "TCP",
+					},
+					TargetGroups: map[string]string{
+						"80": "TCP",
+					},
+					NumTargets: int(numReplicas),
+					TargetGroupHC: &TargetGroupHC{
+						Protocol:           "HTTP",
+						Port:               "80",
+						Path:               "/healthz",
+						Interval:           30,
+						Timeout:            6,
+						HealthyThreshold:   2,
+						UnhealthyThreshold: 2,
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+			})
+			By("Enabling Multi-cluster mode", func() {
+				// Enable multicluster mode
+				err := stack.UpdateServiceAnnotations(ctx, tf, map[string]string{
+					"service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group": "true",
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				// Wait for the change to be applied.
+				time.Sleep(60 * time.Second)
+
+				// Register a new target that exists outside the cluster.
+				targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
+
+				Expect(err).ToNot(HaveOccurred())
+
+				tgArn := *targetGroups[0].TargetGroupArn
+
+				Expect(targetGroups).To(HaveLen(1))
+				targets, err := tf.TGManager.GetCurrentTargets(ctx, tgArn)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(targets).ShouldNot(HaveLen(0))
+
+				err = tf.TGManager.RegisterTargets(ctx, tgArn, []elbv2types.TargetDescription{
+					{
+						Id:   targets[0].Target.Id,
+						Port: awssdk.Int32(*targets[0].Target.Port + 1),
+					},
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+
+				// Change the check point annotation to trigger a reconcile.
+				err = stack.UpdateServiceAnnotations(ctx, tf, map[string]string{
+					"elbv2.k8s.aws/checkpoint": "baz",
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+
+				// Wait for the change to be applied.
+				time.Sleep(120 * time.Second)
+
+				// We should the targets registered from in cluster and the extra IP registered under a different port.
+				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+					Type:       "network",
+					Scheme:     "internet-facing",
+					TargetType: "ip",
+					Listeners: map[string]string{
+						"80": "TCP",
+					},
+					TargetGroups: map[string]string{
+						"80": "TCP",
+					},
+					NumTargets: int(numReplicas) + 1,
+					TargetGroupHC: &TargetGroupHC{
+						Protocol:           "HTTP",
+						Port:               "80",
+						Path:               "/healthz",
+						Interval:           30,
+						Timeout:            6,
+						HealthyThreshold:   2,
+						UnhealthyThreshold: 2,
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				// Disable multicluster mode
+				err = stack.UpdateServiceAnnotations(ctx, tf, map[string]string{
+					"service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group": "false",
+				})
+				Expect(err).ToNot(HaveOccurred())
+
+				// Wait for the change to be applied.
+				time.Sleep(120 * time.Second)
+
+				// Only the replicas in the cluster should exist in the target group again.
 				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",

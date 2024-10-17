@@ -2,6 +2,7 @@ package algorithm
 
 import (
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"testing"
 )
 
@@ -272,6 +273,88 @@ func TestDiffStringMap(t *testing.T) {
 			gotUpdate, gotRemove := DiffStringMap(tt.args.desired, tt.args.current)
 			assert.Equal(t, tt.wantUpdate, gotUpdate)
 			assert.Equal(t, tt.wantRemove, gotRemove)
+		})
+	}
+}
+
+func TestCSVToStringSet(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		output sets.Set[string]
+	}{
+		{
+			name:   "empty string",
+			input:  "",
+			output: sets.Set[string]{},
+		},
+		{
+			name:  "one entry",
+			input: "127.0.0.1:80",
+			output: sets.Set[string]{
+				"127.0.0.1:80": {},
+			},
+		},
+		{
+			name:  "multiple entries",
+			input: "127.0.0.1:80,127.0.0.2:80,127.0.0.3:80,127.0.0.4:80,127.0.0.5:80",
+			output: sets.Set[string]{
+				"127.0.0.1:80": {},
+				"127.0.0.2:80": {},
+				"127.0.0.3:80": {},
+				"127.0.0.4:80": {},
+				"127.0.0.5:80": {},
+			},
+		},
+		{
+			name:  "duplicate entries",
+			input: "127.0.0.1:80,127.0.0.2:80,127.0.0.1:80,127.0.0.1:80,127.0.0.1:80",
+			output: sets.Set[string]{
+				"127.0.0.1:80": {},
+				"127.0.0.2:80": {},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.output, CSVToStringSet(tt.input))
+		})
+	}
+}
+
+func TestStringSetToCSV(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  sets.Set[string]
+		output string
+	}{
+		{
+			name:  "empty string",
+			input: sets.Set[string]{},
+		},
+		{
+			name: "one entry",
+			input: sets.Set[string]{
+				"127.0.0.1:80": {},
+			},
+		},
+		{
+			name: "multiple entries",
+			input: sets.Set[string]{
+				"127.0.0.1:80": {},
+				"127.0.0.2:80": {},
+				"127.0.0.3:80": {},
+				"127.0.0.4:80": {},
+				"127.0.0.5:80": {},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Go doesn't guarantee ordering for map iteration, so we just re-insert into a map to validate correctness.
+			output := StringSetToCSV(tt.input)
+			recreatedSet := CSVToStringSet(output)
+			assert.Equal(t, tt.input, recreatedSet)
 		})
 	}
 }

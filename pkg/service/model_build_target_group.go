@@ -428,6 +428,12 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceSpec{}, err
 	}
+
+	multiTg, err := t.buildTargetGroupBindingMultiClusterFlag(t.service)
+	if err != nil {
+		return elbv2model.TargetGroupBindingResourceSpec{}, err
+	}
+
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
@@ -441,10 +447,11 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 					Name: t.service.Name,
 					Port: intstr.FromInt(int(port.Port)),
 				},
-				Networking:    tgbNetworking,
-				NodeSelector:  nodeSelector,
-				IPAddressType: elbv2api.TargetGroupIPAddressType(targetGroup.Spec.IPAddressType),
-				VpcID:         t.vpcID,
+				Networking:              tgbNetworking,
+				NodeSelector:            nodeSelector,
+				IPAddressType:           elbv2api.TargetGroupIPAddressType(targetGroup.Spec.IPAddressType),
+				VpcID:                   t.vpcID,
+				MultiClusterTargetGroup: multiTg,
 			},
 		},
 	}, nil
@@ -692,4 +699,16 @@ func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlagLegacy(_ contex
 		return rawEnabled, nil
 	}
 	return true, nil
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupBindingMultiClusterFlag(svc *corev1.Service) (bool, error) {
+	var rawEnabled bool
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixMultiClusterTargetGroup, &rawEnabled, svc.Annotations)
+	if err != nil {
+		return false, err
+	}
+	if exists {
+		return rawEnabled, nil
+	}
+	return false, nil
 }

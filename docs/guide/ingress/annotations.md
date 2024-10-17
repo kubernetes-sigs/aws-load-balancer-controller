@@ -15,50 +15,51 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 
 ## Annotations
 | Name                                                                                                  | Type                        |Default| Location        | MergeBehavior |
-|-------------------------------------------------------------------------------------------------------|-----------------------------|------|-----------------|-----------|
-| [alb.ingress.kubernetes.io/load-balancer-name](#load-balancer-name)                                   | string                      |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/group.name](#group.name)                                                   | string                      |N/A| Ingress         | N/A       |
-| [alb.ingress.kubernetes.io/group.order](#group.order)                                                 | integer                     |0| Ingress         | N/A       |
-| [alb.ingress.kubernetes.io/tags](#tags)                                                               | stringMap                   |N/A| Ingress,Service | Merge     |
-| [alb.ingress.kubernetes.io/ip-address-type](#ip-address-type)                                         | ipv4 \| dualstack \|  dualstack-without-public-ipv4           |ipv4| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/scheme](#scheme)                                                           | internal \| internet-facing |internal| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/subnets](#subnets)                                                         | stringList                  |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/security-groups](#security-groups)                                         | stringList                  |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/manage-backend-security-group-rules](#manage-backend-security-group-rules) | boolean                     |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/customer-owned-ipv4-pool](#customer-owned-ipv4-pool)                       | string                      |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/load-balancer-attributes](#load-balancer-attributes)                       | stringMap                   |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/wafv2-acl-arn](#wafv2-acl-arn)                                             | string                      |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/waf-acl-id](#waf-acl-id)                                                   | string                      |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/shield-advanced-protection](#shield-advanced-protection)                   | boolean                     |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/listen-ports](#listen-ports)                                               | json                        |'[{"HTTP": 80}]' \| '[{"HTTPS": 443}]'| Ingress         | Merge     |
-| [alb.ingress.kubernetes.io/ssl-redirect](#ssl-redirect)                                               | integer                     |N/A| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/inbound-cidrs](#inbound-cidrs)                                             | stringList                  |0.0.0.0/0, ::/0| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/security-group-prefix-lists](#security-group-prefix-lists)                                               | stringList                        |pl-00000000, pl-1111111| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)                                         | stringList                  |N/A| Ingress         | Merge     |
-| [alb.ingress.kubernetes.io/ssl-policy](#ssl-policy)                                                   | string                      |ELBSecurityPolicy-2016-08| Ingress         | Exclusive |
-| [alb.ingress.kubernetes.io/target-type](#target-type)                                                 | instance \| ip              |instance| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)                                       | HTTP \| HTTPS               |HTTP| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/backend-protocol-version](#backend-protocol-version)                       | string                      | HTTP1 | Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)                         | stringMap                   |N/A| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)                                       | integer \| traffic-port     |traffic-port| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/healthcheck-protocol](#healthcheck-protocol)                               | HTTP \| HTTPS               |HTTP| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)                                       | string                      |/ \| /AWS.ALB/healthcheck | Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/healthcheck-interval-seconds](#healthcheck-interval-seconds)               | integer                     |'15'| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/healthcheck-timeout-seconds](#healthcheck-timeout-seconds)                 | integer                     |'5'| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/healthy-threshold-count](#healthy-threshold-count)                         | integer                     |'2'| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/unhealthy-threshold-count](#unhealthy-threshold-count)                     | integer                     |'2'| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/success-codes](#success-codes)                                             | string                      |'200' \| '12' | Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/auth-type](#auth-type)                                                     | none\|oidc\|cognito         |none| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/auth-idp-cognito](#auth-idp-cognito)                                       | json                        |N/A| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/auth-idp-oidc](#auth-idp-oidc)                                             | json                        |N/A| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/auth-on-unauthenticated-request](#auth-on-unauthenticated-request)         | authenticate\|allow\|deny   |authenticate| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/auth-scope](#auth-scope)                                                   | string                      |openid| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/auth-session-cookie](#auth-session-cookie)                                 | string                      |AWSELBAuthSessionCookie| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)                               | integer                     |'604800'| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/actions.${action-name}](#actions)                                          | json                        |N/A| Ingress         | N/A       |
-| [alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)                                | json                        |N/A| Ingress         | N/A       |
-| [alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)                                   | stringMap                   |N/A| Ingress,Service | N/A       |
-| [alb.ingress.kubernetes.io/mutual-authentication](#mutual-authentication)                             | json                        |N/A| Ingress         |Exclusive|
+|-------------------------------------------------------------------------------------------------------|-----------------------------|------|-----------------|---------------|
+| [alb.ingress.kubernetes.io/load-balancer-name](#load-balancer-name)                                   | string                      |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/group.name](#group.name)                                                   | string                      |N/A| Ingress         | N/A           |
+| [alb.ingress.kubernetes.io/group.order](#group.order)                                                 | integer                     |0| Ingress         | N/A           |
+| [alb.ingress.kubernetes.io/tags](#tags)                                                               | stringMap                   |N/A| Ingress,Service | Merge         |
+| [alb.ingress.kubernetes.io/ip-address-type](#ip-address-type)                                         | ipv4 \| dualstack \|  dualstack-without-public-ipv4           |ipv4| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/scheme](#scheme)                                                           | internal \| internet-facing |internal| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/subnets](#subnets)                                                         | stringList                  |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/security-groups](#security-groups)                                         | stringList                  |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/manage-backend-security-group-rules](#manage-backend-security-group-rules) | boolean                     |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/customer-owned-ipv4-pool](#customer-owned-ipv4-pool)                       | string                      |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/load-balancer-attributes](#load-balancer-attributes)                       | stringMap                   |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/wafv2-acl-arn](#wafv2-acl-arn)                                             | string                      |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/waf-acl-id](#waf-acl-id)                                                   | string                      |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/shield-advanced-protection](#shield-advanced-protection)                   | boolean                     |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/listen-ports](#listen-ports)                                               | json                        |'[{"HTTP": 80}]' \| '[{"HTTPS": 443}]'| Ingress         | Merge         |
+| [alb.ingress.kubernetes.io/ssl-redirect](#ssl-redirect)                                               | integer                     |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/inbound-cidrs](#inbound-cidrs)                                             | stringList                  |0.0.0.0/0, ::/0| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/security-group-prefix-lists](#security-group-prefix-lists)                                               | stringList                        |pl-00000000, pl-1111111| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/certificate-arn](#certificate-arn)                                         | stringList                  |N/A| Ingress         | Merge         |
+| [alb.ingress.kubernetes.io/ssl-policy](#ssl-policy)                                                   | string                      |ELBSecurityPolicy-2016-08| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/target-type](#target-type)                                                 | instance \| ip              |instance| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/backend-protocol](#backend-protocol)                                       | HTTP \| HTTPS               |HTTP| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/backend-protocol-version](#backend-protocol-version)                       | string                      | HTTP1 | Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/target-group-attributes](#target-group-attributes)                         | stringMap                   |N/A| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/healthcheck-port](#healthcheck-port)                                       | integer \| traffic-port     |traffic-port| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/healthcheck-protocol](#healthcheck-protocol)                               | HTTP \| HTTPS               |HTTP| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/healthcheck-path](#healthcheck-path)                                       | string                      |/ \| /AWS.ALB/healthcheck | Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/healthcheck-interval-seconds](#healthcheck-interval-seconds)               | integer                     |'15'| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/healthcheck-timeout-seconds](#healthcheck-timeout-seconds)                 | integer                     |'5'| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/healthy-threshold-count](#healthy-threshold-count)                         | integer                     |'2'| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/unhealthy-threshold-count](#unhealthy-threshold-count)                     | integer                     |'2'| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/success-codes](#success-codes)                                             | string                      |'200' \| '12' | Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/auth-type](#auth-type)                                                     | none\|oidc\|cognito         |none| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/auth-idp-cognito](#auth-idp-cognito)                                       | json                        |N/A| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/auth-idp-oidc](#auth-idp-oidc)                                             | json                        |N/A| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/auth-on-unauthenticated-request](#auth-on-unauthenticated-request)         | authenticate\|allow\|deny   |authenticate| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/auth-scope](#auth-scope)                                                   | string                      |openid| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/auth-session-cookie](#auth-session-cookie)                                 | string                      |AWSELBAuthSessionCookie| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)                               | integer                     |'604800'| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/actions.${action-name}](#actions)                                          | json                        |N/A| Ingress         | N/A           |
+| [alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)                                | json                        |N/A| Ingress         | N/A           |
+| [alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)                                   | stringMap                   |N/A| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/mutual-authentication](#mutual-authentication)                             | json                        |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/multi-cluster-target-group](#multi-cluster-target-group)                   | boolean                     |N/A| Ingress, Service | N/A           |
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -886,6 +887,22 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
             alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=weighted_random,load_balancing.algorithm.anomaly_mitigation=on
             ```
+
+
+- <a name="multi-cluster-target-group">`alb.ingress.kubernetes.io/multi-cluster-target-group`</a> Allows you to share the created Target Group ARN with other Load Balancer Controller managed clusters.
+
+    !!!warning ""
+    This feature does not offer any Deletion Protection. Deleting the resource will still delete the Target Group. If you need to support
+    Target Groups shared with multiple clusters, it's recommended to use an out-of-band Target Group that is not managed by a Load Balancer Controller.
+
+    !!!note ""
+    - It is not recommended to change this value frequently, if ever. The recommended way to set this value is on creation of the service or ingress.
+
+    !!!example
+    ```
+    alb.ingress.kubernetes.io/multi-cluster-target-group: "true"
+    ```
+
 
 ## Resource Tags
 The AWS Load Balancer Controller automatically applies following tags to the AWS resources (ALB/TargetGroups/SecurityGroups/Listener/ListenerRule) it creates:

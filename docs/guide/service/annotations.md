@@ -52,7 +52,8 @@
 | [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        | 
 | [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      | If `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified, this must also be explicitly specified otherwise it defaults to `false`. |
 | [service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic](#update-security-settings)         | string                  |                           |                                                                                   
-| [service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}](#listener-attributes)         | stringMap                  |                           |   
+| [service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}](#listener-attributes)         | stringMap                  |                           |
+| [service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group](#multi-cluster-target-group)             | boolean                | false                    | If specified, the controller will only operate on targets that exist within the cluster, ignoring targets from other sources.                            |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -288,6 +289,20 @@ for proxy protocol v2 configuration.
         service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix
         service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled 
         ```
+
+- <a name="multi-cluster-target-group">`service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group`</a> Allows you to share the created Target Group ARN with other Load Balancer Controller managed clusters.
+
+    !!!warning ""
+    This feature does not offer any Deletion Protection. Deleting the service will still delete the Target Group. If you need to support
+    Target Groups shared with multiple clusters, it's recommended to use an out-of-band Target Group that is not managed by a Load Balancer Controller.
+
+    !!!note ""
+    - It is not recommended to change this value frequently, if ever. The recommended way to set this value is on creation of the service.
+
+    !!!example
+    ```
+    service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "true"
+    ```
 
 
 ## AWS Resource Tags
