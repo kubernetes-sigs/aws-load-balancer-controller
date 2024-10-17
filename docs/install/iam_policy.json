@@ -62,7 +62,6 @@
                 "wafv2:DisassociateWebACL",
                 "shield:GetSubscriptionState",
                 "shield:DescribeProtection",
-                "shield:CreateProtection",
                 "shield:DeleteProtection"
             ],
             "Resource": "*"
@@ -70,10 +69,75 @@
         {
             "Effect": "Allow",
             "Action": [
+                "shield:CreateProtection"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "shield:TagResource"
+            ],
+            "Resource": "arn:aws:shield::*:protection/*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "shield:DeleteProtection"
+            ],
+            "Resource": "arn:aws:shield::*:protection/*",
+            "Condition": {
+                "Null": {
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Sid": "MutateSecurityGroupRules",
+            "Effect": "Allow",
+            "Action": [
                 "ec2:AuthorizeSecurityGroupIngress",
                 "ec2:RevokeSecurityGroupIngress"
             ],
-            "Resource": "*"
+            "Resource": "arn:aws:ec2:*:*:security-group-rule/*",
+            "Condition": {
+                "Null": {
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
+                }
+            }
+        },
+        {
+            "Sid": "TagSecurityGroupRule",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:CreateTags"
+            ],
+            "Resource": "arn:aws:ec2:*:*:security-group-rule/*",
+            "Condition": {
+                "Null": {
+                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false",
+                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "true"
+                }
+            }
+        },
+        {
+            "Sid": "MutateSGRulesOnWorkerNodeSG",
+            "Effect": "Allow",
+            "Action": [
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:RevokeSecurityGroupIngress"
+            ],
+            "Resource": "arn:aws:ec2:*:*:security-group/*"
         },
         {
             "Effect": "Allow",
