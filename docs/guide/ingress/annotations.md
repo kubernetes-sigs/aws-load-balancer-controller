@@ -530,6 +530,24 @@ Access control for LoadBalancer can be controlled with following annotations:
         ```
         alb.ingress.kubernetes.io/inbound-cidrs: 10.0.0.0/24
         ```
+- <a name="inbound-security-groups">`alb.ingress.kubernetes.io/inbound-security-groups`</a> specifies the SecurtityGroups that are allowed to access LoadBalancer.
+
+    !!!note "Merge Behavior"
+        `inbound-security-groups` is merged across all Ingresses in IngressGroup, but is exclusive per listen-port.
+
+        - the `inbound-security-groups` will only impact the ports defined for that Ingress.
+        - if same listen-port is defined by multiple Ingress within IngressGroup, `inbound-security-groups` should only be defined on one of the Ingress.
+
+    !!!warning ""
+        this annotation will be ignored if `alb.ingress.kubernetes.io/security-groups` is specified.
+
+    !!!tip ""
+        Both name or ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/inbound-security-groups: sg-xxxx, nameOfSg1, nameOfSg2
+        ```
 
 - <a name="security-group-prefix-lists">`alb.ingress.kubernetes.io/security-group-prefix-lists`</a> specifies the managed prefix lists that are allowed to access LoadBalancer.
 
