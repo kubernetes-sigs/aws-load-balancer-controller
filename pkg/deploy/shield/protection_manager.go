@@ -125,7 +125,7 @@ func (m *defaultProtectionManager) GetProtection(ctx context.Context, resourceAR
 			return nil, err
 		}
 	}
-	if resp.Protection != nil {
+	if resp != nil && resp.Protection != nil {
 		protectionInfo = &ProtectionInfo{
 			Name: awssdk.ToString(resp.Protection.Name),
 			ID:   awssdk.ToString(resp.Protection.Id),
