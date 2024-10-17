@@ -2,10 +2,9 @@ package services
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	"github.com/aws/aws-sdk-go-v2/service/acm/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 )
 
 type ACM interface {
@@ -15,24 +14,23 @@ type ACM interface {
 }
 
 // NewACM constructs new ACM implementation.
-func NewACM(cfg aws.Config, endpointsResolver *endpoints.Resolver) ACM {
-	customEndpoint := endpointsResolver.EndpointFor(acm.ServiceID)
+func NewACM(awsClientsProvider provider.AWSClientsProvider) ACM {
 	return &acmClient{
-		acmClient: acm.NewFromConfig(cfg, func(o *acm.Options) {
-			if customEndpoint != nil {
-				o.BaseEndpoint = customEndpoint
-			}
-		}),
+		awsClientsProvider: awsClientsProvider,
 	}
 }
 
 type acmClient struct {
-	acmClient *acm.Client
+	awsClientsProvider provider.AWSClientsProvider
 }
 
 func (c *acmClient) ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]types.CertificateSummary, error) {
 	var result []types.CertificateSummary
-	paginator := acm.NewListCertificatesPaginator(c.acmClient, input)
+	client, err := c.awsClientsProvider.GetACMClient(ctx, "ListCertificates")
+	if err != nil {
+		return nil, err
+	}
+	paginator := acm.NewListCertificatesPaginator(client, input)
 	for paginator.HasMorePages() {
 		output, err := paginator.NextPage(ctx)
 		if err != nil {
@@ -44,5 +42,9 @@ func (c *acmClient) ListCertificatesAsList(ctx context.Context, input *acm.ListC
 }
 
 func (c *acmClient) DescribeCertificateWithContext(ctx context.Context, input *acm.DescribeCertificateInput) (*acm.DescribeCertificateOutput, error) {
-	return c.acmClient.DescribeCertificate(ctx, input)
+	client, err := c.awsClientsProvider.GetACMClient(ctx, "DescribeCertificate")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeCertificate(ctx, input)
 }

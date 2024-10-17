@@ -2,9 +2,8 @@ package services
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 )
 
 type WAFRegional interface {
@@ -16,21 +15,17 @@ type WAFRegional interface {
 }
 
 // NewWAFRegional constructs new WAFRegional implementation.
-func NewWAFRegional(cfg aws.Config, endpointsResolver *endpoints.Resolver, region string) WAFRegional {
-	customEndpoint := endpointsResolver.EndpointFor(wafregional.ServiceID)
+func NewWAFRegional(awsClientsProvider provider.AWSClientsProvider, region string) WAFRegional {
 	return &wafRegionalClient{
-		wafRegionalClient: wafregional.NewFromConfig(cfg, func(o *wafregional.Options) {
-			o.Region = region
-			o.BaseEndpoint = customEndpoint
-		}),
-		region: region,
+		awsClientsProvider: awsClientsProvider,
+		region:             region,
 	}
 }
 
 // default implementation for WAFRegional.
 type wafRegionalClient struct {
-	wafRegionalClient *wafregional.Client
-	region            string
+	awsClientsProvider provider.AWSClientsProvider
+	region             string
 }
 
 func (c *wafRegionalClient) Available() bool {
@@ -42,13 +37,25 @@ func (c *wafRegionalClient) Available() bool {
 }
 
 func (c *wafRegionalClient) AssociateWebACLWithContext(ctx context.Context, input *wafregional.AssociateWebACLInput) (*wafregional.AssociateWebACLOutput, error) {
-	return c.wafRegionalClient.AssociateWebACL(ctx, input)
+	client, err := c.awsClientsProvider.GetWAFRegionClient(ctx, "AssociateWebACL")
+	if err != nil {
+		return nil, err
+	}
+	return client.AssociateWebACL(ctx, input)
 }
 
 func (c *wafRegionalClient) DisassociateWebACLWithContext(ctx context.Context, input *wafregional.DisassociateWebACLInput) (*wafregional.DisassociateWebACLOutput, error) {
-	return c.wafRegionalClient.DisassociateWebACL(ctx, input)
+	client, err := c.awsClientsProvider.GetWAFRegionClient(ctx, "DisassociateWebACL")
+	if err != nil {
+		return nil, err
+	}
+	return client.DisassociateWebACL(ctx, input)
 }
 
 func (c *wafRegionalClient) GetWebACLForResourceWithContext(ctx context.Context, input *wafregional.GetWebACLForResourceInput) (*wafregional.GetWebACLForResourceOutput, error) {
-	return c.wafRegionalClient.GetWebACLForResource(ctx, input)
+	client, err := c.awsClientsProvider.GetWAFRegionClient(ctx, "GetWebACLForResource")
+	if err != nil {
+		return nil, err
+	}
+	return client.GetWebACLForResource(ctx, input)
 }
