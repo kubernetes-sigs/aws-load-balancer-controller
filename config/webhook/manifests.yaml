@@ -2,130 +2,130 @@
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: webhook
+  name: mutating-webhook-configuration
 webhooks:
-  - admissionReviewVersions:
-      - v1beta1
-    clientConfig:
-      service:
-        name: webhook-service
-        namespace: system
-        path: /mutate-v1-pod
-    failurePolicy: Fail
-    name: mpod.elbv2.k8s.aws
-    rules:
-      - apiGroups:
-          - ""
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-        resources:
-          - pods
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1beta1
-    clientConfig:
-      service:
-        name: webhook-service
-        namespace: system
-        path: /mutate-v1-service
-    failurePolicy: Fail
-    name: mservice.elbv2.k8s.aws
-    rules:
-      - apiGroups:
-          - ""
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-        resources:
-          - services
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1beta1
-    clientConfig:
-      service:
-        name: webhook-service
-        namespace: system
-        path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
-    failurePolicy: Fail
-    name: mtargetgroupbinding.elbv2.k8s.aws
-    rules:
-      - apiGroups:
-          - elbv2.k8s.aws
-        apiVersions:
-          - v1beta1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - targetgroupbindings
-    sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-v1-pod
+  failurePolicy: Fail
+  name: mpod.elbv2.k8s.aws
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-v1-service
+  failurePolicy: Fail
+  name: mservice.elbv2.k8s.aws
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - services
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
+  failurePolicy: Fail
+  name: mtargetgroupbinding.elbv2.k8s.aws
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - targetgroupbindings
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:
-  name: webhook
+  name: validating-webhook-configuration
 webhooks:
-  - admissionReviewVersions:
-      - v1beta1
-    clientConfig:
-      service:
-        name: webhook-service
-        namespace: system
-        path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
-    failurePolicy: Fail
-    name: vingressclassparams.elbv2.k8s.aws
-    rules:
-      - apiGroups:
-          - elbv2.k8s.aws
-        apiVersions:
-          - v1beta1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - ingressclassparams
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1beta1
-    clientConfig:
-      service:
-        name: webhook-service
-        namespace: system
-        path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
-    failurePolicy: Fail
-    name: vtargetgroupbinding.elbv2.k8s.aws
-    rules:
-      - apiGroups:
-          - elbv2.k8s.aws
-        apiVersions:
-          - v1beta1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - targetgroupbindings
-    sideEffects: None
-  - admissionReviewVersions:
-      - v1beta1
-    clientConfig:
-      service:
-        name: webhook-service
-        namespace: system
-        path: /validate-networking-v1-ingress
-    failurePolicy: Fail
-    matchPolicy: Equivalent
-    name: vingress.elbv2.k8s.aws
-    rules:
-      - apiGroups:
-          - networking.k8s.io
-        apiVersions:
-          - v1
-        operations:
-          - CREATE
-          - UPDATE
-        resources:
-          - ingresses
-    sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
+  failurePolicy: Fail
+  name: vingressclassparams.elbv2.k8s.aws
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingressclassparams
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
+  failurePolicy: Fail
+  name: vtargetgroupbinding.elbv2.k8s.aws
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - targetgroupbindings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-networking-v1-ingress
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: vingress.elbv2.k8s.aws
+  rules:
+  - apiGroups:
+    - networking.k8s.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingresses
+  sideEffects: None

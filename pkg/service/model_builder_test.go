@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 	"time"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -2240,6 +2241,317 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			wantError:                true,
 		},
 		{
+			testName: "Instance mode, TCP/UDP same port test",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tcpudp-protocol",
+					Namespace: "app",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":            "external",
+						"service.beta.kubernetes.io/aws-load-balancer-scheme":          "internet-facing",
+						"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
+					},
+					UID: "2dc098f0-ae33-4378-af7b-83e2a0424495",
+				},
+				Spec: corev1.ServiceSpec{
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeCluster,
+					Type:                  corev1.ServiceTypeLoadBalancer,
+					Selector:              map[string]string{"app": "hello"},
+					HealthCheckNodePort:   29123,
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "p1",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   31223,
+						},
+						{
+							Name:       "p2",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolUDP,
+							NodePort:   31223,
+						},
+						{
+							Name:       "alt2",
+							Port:       83,
+							TargetPort: intstr.FromInt(8883),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   32323,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForThreeSubnet},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			wantError:                false,
+			wantValue: `
+{
+ "id":"app/tcpudp-protocol",
+ "resources":{
+		"AWS::EC2::SecurityGroup":{
+			 "ManagedLBSecurityGroup":{
+					"spec":{
+						 "description":"[k8s] Managed SecurityGroup for LoadBalancer",
+						 "groupName":"k8s-app-tcpudppr-06a9156bf8",
+						 "ingress":[
+						    {
+								   "fromPort":80,
+									 "ipProtocol":"tcp",
+									 "ipRanges":[
+									    {
+											   "cidrIP":"0.0.0.0/0"
+											}
+									 ],
+									 "toPort":80
+								},
+						    {
+								   "fromPort":80,
+									 "ipProtocol":"udp",
+									 "ipRanges":[
+									    {
+											   "cidrIP":"0.0.0.0/0"
+											}
+									 ],
+									 "toPort":80
+								},
+						    {
+								   "fromPort":83,
+									 "ipProtocol":"tcp",
+									 "ipRanges":[
+									    {
+											   "cidrIP":"0.0.0.0/0"
+											}
+									 ],
+									 "toPort":83
+								}
+						 ]
+					}
+			 }
+		},
+    "AWS::ElasticLoadBalancingV2::Listener":{
+       "80":{
+          "spec":{
+             "loadBalancerARN":{
+                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+             },
+             "port":80,
+             "protocol":"TCP_UDP",
+             "defaultActions":[
+                {
+                   "type":"forward",
+                   "forwardConfig":{
+                      "targetGroups":[
+                         {
+                            "targetGroupARN":{
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:80/status/targetGroupARN"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ]
+          }
+       },
+       "83":{
+          "spec":{
+             "loadBalancerARN":{
+                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+             },
+             "port":83,
+             "protocol":"TCP",
+             "defaultActions":[
+                {
+                   "type":"forward",
+                   "forwardConfig":{
+                      "targetGroups":[
+                         {
+                            "targetGroupARN":{
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:83/status/targetGroupARN"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+       "LoadBalancer":{
+          "spec":{
+             "name":"k8s-app-tcpudppr-2af705447d",
+             "type":"network",
+             "scheme":"internet-facing",
+						 "securityGroups":[
+								{
+									"$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+								}
+						 ],
+             "ipAddressType":"ipv4",
+             "subnetMapping":[
+                {
+                   "subnetID":"subnet-1"
+                },
+                {
+                   "subnetID":"subnet-2"
+                },
+                {
+                   "subnetID":"subnet-3"
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup":{
+       "app/tcpudp-protocol:80":{
+          "spec":{
+             "ipAddressType":"ipv4",
+             "name":"k8s-app-tcpudppr-2213a0d759",
+             "targetType":"instance",
+             "port":31223,
+             "protocol":"TCP_UDP",
+             "healthCheckConfig":{
+                "port":"traffic-port",
+                "protocol":"TCP",
+								"timeoutSeconds":10,
+                "unhealthyThresholdCount":3,
+                "healthyThresholdCount":3,
+                "intervalSeconds":10
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       },
+       "app/tcpudp-protocol:83":{
+          "spec":{
+             "ipAddressType":"ipv4",
+             "name":"k8s-app-tcpudppr-c200165858",
+             "targetType":"instance",
+             "port":32323,
+             "protocol":"TCP",
+             "healthCheckConfig":{
+                "port":"traffic-port",
+                "protocol":"TCP",
+								"timeoutSeconds":10,
+                "unhealthyThresholdCount":3,
+                "healthyThresholdCount":3,
+                "intervalSeconds":10
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+       "app/tcpudp-protocol:80":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "creationTimestamp":null,
+                   "name":"k8s-app-tcpudppr-2213a0d759",
+                   "namespace":"app"
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:80/status/targetGroupARN"
+                   },
+                   "targetType":"instance",
+									 "vpcID":"vpc-xxx",
+                   "serviceRef":{
+                      "name":"tcpudp-protocol",
+                      "port":80
+                   },
+                   "ipAddressType": "ipv4",
+                   "networking":{
+                      "ingress":[
+                         {
+                            "from":[
+                               {
+																	"securityGroup": {
+																		"groupID": {
+																			"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+																		}
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"UDP",
+                                  "port":31223
+                               },
+                               {
+                                  "protocol":"TCP",
+                                  "port":31223
+                               }
+                            ]
+                         }
+                      ]
+                   }
+                }
+             }
+          }
+       },
+       "app/tcpudp-protocol:83":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "name":"k8s-app-tcpudppr-c200165858",
+                   "namespace":"app",
+                   "creationTimestamp":null
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:83/status/targetGroupARN"
+                   },
+                   "targetType":"instance",
+									 "vpcID":"vpc-xxx",
+                   "serviceRef":{
+                      "name":"tcpudp-protocol",
+                      "port":83
+                   },
+                   "ipAddressType": "ipv4",
+                   "networking":{
+                      "ingress":[
+                         {
+                            "from":[
+                               {
+																	"securityGroup": {
+																		"groupID": {
+																			"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+																		}
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":32323
+                               }
+                            ]
+                         }
+                      ]
+                   }
+                }
+             }
+          }
+       }
+    }
+ }
+}
+`,
+			wantNumResources: 8,
+		},
+		{
 			testName: "list load balancers error",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3370,7 +3682,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             ],
                             "ports":[
                                {
-								  "port": 80,
+																	"port": 80,
                                   "protocol":"TCP"
                                }
                             ]
@@ -3623,12 +3935,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                }
                             ],
                             "ports":[
-							   {
-							      "port": 80,
+															 {
+																	"port": 80,
                                   "protocol":"TCP"
                                },
-							   {
-							      "port": 8888,
+															 {
+																	"port": 8888,
                                   "protocol":"TCP"
                                }
                             ]
@@ -4262,9 +4574,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             "from":[
                                {
                                   "securityGroup":{
-									"groupID": {
-										"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-									}
+																		 "groupID": {
+																						 "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+																		}
                                   }
                                }
                             ],
@@ -4306,8 +4618,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                {
                                   "securityGroup":{
                                      "groupID": {
-									"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-								 }
+                                       "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+																		 }
                                   }
                                }
                             ],
