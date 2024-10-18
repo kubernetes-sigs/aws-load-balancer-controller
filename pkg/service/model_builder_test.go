@@ -6429,7 +6429,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				}
 			}
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			trackingProvider := tracking.NewDefaultProvider("service.k8s.aws", "my-cluster")
+			trackingProvider := tracking.NewDefaultProvider("elbv2.k8s.aws", "service.k8s.aws", "my-cluster")
 
 			elbv2TaggingManager := elbv2.NewMockTaggingManager(ctrl)
 			for _, call := range tt.listLoadBalancerCalls {

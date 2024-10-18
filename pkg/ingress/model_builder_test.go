@@ -3665,7 +3665,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
 			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, true, true)
 			ruleOptimizer := NewDefaultRuleOptimizer(logr.New(&log.NullLogSink{}))
-			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
+			trackingProvider := tracking.NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", clusterName)
 			stackMarshaller := deploy.NewDefaultStackMarshaller()
 			backendSGProvider := networkingpkg.NewMockBackendSGProvider(ctrl)
 			sgResolver := networkingpkg.NewDefaultSecurityGroupResolver(ec2Client, vpcID)

@@ -1281,7 +1281,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 				annotationParser:    annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 				elbv2TaggingManager: taggingManager,
 				subnetsResolver:     subnetsResolver,
-				trackingProvider:    tracking.NewDefaultProvider("ingress.k8s.aws", "test-cluster"),
+				trackingProvider:    tracking.NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", "test-cluster"),
 			}
 			got, err := task.buildLoadBalancerSubnetMappings(context.Background(), elbv2.LoadBalancerSchemeInternetFacing)
 			if err != nil {
