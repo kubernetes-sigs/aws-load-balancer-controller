@@ -958,7 +958,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 			name:                   "subnet auto-discovery",
 			svc:                    &corev1.Service{},
 			scheme:                 elbv2.LoadBalancerSchemeInternal,
-			provider:               tracking.NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			provider:               tracking.NewDefaultProvider("elbv2.k8s.aws", "service.k8s.aws", "cluster-name"),
 			args:                   args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
 			listLoadBalancersCalls: []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			resolveViaDiscoveryCalls: []resolveSubnetResults{
@@ -996,7 +996,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 				},
 			},
 			scheme:   elbv2.LoadBalancerSchemeInternal,
-			provider: tracking.NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			provider: tracking.NewDefaultProvider("elbv2.k8s.aws", "service.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
 			resolveViaNameOrIDSliceCalls: []resolveSubnetResults{
 				{
@@ -1027,7 +1027,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 			name:     "subnet resolve via Name or ID, with existing LB and scheme wouldn't change",
 			svc:      &corev1.Service{},
 			scheme:   elbv2.LoadBalancerSchemeInternal,
-			provider: tracking.NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			provider: tracking.NewDefaultProvider("elbv2.k8s.aws", "service.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
 			listLoadBalancersCalls: []listLoadBalancerCall{
 				{
@@ -1082,7 +1082,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 			name:     "subnet auto discovery, with existing LB and scheme would change",
 			svc:      &corev1.Service{},
 			scheme:   elbv2.LoadBalancerSchemeInternal,
-			provider: tracking.NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			provider: tracking.NewDefaultProvider("elbv2.k8s.aws", "service.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
 			listLoadBalancersCalls: []listLoadBalancerCall{
 				{
@@ -1154,7 +1154,7 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 
 			clusterName := "cluster-name"
-			trackingProvider := tracking.NewDefaultProvider("ingress.k8s.aws", clusterName)
+			trackingProvider := tracking.NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", clusterName)
 			featureGates := config.NewFeatureGates()
 
 			builder := &defaultModelBuildTask{

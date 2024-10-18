@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ const (
 	flagLogLevel                                     = "log-level"
 	flagK8sClusterName                               = "cluster-name"
 	flagDefaultTags                                  = "default-tags"
+	flagResourcePrefix                               = "resource-prefix"
 	flagDefaultTargetType                            = "default-target-type"
 	flagExternalManagedTags                          = "external-managed-tags"
 	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
@@ -27,24 +29,42 @@ const (
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
-	defaultLogLevel                                  = "info"
-	defaultMaxConcurrentReconciles                   = 3
-	defaultMaxExponentialBackoffDelay                = time.Second * 1000
-	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
-	defaultEnableBackendSG                           = true
-	defaultEnableEndpointSlices                      = false
-	defaultDisableRestrictedSGRules                  = false
+
+	ClusterTagPrefixKey         = "clusterTagPrefix"
+	IngressTagPrefixKey         = "ingressTagPrefix"
+	ServiceTagPrefixKey         = "serviceTagPrefix"
+	BackendSGNamePrefixKey      = "backendSGNamePrefix"
+	ClusterSgRuleLabelPrefixKey = "clusterSgRuleLabelPrefix"
+
+	defaultClusterTagPrefix           = "elbv2.k8s.aws"
+	defaultIngressTagPrefix           = "ingress.k8s.aws"
+	defaultServiceTagPrefix           = "service.k8s.aws"
+	defaultBackendSGNamePrefix        = "k8s-traffic"
+	defaultClusterSgRuleLabelPrefix   = "elbv2.k8s.aws"
+	defaultLogLevel                   = "info"
+	defaultMaxConcurrentReconciles    = 3
+	defaultMaxExponentialBackoffDelay = time.Second * 1000
+	defaultSSLPolicy                  = "ELBSecurityPolicy-2016-08"
+	defaultEnableBackendSG            = true
+	defaultEnableEndpointSlices       = false
+	defaultDisableRestrictedSGRules   = false
 )
 
 var (
-	trackingTagKeys = sets.NewString(
-		"elbv2.k8s.aws/cluster",
-		"elbv2.k8s.aws/resource",
-		"ingress.k8s.aws/stack",
-		"ingress.k8s.aws/resource",
-		"service.k8s.aws/stack",
-		"service.k8s.aws/resource",
+	validPrefixKeys = sets.NewString(
+		ClusterTagPrefixKey,
+		IngressTagPrefixKey,
+		ServiceTagPrefixKey,
+		BackendSGNamePrefixKey,
+		ClusterSgRuleLabelPrefixKey,
 	)
+	defaultResourcePrefix = map[string]string{
+		ClusterTagPrefixKey:         defaultClusterTagPrefix,
+		IngressTagPrefixKey:         defaultIngressTagPrefix,
+		ServiceTagPrefixKey:         defaultServiceTagPrefix,
+		BackendSGNamePrefixKey:      defaultBackendSGNamePrefix,
+		ClusterSgRuleLabelPrefixKey: defaultClusterSgRuleLabelPrefix,
+	}
 )
 
 // ControllerConfig contains the controller configuration
@@ -68,6 +88,9 @@ type ControllerConfig struct {
 
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
+
+	// ResourcePrefix provides prefix for resource tags, backend SG name and worker node SG rules label.
+	ResourcePrefix map[string]string
 
 	// Default target type for Ingress and Service objects
 	DefaultTargetType string
@@ -134,10 +157,13 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Disable the usage of restricted security group rules")
 	fs.StringToStringVar(&cfg.ServiceTargetENISGTags, flagServiceTargetENISGTags, nil,
 		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
+	fs.StringToStringVar(&cfg.ResourcePrefix, flagResourcePrefix, defaultResourcePrefix,
+		"the prefixes for resource tags, backend SG name and worker node SG rules label.")
+
+	cfg.mergeDefaultResourcePrefixVal()
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
-
 	cfg.PodWebhookConfig.BindFlags(fs)
 	cfg.IngressConfig.BindFlags(fs)
 	cfg.AddonsConfig.BindFlags(fs)
@@ -150,10 +176,23 @@ func (cfg *ControllerConfig) Validate() error {
 		return errors.New("kubernetes cluster name must be specified")
 	}
 
-	if err := cfg.validateDefaultTagsCollisionWithTrackingTags(); err != nil {
+	if err := cfg.validateResourcePrefixKeys(); err != nil {
 		return err
 	}
-	if err := cfg.validateExternalManagedTagsCollisionWithTrackingTags(); err != nil {
+
+	trackingTagKeys := sets.New[string](
+		cfg.ResourcePrefix[ClusterTagPrefixKey]+"/cluster",
+		cfg.ResourcePrefix[ClusterTagPrefixKey]+"/resource",
+		cfg.ResourcePrefix[IngressTagPrefixKey]+"/stack",
+		cfg.ResourcePrefix[IngressTagPrefixKey]+"/resource",
+		cfg.ResourcePrefix[ServiceTagPrefixKey]+"/stack",
+		cfg.ResourcePrefix[ServiceTagPrefixKey]+"/resource",
+	)
+
+	if err := cfg.validateDefaultTagsCollisionWithTrackingTags(trackingTagKeys); err != nil {
+		return err
+	}
+	if err := cfg.validateExternalManagedTagsCollisionWithTrackingTags(trackingTagKeys); err != nil {
 		return err
 	}
 	if err := cfg.validateExternalManagedTagsCollisionWithDefaultTags(); err != nil {
@@ -168,7 +207,7 @@ func (cfg *ControllerConfig) Validate() error {
 	return nil
 }
 
-func (cfg *ControllerConfig) validateDefaultTagsCollisionWithTrackingTags() error {
+func (cfg *ControllerConfig) validateDefaultTagsCollisionWithTrackingTags(trackingTagKeys sets.Set[string]) error {
 	for tagKey := range cfg.DefaultTags {
 		if trackingTagKeys.Has(tagKey) {
 			return errors.Errorf("tag key %v cannot be specified in %v flag", tagKey, flagDefaultTags)
@@ -177,7 +216,7 @@ func (cfg *ControllerConfig) validateDefaultTagsCollisionWithTrackingTags() erro
 	return nil
 }
 
-func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithTrackingTags() error {
+func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithTrackingTags(trackingTagKeys sets.Set[string]) error {
 	for _, tagKey := range cfg.ExternalManagedTags {
 		if trackingTagKeys.Has(tagKey) {
 			return errors.Errorf("tag key %v cannot be specified in %v flag", tagKey, flagExternalManagedTags)
@@ -213,4 +252,29 @@ func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {
 		return errors.Errorf("invalid value %v for backend security group id", cfg.BackendSecurityGroup)
 	}
 	return nil
+}
+
+func (cfg *ControllerConfig) validateResourcePrefixKeys() error {
+	keys := make([]string, 0, len(cfg.ResourcePrefix))
+	for key := range cfg.ResourcePrefix {
+		if !validPrefixKeys.Has(key) {
+			return fmt.Errorf("invalid key: %s. Valid keys are: %v", key, validPrefixKeys.List())
+		}
+		keys = append(keys, key)
+	}
+	if len(keys) != len(validPrefixKeys.List()) {
+		return fmt.Errorf("invalid number of keys. Expected %d keys, but got %d keys",
+			len(validPrefixKeys.List()), len(keys))
+	}
+	return nil
+}
+
+// mergeDefaultResourcePrefixVal make sure the ResourcePrefix map always has default val for unspecified key in user-passed flag
+func (cfg *ControllerConfig) mergeDefaultResourcePrefixVal() {
+	// Merge user-provided values with defaults
+	for key, defaultVal := range defaultResourcePrefix {
+		if _, exists := cfg.ResourcePrefix[key]; !exists {
+			cfg.ResourcePrefix[key] = defaultVal
+		}
+	}
 }

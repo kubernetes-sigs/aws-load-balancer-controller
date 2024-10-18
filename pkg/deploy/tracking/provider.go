@@ -32,9 +32,6 @@ import (
 //    * `service.k8s.aws/stack-namespace: namespace`
 //    * `service.k8s.aws/stack-name: serviceName`
 
-// AWS TagKey for cluster resources.
-const clusterNameTagKey = "elbv2.k8s.aws/cluster"
-
 // Legacy AWS TagKey for cluster resources, which is used by AWSALBIngressController(v1.1.3+)
 const clusterNameTagKeyLegacy = "ingress.k8s.aws/cluster"
 
@@ -63,10 +60,11 @@ type Provider interface {
 }
 
 // NewDefaultProvider constructs defaultProvider
-func NewDefaultProvider(tagPrefix string, clusterName string) *defaultProvider {
+func NewDefaultProvider(clusterTagPrefix string, resourceTagPrefix string, clusterName string) *defaultProvider {
 	return &defaultProvider{
-		tagPrefix:   tagPrefix,
-		clusterName: clusterName,
+		clusterTagPrefix:  clusterTagPrefix,
+		resourceTagPrefix: resourceTagPrefix,
+		clusterName:       clusterName,
 	}
 }
 
@@ -74,19 +72,20 @@ var _ Provider = &defaultProvider{}
 
 // defaultImplementation for Provider
 type defaultProvider struct {
-	tagPrefix   string
-	clusterName string
+	clusterTagPrefix  string
+	resourceTagPrefix string
+	clusterName       string
 }
 
 func (p *defaultProvider) ResourceIDTagKey() string {
-	return p.prefixedTrackingKey("resource")
+	return p.prefixedTrackingKey(p.resourceTagPrefix, "resource")
 }
 
 func (p *defaultProvider) StackTags(stack core.Stack) map[string]string {
 	stackID := stack.StackID()
 	return map[string]string{
-		clusterNameTagKey:              p.clusterName,
-		p.prefixedTrackingKey("stack"): stackID.String(),
+		p.prefixedTrackingKey(p.clusterTagPrefix, "cluster"): p.clusterName,
+		p.prefixedTrackingKey(p.resourceTagPrefix, "stack"):  stackID.String(),
 	}
 }
 
@@ -102,20 +101,20 @@ func (p *defaultProvider) StackLabels(stack core.Stack) map[string]string {
 	stackID := stack.StackID()
 	if stackID.Namespace == "" {
 		return map[string]string{
-			p.prefixedTrackingKey("stack"): stackID.Name,
+			p.prefixedTrackingKey(p.resourceTagPrefix, "stack"): stackID.Name,
 		}
 	}
 	return map[string]string{
-		p.prefixedTrackingKey("stack-namespace"): stackID.Namespace,
-		p.prefixedTrackingKey("stack-name"):      stackID.Name,
+		p.prefixedTrackingKey(p.resourceTagPrefix, "stack-namespace"): stackID.Namespace,
+		p.prefixedTrackingKey(p.resourceTagPrefix, "stack-name"):      stackID.Name,
 	}
 }
 
 func (p *defaultProvider) StackTagsLegacy(stack core.Stack) map[string]string {
 	stackID := stack.StackID()
 	return map[string]string{
-		clusterNameTagKeyLegacy:        p.clusterName,
-		p.prefixedTrackingKey("stack"): stackID.String(),
+		clusterNameTagKeyLegacy:                             p.clusterName,
+		p.prefixedTrackingKey(p.resourceTagPrefix, "stack"): stackID.String(),
 	}
 }
 
@@ -131,6 +130,6 @@ func (p *defaultProvider) LegacyTagKeys() []string {
 	}
 }
 
-func (p *defaultProvider) prefixedTrackingKey(tag string) string {
-	return fmt.Sprintf("%v/%v", p.tagPrefix, tag)
+func (p *defaultProvider) prefixedTrackingKey(prefix string, tag string) string {
+	return fmt.Sprintf("%v/%v", prefix, tag)
 }
