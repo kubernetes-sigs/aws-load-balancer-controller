@@ -4,6 +4,7 @@ import (
 	"context"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"regexp"
+	"fmt"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -97,9 +98,20 @@ func (v *targetGroupBindingValidator) checkRequiredFields(ctx context.Context, t
 		if tgb.Spec.TargetGroupName == "" {
 			absentRequiredFields = append(absentRequiredFields, "either TargetGroupARN or TargetGroupName")
 		} else if tgb.Spec.TargetGroupName != "" {
+			/*
+				The purpose of this code is to guarantee that the either the ARN of the TargetGroup exists
+				or it's possible to infer the ARN by the name of the TargetGroup (since it's unique).
+
+				And even though the validator can't mutate, I added tgb.Spec.TargetGroupARN = *tgObj.TargetGroupArn
+				to guarantee the object is in a consistent state though the rest of the process.
+
+				The whole code of aws-load-balancer-controller was written assuming there is an ARN.
+				By changing the object here I guarantee as early as possible that that assumption is true.
+			*/
+
 			tgObj, err := v.getTargetGroupsByNameFromAWS(ctx, tgb.Spec.TargetGroupName)
 			if err != nil {
-				return errors.Errorf("Can't locate TargetGroup with name %s", tgb.Spec.TargetGroupName)
+				return fmt.Errorf("searching TargetGroup with name %s: %w", tgb.Spec.TargetGroupName, err)
 			}
 			tgb.Spec.TargetGroupARN = *tgObj.TargetGroupArn
 		}
@@ -238,6 +250,7 @@ func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgARN
 	return awssdk.ToString(targetGroup.VpcId), nil
 }
 
+// getTargetGroupFromAWS returns the AWS target group corresponding to the tgName
 func (v *targetGroupBindingValidator) getTargetGroupsByNameFromAWS(ctx context.Context, tgName string) (*elbv2sdk.TargetGroup, error) {
 	req := &elbv2sdk.DescribeTargetGroupsInput{
 		Names: awssdk.StringSlice([]string{tgName}),
