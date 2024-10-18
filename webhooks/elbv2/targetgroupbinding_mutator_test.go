@@ -239,6 +239,42 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			},
 			wantErr: errors.New("unable to get target group VpcID: vpcid not found"),
 		},
+		{
+			name: "targetGroupBinding with TargetGroupName instead of TargetGroupARN",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							Names: awssdk.StringSlice([]string{"tg-name"}),
+						},
+						resp: []*elbv2sdk.TargetGroup{
+							{
+								TargetGroupArn:  awssdk.String("tg-arn"),
+								TargetGroupName: awssdk.String("tg-name"),
+								TargetType:      awssdk.String("ip"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupName: "tg-name",
+						TargetType:      &ipTargetType,
+						IPAddressType:   &targetGroupIPAddressTypeIPv4,
+					},
+				},
+			},
+			want: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetGroupARN:  "tg-arn",
+					TargetGroupName: "tg-name",
+					TargetType:      &ipTargetType,
+					IPAddressType:   &targetGroupIPAddressTypeIPv4,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
