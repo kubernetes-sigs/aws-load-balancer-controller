@@ -127,7 +127,7 @@ type TargetGroupBindingSpec struct {
 	// +optional
 	TargetGroupARN string `json:"targetGroupARN,omitempty"`
 
-	// targetGroupName is the Name (ARN) of the TargetGroup.
+	// targetGroupName is the Name of the TargetGroup.
 	// +optional
 	TargetGroupName string `json:"targetGroupName,omitempty"`
 

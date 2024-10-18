@@ -138,25 +138,25 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							Names: awssdk.StringSlice([]string{"tg-name"}),
+							Names: []string{"tg-name"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn:  awssdk.String("tg-arn"),
 								TargetGroupName: awssdk.String("tg-name"),
-								TargetType:      awssdk.String("instance"),
+								TargetType:      elbv2types.TargetTypeEnumInstance,
 							},
 						},
 					},
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: awssdk.StringSlice([]string{"tg-arn"}),
+							TargetGroupArns: []string{"tg-arn"},
 						},
-						resp: []*elbv2sdk.TargetGroup{
+						resp: []elbv2types.TargetGroup{
 							{
 								TargetGroupArn:  awssdk.String("tg-arn"),
 								TargetGroupName: awssdk.String("tg-name"),
-								TargetType:      awssdk.String("instance"),
+								TargetType:      elbv2types.TargetTypeEnumInstance,
 							},
 						},
 					},

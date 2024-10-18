@@ -2,9 +2,9 @@ package elbv2
 
 import (
 	"context"
+	"fmt"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"regexp"
-	"fmt"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -251,9 +251,9 @@ func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgARN
 }
 
 // getTargetGroupFromAWS returns the AWS target group corresponding to the tgName
-func (v *targetGroupBindingValidator) getTargetGroupsByNameFromAWS(ctx context.Context, tgName string) (*elbv2sdk.TargetGroup, error) {
+func (v *targetGroupBindingValidator) getTargetGroupsByNameFromAWS(ctx context.Context, tgName string) (*elbv2types.TargetGroup, error) {
 	req := &elbv2sdk.DescribeTargetGroupsInput{
-		Names: awssdk.StringSlice([]string{tgName}),
+		Names: []string{tgName},
 	}
 	tgList, err := v.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
 	if err != nil {
@@ -262,7 +262,7 @@ func (v *targetGroupBindingValidator) getTargetGroupsByNameFromAWS(ctx context.C
 	if len(tgList) != 1 {
 		return nil, errors.Errorf("expecting a single targetGroup with name [%s] but got %v", tgName, len(tgList))
 	}
-	return tgList[0], nil
+	return &tgList[0], nil
 }
 
 // +kubebuilder:webhook:path=/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=false,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=vtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1

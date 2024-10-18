@@ -159,17 +159,9 @@ func (m *targetGroupBindingMutator) getTargetGroupFromAWS(ctx context.Context, t
 	return &tgList[0], nil
 }
 
-func (m *targetGroupBindingMutator) getVpcIDFromAWS(ctx context.Context, tgARN string) (string, error) {
-	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgARN)
-	if err != nil {
-		return "", err
-	}
-	return awssdk.ToString(targetGroup.VpcId), nil
-}
-
-func (m *targetGroupBindingMutator) getTargetGroupsByNameFromAWS(ctx context.Context, tgName string) (*elbv2sdk.TargetGroup, error) {
+func (m *targetGroupBindingMutator) getTargetGroupsByNameFromAWS(ctx context.Context, tgName string) (*elbv2types.TargetGroup, error) {
 	req := &elbv2sdk.DescribeTargetGroupsInput{
-		Names: awssdk.StringSlice([]string{tgName}),
+		Names: []string{tgName},
 	}
 	tgList, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
 	if err != nil {
@@ -178,7 +170,15 @@ func (m *targetGroupBindingMutator) getTargetGroupsByNameFromAWS(ctx context.Con
 	if len(tgList) != 1 {
 		return nil, errors.Errorf("expecting a single targetGroup with name [%s] but got %v", tgName, len(tgList))
 	}
-	return tgList[0], nil
+	return &tgList[0], nil
+}
+
+func (m *targetGroupBindingMutator) getVpcIDFromAWS(ctx context.Context, tgARN string) (string, error) {
+	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgARN)
+	if err != nil {
+		return "", err
+	}
+	return awssdk.ToString(targetGroup.VpcId), nil
 }
 
 // +kubebuilder:webhook:path=/mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=true,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=mtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1
