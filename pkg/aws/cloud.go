@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	amerrors "k8s.io/apimachinery/pkg/util/errors"
 	epresolver "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
@@ -59,7 +60,7 @@ type Cloud interface {
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger logr.Logger) (Cloud, error) {
+func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger logr.Logger, awsClientsProvider provider.AWSClientsProvider) (Cloud, error) {
 	hasIPv4 := true
 	addrs, err := net.InterfaceAddrs()
 	if err == nil {
@@ -129,7 +130,14 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 		awsConfig.APIOptions = metrics.WithSDKMetricCollector(metricsCollector, awsConfig.APIOptions)
 	}
 
-	ec2Service := services.NewEC2(awsConfig, endpointsResolver)
+	if awsClientsProvider == nil {
+		var err error
+		awsClientsProvider, err = provider.NewDefaultAWSClientsProvider(awsConfig, endpointsResolver)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create aws clients provider")
+		}
+	}
+	ec2Service := services.NewEC2(awsClientsProvider)
 
 	vpcID, err := getVpcID(cfg, ec2Service, ec2Metadata, logger)
 	if err != nil {
@@ -139,17 +147,16 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 	return &defaultCloud{
 		cfg:         cfg,
 		ec2:         ec2Service,
-		elbv2:       services.NewELBV2(awsConfig, endpointsResolver),
-		acm:         services.NewACM(awsConfig, endpointsResolver),
-		wafv2:       services.NewWAFv2(awsConfig, endpointsResolver),
-		wafRegional: services.NewWAFRegional(awsConfig, endpointsResolver, cfg.Region),
-		shield:      services.NewShield(awsConfig, endpointsResolver), //done
-		rgt:         services.NewRGT(awsConfig, endpointsResolver),
+		elbv2:       services.NewELBV2(awsClientsProvider),
+		acm:         services.NewACM(awsClientsProvider),
+		wafv2:       services.NewWAFv2(awsClientsProvider),
+		wafRegional: services.NewWAFRegional(awsClientsProvider, cfg.Region),
+		shield:      services.NewShield(awsClientsProvider),
+		rgt:         services.NewRGT(awsClientsProvider),
 	}, nil
 }
 
 func getVpcID(cfg CloudConfig, ec2Service services.EC2, ec2Metadata services.EC2Metadata, logger logr.Logger) (string, error) {
-
 	if cfg.VpcID != "" {
 		logger.V(1).Info("vpcid is specified using flag --aws-vpc-id, controller will use the value", "vpc: ", cfg.VpcID)
 		return cfg.VpcID, nil

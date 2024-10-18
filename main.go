@@ -81,7 +81,7 @@ func main() {
 	ctrl.SetLogger(appLogger)
 	klog.SetLoggerWithOptions(appLogger, klog.ContextualLogger(true))
 
-	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry, ctrl.Log)
+	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry, ctrl.Log, nil)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize AWS cloud")
 		os.Exit(1)
