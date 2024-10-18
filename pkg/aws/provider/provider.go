@@ -13,7 +13,7 @@ import (
 
 type AWSClientsProvider interface {
 	GetEC2Client(ctx context.Context, operationName string) (*ec2.Client, error)
-	GetELBV2Client(ctx context.Context, operationName string) (*elasticloadbalancingv2.Client, error)
+	GetELBv2Client(ctx context.Context, operationName string) (*elasticloadbalancingv2.Client, error)
 	GetACMClient(ctx context.Context, operationName string) (*acm.Client, error)
 	GetWAFv2Client(ctx context.Context, operationName string) (*wafv2.Client, error)
 	GetWAFRegionClient(ctx context.Context, operationName string) (*wafregional.Client, error)

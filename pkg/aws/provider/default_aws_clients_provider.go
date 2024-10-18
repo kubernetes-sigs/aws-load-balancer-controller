@@ -84,7 +84,7 @@ func (p *defaultAWSClientsProvider) GetEC2Client(ctx context.Context, operationN
 	return p.ec2Client, nil
 }
 
-func (p *defaultAWSClientsProvider) GetELBV2Client(ctx context.Context, operationName string) (*elasticloadbalancingv2.Client, error) {
+func (p *defaultAWSClientsProvider) GetELBv2Client(ctx context.Context, operationName string) (*elasticloadbalancingv2.Client, error) {
 	return p.elbv2Client, nil
 }
 

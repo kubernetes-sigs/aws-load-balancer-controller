@@ -126,7 +126,7 @@ func (c *ec2Client) DescribeSubnetsAsList(ctx context.Context, input *ec2.Descri
 
 func (c *ec2Client) DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeVpcsInput) ([]types.Vpc, error) {
 	var result []types.Vpc
-	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeVPCs")
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeVpcs")
 	if err != nil {
 		return nil, err
 	}
