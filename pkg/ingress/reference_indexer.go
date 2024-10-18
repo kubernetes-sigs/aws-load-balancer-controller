@@ -2,7 +2,6 @@ package ingress
 
 import (
 	"context"
-
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	networking "k8s.io/api/networking/v1"
@@ -35,11 +34,12 @@ type ReferenceIndexer interface {
 }
 
 // NewDefaultReferenceIndexer constructs new defaultReferenceIndexer.
-func NewDefaultReferenceIndexer(enhancedBackendBuilder EnhancedBackendBuilder, authConfigBuilder AuthConfigBuilder, logger logr.Logger) *defaultReferenceIndexer {
+func NewDefaultReferenceIndexer(enhancedBackendBuilder EnhancedBackendBuilder, authConfigBuilder AuthConfigBuilder, ingressClassControllerSpec string, logger logr.Logger) *defaultReferenceIndexer {
 	return &defaultReferenceIndexer{
-		enhancedBackendBuilder: enhancedBackendBuilder,
-		authConfigBuilder:      authConfigBuilder,
-		logger:                 logger,
+		enhancedBackendBuilder:     enhancedBackendBuilder,
+		authConfigBuilder:          authConfigBuilder,
+		ingressClassControllerSpec: ingressClassControllerSpec,
+		logger:                     logger,
 	}
 }
 
@@ -47,9 +47,10 @@ var _ ReferenceIndexer = &defaultReferenceIndexer{}
 
 // default implementation for ReferenceIndexer
 type defaultReferenceIndexer struct {
-	enhancedBackendBuilder EnhancedBackendBuilder
-	authConfigBuilder      AuthConfigBuilder
-	logger                 logr.Logger
+	enhancedBackendBuilder     EnhancedBackendBuilder
+	authConfigBuilder          AuthConfigBuilder
+	ingressClassControllerSpec string
+	logger                     logr.Logger
 }
 
 func (i *defaultReferenceIndexer) BuildServiceRefIndexes(ctx context.Context, ing *networking.Ingress) []string {
@@ -103,7 +104,7 @@ func (i *defaultReferenceIndexer) BuildIngressClassRefIndexes(_ context.Context,
 }
 
 func (i *defaultReferenceIndexer) BuildIngressClassParamsRefIndexes(_ context.Context, ingClass *networking.IngressClass) []string {
-	if ingClass.Spec.Controller != IngressClassControllerALB || ingClass.Spec.Parameters == nil {
+	if ingClass.Spec.Controller != "ingress.k8s.aws/alb" || ingClass.Spec.Parameters == nil {
 		return nil
 	}
 	if ingClass.Spec.Parameters.APIGroup == nil ||
