@@ -2,9 +2,10 @@ package ingress
 
 import (
 	"context"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"reflect"
 	"strconv"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -42,7 +43,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
-	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string,
+	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLBScheme string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
 	enableBackendSG bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
@@ -69,6 +70,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		externalManagedTags:      sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:         defaultSSLPolicy,
 		defaultTargetType:        elbv2model.TargetType(defaultTargetType),
+		defaultLBScheme:          elbv2model.LoadBalancerScheme(defaultLBScheme),
 		enableBackendSG:          enableBackendSG,
 		disableRestrictedSGRules: disableRestrictedSGRules,
 		enableIPTargetType:       enableIPTargetType,
@@ -103,6 +105,7 @@ type defaultModelBuilder struct {
 	externalManagedTags      sets.String
 	defaultSSLPolicy         string
 	defaultTargetType        elbv2model.TargetType
+	defaultLBScheme          elbv2model.LoadBalancerScheme
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
 	enableIPTargetType       bool
@@ -142,7 +145,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		defaultTags:                               b.defaultTags,
 		externalManagedTags:                       b.externalManagedTags,
 		defaultIPAddressType:                      elbv2model.IPAddressTypeIPV4,
-		defaultScheme:                             elbv2model.LoadBalancerSchemeInternal,
+		defaultScheme:                             b.defaultLBScheme,
 		defaultSSLPolicy:                          b.defaultSSLPolicy,
 		defaultTargetType:                         b.defaultTargetType,
 		defaultBackendProtocol:                    elbv2model.ProtocolHTTP,
