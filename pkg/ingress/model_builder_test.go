@@ -3,10 +3,11 @@ package ingress
 import (
 	"context"
 	"encoding/json"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 	"time"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -608,6 +609,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		name               string
 		env                env
 		defaultTargetType  string
+		defaultLBScheme    string
 		enableIPTargetType *bool
 		args               args
 		fields             fields
@@ -3630,6 +3632,108 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 	}
 }`,
 		},
+		{
+			name: "Ingress - vanilla with default-lb-scheme internet-facing",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternetFacingLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			defaultLBScheme: string(elbv2model.LoadBalancerSchemeInternetFacing),
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::ElasticLoadBalancingV2::LoadBalancer": {
+			"LoadBalancer": {
+				"spec": {
+					"name": "k8s-ns1-ing1-159dd7a143",
+					"scheme": "internet-facing",
+					"subnetMapping": [
+						{
+							"subnetID": "subnet-c"
+						},
+						{
+							"subnetID": "subnet-d"
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -3681,6 +3785,10 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			if defaultTargetType == "" {
 				defaultTargetType = "instance"
 			}
+			defaultLBScheme := tt.defaultLBScheme
+			if defaultLBScheme == "" {
+				defaultLBScheme = string(elbv2model.LoadBalancerSchemeInternal)
+			}
 
 			b := &defaultModelBuilder{
 				k8sClient:              k8sClient,
@@ -3705,6 +3813,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 
 				defaultSSLPolicy:  "ELBSecurityPolicy-2016-08",
 				defaultTargetType: elbv2model.TargetType(defaultTargetType),
+				defaultLBScheme:   elbv2model.LoadBalancerScheme(defaultLBScheme),
 			}
 
 			if tt.enableIPTargetType == nil {
