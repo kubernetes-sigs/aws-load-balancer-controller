@@ -170,6 +170,12 @@ spec:
         {{- if .Values.loadBalancerClass }}
         - --load-balancer-class={{ .Values.loadBalancerClass }}
         {{- end }}
+        {{- if .Values.vpcTags }}
+        - --aws-vpc-tags={{ .Values.vpcTags }}
+        {{- end }}
+        {{- if .Values.vpcTagKey }}
+        - --aws-vpc-tag-key={{ .Values.vpcTagKey }}
+        {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:
         {{- if .Values.env}}
