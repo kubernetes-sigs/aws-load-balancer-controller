@@ -21,6 +21,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -110,6 +111,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		listLoadBalancerCalls        []listLoadBalancerCall
 		fetchVPCInfoCalls            []fetchVPCInfoCall
 		defaultTargetType            string
+		defaultLBScheme              string
 		enableIPTargetType           *bool
 		resolveSGViaNameOrIDCall     []resolveSGViaNameOrIDCall
 		backendSecurityGroup         string
@@ -6444,6 +6446,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			if defaultTargetType == "" {
 				defaultTargetType = "instance"
 			}
+			defaultLBScheme := tt.defaultLBScheme
+			if defaultLBScheme == "" {
+				defaultLBScheme = string(elbv2model.LoadBalancerSchemeInternal)
+			}
 			backendSGProvider := networking.NewMockBackendSGProvider(ctrl)
 			if tt.enableBackendSG {
 				backendSGProvider.EXPECT().Get(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
@@ -6460,7 +6466,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				enableIPTargetType = *tt.enableIPTargetType
 			}
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, enableIPTargetType, serviceUtils,
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLBScheme, enableIPTargetType, serviceUtils,
 				backendSGProvider, sgResolver, tt.enableBackendSG, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}))
 			ctx := context.Background()
 			stack, _, _, err := builder.Build(ctx, tt.svc)
