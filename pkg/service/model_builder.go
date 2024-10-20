@@ -39,7 +39,7 @@ type ModelBuilder interface {
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
 	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
-	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, enableIPTargetType bool, serviceUtils ServiceUtils,
+	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLBScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
 	disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
 	return &defaultModelBuilder{
@@ -56,6 +56,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		externalManagedTags:      sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:         defaultSSLPolicy,
 		defaultTargetType:        elbv2model.TargetType(defaultTargetType),
+		defaultLBScheme:          elbv2model.LoadBalancerScheme(defaultLBScheme),
 		enableIPTargetType:       enableIPTargetType,
 		backendSGProvider:        backendSGProvider,
 		sgResolver:               sgResolver,
@@ -88,6 +89,7 @@ type defaultModelBuilder struct {
 	externalManagedTags sets.String
 	defaultSSLPolicy    string
 	defaultTargetType   elbv2model.TargetType
+	defaultLBScheme     elbv2model.LoadBalancerScheme
 	enableIPTargetType  bool
 	logger              logr.Logger
 }
@@ -126,6 +128,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultLoadBalancingCrossZoneEnabled: false,
 		defaultProxyProtocolV2Enabled:        false,
 		defaultTargetType:                    b.defaultTargetType,
+		defaultLBScheme:                      b.defaultLBScheme,
 		defaultHealthCheckProtocol:           elbv2model.ProtocolTCP,
 		defaultHealthCheckPort:               healthCheckPortTrafficPort,
 		defaultHealthCheckPath:               "/",
@@ -193,6 +196,7 @@ type defaultModelBuildTask struct {
 	defaultLoadBalancingCrossZoneEnabled bool
 	defaultProxyProtocolV2Enabled        bool
 	defaultTargetType                    elbv2model.TargetType
+	defaultLBScheme                      elbv2model.LoadBalancerScheme
 	defaultHealthCheckProtocol           elbv2model.Protocol
 	defaultHealthCheckPort               string
 	defaultHealthCheckPath               string
