@@ -3632,7 +3632,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 }`,
 		},
 		{
-			name: "Ingress - vanilla with default-lb-scheme internet-facing",
+			name: "Ingress - vanilla with default-load-balancer-scheme internet-facing",
 			env: env{
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
 			},

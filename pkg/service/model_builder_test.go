@@ -6407,7 +6407,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			wantError:                true,
 		},
 		{
-			testName: "Simple service with default lb scheme internet-facing",
+			testName: "Simple service with default load balancer scheme internet-facing",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "nlb-ip-svc-tls",
