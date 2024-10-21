@@ -3,11 +3,10 @@ package ingress
 import (
 	"context"
 	"encoding/json"
-	"testing"
-	"time"
-
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"testing"
+	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	jsonpatch "github.com/evanphx/json-patch"
