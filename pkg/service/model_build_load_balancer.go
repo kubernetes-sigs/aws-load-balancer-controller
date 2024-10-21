@@ -226,7 +226,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerScheme(ctx context.Context) (el
 			return "", errors.New("invalid load balancer scheme")
 		}
 	}
-	return t.defaultLBScheme, nil
+	return t.defaultLoadBalancerScheme, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSchemeViaAnnotation(ctx context.Context) (elbv2model.LoadBalancerScheme, bool, error) {

@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"strconv"
 	"sync"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -39,31 +40,31 @@ type ModelBuilder interface {
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
 	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
-	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLBScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
+	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
 	disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
 	return &defaultModelBuilder{
-		annotationParser:         annotationParser,
-		subnetsResolver:          subnetsResolver,
-		vpcInfoProvider:          vpcInfoProvider,
-		trackingProvider:         trackingProvider,
-		elbv2TaggingManager:      elbv2TaggingManager,
-		featureGates:             featureGates,
-		serviceUtils:             serviceUtils,
-		clusterName:              clusterName,
-		vpcID:                    vpcID,
-		defaultTags:              defaultTags,
-		externalManagedTags:      sets.NewString(externalManagedTags...),
-		defaultSSLPolicy:         defaultSSLPolicy,
-		defaultTargetType:        elbv2model.TargetType(defaultTargetType),
-		defaultLBScheme:          elbv2model.LoadBalancerScheme(defaultLBScheme),
-		enableIPTargetType:       enableIPTargetType,
-		backendSGProvider:        backendSGProvider,
-		sgResolver:               sgResolver,
-		ec2Client:                ec2Client,
-		enableBackendSG:          enableBackendSG,
-		disableRestrictedSGRules: disableRestrictedSGRules,
-		logger:                   logger,
+		annotationParser:          annotationParser,
+		subnetsResolver:           subnetsResolver,
+		vpcInfoProvider:           vpcInfoProvider,
+		trackingProvider:          trackingProvider,
+		elbv2TaggingManager:       elbv2TaggingManager,
+		featureGates:              featureGates,
+		serviceUtils:              serviceUtils,
+		clusterName:               clusterName,
+		vpcID:                     vpcID,
+		defaultTags:               defaultTags,
+		externalManagedTags:       sets.NewString(externalManagedTags...),
+		defaultSSLPolicy:          defaultSSLPolicy,
+		defaultTargetType:         elbv2model.TargetType(defaultTargetType),
+		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
+		enableIPTargetType:        enableIPTargetType,
+		backendSGProvider:         backendSGProvider,
+		sgResolver:                sgResolver,
+		ec2Client:                 ec2Client,
+		enableBackendSG:           enableBackendSG,
+		disableRestrictedSGRules:  disableRestrictedSGRules,
+		logger:                    logger,
 	}
 }
 
@@ -83,15 +84,15 @@ type defaultModelBuilder struct {
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
 
-	clusterName         string
-	vpcID               string
-	defaultTags         map[string]string
-	externalManagedTags sets.String
-	defaultSSLPolicy    string
-	defaultTargetType   elbv2model.TargetType
-	defaultLBScheme     elbv2model.LoadBalancerScheme
-	enableIPTargetType  bool
-	logger              logr.Logger
+	clusterName               string
+	vpcID                     string
+	defaultTags               map[string]string
+	externalManagedTags       sets.String
+	defaultSSLPolicy          string
+	defaultTargetType         elbv2model.TargetType
+	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
+	enableIPTargetType        bool
+	logger                    logr.Logger
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
@@ -128,7 +129,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultLoadBalancingCrossZoneEnabled: false,
 		defaultProxyProtocolV2Enabled:        false,
 		defaultTargetType:                    b.defaultTargetType,
-		defaultLBScheme:                      b.defaultLBScheme,
+		defaultLoadBalancerScheme:            b.defaultLoadBalancerScheme,
 		defaultHealthCheckProtocol:           elbv2model.ProtocolTCP,
 		defaultHealthCheckPort:               healthCheckPortTrafficPort,
 		defaultHealthCheckPath:               "/",
@@ -196,7 +197,7 @@ type defaultModelBuildTask struct {
 	defaultLoadBalancingCrossZoneEnabled bool
 	defaultProxyProtocolV2Enabled        bool
 	defaultTargetType                    elbv2model.TargetType
-	defaultLBScheme                      elbv2model.LoadBalancerScheme
+	defaultLoadBalancerScheme            elbv2model.LoadBalancerScheme
 	defaultHealthCheckProtocol           elbv2model.Protocol
 	defaultHealthCheckPort               string
 	defaultHealthCheckPath               string

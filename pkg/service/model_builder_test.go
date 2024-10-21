@@ -112,7 +112,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		listLoadBalancerCalls        []listLoadBalancerCall
 		fetchVPCInfoCalls            []fetchVPCInfoCall
 		defaultTargetType            string
-		defaultLBScheme              string
+		defaultLoadBalancerScheme    string
 		enableIPTargetType           *bool
 		resolveSGViaNameOrIDCall     []resolveSGViaNameOrIDCall
 		backendSecurityGroup         string
@@ -6438,7 +6438,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			featureGates: map[config.Feature]bool{
 				config.NLBSecurityGroup: false,
 			},
-			defaultLBScheme: string(elbv2model.LoadBalancerSchemeInternetFacing),
+			defaultLoadBalancerScheme: string(elbv2model.LoadBalancerSchemeInternetFacing),
 			wantValue: `
 {
  "id":"default/nlb-ip-svc-tls",
@@ -6597,9 +6597,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			if defaultTargetType == "" {
 				defaultTargetType = "instance"
 			}
-			defaultLBScheme := tt.defaultLBScheme
-			if defaultLBScheme == "" {
-				defaultLBScheme = string(elbv2model.LoadBalancerSchemeInternal)
+			defaultLoadBalancerScheme := tt.defaultLoadBalancerScheme
+			if defaultLoadBalancerScheme == "" {
+				defaultLoadBalancerScheme = string(elbv2model.LoadBalancerSchemeInternal)
 			}
 			backendSGProvider := networking.NewMockBackendSGProvider(ctrl)
 			if tt.enableBackendSG {
@@ -6617,7 +6617,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				enableIPTargetType = *tt.enableIPTargetType
 			}
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLBScheme, enableIPTargetType, serviceUtils,
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
 				backendSGProvider, sgResolver, tt.enableBackendSG, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}))
 			ctx := context.Background()
 			stack, _, _, err := builder.Build(ctx, tt.svc)

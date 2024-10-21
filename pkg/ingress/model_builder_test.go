@@ -606,15 +606,15 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 	}
 
 	tests := []struct {
-		name               string
-		env                env
-		defaultTargetType  string
-		defaultLBScheme    string
-		enableIPTargetType *bool
-		args               args
-		fields             fields
-		wantStackPatch     string
-		wantErr            string
+		name                      string
+		env                       env
+		defaultTargetType         string
+		defaultLoadBalancerScheme string
+		enableIPTargetType        *bool
+		args                      args
+		fields                    fields
+		wantStackPatch            string
+		wantErr                   string
 	}{
 		{
 			name: "Ingress - vanilla internal",
@@ -3642,7 +3642,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
 				enableBackendSG:          true,
 			},
-			defaultLBScheme: string(elbv2model.LoadBalancerSchemeInternetFacing),
+			defaultLoadBalancerScheme: string(elbv2model.LoadBalancerSchemeInternetFacing),
 			args: args{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
@@ -3785,9 +3785,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			if defaultTargetType == "" {
 				defaultTargetType = "instance"
 			}
-			defaultLBScheme := tt.defaultLBScheme
-			if defaultLBScheme == "" {
-				defaultLBScheme = string(elbv2model.LoadBalancerSchemeInternal)
+			defaultLoadBalancerScheme := tt.defaultLoadBalancerScheme
+			if defaultLoadBalancerScheme == "" {
+				defaultLoadBalancerScheme = string(elbv2model.LoadBalancerSchemeInternal)
 			}
 
 			b := &defaultModelBuilder{
@@ -3811,9 +3811,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				featureGates:           config.NewFeatureGates(),
 				logger:                 logr.New(&log.NullLogSink{}),
 
-				defaultSSLPolicy:  "ELBSecurityPolicy-2016-08",
-				defaultTargetType: elbv2model.TargetType(defaultTargetType),
-				defaultLBScheme:   elbv2model.LoadBalancerScheme(defaultLBScheme),
+				defaultSSLPolicy:          "ELBSecurityPolicy-2016-08",
+				defaultTargetType:         elbv2model.TargetType(defaultTargetType),
+				defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
 			}
 
 			if tt.enableIPTargetType == nil {

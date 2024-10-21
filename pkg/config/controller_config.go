@@ -17,7 +17,7 @@ const (
 	flagK8sClusterName                               = "cluster-name"
 	flagDefaultTags                                  = "default-tags"
 	flagDefaultTargetType                            = "default-target-type"
-	flagDefaultLBScheme                              = "default-lb-scheme"
+	flagDefaultLoadBalancerScheme                    = "default-load-balancer-scheme"
 	flagExternalManagedTags                          = "external-managed-tags"
 	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
 	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
@@ -74,7 +74,7 @@ type ControllerConfig struct {
 	DefaultTargetType string
 
 	// Default scheme for ELB
-	DefaultLBScheme string
+	DefaultLoadBalancerScheme string
 
 	// List of Tag keys on AWS resources that will be managed externally.
 	ExternalManagedTags []string
@@ -118,7 +118,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Default AWS Tags that will be applied to all AWS resources managed by this controller")
 	fs.StringVar(&cfg.DefaultTargetType, flagDefaultTargetType, string(elbv2.TargetTypeInstance),
 		"Default target type for Ingresses and Services - ip, instance")
-	fs.StringVar(&cfg.DefaultLBScheme, flagDefaultLBScheme, string(elbv2.LoadBalancerSchemeInternal),
+	fs.StringVar(&cfg.DefaultLoadBalancerScheme, flagDefaultLoadBalancerScheme, string(elbv2.LoadBalancerSchemeInternal),
 		"Default scheme for ELBs")
 	fs.StringSliceVar(&cfg.ExternalManagedTags, flagExternalManagedTags, nil,
 		"List of Tag keys on AWS resources that will be managed externally")
@@ -168,7 +168,7 @@ func (cfg *ControllerConfig) Validate() error {
 	if err := cfg.validateDefaultTargetType(); err != nil {
 		return err
 	}
-	if err := cfg.validateDefaultLBScheme(); err != nil {
+	if err := cfg.validateDefaultLoadBalancerScheme(); err != nil {
 		return err
 	}
 	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
@@ -214,12 +214,12 @@ func (cfg *ControllerConfig) validateDefaultTargetType() error {
 	}
 }
 
-func (cfg *ControllerConfig) validateDefaultLBScheme() error {
-	switch cfg.DefaultLBScheme {
+func (cfg *ControllerConfig) validateDefaultLoadBalancerScheme() error {
+	switch cfg.DefaultLoadBalancerScheme {
 	case string(elbv2.LoadBalancerSchemeInternal), string(elbv2.LoadBalancerSchemeInternetFacing):
 		return nil
 	default:
-		return errors.Errorf("invalid value %v for default scheme", cfg.DefaultLBScheme)
+		return errors.Errorf("invalid value %v for default scheme", cfg.DefaultLoadBalancerScheme)
 	}
 }
 

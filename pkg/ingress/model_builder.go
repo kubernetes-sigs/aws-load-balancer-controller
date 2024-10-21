@@ -2,9 +2,10 @@ package ingress
 
 import (
 	"context"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"reflect"
 	"strconv"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -42,38 +43,38 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
-	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLBScheme string,
+	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
 	enableBackendSG bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, logger logr.Logger) *defaultModelBuilder {
 	certDiscovery := NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
-		k8sClient:                k8sClient,
-		eventRecorder:            eventRecorder,
-		ec2Client:                ec2Client,
-		elbv2Client:              elbv2Client,
-		vpcID:                    vpcID,
-		clusterName:              clusterName,
-		annotationParser:         annotationParser,
-		subnetsResolver:          subnetsResolver,
-		backendSGProvider:        backendSGProvider,
-		sgResolver:               sgResolver,
-		certDiscovery:            certDiscovery,
-		authConfigBuilder:        authConfigBuilder,
-		enhancedBackendBuilder:   enhancedBackendBuilder,
-		ruleOptimizer:            ruleOptimizer,
-		trackingProvider:         trackingProvider,
-		elbv2TaggingManager:      elbv2TaggingManager,
-		featureGates:             featureGates,
-		defaultTags:              defaultTags,
-		externalManagedTags:      sets.NewString(externalManagedTags...),
-		defaultSSLPolicy:         defaultSSLPolicy,
-		defaultTargetType:        elbv2model.TargetType(defaultTargetType),
-		defaultLBScheme:          elbv2model.LoadBalancerScheme(defaultLBScheme),
-		enableBackendSG:          enableBackendSG,
-		disableRestrictedSGRules: disableRestrictedSGRules,
-		enableIPTargetType:       enableIPTargetType,
-		logger:                   logger,
+		k8sClient:                 k8sClient,
+		eventRecorder:             eventRecorder,
+		ec2Client:                 ec2Client,
+		elbv2Client:               elbv2Client,
+		vpcID:                     vpcID,
+		clusterName:               clusterName,
+		annotationParser:          annotationParser,
+		subnetsResolver:           subnetsResolver,
+		backendSGProvider:         backendSGProvider,
+		sgResolver:                sgResolver,
+		certDiscovery:             certDiscovery,
+		authConfigBuilder:         authConfigBuilder,
+		enhancedBackendBuilder:    enhancedBackendBuilder,
+		ruleOptimizer:             ruleOptimizer,
+		trackingProvider:          trackingProvider,
+		elbv2TaggingManager:       elbv2TaggingManager,
+		featureGates:              featureGates,
+		defaultTags:               defaultTags,
+		externalManagedTags:       sets.NewString(externalManagedTags...),
+		defaultSSLPolicy:          defaultSSLPolicy,
+		defaultTargetType:         elbv2model.TargetType(defaultTargetType),
+		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
+		enableBackendSG:           enableBackendSG,
+		disableRestrictedSGRules:  disableRestrictedSGRules,
+		enableIPTargetType:        enableIPTargetType,
+		logger:                    logger,
 	}
 }
 
@@ -89,25 +90,25 @@ type defaultModelBuilder struct {
 	vpcID       string
 	clusterName string
 
-	annotationParser         annotations.Parser
-	subnetsResolver          networkingpkg.SubnetsResolver
-	backendSGProvider        networkingpkg.BackendSGProvider
-	sgResolver               networkingpkg.SecurityGroupResolver
-	certDiscovery            CertDiscovery
-	authConfigBuilder        AuthConfigBuilder
-	enhancedBackendBuilder   EnhancedBackendBuilder
-	ruleOptimizer            RuleOptimizer
-	trackingProvider         tracking.Provider
-	elbv2TaggingManager      elbv2deploy.TaggingManager
-	featureGates             config.FeatureGates
-	defaultTags              map[string]string
-	externalManagedTags      sets.String
-	defaultSSLPolicy         string
-	defaultTargetType        elbv2model.TargetType
-	defaultLBScheme          elbv2model.LoadBalancerScheme
-	enableBackendSG          bool
-	disableRestrictedSGRules bool
-	enableIPTargetType       bool
+	annotationParser          annotations.Parser
+	subnetsResolver           networkingpkg.SubnetsResolver
+	backendSGProvider         networkingpkg.BackendSGProvider
+	sgResolver                networkingpkg.SecurityGroupResolver
+	certDiscovery             CertDiscovery
+	authConfigBuilder         AuthConfigBuilder
+	enhancedBackendBuilder    EnhancedBackendBuilder
+	ruleOptimizer             RuleOptimizer
+	trackingProvider          tracking.Provider
+	elbv2TaggingManager       elbv2deploy.TaggingManager
+	featureGates              config.FeatureGates
+	defaultTags               map[string]string
+	externalManagedTags       sets.String
+	defaultSSLPolicy          string
+	defaultTargetType         elbv2model.TargetType
+	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
+	enableBackendSG           bool
+	disableRestrictedSGRules  bool
+	enableIPTargetType        bool
 
 	logger logr.Logger
 }
@@ -144,7 +145,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group) (core.S
 		defaultTags:                               b.defaultTags,
 		externalManagedTags:                       b.externalManagedTags,
 		defaultIPAddressType:                      elbv2model.IPAddressTypeIPV4,
-		defaultScheme:                             b.defaultLBScheme,
+		defaultScheme:                             b.defaultLoadBalancerScheme,
 		defaultSSLPolicy:                          b.defaultSSLPolicy,
 		defaultTargetType:                         b.defaultTargetType,
 		defaultBackendProtocol:                    elbv2model.ProtocolHTTP,
