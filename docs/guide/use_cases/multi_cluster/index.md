@@ -1,30 +1,23 @@
 # MultiCluster Target Groups
 
-The LB controller assumes full control over configured Target Groups. This means when a Target Group is registered with the controller, it will deregister any targets that are not currently in the cluster. 
-By enabling MultiCluster support, Target Groups can be associated to multiple Kubernetes clusters or support arbitrary targets from other sources.
+The load balancer controller assumes full control over the configured target groups. When a target group is registered with the controller it de registers any targets not currently in the cluster. Target groups that have MultiCluster support enabled can be associated to multiple Kubernetes clusters or support arbitrary targets from other sources.
 
 
 ## Overview
 
-MultiCluster mode is supported in a couple different ways. Be sure that every cluster that is associated with a Target Group has one of these methods
-enabled to ensure the Target Group is recognized as MultiCluster enabled! It is recommended to use fresh resources when using MutliCluster mode, there is short period of time
-when the feature needs to generate a snapshot of the cluster state in order to support the mode. This data is stored into a ConfigMap which resides in the same namespace
-as your load balancer resources. The ConfigMap stores the current snapshot of the managed targets, it can be found under `aws-lbc-targets-$TARGET_GROUP_BINDING_NAME`
+When enabled, MultiCluster mode supports multiple methods, and every cluster associated with a target group has one of these methods. It's recommended to use new resources when configuring MutliCluster mode. There is a period of time when MultiCluster must take a snapshot of the cluster state in order to support the selected mode. This data is stored into ConfigMap, which resides in the same namespace as your load balancer resources. ConfigMap stores snapshots of managed targets at `aws-lbc-targets-$TARGET_GROUP_BINDING_NAME`
 
-
-ALB, specify this annotation in the ingress or service:
+When using an ALB, you must specify this annotation in the ingress or service:
 
 `alb.ingress.kubernetes.io/multi-cluster-target-group: "true"`
 
-NLB, specify this annotation in your service:
+When using an NLB, you specify this annotation in your service:
 
 `service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "true"`
 
-
-For Out-of-Band TargetGroupBindings, specify this field in the spec:
+When using any out-of-band TargetGroupBindings, you must specify this field in the spec:
 
 `multiClusterTargetGroup: true`
-
 
 
 ### Example
