@@ -92,6 +92,37 @@ spec:
   ...
 ```
 
+## MultiCluster Target Group
+TargetGroupBinding CRD supports sharing the same target group ARN among multiple clusters. Setting this flag will ensure the controller only operates on targets within the cluster.
+
+!!!tip ""
+    The default value is false, meaning that the controller assumes full control over the target group ARN and will deregister any targets that are not found within the cluster.
+    To set this flag for TGBs managed by the controller use either:
+    ALB: alb.ingress.kubernetes.io/multi-cluster-target-group: "true"
+    NLB: service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "true"
+
+
+!!!warning ""
+    It is not recommended to change this value after TGB creation. Changing between shared / not shared might lead to leaked targets.
+
+!!!warning ""
+    Only use this flag if you intend to share the target group ARN in multiple clusters. This flag will slow down reconciles and put a small additonal load on the kubernetes control plane.
+
+
+## Sample YAML
+```yaml
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: my-tgb
+spec:
+  serviceRef:
+    name: awesome-service # route traffic to the awesome-service
+    port: 80
+  targetGroupARN: <arn-to-targetGroup>
+  multiClusterTargetGroup: "true"
+```
+
 
 ## Reference
 See the [reference](./spec.md) for TargetGroupBinding CR

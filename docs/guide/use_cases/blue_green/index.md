@@ -11,7 +11,7 @@ Multiple target groups can be attached to the same forward action of a listener 
 In addition to the weighted target group, AWS announced the advanced request routing feature in 2019. Advanced request routing gives developers the ability to write rules (and route traffic) based on standard and custom HTTP headers and methods, the request path, the query string, and the source IP address. This new feature simplifies the application architecture by eliminating the need for a proxy fleet for routing, blocks unwanted traffic at the load balancer, and enables the implementation of A/B testing.
 
 ## Overview
-The ALB is configured to split traffic using annotations on the ingress resrouces. More specifically, the [ingress annotation](../../../guide/ingress/annotations.md#actions) `alb.ingress.kubernetes.io/actions.${service-name}` configures custom actions on the listener. 
+The ALB is configured to split traffic using annotations on the ingress resources. More specifically, the [ingress annotation](../../../guide/ingress/annotations.md#actions) `alb.ingress.kubernetes.io/actions.${service-name}` configures custom actions on the listener. 
 
 The body of the annotation is a JSON document that identifies an action type, and configures it. The supported [actions](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#rule-action-types) are `redirect`, `forward`, and `fixed-response`. 
 
