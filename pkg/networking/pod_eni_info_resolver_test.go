@@ -999,6 +999,187 @@ func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_Fargate(t *testing.
 	}
 }
 
+func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_SageMakerHyperPod(t *testing.T) {
+	hyperPodNodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hyperpod-i-04442beca624ba65b",
+			Labels: map[string]string{
+				"sagemaker.amazonaws.com/compute-type": "hyperpod",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///usw2-az2/sagemaker/cluster/hyperpod-xxxxxxxxxxxx-i-04442beca624ba65b",
+		},
+	}
+	hyperPodNodeB := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hyperpod-i-04159267183583d03",
+			Labels: map[string]string{
+				"sagemaker.amazonaws.com/compute-type": "hyperpod",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///usw2-az2/sagemaker/cluster/hyperpod-xxxxxxxxxxxx-i-04159267183583d03",
+		},
+	}
+	type describeNetworkInterfacesAsListCall struct {
+		req  *ec2sdk.DescribeNetworkInterfacesInput
+		resp []ec2types.NetworkInterface
+		err  error
+	}
+	type fetchNodeInstancesCall struct {
+		nodes                 []*corev1.Node
+		nodeInstanceByNodeKey map[types.NamespacedName]*ec2types.Instance
+		err                   error
+	}
+	type env struct {
+		nodes []*corev1.Node
+	}
+	type fields struct {
+		describeNetworkInterfacesAsListCalls []describeNetworkInterfacesAsListCall
+		fetchNodeInstancesCalls              []fetchNodeInstancesCall
+	}
+	type args struct {
+		pods []k8s.PodInfo
+	}
+	tests := []struct {
+		name    string
+		env     env
+		fields  fields
+		args    args
+		want    map[types.NamespacedName]ENIInfo
+		wantErr error
+	}{
+		{
+			name: "all pod's ENI resolved via VPC's ENIs",
+			env: env{
+				nodes: []*corev1.Node{hyperPodNodeA, hyperPodNodeB},
+			},
+			fields: fields{
+				describeNetworkInterfacesAsListCalls: []describeNetworkInterfacesAsListCall{
+					{
+						req: &ec2sdk.DescribeNetworkInterfacesInput{
+							Filters: []ec2types.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: []string{"vpc-0d6d9ee10bd062dcc"},
+								},
+								{
+									Name:   awssdk.String("addresses.private-ip-address"),
+									Values: []string{"192.168.128.151", "192.168.128.152"},
+								},
+							},
+						},
+						resp: []ec2types.NetworkInterface{
+							{
+								NetworkInterfaceId: awssdk.String("eni-c"),
+								PrivateIpAddresses: []ec2types.NetworkInterfacePrivateIpAddress{
+									{
+										PrivateIpAddress: awssdk.String("192.168.128.150"),
+									},
+									{
+										PrivateIpAddress: awssdk.String("192.168.128.151"),
+									},
+								},
+								Groups: []ec2types.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-c-1"),
+									},
+								},
+							},
+							{
+								NetworkInterfaceId: awssdk.String("eni-d"),
+								PrivateIpAddresses: []ec2types.NetworkInterfacePrivateIpAddress{
+									{
+										PrivateIpAddress: awssdk.String("192.168.128.152"),
+									},
+									{
+										PrivateIpAddress: awssdk.String("192.168.128.153"),
+									},
+								},
+								Groups: []ec2types.GroupIdentifier{
+									{
+										GroupId: awssdk.String("sg-d-1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "hyperpod-i-04442beca624ba65b",
+						PodIP:    "192.168.128.151",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "hyperpod-i-04159267183583d03",
+						PodIP:    "192.168.128.152",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "pod-1"}: {
+					NetworkInterfaceID: "eni-c",
+					SecurityGroups:     []string{"sg-c-1"},
+				},
+				types.NamespacedName{Namespace: "default", Name: "pod-2"}: {
+					NetworkInterfaceID: "eni-d",
+					SecurityGroups:     []string{"sg-d-1"},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2Client := services.NewMockEC2(ctrl)
+			for _, call := range tt.fields.describeNetworkInterfacesAsListCalls {
+				ec2Client.EXPECT().DescribeNetworkInterfacesAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := fake.NewClientBuilder().WithScheme(k8sSchema).Build()
+			for _, node := range tt.env.nodes {
+				assert.NoError(t, k8sClient.Create(context.Background(), node.DeepCopy()))
+			}
+			nodeInfoProvider := NewMockNodeInfoProvider(ctrl)
+			for _, call := range tt.fields.fetchNodeInstancesCalls {
+				updatedNodes := make([]*corev1.Node, 0, len(call.nodes))
+				for _, node := range call.nodes {
+					updatedNode := &corev1.Node{}
+					assert.NoError(t, k8sClient.Get(context.Background(), k8s.NamespacedName(node), updatedNode))
+					updatedNodes = append(updatedNodes, updatedNode)
+				}
+				nodeInfoProvider.EXPECT().FetchNodeInstances(gomock.Any(), gomock.InAnyOrder(updatedNodes)).Return(call.nodeInstanceByNodeKey, call.err)
+			}
+			r := &defaultPodENIInfoResolver{
+				ec2Client:                            ec2Client,
+				k8sClient:                            k8sClient,
+				nodeInfoProvider:                     nodeInfoProvider,
+				vpcID:                                "vpc-0d6d9ee10bd062dcc",
+				logger:                               logr.New(&log.NullLogSink{}),
+				describeNetworkInterfacesIPChunkSize: 2,
+			}
+
+			got, err := r.resolveViaCascadedLookup(context.Background(), tt.args.pods, true)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
 func Test_defaultPodENIInfoResolver_resolveViaPodENIAnnotation(t *testing.T) {
 	type describeNetworkInterfacesAsListCall struct {
 		req  *ec2sdk.DescribeNetworkInterfacesInput

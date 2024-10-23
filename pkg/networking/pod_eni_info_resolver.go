@@ -26,7 +26,8 @@ const (
 	// EC2:DescribeNetworkInterface supports up to 200 filters per call.
 	describeNetworkInterfacesFiltersLimit = 200
 
-	labelEKSComputeType = "eks.amazonaws.com/compute-type"
+	labelEKSComputeType       = "eks.amazonaws.com/compute-type"
+	labelSageMakerComputeType = "sagemaker.amazonaws.com/compute-type"
 )
 
 // PodENIInfoResolver is responsible for resolve the AWS VPC ENI that supports pod network.
@@ -141,20 +142,20 @@ func (r *defaultPodENIInfoResolver) saveENIInfosToCache(pods []k8s.PodInfo, eniI
 }
 
 func (r *defaultPodENIInfoResolver) resolvePodsViaCascadedLookup(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error) {
-	podsOnEc2, podsOnFargate, err := r.classifyPodsByComputeType(ctx, pods)
+	podsByComputeType, err := r.classifyPodsByComputeType(ctx, pods)
 	if err != nil {
 		return nil, err
 	}
 	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
-	if len(podsOnEc2) > 0 {
-		eniInfoByPodKeyEc2, err := r.resolveViaCascadedLookup(ctx, podsOnEc2, false)
+	if len(podsByComputeType.ec2Pods) > 0 {
+		eniInfoByPodKeyEc2, err := r.resolveViaCascadedLookup(ctx, podsByComputeType.ec2Pods, false)
 		if err != nil {
 			return nil, err
 		}
 		eniInfoByPodKey = eniInfoByPodKeyEc2
 	}
-	if len(podsOnFargate) > 0 {
-		eniInfoByPodKeyFargate, err := r.resolveViaCascadedLookup(ctx, podsOnFargate, true)
+	if len(podsByComputeType.fargatePods) > 0 {
+		eniInfoByPodKeyFargate, err := r.resolveViaCascadedLookup(ctx, podsByComputeType.fargatePods, true)
 		if err != nil {
 			return nil, err
 		}
@@ -164,17 +165,28 @@ func (r *defaultPodENIInfoResolver) resolvePodsViaCascadedLookup(ctx context.Con
 			}
 		}
 	}
+	if len(podsByComputeType.sageMakerHyperPodPods) > 0 {
+		eniInfoByPodKeySageMakerHyperPod, err := r.resolveViaCascadedLookup(ctx, podsByComputeType.sageMakerHyperPodPods, true)
+		if err != nil {
+			return nil, err
+		}
+		if len(eniInfoByPodKeySageMakerHyperPod) > 0 {
+			for podKey, eniInfo := range eniInfoByPodKeySageMakerHyperPod {
+				eniInfoByPodKey[podKey] = eniInfo
+			}
+		}
+	}
 	return eniInfoByPodKey, nil
 }
 
-func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context, pods []k8s.PodInfo, isFargateNode bool) (map[types.NamespacedName]ENIInfo, error) {
+func (r *defaultPodENIInfoResolver) resolveViaCascadedLookup(ctx context.Context, pods []k8s.PodInfo, isNonEc2Pod bool) (map[types.NamespacedName]ENIInfo, error) {
 	eniInfoByPodKey := make(map[types.NamespacedName]ENIInfo)
 	resolveFuncs := []func(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error){
 		r.resolveViaPodENIAnnotation,
 		r.resolveViaNodeENIs,
 		// TODO, add support for kubenet CNI plugin(kops) by resolve via routeTable.
 	}
-	if isFargateNode {
+	if isNonEc2Pod {
 		resolveFuncs = []func(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error){
 			r.resolveViaVPCENIs,
 		}
@@ -281,6 +293,7 @@ func (r *defaultPodENIInfoResolver) resolveViaNodeENIs(ctx context.Context, pods
 
 // resolveViaVPCENIs tries to resolve pod ENI by matching podIP against ENIs in vpc.
 // with EKS fargate pods, podIP is supported by an ENI in vpc.
+// with SageMaker HyperPod pods, podIP is supported by the visible cross-account ENI in customer vpc.
 func (r *defaultPodENIInfoResolver) resolveViaVPCENIs(ctx context.Context, pods []k8s.PodInfo) (map[types.NamespacedName]ENIInfo, error) {
 	podKeysByIP := make(map[string][]types.NamespacedName, len(pods))
 	for _, pod := range pods {
@@ -388,33 +401,45 @@ func (r *defaultPodENIInfoResolver) isPodSupportedByNodeENI(pod k8s.PodInfo, nod
 	return false
 }
 
-// classifyPodsByComputeType classifies in to ec2 and fargate groups
-func (r *defaultPodENIInfoResolver) classifyPodsByComputeType(ctx context.Context, pods []k8s.PodInfo) ([]k8s.PodInfo, []k8s.PodInfo, error) {
-	podsOnFargate := make([]k8s.PodInfo, 0, len(pods))
-	podsOnEc2 := make([]k8s.PodInfo, 0, len(pods))
+// PodsByComputeType groups pods based on their compute type (EC2, Fargate, SageMaker HyperPod)
+type PodsByComputeType struct {
+	ec2Pods               []k8s.PodInfo
+	fargatePods           []k8s.PodInfo
+	sageMakerHyperPodPods []k8s.PodInfo
+}
+
+// classifyPodsByComputeType classifies in to ec2, fargate and sagemaker-hyperpod groups
+func (r *defaultPodENIInfoResolver) classifyPodsByComputeType(ctx context.Context, pods []k8s.PodInfo) (PodsByComputeType, error) {
+	var podsByComputeType PodsByComputeType
 	nodeNameByComputeType := make(map[string]string)
 	for _, pod := range pods {
 		if _, exists := nodeNameByComputeType[pod.NodeName]; exists {
 			if nodeNameByComputeType[pod.NodeName] == "fargate" {
-				podsOnFargate = append(podsOnFargate, pod)
+				podsByComputeType.fargatePods = append(podsByComputeType.fargatePods, pod)
+			} else if nodeNameByComputeType[pod.NodeName] == "sagemaker-hyperpod" {
+				podsByComputeType.sageMakerHyperPodPods = append(podsByComputeType.sageMakerHyperPodPods, pod)
 			} else {
-				podsOnEc2 = append(podsOnEc2, pod)
+				podsByComputeType.ec2Pods = append(podsByComputeType.ec2Pods, pod)
 			}
 		}
+
 		nodeKey := types.NamespacedName{Name: pod.NodeName}
 		node := &corev1.Node{}
 		if err := r.k8sClient.Get(ctx, nodeKey, node); err != nil {
-			return nil, nil, err
+			return PodsByComputeType{}, err
 		}
 		if node.Labels[labelEKSComputeType] == "fargate" {
-			podsOnFargate = append(podsOnFargate, pod)
+			podsByComputeType.fargatePods = append(podsByComputeType.fargatePods, pod)
 			nodeNameByComputeType[pod.NodeName] = "fargate"
+		} else if node.Labels[labelSageMakerComputeType] == "hyperpod" {
+			podsByComputeType.sageMakerHyperPodPods = append(podsByComputeType.sageMakerHyperPodPods, pod)
+			nodeNameByComputeType[pod.NodeName] = "sagemaker-hyperpod"
 		} else {
-			podsOnEc2 = append(podsOnEc2, pod)
+			podsByComputeType.ec2Pods = append(podsByComputeType.ec2Pods, pod)
 			nodeNameByComputeType[pod.NodeName] = "ec2"
 		}
 	}
-	return podsOnEc2, podsOnFargate, nil
+	return podsByComputeType, nil
 }
 
 // computePodENIInfoCacheKey computes the cacheKey for pod's ENIInfo cache.
