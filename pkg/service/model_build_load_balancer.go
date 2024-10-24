@@ -416,7 +416,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 		)
 	}
 
-	// for internet-facing Load Balancers, the subnets mush have at least 8 available IP addresses;
+	// for internet-facing Load Balancers, the subnets must have at least 8 available IP addresses;
 	// for internal Load Balancers, this is only required if private ip address is not assigned
 	var privateIpv4Addresses []string
 	ipv4Configured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixPrivateIpv4Addresses, &privateIpv4Addresses, t.service.Annotations)
