@@ -244,7 +244,7 @@ func Test_ingressValidator_checkIngressClass(t *testing.T) {
 			}
 			classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(tt.configuredIngressClass)
 			v := &ingressValidator{
-				classLoader:                        ingress.NewDefaultClassLoader(k8sClient, false),
+				classLoader:                        ingress.NewDefaultClassLoader(k8sClient, false, "ingress.k8s.aws/alb"),
 				classAnnotationMatcher:             classAnnotationMatcher,
 				manageIngressesWithoutIngressClass: tt.configuredIngressClass == "",
 				logger:                             logr.New(&log.NullLogSink{}),
@@ -1016,7 +1016,7 @@ func Test_ingressValidator_checkIngressClassUsage(t *testing.T) {
 			}
 
 			v := &ingressValidator{
-				classLoader: ingress.NewDefaultClassLoader(k8sClient, true),
+				classLoader: ingress.NewDefaultClassLoader(k8sClient, true, "ingress.k8s.aws/alb"),
 			}
 			err := v.checkIngressClassUsage(ctx, tt.args.ing, tt.args.oldIng)
 			if tt.wantErr != nil {

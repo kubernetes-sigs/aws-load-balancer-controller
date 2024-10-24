@@ -660,8 +660,9 @@ func Test_defaultClassLoader_Load(t *testing.T) {
 			}
 
 			l := &defaultClassLoader{
-				client:     k8sClient,
-				loadParams: true,
+				client:                     k8sClient,
+				loadParams:                 true,
+				ingressClassControllerSpec: "ingress.k8s.aws/alb",
 			}
 			got, err := l.Load(ctx, tt.args.ing)
 			if tt.wantErr != nil {

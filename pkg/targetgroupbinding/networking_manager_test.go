@@ -17,6 +17,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
+const tgbNetworkingIPPermissionLabelKey = "elbv2.k8s.aws/targetGroupBinding"
+
 func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *testing.T) {
 	port8080 := intstr.FromInt(8080)
 	port8443 := intstr.FromInt(8443)
@@ -228,7 +230,9 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &defaultNetworkingManager{}
+			m := &defaultNetworkingManager{
+				tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelKey,
+			}
 			got, err := m.computeIngressPermissionsForTGBNetworking(context.Background(), tt.args.tgbNetworking, tt.args.pods)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
@@ -476,7 +480,9 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := &defaultNetworkingManager{}
+			m := &defaultNetworkingManager{
+				tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelKey,
+			}
 			got, err := m.computePermissionsForPeerPort(context.Background(), tt.args.peer, tt.args.port, tt.args.pods)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())

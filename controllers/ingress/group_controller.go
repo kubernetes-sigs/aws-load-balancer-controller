@@ -34,8 +34,7 @@ import (
 )
 
 const (
-	ingressTagPrefix = "ingress.k8s.aws"
-	controllerName   = "ingress"
+	controllerName = "ingress"
 
 	// the groupVersion of used Ingress & IngressClass resource.
 	ingressResourcesGroupVersion = "networking.k8s.io/v1"
@@ -52,8 +51,9 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
 	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, controllerConfig.IngressConfig.TolerateNonExistentBackendService, controllerConfig.IngressConfig.TolerateNonExistentBackendAction)
-	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
-	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
+	expectedIngressClassControllerSpec := GetIngressClassControllerSpec(controllerConfig.ResourcePrefix[config.IngressTagPrefixKey], controllerConfig.IngressConfig.IngressClass)
+	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, expectedIngressClassControllerSpec, logger)
+	trackingProvider := tracking.NewDefaultProvider(controllerConfig.ResourcePrefix[config.ClusterTagPrefixKey], controllerConfig.ResourcePrefix[config.IngressTagPrefixKey], controllerConfig.ClusterName)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
 		cloud.EC2(), cloud.ELBV2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
@@ -63,8 +63,8 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
-		controllerConfig, ingressTagPrefix, logger)
-	classLoader := ingress.NewDefaultClassLoader(k8sClient, true)
+		controllerConfig, controllerConfig.ResourcePrefix[config.ClusterTagPrefixKey], controllerConfig.ResourcePrefix[config.IngressTagPrefixKey], logger)
+	classLoader := ingress.NewDefaultClassLoader(k8sClient, true, expectedIngressClassControllerSpec)
 	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)
 	manageIngressesWithoutIngressClass := controllerConfig.IngressConfig.IngressClass == ""
 	groupLoader := ingress.NewDefaultGroupLoader(k8sClient, eventRecorder, annotationParser, classLoader, classAnnotationMatcher, manageIngressesWithoutIngressClass)
@@ -325,6 +325,10 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 	}
 	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, ctrl.Log.WithName("secrets-manager"))
 	return nil
+}
+
+func GetIngressClassControllerSpec(ingressPrefix string, ingressClassName string) string {
+	return ingressPrefix + "/" + ingressClassName
 }
 
 // isResourceKindAvailable checks whether specific kind is available.

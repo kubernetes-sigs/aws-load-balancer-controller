@@ -23,11 +23,11 @@ const (
 )
 
 // NewIngressValidator returns a validator for Ingress API.
-func NewIngressValidator(client client.Client, ingConfig config.IngressConfig, logger logr.Logger) *ingressValidator {
+func NewIngressValidator(client client.Client, ingConfig config.IngressConfig, ingressClassControllerSpec string, logger logr.Logger) *ingressValidator {
 	return &ingressValidator{
 		annotationParser:                   annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress),
 		classAnnotationMatcher:             ingress.NewDefaultClassAnnotationMatcher(ingConfig.IngressClass),
-		classLoader:                        ingress.NewDefaultClassLoader(client, false),
+		classLoader:                        ingress.NewDefaultClassLoader(client, false, ingressClassControllerSpec),
 		disableIngressClassAnnotation:      ingConfig.DisableIngressClassAnnotation,
 		disableIngressGroupAnnotation:      ingConfig.DisableIngressGroupNameAnnotation,
 		manageIngressesWithoutIngressClass: ingConfig.IngressClass == "",
@@ -108,7 +108,7 @@ func (v *ingressValidator) checkIngressClass(ctx context.Context, ing *networkin
 		return false, err
 	}
 	if classConfiguration.IngClass != nil {
-		return classConfiguration.IngClass.Spec.Controller != ingress.IngressClassControllerALB, nil
+		return classConfiguration.IngClass.Spec.Controller != v.classLoader.GetIngressClassControllerSpec(), nil
 	}
 	return !v.manageIngressesWithoutIngressClass, nil
 }
