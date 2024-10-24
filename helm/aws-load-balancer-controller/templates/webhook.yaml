@@ -235,6 +235,7 @@ spec:
   - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc.{{ .Values.cluster.dnsDomain }}
   issuerRef:
     kind: Issuer
+    group: cert-manager.io
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
   secretName: {{ template "aws-load-balancer-controller.webhookCertSecret" . }}
 ---
