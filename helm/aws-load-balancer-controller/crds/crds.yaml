@@ -300,6 +300,10 @@ spec:
           spec:
             description: TargetGroupBindingSpec defines the desired state of TargetGroupBinding
             properties:
+              multiClusterTargetGroup:
+                description: MultiClusterTargetGroup Denotes if the TargetGroup is
+                  shared among multiple clusters
+                type: boolean
               networking:
                 description: networking provides the networking setup for ELBV2 LoadBalancer
                   to access targets in TargetGroup.
@@ -392,10 +396,6 @@ spec:
                 - name
                 - port
                 type: object
-              multiClusterTargetGroup:
-                description: multiClusterTargetGroup Denotes if the TargetGroup is shared
-                  among multiple clusters
-                type: boolean
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
@@ -477,6 +477,10 @@ spec:
                 - ipv4
                 - ipv6
                 type: string
+              multiClusterTargetGroup:
+                description: MultiClusterTargetGroup Denotes if the TargetGroup is
+                  shared among multiple clusters
+                type: boolean
               networking:
                 description: networking defines the networking rules to allow ELBV2
                   LoadBalancer to access targets in TargetGroup.
@@ -620,10 +624,6 @@ spec:
                 - name
                 - port
                 type: object
-              multiClusterTargetGroup:
-                description: multiClusterTargetGroup Denotes if the TargetGroup is shared
-                  among multiple clusters
-                type: boolean
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
