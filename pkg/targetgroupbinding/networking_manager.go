@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	tgbNetworkingIPPermissionLabelKey   = "elbv2.k8s.aws/targetGroupBinding"
+	//tgbNetworkingIPPermissionLabelKey   = "elbv2.k8s.aws/targetGroupBinding"
 	tgbNetworkingIPPermissionLabelValue = "shared"
 	defaultTgbMinPort                   = int32(0)
 	defaultTgbMaxPort                   = int32(65535)
@@ -47,18 +47,18 @@ type NetworkingManager interface {
 
 // NewDefaultNetworkingManager constructs defaultNetworkingManager.
 func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver networking.PodENIInfoResolver, nodeENIResolver networking.NodeENIInfoResolver,
-	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler, vpcID string, clusterName string, serviceTargetENISGTags map[string]string, logger logr.Logger, disabledRestrictedSGRulesFlag bool) *defaultNetworkingManager {
-
+	sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler, vpcID string, clusterName string, serviceTargetENISGTags map[string]string, clusterSgRuleLabelPrefix string, logger logr.Logger, disabledRestrictedSGRulesFlag bool) *defaultNetworkingManager {
 	return &defaultNetworkingManager{
-		k8sClient:              k8sClient,
-		podENIResolver:         podENIResolver,
-		nodeENIResolver:        nodeENIResolver,
-		sgManager:              sgManager,
-		sgReconciler:           sgReconciler,
-		vpcID:                  vpcID,
-		clusterName:            clusterName,
-		serviceTargetENISGTags: serviceTargetENISGTags,
-		logger:                 logger,
+		k8sClient:                         k8sClient,
+		podENIResolver:                    podENIResolver,
+		nodeENIResolver:                   nodeENIResolver,
+		sgManager:                         sgManager,
+		sgReconciler:                      sgReconciler,
+		vpcID:                             vpcID,
+		clusterName:                       clusterName,
+		serviceTargetENISGTags:            serviceTargetENISGTags,
+		tgbNetworkingIPPermissionLabelKey: clusterSgRuleLabelPrefix + "/targetGroupBinding",
+		logger:                            logger,
 
 		mutex:                         sync.Mutex{},
 		ingressPermissionsPerSGByTGB:  make(map[types.NamespacedName]map[string][]networking.IPPermissionInfo),
@@ -70,15 +70,16 @@ func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver network
 
 // default implementation for NetworkingManager.
 type defaultNetworkingManager struct {
-	k8sClient              client.Client
-	podENIResolver         networking.PodENIInfoResolver
-	nodeENIResolver        networking.NodeENIInfoResolver
-	sgManager              networking.SecurityGroupManager
-	sgReconciler           networking.SecurityGroupReconciler
-	vpcID                  string
-	clusterName            string
-	serviceTargetENISGTags map[string]string
-	logger                 logr.Logger
+	k8sClient                         client.Client
+	podENIResolver                    networking.PodENIInfoResolver
+	nodeENIResolver                   networking.NodeENIInfoResolver
+	sgManager                         networking.SecurityGroupManager
+	sgReconciler                      networking.SecurityGroupReconciler
+	vpcID                             string
+	clusterName                       string
+	serviceTargetENISGTags            map[string]string
+	tgbNetworkingIPPermissionLabelKey string
+	logger                            logr.Logger
 
 	// mutex will serialize our TargetGroup's networking reconcile requests.
 	mutex sync.Mutex
@@ -202,7 +203,7 @@ func (m *defaultNetworkingManager) reconcileWithIngressPermissionsPerSG(ctx cont
 	computedForAllTGBs := m.consolidateIngressPermissionsPerSGByTGB(ctx, tgbsWithNetworking)
 	aggregatedIngressPermissionsPerSG := m.computeAggregatedIngressPermissionsPerSG(ctx)
 
-	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
+	permissionSelector := labels.SelectorFromSet(labels.Set{m.tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
 	var sgReconciliationErrors []error
 	for sgID, permissions := range aggregatedIngressPermissionsPerSG {
 		if err := m.sgReconciler.ReconcileIngress(ctx, sgID, permissions,
@@ -421,7 +422,7 @@ func (m *defaultNetworkingManager) computePermissionsForPeerPort(ctx context.Con
 		})
 	}
 
-	permissionLabels := map[string]string{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue}
+	permissionLabels := map[string]string{m.tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue}
 	if peer.SecurityGroup != nil {
 		groupID := peer.SecurityGroup.GroupID
 		permissions := make([]networking.IPPermissionInfo, 0, len(sdkFromToPortPairs))
@@ -484,7 +485,7 @@ func (m *defaultNetworkingManager) gcIngressPermissionsFromUnusedEndpointSGs(ctx
 	usedEndpointSGs := sets.StringKeySet(ingressPermissionsPerSG)
 	unusedEndpointSGs := endpointSGs.Difference(usedEndpointSGs)
 
-	permissionSelector := labels.SelectorFromSet(labels.Set{tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
+	permissionSelector := labels.SelectorFromSet(labels.Set{m.tgbNetworkingIPPermissionLabelKey: tgbNetworkingIPPermissionLabelValue})
 	for sgID := range unusedEndpointSGs {
 		err := m.sgReconciler.ReconcileIngress(ctx, sgID, nil,
 			networking.WithPermissionSelector(permissionSelector))

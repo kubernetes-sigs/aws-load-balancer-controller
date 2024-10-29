@@ -160,7 +160,6 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringToStringVar(&cfg.ResourcePrefix, flagResourcePrefix, defaultResourcePrefix,
 		"the prefixes for resource tags, backend SG name and worker node SG rules label.")
 
-	cfg.mergeDefaultResourcePrefixVal()
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
@@ -267,14 +266,4 @@ func (cfg *ControllerConfig) validateResourcePrefixKeys() error {
 			len(validPrefixKeys.List()), len(keys))
 	}
 	return nil
-}
-
-// mergeDefaultResourcePrefixVal make sure the ResourcePrefix map always has default val for unspecified key in user-passed flag
-func (cfg *ControllerConfig) mergeDefaultResourcePrefixVal() {
-	// Merge user-provided values with defaults
-	for key, defaultVal := range defaultResourcePrefix {
-		if _, exists := cfg.ResourcePrefix[key]; !exists {
-			cfg.ResourcePrefix[key] = defaultVal
-		}
-	}
 }
