@@ -13,7 +13,7 @@ _As contributors and maintainers of this project, and in the interest of fosteri
 
 The [documentation](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/) is generated using [Material for MkDocs](https://squidfunk.github.io/mkdocs-material/). In order to generate and preview docs locally, use the steps below -
 
-- Install [pipenv](https://pipenv.pypa.io/en/latest/install/#installing-pipenv)
+- Install [pipenv](https://pipenv.pypa.io/en/latest/installation.html)
 - run `make docs-preview`. This will generate and serve docs locally at http://127.0.0.1:8000
 
 ### Contributing
