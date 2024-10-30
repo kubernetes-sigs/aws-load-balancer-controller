@@ -17,7 +17,7 @@ const (
 	flagLogLevel                                     = "log-level"
 	flagK8sClusterName                               = "cluster-name"
 	flagDefaultTags                                  = "default-tags"
-	flagResourcePrefix                               = "resource-prefix"
+	flagResourceTrackingConfiguration                = "resource-tracking-configuration"
 	flagDefaultTargetType                            = "default-target-type"
 	flagExternalManagedTags                          = "external-managed-tags"
 	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
@@ -89,8 +89,8 @@ type ControllerConfig struct {
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
 
-	// ResourcePrefix provides prefix for resource tags, backend SG name and worker node SG rules label.
-	ResourcePrefix map[string]string
+	// ResourceTrackingConfiguration provides tracking prefix for resource tags, backend SG name and worker node SG rules label.
+	ResourceTrackingConfiguration map[string]string
 
 	// Default target type for Ingress and Service objects
 	DefaultTargetType string
@@ -157,7 +157,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Disable the usage of restricted security group rules")
 	fs.StringToStringVar(&cfg.ServiceTargetENISGTags, flagServiceTargetENISGTags, nil,
 		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
-	fs.StringToStringVar(&cfg.ResourcePrefix, flagResourcePrefix, defaultResourcePrefix,
+	fs.StringToStringVar(&cfg.ResourceTrackingConfiguration, flagResourceTrackingConfiguration, defaultResourcePrefix,
 		"the prefixes for resource tags, backend SG name and worker node SG rules label.")
 
 	cfg.FeatureGates.BindFlags(fs)
@@ -180,12 +180,12 @@ func (cfg *ControllerConfig) Validate() error {
 	}
 
 	trackingTagKeys := sets.New[string](
-		cfg.ResourcePrefix[ClusterTagPrefixKey]+"/cluster",
-		cfg.ResourcePrefix[ClusterTagPrefixKey]+"/resource",
-		cfg.ResourcePrefix[IngressTagPrefixKey]+"/stack",
-		cfg.ResourcePrefix[IngressTagPrefixKey]+"/resource",
-		cfg.ResourcePrefix[ServiceTagPrefixKey]+"/stack",
-		cfg.ResourcePrefix[ServiceTagPrefixKey]+"/resource",
+		cfg.ResourceTrackingConfiguration[ClusterTagPrefixKey]+"/cluster",
+		cfg.ResourceTrackingConfiguration[ClusterTagPrefixKey]+"/resource",
+		cfg.ResourceTrackingConfiguration[IngressTagPrefixKey]+"/stack",
+		cfg.ResourceTrackingConfiguration[IngressTagPrefixKey]+"/resource",
+		cfg.ResourceTrackingConfiguration[ServiceTagPrefixKey]+"/stack",
+		cfg.ResourceTrackingConfiguration[ServiceTagPrefixKey]+"/resource",
 	)
 
 	if err := cfg.validateDefaultTagsCollisionWithTrackingTags(trackingTagKeys); err != nil {
@@ -254,8 +254,8 @@ func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {
 }
 
 func (cfg *ControllerConfig) validateResourcePrefixKeys() error {
-	keys := make([]string, 0, len(cfg.ResourcePrefix))
-	for key := range cfg.ResourcePrefix {
+	keys := make([]string, 0, len(cfg.ResourceTrackingConfiguration))
+	for key := range cfg.ResourceTrackingConfiguration {
 		if !validPrefixKeys.Has(key) {
 			return fmt.Errorf("invalid key: %s. Valid keys are: %v", key, validPrefixKeys.List())
 		}

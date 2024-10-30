@@ -184,7 +184,7 @@ func TestControllerConfig_validateExternalManagedTagsCollisionWithDefaultTags(t 
 
 func TestControllerConfig_validateResourcePrefixKeys(t *testing.T) {
 	type fields struct {
-		ResourcePrefix map[string]string
+		ResourceTrackingConfiguration map[string]string
 	}
 	tests := []struct {
 		name    string
@@ -194,7 +194,7 @@ func TestControllerConfig_validateResourcePrefixKeys(t *testing.T) {
 		{
 			name: "resource prefix has all keys",
 			fields: fields{
-				ResourcePrefix: map[string]string{
+				ResourceTrackingConfiguration: map[string]string{
 					"clusterTagPrefix":         "elbv2.k8s.aws",
 					"ingressTagPrefix":         "ingress.k8s.aws",
 					"serviceTagPrefix":         "service.k8s.aws",
@@ -207,7 +207,7 @@ func TestControllerConfig_validateResourcePrefixKeys(t *testing.T) {
 		{
 			name: "resource prefix has some invalid keys",
 			fields: fields{
-				ResourcePrefix: map[string]string{
+				ResourceTrackingConfiguration: map[string]string{
 					"clusterTagPrefix":    "elbv2.k8s.aws",
 					"ingressTagPrefix":    "ingress.k8s.aws",
 					"serviceTagPrefix":    "service.k8s.aws",
@@ -220,7 +220,7 @@ func TestControllerConfig_validateResourcePrefixKeys(t *testing.T) {
 		{
 			name: "resource prefix is missing some valid keys",
 			fields: fields{
-				ResourcePrefix: map[string]string{
+				ResourceTrackingConfiguration: map[string]string{
 					"clusterTagPrefix":    "elbv2.k8s.aws",
 					"ingressTagPrefix":    "ingress.k8s.aws",
 					"serviceTagPrefix":    "service.k8s.aws",
@@ -233,7 +233,7 @@ func TestControllerConfig_validateResourcePrefixKeys(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := &ControllerConfig{
-				ResourcePrefix: tt.fields.ResourcePrefix,
+				ResourceTrackingConfiguration: tt.fields.ResourceTrackingConfiguration,
 			}
 			err := cfg.validateResourcePrefixKeys()
 			if tt.wantErr != nil {

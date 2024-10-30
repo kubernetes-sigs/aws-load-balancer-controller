@@ -52,7 +52,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
 	enhancedBackendBuilder := ingress.NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, controllerConfig.IngressConfig.TolerateNonExistentBackendService, controllerConfig.IngressConfig.TolerateNonExistentBackendAction)
 	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
-	trackingProvider := tracking.NewDefaultProvider(controllerConfig.ResourcePrefix[config.ClusterTagPrefixKey], controllerConfig.ResourcePrefix[config.IngressTagPrefixKey], controllerConfig.ClusterName)
+	trackingProvider := tracking.NewDefaultProvider(controllerConfig.ResourceTrackingConfiguration[config.ClusterTagPrefixKey], controllerConfig.ResourceTrackingConfiguration[config.IngressTagPrefixKey], controllerConfig.ClusterName)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
 		cloud.EC2(), cloud.ELBV2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
@@ -62,7 +62,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
-		controllerConfig, controllerConfig.ResourcePrefix[config.ClusterTagPrefixKey], controllerConfig.ResourcePrefix[config.IngressTagPrefixKey], logger)
+		controllerConfig, controllerConfig.ResourceTrackingConfiguration[config.ClusterTagPrefixKey], controllerConfig.ResourceTrackingConfiguration[config.IngressTagPrefixKey], logger)
 	classLoader := ingress.NewDefaultClassLoader(k8sClient, true)
 	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)
 	manageIngressesWithoutIngressClass := controllerConfig.IngressConfig.IngressClass == ""
