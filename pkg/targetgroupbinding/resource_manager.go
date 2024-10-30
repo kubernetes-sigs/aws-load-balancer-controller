@@ -540,8 +540,8 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 	// Target group is in a different VPC from the cluster's VPC
 	if tgVpcID != "" && tgVpcID != m.vpcID {
 		vpcID = tgVpcID
-		m.logger.Info("registering endpoints using the targetGroup's vpcID", tgVpcID,
-			"which is different from the cluster's vpcID", m.vpcID)
+		m.logger.Info("registering endpoints using the targetGroup's vpcID", "TG VPC", tgVpcID,
+			"cluster's vpcID", m.vpcID)
 	}
 	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
 	if err != nil {
