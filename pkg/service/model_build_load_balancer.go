@@ -57,6 +57,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+	enablePrefixForIpv6SourceNat, err := t.buildLoadBalancerEnablePrefixForIpv6SourceNat(ctx, ipAddressType, t.ec2Subnets)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
 	lbAttributes, err := t.buildLoadBalancerAttributes(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
@@ -69,7 +73,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, ipAddressType, scheme, t.ec2Subnets)
+	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, ipAddressType, scheme, t.ec2Subnets, enablePrefixForIpv6SourceNat)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -83,14 +87,15 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	}
 
 	spec := elbv2model.LoadBalancerSpec{
-		Name:                   name,
-		Type:                   elbv2model.LoadBalancerTypeNetwork,
-		Scheme:                 scheme,
-		IPAddressType:          ipAddressType,
-		SecurityGroups:         securityGroups,
-		SubnetMappings:         subnetMappings,
-		LoadBalancerAttributes: lbAttributes,
-		Tags:                   tags,
+		Name:                         name,
+		Type:                         elbv2model.LoadBalancerTypeNetwork,
+		Scheme:                       scheme,
+		IPAddressType:                ipAddressType,
+		EnablePrefixForIpv6SourceNat: enablePrefixForIpv6SourceNat,
+		SecurityGroups:               securityGroups,
+		SubnetMappings:               subnetMappings,
+		LoadBalancerAttributes:       lbAttributes,
+		Tags:                         tags,
 	}
 
 	if securityGroupsInboundRulesOnPrivateLink != nil {
@@ -185,6 +190,20 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 	default:
 		return "", errors.Errorf("unknown IPAddressType: %v", rawIPAddressType)
 	}
+}
+
+func (t *defaultModelBuildTask) buildLoadBalancerEnablePrefixForIpv6SourceNat(_ context.Context, ipAddressType elbv2model.IPAddressType, ec2Subnets []ec2types.Subnet) (elbv2model.EnablePrefixForIpv6SourceNat, error) {
+	rawEnablePrefixForIpv6SourceNat := ""
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.ScvLBSuffixEnablePrefixForIpv6SourceNat, &rawEnablePrefixForIpv6SourceNat, t.service.Annotations); !exists {
+		return elbv2model.EnablePrefixForIpv6SourceNatOff, nil
+	}
+
+	validationError := networking.ValidateEnablePrefixForIpv6SourceNat(rawEnablePrefixForIpv6SourceNat, ipAddressType, ec2Subnets)
+	if validationError != nil {
+		return "", validationError
+	}
+
+	return elbv2model.EnablePrefixForIpv6SourceNat(rawEnablePrefixForIpv6SourceNat), nil
 }
 
 func (t *defaultModelBuildTask) buildSecurityGroupsInboundRulesOnPrivateLink(_ context.Context) (*elbv2model.SecurityGroupsInboundRulesOnPrivateLinkStatus, error) {
@@ -297,7 +316,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[
 	return t.buildAdditionalResourceTags(ctx)
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme, ec2Subnets []ec2types.Subnet) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme, ec2Subnets []ec2types.Subnet, enablePrefixForIpv6SourceNat elbv2model.EnablePrefixForIpv6SourceNat) ([]elbv2model.SubnetMapping, error) {
 	var eipAllocation []string
 	eipConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
 	if eipConfigured {
@@ -355,6 +374,17 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 		}
 	}
 
+	var isPrefixForIpv6SourceNatEnabled = enablePrefixForIpv6SourceNat == elbv2model.EnablePrefixForIpv6SourceNatOn
+
+	var sourceNatIpv6Prefixes []string
+	sourceNatIpv6PrefixesConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.ScvLBSuffixSourceNatIpv6Prefixes, &sourceNatIpv6Prefixes, t.service.Annotations)
+	if sourceNatIpv6PrefixesConfigured {
+		sourceNatIpv6PrefixesError := networking.ValidateSourceNatPrefixes(sourceNatIpv6Prefixes, ipAddressType, isPrefixForIpv6SourceNatEnabled, ec2Subnets)
+		if sourceNatIpv6PrefixesError != nil {
+			return nil, sourceNatIpv6PrefixesError
+		}
+	}
+
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(ec2Subnets))
 	for idx, subnet := range ec2Subnets {
 		mapping := elbv2model.SubnetMapping{
@@ -374,6 +404,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 			}
 			mapping.PrivateIPv4Address = awssdk.String(ipv4AddressesWithinSubnet[0].String())
 		}
+
+		if isPrefixForIpv6SourceNatEnabled && sourceNatIpv6PrefixesConfigured {
+			mapping.SourceNatIpv6Prefix = awssdk.String(sourceNatIpv6Prefixes[idx])
+		}
+
 		if ipv6AddrConfigured {
 			subnetIPv6CIDRs, err := networking.GetSubnetAssociatedIPv6CIDRs(subnet)
 			if err != nil {

@@ -154,20 +154,36 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithIPAddressType(ctx 
 
 func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
 	desiredSubnets := sets.NewString()
+	desiredSubnetsSourceNATPrefixes := sets.NewString()
+	currentSubnetsSourceNATPrefixes := sets.NewString()
 	for _, mapping := range resLB.Spec.SubnetMappings {
 		desiredSubnets.Insert(mapping.SubnetID)
+		if mapping.SourceNatIpv6Prefix != nil {
+			desiredSubnetsSourceNATPrefixes.Insert(awssdk.ToString(mapping.SourceNatIpv6Prefix))
+		}
 	}
 	currentSubnets := sets.NewString()
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
 		currentSubnets.Insert(awssdk.ToString(az.SubnetId))
+		if len(az.SourceNatIpv6Prefixes) != 0 {
+			currentSubnetsSourceNATPrefixes.Insert(az.SourceNatIpv6Prefixes[0])
+		}
 	}
-	if desiredSubnets.Equal(currentSubnets) {
+	sdkLBEnablePrefixForIpv6SourceNatValue := string(elbv2model.EnablePrefixForIpv6SourceNatOff)
+	resLBEnablePrefixForIpv6SourceNatValue := string(elbv2model.EnablePrefixForIpv6SourceNatOff)
+
+	sdkLBEnablePrefixForIpv6SourceNatValue = string(sdkLB.LoadBalancer.EnablePrefixForIpv6SourceNat)
+
+	resLBEnablePrefixForIpv6SourceNatValue = string(resLB.Spec.EnablePrefixForIpv6SourceNat)
+
+	if desiredSubnets.Equal(currentSubnets) && desiredSubnetsSourceNATPrefixes.Equal(currentSubnetsSourceNATPrefixes) && sdkLBEnablePrefixForIpv6SourceNatValue == resLBEnablePrefixForIpv6SourceNatValue {
 		return nil
 	}
 
 	req := &elbv2sdk.SetSubnetsInput{
-		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
-		SubnetMappings:  buildSDKSubnetMappings(resLB.Spec.SubnetMappings),
+		LoadBalancerArn:              sdkLB.LoadBalancer.LoadBalancerArn,
+		SubnetMappings:               buildSDKSubnetMappings(resLB.Spec.SubnetMappings),
+		EnablePrefixForIpv6SourceNat: elbv2types.EnablePrefixForIpv6SourceNatEnum(resLBEnablePrefixForIpv6SourceNatValue),
 	}
 	changeDesc := fmt.Sprintf("%v => %v", currentSubnets.List(), desiredSubnets.List())
 	m.logger.Info("modifying loadBalancer subnetMappings",
@@ -261,6 +277,10 @@ func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2
 		sdkObj.SecurityGroups = sdkSecurityGroups
 	}
 
+	if lbSpec.EnablePrefixForIpv6SourceNat != "" {
+		sdkObj.EnablePrefixForIpv6SourceNat = elbv2types.EnablePrefixForIpv6SourceNatEnum(lbSpec.EnablePrefixForIpv6SourceNat)
+	}
+
 	sdkObj.CustomerOwnedIpv4Pool = lbSpec.CustomerOwnedIPv4Pool
 	return sdkObj, nil
 }
@@ -294,10 +314,11 @@ func buildSDKSecurityGroups(modelSecurityGroups []coremodel.StringToken) ([]stri
 
 func buildSDKSubnetMapping(modelSubnetMapping elbv2model.SubnetMapping) elbv2types.SubnetMapping {
 	return elbv2types.SubnetMapping{
-		AllocationId:       modelSubnetMapping.AllocationID,
-		PrivateIPv4Address: modelSubnetMapping.PrivateIPv4Address,
-		IPv6Address:        modelSubnetMapping.IPv6Address,
-		SubnetId:           awssdk.String(modelSubnetMapping.SubnetID),
+		AllocationId:        modelSubnetMapping.AllocationID,
+		PrivateIPv4Address:  modelSubnetMapping.PrivateIPv4Address,
+		IPv6Address:         modelSubnetMapping.IPv6Address,
+		SubnetId:            awssdk.String(modelSubnetMapping.SubnetID),
+		SourceNatIpv6Prefix: modelSubnetMapping.SourceNatIpv6Prefix,
 	}
 }
 
