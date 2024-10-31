@@ -154,14 +154,25 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithIPAddressType(ctx 
 
 func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
 	desiredSubnets := sets.NewString()
+	desiredIPv6Addresses := sets.NewString()
 	for _, mapping := range resLB.Spec.SubnetMappings {
 		desiredSubnets.Insert(mapping.SubnetID)
+		desiredIPv6Addresses.Insert(awssdk.ToString(mapping.IPv6Address))
 	}
+
 	currentSubnets := sets.NewString()
+	currentIPv6Addresses := sets.NewString()
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
 		currentSubnets.Insert(awssdk.ToString(az.SubnetId))
+		if len(az.LoadBalancerAddresses) > 0 && az.LoadBalancerAddresses[0].IPv6Address != nil {
+			currentIPv6Addresses.Insert(awssdk.ToString(az.LoadBalancerAddresses[0].IPv6Address))
+		}
+		currentSubnets.Insert(awssdk.ToString(az.SubnetId))
 	}
-	if desiredSubnets.Equal(currentSubnets) {
+
+	isIpv6AddressesEqual := desiredIPv6Addresses.Equal(currentIPv6Addresses)
+
+	if desiredSubnets.Equal(currentSubnets) && isIpv6AddressesEqual {
 		return nil
 	}
 
