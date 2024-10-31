@@ -6499,7 +6499,6 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				jsonString, err := d.Marshal(stack)
 				assert.Equal(t, nil, err)
 				assert.JSONEq(t, tt.wantValue, jsonString)
-				assert.JSONEq(t, tt.wantValue, jsonString)
 				visitor := &resourceVisitor{}
 				stack.TopologicalTraversal(visitor)
 				assert.Equal(t, tt.wantNumResources, len(visitor.resources))
