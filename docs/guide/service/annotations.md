@@ -54,6 +54,8 @@
 | [service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic](#update-security-settings)         | string                  |                           |                                                                                   
 | [service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}](#listener-attributes)         | stringMap                  |                           |
 | [service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group](#multi-cluster-target-group)             | boolean                | false                    | If specified, the controller will only operate on targets that exist within the cluster, ignoring targets from other sources.                            |
+| [service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat](#enable-prefix-for-ipv6-source-nat)         | string                  | off                       | Optional annotation. dualstack lb only. Allowed values - on and off |
+| [service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes](#source-nat-ipv6-prefixes)        | stringList                  |                           | Optional annotation. dualstack lb only. This annotation is only applicable when user has to set the service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat to "on". Length must match the number of subnets |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -198,6 +200,41 @@ Traffic Listening can be controlled with following annotations:
         ```
         service.beta.kubernetes.io/aws-load-balancer-ip-address-type: ipv4
         ```
+
+## Support UDP-based services over IPv6
+You can configure dualstack NLB to support UDP-based services over IPv6 via the following annotations:
+
+- <a name="enable-prefix-for-ipv6-source-nat">service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat</a> specifies whether Prefix for IPv6 source NAT is enabled or not. UDP-based support can be enabled for dualstack NLBs only if Prefix for IPv6 source NAT is enabled.
+
+  !!!note ""
+  - Applicable to Network Load Balancers using dualstack IP address type.
+  - This configuration is optional, and you can use it to enable UDP support over IPv6.
+  - Allowed values are either “on” or “off”
+  - Once the source prefix for source NATing is enabled, it cannot be disabled if load balancer has a UDP listener attached.
+  - Steps to disable the aws-load-balancer-enable-prefix-for-ipv6-source-nat after it is enabled and UDP listeners already attached.
+  - You will have to first remove the UDP listeners and apply the manifest.
+  - Update the manifest to set source NATing to "off" and then apply the manifest again.
+
+  !!!example
+  - Enable prefix for IPv6 Source NAT
+  ```
+  service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat: "on"
+  ```
+
+- <a name="source-nat-ipv6-prefixes">service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes</a> specifies a list of IPv6 prefixes that should be used for IPv6 source NATing.
+
+  !!!note ""
+  - Applicable to Network Load Balancers using dualstack IP address type.
+  - This annotation can be specified only if service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat annotation is set to “on”.
+  - This configuration is optional and it can be used to specify custom IPv6 prefixes for IPv6 source NATing to support UDP based services routing in Network Load Balancers using dualstack IP address type.
+  - If service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat annotation is set to “on”, and you don’t specify this annotation, then IPv6 prefix/CIDR for source NATing will be auto-assigned to each subnet.
+  - If you are specifying this annotation, you must specify the same number of items in the list as the load balancer subnets annotation and following the same order. Each item in the list can have value of either “auto_assigned” or a valid IPv6 prefix/CIDR with prefix length of 80 and it should be in range of the corresponding subnet CIDR.
+  - Once the source NAT IPv6 prefixes are set, the IPv6 prefixes cannot be updated if the load balancer has a UDP listener attached.
+
+  !!!example
+  ```
+  service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes: 1025:0223:0009:6487:0001::/80, auto_assigned, 1025:0223:0010:6487:0001::/80
+  ```
 
 ## Resource attributes
 NLB resource attributes can be controlled via the following annotations:
