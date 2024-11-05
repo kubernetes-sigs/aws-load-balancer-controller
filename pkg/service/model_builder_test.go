@@ -558,8 +558,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -585,8 +585,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -906,8 +906,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -933,8 +933,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -1524,8 +1524,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -1551,8 +1551,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -2143,21 +2143,21 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
               },
               "networking": {
                 "ingress": [
-				 {
-					"from":[
-					   {
-						  "ipBlock":{
-							 "cidr":"192.168.0.0/19"
-						  }
-					   }
-					],
-					"ports":[
-					   {
-						  "protocol":"TCP",
-						  "port":80
-					   }
-					]
-				 }
+                 {
+                    "from":[
+                       {
+                          "ipBlock":{
+                             "cidr":"192.168.0.0/19"
+                          }
+                       }
+                    ],
+                    "ports":[
+                       {
+                          "protocol":"TCP",
+                          "port":80
+                       }
+                    ]
+                 }
                 ]
               },
               "serviceRef": {
@@ -2299,46 +2299,46 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 {
  "id":"app/tcpudp-protocol",
  "resources":{
-		"AWS::EC2::SecurityGroup":{
-			 "ManagedLBSecurityGroup":{
-					"spec":{
-						 "description":"[k8s] Managed SecurityGroup for LoadBalancer",
-						 "groupName":"k8s-app-tcpudppr-06a9156bf8",
-						 "ingress":[
-						    {
-								   "fromPort":80,
-									 "ipProtocol":"tcp",
-									 "ipRanges":[
-									    {
-											   "cidrIP":"0.0.0.0/0"
-											}
-									 ],
-									 "toPort":80
-								},
-						    {
-								   "fromPort":80,
-									 "ipProtocol":"udp",
-									 "ipRanges":[
-									    {
-											   "cidrIP":"0.0.0.0/0"
-											}
-									 ],
-									 "toPort":80
-								},
-						    {
-								   "fromPort":83,
-									 "ipProtocol":"tcp",
-									 "ipRanges":[
-									    {
-											   "cidrIP":"0.0.0.0/0"
-											}
-									 ],
-									 "toPort":83
-								}
-						 ]
-					}
-			 }
-		},
+    "AWS::EC2::SecurityGroup":{
+       "ManagedLBSecurityGroup":{
+          "spec":{
+             "description":"[k8s] Managed SecurityGroup for LoadBalancer",
+             "groupName":"k8s-app-tcpudppr-06a9156bf8",
+             "ingress":[
+                {
+                   "fromPort":80,
+                   "ipProtocol":"tcp",
+                   "ipRanges":[
+                      {
+                         "cidrIP":"0.0.0.0/0"
+                      }
+                   ],
+                   "toPort":80
+                },
+                {
+                   "fromPort":80,
+                   "ipProtocol":"udp",
+                   "ipRanges":[
+                      {
+                         "cidrIP":"0.0.0.0/0"
+                      }
+                   ],
+                   "toPort":80
+                },
+                {
+                   "fromPort":83,
+                   "ipProtocol":"tcp",
+                   "ipRanges":[
+                      {
+                         "cidrIP":"0.0.0.0/0"
+                      }
+                   ],
+                   "toPort":83
+                }
+             ]
+          }
+       }
+    },
     "AWS::ElasticLoadBalancingV2::Listener":{
        "80":{
           "spec":{
@@ -2393,11 +2393,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-app-tcpudppr-2af705447d",
              "type":"network",
              "scheme":"internet-facing",
-						 "securityGroups":[
-								{
-									"$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-								}
-						 ],
+             "securityGroups":[
+                {
+                  "$ref":"#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                }
+             ],
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -2424,7 +2424,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port":"traffic-port",
                 "protocol":"TCP",
-								"timeoutSeconds":10,
+                "timeoutSeconds":10,
                 "unhealthyThresholdCount":3,
                 "healthyThresholdCount":3,
                 "intervalSeconds":10
@@ -2447,7 +2447,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port":"traffic-port",
                 "protocol":"TCP",
-								"timeoutSeconds":10,
+                "timeoutSeconds":10,
                 "unhealthyThresholdCount":3,
                 "healthyThresholdCount":3,
                 "intervalSeconds":10
@@ -2475,7 +2475,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:80/status/targetGroupARN"
                    },
                    "targetType":"instance",
-									 "vpcID":"vpc-xxx",
+                   "vpcID":"vpc-xxx",
                    "serviceRef":{
                       "name":"tcpudp-protocol",
                       "port":80
@@ -2486,10 +2486,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                          {
                             "from":[
                                {
-																	"securityGroup": {
-																		"groupID": {
-																			"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-																		}
+                                  "securityGroup": {
+                                    "groupID": {
+                                      "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                    }
                                   }
                                }
                             ],
@@ -2523,7 +2523,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                       "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/app/tcpudp-protocol:83/status/targetGroupARN"
                    },
                    "targetType":"instance",
-									 "vpcID":"vpc-xxx",
+                   "vpcID":"vpc-xxx",
                    "serviceRef":{
                       "name":"tcpudp-protocol",
                       "port":83
@@ -2534,10 +2534,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                          {
                             "from":[
                                {
-																	"securityGroup": {
-																		"groupID": {
-																			"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-																		}
+                                  "securityGroup": {
+                                    "groupID": {
+                                      "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                    }
                                   }
                                }
                             ],
@@ -3449,10 +3449,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
            "securityGroups": [
             {
-			   "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+               "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
             },
             "sg-backend"
-		 ]
+         ]
           }
        }
     },
@@ -3633,10 +3633,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
            "securityGroups": [
             {
-			   "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+               "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
             },
             "sg-backend"
-		 ]
+           ]
           }
        }
     },
@@ -3697,7 +3697,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             ],
                             "ports":[
                                {
-																	"port": 80,
+                                  "port": 80,
                                   "protocol":"TCP"
                                }
                             ]
@@ -3857,10 +3857,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "securityGroups": [
                {
-			     "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                 "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
                },
                "sg-backend"
-		     ]
+             ]
           }
        }
     },
@@ -3881,8 +3881,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -3908,8 +3908,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -3951,12 +3951,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                }
                             ],
                             "ports":[
-															 {
-																	"port": 80,
+                               {
+                                  "port": 80,
                                   "protocol":"TCP"
                                },
-															 {
-																	"port": 8888,
+                               {
+                                  "port": 8888,
                                   "protocol":"TCP"
                                }
                             ]
@@ -3998,11 +3998,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             ],
                             "ports":[
                                {
-							      "port": 80,
+                                  "port": 80,
                                   "protocol":"TCP"
                                },
-							   {
-							      "port": 8888,
+                               {
+                                  "port": 8888,
                                   "protocol":"TCP"
                                }
                             ]
@@ -4198,10 +4198,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
            "securityGroups": [
             {
-			   "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+               "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
             },
             "sg-backend"
-		 ]
+           ]
           }
        }
     },
@@ -4222,8 +4222,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -4249,8 +4249,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -4293,7 +4293,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             ],
                             "ports":[
                                {
-								  "port": 80,
+                                  "port": 80,
                                   "protocol":"TCP"
                                }
                             ]
@@ -4335,11 +4335,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             ],
                             "ports":[
                                {
-								  "port": 8883,
+                                  "port": 8883,
                                   "protocol":"TCP"
                                },
-							   {
-								  "port": 80,
+                               {
+                                  "port": 80,
                                   "protocol":"TCP"
                                }
                             ]
@@ -4512,9 +4512,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
            "securityGroups": [
             {
-			   "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+               "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
             }
-		 ]
+           ]
           }
        }
     },
@@ -4592,9 +4592,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             "from":[
                                {
                                   "securityGroup":{
-																		 "groupID": {
-																						 "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-																		}
+                                    "groupID": {
+                                        "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                    }
                                   }
                                }
                             ],
@@ -4636,8 +4636,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                {
                                   "securityGroup":{
                                      "groupID": {
-                                       "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-																		 }
+                                        "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                     }
                                   }
                                }
                             ],
@@ -4845,9 +4845,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
            "securityGroups": [
             {
-			   "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+               "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
             }
-		 ]
+           ]
           }
        }
     },
@@ -4862,14 +4862,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-			    "path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
                 "timeoutSeconds":6,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -4889,14 +4889,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-			    "path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
                 "timeoutSeconds":6,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -4934,18 +4934,18 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                {
                                   "securityGroup":{
                                      "groupID": {
-									"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-								 }
+                                        "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                     }
                                   }
                                }
                             ],
                             "ports":[
                                {
-								  "port": 31223,
+                                  "port": 31223,
                                   "protocol":"TCP"
                                },
-							   {
-							      "port": 29123,
+                               {
+                                  "port": 29123,
                                   "protocol":"TCP"
                                }
                             ]
@@ -4981,19 +4981,19 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             "from":[
                                {
                                   "securityGroup":{
-									"groupID": {
-										"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-								 	}
+                                    "groupID": {
+                                        "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                     }
                                   }
                                }
                             ],
                             "ports":[
                                {
-								  "port": 32323,
+                                  "port": 32323,
                                   "protocol":"TCP"
                                },
-							   {
-								  "port": 29123,
+                               {
+                                  "port": 29123,
                                   "protocol":"TCP"
                                }
                             ]
@@ -5196,9 +5196,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
            "securityGroups": [
             {
-			   "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+               "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
             }
-		 ]
+           ]
           }
        }
     },
@@ -5213,14 +5213,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-				"path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
                 "timeoutSeconds":6,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -5240,14 +5240,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "healthCheckConfig":{
                 "port": 29123,
                 "protocol":"HTTP",
-				"path":"/healthz",
+                "path":"/healthz",
                 "intervalSeconds":10,
                 "timeoutSeconds":6,
                 "healthyThresholdCount":2,
                 "unhealthyThresholdCount":2,
                 "matcher":{
-					"httpCode": "200-399"
-				}
+                   "httpCode": "200-399"
+                }
              },
              "targetGroupAttributes":[
                 {
@@ -5285,18 +5285,18 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                                {
                                   "securityGroup":{
                                      "groupID": {
-									    "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-								     }
+                                        "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                     }
                                   }
                                }
                             ],
                             "ports":[
-							   {
-								  "port": 31223,
+                               {
+                                  "port": 31223,
                                   "protocol":"UDP"
                                },
-							   {
-							      "port": 29123,
+                               {
+                                  "port": 29123,
                                   "protocol":"TCP"
                                }
                             ]
@@ -5332,19 +5332,19 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                             "from":[
                                {
                                   "securityGroup":{
-									"groupID": {
-										"$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
-								 	}
+                                    "groupID": {
+                                        "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+                                     }
                                   }
                                }
                             ],
                             "ports":[
-							   {
-								  "port": 32323,
+                               {
+                                  "port": 32323,
                                   "protocol":"UDP"
                                },
-							   {
-								  "port": 29123,
+                               {
+                                  "port": 29123,
                                   "protocol":"TCP"
                                }
                             ]
@@ -5478,7 +5478,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                 "port":"traffic-port",
                 "protocol":"TCP",
                 "intervalSeconds":10,
-				"timeoutSeconds": 10,
+                "timeoutSeconds": 10,
                 "healthyThresholdCount":3,
                 "unhealthyThresholdCount":3
              },
@@ -5658,7 +5658,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
                         "securityGroup":{
                           "groupID":"sg-backend"
                         }
-					  }
+                      }
                     ],
                     "ports": [
                       {
@@ -5696,10 +5696,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           ],
           "securityGroups": [
             {
-		     "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+             "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
             },
             "sg-backend"
-		  ],
+          ],
           "scheme": "internal",
           "type": "network"
         }
@@ -5717,7 +5717,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "unhealthyThresholdCount": 3,
             "protocol": "TCP",
             "port": "traffic-port",
-			"timeoutSeconds": 10,
+            "timeoutSeconds": 10,
             "intervalSeconds": 10
           },
           "targetGroupAttributes": [
@@ -5873,7 +5873,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
-			"timeoutSeconds": 10,
+            "timeoutSeconds": 10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -6058,7 +6058,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
-			"timeoutSeconds": 10,
+            "timeoutSeconds": 10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -6224,7 +6224,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           ],
           "securityGroups": [
             {
-		       "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
+               "$ref": "#/resources/AWS::EC2::SecurityGroup/ManagedLBSecurityGroup/status/groupID"
             }
           ]
         }
@@ -6242,7 +6242,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
-			"timeoutSeconds": 10,
+            "timeoutSeconds": 10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -6438,7 +6438,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
-			"timeoutSeconds": 10,
+            "timeoutSeconds": 10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
@@ -6579,7 +6579,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
             "port": "traffic-port",
             "protocol": "TCP",
             "intervalSeconds": 10,
-			"timeoutSeconds": 10,
+            "timeoutSeconds": 10,
             "healthyThresholdCount": 3,
             "unhealthyThresholdCount": 3
           },
