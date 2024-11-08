@@ -99,4 +99,6 @@ const (
 	SvcLBSuffixSecurityGroupPrefixLists                  = "aws-load-balancer-security-group-prefix-lists"
 	SvcLBSuffixlsAttsAnnotationPrefix                    = "aws-load-balancer-listener-attributes"
 	SvcLBSuffixMultiClusterTargetGroup                   = "aws-load-balancer-multi-cluster-target-group"
+	ScvLBSuffixEnablePrefixForIpv6SourceNat              = "aws-load-balancer-enable-prefix-for-ipv6-source-nat"
+	ScvLBSuffixSourceNatIpv6Prefixes                     = "aws-load-balancer-source-nat-ipv6-prefixes"
 )

@@ -5,6 +5,7 @@ import (
 	"errors"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -200,13 +201,14 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 
 func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 	tests := []struct {
-		name          string
-		ipAddressType elbv2.IPAddressType
-		scheme        elbv2.LoadBalancerScheme
-		subnets       []ec2types.Subnet
-		want          []elbv2.SubnetMapping
-		svc           *corev1.Service
-		wantErr       error
+		name                         string
+		ipAddressType                elbv2.IPAddressType
+		enablePrefixForIpv6SourceNat elbv2.EnablePrefixForIpv6SourceNat
+		scheme                       elbv2.LoadBalancerScheme
+		subnets                      []ec2types.Subnet
+		want                         []elbv2.SubnetMapping
+		svc                          *corev1.Service
+		wantErr                      error
 	}{
 		{
 			name:          "ipv4 - with auto-assigned addresses",
@@ -908,6 +910,223 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:                         "dualstack - source-nat-ipv6-prefixes - should throw error if enable-prefix-for-ipv6-source-nat is not provided or is off, but still source-nat-ipv6-prefixes is provided",
+			ipAddressType:                elbv2.IPAddressTypeDualStack,
+			scheme:                       elbv2.LoadBalancerSchemeInternal,
+			enablePrefixForIpv6SourceNat: elbv2.EnablePrefixForIpv6SourceNatOff,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2.SubnetCidrBlockStateCodeAssociated,
+							},
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes": "2600:1f13:837:8504::1/80",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errors.New("source-nat-ipv6-prefixes annotation is only applicable if enable-prefix-for-ipv6-source-nat annotation is set to on."),
+		},
+		{
+			name:                         "dualstack - source-nat-ipv6-prefixes - should throw error if its not dualstack nlb, but source-nat-ipv6-prefixes is set",
+			ipAddressType:                elbv2.IPAddressTypeIPV4,
+			scheme:                       elbv2.LoadBalancerSchemeInternal,
+			enablePrefixForIpv6SourceNat: elbv2.EnablePrefixForIpv6SourceNatOn,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2.SubnetCidrBlockStateCodeAssociated,
+							},
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes": "2600:1f13:837:8504::1/80",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errors.New("source-nat-ipv6-prefixes annotation can only be set for Network Load Balancers using Dualstack IP address type."),
+		},
+		{
+			name:                         "dualstack - source-nat-ipv6-prefixes - should throw error if source-nat-ipv6-prefix is not a valid IPv6 CIDR -1",
+			ipAddressType:                elbv2.IPAddressTypeDualStack,
+			scheme:                       elbv2.LoadBalancerSchemeInternal,
+			enablePrefixForIpv6SourceNat: elbv2.EnablePrefixForIpv6SourceNatOn,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2.SubnetCidrBlockStateCodeAssociated,
+							},
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes": "2600:1f13:837:8766:6766:7987:6666:1:999/80",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errors.New("Invalid value in source-nat-ipv6-prefixes: 2600:1f13:837:8766:6766:7987:6666:1:999/80. Value must be a valid IPv6 CIDR."),
+		},
+		{
+			name:                         "dualstack - source-nat-ipv6-prefixes - should throw error if source-nat-ipv6-prefix is not a valid IPv6 CIDR -2",
+			ipAddressType:                elbv2.IPAddressTypeDualStack,
+			scheme:                       elbv2.LoadBalancerSchemeInternal,
+			enablePrefixForIpv6SourceNat: elbv2.EnablePrefixForIpv6SourceNatOn,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2.SubnetCidrBlockStateCodeAssociated,
+							},
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes": "2600:1f13:837:87667::/80",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errors.New("Invalid value in source-nat-ipv6-prefixes: 2600:1f13:837:87667::/80. Value must be a valid IPv6 CIDR."),
+		},
+		{
+			name:                         "dualstack - source-nat-ipv6-prefixes - should throw error if source-nat-ipv6-prefix is not a valid IPv6 CIDR -3",
+			ipAddressType:                elbv2.IPAddressTypeDualStack,
+			scheme:                       elbv2.LoadBalancerSchemeInternal,
+			enablePrefixForIpv6SourceNat: elbv2.EnablePrefixForIpv6SourceNatOn,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2.SubnetCidrBlockStateCodeAssociated,
+							},
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes": "2600:1f13:837:8766:77:789:9:9::/80",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errors.New("Invalid value in source-nat-ipv6-prefixes: 2600:1f13:837:8766:77:789:9:9::/80. Value must be a valid IPv6 CIDR."),
+		},
+		{
+			name:                         "dualstack - source-nat-ipv6-prefixes - should throw error if source-nat-ipv6-prefix within subnet CIDR range",
+			ipAddressType:                elbv2.IPAddressTypeDualStack,
+			scheme:                       elbv2.LoadBalancerSchemeInternal,
+			enablePrefixForIpv6SourceNat: elbv2.EnablePrefixForIpv6SourceNatOn,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2.SubnetCidrBlockStateCodeAssociated,
+							},
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes": "2601:1f13:837:8500:009::/80",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errors.New("Invalid value in source-nat-ipv6-prefixes: 2601:1f13:837:8500:009::/80. Value must be within subnet CIDR range: [2600:1f13:837:8500::/64]."),
+		},
+		{
+			name:                         "dualstack - source-nat-ipv6-prefixes - should throw error if source-nat-ipv6-prefix doesnt have allowed prefix length of 80",
+			ipAddressType:                elbv2.IPAddressTypeDualStack,
+			scheme:                       elbv2.LoadBalancerSchemeInternal,
+			enablePrefixForIpv6SourceNat: elbv2.EnablePrefixForIpv6SourceNatOn,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2.SubnetCidrBlockStateCodeAssociated,
+							},
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes": "2600:1f13:837:8500:9::/70",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: errors.New("Invalid value in source-nat-ipv6-prefixes: 2600:1f13:837:8500:9::/70. Prefix length must be 80, but 70 is specified."),
+		},
 	}
 
 	for _, tt := range tests {
@@ -917,7 +1136,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 
 			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: annotationParser}
-			got, err := builder.buildLoadBalancerSubnetMappings(context.Background(), tt.ipAddressType, tt.scheme, tt.subnets)
+			got, err := builder.buildLoadBalancerSubnetMappings(context.Background(), tt.ipAddressType, tt.scheme, tt.subnets, tt.enablePrefixForIpv6SourceNat)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1238,6 +1457,144 @@ func Test_defaultModelBuildTask_buildLoadBalancerIPAddressType(t *testing.T) {
 			got, err := builder.buildLoadBalancerIPAddressType(context.Background())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildLoadBalancerIPAddressType() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("buildLoadBalancerIPAddressType() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildLoadBalancerEnablePrefixForIpv6SourceNat(t *testing.T) {
+	tests := []struct {
+		name          string
+		subnets       []ec2types.Subnet
+		ipAddressType elbv2.IPAddressType
+		service       *corev1.Service
+		want          elbv2.EnablePrefixForIpv6SourceNat
+		wantErr       error
+	}{
+		{
+			name:          "should error out if EnablePrefixForIpv6SourceNat is set to on for ipv4 address Type NLB",
+			ipAddressType: elbv2.IPAddressTypeIPV4,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+				}},
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat": elbv2.ON},
+				},
+			},
+			want:    "",
+			wantErr: errors.New("enable-prefix-for-ipv6-source-nat annotation is only applicable to Network Load Balancers using Dualstack IP address type."),
+		},
+		{
+			name:          "should error out if EnablePrefixForIpv6SourceNat is set to on for dualstack NLB which doesnt have ipv6 Cidr subnet",
+			ipAddressType: elbv2.IPAddressTypeDualStack,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+				}},
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat": elbv2.ON},
+				},
+			},
+			want:    "",
+			wantErr: errors.New("To enable prefix for source NAT, all associated subnets must have an IPv6 CIDR. Subnets without IPv6 CIDR: [subnet-1]."),
+		},
+		{
+			name:          "should error out if EnablePrefixForIpv6SourceNat value is set to something else than allowed values on or off",
+			ipAddressType: elbv2.IPAddressTypeDualStack,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+				}},
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat": "randomValue"},
+				},
+			},
+			want:    "",
+			wantErr: errors.New("Invalid enable-prefix-for-ipv6-source-nat value: randomValue. Valid values are ['on', 'off']."),
+		},
+		{
+			name:          "should return EnablePrefixForIpv6SourceNat as on if annotation value is on",
+			ipAddressType: elbv2.IPAddressTypeDualStack,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2.SubnetCidrBlockStateCodeAssociated,
+							},
+						},
+					},
+				}},
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat": elbv2.ON},
+				},
+			},
+			want:    elbv2.ON,
+			wantErr: nil,
+		},
+
+		{
+			name:          "should return EnablePrefixForIpv6SourceNat as off if annotation value is off",
+			ipAddressType: elbv2.IPAddressTypeDualStack,
+			subnets: []ec2types.Subnet{
+				{
+					SubnetId:         aws.String("subnet-1"),
+					AvailabilityZone: aws.String("us-west-2a"),
+					VpcId:            aws.String("vpc-1"),
+					CidrBlock:        aws.String("192.168.1.0/24"),
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
+						{
+							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2.SubnetCidrBlockStateCodeAssociated,
+							},
+						},
+					},
+				}},
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat": elbv2.OFF},
+				},
+			},
+			want:    elbv2.OFF,
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			builder := &defaultModelBuildTask{
+				annotationParser:     parser,
+				service:              tt.service,
+				defaultIPAddressType: elbv2.IPAddressTypeIPV4,
+			}
+
+			got, err := builder.buildLoadBalancerEnablePrefixForIpv6SourceNat(context.Background(), tt.ipAddressType, tt.subnets)
+			if err != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
 				return
 			}
 			if got != tt.want {

@@ -188,6 +188,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "securityGroupsInboundRulesOnPrivateLink":"on",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -339,6 +340,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "scheme":"internet-facing",
              "securityGroupsInboundRulesOnPrivateLink":"on",
              "ipAddressType":"dualstack",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -525,6 +527,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "securityGroupsInboundRulesOnPrivateLink":"off",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -851,6 +854,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-33e41aa671",
              "type":"network",
              "scheme":"internet-facing",
+             "enablePrefixForIpv6SourceNat":"off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -1213,6 +1217,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -1486,6 +1491,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internet-facing",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -1777,6 +1783,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -2001,6 +2008,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "ipAddressType": "ipv4",
           "name": "k8s-default-iptarget-b44ef5a42d",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -2169,6 +2177,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
       "LoadBalancer": {
         "spec": {
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "name": "k8s-default-defaulti-b44ef5a42d",
           "subnetMapping": [
             {
@@ -2447,6 +2456,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internal",
           "ipAddressType": "dualstack",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -2597,6 +2607,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internet-facing",
           "ipAddressType": "dualstack",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -2800,6 +2811,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internal",
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -2967,6 +2979,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-manualsg-7af4592f28",
              "type":"network",
              "scheme":"internal",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -3115,6 +3128,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-6b0ba8ff70",
              "type":"network",
              "scheme":"internal",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -3299,6 +3313,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internet-facing",
              "ipAddressType":"dualstack",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -3518,6 +3533,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-518cdfc227",
              "type":"network",
              "scheme":"internal",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -3837,6 +3853,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-33e41aa671",
              "type":"network",
              "scheme":"internet-facing",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -4168,6 +4185,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-instance-7ca1de7e6c",
              "type":"network",
              "scheme":"internal",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -4500,6 +4518,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-app-trafficl-2af705447d",
              "type":"network",
              "scheme":"internet-facing",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -4850,6 +4869,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-app-trafficl-2af705447d",
              "type":"network",
              "scheme":"internet-facing",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -5117,6 +5137,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -5354,6 +5375,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
       "LoadBalancer": {
         "spec": {
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "name": "k8s-default-iptarget-b44ef5a42d",
           "subnetMapping": [
             {
@@ -5512,6 +5534,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "name": "k8s-default-trafficl-6652458428",
           "type": "network",
           "scheme": "internal",
+          "enablePrefixForIpv6SourceNat": "off",
           "ipAddressType": "dualstack",
           "subnetMapping": [
             {
@@ -5697,6 +5720,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internet-facing",
           "ipAddressType": "dualstack",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -5880,6 +5904,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internal",
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -6076,6 +6101,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internal",
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -6214,6 +6240,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "name": "k8s-default-manualse-6b0ba8ff70",
           "type": "network",
           "scheme": "internal",
+          "enablePrefixForIpv6SourceNat": "off",
           "ipAddressType": "ipv4",
           "subnetMapping": [
             {
