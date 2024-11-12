@@ -57,6 +57,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat](#enable-prefix-for-ipv6-source-nat)         | string                  | off                       | Optional annotation. dualstack lb only. Allowed values - on and off                                                                                                                                                                 |
 | [service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes](#source-nat-ipv6-prefixes)        | stringList                  |                           | Optional annotation. dualstack lb only. This annotation is only applicable when user has to set the service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat to "on". Length must match the number of subnets |
 | [service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity](#load-balancer-capacity-reservation)                 | stringMap                  |                           |
+| [service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery](#icmp-path-mtu-discovery)        | string                  |                           | If specified, a security group rule is added to the managed security group to allow explicit ICMP traffic for [Path MTU discovery](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html#path_mtu_discovery) for IPv4 and dual-stack VPCs. Creates a rule for each source range if `service.beta.kubernetes.io/load-balancer-source-ranges` is present.  |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -190,6 +191,13 @@ on the load balancer.
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses: 2600:1f13:837:8501::1, 2600:1f13:837:8504::1
+        ```
+
+- <a name="icmp-path-mtu-discovery">`service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery`</a> enables the creation of security group rules to the managed security group to allow explicit ICMP traffic for [Path MTU discovery](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html#path_mtu_discovery) for IPv4 and dual-stack VPCs. Creates a rule for each source range if `service.beta.kubernetes.io/load-balancer-source-ranges` is present.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery: "on"
         ```
 
 ## Traffic Listening
