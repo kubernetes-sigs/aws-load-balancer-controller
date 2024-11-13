@@ -1,11 +1,11 @@
-package metrics
+package aws
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
-	metricSubsystemAWS = "aws"
+	metricSubSystem = "aws"
 
 	metricAPICallsTotal          = "api_calls_total"
 	metricAPICallDurationSeconds = "api_call_duration_seconds"
@@ -31,55 +31,41 @@ type instruments struct {
 }
 
 // newInstruments allocates and register new metrics to registerer
-func newInstruments(registerer prometheus.Registerer) (*instruments, error) {
+func newInstruments(registerer prometheus.Registerer) *instruments {
 	apiCallsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Subsystem: metricSubsystemAWS,
+		Subsystem: metricSubSystem,
 		Name:      metricAPICallsTotal,
 		Help:      "Total number of SDK API calls from the customer's code to AWS services",
 	}, []string{labelService, labelOperation, labelStatusCode, labelErrorCode})
 	apiCallDurationSeconds := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Subsystem: metricSubsystemAWS,
+		Subsystem: metricSubSystem,
 		Name:      metricAPICallDurationSeconds,
 		Help:      "Perceived latency from when your code makes an SDK call, includes retries",
 	}, []string{labelService, labelOperation})
 	apiCallRetries := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Subsystem: metricSubsystemAWS,
+		Subsystem: metricSubSystem,
 		Name:      metricAPICallRetries,
 		Help:      "Number of times the SDK retried requests to AWS services for SDK API calls",
 		Buckets:   []float64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
 	}, []string{labelService, labelOperation})
 
 	apiRequestsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
-		Subsystem: metricSubsystemAWS,
+		Subsystem: metricSubSystem,
 		Name:      metricAPIRequestsTotal,
 		Help:      "Total number of HTTP requests that the SDK made",
 	}, []string{labelService, labelOperation, labelStatusCode, labelErrorCode})
 	apiRequestDurationSecond := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Subsystem: metricSubsystemAWS,
+		Subsystem: metricSubSystem,
 		Name:      metricAPIRequestDurationSeconds,
 		Help:      "Latency of an individual HTTP request to the service endpoint",
 	}, []string{labelService, labelOperation})
 
-	if err := registerer.Register(apiCallsTotal); err != nil {
-		return nil, err
-	}
-	if err := registerer.Register(apiCallDurationSeconds); err != nil {
-		return nil, err
-	}
-	if err := registerer.Register(apiCallRetries); err != nil {
-		return nil, err
-	}
-	if err := registerer.Register(apiRequestsTotal); err != nil {
-		return nil, err
-	}
-	if err := registerer.Register(apiRequestDurationSecond); err != nil {
-		return nil, err
-	}
+	registerer.MustRegister(apiCallsTotal, apiCallDurationSeconds, apiCallRetries, apiRequestsTotal, apiRequestDurationSecond)
 	return &instruments{
 		apiCallsTotal:            apiCallsTotal,
 		apiCallDurationSeconds:   apiCallDurationSeconds,
 		apiCallRetries:           apiCallRetries,
 		apiRequestsTotal:         apiRequestsTotal,
 		apiRequestDurationSecond: apiRequestDurationSecond,
-	}, nil
+	}
 }

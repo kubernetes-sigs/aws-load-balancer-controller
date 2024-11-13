@@ -1,4 +1,4 @@
-package metrics
+package aws
 
 import (
 	"context"
@@ -18,24 +18,21 @@ const (
 	sdkMiddlewareCollectAPIRequestMetric = "collectAPIRequestMetric"
 )
 
-type collector struct {
+type Collector struct {
 	instruments *instruments
 }
 
-func NewCollector(registerer prometheus.Registerer) (*collector, error) {
-	instruments, err := newInstruments(registerer)
-	if err != nil {
-		return nil, err
-	}
-	return &collector{
+func NewCollector(registerer prometheus.Registerer) *Collector {
+	instruments := newInstruments(registerer)
+	return &Collector{
 		instruments: instruments,
-	}, nil
+	}
 }
 
 /*
 WithSDKMetricCollector is a function that collects prometheus metrics for the AWS SDK Go v2 API calls ad requests
 */
-func WithSDKMetricCollector(c *collector, apiOptions []func(*smithymiddleware.Stack) error) []func(*smithymiddleware.Stack) error {
+func WithSDKMetricCollector(c *Collector, apiOptions []func(*smithymiddleware.Stack) error) []func(*smithymiddleware.Stack) error {
 	apiOptions = append(apiOptions, func(stack *smithymiddleware.Stack) error {
 		return WithSDKCallMetricCollector(c)(stack)
 	}, func(stack *smithymiddleware.Stack) error {
@@ -48,7 +45,7 @@ func WithSDKMetricCollector(c *collector, apiOptions []func(*smithymiddleware.St
 WithSDKCallMetricCollector is a middleware for the AWS SDK Go v2 that collects and reports metrics on API calls.
 The call metrics are collected after the call is completed
 */
-func WithSDKCallMetricCollector(c *collector) func(stack *smithymiddleware.Stack) error {
+func WithSDKCallMetricCollector(c *Collector) func(stack *smithymiddleware.Stack) error {
 	return func(stack *smithymiddleware.Stack) error {
 		return stack.Initialize.Add(smithymiddleware.InitializeMiddlewareFunc(sdkMiddlewareCollectAPICallMetric, func(
 			ctx context.Context, input smithymiddleware.InitializeInput, next smithymiddleware.InitializeHandler,
@@ -91,7 +88,7 @@ func WithSDKCallMetricCollector(c *collector) func(stack *smithymiddleware.Stack
 WithSDKRequestMetricCollector is a middleware for the AWS SDK Go v2 that collects and reports metrics on API requests.
 The request metrics are collected after each retry attempts
 */
-func WithSDKRequestMetricCollector(c *collector) func(stack *smithymiddleware.Stack) error {
+func WithSDKRequestMetricCollector(c *Collector) func(stack *smithymiddleware.Stack) error {
 	return func(stack *smithymiddleware.Stack) error {
 		return stack.Finalize.Add(smithymiddleware.FinalizeMiddlewareFunc(sdkMiddlewareCollectAPIRequestMetric, func(
 			ctx context.Context, input smithymiddleware.FinalizeInput, next smithymiddleware.FinalizeHandler,

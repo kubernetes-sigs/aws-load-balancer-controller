@@ -39,6 +39,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
@@ -81,7 +83,14 @@ func main() {
 	ctrl.SetLogger(appLogger)
 	klog.SetLoggerWithOptions(appLogger, klog.ContextualLogger(true))
 
-	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, metrics.Registry, ctrl.Log, nil)
+	var awsMetricsCollector *awsmetrics.Collector
+	lbcMetricsCollector := lbcmetrics.NewCollector(metrics.Registry)
+
+	if metrics.Registry != nil {
+		awsMetricsCollector = awsmetrics.NewCollector(metrics.Registry)
+	}
+
+	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, awsMetricsCollector, ctrl.Log, nil)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize AWS cloud")
 		os.Exit(1)
@@ -113,7 +122,7 @@ func main() {
 	subnetResolver := networking.NewDefaultSubnetsResolver(azInfoProvider, cloud.EC2(), cloud.VpcID(), controllerCFG.ClusterName, ctrl.Log.WithName("subnets-resolver"))
 	multiClusterManager := targetgroupbinding.NewMultiClusterManager(mgr.GetClient(), mgr.GetAPIReader(), ctrl.Log)
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), cloud.EC2(),
-		podInfoRepo, sgManager, sgReconciler, vpcInfoProvider, multiClusterManager,
+		podInfoRepo, sgManager, sgReconciler, vpcInfoProvider, multiClusterManager, lbcMetricsCollector,
 		cloud.VpcID(), controllerCFG.ClusterName, controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices, controllerCFG.DisableRestrictedSGRules,
 		controllerCFG.ServiceTargetENISGTags, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
 	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
