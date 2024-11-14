@@ -53,6 +53,11 @@ import (
 	// +kubebuilder:scaffold:imports
 )
 
+const (
+	clusterSgRuleLabelPrefix = "elbv2.k8s.aws"
+	clusterTagPrefix         = "elbv2.k8s.aws"
+)
+
 var (
 	scheme   = k8sruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
@@ -115,9 +120,9 @@ func main() {
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), cloud.EC2(),
 		podInfoRepo, sgManager, sgReconciler, vpcInfoProvider, multiClusterManager,
 		cloud.VpcID(), controllerCFG.ClusterName, controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices, controllerCFG.DisableRestrictedSGRules,
-		controllerCFG.ServiceTargetENISGTags, controllerCFG.ResourceTrackingConfiguration[config.ClusterSgRuleLabelPrefixKey], mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
+		controllerCFG.ServiceTargetENISGTags, clusterSgRuleLabelPrefix, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
 	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
-		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.ResourceTrackingConfiguration[config.ClusterTagPrefixKey], controllerCFG.ResourceTrackingConfiguration[config.BackendSGNamePrefixKey], controllerCFG.DefaultTags, ctrl.Log.WithName("backend-sg-provider"))
+		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), clusterTagPrefix, controllerCFG.DefaultTags, ctrl.Log.WithName("backend-sg-provider"))
 	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerCFG.FeatureGates, cloud.RGT(), ctrl.Log)
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),

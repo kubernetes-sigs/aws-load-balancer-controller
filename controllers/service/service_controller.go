@@ -31,6 +31,9 @@ const (
 	serviceFinalizer        = "service.k8s.aws/resources"
 	serviceAnnotationPrefix = "service.beta.kubernetes.io"
 	controllerName          = "service"
+
+	clusterTagPrefix = "elbv2.k8s.aws"
+	serviceTagPrefix = "service.k8s.aws"
 )
 
 func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
@@ -40,14 +43,14 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger) *serviceReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
-	trackingProvider := tracking.NewDefaultProvider(controllerConfig.ResourceTrackingConfiguration[config.ClusterTagPrefixKey], controllerConfig.ResourceTrackingConfiguration[config.ServiceTagPrefixKey], controllerConfig.ClusterName)
+	trackingProvider := tracking.NewDefaultProvider(clusterTagPrefix, serviceTagPrefix, controllerConfig.ClusterName)
 	serviceUtils := service.NewServiceUtils(annotationParser, serviceFinalizer, controllerConfig.ServiceConfig.LoadBalancerClass, controllerConfig.FeatureGates)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
 		elbv2TaggingManager, cloud.EC2(), controllerConfig.FeatureGates, controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), serviceUtils,
 		backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, controllerConfig.ResourceTrackingConfiguration[config.ClusterTagPrefixKey], controllerConfig.ResourceTrackingConfiguration[config.ServiceTagPrefixKey], logger)
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, clusterTagPrefix, serviceTagPrefix, logger)
 	return &serviceReconciler{
 		k8sClient:         k8sClient,
 		eventRecorder:     eventRecorder,
