@@ -187,7 +187,7 @@ func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context,
 
 	t.secretKeys = append(t.secretKeys, secretKey)
 	clientID := strings.TrimRightFunc(string(rawClientID), unicode.IsSpace)
-	clientSecret := string(rawClientSecret)
+	clientSecret := strings.TrimRightFunc(string(rawClientSecret), unicode.IsControl)
 	return elbv2model.Action{
 		Type: elbv2model.ActionTypeAuthenticateOIDC,
 		AuthenticateOIDCConfig: &elbv2model.AuthenticateOIDCActionConfig{
