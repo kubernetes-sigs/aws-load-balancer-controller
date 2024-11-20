@@ -160,7 +160,11 @@ func (r *defaultEndpointResolver) resolvePodEndpointsWithEndpointsData(ctx conte
 				}
 				epAddr := ep.Addresses[0]
 
-				podKey := types.NamespacedName{Namespace: svcKey.Namespace, Name: ep.TargetRef.Name}
+				podNamespace := svcKey.Namespace
+				if ep.TargetRef.Namespace != "" {
+					podNamespace = ep.TargetRef.Namespace
+				}
+				podKey := types.NamespacedName{Namespace: podNamespace, Name: ep.TargetRef.Name}
 				pod, exists, err := r.podInfoRepo.Get(ctx, podKey)
 				if err != nil {
 					return nil, false, err
