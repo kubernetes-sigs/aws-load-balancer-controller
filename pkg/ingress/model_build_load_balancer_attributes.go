@@ -9,6 +9,14 @@ import (
 // buildIngressGroupLoadBalancerAttributes builds the LB attributes for a group of Ingresses.
 func (t *defaultModelBuildTask) buildIngressGroupLoadBalancerAttributes(ingList []ClassifiedIngress) (map[string]string, error) {
 	ingGroupAttributes := make(map[string]string)
+	ingClassAttributes := make(map[string]string)
+	if len(ingList) > 0 {
+		var err error
+		ingClassAttributes, err = t.buildIngressClassLoadBalancerAttributes(ingList[0].IngClassConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
 	for _, ing := range ingList {
 		ingAttributes, err := t.buildIngressLoadBalancerAttributes(ing)
 		if err != nil {
@@ -18,18 +26,22 @@ func (t *defaultModelBuildTask) buildIngressGroupLoadBalancerAttributes(ingList 
 		for attrKey, attrValue := range ingAttributes {
 			existingAttrValue, exists := ingGroupAttributes[attrKey]
 			if exists && existingAttrValue != attrValue {
-				return nil, errors.Errorf("conflicting attributes %v: %v | %v", attrKey, existingAttrValue, attrValue)
+				if ingClassValue, exists := ingClassAttributes[attrKey]; exists {
+					// Conflict is resolved by ingClassAttributes, show a warning
+					t.logger.Info("load balancer attribute conflict resolved by ingress class",
+						"attributeKey", attrKey,
+						"existingValue", existingAttrValue,
+						"newValue", attrValue,
+						"ingClassValue", ingClassValue)
+				} else {
+					// Conflict is not resolved by ingClassAttributes, return an error
+					return nil, errors.Errorf("conflicting load balancer attributes %v: %v | %v", attrKey, existingAttrValue, attrValue)
+				}
 			}
 			ingGroupAttributes[attrKey] = attrValue
 		}
 	}
-	if len(ingList) > 0 {
-		ingClassAttributes, err := t.buildIngressClassLoadBalancerAttributes(ingList[0].IngClassConfig)
-		if err != nil {
-			return nil, err
-		}
-		return algorithm.MergeStringMap(ingClassAttributes, ingGroupAttributes), nil
-	}
+	ingGroupAttributes = algorithm.MergeStringMap(ingClassAttributes, ingGroupAttributes)
 	return ingGroupAttributes, nil
 }
 

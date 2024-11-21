@@ -60,6 +60,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)                                   | stringMap                   |N/A| Ingress,Service | N/A           |
 | [alb.ingress.kubernetes.io/mutual-authentication](#mutual-authentication)                             | json                        |N/A| Ingress         | Exclusive     |
 | [alb.ingress.kubernetes.io/multi-cluster-target-group](#multi-cluster-target-group)                   | boolean                     |N/A| Ingress, Service | N/A           |
+| [alb.ingress.kubernetes.io/listener-attributes.${Protocol}-${Port}](#listener-attributes)                           | stringMap                        |N/A| Ingress         |Merge|
 | [alb.ingress.kubernetes.io/minimum-load-balancer-capacity](#load-balancer-capacity-reservation)                       | stringMap                   |N/A| Ingress         | Exclusive     |
 
 ## IngressGroup
@@ -903,6 +904,14 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
     ```
     alb.ingress.kubernetes.io/multi-cluster-target-group: "true"
     ```
+
+- <a name="listener-attributes">`alb.ingress.kubernetes.io/listener-attributes.${Protocol}-${Port}`</a> specifies Listener Attributes which should be applied to listener.
+
+    !!!example
+        - Server header enablement attribute
+            ```
+            alb.ingress.kubernetes.io/listener-attributes.HTTP-80: routing.http.response.server.enabled=true
+            ```
 
 
 ## Resource Tags

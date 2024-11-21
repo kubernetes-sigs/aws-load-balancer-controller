@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -269,6 +270,89 @@ func Test_buildListenerAttributes(t *testing.T) {
 				{
 					Key:   "attrKey2",
 					Value: "attrValue2",
+				},
+			},
+		},
+		{
+			name: "Ignore conflicting value when the key is specified by ingress class param",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Name: "explicit-group"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-6",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
+										"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "attrKey1=attrValue1",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &elbv2api.IngressClassParams{
+									ObjectMeta: metav1.ObjectMeta{
+										Name: "awesome-class",
+									},
+									Spec: elbv2api.IngressClassParamsSpec{
+										Listeners: []elbv2api.Listener{
+											{
+												Protocol: "HTTP",
+												Port:     80,
+												ListenerAttributes: []elbv2api.Attribute{
+													{
+														Key:   "attrKey1",
+														Value: "attrValue1",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-7",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
+										"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "attrKey1=attrValue2",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &elbv2api.IngressClassParams{
+									ObjectMeta: metav1.ObjectMeta{
+										Name: "awesome-class",
+									},
+									Spec: elbv2api.IngressClassParamsSpec{
+										Listeners: []elbv2api.Listener{
+											{
+												Protocol: "HTTP",
+												Port:     80,
+												ListenerAttributes: []elbv2api.Attribute{
+													{
+														Key:   "attrKey1",
+														Value: "attrValue1",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantValue: []elbv2model.ListenerAttribute{
+				{
+					Key:   "attrKey1",
+					Value: "attrValue1",
 				},
 			},
 		},
