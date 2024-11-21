@@ -2,13 +2,14 @@ package ingress
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"testing"
 )
 
 func Test_defaultModelBuildTask_buildIngressGroupLoadBalancerAttributes(t *testing.T) {
@@ -82,7 +83,7 @@ func Test_defaultModelBuildTask_buildIngressGroupLoadBalancerAttributes(t *testi
 					},
 				},
 			},
-			wantErr: errors.New("conflicting attributes deletion_protection.enabled: true | false"),
+			wantErr: errors.New("conflicting load balancer attributes deletion_protection.enabled: true | false"),
 		},
 		{
 			name: "non-empty annotation attributes from single Ingress, non-empty IngressClass attributes - has overlap attributes",
