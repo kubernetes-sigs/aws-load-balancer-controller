@@ -430,3 +430,12 @@ loadBalancerClass:
 
 # creator will disable helm default labels, so you can only add yours
 # creator: "me"
+
+# custom resource definitions configuration
+crds:
+  # retain CRDs upon chart uninstall
+  keep: true
+  # install CRDs 
+  install: true
+  # pass in annotations to CRDs
+  annotations: {}
