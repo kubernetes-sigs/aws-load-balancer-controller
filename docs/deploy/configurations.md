@@ -104,6 +104,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 | [sync-period](#sync-period)                                                     | duration                        | 10h0m0s                                    | Period at which the controller forces the repopulation of its local object stores                                                              |
 | targetgroupbinding-max-concurrent-reconciles                                    | int                       | 3                                          | Maximum number of concurrently running reconcile loops for targetGroupBinding                                                                  |
 | targetgroupbinding-max-exponential-backoff-delay                                | duration              | 16m40s                                     | Maximum duration of exponential backoff for targetGroupBinding reconcile failures                                                              |
+| [lb-stabilization-monitor-interval](#lb-stabilization-monitor-interval)         | duration                        | 2m                               | Interval at which the controller monitors the state of load balancer after creation
 | tolerate-non-existent-backend-service                                           | boolean                         | true                                       | Whether to allow rules which refer to backend services that do not exist (When enabled, it will return 503 error if backend service not exist) |
 | tolerate-non-existent-backend-action                                            | boolean                         | true                                       | Whether to allow rules which refer to backend actions that do not exist (When enabled, it will return 503 error if backend action not exist)   |
 | watch-namespace                                                                 | string                          |                                            | Namespace the controller watches for updates to Kubernetes objects, If empty, all namespaces are watched.                                      |
@@ -136,6 +137,9 @@ Once disabled:
 `--sync-period` defines a fixed interval for the controller to reconcile all resources even if there is no change, default to 10 hr. Please be mindful that frequent reconciliations may incur unnecessary AWS API usage.
 
 As best practice, we do not recommend users to manually modify the resources managed by the controller. And users should not depend on the controller auto-reconciliation to revert the manual modification, or to mitigate any security risks.
+
+### lb-stabilization-monitor-interval
+`--lb-stabilization-monitor-interval` defines a fixed interval for the controller to monitor the state of load balancer after the creation for stabilization, default to 2m. It monitors the load balancer state so that once it becomes active it can make the required updates like capacity reservation for the active load balancer. It calls DescribeLoadBalancer API at a fixed interval to monitor the state. Please be mindful that lower value will result into frequent calls which may incur unnecessary AWS API usage.
 
 ### waf-addons
 By default, the controller assumes sole ownership of the WAF addons associated to the provisioned ALBs, via the flag `--enable-waf` and `--enable-wafv2`.
@@ -177,3 +181,4 @@ There are a set of key=value pairs that describe AWS load balancer controller fe
 | NLBHealthCheckAdvancedConfiguration   | string                          | true          | Enable or disable advanced health check configuration for NLB, for example health check timeout                                                                                      |
 | ALBSingleSubnet                       | string                          | false         | If enabled, controller will allow using only 1 subnet for provisioning ALB, which need to get whitelisted by ELB in advance                                                          |
 | NLBSecurityGroup                      | string                          | true          | Enable or disable all NLB security groups actions including frontend sg creation, backend sg creation, and backend sg modifications                                                  |
+| LBCapacityReservation                 | string                          | true          | Enable or disable the capacity reservation feature on ALB and NLB

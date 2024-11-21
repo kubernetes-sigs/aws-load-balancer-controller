@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -16,7 +17,7 @@ import (
 
 // LoadBalancerManager is responsible for create/update/delete LoadBalancer resources.
 type LoadBalancerManager interface {
-	Create(ctx context.Context, resLB *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, error)
+	Create(ctx context.Context, resLB *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, LoadBalancerWithTags, error)
 
 	Update(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) (elbv2model.LoadBalancerStatus, error)
 
@@ -25,14 +26,16 @@ type LoadBalancerManager interface {
 
 // NewDefaultLoadBalancerManager constructs new defaultLoadBalancerManager.
 func NewDefaultLoadBalancerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger) *defaultLoadBalancerManager {
+	taggingManager TaggingManager, externalManagedTags []string, featureGates config.FeatureGates, logger logr.Logger) *defaultLoadBalancerManager {
 	return &defaultLoadBalancerManager{
-		elbv2Client:          elbv2Client,
-		trackingProvider:     trackingProvider,
-		taggingManager:       taggingManager,
-		attributesReconciler: NewDefaultLoadBalancerAttributeReconciler(elbv2Client, logger),
-		externalManagedTags:  externalManagedTags,
-		logger:               logger,
+		elbv2Client:                   elbv2Client,
+		trackingProvider:              trackingProvider,
+		taggingManager:                taggingManager,
+		attributesReconciler:          NewDefaultLoadBalancerAttributeReconciler(elbv2Client, logger),
+		capacityReservationReconciler: NewDefaultLoadBalancerCapacityReservationReconciler(elbv2Client, featureGates, logger),
+		externalManagedTags:           externalManagedTags,
+		featureGates:                  featureGates,
+		logger:                        logger,
 	}
 }
 
@@ -40,19 +43,20 @@ var _ LoadBalancerManager = &defaultLoadBalancerManager{}
 
 // defaultLoadBalancerManager implement LoadBalancerManager
 type defaultLoadBalancerManager struct {
-	elbv2Client          services.ELBV2
-	trackingProvider     tracking.Provider
-	taggingManager       TaggingManager
-	attributesReconciler LoadBalancerAttributeReconciler
-	externalManagedTags  []string
-
-	logger logr.Logger
+	elbv2Client                   services.ELBV2
+	trackingProvider              tracking.Provider
+	taggingManager                TaggingManager
+	attributesReconciler          LoadBalancerAttributeReconciler
+	capacityReservationReconciler LoadBalancerCapacityReservationReconciler
+	externalManagedTags           []string
+	featureGates                  config.FeatureGates
+	logger                        logr.Logger
 }
 
-func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, error) {
+func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, LoadBalancerWithTags, error) {
 	req, err := buildSDKCreateLoadBalancerInput(resLB.Spec)
 	if err != nil {
-		return elbv2model.LoadBalancerStatus{}, err
+		return elbv2model.LoadBalancerStatus{}, LoadBalancerWithTags{}, err
 	}
 	lbTags := m.trackingProvider.ResourceTags(resLB.Stack(), resLB, resLB.Spec.Tags)
 	req.Tags = convertTagsToSDKTags(lbTags)
@@ -62,7 +66,7 @@ func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2mod
 		"resourceID", resLB.ID())
 	resp, err := m.elbv2Client.CreateLoadBalancerWithContext(ctx, req)
 	if err != nil {
-		return elbv2model.LoadBalancerStatus{}, err
+		return elbv2model.LoadBalancerStatus{}, LoadBalancerWithTags{}, err
 	}
 	sdkLB := LoadBalancerWithTags{
 		LoadBalancer: &resp.LoadBalancers[0],
@@ -73,16 +77,15 @@ func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2mod
 		"resourceID", resLB.ID(),
 		"arn", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn))
 	if err := m.attributesReconciler.Reconcile(ctx, resLB, sdkLB); err != nil {
-		return elbv2model.LoadBalancerStatus{}, err
+		return elbv2model.LoadBalancerStatus{}, LoadBalancerWithTags{}, err
 	}
 
 	if resLB.Spec.Type == elbv2model.LoadBalancerTypeNetwork && resLB.Spec.SecurityGroupsInboundRulesOnPrivateLink != nil {
 		if err := m.updateSDKLoadBalancerWithSecurityGroups(ctx, resLB, sdkLB); err != nil {
-			return elbv2model.LoadBalancerStatus{}, err
+			return elbv2model.LoadBalancerStatus{}, LoadBalancerWithTags{}, err
 		}
 	}
-
-	return buildResLoadBalancerStatus(sdkLB), nil
+	return buildResLoadBalancerStatus(sdkLB), sdkLB, nil
 }
 
 func (m *defaultLoadBalancerManager) Update(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) (elbv2model.LoadBalancerStatus, error) {
