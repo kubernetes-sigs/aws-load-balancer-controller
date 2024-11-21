@@ -6,6 +6,7 @@ import (
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go"
 	"net/netip"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"time"
 
 	"k8s.io/client-go/tools/record"
@@ -37,7 +38,7 @@ type ResourceManager interface {
 // NewDefaultResourceManager constructs new defaultResourceManager.
 func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
 	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
-	vpcInfoProvider networking.VPCInfoProvider, multiClusterManager MultiClusterManager,
+	vpcInfoProvider networking.VPCInfoProvider, multiClusterManager MultiClusterManager, metricsCollector lbcmetrics.MetricCollector,
 	vpcID string, clusterName string, failOpenEnabled bool, endpointSliceEnabled bool, disabledRestrictedSGRulesFlag bool,
 	endpointSGTags map[string]string,
 	eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
@@ -60,6 +61,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		vpcInfoProvider:     vpcInfoProvider,
 		podInfoRepo:         podInfoRepo,
 		multiClusterManager: multiClusterManager,
+		metricsCollector:    metricsCollector,
 
 		requeueDuration: defaultRequeueDuration,
 	}
@@ -78,6 +80,7 @@ type defaultResourceManager struct {
 	vpcInfoProvider     networking.VPCInfoProvider
 	podInfoRepo         k8s.PodInfoRepo
 	multiClusterManager MultiClusterManager
+	metricsCollector    lbcmetrics.MetricCollector
 	vpcID               string
 
 	requeueDuration time.Duration
@@ -240,7 +243,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		return "", "", false, err
 	}
 
-	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints)
+	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints, tgb)
 	if err != nil {
 		return "", "", false, err
 	}
@@ -374,13 +377,13 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 // updateTargetHealthPodCondition will updates pod's targetHealth condition for matchedEndpointAndTargets and unmatchedEndpoints.
 // returns whether further probe is needed or not
 func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Context, targetHealthCondType corev1.PodConditionType,
-	matchedEndpointAndTargets []podEndpointAndTargetPair, unmatchedEndpoints []backend.PodEndpoint) (bool, error) {
+	matchedEndpointAndTargets []podEndpointAndTargetPair, unmatchedEndpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding) (bool, error) {
 	anyPodNeedFurtherProbe := false
 
 	for _, endpointAndTarget := range matchedEndpointAndTargets {
 		pod := endpointAndTarget.endpoint.Pod
 		targetHealth := endpointAndTarget.target.TargetHealth
-		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
+		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType, tgb)
 		if err != nil {
 			return false, err
 		}
@@ -396,7 +399,7 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 			Reason:      elbv2types.TargetHealthReasonEnumRegistrationInProgress,
 			Description: awssdk.String("Target registration is in progress"),
 		}
-		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
+		needFurtherProbe, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType, tgb)
 		if err != nil {
 			return false, err
 		}
@@ -410,7 +413,7 @@ func (m *defaultResourceManager) updateTargetHealthPodCondition(ctx context.Cont
 // updateTargetHealthPodConditionForPod updates pod's targetHealth condition for a single pod and its matched target.
 // returns whether further probe is needed or not.
 func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx context.Context, pod k8s.PodInfo,
-	targetHealth *elbv2types.TargetHealth, targetHealthCondType corev1.PodConditionType) (bool, error) {
+	targetHealth *elbv2types.TargetHealth, targetHealthCondType corev1.PodConditionType, tgb *elbv2api.TargetGroupBinding) (bool, error) {
 	if !pod.HasAnyOfReadinessGates([]corev1.PodConditionType{targetHealthCondType}) {
 		return false, nil
 	}
@@ -468,6 +471,12 @@ func (m *defaultResourceManager) updateTargetHealthPodConditionForPod(ctx contex
 		return false, err
 	}
 
+	// Only update duration on unhealthy -> healthy flips.
+	if targetHealthCondStatus == corev1.ConditionTrue && hasExistingTargetHealthCond && !existingTargetHealthCond.LastTransitionTime.IsZero() && existingTargetHealthCond.Status != corev1.ConditionTrue {
+		delta := newTargetHealthCond.LastTransitionTime.Sub(existingTargetHealthCond.LastTransitionTime.Time)
+		m.metricsCollector.ObservePodReadinessGateReady(tgb.Namespace, tgb.Name, delta)
+	}
+
 	return needFurtherProbe, nil
 }
 
@@ -509,7 +518,7 @@ func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Con
 				State:       elbv2types.TargetHealthStateEnumHealthy,
 				Description: awssdk.String("Target Group Binding is deleted"),
 			}
-			_, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType)
+			_, err := m.updateTargetHealthPodConditionForPod(ctx, pod, targetHealth, targetHealthCondType, tgb)
 			if err != nil {
 				return err
 			}

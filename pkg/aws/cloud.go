@@ -11,7 +11,6 @@ import (
 	smithymiddleware "github.com/aws/smithy-go/middleware"
 	"net"
 	"os"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/metrics"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
 	"strings"
@@ -21,11 +20,11 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
 	amerrors "k8s.io/apimachinery/pkg/util/errors"
 	epresolver "sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	aws_metrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 )
 
 const userAgent = "elbv2.k8s.aws"
@@ -60,7 +59,7 @@ type Cloud interface {
 }
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger logr.Logger, awsClientsProvider provider.AWSClientsProvider) (Cloud, error) {
+func NewCloud(cfg CloudConfig, metricsCollector *aws_metrics.Collector, logger logr.Logger, awsClientsProvider provider.AWSClientsProvider) (Cloud, error) {
 	hasIPv4 := true
 	addrs, err := net.InterfaceAddrs()
 	if err == nil {
@@ -122,12 +121,8 @@ func NewCloud(cfg CloudConfig, metricsRegisterer prometheus.Registerer, logger l
 		})
 	}
 
-	if metricsRegisterer != nil {
-		metricsCollector, err := metrics.NewCollector(metricsRegisterer)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to initialize sdk metrics collector")
-		}
-		awsConfig.APIOptions = metrics.WithSDKMetricCollector(metricsCollector, awsConfig.APIOptions)
+	if metricsCollector != nil {
+		awsConfig.APIOptions = aws_metrics.WithSDKMetricCollector(metricsCollector, awsConfig.APIOptions)
 	}
 
 	if awsClientsProvider == nil {
