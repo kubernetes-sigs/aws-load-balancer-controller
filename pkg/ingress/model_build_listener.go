@@ -426,6 +426,14 @@ func (t *defaultModelBuildTask) fetchTrustStoreArnFromName(ctx context.Context, 
 
 func (t *defaultModelBuildTask) buildIngressGroupListenerAttributes(ctx context.Context, ingList []ClassifiedIngress, listenerProtocol elbv2model.Protocol, port int32) ([]elbv2model.ListenerAttribute, error) {
 	rawIngGrouplistenerAttributes := make(map[string]string)
+	ingClassAttributes := make(map[string]string)
+	if len(ingList) > 0 {
+		var err error
+		ingClassAttributes, err = t.buildIngressClassListenerAttributes(ingList[0].IngClassConfig, listenerProtocol, port)
+		if err != nil {
+			return nil, err
+		}
+	}
 	for _, ing := range ingList {
 		ingAttributes, err := t.buildIngressListenerAttributes(ctx, ing.Ing.Annotations, port, listenerProtocol)
 		if err != nil {
@@ -435,18 +443,23 @@ func (t *defaultModelBuildTask) buildIngressGroupListenerAttributes(ctx context.
 			attributeKey := attribute.Key
 			attributeValue := attribute.Value
 			if existingAttributeValue, exists := rawIngGrouplistenerAttributes[attributeKey]; exists && existingAttributeValue != attributeValue {
-				return nil, errors.Errorf("conflicting attributes %v: %v | %v", attributeKey, existingAttributeValue, attributeValue)
+				if ingClassValue, exists := ingClassAttributes[attributeKey]; exists {
+					// Conflict is resolved by ingClassAttributes, show a warning
+					t.logger.Info("listener attribute conflict resolved by ingress class",
+						"attributeKey", attributeKey,
+						"existingValue", existingAttributeValue,
+						"newValue", attributeValue,
+						"ingClassValue", ingClassValue)
+				} else {
+					// Conflict is not resolved by ingClassAttributes, return an error
+					return nil, errors.Errorf("conflicting listener attributes %v: %v | %v for ingress %s/%s",
+						attributeKey, existingAttributeValue, attributeValue, ing.Ing.Namespace, ing.Ing.Name)
+				}
 			}
 			rawIngGrouplistenerAttributes[attributeKey] = attributeValue
 		}
 	}
-	if len(ingList) > 0 {
-		ingClassAttributes, err := t.buildIngressClassListenerAttributes(ingList[0].IngClassConfig, listenerProtocol, port)
-		if err != nil {
-			return nil, err
-		}
-		rawIngGrouplistenerAttributes = algorithm.MergeStringMap(ingClassAttributes, rawIngGrouplistenerAttributes)
-	}
+	rawIngGrouplistenerAttributes = algorithm.MergeStringMap(ingClassAttributes, rawIngGrouplistenerAttributes)
 	attributes := make([]elbv2model.ListenerAttribute, 0, len(rawIngGrouplistenerAttributes))
 	for attrKey, attrValue := range rawIngGrouplistenerAttributes {
 		attributes = append(attributes, elbv2model.ListenerAttribute{
