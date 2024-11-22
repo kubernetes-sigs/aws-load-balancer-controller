@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"testing"
 )
 
@@ -46,7 +47,15 @@ func TestControllerConfig_validateDefaultTagsCollisionWithTrackingTags(t *testin
 			cfg := &ControllerConfig{
 				DefaultTags: tt.fields.DefaultTags,
 			}
-			err := cfg.validateDefaultTagsCollisionWithTrackingTags()
+			trackingTagKeys := sets.New[string](
+				"elbv2.k8s.aws/cluster",
+				"elbv2.k8s.aws/resource",
+				"ingress.k8s.aws/stack",
+				"ingress.k8s.aws/resource",
+				"service.k8s.aws/stack",
+				"service.k8s.aws/resource",
+			)
+			err := cfg.validateDefaultTagsCollisionWithTrackingTags(trackingTagKeys)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -92,7 +101,15 @@ func TestControllerConfig_validateExternalManagedTagsCollisionWithTrackingTags(t
 			cfg := &ControllerConfig{
 				ExternalManagedTags: tt.fields.ExternalManagedTags,
 			}
-			err := cfg.validateExternalManagedTagsCollisionWithTrackingTags()
+			trackingTagKeys := sets.New[string](
+				"elbv2.k8s.aws/cluster",
+				"elbv2.k8s.aws/resource",
+				"ingress.k8s.aws/stack",
+				"ingress.k8s.aws/resource",
+				"service.k8s.aws/stack",
+				"service.k8s.aws/resource",
+			)
+			err := cfg.validateExternalManagedTagsCollisionWithTrackingTags(trackingTagKeys)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

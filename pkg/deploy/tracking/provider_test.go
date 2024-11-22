@@ -14,12 +14,12 @@ func Test_defaultProvider_ResourceIDTagKey(t *testing.T) {
 	}{
 		{
 			name:     "resourceTagKey for Ingress",
-			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", "cluster-name"),
 			want:     "ingress.k8s.aws/resource",
 		},
 		{
 			name:     "resourceTagKey for Service",
-			provider: NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "service.k8s.aws", "cluster-name"),
 			want:     "service.k8s.aws/resource",
 		},
 	}
@@ -43,7 +43,7 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 	}{
 		{
 			name:     "stackTags for explicit IngressGroup",
-			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "", Name: "awesome-group"})},
 			want: map[string]string{
 				"elbv2.k8s.aws/cluster": "cluster-name",
@@ -52,7 +52,7 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 		},
 		{
 			name:     "stackTags for implicit IngressGroup",
-			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "ingressName"})},
 			want: map[string]string{
 				"elbv2.k8s.aws/cluster": "cluster-name",
@@ -61,7 +61,7 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 		},
 		{
 			name:     "stackTags for Service",
-			provider: NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "service.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
 			want: map[string]string{
 				"elbv2.k8s.aws/cluster": "cluster-name",
@@ -94,7 +94,7 @@ func Test_defaultProvider_ResourceTags(t *testing.T) {
 	}{
 		{
 			name:     "resourceTags for Ingress",
-			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", "cluster-name"),
 			args: args{
 				stack: stack,
 				res:   fakeRes,
@@ -126,7 +126,7 @@ func Test_defaultProvider_StackLabels(t *testing.T) {
 	}{
 		{
 			name:     "stackLabels for explicit IngressGroup",
-			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "", Name: "awesome-group"})},
 			want: map[string]string{
 				"ingress.k8s.aws/stack": "awesome-group",
@@ -134,7 +134,7 @@ func Test_defaultProvider_StackLabels(t *testing.T) {
 		},
 		{
 			name:     "stackLabels for implicit IngressGroup",
-			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "ingressName"})},
 			want: map[string]string{
 				"ingress.k8s.aws/stack-namespace": "namespace",
@@ -143,7 +143,7 @@ func Test_defaultProvider_StackLabels(t *testing.T) {
 		},
 		{
 			name:     "stackLabels for Service",
-			provider: NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "service.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
 			want: map[string]string{
 				"service.k8s.aws/stack-namespace": "namespace",
@@ -171,7 +171,7 @@ func Test_defaultProvider_StackTagsLegacy(t *testing.T) {
 	}{
 		{
 			name:     "stackTags for explicit IngressGroup",
-			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "", Name: "awesome-group"})},
 			want: map[string]string{
 				"ingress.k8s.aws/cluster": "cluster-name",
@@ -180,7 +180,7 @@ func Test_defaultProvider_StackTagsLegacy(t *testing.T) {
 		},
 		{
 			name:     "stackTags for implicit IngressGroup",
-			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "ingress.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "ingressName"})},
 			want: map[string]string{
 				"ingress.k8s.aws/cluster": "cluster-name",
@@ -189,7 +189,7 @@ func Test_defaultProvider_StackTagsLegacy(t *testing.T) {
 		},
 		{
 			name:     "stackTags for Service",
-			provider: NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			provider: NewDefaultProvider("elbv2.k8s.aws", "service.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
 			want: map[string]string{
 				"ingress.k8s.aws/cluster": "cluster-name",

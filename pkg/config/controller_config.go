@@ -13,9 +13,10 @@ import (
 )
 
 const (
-	flagLogLevel                                     = "log-level"
-	flagK8sClusterName                               = "cluster-name"
-	flagDefaultTags                                  = "default-tags"
+	flagLogLevel       = "log-level"
+	flagK8sClusterName = "cluster-name"
+	flagDefaultTags    = "default-tags"
+	//flagResourceTrackingConfiguration                = "resource-tracking-configuration"
 	flagDefaultTargetType                            = "default-target-type"
 	flagExternalManagedTags                          = "external-managed-tags"
 	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
@@ -27,24 +28,14 @@ const (
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
-	defaultLogLevel                                  = "info"
-	defaultMaxConcurrentReconciles                   = 3
-	defaultMaxExponentialBackoffDelay                = time.Second * 1000
-	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
-	defaultEnableBackendSG                           = true
-	defaultEnableEndpointSlices                      = false
-	defaultDisableRestrictedSGRules                  = false
-)
 
-var (
-	trackingTagKeys = sets.NewString(
-		"elbv2.k8s.aws/cluster",
-		"elbv2.k8s.aws/resource",
-		"ingress.k8s.aws/stack",
-		"ingress.k8s.aws/resource",
-		"service.k8s.aws/stack",
-		"service.k8s.aws/resource",
-	)
+	defaultLogLevel                   = "info"
+	defaultMaxConcurrentReconciles    = 3
+	defaultMaxExponentialBackoffDelay = time.Second * 1000
+	defaultSSLPolicy                  = "ELBSecurityPolicy-2016-08"
+	defaultEnableBackendSG            = true
+	defaultEnableEndpointSlices       = false
+	defaultDisableRestrictedSGRules   = false
 )
 
 // ControllerConfig contains the controller configuration
@@ -68,6 +59,9 @@ type ControllerConfig struct {
 
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
+
+	// ResourceTrackingConfiguration provides tracking prefix for resource tags, backend SG name and worker node SG rules label.
+	ResourceTrackingConfiguration map[string]string
 
 	// Default target type for Ingress and Service objects
 	DefaultTargetType string
@@ -134,10 +128,10 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Disable the usage of restricted security group rules")
 	fs.StringToStringVar(&cfg.ServiceTargetENISGTags, flagServiceTargetENISGTags, nil,
 		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
+
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
-
 	cfg.PodWebhookConfig.BindFlags(fs)
 	cfg.IngressConfig.BindFlags(fs)
 	cfg.AddonsConfig.BindFlags(fs)
@@ -150,10 +144,19 @@ func (cfg *ControllerConfig) Validate() error {
 		return errors.New("kubernetes cluster name must be specified")
 	}
 
-	if err := cfg.validateDefaultTagsCollisionWithTrackingTags(); err != nil {
+	trackingTagKeys := sets.New[string](
+		"elbv2.k8s.aws/cluster",
+		"elbv2.k8s.aws/resource",
+		"ingress.k8s.aws/stack",
+		"ingress.k8s.aws/resource",
+		"service.k8s.aws/stack",
+		"service.k8s.aws/resource",
+	)
+
+	if err := cfg.validateDefaultTagsCollisionWithTrackingTags(trackingTagKeys); err != nil {
 		return err
 	}
-	if err := cfg.validateExternalManagedTagsCollisionWithTrackingTags(); err != nil {
+	if err := cfg.validateExternalManagedTagsCollisionWithTrackingTags(trackingTagKeys); err != nil {
 		return err
 	}
 	if err := cfg.validateExternalManagedTagsCollisionWithDefaultTags(); err != nil {
@@ -168,7 +171,7 @@ func (cfg *ControllerConfig) Validate() error {
 	return nil
 }
 
-func (cfg *ControllerConfig) validateDefaultTagsCollisionWithTrackingTags() error {
+func (cfg *ControllerConfig) validateDefaultTagsCollisionWithTrackingTags(trackingTagKeys sets.Set[string]) error {
 	for tagKey := range cfg.DefaultTags {
 		if trackingTagKeys.Has(tagKey) {
 			return errors.Errorf("tag key %v cannot be specified in %v flag", tagKey, flagDefaultTags)
@@ -177,7 +180,7 @@ func (cfg *ControllerConfig) validateDefaultTagsCollisionWithTrackingTags() erro
 	return nil
 }
 
-func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithTrackingTags() error {
+func (cfg *ControllerConfig) validateExternalManagedTagsCollisionWithTrackingTags(trackingTagKeys sets.Set[string]) error {
 	for _, tagKey := range cfg.ExternalManagedTags {
 		if trackingTagKeys.Has(tagKey) {
 			return errors.Errorf("tag key %v cannot be specified in %v flag", tagKey, flagExternalManagedTags)
