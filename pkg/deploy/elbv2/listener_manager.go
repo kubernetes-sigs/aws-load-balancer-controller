@@ -23,8 +23,8 @@ import (
 )
 
 var PROTOCOLS_SUPPORTING_LISTENER_ATTRIBUTES = map[elbv2model.Protocol]bool{
-	elbv2model.ProtocolHTTP:  false,
-	elbv2model.ProtocolHTTPS: false,
+	elbv2model.ProtocolHTTP:  true,
+	elbv2model.ProtocolHTTPS: true,
 	elbv2model.ProtocolTCP:   true,
 	elbv2model.ProtocolUDP:   false,
 	elbv2model.ProtocolTLS:   false,

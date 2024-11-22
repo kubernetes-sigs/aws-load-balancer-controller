@@ -3,9 +3,10 @@ package networking
 import (
 	"context"
 	"fmt"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"sort"
 	"strings"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -328,7 +329,6 @@ func (r *defaultSubnetsResolver) ResolveViaNameOrIDSlice(ctx context.Context, su
 	if err := r.validateSubnetsMinimalCount(resolvedSubnets, subnetLocale, resolveOpts); err != nil {
 		return nil, err
 	}
-	sortSubnetsByID(resolvedSubnets)
 	return resolvedSubnets, nil
 }
 
