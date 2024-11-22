@@ -1969,6 +1969,13 @@
 <td>Ingress, Service</td>
 <td>N/A</td>
 </tr>
+<tr>
+<td><a href="#listener-attributes">alb.ingress.kubernetes.io/listener-attributes.${Protocol}-${Port}</a></td>
+<td>stringMap</td>
+<td>N/A</td>
+<td>Ingress</td>
+<td>Merge</td>
+</tr>
 </tbody>
 </table>
 <h2 id="ingressgroup">IngressGroup<a class="headerlink" href="#ingressgroup" title="Permanent link">&para;</a></h2>
@@ -2917,6 +2924,17 @@ Target Groups shared with multiple clusters, it's recommended to use an out-of-b
 </div>
 <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/multi-cluster-target-group: &quot;true&quot;
 </code></pre></div>
+</li>
+<li>
+<p><a name="listener-attributes"><code>alb.ingress.kubernetes.io/listener-attributes.${Protocol}-${Port}</code></a> specifies Listener Attributes which should be applied to listener.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>Server header enablement attribute
+    <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/listener-attributes.HTTP-80: routing.http.response.server.enabled=true
+</code></pre></div></li>
+</ul>
+</div>
 </li>
 </ul>
 <h2 id="resource-tags">Resource Tags<a class="headerlink" href="#resource-tags" title="Permanent link">&para;</a></h2>
