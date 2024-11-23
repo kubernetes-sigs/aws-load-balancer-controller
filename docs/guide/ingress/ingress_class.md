@@ -188,7 +188,7 @@ If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/inboun
 
 #### spec.certificateArn
 Cluster administrators can use the optional `certificateARN` field to specify the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
-    
+
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/certificate-arn` annotation.
 
 #### spec.sslPolicy
@@ -234,6 +234,13 @@ Cluster administrators can use `tags` field to specify the custom tags for AWS r
     1. controller-level flag `--default-tags` will have the highest priority.
     2. `spec.tags` in IngressClassParams will have the middle priority.
     3. `alb.ingress.kubernetes.io/tags` annotation will have the lowest priority.
+
+#### spec.targetType
+
+`targetType` is an optional setting. The available options are `instance` or `ip`.
+
+This defines the target type of target groups for all Ingresses that belong to IngressClass with this IngressClassParams.
+If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/target-type` annotation.
 
 #### spec.loadBalancerAttributes
 
