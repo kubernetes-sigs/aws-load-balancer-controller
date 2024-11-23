@@ -2147,6 +2147,313 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 }`,
 		},
 		{
+			name: "Ingress - target-type in IngressClassParams",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										TargetType: v1beta1.TargetTypeIP,
+									},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/target-type": string(v1beta1.TargetTypeInstance),
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			defaultTargetType: "instance",
+			wantStackPatch: `
+{
+	"resources": {
+        "AWS::ElasticLoadBalancingV2::TargetGroup":{
+            "ns-1/ing-1-svc-1:http":{
+                "spec":{
+                    "name":"k8s-ns1-svc1-6350990f3a",
+                    "targetType":"ip",
+                    "ipAddressType":"ipv4",
+                    "port":8080,
+                    "protocol":"HTTP",
+					"protocolVersion":"HTTP1",
+                    "healthCheckConfig":{
+                        "port":"traffic-port",
+                        "protocol":"HTTP",
+                        "path":"/",
+                        "matcher":{
+                            "httpCode":"200"
+                        },
+                        "intervalSeconds":15,
+                        "timeoutSeconds":5,
+                        "healthyThresholdCount":2,
+                        "unhealthyThresholdCount":2
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-2:http":{
+                "spec":{
+                    "name":"k8s-ns1-svc2-6350990f3a",
+                    "targetType":"ip",
+                    "ipAddressType":"ipv4",
+                    "port":8080,
+                    "protocol":"HTTP",
+					"protocolVersion":"HTTP1",
+                    "healthCheckConfig":{
+                        "port":"traffic-port",
+                        "protocol":"HTTP",
+                        "path":"/",
+                        "matcher":{
+                            "httpCode":"200"
+                        },
+                        "intervalSeconds":15,
+                        "timeoutSeconds":5,
+                        "healthyThresholdCount":2,
+                        "unhealthyThresholdCount":2
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-3:https":{
+                "spec":{
+                    "name":"k8s-ns1-svc3-bf42870fba",
+                    "targetType":"ip",
+                    "ipAddressType":"ipv4",
+                    "port":8443,
+                    "protocol":"HTTPS",
+					"protocolVersion":"HTTP1",
+                    "healthCheckConfig":{
+                        "port":9090,
+                        "protocol":"HTTPS",
+                        "path":"/health-check",
+                        "matcher":{
+                            "httpCode":"200-300"
+                        },
+                        "intervalSeconds":20,
+                        "timeoutSeconds":10,
+                        "healthyThresholdCount":7,
+                        "unhealthyThresholdCount":5
+                    }
+                }
+            }
+        },
+        "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+            "ns-1/ing-1-svc-1:http":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svc1-6350990f3a",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
+                            },
+                            "targetType":"ip",
+                            "vpcID": "vpc-dummy",
+                            "ipAddressType":"ipv4",
+                            "serviceRef":{
+                                "name":"svc-1",
+                                "port":"http"
+                            },
+                            "networking":{
+                                "ingress":[
+                                    {
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port":8080,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-2:http":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svc2-6350990f3a",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-2:http/status/targetGroupARN"
+                            },
+                            "targetType":"ip",
+                            "ipAddressType":"ipv4",
+                            "vpcID": "vpc-dummy",
+                            "serviceRef":{
+                                "name":"svc-2",
+                                "port":"http"
+                            },
+                            "networking":{
+                                "ingress":[
+                                    {
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port":8080,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "ns-1/ing-1-svc-3:https":{
+                "spec":{
+                    "template":{
+                        "metadata":{
+                            "name":"k8s-ns1-svc3-bf42870fba",
+                            "namespace":"ns-1",
+                            "creationTimestamp":null
+                        },
+                        "spec":{
+                            "targetGroupARN":{
+                                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
+                            },
+                            "targetType":"ip",
+                            "vpcID": "vpc-dummy",
+                            "ipAddressType":"ipv4",
+                            "serviceRef":{
+                                "name":"svc-3",
+                                "port":"https"
+                            },
+                            "networking":{
+                                "ingress":[
+                                    {
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 8443,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    },
+									{
+                                        "from":[
+                                            {
+                                                "securityGroup":{
+                                                    "groupID": "sg-auto"
+                                                }
+                                            }
+                                        ],
+                                        "ports":[
+                                            {
+												"port": 9090,
+                                                "protocol":"TCP"
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}`,
+		},
+		{
 			name: "Ingress - not using subnet auto-discovery and internal",
 			env: env{
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
