@@ -3,17 +3,18 @@ package aws
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"strings"
+
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	smithymiddleware "github.com/aws/smithy-go/middleware"
-	"net"
-	"os"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
-	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -158,7 +159,7 @@ func getVpcID(cfg CloudConfig, ec2Service services.EC2, ec2Metadata services.EC2
 	}
 
 	if cfg.VpcTags != nil {
-		return inferVPCIDFromTags(ec2Service, cfg.VpcNameTagKey, cfg.VpcTags[cfg.VpcNameTagKey])
+		return inferVPCIDFromTags(ec2Service, cfg.VpcTags)
 	}
 
 	return inferVPCID(ec2Metadata, ec2Service)
@@ -200,14 +201,18 @@ func inferVPCID(ec2Metadata services.EC2Metadata, ec2Service services.EC2) (stri
 	return "", amerrors.NewAggregate(errList)
 }
 
-func inferVPCIDFromTags(ec2Service services.EC2, VpcNameTagKey string, VpcNameTagValue string) (string, error) {
+func inferVPCIDFromTags(ec2Service services.EC2, VpcTags map[string]string) (string, error) {
+	vpcFilter := []ec2types.Filter{}
+
+	for tagKey, tagValue := range VpcTags {
+		vpcFilter = append(vpcFilter, ec2types.Filter{
+			Name:   aws.String(fmt.Sprintf("tag:%s", tagKey)),
+			Values: []string{tagValue},
+		})
+	}
+
 	vpcs, err := ec2Service.DescribeVPCsAsList(context.Background(), &ec2.DescribeVpcsInput{
-		Filters: []ec2types.Filter{
-			{
-				Name:   aws.String("tag:" + VpcNameTagKey),
-				Values: []string{VpcNameTagValue},
-			},
-		},
+		Filters: vpcFilter,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch VPC ID with tag: %w", err)
