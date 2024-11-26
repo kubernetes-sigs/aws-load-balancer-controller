@@ -215,13 +215,13 @@ func inferVPCIDFromTags(ec2Service services.EC2, VpcTags map[string]string) (str
 		Filters: vpcFilter,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch VPC ID with tag: %w", err)
+		return "", fmt.Errorf("failed to fetch VPC ID with tags(s): %w", err)
 	}
 	if len(vpcs) == 0 {
-		return "", fmt.Errorf("no VPC exists with tag: %w", err)
+		return "", fmt.Errorf("no VPC exists with tags(s): %w", err)
 	}
 	if len(vpcs) > 1 {
-		return "", fmt.Errorf("multiple VPCs exists with tag: %w", err)
+		return "", fmt.Errorf("multiple VPCs exists with tag(s): %w", err)
 	}
 
 	return *vpcs[0].VpcId, nil
