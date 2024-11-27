@@ -2,10 +2,11 @@ package elbv2
 
 import (
 	"context"
+	"testing"
+
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -552,6 +553,7 @@ func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *
 				resLB: &elbv2model.LoadBalancer{
 					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
 					Spec: elbv2model.LoadBalancerSpec{
+						Type:                         elbv2model.LoadBalancerTypeNetwork,
 						EnablePrefixForIpv6SourceNat: enablePrefixForIpv6SourceNatOn,
 						SubnetMappings: []elbv2model.SubnetMapping{
 							{
@@ -591,6 +593,7 @@ func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *
 				resLB: &elbv2model.LoadBalancer{
 					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
 					Spec: elbv2model.LoadBalancerSpec{
+						Type: elbv2model.LoadBalancerTypeNetwork,
 						SubnetMappings: []elbv2model.SubnetMapping{
 							{
 								SubnetID: "subnet-A",
