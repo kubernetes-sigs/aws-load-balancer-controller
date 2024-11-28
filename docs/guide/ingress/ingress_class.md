@@ -172,7 +172,7 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
     metadata:
       name: class2048-config
     spec:
-      ipamConfiguration: 
+      ipamConfiguration:
         ipv4IPAMPoolId: ipam-pool-000000000
     ```
     - with PrefixListsIDs (not recommended, use prefixListsIDs instead)
@@ -248,6 +248,7 @@ Cluster administrators can use the optional `inboundCIDRs` field to specify the 
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/inbound-cidrs` annotation.
 
 #### spec.certificateArn
+
 Cluster administrators can use the optional `certificateARN` field to specify the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
 
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/certificate-arn` annotation.
@@ -332,7 +333,7 @@ Cluster administrators can use `ipamConfiguration` field to specify the IPv4 IPA
 
 #### spec.PrefixListsIDs
 
-We accept either `spec.prefixListsIDs` or `spec.PrefixListsIDs`. Specify both is not allowed. But `spec.PrefixListsIDs` is not recommended, use `spec.prefixListsIDs` instead. 
+We accept either `spec.prefixListsIDs` or `spec.PrefixListsIDs`. Specify both is not allowed. But `spec.PrefixListsIDs` is not recommended, use `spec.prefixListsIDs` instead.
 
 `PrefixListsIDs` is an optional setting.
 
@@ -340,7 +341,6 @@ Cluster administrators can use `PrefixListsIDs` field to specify the managed pre
 
 1. If `PrefixListsIDs` is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.
 2. If `PrefixListsIDs` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/security-group-prefix-lists` annotation to specify the load balancer prefix lists.
-
 
 #### spec.prefixListsIDs
 
@@ -355,10 +355,16 @@ Cluster administrators can use `prefixListsIDs` field to specify the managed pre
 
 `listeners` is an optional setting.
 
-!!!note 
+!!!note
     Adding listeners in the classparam specification does not automatically create listeners on your load balancers. To create listeners, you must explicitly define the listen ports in your ingress configurations. The classparam `spec.listeners` are only used to set attributes for the listeners that you define in your ingresses.
 
 Cluster administrators can use `Listeners` field to specify the [Listener Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#listener-attributes) for multiple load balancer listeners associated with this IngressClass. For each listener entry in the list, the desired attributes and their values are specified in the `listenerAttributes` field. Each listener is uniquely identified by its `port` and `protocol` fields, which determine which listener the attributes should be applied to.
 
 1. If `listeners` is set, the defined attributes will be applied to the corresponding load balancer listeners based on port and protocol matching. Note that using invalid keys or values will cause the controller to fail when reconciling ingresses in this IngressClass.
 2. If `Listeners` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/listener-attributes.${Protocol}-{Port}` annotation to specify the listener attributes.
+
+#### spec.wafv2AclArn
+
+Cluster administrators can use the optional `wafv2AclArn` field to specify ARN for the Amazon WAFv2 web ACL.
+Only Regional WAFv2 is supported.
+When this annotation is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the annotation value to 'none'.
