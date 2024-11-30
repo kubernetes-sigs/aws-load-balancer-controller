@@ -17,7 +17,6 @@ import (
 )
 
 const (
-	// the controller name used in IngressClass for ALB.
 	// the Kind for IngressClassParams CRD.
 	ingressClassParamsKind = "IngressClassParams"
 	// default class from ingressClass
