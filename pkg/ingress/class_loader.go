@@ -18,7 +18,6 @@ import (
 
 const (
 	// the controller name used in IngressClass for ALB.
-	IngressClassControllerALB = "ingress.k8s.aws/alb"
 	// the Kind for IngressClassParams CRD.
 	ingressClassParamsKind = "IngressClassParams"
 	// default class from ingressClass
@@ -35,17 +34,19 @@ type ClassLoader interface {
 }
 
 // NewDefaultClassLoader constructs new defaultClassLoader instance.
-func NewDefaultClassLoader(client client.Client, loadParams bool) ClassLoader {
+func NewDefaultClassLoader(client client.Client, loadParams bool, controllerClass string) ClassLoader {
 	return &defaultClassLoader{
-		client:     client,
-		loadParams: loadParams,
+		client:          client,
+		loadParams:      loadParams,
+		controllerClass: controllerClass,
 	}
 }
 
 // default implementation for ClassLoader
 type defaultClassLoader struct {
-	client     client.Client
-	loadParams bool
+	client          client.Client
+	loadParams      bool
+	controllerClass string
 }
 
 // GetDefaultIngressClass returns the default IngressClass from the list of IngressClasses.
@@ -93,7 +94,7 @@ func (l *defaultClassLoader) Load(ctx context.Context, ing *networking.Ingress) 
 		}
 		return ClassConfiguration{}, err
 	}
-	if ingClass.Spec.Controller != IngressClassControllerALB || ingClass.Spec.Parameters == nil || !l.loadParams {
+	if ingClass.Spec.Controller != l.controllerClass || ingClass.Spec.Parameters == nil || !l.loadParams {
 		return ClassConfiguration{
 			IngClass: ingClass,
 		}, nil

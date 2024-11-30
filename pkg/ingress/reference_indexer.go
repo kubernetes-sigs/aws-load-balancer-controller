@@ -35,11 +35,12 @@ type ReferenceIndexer interface {
 }
 
 // NewDefaultReferenceIndexer constructs new defaultReferenceIndexer.
-func NewDefaultReferenceIndexer(enhancedBackendBuilder EnhancedBackendBuilder, authConfigBuilder AuthConfigBuilder, logger logr.Logger) *defaultReferenceIndexer {
+func NewDefaultReferenceIndexer(enhancedBackendBuilder EnhancedBackendBuilder, authConfigBuilder AuthConfigBuilder, logger logr.Logger, controllerClass string) *defaultReferenceIndexer {
 	return &defaultReferenceIndexer{
 		enhancedBackendBuilder: enhancedBackendBuilder,
 		authConfigBuilder:      authConfigBuilder,
 		logger:                 logger,
+		controllerClass:        controllerClass,
 	}
 }
 
@@ -50,6 +51,7 @@ type defaultReferenceIndexer struct {
 	enhancedBackendBuilder EnhancedBackendBuilder
 	authConfigBuilder      AuthConfigBuilder
 	logger                 logr.Logger
+	controllerClass        string
 }
 
 func (i *defaultReferenceIndexer) BuildServiceRefIndexes(ctx context.Context, ing *networking.Ingress) []string {
@@ -103,7 +105,7 @@ func (i *defaultReferenceIndexer) BuildIngressClassRefIndexes(_ context.Context,
 }
 
 func (i *defaultReferenceIndexer) BuildIngressClassParamsRefIndexes(_ context.Context, ingClass *networking.IngressClass) []string {
-	if ingClass.Spec.Controller != IngressClassControllerALB || ingClass.Spec.Parameters == nil {
+	if ingClass.Spec.Controller != i.controllerClass || ingClass.Spec.Parameters == nil {
 		return nil
 	}
 	if ingClass.Spec.Parameters.APIGroup == nil ||
