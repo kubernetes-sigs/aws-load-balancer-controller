@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -19,16 +20,41 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2
 		return err
 	}
 
+	// group by listener port number
+	portMap := make(map[int32][]corev1.ServicePort)
 	for _, port := range t.service.Spec.Ports {
-		_, err := t.buildListener(ctx, port, *cfg, scheme)
-		if err != nil {
-			return err
+		key := port.Port
+		if vals, exists := portMap[key]; exists {
+			portMap[key] = append(vals, port)
+		} else {
+			portMap[key] = []corev1.ServicePort{port}
 		}
 	}
+
+	// execute build listener
+	for _, port := range t.service.Spec.Ports {
+		key := port.Port
+		if vals, exists := portMap[key]; exists {
+			if len(vals) > 1 {
+				port, err = mergeServicePortsForListener(vals)
+				if err != nil {
+					return err
+				}
+			} else {
+				port = vals[0]
+			}
+			_, err := t.buildListener(ctx, port, cfg, scheme)
+			if err != nil {
+				return err
+			}
+			delete(portMap, key)
+		}
+	}
+
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg listenerConfig,
+func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
 	scheme elbv2model.LoadBalancerScheme) (*elbv2model.Listener, error) {
 	lsSpec, err := t.buildListenerSpec(ctx, port, cfg, scheme)
 	if err != nil {
@@ -39,7 +65,7 @@ func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.S
 	return ls, nil
 }
 
-func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg listenerConfig,
+func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
 	scheme elbv2model.LoadBalancerScheme) (elbv2model.ListenerSpec, error) {
 	tgProtocol := elbv2model.Protocol(port.Protocol)
 	listenerProtocol := elbv2model.Protocol(port.Protocol)
@@ -149,7 +175,7 @@ func validateTLSPortsSet(rawTLSPorts []string, ports []corev1.ServicePort) error
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.String, error) {
+func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.Set[string], error) {
 	var rawTLSPorts []string
 
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLPorts, &rawTLSPorts, t.service.Annotations)
@@ -160,7 +186,7 @@ func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.String
 		return nil, err
 	}
 
-	return sets.NewString(rawTLSPorts...), nil
+	return sets.New[string](rawTLSPorts...), nil
 }
 
 func (t *defaultModelBuildTask) buildBackendProtocol(_ context.Context) string {
@@ -191,7 +217,7 @@ func (t *defaultModelBuildTask) buildListenerALPNPolicy(ctx context.Context, lis
 
 type listenerConfig struct {
 	certificates    []elbv2model.Certificate
-	tlsPortsSet     sets.String
+	tlsPortsSet     sets.Set[string]
 	sslPolicy       *string
 	backendProtocol string
 }
@@ -233,4 +259,21 @@ func (t *defaultModelBuildTask) buildListenerAttributes(ctx context.Context, svc
 		})
 	}
 	return attributes, nil
+}
+
+func mergeServicePortsForListener(ports []corev1.ServicePort) (corev1.ServicePort, error) {
+	if len(ports) != 2 {
+		return corev1.ServicePort{}, fmt.Errorf("Can only merge two ports, not %d (%+v)", len(ports), ports)
+	}
+	for _, port := range ports {
+		if !slices.Contains([]string{"TCP", "UDP"}, string(port.Protocol)) {
+			return corev1.ServicePort{}, fmt.Errorf("Unsupported protocol for merging: %s", port.Protocol)
+		}
+	}
+	if ports[0].Protocol == ports[1].Protocol {
+		return corev1.ServicePort{}, fmt.Errorf("Protocols can't match for merging: %s", ports[0].Protocol)
+	}
+	port := ports[0]
+	port.Protocol = corev1.Protocol("TCP_UDP")
+	return port, nil
 }
