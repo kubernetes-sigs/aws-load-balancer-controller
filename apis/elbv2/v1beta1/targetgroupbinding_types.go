@@ -87,6 +87,9 @@ const (
 
 	// NetworkingProtocolUDP is the UDP protocol.
 	NetworkingProtocolUDP NetworkingProtocol = "UDP"
+
+	// NetworkingProtocolTCP_UDP is the TCP_UDP protocol.
+	NetworkingProtocolTCP_UDP NetworkingProtocol = "TCP_UDP"
 )
 
 // NetworkingPort defines the port and protocol for networking rules.
