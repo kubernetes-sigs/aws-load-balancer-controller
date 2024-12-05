@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -35,7 +36,10 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2
 		key := port.Port
 		if vals, exists := portMap[key]; exists {
 			if len(vals) > 1 {
-				port = mergeServicePortsForListener(vals)
+				port, err = mergeServicePortsForListener(vals)
+				if err != nil {
+					return err
+				}
 			} else {
 				port = vals[0]
 			}
@@ -257,23 +261,19 @@ func (t *defaultModelBuildTask) buildListenerAttributes(ctx context.Context, svc
 	return attributes, nil
 }
 
-func mergeServicePortsForListener(ports []corev1.ServicePort) corev1.ServicePort {
-	port0 := ports[0]
-	mergeableProtocols := map[corev1.Protocol]bool{
-		corev1.ProtocolTCP: true,
-		corev1.ProtocolUDP: true,
+func mergeServicePortsForListener(ports []corev1.ServicePort) (corev1.ServicePort, error) {
+	if len(ports) != 2 {
+		return corev1.ServicePort{}, fmt.Errorf("Can only merge two ports, not %d (%+v)", len(ports), ports)
 	}
-	if _, ok := mergeableProtocols[port0.Protocol]; !ok {
-		return port0
-	}
-	for _, port := range ports[1:] {
-		if _, ok := mergeableProtocols[port.Protocol]; !ok {
-			continue
-		}
-		if port.NodePort == port0.NodePort && port.Protocol != port0.Protocol {
-			port0.Protocol = corev1.Protocol("TCP_UDP")
-			break
+	for _, port := range ports {
+		if !slices.Contains([]string{"TCP", "UDP"}, string(port.Protocol)) {
+			return corev1.ServicePort{}, fmt.Errorf("Unsupported protocol for merging: %s", port.Protocol)
 		}
 	}
-	return port0
+	if ports[0].Protocol == ports[1].Protocol {
+		return corev1.ServicePort{}, fmt.Errorf("Protocols can't match for merging: %s", ports[0].Protocol)
+	}
+	port := ports[0]
+	port.Protocol = corev1.Protocol("TCP_UDP")
+	return port, nil
 }
