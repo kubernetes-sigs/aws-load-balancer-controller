@@ -74,6 +74,10 @@ type TargetGroupTuple struct {
 	// the K8s service port
 	ServicePort *intstr.IntOrString `json:"servicePort"`
 
+	// the K8s service Namespace
+	// +optional
+	ServiceNamespace *string `json:"serviceNamespace,omitempty"`
+
 	// The weight.
 	// +optional
 	Weight *int32 `json:"weight,omitempty"`
