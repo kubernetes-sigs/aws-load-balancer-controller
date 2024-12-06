@@ -1802,3 +1802,80 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuilderTask_buildLbCapacity(t *testing.T) {
+	tests := []struct {
+		testName  string
+		svc       *corev1.Service
+		wantError bool
+		wantValue *elbv2.MinimumLoadBalancerCapacity
+	}{
+		{
+			testName: "Default value",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type": "nlb-ip",
+					},
+				},
+			},
+			wantError: false,
+			wantValue: nil,
+		},
+		{
+			testName: "Annotation specified",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":                           "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity": "CapacityUnits=3000",
+					},
+				},
+			},
+			wantError: false,
+			wantValue: &elbv2.MinimumLoadBalancerCapacity{
+				CapacityUnits: int32(3000),
+			},
+		},
+		{
+			testName: "Annotation invalid",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":                           "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity": "InvalidUnits=3000",
+					},
+				},
+			},
+			wantError: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.testName, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			featureGates := config.NewFeatureGates()
+			builder := &defaultModelBuildTask{
+				service:                              tt.svc,
+				annotationParser:                     parser,
+				defaultAccessLogsS3Bucket:            "",
+				defaultAccessLogsS3Prefix:            "",
+				defaultLoadBalancingCrossZoneEnabled: false,
+				defaultProxyProtocolV2Enabled:        false,
+				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
+				defaultHealthCheckPort:               healthCheckPortTrafficPort,
+				defaultHealthCheckPath:               "/",
+				defaultHealthCheckInterval:           10,
+				defaultHealthCheckTimeout:            10,
+				defaultHealthCheckHealthyThreshold:   3,
+				defaultHealthCheckUnhealthyThreshold: 3,
+				featureGates:                         featureGates,
+			}
+			lbMinimumCapacity, err := builder.buildLoadBalancerMinimumCapacity(context.Background())
+			if tt.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.Equal(t, tt.wantValue, lbMinimumCapacity)
+			}
+		})
+	}
+}

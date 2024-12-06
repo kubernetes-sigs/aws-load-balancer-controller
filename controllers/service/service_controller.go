@@ -124,6 +124,10 @@ func (r *serviceReconciler) buildModel(ctx context.Context, svc *corev1.Service)
 
 func (r *serviceReconciler) deployModel(ctx context.Context, svc *corev1.Service, stack core.Stack) error {
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		var requeueNeededAfter *runtime.RequeueNeededAfter
+		if errors.As(err, &requeueNeededAfter) {
+			return err
+		}
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		return err
 	}

@@ -170,6 +170,10 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	r.logger.Info("successfully built model", "model", stackJSON)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		var requeueNeededAfter *runtime.RequeueNeededAfter
+		if errors.As(err, &requeueNeededAfter) {
+			return nil, nil, err
+		}
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		return nil, nil, err
 	}

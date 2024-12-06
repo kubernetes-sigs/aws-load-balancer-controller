@@ -201,6 +201,21 @@ func (mr *MockELBV2MockRecorder) DeregisterTargetsWithContext(arg0, arg1 interfa
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargetsWithContext", reflect.TypeOf((*MockELBV2)(nil).DeregisterTargetsWithContext), arg0, arg1)
 }
 
+// DescribeCapacityReservationWithContext mocks base method.
+func (m *MockELBV2) DescribeCapacityReservationWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.DescribeCapacityReservationInput) (*elasticloadbalancingv2.DescribeCapacityReservationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeCapacityReservationWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*elasticloadbalancingv2.DescribeCapacityReservationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeCapacityReservationWithContext indicates an expected call of DescribeCapacityReservationWithContext.
+func (mr *MockELBV2MockRecorder) DescribeCapacityReservationWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeCapacityReservationWithContext", reflect.TypeOf((*MockELBV2)(nil).DescribeCapacityReservationWithContext), arg0, arg1)
+}
+
 // DescribeListenerAttributesWithContext mocks base method.
 func (m *MockELBV2) DescribeListenerAttributesWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.DescribeListenerAttributesInput) (*elasticloadbalancingv2.DescribeListenerAttributesOutput, error) {
 	m.ctrl.T.Helper()
@@ -424,6 +439,21 @@ func (m *MockELBV2) DescribeTrustStoresWithContext(arg0 context.Context, arg1 *e
 func (mr *MockELBV2MockRecorder) DescribeTrustStoresWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTrustStoresWithContext", reflect.TypeOf((*MockELBV2)(nil).DescribeTrustStoresWithContext), arg0, arg1)
+}
+
+// ModifyCapacityReservationWithContext mocks base method.
+func (m *MockELBV2) ModifyCapacityReservationWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.ModifyCapacityReservationInput) (*elasticloadbalancingv2.ModifyCapacityReservationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyCapacityReservationWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*elasticloadbalancingv2.ModifyCapacityReservationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifyCapacityReservationWithContext indicates an expected call of ModifyCapacityReservationWithContext.
+func (mr *MockELBV2MockRecorder) ModifyCapacityReservationWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyCapacityReservationWithContext", reflect.TypeOf((*MockELBV2)(nil).ModifyCapacityReservationWithContext), arg0, arg1)
 }
 
 // ModifyListenerAttributesWithContext mocks base method.

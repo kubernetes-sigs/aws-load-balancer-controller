@@ -142,6 +142,17 @@ type LoadBalancerAttribute struct {
 	Value string `json:"value"`
 }
 
+// Unit for setting the capacity on load balancer
+const (
+	CapacityUnits string = "CapacityUnits"
+)
+
+// Information about a load balancer capacity reservation.
+type MinimumLoadBalancerCapacity struct {
+	// The Capacity Units Value.
+	CapacityUnits int32 `json:"capacityUnits"`
+}
+
 // LoadBalancerSpec defines the desired state of LoadBalancer
 type LoadBalancerSpec struct {
 	// The name of the load balancer.
@@ -182,6 +193,10 @@ type LoadBalancerSpec struct {
 	// The load balancer attributes.
 	// +optional
 	LoadBalancerAttributes []LoadBalancerAttribute `json:"loadBalancerAttributes,omitempty"`
+
+	// The load balancer capacity reservation
+	// +optional
+	MinimumLoadBalancerCapacity *MinimumLoadBalancerCapacity `json:"minimumLoadBalancerCapacity,omitempty"`
 
 	// The tags.
 	// +optional

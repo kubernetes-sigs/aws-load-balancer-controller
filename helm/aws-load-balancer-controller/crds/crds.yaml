@@ -132,6 +132,18 @@ spec:
                   - value
                   type: object
                 type: array
+              minimumLoadBalancerCapacity:
+                description: MinimumLoadBalancerCapacity define the capacity reservation
+                  for LoadBalancers for all Ingress that belong to IngressClass with
+                  this IngressClassParams.
+                properties:
+                  capacityUnits:
+                    description: The Capacity Units Value.
+                    format: int32
+                    type: integer
+                required:
+                - capacityUnits
+                type: object
               namespaceSelector:
                 description: |-
                   NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
