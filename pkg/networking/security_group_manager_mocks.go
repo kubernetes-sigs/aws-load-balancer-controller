@@ -36,17 +36,17 @@ func (m *MockSecurityGroupManager) EXPECT() *MockSecurityGroupManagerMockRecorde
 }
 
 // AuthorizeSGIngress mocks base method.
-func (m *MockSecurityGroupManager) AuthorizeSGIngress(arg0 context.Context, arg1 string, arg2 []IPPermissionInfo) error {
+func (m *MockSecurityGroupManager) AuthorizeSGIngress(arg0 context.Context, arg1 string, arg2 []IPPermissionInfo, arg3 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AuthorizeSGIngress", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "AuthorizeSGIngress", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AuthorizeSGIngress indicates an expected call of AuthorizeSGIngress.
-func (mr *MockSecurityGroupManagerMockRecorder) AuthorizeSGIngress(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockSecurityGroupManagerMockRecorder) AuthorizeSGIngress(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeSGIngress", reflect.TypeOf((*MockSecurityGroupManager)(nil).AuthorizeSGIngress), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeSGIngress", reflect.TypeOf((*MockSecurityGroupManager)(nil).AuthorizeSGIngress), arg0, arg1, arg2, arg3)
 }
 
 // FetchSGInfosByID mocks base method.
