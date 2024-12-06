@@ -3,6 +3,7 @@ package elbv2
 import (
 	"context"
 	"fmt"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -179,14 +180,15 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 
 	resLBEnablePrefixForIpv6SourceNatValue = string(resLB.Spec.EnablePrefixForIpv6SourceNat)
 
-	if desiredSubnets.Equal(currentSubnets) && desiredSubnetsSourceNATPrefixes.Equal(currentSubnetsSourceNATPrefixes) && sdkLBEnablePrefixForIpv6SourceNatValue == resLBEnablePrefixForIpv6SourceNatValue {
+	if desiredSubnets.Equal(currentSubnets) && desiredSubnetsSourceNATPrefixes.Equal(currentSubnetsSourceNATPrefixes) && ((sdkLBEnablePrefixForIpv6SourceNatValue == resLBEnablePrefixForIpv6SourceNatValue) || (resLBEnablePrefixForIpv6SourceNatValue == "")) {
 		return nil
 	}
-
 	req := &elbv2sdk.SetSubnetsInput{
-		LoadBalancerArn:              sdkLB.LoadBalancer.LoadBalancerArn,
-		SubnetMappings:               buildSDKSubnetMappings(resLB.Spec.SubnetMappings),
-		EnablePrefixForIpv6SourceNat: elbv2types.EnablePrefixForIpv6SourceNatEnum(resLBEnablePrefixForIpv6SourceNatValue),
+		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
+		SubnetMappings:  buildSDKSubnetMappings(resLB.Spec.SubnetMappings),
+	}
+	if resLB.Spec.Type == elbv2model.LoadBalancerTypeNetwork {
+		req.EnablePrefixForIpv6SourceNat = elbv2types.EnablePrefixForIpv6SourceNatEnum(resLBEnablePrefixForIpv6SourceNatValue)
 	}
 	changeDesc := fmt.Sprintf("%v => %v", currentSubnets.List(), desiredSubnets.List())
 	m.logger.Info("modifying loadBalancer subnetMappings",
