@@ -156,6 +156,10 @@ type IngressClassParamsSpec struct {
 	// MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers for all Ingress that belong to IngressClass with this IngressClassParams.
 	// +optional
 	MinimumLoadBalancerCapacity *MinimumLoadBalancerCapacity `json:"minimumLoadBalancerCapacity,omitempty"`
+
+	// WAFv2ACLArn specifies ARN for the Amazon WAFv2 web ACL.
+	// +optional
+	WAFv2ACLArn string `json:"wafv2AclArn"`
 }
 
 // +kubebuilder:object:root=true
