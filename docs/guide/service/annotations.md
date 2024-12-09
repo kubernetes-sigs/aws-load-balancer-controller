@@ -56,6 +56,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group](#multi-cluster-target-group)             | boolean                | false                    | If specified, the controller will only operate on targets that exist within the cluster, ignoring targets from other sources.                                                                                                       |
 | [service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat](#enable-prefix-for-ipv6-source-nat)         | string                  | off                       | Optional annotation. dualstack lb only. Allowed values - on and off                                                                                                                                                                 |
 | [service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes](#source-nat-ipv6-prefixes)        | stringList                  |                           | Optional annotation. dualstack lb only. This annotation is only applicable when user has to set the service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat to "on". Length must match the number of subnets |
+| [service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity](#load-balancer-capacity-reservation)                 | stringMap                  |                           |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -579,6 +580,25 @@ Load balancer access can be controlled via following annotations:
         service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic: "off"
         ```
 
+## Capacity Unit Reservation
+Load balancer capacity unit reservation can be configured via following annotations:
+
+- <a name="load-balancer-capacity-reservation">`service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity`</a> specifies the
+  [Capacity Unit Reservation](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/capacity-unit-reservation.html) to be configured.
+
+    !!!example
+        - set the capacity unit reservation to 1000
+          ```
+          service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity: CapacityUnits=3000
+          ```
+        - reset the capacity unit reservation
+          ```
+          service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity: CapacityUnits=0
+          ```
+    
+    !!!note "Notes"
+         - If you specify this annotation, but remove it later, the capacity unit reservation is not reset. You need to reset the capacity by setting the capacity units to zero as show in the example above.
+         - If users do not want the controller to manage the capacity unit reservation on load balancer, they can disable the feature by setting controller command line feature gate flag ```--feature-gates=LBCapacityReservation=true```
 
 ## Legacy Cloud Provider
 The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the AWS cloud provider's legacy service controller.

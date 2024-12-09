@@ -59,6 +59,8 @@ type ELBV2 interface {
 	AddListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.AddListenerCertificatesInput) (*elasticloadbalancingv2.AddListenerCertificatesOutput, error)
 	DescribeListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerAttributesInput) (*elasticloadbalancingv2.DescribeListenerAttributesOutput, error)
 	ModifyListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error)
+	ModifyCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyCapacityReservationInput) (*elasticloadbalancingv2.ModifyCapacityReservationOutput, error)
+	DescribeCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeCapacityReservationInput) (*elasticloadbalancingv2.DescribeCapacityReservationOutput, error)
 }
 
 func NewELBV2(awsClientsProvider provider.AWSClientsProvider) ELBV2 {
@@ -439,4 +441,20 @@ func (c *elbv2Client) ModifyListenerAttributesWithContext(ctx context.Context, i
 		return nil, err
 	}
 	return client.ModifyListenerAttributes(ctx, input)
+}
+
+func (c *elbv2Client) ModifyCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyCapacityReservationInput) (*elasticloadbalancingv2.ModifyCapacityReservationOutput, error) {
+	client, err := c.awsClientsProvider.GetELBv2Client(ctx, "ModifyCapacityReservation")
+	if err != nil {
+		return nil, err
+	}
+	return client.ModifyCapacityReservation(ctx, input)
+}
+
+func (c *elbv2Client) DescribeCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeCapacityReservationInput) (*elasticloadbalancingv2.DescribeCapacityReservationOutput, error) {
+	client, err := c.awsClientsProvider.GetELBv2Client(ctx, "DescribeCapacityReservation")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeCapacityReservation(ctx, input)
 }

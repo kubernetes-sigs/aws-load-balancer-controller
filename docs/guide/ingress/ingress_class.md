@@ -140,6 +140,16 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
     spec:
       certificateArn: ['arn:aws:acm:us-east-1:123456789:certificate/test-arn-1','arn:aws:acm:us-east-1:123456789:certificate/test-arn-2']
     ```
+    - with minimumLoadBalancerCapacity.capacityUnits
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      minimumLoadBalancerCapacity:
+        capacityUnits: 1000
+    ```
 
 ### IngressClassParams specification
 
@@ -233,3 +243,12 @@ Cluster administrators can use `loadBalancerAttributes` field to specify the [Lo
 
 1. If `loadBalancerAttributes` is set, the attributes defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid keys or values for the load balancer attributes, the controller will fail to reconcile ingresses belonging to the particular ingress class.
 2. If `loadBalancerAttributes` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/load-balancer-attributes` annotation to specify the load balancer attributes.
+
+#### spec.minimumLoadBalancerCapacity
+
+Cluster administrators can use the optional `minimumLoadBalancerCapacity` field to specify the capacity reservation for the load balancers that belong to this IngressClass.
+They may specify `capacityUnits`. If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/minimum-load-balancer-capacity annotation` annotation.
+
+##### spec.minimumLoadBalancerCapacity.capacityUnits
+
+If `capacityUnits` is specified, it must be to valid positive value greater than 0. If set to 0, the LBC will reset the capacity reservation for the load balancer.

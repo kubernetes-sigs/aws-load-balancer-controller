@@ -22,6 +22,7 @@ const (
 	NLBHealthCheckAdvancedConfig Feature = "NLBHealthCheckAdvancedConfig"
 	NLBSecurityGroup             Feature = "NLBSecurityGroup"
 	ALBSingleSubnet              Feature = "ALBSingleSubnet"
+	LBCapacityReservation        Feature = "LBCapacityReservation"
 )
 
 type FeatureGates interface {
@@ -60,6 +61,7 @@ func NewFeatureGates() FeatureGates {
 			NLBHealthCheckAdvancedConfig: true,
 			NLBSecurityGroup:             true,
 			ALBSingleSubnet:              false,
+			LBCapacityReservation:        true,
 		},
 	}
 }

@@ -110,6 +110,9 @@ spec:
         {{- if .Values.targetgroupbindingMaxExponentialBackoffDelay }}
         - --targetgroupbinding-max-exponential-backoff-delay={{ .Values.targetgroupbindingMaxExponentialBackoffDelay }}
         {{- end }}
+        {{- if .Values.lbStabilizationMonitorInterval }}
+        - --lb-stabilization-monitor-interval={{ .Values.lbStabilizationMonitorInterval }}
+        {{- end }}
         {{- if .Values.logLevel }}
         - --log-level={{ .Values.logLevel }}
         {{- end }}

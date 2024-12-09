@@ -554,6 +554,7 @@ func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *
 				resLB: &elbv2model.LoadBalancer{
 					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
 					Spec: elbv2model.LoadBalancerSpec{
+						Type:                         elbv2model.LoadBalancerTypeNetwork,
 						EnablePrefixForIpv6SourceNat: enablePrefixForIpv6SourceNatOn,
 						SubnetMappings: []elbv2model.SubnetMapping{
 							{
@@ -593,6 +594,7 @@ func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *
 				resLB: &elbv2model.LoadBalancer{
 					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
 					Spec: elbv2model.LoadBalancerSpec{
+						Type: elbv2model.LoadBalancerTypeNetwork,
 						SubnetMappings: []elbv2model.SubnetMapping{
 							{
 								SubnetID: "subnet-A",

@@ -2,18 +2,19 @@ package elbv2
 
 import (
 	"context"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"strings"
-
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	"strings"
 )
 
 const (
@@ -22,26 +23,33 @@ const (
 
 // NewLoadBalancerSynthesizer constructs loadBalancerSynthesizer
 func NewLoadBalancerSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
-	lbManager LoadBalancerManager, logger logr.Logger, stack core.Stack) *loadBalancerSynthesizer {
+	lbManager LoadBalancerManager, logger logr.Logger, featureGates config.FeatureGates, controllerConfig config.ControllerConfig, stack core.Stack) *loadBalancerSynthesizer {
 	return &loadBalancerSynthesizer{
-		elbv2Client:      elbv2Client,
-		trackingProvider: trackingProvider,
-		taggingManager:   taggingManager,
-		lbManager:        lbManager,
-		logger:           logger,
-		stack:            stack,
+		elbv2Client:                    elbv2Client,
+		trackingProvider:               trackingProvider,
+		taggingManager:                 taggingManager,
+		lbManager:                      lbManager,
+		logger:                         logger,
+		stack:                          stack,
+		featureGates:                   featureGates,
+		controllerConfig:               controllerConfig,
+		lbsNeedingCapacityModification: nil,
+		capacityReservationReconciler:  NewDefaultLoadBalancerCapacityReservationReconciler(elbv2Client, featureGates, logger),
 	}
 }
 
 // loadBalancerSynthesizer is responsible for synthesize LoadBalancer resources types for certain stack.
 type loadBalancerSynthesizer struct {
-	elbv2Client      services.ELBV2
-	trackingProvider tracking.Provider
-	taggingManager   TaggingManager
-	lbManager        LoadBalancerManager
-	logger           logr.Logger
-
-	stack core.Stack
+	elbv2Client                    services.ELBV2
+	trackingProvider               tracking.Provider
+	taggingManager                 TaggingManager
+	lbManager                      LoadBalancerManager
+	logger                         logr.Logger
+	stack                          core.Stack
+	featureGates                   config.FeatureGates
+	controllerConfig               config.ControllerConfig
+	lbsNeedingCapacityModification []resAndSDKLoadBalancerPair
+	capacityReservationReconciler  LoadBalancerCapacityReservationReconciler
 }
 
 func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
@@ -75,9 +83,16 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 		}
 	}
 	for _, resLB := range unmatchedResLBs {
-		lbStatus, err := s.lbManager.Create(ctx, resLB)
+		lbStatus, sdkLB, err := s.lbManager.Create(ctx, resLB)
 		if err != nil {
 			return err
+		}
+		if s.featureGates.Enabled(config.LBCapacityReservation) &&
+			resLB.Spec.MinimumLoadBalancerCapacity != nil {
+			s.lbsNeedingCapacityModification = append(s.lbsNeedingCapacityModification, resAndSDKLoadBalancerPair{
+				resLB: resLB,
+				sdkLB: sdkLB,
+			})
 		}
 		resLB.SetStatus(lbStatus)
 	}
@@ -85,6 +100,12 @@ func (s *loadBalancerSynthesizer) Synthesize(ctx context.Context) error {
 		lbStatus, err := s.lbManager.Update(ctx, resAndSDKLB.resLB, resAndSDKLB.sdkLB)
 		if err != nil {
 			return err
+		}
+		if s.featureGates.Enabled(config.LBCapacityReservation) {
+			s.lbsNeedingCapacityModification = append(s.lbsNeedingCapacityModification, resAndSDKLoadBalancerPair{
+				resLB: resAndSDKLB.resLB,
+				sdkLB: resAndSDKLB.sdkLB,
+			})
 		}
 		resAndSDKLB.resLB.SetStatus(lbStatus)
 	}
@@ -106,7 +127,19 @@ func (s *loadBalancerSynthesizer) disableDeletionProtection(ctx context.Context,
 }
 
 func (s *loadBalancerSynthesizer) PostSynthesize(ctx context.Context) error {
-	// nothing to do here.
+	for _, resAndSDKLB := range s.lbsNeedingCapacityModification {
+		isLoadBalancerProvisioning, err := s.isLoadBalancerInProvisioningState(ctx, resAndSDKLB.sdkLB)
+		if err != nil {
+			return err
+		}
+		if isLoadBalancerProvisioning {
+			requeueMsg := "monitor provisioning state for load balancer: " + awssdk.ToString(resAndSDKLB.sdkLB.LoadBalancer.LoadBalancerName)
+			return runtime.NewRequeueNeededAfter(requeueMsg, s.controllerConfig.LBStabilizationMonitorInterval)
+		}
+		if err := s.capacityReservationReconciler.Reconcile(ctx, resAndSDKLB.resLB, resAndSDKLB.sdkLB); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -196,4 +229,22 @@ func isSDKLoadBalancerRequiresReplacement(sdkLB LoadBalancerWithTags, resLB *elb
 		return true
 	}
 	return false
+}
+
+func (s *loadBalancerSynthesizer) isLoadBalancerInProvisioningState(ctx context.Context, sdkLB LoadBalancerWithTags) (bool, error) {
+	lbArn := awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn)
+	req := &elbv2sdk.DescribeLoadBalancersInput{
+		LoadBalancerArns: []string{lbArn},
+	}
+	elbv2Resp, err := s.elbv2Client.DescribeLoadBalancersAsList(ctx, req)
+	if err != nil {
+		return false, err
+	}
+	if len(elbv2Resp) == 0 {
+		return false, errors.Errorf("no load balancer found for the arn: %v to monitor load balancer state", lbArn)
+	}
+	if elbv2Resp[0].State.Code == elbv2types.LoadBalancerStateEnumProvisioning {
+		return true, nil
+	}
+	return false, nil
 }

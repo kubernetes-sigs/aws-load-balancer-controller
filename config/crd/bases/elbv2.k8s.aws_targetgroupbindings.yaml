@@ -32,6 +32,11 @@ spec:
       name: ARN
       priority: 1
       type: string
+    - description: The AWS TargetGroup's Name
+      jsonPath: .spec.targetGroupName
+      name: NAME
+      priority: 2
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -160,6 +165,9 @@ spec:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
                 type: string
+              targetGroupName:
+                description: targetGroupName is the Name of the TargetGroup.
+                type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,
                   it will be automatically inferred.
@@ -169,7 +177,6 @@ spec:
                 type: string
             required:
             - serviceRef
-            - targetGroupARN
             type: object
           status:
             description: TargetGroupBindingStatus defines the observed state of TargetGroupBinding
@@ -201,6 +208,11 @@ spec:
       jsonPath: .spec.targetGroupARN
       name: ARN
       priority: 1
+      type: string
+    - description: The AWS TargetGroup's Name
+      jsonPath: .spec.targetGroupName
+      name: NAME
+      priority: 2
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
@@ -387,7 +399,9 @@ spec:
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
-                minLength: 1
+                type: string
+              targetGroupName:
+                description: targetGroupName is the Name of the TargetGroup.
                 type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,
@@ -402,7 +416,6 @@ spec:
                 type: string
             required:
             - serviceRef
-            - targetGroupARN
             type: object
           status:
             description: TargetGroupBindingStatus defines the observed state of TargetGroupBinding

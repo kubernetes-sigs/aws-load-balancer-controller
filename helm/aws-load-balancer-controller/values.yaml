@@ -233,6 +233,9 @@ targetgroupbindingMaxConcurrentReconciles:
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
 
+# Interval at which the controller monitors the state of load balancer after creation for stabilization
+lbStabilizationMonitorInterval:
+
 # Period at which the controller forces the repopulation of its local object stores. (default 10h0m0s)
 syncPeriod:
 
@@ -358,6 +361,7 @@ controllerConfig:
   # SubnetsClusterTagCheck: true
   # NLBHealthCheckAdvancedConfig: true
   # ALBSingleSubnet: false
+  # LBCapacityReservation: true
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
