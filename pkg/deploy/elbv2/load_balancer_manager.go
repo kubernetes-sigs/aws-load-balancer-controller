@@ -158,6 +158,7 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithIPAddressType(ctx 
 
 func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
 	desiredSubnets := sets.NewString()
+	desiredIPv6Addresses := sets.NewString()
 	desiredSubnetsSourceNATPrefixes := sets.NewString()
 	currentSubnetsSourceNATPrefixes := sets.NewString()
 	for _, mapping := range resLB.Spec.SubnetMappings {
@@ -165,12 +166,19 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 		if mapping.SourceNatIpv6Prefix != nil {
 			desiredSubnetsSourceNATPrefixes.Insert(awssdk.ToString(mapping.SourceNatIpv6Prefix))
 		}
+		if mapping.IPv6Address != nil {
+			desiredIPv6Addresses.Insert(awssdk.ToString(mapping.IPv6Address))
+		}
 	}
 	currentSubnets := sets.NewString()
+	currentIPv6Addresses := sets.NewString()
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
 		currentSubnets.Insert(awssdk.ToString(az.SubnetId))
 		if len(az.SourceNatIpv6Prefixes) != 0 {
 			currentSubnetsSourceNATPrefixes.Insert(az.SourceNatIpv6Prefixes[0])
+		}
+		if len(az.LoadBalancerAddresses) > 0 && az.LoadBalancerAddresses[0].IPv6Address != nil {
+			currentIPv6Addresses.Insert(awssdk.ToString(az.LoadBalancerAddresses[0].IPv6Address))
 		}
 	}
 	sdkLBEnablePrefixForIpv6SourceNatValue := string(elbv2model.EnablePrefixForIpv6SourceNatOff)
@@ -180,7 +188,9 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 
 	resLBEnablePrefixForIpv6SourceNatValue = string(resLB.Spec.EnablePrefixForIpv6SourceNat)
 
-	if desiredSubnets.Equal(currentSubnets) && desiredSubnetsSourceNATPrefixes.Equal(currentSubnetsSourceNATPrefixes) && ((sdkLBEnablePrefixForIpv6SourceNatValue == resLBEnablePrefixForIpv6SourceNatValue) || (resLBEnablePrefixForIpv6SourceNatValue == "")) {
+	isFirstTimeIPv6Setup := currentIPv6Addresses.Len() == 0 && desiredIPv6Addresses.Len() > 0
+	needsDualstackIPv6Update := isIPv4ToDualstackUpdate(resLB, sdkLB) && isFirstTimeIPv6Setup
+	if !needsDualstackIPv6Update && desiredSubnets.Equal(currentSubnets) && desiredSubnetsSourceNATPrefixes.Equal(currentSubnetsSourceNATPrefixes) && ((sdkLBEnablePrefixForIpv6SourceNatValue == resLBEnablePrefixForIpv6SourceNatValue) || (resLBEnablePrefixForIpv6SourceNatValue == "")) {
 		return nil
 	}
 	req := &elbv2sdk.SetSubnetsInput{
@@ -354,4 +364,16 @@ func isEnforceSGInboundRulesOnPrivateLinkUpdated(resLB *elbv2model.LoadBalancer,
 
 	return true, currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
 
+}
+
+func isIPv4ToDualstackUpdate(resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) bool {
+	if &resLB.Spec.IPAddressType == nil {
+		return false
+	}
+	desiredIPAddressType := string(resLB.Spec.IPAddressType)
+	currentIPAddressType := sdkLB.LoadBalancer.IpAddressType
+	isIPAddressTypeUpdated := desiredIPAddressType != string(currentIPAddressType)
+	return isIPAddressTypeUpdated &&
+		resLB.Spec.Type == elbv2model.LoadBalancerTypeNetwork &&
+		desiredIPAddressType == string(elbv2model.IPAddressTypeDualStack)
 }
