@@ -4,13 +4,13 @@ go 1.22.8
 
 require (
 	github.com/aws/aws-sdk-go v1.55.5
-	github.com/aws/aws-sdk-go-v2 v1.32.5
+	github.com/aws/aws-sdk-go-v2 v1.32.6
 	github.com/aws/aws-sdk-go-v2/config v1.27.27
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.11
 	github.com/aws/aws-sdk-go-v2/service/acm v1.28.4
 	github.com/aws/aws-sdk-go-v2/service/appmesh v1.27.7
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.173.0
-	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.42.0
+	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.43.1
 	github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.23.3
 	github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.31.7
 	github.com/aws/aws-sdk-go-v2/service/shield v1.27.3
@@ -57,8 +57,8 @@ require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.27 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.24 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.24 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.25 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.25 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.11.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.17 // indirect

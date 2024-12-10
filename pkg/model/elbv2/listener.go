@@ -104,7 +104,8 @@ type MutualAuthenticationAttributes struct {
 
 	TrustStoreArn *string `json:"trustStoreArn,omitempty"`
 
-	IgnoreClientCertificateExpiry *bool `json:"ignoreClientCertificateExpiry,omitempty"`
+	IgnoreClientCertificateExpiry *bool   `json:"ignoreClientCertificateExpiry,omitempty"`
+	AdvertiseTrustStoreCaNames    *string `json:"advertiseTrustStoreCaNames,omitempty"`
 }
 
 type AuthenticateCognitoActionConditionalBehavior string
