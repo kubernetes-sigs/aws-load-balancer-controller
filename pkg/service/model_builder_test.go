@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 	"time"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -6502,6 +6503,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "scheme":"internet-facing",
              "securityGroupsInboundRulesOnPrivateLink":"on",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
