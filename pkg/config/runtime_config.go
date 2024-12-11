@@ -18,27 +18,29 @@ import (
 )
 
 const (
-	flagMetricsBindAddr         = "metrics-bind-addr"
-	flagHealthProbeBindAddr     = "health-probe-bind-addr"
-	flagWebhookBindPort         = "webhook-bind-port"
-	flagEnableLeaderElection    = "enable-leader-election"
-	flagLeaderElectionID        = "leader-election-id"
-	flagLeaderElectionNamespace = "leader-election-namespace"
-	flagWatchNamespace          = "watch-namespace"
-	flagSyncPeriod              = "sync-period"
-	flagKubeconfig              = "kubeconfig"
-	flagWebhookCertDir          = "webhook-cert-dir"
-	flagWebhookCertName         = "webhook-cert-file"
-	flagWebhookKeyName          = "webhook-key-file"
+	flagMetricsBindAddr             = "metrics-bind-addr"
+	flagHealthProbeBindAddr         = "health-probe-bind-addr"
+	flagWebhookBindPort             = "webhook-bind-port"
+	flagEnableLeaderElection        = "enable-leader-election"
+	flagLeaderElectionID            = "leader-election-id"
+	flagLeaderElectionNamespace     = "leader-election-namespace"
+	flagLeaderElectionLeaseDuration = "leader-election-lease-duration"
+	flagWatchNamespace              = "watch-namespace"
+	flagSyncPeriod                  = "sync-period"
+	flagKubeconfig                  = "kubeconfig"
+	flagWebhookCertDir              = "webhook-cert-dir"
+	flagWebhookCertName             = "webhook-cert-file"
+	flagWebhookKeyName              = "webhook-key-file"
 
-	defaultKubeconfig              = ""
-	defaultLeaderElectionID        = "aws-load-balancer-controller-leader"
-	defaultLeaderElectionNamespace = ""
-	defaultWatchNamespace          = corev1.NamespaceAll
-	defaultMetricsAddr             = ":8080"
-	defaultHealthProbeBindAddress  = ":61779"
-	defaultSyncPeriod              = 10 * time.Hour
-	defaultWebhookBindPort         = 9443
+	defaultKubeconfig                  = ""
+	defaultLeaderElectionID            = "aws-load-balancer-controller-leader"
+	defaultLeaderElectionNamespace     = ""
+	defaultLeaderElectionLeaseDuration = 15 * time.Second
+	defaultWatchNamespace              = corev1.NamespaceAll
+	defaultMetricsAddr                 = ":8080"
+	defaultHealthProbeBindAddress      = ":61779"
+	defaultSyncPeriod                  = 10 * time.Hour
+	defaultWebhookBindPort             = 9443
 	// High enough QPS to fit all expected use cases. QPS=0 is not set here, because
 	// client code is overriding it.
 	defaultQPS = 1e6
@@ -52,19 +54,20 @@ const (
 
 // RuntimeConfig stores the configuration for the controller-runtime
 type RuntimeConfig struct {
-	APIServer               string
-	KubeConfig              string
-	WebhookBindPort         int
-	MetricsBindAddress      string
-	HealthProbeBindAddress  string
-	EnableLeaderElection    bool
-	LeaderElectionID        string
-	LeaderElectionNamespace string
-	WatchNamespace          string
-	SyncPeriod              time.Duration
-	WebhookCertDir          string
-	WebhookCertName         string
-	WebhookKeyName          string
+	APIServer                   string
+	KubeConfig                  string
+	WebhookBindPort             int
+	MetricsBindAddress          string
+	HealthProbeBindAddress      string
+	EnableLeaderElection        bool
+	LeaderElectionID            string
+	LeaderElectionNamespace     string
+	LeaderElectionLeaseDuration time.Duration
+	WatchNamespace              string
+	SyncPeriod                  time.Duration
+	WebhookCertDir              string
+	WebhookCertName             string
+	WebhookKeyName              string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -91,7 +94,8 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.WebhookCertDir, flagWebhookCertDir, defaultWebhookCertDir, "WebhookCertDir is the directory that contains the webhook server key and certificate.")
 	fs.StringVar(&c.WebhookCertName, flagWebhookCertName, defaultWebhookCertName, "WebhookCertName is the webhook server certificate name.")
 	fs.StringVar(&c.WebhookKeyName, flagWebhookKeyName, defaultWebhookKeyName, "WebhookKeyName is the webhook server key name.")
-
+	fs.DurationVar(&c.LeaderElectionLeaseDuration, flagLeaderElectionLeaseDuration, defaultLeaderElectionLeaseDuration,
+		"The duration that non-leader candidates will wait to force acquire leadership.")
 }
 
 // BuildRestConfig builds the REST config for the controller runtime
@@ -122,6 +126,7 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 		LeaderElectionResourceLock: resourcelock.LeasesResourceLock,
 		LeaderElectionID:           rtCfg.LeaderElectionID,
 		LeaderElectionNamespace:    rtCfg.LeaderElectionNamespace,
+		LeaseDuration:              &rtCfg.LeaderElectionLeaseDuration,
 		Cache: cache.Options{
 			SyncPeriod: &rtCfg.SyncPeriod,
 		},
