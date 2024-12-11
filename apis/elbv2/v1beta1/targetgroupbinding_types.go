@@ -157,6 +157,14 @@ type TargetGroupBindingSpec struct {
 	// VpcID is the VPC of the TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
 	VpcID string `json:"vpcID,omitempty"`
+
+	// IAM Role ARN to assume when calling AWS APIs. Useful if the target group is in a different AWS account
+	// +optional
+	IamRoleArnToAssume string `json:"-"` // `json:"iamRoleArnToAssume,omitempty"`
+
+	// IAM Role ARN to assume when calling AWS APIs. Needed to assume a role in another account and prevent the confused deputy problem. https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html
+	// +optional
+	AssumeRoleExternalId string `json:"-"` // `json:"assumeRoleExternalId,omitempty"`
 }
 
 // TargetGroupBindingStatus defines the observed state of TargetGroupBinding
