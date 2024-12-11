@@ -6501,6 +6501,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internet-facing",
              "securityGroupsInboundRulesOnPrivateLink":"on",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
