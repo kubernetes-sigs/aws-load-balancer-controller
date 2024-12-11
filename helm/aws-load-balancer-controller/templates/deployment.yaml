@@ -43,6 +43,9 @@ spec:
       runtimeClassName: {{ .Values.runtimeClassName }}
     {{- end }}
       serviceAccountName: {{ include "aws-load-balancer-controller.serviceAccountName" . }}
+    {{- if ne .Values.automountServiceAccountToken nil }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
+    {{- end }}
       volumes:
       - name: cert
         secret:
