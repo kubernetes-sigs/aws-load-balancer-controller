@@ -805,6 +805,7 @@ TLS support can be controlled with the following annotations:
                - Both ARN and Name of trustStore are supported values.
                - `trustStore` is required when mode is `verify`.
             - `ignoreClientCertificateExpiry : true | false (default)`
+            - `advertiseTrustStoreCaNames : "on" | "off" (default)`
         - Once the Mutual Authentication is set, to turn it off, you will have to explicitly pass in this annotation with `mode : "off"`.
   
     !!!example

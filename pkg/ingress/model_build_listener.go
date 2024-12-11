@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"net"
 	"strings"
 
@@ -283,6 +284,7 @@ type MutualAuthenticationConfig struct {
 	Mode                          string  `json:"mode"`
 	TrustStore                    *string `json:"trustStore,omitempty"`
 	IgnoreClientCertificateExpiry *bool   `json:"ignoreClientCertificateExpiry,omitempty"`
+	AdvertiseTrustStoreCaNames    *string `json:"advertiseTrustStoreCaNames,omitempty"`
 }
 
 func (t *defaultModelBuildTask) computeIngressMutualAuthentication(ctx context.Context, ing *ClassifiedIngress) (map[int32]*elbv2model.MutualAuthenticationAttributes, error) {
@@ -319,8 +321,9 @@ func (t *defaultModelBuildTask) parseMtlsConfigEntries(_ context.Context, entrie
 		mode := mutualAuthenticationConfig.Mode
 		truststoreNameOrArn := awssdk.ToString(mutualAuthenticationConfig.TrustStore)
 		ignoreClientCert := mutualAuthenticationConfig.IgnoreClientCertificateExpiry
+		advertiseTrustStoreCaNames := mutualAuthenticationConfig.AdvertiseTrustStoreCaNames
 
-		err := t.validateMutualAuthenticationConfig(port, mode, truststoreNameOrArn, ignoreClientCert)
+		err := t.validateMutualAuthenticationConfig(port, mode, truststoreNameOrArn, ignoreClientCert, advertiseTrustStoreCaNames)
 		if err != nil {
 			return nil, err
 		}
@@ -328,12 +331,12 @@ func (t *defaultModelBuildTask) parseMtlsConfigEntries(_ context.Context, entrie
 		if mode == string(elbv2model.MutualAuthenticationVerifyMode) && ignoreClientCert == nil {
 			ignoreClientCert = awssdk.Bool(false)
 		}
-		portAndMtlsAttributes[port] = &elbv2model.MutualAuthenticationAttributes{Mode: mode, TrustStoreArn: awssdk.String(truststoreNameOrArn), IgnoreClientCertificateExpiry: ignoreClientCert}
+		portAndMtlsAttributes[port] = &elbv2model.MutualAuthenticationAttributes{Mode: mode, TrustStoreArn: awssdk.String(truststoreNameOrArn), IgnoreClientCertificateExpiry: ignoreClientCert, AdvertiseTrustStoreCaNames: advertiseTrustStoreCaNames}
 	}
 	return portAndMtlsAttributes, nil
 }
 
-func (t *defaultModelBuildTask) validateMutualAuthenticationConfig(port int32, mode string, truststoreNameOrArn string, ignoreClientCert *bool) error {
+func (t *defaultModelBuildTask) validateMutualAuthenticationConfig(port int32, mode string, truststoreNameOrArn string, ignoreClientCert *bool, advertiseTrustStoreCaNames *string) error {
 	// Verify port value is valid for ALB: [1, 65535]
 	if port < 1 || port > 65535 {
 		return errors.Errorf("listen port must be within [1, 65535]: %v", port)
@@ -358,6 +361,19 @@ func (t *defaultModelBuildTask) validateMutualAuthenticationConfig(port int32, m
 	//Verify if the mutualAuthentication ignoreClientCert is valid for Off and Passthrough modes
 	if (mode == string(elbv2model.MutualAuthenticationOffMode) || mode == string(elbv2model.MutualAuthenticationPassthroughMode)) && ignoreClientCert != nil {
 		return errors.Errorf("Mutual Authentication mode %s does not support ignoring client certificate expiry for port %v", mode, port)
+	}
+
+	// Verify advertise trust ca names.
+	// The value (if specified) must be "on" or "off"
+	// The value can be only specified when using verify mode on the listener.
+	if advertiseTrustStoreCaNames != nil {
+		if mode != string(elbv2model.MutualAuthenticationVerifyMode) {
+			return errors.Errorf("Mutual Authentication mode %s does not support advertiseTrustStoreCaNames for port %v", mode, port)
+		}
+
+		if *advertiseTrustStoreCaNames != string(elbv2types.AdvertiseTrustStoreCaNamesEnumOff) && *advertiseTrustStoreCaNames != string(elbv2types.AdvertiseTrustStoreCaNamesEnumOn) {
+			return errors.Errorf("advertiseTrustStoreCaNames only supports the values \"on\" and \"off\" got value %s for port %v", *advertiseTrustStoreCaNames, port)
+		}
 	}
 
 	return nil

@@ -365,11 +365,17 @@ func buildSDKMutualAuthenticationConfig(modelMutualAuthenticationCfg *elbv2model
 	if modelMutualAuthenticationCfg == nil {
 		return nil
 	}
-	return &elbv2types.MutualAuthenticationAttributes{
+	attributes := &elbv2types.MutualAuthenticationAttributes{
 		IgnoreClientCertificateExpiry: modelMutualAuthenticationCfg.IgnoreClientCertificateExpiry,
 		Mode:                          awssdk.String(modelMutualAuthenticationCfg.Mode),
 		TrustStoreArn:                 modelMutualAuthenticationCfg.TrustStoreArn,
 	}
+
+	if modelMutualAuthenticationCfg.Mode == string(elbv2model.MutualAuthenticationVerifyMode) {
+		attributes.AdvertiseTrustStoreCaNames = translateAdvertiseCAToEnum(modelMutualAuthenticationCfg.AdvertiseTrustStoreCaNames)
+	}
+
+	return attributes
 }
 
 func buildResListenerStatus(sdkLS ListenerWithTags) elbv2model.ListenerStatus {
@@ -395,4 +401,11 @@ func getRegionFromARN(arn string) string {
 
 func isIsolatedRegion(region string) bool {
 	return strings.Contains(strings.ToLower(region), "-iso-")
+}
+
+func translateAdvertiseCAToEnum(s *string) elbv2types.AdvertiseTrustStoreCaNamesEnum {
+	if s == nil {
+		return elbv2types.AdvertiseTrustStoreCaNamesEnumOff
+	}
+	return elbv2types.AdvertiseTrustStoreCaNamesEnum(*s)
 }
