@@ -5,14 +5,17 @@
 
 approvers:
 - M00nF1sh
-- kishorj
-- johngmyers
 - oliviassss
+- shraddhabang
+- wweiwei-li
+- zac-nixon
 reviewers:
 - M00nF1sh
-- kishorj
-- johngmyers
 - oliviassss
+- shraddhabang
+- wweiwei-li
+- zac-nixon
 emeritus_approvers:
 - bigkraig
 - alejandrox1
+- johngmyers
