@@ -91,7 +91,7 @@ configureDefaultAffinity: true
 # nodes, and other user-defined topology domains.
 #
 # more details here: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
-topologySpreadConstraints: {}
+topologySpreadConstraints: []
 
 updateStrategy: {}
   # type: RollingUpdate
