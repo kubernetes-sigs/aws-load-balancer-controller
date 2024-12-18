@@ -161,6 +161,9 @@ region:
 # The VPC ID for the Kubernetes cluster. Set this manually when your pods are unable to use the metadata service to determine this automatically
 vpcId:
 
+# This is alternative to vpcId, set this manually when your pods are unable to use the metadata service to determine this automatically. Expects value in format: Name=TagValue
+vpcTags:
+
 # Custom AWS API Endpoints (serviceID1=URL1,serviceID2=URL2)
 awsApiEndpoints:
 
