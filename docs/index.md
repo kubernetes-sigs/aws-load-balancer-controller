@@ -7,7 +7,7 @@
         A
         <a href="https://kubernetes.io/">Kubernetes </a>
         controller for
-        <a href="https://aws.amazon.com/elasticloadbalancing/">Elastic Load Balancers</a>
+        <a href="https://aws.amazon.com/elasticloadbalancing/">Elastic  Load Balancers</a>
     </strong>
 </p>
 <p align="center">
