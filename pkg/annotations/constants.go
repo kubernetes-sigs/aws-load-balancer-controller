@@ -100,7 +100,8 @@ const (
 	SvcLBSuffixSecurityGroupPrefixLists                  = "aws-load-balancer-security-group-prefix-lists"
 	SvcLBSuffixlsAttsAnnotationPrefix                    = "aws-load-balancer-listener-attributes"
 	SvcLBSuffixMultiClusterTargetGroup                   = "aws-load-balancer-multi-cluster-target-group"
-	ScvLBSuffixEnablePrefixForIpv6SourceNat              = "aws-load-balancer-enable-prefix-for-ipv6-source-nat"
-	ScvLBSuffixSourceNatIpv6Prefixes                     = "aws-load-balancer-source-nat-ipv6-prefixes"
+	SvcLBSuffixEnablePrefixForIpv6SourceNat              = "aws-load-balancer-enable-prefix-for-ipv6-source-nat"
+	SvcLBSuffixSourceNatIpv6Prefixes                     = "aws-load-balancer-source-nat-ipv6-prefixes"
 	SvcLBSuffixLoadBalancerCapacityReservation           = "aws-load-balancer-minimum-load-balancer-capacity"
+	SvcLBSuffixEnableIcmpForPathMtuDiscovery             = "aws-load-balancer-enable-icmp-for-path-mtu-discovery"
 )
