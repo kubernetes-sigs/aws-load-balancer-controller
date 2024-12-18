@@ -45,7 +45,7 @@ type GroupLoader interface {
 }
 
 // NewDefaultGroupLoader constructs new GroupLoader instance.
-func NewDefaultGroupLoader(client client.Client, eventRecorder record.EventRecorder, annotationParser annotations.Parser, classLoader ClassLoader, classAnnotationMatcher ClassAnnotationMatcher, manageIngressesWithoutIngressClass bool) *defaultGroupLoader {
+func NewDefaultGroupLoader(client client.Client, eventRecorder record.EventRecorder, annotationParser annotations.Parser, classLoader ClassLoader, classAnnotationMatcher ClassAnnotationMatcher, manageIngressesWithoutIngressClass bool, controllerClass string) *defaultGroupLoader {
 	return &defaultGroupLoader{
 		client:           client,
 		eventRecorder:    eventRecorder,
@@ -54,6 +54,7 @@ func NewDefaultGroupLoader(client client.Client, eventRecorder record.EventRecor
 		classLoader:                        classLoader,
 		classAnnotationMatcher:             classAnnotationMatcher,
 		manageIngressesWithoutIngressClass: manageIngressesWithoutIngressClass,
+		controllerClass:                    controllerClass,
 	}
 }
 
@@ -74,6 +75,7 @@ type defaultGroupLoader struct {
 	// manageIngressesWithoutIngressClass specifies whether ingresses without "kubernetes.io/ingress.class" annotation
 	// and "spec.ingressClassName" should be managed or not.
 	manageIngressesWithoutIngressClass bool
+	controllerClass                    string
 }
 
 func (m *defaultGroupLoader) Load(ctx context.Context, groupID GroupID) (Group, error) {
@@ -219,7 +221,7 @@ func (m *defaultGroupLoader) classifyIngress(ctx context.Context, ing *networkin
 		return ClassifiedIngress{
 			Ing:            ing,
 			IngClassConfig: ingClassConfig,
-		}, ingClassConfig.IngClass.Spec.Controller == IngressClassControllerALB, nil
+		}, ingClassConfig.IngClass.Spec.Controller == m.controllerClass, nil
 	}
 
 	return ClassifiedIngress{
