@@ -2,15 +2,18 @@ package elbv2
 
 import (
 	"context"
+
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -45,6 +48,7 @@ func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtim
 	if err := m.getArnFromNameIfNeeded(ctx, tgb); err != nil {
 		return nil, err
 	}
+	targetgroupbinding.AnnotationsToFields(tgb)
 	if err := m.defaultingTargetType(ctx, tgb); err != nil {
 		return nil, err
 	}
@@ -76,8 +80,7 @@ func (m *targetGroupBindingMutator) defaultingTargetType(ctx context.Context, tg
 	if tgb.Spec.TargetType != nil {
 		return nil
 	}
-	tgARN := tgb.Spec.TargetGroupARN
-	sdkTargetType, err := m.obtainSDKTargetTypeFromAWS(ctx, tgARN)
+	sdkTargetType, err := m.obtainSDKTargetTypeFromAWS(ctx, tgb)
 	if err != nil {
 		return errors.Wrap(err, "couldn't determine TargetType")
 	}
@@ -99,7 +102,7 @@ func (m *targetGroupBindingMutator) defaultingIPAddressType(ctx context.Context,
 	if tgb.Spec.IPAddressType != nil {
 		return nil
 	}
-	targetGroupIPAddressType, err := m.getTargetGroupIPAddressTypeFromAWS(ctx, tgb.Spec.TargetGroupARN)
+	targetGroupIPAddressType, err := m.getTargetGroupIPAddressTypeFromAWS(ctx, tgb)
 	if err != nil {
 		return errors.Wrap(err, "unable to get target group IP address type")
 	}
@@ -111,7 +114,7 @@ func (m *targetGroupBindingMutator) defaultingVpcID(ctx context.Context, tgb *el
 	if tgb.Spec.VpcID != "" {
 		return nil
 	}
-	vpcId, err := m.getVpcIDFromAWS(ctx, tgb.Spec.TargetGroupARN)
+	vpcId, err := m.getVpcIDFromAWS(ctx, tgb)
 	if err != nil {
 		return errors.Wrap(err, "unable to get target group VpcID")
 	}
@@ -119,8 +122,8 @@ func (m *targetGroupBindingMutator) defaultingVpcID(ctx context.Context, tgb *el
 	return nil
 }
 
-func (m *targetGroupBindingMutator) obtainSDKTargetTypeFromAWS(ctx context.Context, tgARN string) (string, error) {
-	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgARN)
+func (m *targetGroupBindingMutator) obtainSDKTargetTypeFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, error) {
+	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgb)
 	if err != nil {
 		return "", err
 	}
@@ -128,8 +131,8 @@ func (m *targetGroupBindingMutator) obtainSDKTargetTypeFromAWS(ctx context.Conte
 }
 
 // getTargetGroupIPAddressTypeFromAWS returns the target group IP address type of AWS target group
-func (m *targetGroupBindingMutator) getTargetGroupIPAddressTypeFromAWS(ctx context.Context, tgARN string) (elbv2api.TargetGroupIPAddressType, error) {
-	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgARN)
+func (m *targetGroupBindingMutator) getTargetGroupIPAddressTypeFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (elbv2api.TargetGroupIPAddressType, error) {
+	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgb)
 	if err != nil {
 		return "", err
 	}
@@ -145,11 +148,12 @@ func (m *targetGroupBindingMutator) getTargetGroupIPAddressTypeFromAWS(ctx conte
 	return ipAddressType, nil
 }
 
-func (m *targetGroupBindingMutator) getTargetGroupFromAWS(ctx context.Context, tgARN string) (*elbv2types.TargetGroup, error) {
+func (m *targetGroupBindingMutator) getTargetGroupFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (*elbv2types.TargetGroup, error) {
+	tgARN := tgb.Spec.TargetGroupARN
 	req := &elbv2sdk.DescribeTargetGroupsInput{
 		TargetGroupArns: []string{tgARN},
 	}
-	tgList, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
+	tgList, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId).DescribeTargetGroupsAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -173,8 +177,8 @@ func (m *targetGroupBindingMutator) getTargetGroupsByNameFromAWS(ctx context.Con
 	return &tgList[0], nil
 }
 
-func (m *targetGroupBindingMutator) getVpcIDFromAWS(ctx context.Context, tgARN string) (string, error) {
-	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgARN)
+func (m *targetGroupBindingMutator) getVpcIDFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, error) {
+	targetGroup, err := m.getTargetGroupFromAWS(ctx, tgb)
 	if err != nil {
 		return "", err
 	}
