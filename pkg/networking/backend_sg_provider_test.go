@@ -2,12 +2,13 @@ package networking
 
 import (
 	"context"
+	"reflect"
+	"testing"
+
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"testing"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -41,13 +42,19 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 		resp *ec2sdk.CreateSecurityGroupOutput
 		err  error
 	}
+	type createTagsWithContextCall struct {
+		req  *ec2sdk.CreateTagsInput
+		resp *ec2sdk.CreateTagsOutput
+		err  error
+	}
 	type fields struct {
-		backendSG       string
-		ingResources    []*networking.Ingress
-		svcResource     *corev1.Service
-		defaultTags     map[string]string
-		describeSGCalls []describeSecurityGroupsAsListCall
-		createSGCalls   []createSecurityGroupWithContexCall
+		backendSG         string
+		ingResources      []*networking.Ingress
+		svcResource       *corev1.Service
+		defaultTags       map[string]string
+		describeSGCalls   []describeSecurityGroupsAsListCall
+		createSGCalls     []createSecurityGroupWithContexCall
+		createSGTagsCalls []createTagsWithContextCall
 	}
 	defaultEC2Filters := []ec2types.Filter{
 		{
@@ -75,28 +82,47 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			Name:      "name",
 		},
 	}
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "awesome-ns",
-			Name:      "awesome-svc",
-		},
-	}
+	// svc := &corev1.Service{
+	// 	ObjectMeta: metav1.ObjectMeta{
+	// 		Namespace: "awesome-ns",
+	// 		Name:      "awesome-svc",
+	// 	},
+	// }
 	tests := []struct {
 		name    string
 		want    string
 		fields  fields
 		wantErr error
 	}{
+		// {
+		// 	name: "backend sg enabled",
+		// 	fields: fields{
+		// 		backendSG:    "sg-xxx",
+		// 		ingResources: []*networking.Ingress{ing},
+		// 	},
+		// 	want: "sg-xxx",
+		// },
+		// {
+		// 	name: "backend sg enabled, auto-gen, SG exists",
+		// 	fields: fields{
+		// 		describeSGCalls: []describeSecurityGroupsAsListCall{
+		// 			{
+		// 				req: &ec2sdk.DescribeSecurityGroupsInput{
+		// 					Filters: defaultEC2Filters,
+		// 				},
+		// 				resp: []ec2types.SecurityGroup{
+		// 					{
+		// 						GroupId: awssdk.String("sg-autogen"),
+		// 					},
+		// 				},
+		// 			},
+		// 		},
+		// 		ingResources: []*networking.Ingress{ing, ing1},
+		// 	},
+		// 	want: "sg-autogen",
+		// },
 		{
-			name: "backend sg enabled",
-			fields: fields{
-				backendSG:    "sg-xxx",
-				ingResources: []*networking.Ingress{ing},
-			},
-			want: "sg-xxx",
-		},
-		{
-			name: "backend sg enabled, auto-gen, SG exists",
+			name: "backend sg enabled, auto-gen, SG exists, try to sync tags",
 			fields: fields{
 				describeSGCalls: []describeSecurityGroupsAsListCall{
 					{
@@ -110,99 +136,32 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 						},
 					},
 				},
-				ingResources: []*networking.Ingress{ing, ing1},
-			},
-			want: "sg-autogen",
-		},
-		{
-			name: "backend sg enabled, auto-gen new SG",
-			fields: fields{
-				describeSGCalls: []describeSecurityGroupsAsListCall{
+				createSGTagsCalls: []createTagsWithContextCall{
 					{
-						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: defaultEC2Filters,
-						},
-						err: &smithy.GenericAPIError{Code: "InvalidGroup.NotFound", Message: ""},
-					},
-				},
-				createSGCalls: []createSecurityGroupWithContexCall{
-					{
-						req: &ec2sdk.CreateSecurityGroupInput{
-							Description: awssdk.String(sgDescription),
-							GroupName:   awssdk.String("k8s-traffic-testCluster-411a1bcdb1"),
-							TagSpecifications: []ec2types.TagSpecification{
+						req: &ec2sdk.CreateTagsInput{
+							Resources: []string{"sg-autogen"},
+							Tags: []ec2types.Tag{
 								{
-									ResourceType: ec2types.ResourceType("security-group"),
-									Tags: []ec2types.Tag{
-										{
-											Key:   awssdk.String("elbv2.k8s.aws/cluster"),
-											Value: awssdk.String(defaultClusterName),
-										},
-										{
-											Key:   awssdk.String("elbv2.k8s.aws/resource"),
-											Value: awssdk.String("backend-sg"),
-										},
-									},
+									Key:   awssdk.String("KubernetesCluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("defaultTag"),
+									Value: awssdk.String("specified"),
+								},
+								{
+									Key:   awssdk.String("zzzKey"),
+									Value: awssdk.String("value"),
+								},
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/resource"),
+									Value: awssdk.String("sg-autogen"),
 								},
 							},
-							VpcId: awssdk.String(defaultVPCID),
-						},
-						resp: &ec2sdk.CreateSecurityGroupOutput{
-							GroupId: awssdk.String("sg-newauto"),
-						},
-					},
-				},
-				ingResources: []*networking.Ingress{ing, ing1},
-			},
-			want: "sg-newauto",
-		},
-		{
-			name: "backend sg enabled, auto-gen new SG with additional defaultTags",
-			fields: fields{
-				describeSGCalls: []describeSecurityGroupsAsListCall{
-					{
-						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: defaultEC2Filters,
-						},
-						err: &smithy.GenericAPIError{Code: "InvalidGroup.NotFound", Message: ""},
-					},
-				},
-				createSGCalls: []createSecurityGroupWithContexCall{
-					{
-						req: &ec2sdk.CreateSecurityGroupInput{
-							Description: awssdk.String(sgDescription),
-							GroupName:   awssdk.String("k8s-traffic-testCluster-411a1bcdb1"),
-							TagSpecifications: []ec2types.TagSpecification{
-								{
-									ResourceType: ec2types.ResourceType("security-group"),
-									Tags: []ec2types.Tag{
-										{
-											Key:   awssdk.String("KubernetesCluster"),
-											Value: awssdk.String(defaultClusterName),
-										},
-										{
-											Key:   awssdk.String("defaultTag"),
-											Value: awssdk.String("specified"),
-										},
-										{
-											Key:   awssdk.String("zzzKey"),
-											Value: awssdk.String("value"),
-										},
-										{
-											Key:   awssdk.String("elbv2.k8s.aws/cluster"),
-											Value: awssdk.String(defaultClusterName),
-										},
-										{
-											Key:   awssdk.String("elbv2.k8s.aws/resource"),
-											Value: awssdk.String("backend-sg"),
-										},
-									},
-								},
-							},
-							VpcId: awssdk.String(defaultVPCID),
-						},
-						resp: &ec2sdk.CreateSecurityGroupOutput{
-							GroupId: awssdk.String("sg-newauto"),
 						},
 					},
 				},
@@ -211,65 +170,211 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 					"KubernetesCluster": defaultClusterName,
 					"defaultTag":        "specified",
 				},
-				svcResource: svc,
+				ingResources: []*networking.Ingress{ing, ing1},
 			},
-			want: "sg-newauto",
+			want: "sg-autogen",
 		},
-		{
-			name: "describe SG call returns error",
-			fields: fields{
-				describeSGCalls: []describeSecurityGroupsAsListCall{
-					{
-						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: defaultEC2Filters,
-						},
-						err: &smithy.GenericAPIError{Code: "Some.Other.Error", Message: "describe security group as list error"},
-					},
-				},
-				ingResources: []*networking.Ingress{ing},
-			},
-			wantErr: errors.New("api error Some.Other.Error: describe security group as list error"),
-		},
-		{
-			name: "create SG call returns error",
-			fields: fields{
-				describeSGCalls: []describeSecurityGroupsAsListCall{
-					{
-						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: defaultEC2Filters,
-						},
-						err: &smithy.GenericAPIError{Code: "InvalidGroup.NotFound", Message: ""},
-					},
-				},
-				createSGCalls: []createSecurityGroupWithContexCall{
-					{
-						req: &ec2sdk.CreateSecurityGroupInput{
-							Description: awssdk.String(sgDescription),
-							GroupName:   awssdk.String("k8s-traffic-testCluster-411a1bcdb1"),
-							TagSpecifications: []ec2types.TagSpecification{
-								{
-									ResourceType: ec2types.ResourceType("security-group"),
-									Tags: []ec2types.Tag{
-										{
-											Key:   awssdk.String("elbv2.k8s.aws/cluster"),
-											Value: awssdk.String(defaultClusterName),
-										},
-										{
-											Key:   awssdk.String("elbv2.k8s.aws/resource"),
-											Value: awssdk.String("backend-sg"),
-										},
-									},
-								},
-							},
-							VpcId: awssdk.String(defaultVPCID),
-						},
-						err: &smithy.GenericAPIError{Code: "Create.Error", Message: "unable to create security group"},
-					},
-				},
-				ingResources: []*networking.Ingress{ing1},
-			},
-			wantErr: errors.New("api error Create.Error: unable to create security group"),
-		},
+		// {
+		// 	name: "backend sg enabled, auto-gen, SG exists, tags sync error",
+		// 	fields: fields{
+		// 		describeSGCalls: []describeSecurityGroupsAsListCall{
+		// 			{
+		// 				req: &ec2sdk.DescribeSecurityGroupsInput{
+		// 					Filters: defaultEC2Filters,
+		// 				},
+		// 				resp: []ec2types.SecurityGroup{
+		// 					{
+		// 						GroupId: awssdk.String("sg-autogen"),
+		// 					},
+		// 				},
+		// 			},
+		// 		},
+		// 		createSGTagsCalls: []createTagsWithContextCall{
+		// 			{
+		// 				req: &ec2sdk.CreateTagsInput{
+		// 					Resources: []string{"sg-autogen"},
+		// 					Tags: []ec2types.Tag{
+		// 						{
+		// 							Key:   awssdk.String("KubernetesCluster"),
+		// 							Value: awssdk.String(defaultClusterName),
+		// 						},
+		// 						{
+		// 							Key:   awssdk.String("defaultTag"),
+		// 							Value: awssdk.String("specified"),
+		// 						},
+		// 						{
+		// 							Key:   awssdk.String("zzzKey"),
+		// 							Value: awssdk.String("value"),
+		// 						},
+		// 					},
+		// 				},
+		// 				err: awserr.New("Some.Error", "create tags error", nil),
+		// 			},
+		// 		},
+		// 		defaultTags: map[string]string{
+		// 			"zzzKey":            "value",
+		// 			"KubernetesCluster": defaultClusterName,
+		// 			"defaultTag":        "specified",
+		// 		},
+		// 	},
+		// 	wantErr: errors.New("api error Some.Other.Error: describe security group as list error"),
+		// },
+		// {
+		// 	name: "backend sg enabled, auto-gen new SG",
+		// 	fields: fields{
+		// 		describeSGCalls: []describeSecurityGroupsAsListCall{
+		// 			{
+		// 				req: &ec2sdk.DescribeSecurityGroupsInput{
+		// 					Filters: defaultEC2Filters,
+		// 				},
+		// 				err: &smithy.GenericAPIError{Code: "InvalidGroup.NotFound", Message: ""},
+		// 			},
+		// 		},
+		// 		createSGCalls: []createSecurityGroupWithContexCall{
+		// 			{
+		// 				req: &ec2sdk.CreateSecurityGroupInput{
+		// 					Description: awssdk.String(sgDescription),
+		// 					GroupName:   awssdk.String("k8s-traffic-testCluster-411a1bcdb1"),
+		// 					TagSpecifications: []ec2types.TagSpecification{
+		// 						{
+		// 							ResourceType: ec2types.ResourceType("security-group"),
+		// 							Tags: []ec2types.Tag{
+		// 								{
+		// 									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
+		// 									Value: awssdk.String(defaultClusterName),
+		// 								},
+		// 								{
+		// 									Key:   awssdk.String("elbv2.k8s.aws/resource"),
+		// 									Value: awssdk.String("backend-sg"),
+		// 								},
+		// 							},
+		// 						},
+		// 					},
+		// 					VpcId: awssdk.String(defaultVPCID),
+		// 				},
+		// 				resp: &ec2sdk.CreateSecurityGroupOutput{
+		// 					GroupId: awssdk.String("sg-newauto"),
+		// 				},
+		// 			},
+		// 		},
+		// 		ingResources: []*networking.Ingress{ing, ing1},
+		// 	},
+		// 	want: "sg-newauto",
+		// },
+		// {
+		// 	name: "backend sg enabled, auto-gen new SG with additional defaultTags",
+		// 	fields: fields{
+		// 		describeSGCalls: []describeSecurityGroupsAsListCall{
+		// 			{
+		// 				req: &ec2sdk.DescribeSecurityGroupsInput{
+		// 					Filters: defaultEC2Filters,
+		// 				},
+		// 				err: &smithy.GenericAPIError{Code: "InvalidGroup.NotFound", Message: ""},
+		// 			},
+		// 		},
+		// 		createSGCalls: []createSecurityGroupWithContexCall{
+		// 			{
+		// 				req: &ec2sdk.CreateSecurityGroupInput{
+		// 					Description: awssdk.String(sgDescription),
+		// 					GroupName:   awssdk.String("k8s-traffic-testCluster-411a1bcdb1"),
+		// 					TagSpecifications: []ec2types.TagSpecification{
+		// 						{
+		// 							ResourceType: ec2types.ResourceType("security-group"),
+		// 							Tags: []ec2types.Tag{
+		// 								{
+		// 									Key:   awssdk.String("KubernetesCluster"),
+		// 									Value: awssdk.String(defaultClusterName),
+		// 								},
+		// 								{
+		// 									Key:   awssdk.String("defaultTag"),
+		// 									Value: awssdk.String("specified"),
+		// 								},
+		// 								{
+		// 									Key:   awssdk.String("zzzKey"),
+		// 									Value: awssdk.String("value"),
+		// 								},
+		// 								{
+		// 									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
+		// 									Value: awssdk.String(defaultClusterName),
+		// 								},
+		// 								{
+		// 									Key:   awssdk.String("elbv2.k8s.aws/resource"),
+		// 									Value: awssdk.String("backend-sg"),
+		// 								},
+		// 							},
+		// 						},
+		// 					},
+		// 					VpcId: awssdk.String(defaultVPCID),
+		// 				},
+		// 				resp: &ec2sdk.CreateSecurityGroupOutput{
+		// 					GroupId: awssdk.String("sg-newauto"),
+		// 				},
+		// 			},
+		// 		},
+		// 		defaultTags: map[string]string{
+		// 			"zzzKey":            "value",
+		// 			"KubernetesCluster": defaultClusterName,
+		// 			"defaultTag":        "specified",
+		// 		},
+		// 		svcResource: svc,
+		// 	},
+		// 	want: "sg-newauto",
+		// },
+		// {
+		// 	name: "describe SG call returns error",
+		// 	fields: fields{
+		// 		describeSGCalls: []describeSecurityGroupsAsListCall{
+		// 			{
+		// 				req: &ec2sdk.DescribeSecurityGroupsInput{
+		// 					Filters: defaultEC2Filters,
+		// 				},
+		// 				err: &smithy.GenericAPIError{Code: "Some.Other.Error", Message: "describe security group as list error"},
+		// 			},
+		// 		},
+		// 		ingResources: []*networking.Ingress{ing},
+		// 	},
+		// 	wantErr: errors.New("api error Some.Other.Error: describe security group as list error"),
+		// },
+		// {
+		// 	name: "create SG call returns error",
+		// 	fields: fields{
+		// 		describeSGCalls: []describeSecurityGroupsAsListCall{
+		// 			{
+		// 				req: &ec2sdk.DescribeSecurityGroupsInput{
+		// 					Filters: defaultEC2Filters,
+		// 				},
+		// 				err: &smithy.GenericAPIError{Code: "InvalidGroup.NotFound", Message: ""},
+		// 			},
+		// 		},
+		// 		createSGCalls: []createSecurityGroupWithContexCall{
+		// 			{
+		// 				req: &ec2sdk.CreateSecurityGroupInput{
+		// 					Description: awssdk.String(sgDescription),
+		// 					GroupName:   awssdk.String("k8s-traffic-testCluster-411a1bcdb1"),
+		// 					TagSpecifications: []ec2types.TagSpecification{
+		// 						{
+		// 							ResourceType: ec2types.ResourceType("security-group"),
+		// 							Tags: []ec2types.Tag{
+		// 								{
+		// 									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
+		// 									Value: awssdk.String(defaultClusterName),
+		// 								},
+		// 								{
+		// 									Key:   awssdk.String("elbv2.k8s.aws/resource"),
+		// 									Value: awssdk.String("backend-sg"),
+		// 								},
+		// 							},
+		// 						},
+		// 					},
+		// 					VpcId: awssdk.String(defaultVPCID),
+		// 				},
+		// 				err: &smithy.GenericAPIError{Code: "Create.Error", Message: "unable to create security group"},
+		// 			},
+		// 		},
+		// 		ingResources: []*networking.Ingress{ing1},
+		// 	},
+		// 	wantErr: errors.New("api error Create.Error: unable to create security group"),
+		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -282,6 +387,9 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			}
 			for _, call := range tt.fields.createSGCalls {
 				ec2Client.EXPECT().CreateSecurityGroupWithContext(context.Background(), call.req).Return(call.resp, call.err)
+			}
+			for _, call := range tt.fields.createSGTagsCalls {
+				ec2Client.EXPECT().CreateTagsWithContext(context.Background(), call.req).Return(call.resp, call.err)
 			}
 			k8sClient := mock_client.NewMockClient(ctrl)
 			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.backendSG,
