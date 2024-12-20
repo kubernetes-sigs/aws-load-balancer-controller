@@ -2,13 +2,12 @@ package networking
 
 import (
 	"context"
-	"reflect"
-	"testing"
-
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/types"
+	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"testing"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -48,13 +47,13 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 		err  error
 	}
 	type fields struct {
-		backendSG         string
-		ingResources      []*networking.Ingress
-		svcResource       *corev1.Service
-		defaultTags       map[string]string
-		describeSGCalls   []describeSecurityGroupsAsListCall
-		createSGCalls     []createSecurityGroupWithContexCall
-		createSGTagsCalls []createTagsWithContextCall
+		backendSG                  string
+		ingResources               []*networking.Ingress
+		svcResource                *corev1.Service
+		defaultTags                map[string]string
+		describeSGCalls            []describeSecurityGroupsAsListCall
+		createSGCalls              []createSecurityGroupWithContexCall
+		createTagsWithContextCalls []createTagsWithContextCall
 	}
 	defaultEC2Filters := []ec2types.Filter{
 		{
@@ -94,33 +93,50 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 		fields  fields
 		wantErr error
 	}{
-		// {
-		// 	name: "backend sg enabled",
-		// 	fields: fields{
-		// 		backendSG:    "sg-xxx",
-		// 		ingResources: []*networking.Ingress{ing},
-		// 	},
-		// 	want: "sg-xxx",
-		// },
-		// {
-		// 	name: "backend sg enabled, auto-gen, SG exists",
-		// 	fields: fields{
-		// 		describeSGCalls: []describeSecurityGroupsAsListCall{
-		// 			{
-		// 				req: &ec2sdk.DescribeSecurityGroupsInput{
-		// 					Filters: defaultEC2Filters,
-		// 				},
-		// 				resp: []ec2types.SecurityGroup{
-		// 					{
-		// 						GroupId: awssdk.String("sg-autogen"),
-		// 					},
-		// 				},
-		// 			},
-		// 		},
-		// 		ingResources: []*networking.Ingress{ing, ing1},
-		// 	},
-		// 	want: "sg-autogen",
-		// },
+		{
+			name: "backend sg enabled",
+			fields: fields{
+				backendSG:    "sg-xxx",
+				ingResources: []*networking.Ingress{ing},
+			},
+			want: "sg-xxx",
+		},
+		{
+			name: "backend sg enabled, auto-gen, SG exists",
+			fields: fields{
+				describeSGCalls: []describeSecurityGroupsAsListCall{
+					{
+						req: &ec2sdk.DescribeSecurityGroupsInput{
+							Filters: defaultEC2Filters,
+						},
+						resp: []ec2types.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-autogen"),
+							},
+						},
+					},
+				},
+				createTagsWithContextCalls: []createTagsWithContextCall{
+					{
+						req: &ec2sdk.CreateTagsInput{
+							Resources: []string{"sg-autogen"},
+							Tags: []ec2types.Tag{
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/resource"),
+									Value: awssdk.String("backend-sg"),
+								},
+							},
+						},
+					},
+				},
+				ingResources: []*networking.Ingress{ing, ing1},
+			},
+			want: "sg-autogen",
+		},
 		{
 			name: "backend sg enabled, auto-gen, SG exists, try to sync tags",
 			fields: fields{
@@ -136,7 +152,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 						},
 					},
 				},
-				createSGTagsCalls: []createTagsWithContextCall{
+				createTagsWithContextCalls: []createTagsWithContextCall{
 					{
 						req: &ec2sdk.CreateTagsInput{
 							Resources: []string{"sg-autogen"},
@@ -189,7 +205,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 						},
 					},
 				},
-				createSGTagsCalls: []createTagsWithContextCall{
+				createTagsWithContextCalls: []createTagsWithContextCall{
 					{
 						req: &ec2sdk.CreateTagsInput{
 							Resources: []string{"sg-autogen"},
@@ -397,7 +413,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			for _, call := range tt.fields.createSGCalls {
 				ec2Client.EXPECT().CreateSecurityGroupWithContext(context.Background(), call.req).Return(call.resp, call.err)
 			}
-			for _, call := range tt.fields.createSGTagsCalls {
+			for _, call := range tt.fields.createTagsWithContextCalls {
 				ec2Client.EXPECT().CreateTagsWithContext(context.Background(), call.req).Return(call.resp, call.err)
 			}
 			k8sClient := mock_client.NewMockClient(ctrl)
