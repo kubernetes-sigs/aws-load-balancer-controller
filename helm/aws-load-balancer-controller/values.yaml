@@ -376,6 +376,10 @@ objectSelector:
   matchLabels:
   #   key: value
 
+metrics:
+  # Specifies whether the Prometheus metrics service should be created, independent of service monitor
+  enabled: false
+
 serviceMonitor:
   # Specifies whether a service monitor should be created
   enabled: false
