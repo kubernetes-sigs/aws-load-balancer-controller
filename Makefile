@@ -88,25 +88,61 @@ aws-sdk-model-override:
 		./scripts/aws_sdk_model_override/cleanup.sh ; \
 	fi
 
+# Docker build targets (without pushing)
+.PHONY: docker-build
+docker-build:
+	docker build . --target bin \
+		--tag $(IMG) \
+		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg BUILD_IMAGE=$(BUILD_IMAGE) \
+		--platform ${IMG_PLATFORM}
+
+.PHONY: docker-buildx
+docker-buildx:
+	docker buildx build . --target bin \
+		--tag $(IMG) \
+		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg BUILD_IMAGE=$(BUILD_IMAGE) \
+		--platform ${IMG_PLATFORM} \
+		--load
+
+.PHONY: ko-build
+ko-build: ko
+	KO_DOCKER_REPO=$(firstword $(subst :, ,${IMG})) \
+	GIT_VERSION=$(shell git describe --tags --dirty --always) \
+	GIT_COMMIT=$(shell git rev-parse HEAD)  \
+	BUILD_DATE=$(shell date +%Y-%m-%dT%H:%M:%S%z) \
+	ko build --tags $(word 2,$(subst :, ,${IMG})) --platform=${IMG_PLATFORM} --bare --sbom ${IMG_SBOM} .
+
+# Push commands
+.PHONY: docker-push-classic
+docker-push-classic: docker-build
+	docker push $(IMG)
+
+.PHONY: docker-buildx-push
+docker-buildx-push:
+	docker buildx build . --target bin \
+		--tag $(IMG) \
+		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+		--build-arg BUILD_IMAGE=$(BUILD_IMAGE) \
+		--push \
+		--platform ${IMG_PLATFORM}
+
+.PHONY: ko-push
+ko-push: ko
+	KO_DOCKER_REPO=$(firstword $(subst :, ,${IMG})) \
+	GIT_VERSION=$(shell git describe --tags --dirty --always) \
+	GIT_COMMIT=$(shell git rev-parse HEAD)  \
+	BUILD_DATE=$(shell date +%Y-%m-%dT%H:%M:%S%z) \
+	ko build --tags $(word 2,$(subst :, ,${IMG})) --platform=${IMG_PLATFORM} --bare --sbom ${IMG_SBOM} --push .
+
+# Default push methods using ko (for backward compatibility)
+.PHONY: aws-load-balancer-controller-push
+aws-load-balancer-controller-push: ko-push
+
 .PHONY: docker-push
 docker-push: aws-load-balancer-controller-push
 
-.PHONY: aws-load-balancer-controller-push
-aws-load-balancer-controller-push: ko
-	KO_DOCKER_REPO=$(firstword $(subst :, ,${IMG})) \
-    GIT_VERSION=$(shell git describe --tags --dirty --always) \
-    GIT_COMMIT=$(shell git rev-parse HEAD)  \
-    BUILD_DATE=$(shell date +%Y-%m-%dT%H:%M:%S%z) \
-    ko build --tags $(word 2,$(subst :, ,${IMG})) --platform=${IMG_PLATFORM} --bare --sbom ${IMG_SBOM} .
-
-# Push the docker image using docker buildx
-docker-push-w-buildx:
-	docker buildx build . --target bin \
-        		--tag $(IMG) \
-				--build-arg BASE_IMAGE=$(BASE_IMAGE) \
-				--build-arg BUILD_IMAGE=$(BUILD_IMAGE) \
-				--push \
-        		--platform ${IMG_PLATFORM}
 
 # find or download controller-gen
 # download controller-gen if necessary
