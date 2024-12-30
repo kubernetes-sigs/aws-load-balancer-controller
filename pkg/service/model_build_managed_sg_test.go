@@ -288,3 +288,92 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_buildCIDRsFromSourceRanges(t *testing.T) {
+    tests := []struct {
+        name                string
+        service            *corev1.Service
+        ipAddressType      elbv2model.IPAddressType
+        prefixListConfigured bool
+        setupMocks         func(m *mocks.MockEC2API)
+        want               []string
+        wantErr           bool
+    }{
+        {
+            name: "internal lb with VPC CIDR",
+            service: &corev1.Service{
+                ObjectMeta: metav1.ObjectMeta{
+                    Annotations: map[string]string{
+                        "service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
+                    },
+                },
+            },
+            ipAddressType: elbv2model.IPAddressTypeIPV4,
+            setupMocks: func(m *mocks.MockEC2API) {
+                m.EXPECT().DescribeVpcs(gomock.Any()).Return(&ec2.DescribeVpcsOutput{
+                    Vpcs: []*ec2.Vpc{
+                        {
+                            CidrBlock: aws.String("10.0.0.0/16"),
+                        },
+                    },
+                }, nil)
+            },
+            want: []string{"10.0.0.0/16"},
+        },
+        {
+            name: "external lb",
+            service: &corev1.Service{
+                ObjectMeta: metav1.ObjectMeta{
+                    Annotations: map[string]string{
+                        "service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
+                    },
+                },
+            },
+            ipAddressType: elbv2model.IPAddressTypeIPV4,
+            want: []string{"0.0.0.0/0"},
+        },
+        {
+            name: "explicit source ranges override internal scheme",
+            service: &corev1.Service{
+                ObjectMeta: metav1.ObjectMeta{
+                    Annotations: map[string]string{
+                        "service.beta.kubernetes.io/aws-load-balancer-scheme": "internal",
+                    },
+                },
+                Spec: corev1.ServiceSpec{
+                    LoadBalancerSourceRanges: []string{"192.168.1.0/24"},
+                },
+            },
+            ipAddressType: elbv2model.IPAddressTypeIPV4,
+            want: []string{"192.168.1.0/24"},
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            ctrl := gomock.NewController(t)
+            defer ctrl.Finish()
+
+            ec2Client := mocks.NewMockEC2API(ctrl)
+            if tt.setupMocks != nil {
+                tt.setupMocks(ec2Client)
+            }
+
+            task := &defaultModelBuildTask{
+                service: tt.service,
+                ec2Client: ec2Client,
+                vpcID: "vpc-xxx",
+                annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
+            }
+
+            got, err := task.buildCIDRsFromSourceRanges(context.Background(), tt.ipAddressType, tt.prefixListConfigured)
+            if tt.wantErr {
+                assert.Error(t, err)
+                return
+            }
+
+            assert.NoError(t, err)
+            assert.Equal(t, tt.want, got)
+        })
+    }
+}

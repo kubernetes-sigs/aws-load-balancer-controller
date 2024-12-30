@@ -121,22 +121,38 @@ func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(_ context.Context, ip
 		cidrs = append(cidrs, cidr)
 	}
 	if len(cidrs) == 0 {
-		t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSourceRanges, &cidrs, t.service.Annotations)
-	}
+        if err := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSourceRanges, &cidrs, t.service.Annotations); err != nil {
+            return nil, err
+        }
+    }
 	for _, cidr := range cidrs {
 		if strings.Contains(cidr, ":") && ipAddressType != elbv2model.IPAddressTypeDualStack {
 			return nil, errors.Errorf("unsupported v6 cidr %v when lb is not dualstack", cidr)
 		}
 	}
-	if len(cidrs) == 0 {
-		if prefixListsConfigured {
-			return cidrs, nil
-		}
-		cidrs = append(cidrs, "0.0.0.0/0")
-		if ipAddressType == elbv2model.IPAddressTypeDualStack {
-			cidrs = append(cidrs, "::/0")
-		}
-	}
+	if len(cidrs) == 0 && !prefixListsConfigured {
+        scheme := ""
+        if err := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixScheme, &scheme, t.service.Annotations); err != nil {
+            return nil, err
+        }
+        if scheme == "internal" {
+            vpcInfo, err := t.cloud.EC2().DescribeVpcs(&ec2.DescribeVpcsInput{
+                VpcIds: []*string{aws.String(t.vpcID)},
+            })
+            if err != nil {
+                return nil, err
+            }
+            
+            if len(vpcInfo.Vpcs) > 0 && vpcInfo.Vpcs[0].CidrBlock != nil {
+                cidrs = append(cidrs, *vpcInfo.Vpcs[0].CidrBlock)
+            }
+        } else {
+            cidrs = append(cidrs, "0.0.0.0/0")
+            if ipAddressType == elbv2model.IPAddressTypeDualStack {
+                cidrs = append(cidrs, "::/0")
+            }
+        }
+    }
 	return cidrs, nil
 }
 
