@@ -173,6 +173,9 @@ spec:
         {{- if .Values.loadBalancerClass }}
         - --load-balancer-class={{ .Values.loadBalancerClass }}
         {{- end }}
+        {{- if .Values.vpcTags }}
+        - --aws-vpc-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.vpcTags | trimSuffix "," }}
+        {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:
         {{- if .Values.env}}
