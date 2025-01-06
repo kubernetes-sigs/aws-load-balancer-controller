@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 
@@ -612,6 +613,55 @@ func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *
 			},
 			wantErr: nil,
 		},
+		{
+			name: "Set NLB IPv6 address in dualstack mode during ip address type modification ",
+			fields: fields{
+				setSubnetsWithContextCall: setSubnetsWithContextCall{
+					req: &elbv2sdk.SetSubnetsInput{
+						LoadBalancerArn: awssdk.String("LoadBalancerArn"),
+						SubnetMappings: []elbv2types.SubnetMapping{
+							{
+								SubnetId:    awssdk.String("subnet-A"),
+								IPv6Address: aws.String("2600:1f18::1"),
+							},
+							{
+								SubnetId:    awssdk.String("subnet-B"),
+								IPv6Address: aws.String("2600:1f18::2"),
+							},
+						},
+					},
+					resp: &elbv2sdk.SetSubnetsOutput{},
+				},
+			},
+			args: args{
+				resLB: &elbv2model.LoadBalancer{
+					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+					Spec: elbv2model.LoadBalancerSpec{
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{
+								SubnetID:    "subnet-A",
+								IPv6Address: aws.String("2600:1f18::1"),
+							},
+							{
+								SubnetID:    "subnet-B",
+								IPv6Address: aws.String("2600:1f18::2"),
+							},
+						},
+						Type:          elbv2model.LoadBalancerTypeNetwork,
+						IPAddressType: elbv2model.IPAddressTypeDualStack,
+					},
+				},
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+						Type:              elbv2types.LoadBalancerTypeEnumNetwork,
+						AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+						IpAddressType:     elbv2types.IpAddressTypeIpv4,
+					},
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -632,6 +682,7 @@ func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *
 			} else {
 				assert.NoError(t, err)
 			}
+
 		})
 	}
 }
