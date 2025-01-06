@@ -29,6 +29,7 @@ func newInstruments(registerer prometheus.Registerer) *instruments {
 		Subsystem: metricSubsystem,
 		Name:      MetricPodReadinessGateReady,
 		Help:      "Latency from pod getting added to the load balancer until the readiness gate is flipped to healthy.",
+		Buckets:   []float64{10, 30, 60, 120, 180, 240, 300, 360, 420, 480, 540, 600},
 	}, []string{labelNamespace, labelName})
 
 	registerer.MustRegister(podReadinessFlipSeconds)
