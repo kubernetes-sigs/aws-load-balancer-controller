@@ -2,8 +2,9 @@ package networking
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -17,7 +18,7 @@ import (
 // e.g. when resolve pod's ENI, the cachePolicy can be node contains pod's IP and node's cache is fresher than pod's creationTime.
 type NodeInfoProvider interface {
 	// FetchNodeInstances provides EC2 instance information per k8s node.
-	FetchNodeInstances(ctx context.Context, nodes []*corev1.Node) (map[types.NamespacedName]*ec2sdk.Instance, error)
+	FetchNodeInstances(ctx context.Context, nodes []*corev1.Node) (map[types.NamespacedName]*ec2types.Instance, error)
 }
 
 // NewDefaultNodeInfoProvider constructs new defaultNodeInfoProvider.
@@ -39,7 +40,7 @@ type defaultNodeInfoProvider struct {
 	logger logr.Logger
 }
 
-func (p *defaultNodeInfoProvider) FetchNodeInstances(ctx context.Context, nodes []*corev1.Node) (map[types.NamespacedName]*ec2sdk.Instance, error) {
+func (p *defaultNodeInfoProvider) FetchNodeInstances(ctx context.Context, nodes []*corev1.Node) (map[types.NamespacedName]*ec2types.Instance, error) {
 	if len(nodes) == 0 {
 		return nil, nil
 	}
@@ -54,18 +55,18 @@ func (p *defaultNodeInfoProvider) FetchNodeInstances(ctx context.Context, nodes 
 	}
 	instanceIDs := sets.StringKeySet(nodeKeysByInstanceID).List()
 	req := &ec2sdk.DescribeInstancesInput{
-		InstanceIds: awssdk.StringSlice(instanceIDs),
+		InstanceIds: instanceIDs,
 	}
 	instances, err := p.ec2Client.DescribeInstancesAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 
-	nodeInstanceByNodeKey := make(map[types.NamespacedName]*ec2sdk.Instance, len(nodes))
+	nodeInstanceByNodeKey := make(map[types.NamespacedName]*ec2types.Instance, len(nodes))
 	for _, instance := range instances {
-		instanceID := awssdk.StringValue(instance.InstanceId)
+		instanceID := awssdk.ToString(instance.InstanceId)
 		for _, nodeKey := range nodeKeysByInstanceID[instanceID] {
-			nodeInstanceByNodeKey[nodeKey] = instance
+			nodeInstanceByNodeKey[nodeKey] = &instance
 		}
 	}
 	return nodeInstanceByNodeKey, nil

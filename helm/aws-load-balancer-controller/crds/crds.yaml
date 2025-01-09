@@ -84,6 +84,36 @@ spec:
                 - dualstack
                 - dualstack-without-public-ipv4
                 type: string
+              listeners:
+                description: Listeners define a list of listeners with their protocol,
+                  port and attributes.
+                items:
+                  properties:
+                    listenerAttributes:
+                      description: The attributes of the listener
+                      items:
+                        description: Attributes defines custom attributes on resources.
+                        properties:
+                          key:
+                            description: The key of the attribute.
+                            type: string
+                          value:
+                            description: The value of the attribute.
+                            type: string
+                        required:
+                        - key
+                        - value
+                        type: object
+                      type: array
+                    port:
+                      description: The port of the listener
+                      format: int32
+                      type: integer
+                    protocol:
+                      description: The protocol of the listener
+                      type: string
+                  type: object
+                type: array
               loadBalancerAttributes:
                 description: LoadBalancerAttributes define the custom attributes to
                   LoadBalancers for all Ingress that that belong to IngressClass with
@@ -102,6 +132,18 @@ spec:
                   - value
                   type: object
                 type: array
+              minimumLoadBalancerCapacity:
+                description: MinimumLoadBalancerCapacity define the capacity reservation
+                  for LoadBalancers for all Ingress that belong to IngressClass with
+                  this IngressClassParams.
+                properties:
+                  capacityUnits:
+                    description: The Capacity Units Value.
+                    format: int32
+                    type: integer
+                required:
+                - capacityUnits
+                type: object
               namespaceSelector:
                 description: |-
                   NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
@@ -242,6 +284,11 @@ spec:
       name: ARN
       priority: 1
       type: string
+    - description: The AWS TargetGroup's Name
+      jsonPath: .spec.targetGroupName
+      name: NAME
+      priority: 2
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
@@ -270,6 +317,10 @@ spec:
           spec:
             description: TargetGroupBindingSpec defines the desired state of TargetGroupBinding
             properties:
+              multiClusterTargetGroup:
+                description: MultiClusterTargetGroup Denotes if the TargetGroup is
+                  shared among multiple clusters
+                type: boolean
               networking:
                 description: networking provides the networking setup for ELBV2 LoadBalancer
                   to access targets in TargetGroup.
@@ -366,6 +417,9 @@ spec:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
                 type: string
+              targetGroupName:
+                description: targetGroupName is the Name of the TargetGroup.
+                type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,
                   it will be automatically inferred.
@@ -375,7 +429,6 @@ spec:
                 type: string
             required:
             - serviceRef
-            - targetGroupARN
             type: object
           status:
             description: TargetGroupBindingStatus defines the observed state of TargetGroupBinding
@@ -407,6 +460,11 @@ spec:
       jsonPath: .spec.targetGroupARN
       name: ARN
       priority: 1
+      type: string
+    - description: The AWS TargetGroup's Name
+      jsonPath: .spec.targetGroupName
+      name: NAME
+      priority: 2
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
@@ -443,6 +501,10 @@ spec:
                 - ipv4
                 - ipv6
                 type: string
+              multiClusterTargetGroup:
+                description: MultiClusterTargetGroup Denotes if the TargetGroup is
+                  shared among multiple clusters
+                type: boolean
               networking:
                 description: networking defines the networking rules to allow ELBV2
                   LoadBalancer to access targets in TargetGroup.
@@ -589,7 +651,9 @@ spec:
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
-                minLength: 1
+                type: string
+              targetGroupName:
+                description: targetGroupName is the Name of the TargetGroup.
                 type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,
@@ -604,7 +668,6 @@ spec:
                 type: string
             required:
             - serviceRef
-            - targetGroupARN
             type: object
           status:
             description: TargetGroupBindingStatus defines the observed state of TargetGroupBinding

@@ -2,8 +2,9 @@ package targetgroupbinding
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -27,7 +28,7 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 	}
 	type args struct {
 		tgARN   string
-		targets []elbv2sdk.TargetDescription
+		targets []elbv2types.TargetDescription
 	}
 	tests := []struct {
 		name             string
@@ -43,14 +44,14 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.RegisterTargetsInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.3"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
@@ -60,22 +61,22 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+							TargetHealth: &elbv2types.TargetHealth{
+								State: elbv2types.TargetHealthStateEnumHealthy,
 							},
 						},
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.2"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumTimeout,
+								State:  elbv2types.TargetHealthStateEnumUnhealthy,
 							},
 						},
 					},
@@ -83,39 +84,39 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 						TargetHealth: nil,
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.3"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 						TargetHealth: nil,
 					},
@@ -129,14 +130,14 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.RegisterTargetsInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.3"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
@@ -147,14 +148,14 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
@@ -167,14 +168,14 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.RegisterTargetsInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.1"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
@@ -183,14 +184,14 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.RegisterTargetsInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.3"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.4"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
@@ -203,52 +204,52 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 						TargetHealth: nil,
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 						TargetHealth: nil,
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.3"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 						TargetHealth: nil,
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.4"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 						TargetHealth: nil,
 					},
@@ -312,7 +313,7 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 	}
 	type args struct {
 		tgARN   string
-		targets []elbv2sdk.TargetDescription
+		targets []elbv2types.TargetDescription
 	}
 	tests := []struct {
 		name             string
@@ -328,14 +329,14 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.DeregisterTargetsInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.3"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
@@ -345,22 +346,22 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+							TargetHealth: &elbv2types.TargetHealth{
+								State: elbv2types.TargetHealthStateEnumHealthy,
 							},
 						},
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.2"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumTimeout,
+								State:  elbv2types.TargetHealthStateEnumUnhealthy,
 							},
 						},
 					},
@@ -368,32 +369,32 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 						TargetHealth: nil,
 					},
@@ -407,14 +408,14 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.DeregisterTargetsInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.3"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
@@ -425,14 +426,14 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
@@ -445,14 +446,14 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.DeregisterTargetsInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.1"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
@@ -461,14 +462,14 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.DeregisterTargetsInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.3"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.4"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
@@ -479,22 +480,22 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
@@ -575,14 +576,14 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 							Targets:        nil,
 						},
 						resp: &elbv2sdk.DescribeTargetHealthOutput{
-							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+							TargetHealthDescriptions: []elbv2types.TargetHealthDescription{
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.1"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									TargetHealth: &elbv2types.TargetHealth{
+										State: elbv2types.TargetHealthStateEnumHealthy,
 									},
 								},
 							},
@@ -596,24 +597,24 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 				},
@@ -626,12 +627,12 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+							TargetHealth: &elbv2types.TargetHealth{
+								State: elbv2types.TargetHealthStateEnumHealthy,
 							},
 						},
 					},
@@ -642,24 +643,24 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 				},
@@ -672,22 +673,22 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.DescribeTargetHealthInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
 						resp: &elbv2sdk.DescribeTargetHealthOutput{
-							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+							TargetHealthDescriptions: []elbv2types.TargetHealthDescription{
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.2"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									TargetHealth: &elbv2types.TargetHealth{
+										State: elbv2types.TargetHealthStateEnumHealthy,
 									},
 								},
 							},
@@ -697,22 +698,22 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+							TargetHealth: &elbv2types.TargetHealth{
+								State: elbv2types.TargetHealthStateEnumHealthy,
 							},
 						},
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.2"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+								State:  elbv2types.TargetHealthStateEnumInitial,
 							},
 						},
 					},
@@ -723,42 +724,42 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 				},
@@ -837,42 +838,42 @@ func Test_cachedTargetsManager_refreshUnhealthyTargets(t *testing.T) {
 				tgARN: "my-tg",
 				cachedTargets: []TargetInfo{
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 				},
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 			},
@@ -884,36 +885,36 @@ func Test_cachedTargetsManager_refreshUnhealthyTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.DescribeTargetHealthInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.1"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
 						resp: &elbv2sdk.DescribeTargetHealthOutput{
-							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+							TargetHealthDescriptions: []elbv2types.TargetHealthDescription{
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.1"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-										State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+									TargetHealth: &elbv2types.TargetHealth{
+										Reason: elbv2types.TargetHealthReasonEnumTimeout,
+										State:  elbv2types.TargetHealthStateEnumUnhealthy,
 									},
 								},
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.2"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									TargetHealth: &elbv2types.TargetHealth{
+										State: elbv2types.TargetHealthStateEnumHealthy,
 									},
 								},
 							},
@@ -925,45 +926,45 @@ func Test_cachedTargetsManager_refreshUnhealthyTargets(t *testing.T) {
 				tgARN: "my-tg",
 				cachedTargets: []TargetInfo{
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumTimeout,
+							State:  elbv2types.TargetHealthStateEnumUnhealthy,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+							State:  elbv2types.TargetHealthStateEnumInitial,
 						},
 					},
 				},
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-						State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						Reason: elbv2types.TargetHealthReasonEnumTimeout,
+						State:  elbv2types.TargetHealthStateEnumUnhealthy,
 					},
 				},
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 			},
@@ -975,36 +976,36 @@ func Test_cachedTargetsManager_refreshUnhealthyTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.DescribeTargetHealthInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.3"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
 						resp: &elbv2sdk.DescribeTargetHealthOutput{
-							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+							TargetHealthDescriptions: []elbv2types.TargetHealthDescription{
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.2"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-										State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+									TargetHealth: &elbv2types.TargetHealth{
+										Reason: elbv2types.TargetHealthReasonEnumTimeout,
+										State:  elbv2types.TargetHealthStateEnumUnhealthy,
 									},
 								},
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.3"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+									TargetHealth: &elbv2types.TargetHealth{
+										State: elbv2types.TargetHealthStateEnumHealthy,
 									},
 								},
 							},
@@ -1016,63 +1017,63 @@ func Test_cachedTargetsManager_refreshUnhealthyTargets(t *testing.T) {
 				tgARN: "my-tg",
 				cachedTargets: []TargetInfo{
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumTimeout,
+							State:  elbv2types.TargetHealthStateEnumUnhealthy,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.3"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+							State:  elbv2types.TargetHealthStateEnumInitial,
 						},
 					},
 				},
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-						State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						Reason: elbv2types.TargetHealthReasonEnumTimeout,
+						State:  elbv2types.TargetHealthStateEnumUnhealthy,
 					},
 				},
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 			},
@@ -1084,37 +1085,37 @@ func Test_cachedTargetsManager_refreshUnhealthyTargets(t *testing.T) {
 					{
 						req: &elbv2sdk.DescribeTargetHealthInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.2"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 								{
 									Id:   awssdk.String("192.168.1.3"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
 						resp: &elbv2sdk.DescribeTargetHealthOutput{
-							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+							TargetHealthDescriptions: []elbv2types.TargetHealthDescription{
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.2"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-										State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+									TargetHealth: &elbv2types.TargetHealth{
+										Reason: elbv2types.TargetHealthReasonEnumTimeout,
+										State:  elbv2types.TargetHealthStateEnumUnhealthy,
 									},
 								},
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.3"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetNotRegistered),
-										State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnused),
+									TargetHealth: &elbv2types.TargetHealth{
+										Reason: elbv2types.TargetHealthReasonEnumNotRegistered,
+										State:  elbv2types.TargetHealthStateEnumUnused,
 									},
 								},
 							},
@@ -1126,50 +1127,50 @@ func Test_cachedTargetsManager_refreshUnhealthyTargets(t *testing.T) {
 				tgARN: "my-tg",
 				cachedTargets: []TargetInfo{
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							State: elbv2types.TargetHealthStateEnumHealthy,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumTimeout,
+							State:  elbv2types.TargetHealthStateEnumUnhealthy,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.3"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 					},
 				},
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						State: awssdk.String(elbv2sdk.TargetHealthStateEnumHealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						State: elbv2types.TargetHealthStateEnumHealthy,
 					},
 				},
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumTargetTimeout),
-						State:  awssdk.String(elbv2sdk.TargetHealthStateEnumUnhealthy),
+					TargetHealth: &elbv2types.TargetHealth{
+						Reason: elbv2types.TargetHealthReasonEnumTimeout,
+						State:  elbv2types.TargetHealthStateEnumUnhealthy,
 					},
 				},
 			},
@@ -1211,7 +1212,7 @@ func Test_cachedTargetsManager_listTargetsFromAWS(t *testing.T) {
 
 	type args struct {
 		tgARN   string
-		targets []elbv2sdk.TargetDescription
+		targets []elbv2types.TargetDescription
 	}
 	tests := []struct {
 		name    string
@@ -1227,23 +1228,23 @@ func Test_cachedTargetsManager_listTargetsFromAWS(t *testing.T) {
 					{
 						req: &elbv2sdk.DescribeTargetHealthInput{
 							TargetGroupArn: awssdk.String("my-tg"),
-							Targets: []*elbv2sdk.TargetDescription{
+							Targets: []elbv2types.TargetDescription{
 								{
 									Id:   awssdk.String("192.168.1.1"),
-									Port: awssdk.Int64(8080),
+									Port: awssdk.Int32(8080),
 								},
 							},
 						},
 						resp: &elbv2sdk.DescribeTargetHealthOutput{
-							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+							TargetHealthDescriptions: []elbv2types.TargetHealthDescription{
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.1"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-										State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+									TargetHealth: &elbv2types.TargetHealth{
+										Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+										State:  elbv2types.TargetHealthStateEnumInitial,
 									},
 								},
 							},
@@ -1253,22 +1254,22 @@ func Test_cachedTargetsManager_listTargetsFromAWS(t *testing.T) {
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-						State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+					TargetHealth: &elbv2types.TargetHealth{
+						Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+						State:  elbv2types.TargetHealthStateEnumInitial,
 					},
 				},
 			},
@@ -1283,25 +1284,25 @@ func Test_cachedTargetsManager_listTargetsFromAWS(t *testing.T) {
 							Targets:        nil,
 						},
 						resp: &elbv2sdk.DescribeTargetHealthOutput{
-							TargetHealthDescriptions: []*elbv2sdk.TargetHealthDescription{
+							TargetHealthDescriptions: []elbv2types.TargetHealthDescription{
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.1"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-										State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+									TargetHealth: &elbv2types.TargetHealth{
+										Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+										State:  elbv2types.TargetHealthStateEnumInitial,
 									},
 								},
 								{
-									Target: &elbv2sdk.TargetDescription{
+									Target: &elbv2types.TargetDescription{
 										Id:   awssdk.String("192.168.1.2"),
-										Port: awssdk.Int64(8080),
+										Port: awssdk.Int32(8080),
 									},
-									TargetHealth: &elbv2sdk.TargetHealth{
-										Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-										State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+									TargetHealth: &elbv2types.TargetHealth{
+										Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+										State:  elbv2types.TargetHealthStateEnumInitial,
 									},
 								},
 							},
@@ -1315,23 +1316,23 @@ func Test_cachedTargetsManager_listTargetsFromAWS(t *testing.T) {
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-						State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+					TargetHealth: &elbv2types.TargetHealth{
+						Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+						State:  elbv2types.TargetHealthStateEnumInitial,
 					},
 				},
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-						State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+					TargetHealth: &elbv2types.TargetHealth{
+						Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+						State:  elbv2types.TargetHealthStateEnumInitial,
 					},
 				},
 			},
@@ -1368,7 +1369,7 @@ func Test_cachedTargetsManager_recordSuccessfulRegisterTargetsOperation(t *testi
 	}
 	type args struct {
 		tgARN   string
-		targets []elbv2sdk.TargetDescription
+		targets []elbv2types.TargetDescription
 	}
 	tests := []struct {
 		name             string
@@ -1383,10 +1384,10 @@ func Test_cachedTargetsManager_recordSuccessfulRegisterTargetsOperation(t *testi
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
@@ -1398,13 +1399,13 @@ func Test_cachedTargetsManager_recordSuccessfulRegisterTargetsOperation(t *testi
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+								State:  elbv2types.TargetHealthStateEnumInitial,
 							},
 						},
 					},
@@ -1412,19 +1413,19 @@ func Test_cachedTargetsManager_recordSuccessfulRegisterTargetsOperation(t *testi
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 					},
 				},
@@ -1436,13 +1437,13 @@ func Test_cachedTargetsManager_recordSuccessfulRegisterTargetsOperation(t *testi
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+								State:  elbv2types.TargetHealthStateEnumInitial,
 							},
 						},
 					},
@@ -1450,29 +1451,29 @@ func Test_cachedTargetsManager_recordSuccessfulRegisterTargetsOperation(t *testi
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+							State:  elbv2types.TargetHealthStateEnumInitial,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 					},
 				},
@@ -1484,23 +1485,23 @@ func Test_cachedTargetsManager_recordSuccessfulRegisterTargetsOperation(t *testi
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+								State:  elbv2types.TargetHealthStateEnumInitial,
 							},
 						},
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.2"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+								State:  elbv2types.TargetHealthStateEnumInitial,
 							},
 						},
 					},
@@ -1508,39 +1509,39 @@ func Test_cachedTargetsManager_recordSuccessfulRegisterTargetsOperation(t *testi
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+							State:  elbv2types.TargetHealthStateEnumInitial,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.3"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 					},
 				},
@@ -1580,7 +1581,7 @@ func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *tes
 	}
 	type args struct {
 		tgARN   string
-		targets []elbv2sdk.TargetDescription
+		targets []elbv2types.TargetDescription
 	}
 	tests := []struct {
 		name             string
@@ -1595,10 +1596,10 @@ func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *tes
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
@@ -1610,13 +1611,13 @@ func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *tes
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+								State:  elbv2types.TargetHealthStateEnumInitial,
 							},
 						},
 					},
@@ -1624,19 +1625,19 @@ func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *tes
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 					},
 				},
@@ -1648,13 +1649,13 @@ func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *tes
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+								State:  elbv2types.TargetHealthStateEnumInitial,
 							},
 						},
 					},
@@ -1662,23 +1663,23 @@ func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *tes
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+							State:  elbv2types.TargetHealthStateEnumInitial,
 						},
 					},
 				},
@@ -1690,23 +1691,23 @@ func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *tes
 				targetsCache: map[string][]TargetInfo{
 					"my-tg": {
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.1"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+								State:  elbv2types.TargetHealthStateEnumInitial,
 							},
 						},
 						{
-							Target: elbv2sdk.TargetDescription{
+							Target: elbv2types.TargetDescription{
 								Id:   awssdk.String("192.168.1.2"),
-								Port: awssdk.Int64(8080),
+								Port: awssdk.Int32(8080),
 							},
-							TargetHealth: &elbv2sdk.TargetHealth{
-								Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-								State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+							TargetHealth: &elbv2types.TargetHealth{
+								Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+								State:  elbv2types.TargetHealthStateEnumInitial,
 							},
 						},
 					},
@@ -1714,33 +1715,33 @@ func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *tes
 			},
 			args: args{
 				tgARN: "my-tg",
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
 			wantTargetsCache: map[string][]TargetInfo{
 				"my-tg": {
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+							State:  elbv2types.TargetHealthStateEnumInitial,
 						},
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 					},
 				},
@@ -1776,56 +1777,56 @@ func Test_cachedTargetsManager_recordSuccessfulDeregisterTargetsOperation(t *tes
 
 func Test_chunkTargetDescriptions(t *testing.T) {
 	type args struct {
-		targets   []elbv2sdk.TargetDescription
+		targets   []elbv2types.TargetDescription
 		chunkSize int
 	}
 	tests := []struct {
 		name string
 		args args
-		want [][]elbv2sdk.TargetDescription
+		want [][]elbv2types.TargetDescription
 	}{
 		{
 			name: "can be evenly chunked",
 			args: args{
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 				chunkSize: 2,
 			},
-			want: [][]elbv2sdk.TargetDescription{
+			want: [][]elbv2types.TargetDescription{
 				{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 				{
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
@@ -1833,46 +1834,46 @@ func Test_chunkTargetDescriptions(t *testing.T) {
 		{
 			name: "cannot be evenly chunked",
 			args: args{
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 				chunkSize: 3,
 			},
-			want: [][]elbv2sdk.TargetDescription{
+			want: [][]elbv2types.TargetDescription{
 				{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 				{
 
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
@@ -1880,43 +1881,43 @@ func Test_chunkTargetDescriptions(t *testing.T) {
 		{
 			name: "chunkSize equal to total count",
 			args: args{
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 				chunkSize: 4,
 			},
-			want: [][]elbv2sdk.TargetDescription{
+			want: [][]elbv2types.TargetDescription{
 				{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
@@ -1924,43 +1925,43 @@ func Test_chunkTargetDescriptions(t *testing.T) {
 		{
 			name: "chunkSize greater than total count",
 			args: args{
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 				chunkSize: 10,
 			},
-			want: [][]elbv2sdk.TargetDescription{
+			want: [][]elbv2types.TargetDescription{
 				{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.3"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.4"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
@@ -1976,7 +1977,7 @@ func Test_chunkTargetDescriptions(t *testing.T) {
 		{
 			name: "chunk empty slice",
 			args: args{
-				targets:   []elbv2sdk.TargetDescription{},
+				targets:   []elbv2types.TargetDescription{},
 				chunkSize: 2,
 			},
 			want: nil,
@@ -1992,12 +1993,12 @@ func Test_chunkTargetDescriptions(t *testing.T) {
 
 func Test_pointerizeTargetDescriptions(t *testing.T) {
 	type args struct {
-		targets []elbv2sdk.TargetDescription
+		targets []elbv2types.TargetDescription
 	}
 	tests := []struct {
 		name string
 		args args
-		want []*elbv2sdk.TargetDescription
+		want []elbv2types.TargetDescription
 	}{
 		{
 			name: "nil targets",
@@ -2009,32 +2010,32 @@ func Test_pointerizeTargetDescriptions(t *testing.T) {
 		{
 			name: "empty targets",
 			args: args{
-				targets: []elbv2sdk.TargetDescription{},
+				targets: []elbv2types.TargetDescription{},
 			},
 			want: nil,
 		},
 		{
 			name: "non-empty targets",
 			args: args{
-				targets: []elbv2sdk.TargetDescription{
+				targets: []elbv2types.TargetDescription{
 					{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 				},
 			},
-			want: []*elbv2sdk.TargetDescription{
+			want: []elbv2types.TargetDescription{
 				{
 					Id:   awssdk.String("192.168.1.1"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
 				{
 					Id:   awssdk.String("192.168.1.2"),
-					Port: awssdk.Int64(8080),
+					Port: awssdk.Int32(8080),
 				},
 			},
 		},
@@ -2075,40 +2076,40 @@ func Test_cloneTargetInfoSlice(t *testing.T) {
 			args: args{
 				targets: []TargetInfo{
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.1"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
 						TargetHealth: nil,
 					},
 					{
-						Target: elbv2sdk.TargetDescription{
+						Target: elbv2types.TargetDescription{
 							Id:   awssdk.String("192.168.1.2"),
-							Port: awssdk.Int64(8080),
+							Port: awssdk.Int32(8080),
 						},
-						TargetHealth: &elbv2sdk.TargetHealth{
-							Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-							State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+						TargetHealth: &elbv2types.TargetHealth{
+							Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+							State:  elbv2types.TargetHealthStateEnumInitial,
 						},
 					},
 				},
 			},
 			want: []TargetInfo{
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.1"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
 					TargetHealth: nil,
 				},
 				{
-					Target: elbv2sdk.TargetDescription{
+					Target: elbv2types.TargetDescription{
 						Id:   awssdk.String("192.168.1.2"),
-						Port: awssdk.Int64(8080),
+						Port: awssdk.Int32(8080),
 					},
-					TargetHealth: &elbv2sdk.TargetHealth{
-						Reason: awssdk.String(elbv2sdk.TargetHealthReasonEnumElbRegistrationInProgress),
-						State:  awssdk.String(elbv2sdk.TargetHealthStateEnumInitial),
+					TargetHealth: &elbv2types.TargetHealth{
+						Reason: elbv2types.TargetHealthReasonEnumRegistrationInProgress,
+						State:  elbv2types.TargetHealthStateEnumInitial,
 					},
 				},
 			},

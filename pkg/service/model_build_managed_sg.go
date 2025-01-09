@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
@@ -71,13 +71,13 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 		return nil, err
 	}
 	for _, port := range t.service.Spec.Ports {
-		listenPort := int64(port.Port)
+		listenPort := int32(port.Port)
 		for _, cidr := range cidrs {
 			if !strings.Contains(cidr, ":") {
 				permissions = append(permissions, ec2model.IPPermission{
 					IPProtocol: strings.ToLower(string(port.Protocol)),
-					FromPort:   awssdk.Int64(listenPort),
-					ToPort:     awssdk.Int64(listenPort),
+					FromPort:   awssdk.Int32(listenPort),
+					ToPort:     awssdk.Int32(listenPort),
 					IPRanges: []ec2model.IPRange{
 						{
 							CIDRIP: cidr,
@@ -87,8 +87,8 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 			} else {
 				permissions = append(permissions, ec2model.IPPermission{
 					IPProtocol: strings.ToLower(string(port.Protocol)),
-					FromPort:   awssdk.Int64(listenPort),
-					ToPort:     awssdk.Int64(listenPort),
+					FromPort:   awssdk.Int32(listenPort),
+					ToPort:     awssdk.Int32(listenPort),
 					IPv6Range: []ec2model.IPv6Range{
 						{
 							CIDRIPv6: cidr,
@@ -101,8 +101,8 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 			for _, prefixID := range prefixListIDs {
 				permissions = append(permissions, ec2model.IPPermission{
 					IPProtocol: strings.ToLower(string(port.Protocol)),
-					FromPort:   awssdk.Int64(listenPort),
-					ToPort:     awssdk.Int64(listenPort),
+					FromPort:   awssdk.Int32(listenPort),
+					ToPort:     awssdk.Int32(listenPort),
 					PrefixLists: []ec2model.PrefixList{
 						{
 							ListID: prefixID,

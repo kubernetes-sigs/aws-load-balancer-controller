@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -78,7 +78,62 @@ func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
 					AuthenticationRequestExtraParams: map[string]string{
 						"key1": "value1",
 					},
-					OnUnauthenticatedRequest: &authBehaviorAuthenticate,
+					OnUnauthenticatedRequest: authBehaviorAuthenticate,
+					Scope:                    awssdk.String("email"),
+					SessionCookieName:        awssdk.String("my-session-cookie"),
+					SessionTimeout:           awssdk.Int64(65536),
+				},
+			},
+		},
+		{
+			name: "clientSecret has control characters at end",
+			env: env{
+				secrets: []*corev1.Secret{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "my-ns",
+							Name:      "my-k8s-secret",
+						},
+						Data: map[string][]byte{
+							"clientID":     []byte("my-client-id"),
+							"clientSecret": []byte("my-client-secret\n"),
+						},
+					},
+				},
+			},
+			args: args{
+				authCfg: AuthConfig{
+					Type: AuthTypeCognito,
+					IDPConfigOIDC: &AuthIDPConfigOIDC{
+						Issuer:                "https://example.com",
+						AuthorizationEndpoint: "https://authorization.example.com",
+						TokenEndpoint:         "https://token.example.com",
+						UserInfoEndpoint:      "https://userinfo.example.co",
+						SecretName:            "my-k8s-secret",
+						AuthenticationRequestExtraParams: map[string]string{
+							"key1": "value1",
+						},
+					},
+					OnUnauthenticatedRequest: "authenticate",
+					Scope:                    "email",
+					SessionCookieName:        "my-session-cookie",
+					SessionTimeout:           65536,
+				},
+				namespace: "my-ns",
+			},
+			want: elbv2model.Action{
+				Type: elbv2model.ActionTypeAuthenticateOIDC,
+				AuthenticateOIDCConfig: &elbv2model.AuthenticateOIDCActionConfig{
+					Issuer:                "https://example.com",
+					AuthorizationEndpoint: "https://authorization.example.com",
+					TokenEndpoint:         "https://token.example.com",
+					UserInfoEndpoint:      "https://userinfo.example.co",
+					ClientID:              "my-client-id",
+					ClientSecret:          "my-client-secret",
+					AuthenticationRequestExtraParams: map[string]string{
+						"key1": "value1",
+					},
+					OnUnauthenticatedRequest: authBehaviorAuthenticate,
 					Scope:                    awssdk.String("email"),
 					SessionCookieName:        awssdk.String("my-session-cookie"),
 					SessionTimeout:           awssdk.Int64(65536),
@@ -133,7 +188,7 @@ func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
 					AuthenticationRequestExtraParams: map[string]string{
 						"key1": "value1",
 					},
-					OnUnauthenticatedRequest: &authBehaviorAuthenticate,
+					OnUnauthenticatedRequest: authBehaviorAuthenticate,
 					Scope:                    awssdk.String("email"),
 					SessionCookieName:        awssdk.String("my-session-cookie"),
 					SessionTimeout:           awssdk.Int64(65536),

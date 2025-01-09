@@ -7,10 +7,11 @@ import (
 	"strings"
 	"time"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gavv/httpexpect/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
@@ -374,7 +375,7 @@ var _ = Describe("vanilla ingress tests", func() {
 
 			sdkLB, err := tf.LBManager.GetLoadBalancerFromARN(ctx, lbARN)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(awssdk.StringValue(sdkLB.LoadBalancerName)).Should(Equal(lbName))
+			Expect(awssdk.ToString(sdkLB.LoadBalancerName)).Should(Equal(lbName))
 
 			// test traffic
 			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
@@ -777,6 +778,56 @@ var _ = Describe("vanilla ingress tests", func() {
 			}
 		})
 	})
+
+	Context("with `alb.ingress.kubernetes.io/listener-attributes.{Protocol}-{Port}` variant settings", func() {
+		It("with 'alb.ingress.kubernetes.io/listener-attributes.{Protocol}-{Port}' annotation explicitly specified, one ALB shall be created and functional", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			annotation := map[string]string{
+				"kubernetes.io/ingress.class":                           "alb",
+				"alb.ingress.kubernetes.io/scheme":                      "internet-facing",
+				"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
+				"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "routing.http.response.server.enabled=false",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
+			}
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+			sdkListeners, err := tf.LBManager.GetLoadBalancerListeners(ctx, lbARN)
+
+			Eventually(func() bool {
+				return verifyListenerAttributes(ctx, tf, *sdkListeners[0].ListenerArn, map[string]string{
+					"routing.http.response.server.enabled": "false",
+				}) == nil
+			}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+
+			// test traffic
+			ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", lbDNS))
+			httpExp.GET("/path").Expect().
+				Status(http.StatusOK).
+				Body().Equal("Hello World!")
+		})
+	})
 })
 
 // ExpectOneLBProvisionedForIngress expects one LoadBalancer provisioned for Ingress.
@@ -819,4 +870,15 @@ func ExpectLBDNSBeAvailable(ctx context.Context, tf *framework.Framework, lbARN 
 	err = utils.WaitUntilDNSNameAvailable(ctx, lbDNS)
 	Expect(err).NotTo(HaveOccurred())
 	tf.Logger.Info("dns becomes available", "dns", lbDNS)
+}
+
+func verifyListenerAttributes(ctx context.Context, f *framework.Framework, lsARN string, expectedAttrs map[string]string) error {
+	lsAttrs, err := f.LBManager.GetListenerAttributes(ctx, lsARN)
+	Expect(err).NotTo(HaveOccurred())
+	for _, attr := range lsAttrs {
+		if val, ok := expectedAttrs[awssdk.ToString(attr.Key)]; ok && val != awssdk.ToString(attr.Value) {
+			return errors.Errorf("Attribute %v, expected %v, actual %v", awssdk.ToString(attr.Key), val, awssdk.ToString(attr.Value))
+		}
+	}
+	return nil
 }

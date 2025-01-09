@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"regexp"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -17,7 +17,7 @@ const (
 	resourceIDManagedSecurityGroup = "ManagedLBSecurityGroup"
 )
 
-func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
+func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
 	sgSpec, err := t.buildManagedSecurityGroupSpec(ctx, listenPortConfigByPort, ipAddressType)
 	if err != nil {
 		return nil, err
@@ -27,7 +27,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroup(ctx context.Context, l
 	return sg, nil
 }
 
-func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) (ec2model.SecurityGroupSpec, error) {
+func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig, ipAddressType elbv2model.IPAddressType) (ec2model.SecurityGroupSpec, error) {
 	name := t.buildManagedSecurityGroupName(ctx)
 	tags, err := t.buildManagedSecurityGroupTags(ctx)
 	if err != nil {
@@ -68,14 +68,14 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupTags(_ context.Context)
 	return algorithm.MergeStringMap(t.defaultTags, ingGroupTags), nil
 }
 
-func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(_ context.Context, listenPortConfigByPort map[int64]listenPortConfig, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
+func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(_ context.Context, listenPortConfigByPort map[int32]listenPortConfig, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
 	var permissions []ec2model.IPPermission
 	for port, cfg := range listenPortConfigByPort {
 		for _, cidr := range cfg.inboundCIDRv4s {
 			permissions = append(permissions, ec2model.IPPermission{
 				IPProtocol: "tcp",
-				FromPort:   awssdk.Int64(port),
-				ToPort:     awssdk.Int64(port),
+				FromPort:   awssdk.Int32(port),
+				ToPort:     awssdk.Int32(port),
 				IPRanges: []ec2model.IPRange{
 					{
 						CIDRIP: cidr,
@@ -87,8 +87,8 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(_ co
 			for _, cidr := range cfg.inboundCIDRv6s {
 				permissions = append(permissions, ec2model.IPPermission{
 					IPProtocol: "tcp",
-					FromPort:   awssdk.Int64(port),
-					ToPort:     awssdk.Int64(port),
+					FromPort:   awssdk.Int32(port),
+					ToPort:     awssdk.Int32(port),
 					IPv6Range: []ec2model.IPv6Range{
 						{
 							CIDRIPv6: cidr,
@@ -100,8 +100,8 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(_ co
 		for _, prefixID := range cfg.prefixLists {
 			permissions = append(permissions, ec2model.IPPermission{
 				IPProtocol: "tcp",
-				FromPort:   awssdk.Int64(port),
-				ToPort:     awssdk.Int64(port),
+				FromPort:   awssdk.Int32(port),
+				ToPort:     awssdk.Int32(port),
 				PrefixLists: []ec2model.PrefixList{
 					{
 						ListID: prefixID,

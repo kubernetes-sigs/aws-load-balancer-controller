@@ -2,10 +2,11 @@ package ec2
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
@@ -50,8 +51,8 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 				createTagsWithContextCalls: []createTagsWithContextCall{
 					{
 						req: &ec2sdk.CreateTagsInput{
-							Resources: awssdk.StringSlice([]string{"sg-a"}),
-							Tags: []*ec2sdk.Tag{
+							Resources: []string{"sg-a"},
+							Tags: []ec2types.Tag{
 								{
 									Key:   awssdk.String("keyB"),
 									Value: awssdk.String("valueB2"),
@@ -67,8 +68,8 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 				deleteTagsWithContextCalls: []deleteTagsWithContextCall{
 					{
 						req: &ec2sdk.DeleteTagsInput{
-							Resources: awssdk.StringSlice([]string{"sg-a"}),
-							Tags: []*ec2sdk.Tag{
+							Resources: []string{"sg-a"},
+							Tags: []ec2types.Tag{
 								{
 									Key:   awssdk.String("keyC"),
 									Value: awssdk.String("valueC"),
@@ -101,8 +102,8 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 				createTagsWithContextCalls: []createTagsWithContextCall{
 					{
 						req: &ec2sdk.CreateTagsInput{
-							Resources: awssdk.StringSlice([]string{"sg-a"}),
-							Tags: []*ec2sdk.Tag{
+							Resources: []string{"sg-a"},
+							Tags: []ec2types.Tag{
 								{
 									Key:   awssdk.String("keyC"),
 									Value: awssdk.String("valueC2"),
@@ -118,8 +119,8 @@ func Test_defaultTaggingManager_ReconcileTags(t *testing.T) {
 				deleteTagsWithContextCalls: []deleteTagsWithContextCall{
 					{
 						req: &ec2sdk.DeleteTagsInput{
-							Resources: awssdk.StringSlice([]string{"sg-a"}),
-							Tags: []*ec2sdk.Tag{
+							Resources: []string{"sg-a"},
+							Tags: []ec2types.Tag{
 								{
 									Key:   awssdk.String("keyF"),
 									Value: awssdk.String("valueF"),
@@ -200,22 +201,22 @@ func Test_defaultTaggingManager_ListSecurityGroups(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByRequestCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-xxxxxxx"}),
+									Values: []string{"vpc-xxxxxxx"},
 								},
 								{
 									Name:   awssdk.String("tag:keyA"),
-									Values: awssdk.StringSlice([]string{"valueA"}),
+									Values: []string{"valueA"},
 								},
 								{
 									Name:   awssdk.String("tag:keyB"),
-									Values: awssdk.StringSlice([]string{"valueB1", "valueB2"}),
+									Values: []string{"valueB1", "valueB2"},
 								},
 								{
 									Name:   awssdk.String("tag-key"),
-									Values: awssdk.StringSlice([]string{"keyC"}),
+									Values: []string{"keyC"},
 								},
 							},
 						},
@@ -278,22 +279,22 @@ func Test_defaultTaggingManager_ListSecurityGroups(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByRequestCall{
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-xxxxxxx"}),
+									Values: []string{"vpc-xxxxxxx"},
 								},
 								{
 									Name:   awssdk.String("tag:keyA"),
-									Values: awssdk.StringSlice([]string{"valueA"}),
+									Values: []string{"valueA"},
 								},
 								{
 									Name:   awssdk.String("tag:keyB"),
-									Values: awssdk.StringSlice([]string{"valueB1", "valueB2"}),
+									Values: []string{"valueB1", "valueB2"},
 								},
 								{
 									Name:   awssdk.String("tag-key"),
-									Values: awssdk.StringSlice([]string{"keyC"}),
+									Values: []string{"keyC"},
 								},
 							},
 						},
@@ -320,22 +321,22 @@ func Test_defaultTaggingManager_ListSecurityGroups(t *testing.T) {
 					},
 					{
 						req: &ec2sdk.DescribeSecurityGroupsInput{
-							Filters: []*ec2sdk.Filter{
+							Filters: []ec2types.Filter{
 								{
 									Name:   awssdk.String("vpc-id"),
-									Values: awssdk.StringSlice([]string{"vpc-xxxxxxx"}),
+									Values: []string{"vpc-xxxxxxx"},
 								},
 								{
 									Name:   awssdk.String("tag:keyA"),
-									Values: awssdk.StringSlice([]string{"valueA"}),
+									Values: []string{"valueA"},
 								},
 								{
 									Name:   awssdk.String("tag:keyB"),
-									Values: awssdk.StringSlice([]string{"valueB2", "valueB3"}),
+									Values: []string{"valueB2", "valueB3"},
 								},
 								{
 									Name:   awssdk.String("tag-key"),
-									Values: awssdk.StringSlice([]string{"keyC"}),
+									Values: []string{"keyC"},
 								},
 							},
 						},
@@ -441,7 +442,7 @@ func Test_convertTagsToSDKTags(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want []*ec2sdk.Tag
+		want []ec2types.Tag
 	}{
 		{
 			name: "non-empty tags",
@@ -451,7 +452,7 @@ func Test_convertTagsToSDKTags(t *testing.T) {
 					"keyB": "valueB",
 				},
 			},
-			want: []*ec2sdk.Tag{
+			want: []ec2types.Tag{
 				{
 					Key:   awssdk.String("keyA"),
 					Value: awssdk.String("valueA"),

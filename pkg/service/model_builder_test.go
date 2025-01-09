@@ -2,12 +2,12 @@ package service
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -21,17 +21,18 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_defaultModelBuilderTask_Build(t *testing.T) {
 	type resolveViaDiscoveryCall struct {
-		subnets []*ec2.Subnet
+		subnets []ec2types.Subnet
 		err     error
 	}
 	type resolveViaNameOrIDSliceCall struct {
-		subnets []*ec2.Subnet
+		subnets []ec2types.Subnet
 		err     error
 	}
 	type listLoadBalancerCall struct {
@@ -47,56 +48,56 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		want []string
 		err  error
 	}
-	cidrBlockStateAssociated := ec2.VpcCidrBlockStateCodeAssociated
+	cidrBlockStateAssociated := ec2types.VpcCidrBlockStateCodeAssociated
 	resolveViaDiscoveryCallForOneSubnet := resolveViaDiscoveryCall{
-		subnets: []*ec2.Subnet{
+		subnets: []ec2types.Subnet{
 			{
-				SubnetId:  aws.String("subnet-1"),
-				CidrBlock: aws.String("192.168.0.0/19"),
+				SubnetId:  awssdk.String("subnet-1"),
+				CidrBlock: awssdk.String("192.168.0.0/19"),
 			},
 		},
 	}
 	resolveViaDiscoveryCallForTwoSubnet := resolveViaDiscoveryCall{
-		subnets: []*ec2.Subnet{
+		subnets: []ec2types.Subnet{
 			{
-				SubnetId:  aws.String("subnet-1"),
-				CidrBlock: aws.String("192.168.0.0/19"),
+				SubnetId:  awssdk.String("subnet-1"),
+				CidrBlock: awssdk.String("192.168.0.0/19"),
 			},
 			{
-				SubnetId:  aws.String("subnet-2"),
-				CidrBlock: aws.String("192.168.32.0/19"),
+				SubnetId:  awssdk.String("subnet-2"),
+				CidrBlock: awssdk.String("192.168.32.0/19"),
 			},
 		},
 	}
 	resolveViaDiscoveryCallForThreeSubnet := resolveViaDiscoveryCall{
-		subnets: []*ec2.Subnet{
+		subnets: []ec2types.Subnet{
 			{
-				SubnetId:  aws.String("subnet-1"),
-				CidrBlock: aws.String("192.168.0.0/19"),
+				SubnetId:  awssdk.String("subnet-1"),
+				CidrBlock: awssdk.String("192.168.0.0/19"),
 			},
 			{
-				SubnetId:  aws.String("subnet-2"),
-				CidrBlock: aws.String("192.168.32.0/19"),
+				SubnetId:  awssdk.String("subnet-2"),
+				CidrBlock: awssdk.String("192.168.32.0/19"),
 			},
 			{
-				SubnetId:  aws.String("subnet-3"),
-				CidrBlock: aws.String("192.168.64.0/19"),
+				SubnetId:  awssdk.String("subnet-3"),
+				CidrBlock: awssdk.String("192.168.64.0/19"),
 			},
 		},
 	}
 	resolveViaNameOrIDSliceCallForThreeSubnet := resolveViaNameOrIDSliceCall{
-		subnets: []*ec2.Subnet{
+		subnets: []ec2types.Subnet{
 			{
-				SubnetId:  aws.String("subnet-1"),
-				CidrBlock: aws.String("192.168.0.0/19"),
+				SubnetId:  awssdk.String("subnet-1"),
+				CidrBlock: awssdk.String("192.168.0.0/19"),
 			},
 			{
-				SubnetId:  aws.String("subnet-2"),
-				CidrBlock: aws.String("192.168.32.0/19"),
+				SubnetId:  awssdk.String("subnet-2"),
+				CidrBlock: awssdk.String("192.168.32.0/19"),
 			},
 			{
-				SubnetId:  aws.String("subnet-3"),
-				CidrBlock: aws.String("192.168.64.0/19"),
+				SubnetId:  awssdk.String("subnet-3"),
+				CidrBlock: awssdk.String("192.168.64.0/19"),
 			},
 		},
 	}
@@ -110,6 +111,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		listLoadBalancerCalls        []listLoadBalancerCall
 		fetchVPCInfoCalls            []fetchVPCInfoCall
 		defaultTargetType            string
+		defaultLoadBalancerScheme    string
 		enableIPTargetType           *bool
 		resolveSGViaNameOrIDCall     []resolveSGViaNameOrIDCall
 		backendSecurityGroup         string
@@ -188,6 +190,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "securityGroupsInboundRulesOnPrivateLink":"on",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -339,6 +342,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "scheme":"internet-facing",
              "securityGroupsInboundRulesOnPrivateLink":"on",
              "ipAddressType":"dualstack",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -525,6 +529,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "securityGroupsInboundRulesOnPrivateLink":"off",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -851,6 +856,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-33e41aa671",
              "type":"network",
              "scheme":"internet-facing",
+             "enablePrefixForIpv6SourceNat":"off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -1138,11 +1144,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 							{
-								CidrBlock: aws.String("192.168.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("192.168.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -1213,6 +1219,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -1419,8 +1426,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				{
 					sdkLBs: []elbv2.LoadBalancerWithTags{
 						{
-							LoadBalancer: &elbv2sdk.LoadBalancer{
-								Scheme: aws.String("internet-facing"),
+							LoadBalancer: &elbv2types.LoadBalancer{
+								Scheme: elbv2types.LoadBalancerSchemeEnum("internet-facing"),
 							},
 						},
 					},
@@ -1486,6 +1493,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internet-facing",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -1777,6 +1785,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -1896,17 +1905,17 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 							{
-								CidrBlock: aws.String("192.160.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("192.160.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 							{
-								CidrBlock: aws.String("100.64.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("100.64.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -2001,6 +2010,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
         "spec": {
           "ipAddressType": "ipv4",
           "name": "k8s-default-iptarget-b44ef5a42d",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -2054,7 +2064,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					Type:              corev1.ServiceTypeLoadBalancer,
-					LoadBalancerClass: aws.String("service.k8s.aws/nlb"),
+					LoadBalancerClass: awssdk.String("service.k8s.aws/nlb"),
 					Selector:          map[string]string{"app": "hello"},
 					Ports: []corev1.ServicePort{
 						{
@@ -2070,17 +2080,17 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 							{
-								CidrBlock: aws.String("192.160.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("192.160.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 							{
-								CidrBlock: aws.String("100.64.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("100.64.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -2169,6 +2179,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
       "LoadBalancer": {
         "spec": {
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "name": "k8s-default-defaulti-b44ef5a42d",
           "subnetMapping": [
             {
@@ -2211,7 +2222,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		},
 		{
 			testName:           "service with enableIPTargetType set to false and type IP",
-			enableIPTargetType: aws.Bool(false),
+			enableIPTargetType: awssdk.Bool(false),
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "traffic-local",
@@ -2394,11 +2405,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						Ipv6CidrBlockAssociationSet: []*ec2.VpcIpv6CidrBlockAssociation{
+						Ipv6CidrBlockAssociationSet: []ec2types.VpcIpv6CidrBlockAssociation{
 							{
-								Ipv6CidrBlock: aws.String("2600:1fe3:3c0:1d00::/56"),
-								Ipv6CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								Ipv6CidrBlock: awssdk.String("2600:1fe3:3c0:1d00::/56"),
+								Ipv6CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -2447,6 +2458,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internal",
           "ipAddressType": "dualstack",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -2597,6 +2609,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internet-facing",
           "ipAddressType": "dualstack",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -2731,7 +2744,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					Type:              corev1.ServiceTypeLoadBalancer,
-					LoadBalancerClass: aws.String("service.k8s.aws/nlb"),
+					LoadBalancerClass: awssdk.String("service.k8s.aws/nlb"),
 					Selector:          map[string]string{"app": "class"},
 					Ports: []corev1.ServicePort{
 						{
@@ -2749,11 +2762,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 							{
-								CidrBlock: aws.String("192.168.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("192.168.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -2800,6 +2813,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internal",
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -2907,10 +2921,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			},
 			resolveViaNameOrIDSliceCalls: []resolveViaNameOrIDSliceCall{
 				{
-					subnets: []*ec2.Subnet{
+					subnets: []ec2types.Subnet{
 						{
-							SubnetId:  aws.String("subnet-1"),
-							CidrBlock: aws.String("192.168.0.0/19"),
+							SubnetId:  awssdk.String("subnet-1"),
+							CidrBlock: awssdk.String("192.168.0.0/19"),
 						},
 					},
 				},
@@ -2919,11 +2933,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				{
 					sdkLBs: []elbv2.LoadBalancerWithTags{
 						{
-							LoadBalancer: &elbv2sdk.LoadBalancer{
-								Scheme: aws.String("internal"),
-								AvailabilityZones: []*elbv2sdk.AvailabilityZone{
+							LoadBalancer: &elbv2types.LoadBalancer{
+								Scheme: elbv2types.LoadBalancerSchemeEnum("internal"),
+								AvailabilityZones: []elbv2types.AvailabilityZone{
 									{
-										SubnetId: aws.String("subnet-1"),
+										SubnetId: awssdk.String("subnet-1"),
 									},
 								},
 							},
@@ -2967,6 +2981,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-manualsg-7af4592f28",
              "type":"network",
              "scheme":"internal",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -3115,6 +3130,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-6b0ba8ff70",
              "type":"network",
              "scheme":"internal",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -3299,6 +3315,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internet-facing",
              "ipAddressType":"dualstack",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -3518,6 +3535,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-518cdfc227",
              "type":"network",
              "scheme":"internal",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -3837,6 +3855,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-nlbipsvc-33e41aa671",
              "type":"network",
              "scheme":"internet-facing",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -4067,11 +4086,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 							{
-								CidrBlock: aws.String("192.168.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("192.168.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -4168,6 +4187,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-default-instance-7ca1de7e6c",
              "type":"network",
              "scheme":"internal",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -4383,9 +4403,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				{
 					sdkLBs: []elbv2.LoadBalancerWithTags{
 						{
-							LoadBalancer: &elbv2sdk.LoadBalancer{
-								Scheme:         aws.String("internet-facing"),
-								SecurityGroups: []*string{aws.String("sg-lb")},
+							LoadBalancer: &elbv2types.LoadBalancer{
+								Scheme:         elbv2types.LoadBalancerSchemeEnum("internet-facing"),
+								SecurityGroups: []string{"sg-lb"},
 							},
 						},
 					},
@@ -4500,6 +4520,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-app-trafficl-2af705447d",
              "type":"network",
              "scheme":"internet-facing",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -4733,9 +4754,9 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				{
 					sdkLBs: []elbv2.LoadBalancerWithTags{
 						{
-							LoadBalancer: &elbv2sdk.LoadBalancer{
-								Scheme:         aws.String("internet-facing"),
-								SecurityGroups: []*string{aws.String("sg-lb")},
+							LoadBalancer: &elbv2types.LoadBalancer{
+								Scheme:         elbv2types.LoadBalancerSchemeEnum("internet-facing"),
+								SecurityGroups: []string{"sg-lb"},
 							},
 						},
 					},
@@ -4850,6 +4871,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "name":"k8s-app-trafficl-2af705447d",
              "type":"network",
              "scheme":"internet-facing",
+             "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
              "subnetMapping":[
                 {
@@ -5057,10 +5079,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			disableRestrictedSGRules: true,
 			resolveViaNameOrIDSliceCalls: []resolveViaNameOrIDSliceCall{
 				{
-					subnets: []*ec2.Subnet{
+					subnets: []ec2types.Subnet{
 						{
-							SubnetId:  aws.String("subnet-1"),
-							CidrBlock: aws.String("192.168.0.0/19"),
+							SubnetId:  awssdk.String("subnet-1"),
+							CidrBlock: awssdk.String("192.168.0.0/19"),
 						},
 					},
 				},
@@ -5069,8 +5091,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				{
 					sdkLBs: []elbv2.LoadBalancerWithTags{
 						{
-							LoadBalancer: &elbv2sdk.LoadBalancer{
-								Scheme: aws.String("internal"),
+							LoadBalancer: &elbv2types.LoadBalancer{
+								Scheme: elbv2types.LoadBalancerSchemeEnum("internal"),
 							},
 						},
 					},
@@ -5117,6 +5139,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "type":"network",
              "scheme":"internal",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -5237,17 +5260,17 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 							{
-								CidrBlock: aws.String("192.160.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("192.160.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 							{
-								CidrBlock: aws.String("100.64.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("100.64.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -5354,6 +5377,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
       "LoadBalancer": {
         "spec": {
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "name": "k8s-default-iptarget-b44ef5a42d",
           "subnetMapping": [
             {
@@ -5433,11 +5457,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						Ipv6CidrBlockAssociationSet: []*ec2.VpcIpv6CidrBlockAssociation{
+						Ipv6CidrBlockAssociationSet: []ec2types.VpcIpv6CidrBlockAssociation{
 							{
-								Ipv6CidrBlock: aws.String("2600:1fe3:3c0:1d00::/56"),
-								Ipv6CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								Ipv6CidrBlock: awssdk.String("2600:1fe3:3c0:1d00::/56"),
+								Ipv6CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -5512,6 +5536,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "name": "k8s-default-trafficl-6652458428",
           "type": "network",
           "scheme": "internal",
+          "enablePrefixForIpv6SourceNat": "off",
           "ipAddressType": "dualstack",
           "subnetMapping": [
             {
@@ -5697,6 +5722,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internet-facing",
           "ipAddressType": "dualstack",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -5794,7 +5820,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					Type:              corev1.ServiceTypeLoadBalancer,
-					LoadBalancerClass: aws.String("service.k8s.aws/nlb"),
+					LoadBalancerClass: awssdk.String("service.k8s.aws/nlb"),
 					Selector:          map[string]string{"app": "class"},
 					Ports: []corev1.ServicePort{
 						{
@@ -5812,11 +5838,11 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			fetchVPCInfoCalls: []fetchVPCInfoCall{
 				{
 					wantVPCInfo: networking.VPCInfo{
-						CidrBlockAssociationSet: []*ec2.VpcCidrBlockAssociation{
+						CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 							{
-								CidrBlock: aws.String("192.168.0.0/16"),
-								CidrBlockState: &ec2.VpcCidrBlockState{
-									State: &cidrBlockStateAssociated,
+								CidrBlock: awssdk.String("192.168.0.0/16"),
+								CidrBlockState: &ec2types.VpcCidrBlockState{
+									State: cidrBlockStateAssociated,
 								},
 							},
 						},
@@ -5880,6 +5906,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internal",
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -5988,14 +6015,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				{
 					sdkLBs: []elbv2.LoadBalancerWithTags{
 						{
-							LoadBalancer: &elbv2sdk.LoadBalancer{
-								Scheme: aws.String("internal"),
-								AvailabilityZones: []*elbv2sdk.AvailabilityZone{
+							LoadBalancer: &elbv2types.LoadBalancer{
+								Scheme: elbv2types.LoadBalancerSchemeEnum("internal"),
+								AvailabilityZones: []elbv2types.AvailabilityZone{
 									{
-										SubnetId: aws.String("subnet-1"),
+										SubnetId: awssdk.String("subnet-1"),
 									},
 								},
-								SecurityGroups: []*string{aws.String("sg-lb")},
+								SecurityGroups: []string{"sg-lb"},
 							},
 						},
 					},
@@ -6076,6 +6103,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "type": "network",
           "scheme": "internal",
           "ipAddressType": "ipv4",
+          "enablePrefixForIpv6SourceNat": "off",
           "subnetMapping": [
             {
               "subnetID": "subnet-1"
@@ -6214,6 +6242,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
           "name": "k8s-default-manualse-6b0ba8ff70",
           "type": "network",
           "scheme": "internal",
+          "enablePrefixForIpv6SourceNat": "off",
           "ipAddressType": "ipv4",
           "subnetMapping": [
             {
@@ -6404,6 +6433,157 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                true,
 		},
+		{
+			testName: "Simple service with default load balancer scheme internet-facing",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "nlb-ip-svc-tls",
+					Namespace: "default",
+					UID:       "bdca2bd0-bfc6-449a-88a3-03451f05f18c",
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-type":                                     "nlb-ip",
+						"service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic": "on",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: map[string]string{"app": "hello"},
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
+			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
+			wantError:                false,
+			wantNumResources:         4,
+			featureGates: map[config.Feature]bool{
+				config.NLBSecurityGroup: false,
+			},
+			defaultLoadBalancerScheme: string(elbv2model.LoadBalancerSchemeInternetFacing),
+			wantValue: `
+{
+ "id":"default/nlb-ip-svc-tls",
+ "resources":{
+    "AWS::ElasticLoadBalancingV2::Listener":{
+       "80":{
+          "spec":{
+             "loadBalancerARN":{
+                "$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+             },
+             "port":80,
+             "protocol":"TCP",
+             "defaultActions":[
+                {
+                   "type":"forward",
+                   "forwardConfig":{
+                      "targetGroups":[
+                         {
+                            "targetGroupARN":{
+                               "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
+                            }
+                         }
+                      ]
+                   }
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::LoadBalancer":{
+       "LoadBalancer":{
+          "spec":{
+             "name":"k8s-default-nlbipsvc-4d831c6ca6",
+             "type":"network",
+             "scheme":"internet-facing",
+             "securityGroupsInboundRulesOnPrivateLink":"on",
+             "enablePrefixForIpv6SourceNat": "off",
+             "ipAddressType":"ipv4",
+             "subnetMapping":[
+                {
+                   "subnetID":"subnet-1"
+                }
+             ]
+          }
+       }
+    },
+    "AWS::ElasticLoadBalancingV2::TargetGroup":{
+       "default/nlb-ip-svc-tls:80":{
+          "spec":{
+             "name":"k8s-default-nlbipsvc-d4818dcd51",
+             "targetType":"ip",
+             "ipAddressType":"ipv4",
+             "port":80,
+             "protocol":"TCP",
+             "healthCheckConfig":{
+                "port":"traffic-port",
+                "protocol":"TCP",
+                "intervalSeconds":10,
+                "timeoutSeconds":10,
+                "healthyThresholdCount":3,
+                "unhealthyThresholdCount":3
+             },
+             "targetGroupAttributes":[
+                {
+                   "key":"proxy_protocol_v2.enabled",
+                   "value":"false"
+                }
+             ]
+          }
+       }
+    },
+    "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
+       "default/nlb-ip-svc-tls:80":{
+          "spec":{
+             "template":{
+                "metadata":{
+                   "name":"k8s-default-nlbipsvc-d4818dcd51",
+                   "namespace":"default",
+                   "creationTimestamp":null
+                },
+                "spec":{
+                   "targetGroupARN":{
+                      "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/default/nlb-ip-svc-tls:80/status/targetGroupARN"
+                   },
+                   "targetType":"ip",
+                   "ipAddressType":"ipv4",
+                   "vpcID": "vpc-xxx",
+                   "serviceRef":{
+                      "name":"nlb-ip-svc-tls",
+                      "port":80
+                   },
+                   "networking":{
+                      "ingress":[
+                         {
+                            "from":[
+                               {
+                                  "ipBlock":{
+                                     "cidr":"192.168.0.0/19"
+                                  }
+                               }
+                            ],
+                            "ports":[
+                               {
+                                  "protocol":"TCP",
+                                  "port":80
+                               }
+                            ]
+                         }
+                      ]
+                   }
+                }
+             }
+          }
+       }
+    }
+ }
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -6444,6 +6624,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			if defaultTargetType == "" {
 				defaultTargetType = "instance"
 			}
+			defaultLoadBalancerScheme := tt.defaultLoadBalancerScheme
+			if defaultLoadBalancerScheme == "" {
+				defaultLoadBalancerScheme = string(elbv2model.LoadBalancerSchemeInternal)
+			}
 			backendSGProvider := networking.NewMockBackendSGProvider(ctrl)
 			if tt.enableBackendSG {
 				backendSGProvider.EXPECT().Get(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
@@ -6460,7 +6644,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				enableIPTargetType = *tt.enableIPTargetType
 			}
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, enableIPTargetType, serviceUtils,
+				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
 				backendSGProvider, sgResolver, tt.enableBackendSG, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}))
 			ctx := context.Background()
 			stack, _, _, err := builder.Build(ctx, tt.svc)

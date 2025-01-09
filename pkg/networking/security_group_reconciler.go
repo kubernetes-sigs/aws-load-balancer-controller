@@ -2,7 +2,7 @@ package networking
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -77,23 +77,24 @@ func (r *defaultSecurityGroupReconciler) ReconcileIngress(ctx context.Context, s
 		return err
 	}
 	sgInfo := sgInfoByID[sgID]
-	if err := r.reconcileIngressWithSGInfo(ctx, sgInfo, desiredPermissions, reconcileOpts); err != nil {
+
+	if err := r.reconcileIngressWithSGInfo(ctx, sgInfo, desiredPermissions, false, reconcileOpts); err != nil {
 		if !r.shouldRetryWithoutCache(err) {
 			return err
 		}
+		revokeFirst := r.shouldRemoveSGRulesFirst(err)
+		r.logger.Info("Retrying ReconcileIngress without using cache", "revokeFirst", revokeFirst)
 		sgInfoByID, err := r.sgManager.FetchSGInfosByID(ctx, []string{sgID}, WithReloadIgnoringCache())
 		if err != nil {
 			return err
 		}
 		sgInfo := sgInfoByID[sgID]
-		if err := r.reconcileIngressWithSGInfo(ctx, sgInfo, desiredPermissions, reconcileOpts); err != nil {
-			return err
-		}
+		return r.reconcileIngressWithSGInfo(ctx, sgInfo, desiredPermissions, revokeFirst, reconcileOpts)
 	}
 	return nil
 }
 
-func (r *defaultSecurityGroupReconciler) reconcileIngressWithSGInfo(ctx context.Context, sgInfo SecurityGroupInfo, desiredPermissions []IPPermissionInfo, reconcileOpts SecurityGroupReconcileOptions) error {
+func (r *defaultSecurityGroupReconciler) reconcileIngressWithSGInfo(ctx context.Context, sgInfo SecurityGroupInfo, desiredPermissions []IPPermissionInfo, revokeFirst bool, reconcileOpts SecurityGroupReconcileOptions) error {
 	extraPermissions := diffIPPermissionInfos(sgInfo.Ingress, desiredPermissions)
 	permissionsToRevoke := make([]IPPermissionInfo, 0, len(extraPermissions))
 	for _, permission := range extraPermissions {
@@ -102,24 +103,46 @@ func (r *defaultSecurityGroupReconciler) reconcileIngressWithSGInfo(ctx context.
 		}
 	}
 	permissionsToGrant := diffIPPermissionInfos(desiredPermissions, sgInfo.Ingress)
-	if len(permissionsToRevoke) > 0 && !reconcileOpts.AuthorizeOnly {
-		if err := r.sgManager.RevokeSGIngress(ctx, sgInfo.SecurityGroupID, permissionsToRevoke); err != nil {
-			return err
+
+	if revokeFirst {
+		if len(permissionsToRevoke) > 0 && !reconcileOpts.AuthorizeOnly {
+			if err := r.sgManager.RevokeSGIngress(ctx, sgInfo.SecurityGroupID, permissionsToRevoke); err != nil {
+				return err
+			}
 		}
 	}
+
 	if len(permissionsToGrant) > 0 {
 		if err := r.sgManager.AuthorizeSGIngress(ctx, sgInfo.SecurityGroupID, permissionsToGrant); err != nil {
 			return err
 		}
 	}
+
+	if !revokeFirst {
+		if len(permissionsToRevoke) > 0 && !reconcileOpts.AuthorizeOnly {
+			if err := r.sgManager.RevokeSGIngress(ctx, sgInfo.SecurityGroupID, permissionsToRevoke); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
 // shouldRetryWithoutCache tests whether we should retry SecurityGroup rules reconcile without cache.
 func (r *defaultSecurityGroupReconciler) shouldRetryWithoutCache(err error) bool {
-	var awsErr awserr.Error
-	if errors.As(err, &awsErr) {
-		return awsErr.Code() == "InvalidPermission.Duplicate" || awsErr.Code() == "InvalidPermission.NotFound"
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "InvalidPermission.Duplicate" || apiErr.ErrorCode() == "InvalidPermission.NotFound" || apiErr.ErrorCode() == "RulesPerSecurityGroupLimitExceeded"
+	}
+	return false
+}
+
+// shouldRemoveSGRulesFirst tests whether we should retry SecurityGroup rules reconcile but revoking rules prior to adding new rules.
+func (r *defaultSecurityGroupReconciler) shouldRemoveSGRulesFirst(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.ErrorCode() == "RulesPerSecurityGroupLimitExceeded"
 	}
 	return false
 }

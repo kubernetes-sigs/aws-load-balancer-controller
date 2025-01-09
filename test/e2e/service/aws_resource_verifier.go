@@ -2,24 +2,25 @@ package service
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	"sort"
+	"strconv"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"sort"
-	"strconv"
 )
 
 type TargetGroupHC struct {
 	Protocol           string
 	Path               string
 	Port               string
-	Interval           int64
-	Timeout            int64
-	HealthyThreshold   int64
-	UnhealthyThreshold int64
+	Interval           int32
+	Timeout            int32
+	HealthyThreshold   int32
+	UnhealthyThreshold int32
 }
 
 type LoadBalancerExpectation struct {
@@ -47,16 +48,16 @@ func verifyAWSLoadBalancerResources(ctx context.Context, f *framework.Framework,
 	return nil
 }
 
-func verifyLoadBalancerName(_ context.Context, f *framework.Framework, lb *elbv2sdk.LoadBalancer, lbName string) error {
+func verifyLoadBalancerName(_ context.Context, f *framework.Framework, lb *elbv2types.LoadBalancer, lbName string) error {
 	if len(lbName) > 0 {
-		Expect(awssdk.StringValue(lb.LoadBalancerName)).To(Equal(lbName))
+		Expect(awssdk.ToString(lb.LoadBalancerName)).To(Equal(lbName))
 	}
 	return nil
 }
 
-func verifyLoadBalancerType(_ context.Context, f *framework.Framework, lb *elbv2sdk.LoadBalancer, lbType, lbScheme string) error {
-	Expect(awssdk.StringValue(lb.Type)).To(Equal(lbType))
-	Expect(awssdk.StringValue(lb.Scheme)).To(Equal(lbScheme))
+func verifyLoadBalancerType(_ context.Context, f *framework.Framework, lb *elbv2types.LoadBalancer, lbType, lbScheme string) error {
+	Expect(string(lb.Type)).To(Equal(lbType))
+	Expect(string(lb.Scheme)).To(Equal(lbScheme))
 	return nil
 }
 
@@ -64,8 +65,8 @@ func verifyLoadBalancerAttributes(ctx context.Context, f *framework.Framework, l
 	lbAttrs, err := f.LBManager.GetLoadBalancerAttributes(ctx, lbARN)
 	Expect(err).NotTo(HaveOccurred())
 	for _, attr := range lbAttrs {
-		if val, ok := expectedAttrs[awssdk.StringValue(attr.Key)]; ok && val != awssdk.StringValue(attr.Value) {
-			return errors.Errorf("Attribute %v, expected %v, actual %v", awssdk.StringValue(attr.Key), val, awssdk.StringValue(attr.Value))
+		if val, ok := expectedAttrs[awssdk.ToString(attr.Key)]; ok && val != awssdk.ToString(attr.Value) {
+			return errors.Errorf("Attribute %v, expected %v, actual %v", awssdk.ToString(attr.Key), val, awssdk.ToString(attr.Value))
 		}
 	}
 	return nil
@@ -78,20 +79,20 @@ func verifyLoadBalancerResourceTags(ctx context.Context, f *framework.Framework,
 	Expect(err).NotTo(HaveOccurred())
 
 	for _, tg := range targetGroups {
-		resARNs = append(resARNs, awssdk.StringValue(tg.TargetGroupArn))
+		resARNs = append(resARNs, awssdk.ToString(tg.TargetGroupArn))
 	}
 
 	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
 	Expect(err).NotTo(HaveOccurred())
 	for _, ls := range listeners {
-		resARNs = append(resARNs, awssdk.StringValue(ls.ListenerArn))
-		rules, err := f.LBManager.GetLoadBalancerListenerRules(ctx, awssdk.StringValue(ls.ListenerArn))
+		resARNs = append(resARNs, awssdk.ToString(ls.ListenerArn))
+		rules, err := f.LBManager.GetLoadBalancerListenerRules(ctx, awssdk.ToString(ls.ListenerArn))
 		Expect(err).NotTo(HaveOccurred())
 		for _, rule := range rules {
-			if awssdk.BoolValue(rule.IsDefault) {
+			if awssdk.ToBool(rule.IsDefault) {
 				continue
 			}
-			resARNs = append(resARNs, awssdk.StringValue(rule.RuleArn))
+			resARNs = append(resARNs, awssdk.ToString(rule.RuleArn))
 		}
 	}
 	for _, resARN := range resARNs {
@@ -107,12 +108,12 @@ func matchResourceTags(ctx context.Context, f *framework.Framework, resARN strin
 	Expect(err).NotTo(HaveOccurred())
 	matchedTags := 0
 	for _, tag := range lbTags {
-		if val, ok := expectedTags[awssdk.StringValue(tag.Key)]; ok && (val == "*" || val == awssdk.StringValue(tag.Value)) {
+		if val, ok := expectedTags[awssdk.ToString(tag.Key)]; ok && (val == "*" || val == awssdk.ToString(tag.Value)) {
 			matchedTags++
 		}
 	}
 	for _, tag := range lbTags {
-		if val, ok := unexpectedTags[awssdk.StringValue(tag.Key)]; ok && (val == "*" || val == awssdk.StringValue(tag.Value)) {
+		if val, ok := unexpectedTags[awssdk.ToString(tag.Key)]; ok && (val == "*" || val == awssdk.ToString(tag.Value)) {
 			return false
 		}
 	}
@@ -124,8 +125,8 @@ func getLoadBalancerListenerProtocol(ctx context.Context, f *framework.Framework
 	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 	for _, ls := range listeners {
-		if strconv.Itoa(int(awssdk.Int64Value(ls.Port))) == port {
-			protocol = awssdk.StringValue(ls.Protocol)
+		if strconv.Itoa(int(awssdk.ToInt32(ls.Port))) == port {
+			protocol = string(ls.Protocol)
 		}
 	}
 	return protocol
@@ -137,9 +138,9 @@ func verifyLoadBalancerListeners(ctx context.Context, f *framework.Framework, lb
 	Expect(len(listeners)).To(Equal(len(listenersMap)))
 
 	for _, ls := range listeners {
-		portStr := strconv.Itoa(int(awssdk.Int64Value(ls.Port)))
+		portStr := strconv.Itoa(int(awssdk.ToInt32(ls.Port)))
 		Expect(listenersMap).Should(HaveKey(portStr))
-		Expect(awssdk.StringValue(ls.Protocol)).To(Equal(listenersMap[portStr]))
+		Expect(string(ls.Protocol)).To(Equal(listenersMap[portStr]))
 	}
 	return nil
 }
@@ -148,16 +149,16 @@ func verifyLoadBalancerListenerCertificates(ctx context.Context, f *framework.Fr
 	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(listeners)).Should(BeNumerically(">", 0))
-	listenerCerts, err := f.LBManager.GetLoadBalancerListenerCertificates(ctx, awssdk.StringValue(listeners[0].ListenerArn))
+	listenerCerts, err := f.LBManager.GetLoadBalancerListenerCertificates(ctx, awssdk.ToString(listeners[0].ListenerArn))
 	Expect(err).ToNot(HaveOccurred())
 
 	var observedCertArns []string
 	var defaultCert string
 	for _, cert := range listenerCerts {
-		if awssdk.BoolValue(cert.IsDefault) {
-			defaultCert = awssdk.StringValue(cert.CertificateArn)
+		if awssdk.ToBool(cert.IsDefault) {
+			defaultCert = awssdk.ToString(cert.CertificateArn)
 		}
-		observedCertArns = append(observedCertArns, awssdk.StringValue(cert.CertificateArn))
+		observedCertArns = append(observedCertArns, awssdk.ToString(cert.CertificateArn))
 	}
 	if defaultCert != expectedCertARNS[0] {
 		return errors.New("default cert does not match")
@@ -177,25 +178,25 @@ func verifyLoadBalancerTargetGroups(ctx context.Context, f *framework.Framework,
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(targetGroups)).To(Equal(len(expected.TargetGroups)))
 	for _, tg := range targetGroups {
-		Expect(awssdk.StringValue(tg.TargetType)).To(Equal(expected.TargetType))
-		Expect(awssdk.StringValue(tg.Protocol)).To(Equal(expected.TargetGroups[strconv.Itoa(int(awssdk.Int64Value(tg.Port)))]))
+		Expect(string(tg.TargetType)).To(Equal(expected.TargetType))
+		Expect(string(tg.Protocol)).To(Equal(expected.TargetGroups[strconv.Itoa(int(awssdk.ToInt32(tg.Port)))]))
 		err = verifyTargetGroupHealthCheckConfig(tg, expected.TargetGroupHC)
 		Expect(err).NotTo(HaveOccurred())
-		err = verifyTargetGroupNumRegistered(ctx, f, awssdk.StringValue(tg.TargetGroupArn), expected.NumTargets)
+		err = verifyTargetGroupNumRegistered(ctx, f, awssdk.ToString(tg.TargetGroupArn), expected.NumTargets)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	return nil
 }
 
-func verifyTargetGroupHealthCheckConfig(tg *elbv2sdk.TargetGroup, hc *TargetGroupHC) error {
+func verifyTargetGroupHealthCheckConfig(tg elbv2types.TargetGroup, hc *TargetGroupHC) error {
 	if hc != nil {
-		Expect(awssdk.StringValue(tg.HealthCheckProtocol)).To(Equal(hc.Protocol))
-		Expect(awssdk.StringValue(tg.HealthCheckPath)).To(Equal(hc.Path))
-		Expect(awssdk.StringValue(tg.HealthCheckPort)).To(Equal(hc.Port))
-		Expect(awssdk.Int64Value(tg.HealthCheckIntervalSeconds)).To(Equal(hc.Interval))
-		Expect(awssdk.Int64Value(tg.HealthCheckTimeoutSeconds)).To(Equal(hc.Timeout))
-		Expect(awssdk.Int64Value(tg.HealthyThresholdCount)).To(Equal(hc.HealthyThreshold))
-		Expect(awssdk.Int64Value(tg.UnhealthyThresholdCount)).To(Equal(hc.UnhealthyThreshold))
+		Expect(string(tg.HealthCheckProtocol)).To(Equal(hc.Protocol))
+		Expect(awssdk.ToString(tg.HealthCheckPath)).To(Equal(hc.Path))
+		Expect(awssdk.ToString(tg.HealthCheckPort)).To(Equal(hc.Port))
+		Expect(awssdk.ToInt32(tg.HealthCheckIntervalSeconds)).To(Equal(hc.Interval))
+		Expect(awssdk.ToInt32(tg.HealthCheckTimeoutSeconds)).To(Equal(hc.Timeout))
+		Expect(awssdk.ToInt32(tg.HealthyThresholdCount)).To(Equal(hc.HealthyThreshold))
+		Expect(awssdk.ToInt32(tg.UnhealthyThresholdCount)).To(Equal(hc.UnhealthyThreshold))
 	}
 	return nil
 }
@@ -217,7 +218,7 @@ func waitUntilTargetsAreHealthy(ctx context.Context, f *framework.Framework, lbA
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(targetGroups)).To(Not(BeZero()))
 	// Check the first target group
-	tgARN := awssdk.StringValue(targetGroups[0].TargetGroupArn)
+	tgARN := awssdk.ToString(targetGroups[0].TargetGroupArn)
 
 	Eventually(func() (bool, error) {
 		return f.TGManager.CheckTargetGroupHealthy(ctx, tgARN, expectedTargetCount)
@@ -228,7 +229,7 @@ func waitUntilTargetsAreHealthy(ctx context.Context, f *framework.Framework, lbA
 func getTargetGroupHealthCheckProtocol(ctx context.Context, f *framework.Framework, lbARN string) string {
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
-	return awssdk.StringValue(targetGroups[0].HealthCheckProtocol)
+	return string(targetGroups[0].HealthCheckProtocol)
 }
 
 func verifyTargetGroupAttributes(ctx context.Context, f *framework.Framework, lbARN string, expectedAttributes map[string]string) bool {
@@ -236,14 +237,37 @@ func verifyTargetGroupAttributes(ctx context.Context, f *framework.Framework, lb
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(targetGroups)).To(Not(BeZero()))
 	// Check the first target group
-	tgARN := awssdk.StringValue(targetGroups[0].TargetGroupArn)
+	tgARN := awssdk.ToString(targetGroups[0].TargetGroupArn)
 	tgAttrs, err := f.TGManager.GetTargetGroupAttributes(ctx, tgARN)
 	Expect(err).NotTo(HaveOccurred())
 	matchedAttrs := 0
 	for _, attr := range tgAttrs {
-		if val, ok := expectedAttributes[awssdk.StringValue(attr.Key)]; ok && val == awssdk.StringValue(attr.Value) {
+		if val, ok := expectedAttributes[awssdk.ToString(attr.Key)]; ok && val == awssdk.ToString(attr.Value) {
 			matchedAttrs++
 		}
 	}
 	return matchedAttrs == len(expectedAttributes)
+}
+
+func verifyListenerAttributes(ctx context.Context, f *framework.Framework, lsARN string, expectedAttrs map[string]string) error {
+	lsAttrs, err := f.LBManager.GetListenerAttributes(ctx, lsARN)
+	Expect(err).NotTo(HaveOccurred())
+	for _, attr := range lsAttrs {
+		if val, ok := expectedAttrs[awssdk.ToString(attr.Key)]; ok && val != awssdk.ToString(attr.Value) {
+			return errors.Errorf("Attribute %v, expected %v, actual %v", awssdk.ToString(attr.Key), val, awssdk.ToString(attr.Value))
+		}
+	}
+	return nil
+}
+
+func getLoadBalancerListenerARN(ctx context.Context, f *framework.Framework, lbARN string, port string) string {
+	lsARN := ""
+	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
+	Expect(err).ToNot(HaveOccurred())
+	for _, ls := range listeners {
+		if strconv.Itoa(int(awssdk.ToInt32(ls.Port))) == port {
+			lsARN = awssdk.ToString(ls.ListenerArn)
+		}
+	}
+	return lsARN
 }

@@ -13,45 +13,50 @@
     These annotations are specific to the kubernetes [service resources reconciled](#lb-type) by the AWS Load Balancer Controller. Although the list was initially derived from the k8s in-tree `kube-controller-manager`, this
     documentation is not an accurate reference for the services reconciled by the in-tree controller. 
 
-| Name                                                                                             | Type                    | Default                   | Notes                                                  |
-|--------------------------------------------------------------------------------------------------|-------------------------|---------------------------|--------------------------------------------------------|
-| [service.beta.kubernetes.io/load-balancer-source-ranges](#lb-source-ranges)                      | stringList              |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists](#lb-security-group-prefix-lists)                      | stringList              |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-type](#lb-type)                                    | string                  |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-nlb-target-type](#nlb-target-type)                 | string                  |                           | default `instance` in case of LoadBalancerClass        |
-| [service.beta.kubernetes.io/aws-load-balancer-name](#load-balancer-name)                         | string                  |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-internal](#lb-internal)                            | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-scheme](#lb-scheme)|
-| [service.beta.kubernetes.io/aws-load-balancer-scheme](#lb-scheme)                                | string                  | internal                  |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                | string                  |                           | Set to `"*"` to enable                                 |
-| [service.beta.kubernetes.io/aws-load-balancer-ip-address-type](#ip-address-type)                 | string                  | ipv4                      | ipv4 \| dualstack                                      |
-| [service.beta.kubernetes.io/aws-load-balancer-access-log-enabled](#deprecated-attributes)        | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
-| [service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name](#deprecated-attributes) | string                  |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
-| [service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix](#deprecated-attributes)| string                 |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
-| [service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled](#deprecated-attributes)| boolean          | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)|
-| [service.beta.kubernetes.io/aws-load-balancer-ssl-cert](#ssl-cert)                               | stringList              |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-ssl-ports](#ssl-ports)                             | stringList              |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy](#ssl-negotiation-policy)   | string                  | ELBSecurityPolicy-2016-08 |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-backend-protocol](#backend-protocol)               | string                  |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags](#additional-resource-tags) | stringMap             |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol](#healthcheck-protocol)       | string                  | TCP                       |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-port ](#healthcheck-port)              | integer \| traffic-port | traffic-port              |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-path](#healthcheck-path)               | string                  | "/" for HTTP(S) protocols |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold](#healthcheck-healthy-threshold)     | integer | 3                         |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold](#healthcheck-unhealthy-threshold) | integer | 3                         |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout](#healthcheck-timeout)         | integer                 | 10                        |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval](#healthcheck-interval)       | integer                 | 10                        |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes](#healthcheck-success-codes)       | string        | 200-399                   |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-eip-allocations](#eip-allocations)                 | stringList              |                           | internet-facing lb only. Length must match the number of subnets|
-| [service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses](#private-ipv4-addresses)   | stringList              |                           | internal lb only. Length must match the number of subnets |
-| [service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses](#ipv6-addresses)                   | stringList              |                           | dualstack lb only. Length must match the number of subnets |
-| [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes) | stringMap               |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-subnets](#subnets)                                 | stringList              |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | string                  |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                        |
-| [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                        | 
-| [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      | If `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified, this must also be explicitly specified otherwise it defaults to `false`. |
+| Name                                                                                             | Type                    | Default                   | Notes                                                                                                                                                                                                                               |
+|--------------------------------------------------------------------------------------------------|-------------------------|---------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [service.beta.kubernetes.io/load-balancer-source-ranges](#lb-source-ranges)                      | stringList              |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists](#lb-security-group-prefix-lists)                      | stringList              |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-type](#lb-type)                                    | string                  |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-nlb-target-type](#nlb-target-type)                 | string                  |                           | default `instance` in case of LoadBalancerClass                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-name](#load-balancer-name)                         | string                  |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-internal](#lb-internal)                            | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-scheme](#lb-scheme)                                                                                                                                                                      |
+| [service.beta.kubernetes.io/aws-load-balancer-scheme](#lb-scheme)                                | string                  | internal                  |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                | string                  |                           | Set to `"*"` to enable                                                                                                                                                                                                              |
+| [service.beta.kubernetes.io/aws-load-balancer-ip-address-type](#ip-address-type)                 | string                  | ipv4                      | ipv4 \| dualstack                                                                                                                                                                                                                   |
+| [service.beta.kubernetes.io/aws-load-balancer-access-log-enabled](#deprecated-attributes)        | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                   |
+| [service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name](#deprecated-attributes) | string                  |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                   |
+| [service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix](#deprecated-attributes)| string                 |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                   |
+| [service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled](#deprecated-attributes)| boolean          | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                   |
+| [service.beta.kubernetes.io/aws-load-balancer-ssl-cert](#ssl-cert)                               | stringList              |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-ssl-ports](#ssl-ports)                             | stringList              |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy](#ssl-negotiation-policy)   | string                  | ELBSecurityPolicy-2016-08 |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-backend-protocol](#backend-protocol)               | string                  |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags](#additional-resource-tags) | stringMap             |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol](#healthcheck-protocol)       | string                  | TCP                       |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-port ](#healthcheck-port)              | integer \| traffic-port | traffic-port              |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-path](#healthcheck-path)               | string                  | "/" for HTTP(S) protocols |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold](#healthcheck-healthy-threshold)     | integer | 3                         |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold](#healthcheck-unhealthy-threshold) | integer | 3                         |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout](#healthcheck-timeout)         | integer                 | 10                        |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval](#healthcheck-interval)       | integer                 | 10                        |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes](#healthcheck-success-codes)       | string        | 200-399                   |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-eip-allocations](#eip-allocations)                 | stringList              |                           | internet-facing lb only. Length must match the number of subnets                                                                                                                                                                    |
+| [service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses](#private-ipv4-addresses)   | stringList              |                           | internal lb only. Length must match the number of subnets                                                                                                                                                                           |
+| [service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses](#ipv6-addresses)                   | stringList              |                           | dualstack lb only. Length must match the number of subnets                                                                                                                                                                          |
+| [service.beta.kubernetes.io/aws-load-balancer-target-group-attributes](#target-group-attributes) | stringMap               |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-subnets](#subnets)                                 | stringList              |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-alpn-policy](#alpn-policy)                         | string                  |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-target-node-labels](#target-node-labels)           | stringMap               |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)             | stringMap               |                           |                                                                                                                                                                                                                                     |
+| [service.beta.kubernetes.io/aws-load-balancer-security-groups](#security-groups)                 | stringList              |                           |                                                                                                                                                                                                                                     | 
+| [service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules](#manage-backend-sg-rules)  | boolean    | true                      | If `service.beta.kubernetes.io/aws-load-balancer-security-groups` is specified, this must also be explicitly specified otherwise it defaults to `false`.                                                                            |
 | [service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic](#update-security-settings)         | string                  |                           |                                                                                   
+| [service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}](#listener-attributes)         | stringMap                  |                           |
+| [service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group](#multi-cluster-target-group)             | boolean                | false                    | If specified, the controller will only operate on targets that exist within the cluster, ignoring targets from other sources.                                                                                                       |
+| [service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat](#enable-prefix-for-ipv6-source-nat)         | string                  | off                       | Optional annotation. dualstack lb only. Allowed values - on and off                                                                                                                                                                 |
+| [service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes](#source-nat-ipv6-prefixes)        | stringList                  |                           | Optional annotation. dualstack lb only. This annotation is only applicable when user has to set the service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat to "on". Length must match the number of subnets |
+| [service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity](#load-balancer-capacity-reservation)                 | stringMap                  |                           |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -197,6 +202,41 @@ Traffic Listening can be controlled with following annotations:
         service.beta.kubernetes.io/aws-load-balancer-ip-address-type: ipv4
         ```
 
+## Support UDP-based services over IPv6
+You can configure dualstack NLB to support UDP-based services over IPv6 via the following annotations:
+
+- <a name="enable-prefix-for-ipv6-source-nat">service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat</a> specifies whether Prefix for IPv6 source NAT is enabled or not. UDP-based support can be enabled for dualstack NLBs only if Prefix for IPv6 source NAT is enabled.
+
+    !!!note
+        - Applicable to Network Load Balancers using dualstack IP address type.
+        - This configuration is optional, and you can use it to enable UDP support over IPv6.
+        - Allowed values are either “on” or “off”
+        - Once the source prefix for source NATing is enabled, it cannot be disabled if load balancer has a UDP listener attached.
+        - Steps to disable the aws-load-balancer-enable-prefix-for-ipv6-source-nat after it is enabled and UDP listeners already attached.
+        - You will have to first remove the UDP listeners and apply the manifest.
+        - Update the manifest to set source NATing to "off" and then apply the manifest again.
+
+    !!!example
+        - Enable prefix for IPv6 Source NAT
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat: "on"
+        ```
+
+- <a name="source-nat-ipv6-prefixes">service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes</a> specifies a list of IPv6 prefixes that should be used for IPv6 source NATing.
+
+    !!!note
+        - Applicable to Network Load Balancers using dualstack IP address type.
+        - This annotation can be specified only if service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat annotation is set to “on”.
+        - This configuration is optional and it can be used to specify custom IPv6 prefixes for IPv6 source NATing to support UDP based services routing in Network Load Balancers using dualstack IP address type.
+        - If service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat annotation is set to “on”, and you don’t specify this annotation, then IPv6 prefix/CIDR for source NATing will be auto-assigned to each subnet.
+        - If you are specifying this annotation, you must specify the same number of items in the list as the load balancer subnets annotation and following the same order. Each item in the list can have value of either “auto_assigned” or a valid IPv6 prefix/CIDR with prefix length of 80 and it should be in range of the corresponding subnet CIDR.
+        - Once the source NAT IPv6 prefixes are set, the IPv6 prefixes cannot be updated if the load balancer has a UDP listener attached.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes: 1025:0223:0009:6487:0001::/80, auto_assigned, 1025:0223:0010:6487:0001::/80
+        ```
+
 ## Resource attributes
 NLB resource attributes can be controlled via the following annotations:
 
@@ -265,6 +305,19 @@ for proxy protocol v2 configuration.
         service.beta.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
         ```
 
+    
+- <a name="listener-attributes">`service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}`</a> specifies listener attributes that should be applied to the listener.
+
+    !!!warning ""
+        Only attributes defined in the annotation will be updated. To reset any AWS defaults, the values need to be explicitly set to the original values and omitting it is not sufficient.
+  
+    !!!example
+        - configure [TCP idle timeout](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/update-idle-timeout.html) value. 
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-listener-attributes.TCP-80: tcp.idle_timeout.seconds=400
+        ```
+
+
 - <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
 
     !!!note ""
@@ -274,6 +327,20 @@ for proxy protocol v2 configuration.
         service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix
         service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled 
         ```
+
+- <a name="multi-cluster-target-group">`service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group`</a> Allows you to share the created Target Group ARN with other Load Balancer Controller managed clusters.
+
+    !!!warning ""
+    This feature does not offer any Deletion Protection. Deleting the service will still delete the Target Group. If you need to support
+    Target Groups shared with multiple clusters, it's recommended to use an out-of-band Target Group that is not managed by a Load Balancer Controller.
+
+    !!!note ""
+    - It is not recommended to change this value frequently, if ever. The recommended way to set this value is on creation of the service.
+
+    !!!example
+    ```
+    service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "true"
+    ```
 
 
 ## AWS Resource Tags
@@ -513,6 +580,25 @@ Load balancer access can be controlled via following annotations:
         service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic: "off"
         ```
 
+## Capacity Unit Reservation
+Load balancer capacity unit reservation can be configured via following annotations:
+
+- <a name="load-balancer-capacity-reservation">`service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity`</a> specifies the
+  [Capacity Unit Reservation](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/capacity-unit-reservation.html) to be configured.
+
+    !!!example
+        - set the capacity unit reservation to 1000
+          ```
+          service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity: CapacityUnits=3000
+          ```
+        - reset the capacity unit reservation
+          ```
+          service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity: CapacityUnits=0
+          ```
+    
+    !!!note "Notes"
+         - If you specify this annotation, but remove it later, the capacity unit reservation is not reset. You need to reset the capacity by setting the capacity units to zero as show in the example above.
+         - If users do not want the controller to manage the capacity unit reservation on load balancer, they can disable the feature by setting controller command line feature gate flag ```--feature-gates=LBCapacityReservation=true```
 
 ## Legacy Cloud Provider
 The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the AWS cloud provider's legacy service controller.

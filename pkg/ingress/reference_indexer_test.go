@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"

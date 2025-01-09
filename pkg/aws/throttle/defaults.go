@@ -1,9 +1,9 @@
 package throttle
 
 import (
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/wafregional"
-	"github.com/aws/aws-sdk-go/service/wafv2"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/wafregional"
+	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"golang.org/x/time/rate"
 	"regexp"
 )
@@ -36,7 +36,7 @@ func NewDefaultServiceOperationsThrottleConfig() *ServiceOperationsThrottleConfi
 					burst:        1,
 				},
 			},
-			elbv2.ServiceID: {
+			elasticloadbalancingv2.ServiceID: {
 				{
 					operationPtn: regexp.MustCompile("^RegisterTargets|^DeregisterTargets"),
 					r:            rate.Limit(4),

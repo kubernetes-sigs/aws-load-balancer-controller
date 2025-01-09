@@ -2,7 +2,7 @@ package elbv2
 
 import (
 	"encoding/json"
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -31,7 +31,7 @@ func TestAuthenticateOIDCActionConfig_MarshalJSON(t *testing.T) {
 			name: "clientID and clientSecret should be redacted",
 			cfg: &AuthenticateOIDCActionConfig{
 				AuthenticationRequestExtraParams: map[string]string{"key": "value"},
-				OnUnauthenticatedRequest:         &deny,
+				OnUnauthenticatedRequest:         deny,
 				Scope:                            awssdk.String("oidc"),
 				SessionCookieName:                awssdk.String("my-cookie"),
 				Issuer:                           "my-issuer",

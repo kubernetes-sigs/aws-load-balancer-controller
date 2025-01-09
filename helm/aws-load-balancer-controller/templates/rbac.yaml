@@ -75,6 +75,9 @@ rules:
 - apiGroups: [""]
   resources: [nodes, namespaces, endpoints]
   verbs: [get, list, watch]
+- apiGroups: [""]
+  resources: [configmaps]
+  verbs: [get, delete, create, update]
 {{- if .Values.clusterSecretsPermissions.allowAllSecrets }}
 - apiGroups: [""]
   resources: [secrets]

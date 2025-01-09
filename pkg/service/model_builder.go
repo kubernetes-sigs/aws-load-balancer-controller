@@ -2,10 +2,10 @@ package service
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"strconv"
 	"sync"
 
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -39,30 +39,31 @@ type ModelBuilder interface {
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
 	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
-	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, enableIPTargetType bool, serviceUtils ServiceUtils,
+	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
 	disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
 	return &defaultModelBuilder{
-		annotationParser:         annotationParser,
-		subnetsResolver:          subnetsResolver,
-		vpcInfoProvider:          vpcInfoProvider,
-		trackingProvider:         trackingProvider,
-		elbv2TaggingManager:      elbv2TaggingManager,
-		featureGates:             featureGates,
-		serviceUtils:             serviceUtils,
-		clusterName:              clusterName,
-		vpcID:                    vpcID,
-		defaultTags:              defaultTags,
-		externalManagedTags:      sets.NewString(externalManagedTags...),
-		defaultSSLPolicy:         defaultSSLPolicy,
-		defaultTargetType:        elbv2model.TargetType(defaultTargetType),
-		enableIPTargetType:       enableIPTargetType,
-		backendSGProvider:        backendSGProvider,
-		sgResolver:               sgResolver,
-		ec2Client:                ec2Client,
-		enableBackendSG:          enableBackendSG,
-		disableRestrictedSGRules: disableRestrictedSGRules,
-		logger:                   logger,
+		annotationParser:          annotationParser,
+		subnetsResolver:           subnetsResolver,
+		vpcInfoProvider:           vpcInfoProvider,
+		trackingProvider:          trackingProvider,
+		elbv2TaggingManager:       elbv2TaggingManager,
+		featureGates:              featureGates,
+		serviceUtils:              serviceUtils,
+		clusterName:               clusterName,
+		vpcID:                     vpcID,
+		defaultTags:               defaultTags,
+		externalManagedTags:       sets.NewString(externalManagedTags...),
+		defaultSSLPolicy:          defaultSSLPolicy,
+		defaultTargetType:         elbv2model.TargetType(defaultTargetType),
+		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
+		enableIPTargetType:        enableIPTargetType,
+		backendSGProvider:         backendSGProvider,
+		sgResolver:                sgResolver,
+		ec2Client:                 ec2Client,
+		enableBackendSG:           enableBackendSG,
+		disableRestrictedSGRules:  disableRestrictedSGRules,
+		logger:                    logger,
 	}
 }
 
@@ -82,14 +83,15 @@ type defaultModelBuilder struct {
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
 
-	clusterName         string
-	vpcID               string
-	defaultTags         map[string]string
-	externalManagedTags sets.String
-	defaultSSLPolicy    string
-	defaultTargetType   elbv2model.TargetType
-	enableIPTargetType  bool
-	logger              logr.Logger
+	clusterName               string
+	vpcID                     string
+	defaultTags               map[string]string
+	externalManagedTags       sets.String
+	defaultSSLPolicy          string
+	defaultTargetType         elbv2model.TargetType
+	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
+	enableIPTargetType        bool
+	logger                    logr.Logger
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
@@ -126,6 +128,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultLoadBalancingCrossZoneEnabled: false,
 		defaultProxyProtocolV2Enabled:        false,
 		defaultTargetType:                    b.defaultTargetType,
+		defaultLoadBalancerScheme:            b.defaultLoadBalancerScheme,
 		defaultHealthCheckProtocol:           elbv2model.ProtocolTCP,
 		defaultHealthCheckPort:               healthCheckPortTrafficPort,
 		defaultHealthCheckPath:               "/",
@@ -173,7 +176,7 @@ type defaultModelBuildTask struct {
 	stack                    core.Stack
 	loadBalancer             *elbv2model.LoadBalancer
 	tgByResID                map[string]*elbv2model.TargetGroup
-	ec2Subnets               []*ec2.Subnet
+	ec2Subnets               []ec2types.Subnet
 	enableBackendSG          bool
 	disableRestrictedSGRules bool
 	backendSGIDToken         core.StringToken
@@ -193,13 +196,14 @@ type defaultModelBuildTask struct {
 	defaultLoadBalancingCrossZoneEnabled bool
 	defaultProxyProtocolV2Enabled        bool
 	defaultTargetType                    elbv2model.TargetType
+	defaultLoadBalancerScheme            elbv2model.LoadBalancerScheme
 	defaultHealthCheckProtocol           elbv2model.Protocol
 	defaultHealthCheckPort               string
 	defaultHealthCheckPath               string
-	defaultHealthCheckInterval           int64
-	defaultHealthCheckTimeout            int64
-	defaultHealthCheckHealthyThreshold   int64
-	defaultHealthCheckUnhealthyThreshold int64
+	defaultHealthCheckInterval           int32
+	defaultHealthCheckTimeout            int32
+	defaultHealthCheckHealthyThreshold   int32
+	defaultHealthCheckUnhealthyThreshold int32
 	defaultHealthCheckMatcherHTTPCode    string
 	defaultDeletionProtectionEnabled     bool
 	defaultIPv4SourceRanges              []string
@@ -209,10 +213,10 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckProtocolForInstanceModeLocal           elbv2model.Protocol
 	defaultHealthCheckPortForInstanceModeLocal               string
 	defaultHealthCheckPathForInstanceModeLocal               string
-	defaultHealthCheckIntervalForInstanceModeLocal           int64
-	defaultHealthCheckTimeoutForInstanceModeLocal            int64
-	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int64
-	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int64
+	defaultHealthCheckIntervalForInstanceModeLocal           int32
+	defaultHealthCheckTimeoutForInstanceModeLocal            int32
+	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int32
+	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int32
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {

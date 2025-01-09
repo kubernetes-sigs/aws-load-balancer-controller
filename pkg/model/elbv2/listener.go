@@ -3,6 +3,7 @@ package elbv2
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
@@ -103,7 +104,8 @@ type MutualAuthenticationAttributes struct {
 
 	TrustStoreArn *string `json:"trustStoreArn,omitempty"`
 
-	IgnoreClientCertificateExpiry *bool `json:"ignoreClientCertificateExpiry,omitempty"`
+	IgnoreClientCertificateExpiry *bool   `json:"ignoreClientCertificateExpiry,omitempty"`
+	AdvertiseTrustStoreCaNames    *string `json:"advertiseTrustStoreCaNames,omitempty"`
 }
 
 type AuthenticateCognitoActionConditionalBehavior string
@@ -122,7 +124,7 @@ type AuthenticateCognitoActionConfig struct {
 
 	// The behavior if the user is not authenticated.
 	// +optional
-	OnUnauthenticatedRequest *AuthenticateCognitoActionConditionalBehavior `json:"onUnauthenticatedRequest,omitempty"`
+	OnUnauthenticatedRequest AuthenticateCognitoActionConditionalBehavior `json:"onUnauthenticatedRequest,omitempty"`
 
 	// The set of user claims to be requested from the IdP.
 	// +optional
@@ -162,7 +164,7 @@ type AuthenticateOIDCActionConfig struct {
 
 	// The behavior if the user is not authenticated.
 	// +optional
-	OnUnauthenticatedRequest *AuthenticateOIDCActionConditionalBehavior `json:"onUnauthenticatedRequest,omitempty"`
+	OnUnauthenticatedRequest AuthenticateOIDCActionConditionalBehavior `json:"onUnauthenticatedRequest,omitempty"`
 
 	// The set of user claims to be requested from the IdP.
 	// +optional
@@ -252,7 +254,7 @@ type TargetGroupTuple struct {
 
 	// The weight.
 	// +optional
-	Weight *int64 `json:"weight,omitempty"`
+	Weight *int32 `json:"weight,omitempty"`
 }
 
 // Information about the target group stickiness for a rule.
@@ -263,7 +265,7 @@ type TargetGroupStickinessConfig struct {
 
 	// The time period, in seconds, during which requests from a client should be routed to the same target group.
 	// +optional
-	DurationSeconds *int64 `json:"durationSeconds,omitempty"`
+	DurationSeconds *int32 `json:"durationSeconds,omitempty"`
 }
 
 // Information about a forward action.
@@ -328,7 +330,7 @@ type ListenerSpec struct {
 	LoadBalancerARN core.StringToken `json:"loadBalancerARN"`
 
 	// The port on which the load balancer is listening.
-	Port int64 `json:"port"`
+	Port int32 `json:"port"`
 
 	// The protocol for connections from clients to the load balancer.
 	Protocol Protocol `json:"protocol"`
@@ -357,10 +359,19 @@ type ListenerSpec struct {
 	// The tags.
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// Listener attributes
+	// +optional
+	ListenerAttributes []ListenerAttribute `json:"listenerAttributes,omitempty"`
 }
 
 // ListenerStatus defines the observed state of Listener
 type ListenerStatus struct {
 	// The Amazon Resource Name (ARN) of the listener.
 	ListenerARN string `json:"listenerARN"`
+}
+
+type ListenerAttribute struct {
+	Key   string `type:"string"`
+	Value string `type:"string"`
 }

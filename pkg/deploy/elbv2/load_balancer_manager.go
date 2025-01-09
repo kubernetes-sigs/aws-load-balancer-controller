@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -16,7 +18,7 @@ import (
 
 // LoadBalancerManager is responsible for create/update/delete LoadBalancer resources.
 type LoadBalancerManager interface {
-	Create(ctx context.Context, resLB *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, error)
+	Create(ctx context.Context, resLB *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, LoadBalancerWithTags, error)
 
 	Update(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) (elbv2model.LoadBalancerStatus, error)
 
@@ -25,14 +27,16 @@ type LoadBalancerManager interface {
 
 // NewDefaultLoadBalancerManager constructs new defaultLoadBalancerManager.
 func NewDefaultLoadBalancerManager(elbv2Client services.ELBV2, trackingProvider tracking.Provider,
-	taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger) *defaultLoadBalancerManager {
+	taggingManager TaggingManager, externalManagedTags []string, featureGates config.FeatureGates, logger logr.Logger) *defaultLoadBalancerManager {
 	return &defaultLoadBalancerManager{
-		elbv2Client:          elbv2Client,
-		trackingProvider:     trackingProvider,
-		taggingManager:       taggingManager,
-		attributesReconciler: NewDefaultLoadBalancerAttributeReconciler(elbv2Client, logger),
-		externalManagedTags:  externalManagedTags,
-		logger:               logger,
+		elbv2Client:                   elbv2Client,
+		trackingProvider:              trackingProvider,
+		taggingManager:                taggingManager,
+		attributesReconciler:          NewDefaultLoadBalancerAttributeReconciler(elbv2Client, logger),
+		capacityReservationReconciler: NewDefaultLoadBalancerCapacityReservationReconciler(elbv2Client, featureGates, logger),
+		externalManagedTags:           externalManagedTags,
+		featureGates:                  featureGates,
+		logger:                        logger,
 	}
 }
 
@@ -40,19 +44,20 @@ var _ LoadBalancerManager = &defaultLoadBalancerManager{}
 
 // defaultLoadBalancerManager implement LoadBalancerManager
 type defaultLoadBalancerManager struct {
-	elbv2Client          services.ELBV2
-	trackingProvider     tracking.Provider
-	taggingManager       TaggingManager
-	attributesReconciler LoadBalancerAttributeReconciler
-	externalManagedTags  []string
-
-	logger logr.Logger
+	elbv2Client                   services.ELBV2
+	trackingProvider              tracking.Provider
+	taggingManager                TaggingManager
+	attributesReconciler          LoadBalancerAttributeReconciler
+	capacityReservationReconciler LoadBalancerCapacityReservationReconciler
+	externalManagedTags           []string
+	featureGates                  config.FeatureGates
+	logger                        logr.Logger
 }
 
-func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, error) {
+func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2model.LoadBalancer) (elbv2model.LoadBalancerStatus, LoadBalancerWithTags, error) {
 	req, err := buildSDKCreateLoadBalancerInput(resLB.Spec)
 	if err != nil {
-		return elbv2model.LoadBalancerStatus{}, err
+		return elbv2model.LoadBalancerStatus{}, LoadBalancerWithTags{}, err
 	}
 	lbTags := m.trackingProvider.ResourceTags(resLB.Stack(), resLB, resLB.Spec.Tags)
 	req.Tags = convertTagsToSDKTags(lbTags)
@@ -62,27 +67,26 @@ func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2mod
 		"resourceID", resLB.ID())
 	resp, err := m.elbv2Client.CreateLoadBalancerWithContext(ctx, req)
 	if err != nil {
-		return elbv2model.LoadBalancerStatus{}, err
+		return elbv2model.LoadBalancerStatus{}, LoadBalancerWithTags{}, err
 	}
 	sdkLB := LoadBalancerWithTags{
-		LoadBalancer: resp.LoadBalancers[0],
+		LoadBalancer: &resp.LoadBalancers[0],
 		Tags:         lbTags,
 	}
 	m.logger.Info("created loadBalancer",
 		"stackID", resLB.Stack().StackID(),
 		"resourceID", resLB.ID(),
-		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn))
+		"arn", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn))
 	if err := m.attributesReconciler.Reconcile(ctx, resLB, sdkLB); err != nil {
-		return elbv2model.LoadBalancerStatus{}, err
+		return elbv2model.LoadBalancerStatus{}, LoadBalancerWithTags{}, err
 	}
 
 	if resLB.Spec.Type == elbv2model.LoadBalancerTypeNetwork && resLB.Spec.SecurityGroupsInboundRulesOnPrivateLink != nil {
 		if err := m.updateSDKLoadBalancerWithSecurityGroups(ctx, resLB, sdkLB); err != nil {
-			return elbv2model.LoadBalancerStatus{}, err
+			return elbv2model.LoadBalancerStatus{}, LoadBalancerWithTags{}, err
 		}
 	}
-
-	return buildResLoadBalancerStatus(sdkLB), nil
+	return buildResLoadBalancerStatus(sdkLB), sdkLB, nil
 }
 
 func (m *defaultLoadBalancerManager) Update(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) (elbv2model.LoadBalancerStatus, error) {
@@ -112,34 +116,34 @@ func (m *defaultLoadBalancerManager) Delete(ctx context.Context, sdkLB LoadBalan
 		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
 	}
 	m.logger.Info("deleting loadBalancer",
-		"arn", awssdk.StringValue(req.LoadBalancerArn))
+		"arn", awssdk.ToString(req.LoadBalancerArn))
 	if _, err := m.elbv2Client.DeleteLoadBalancerWithContext(ctx, req); err != nil {
 		return err
 	}
 	m.logger.Info("deleted loadBalancer",
-		"arn", awssdk.StringValue(req.LoadBalancerArn))
+		"arn", awssdk.ToString(req.LoadBalancerArn))
 	return nil
 }
 
 func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithIPAddressType(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
-	if resLB.Spec.IPAddressType == nil {
+	if &resLB.Spec.IPAddressType == nil {
 		return nil
 	}
-	desiredIPAddressType := string(*resLB.Spec.IPAddressType)
-	currentIPAddressType := awssdk.StringValue(sdkLB.LoadBalancer.IpAddressType)
-	if desiredIPAddressType == currentIPAddressType {
+	desiredIPAddressType := string(resLB.Spec.IPAddressType)
+	currentIPAddressType := sdkLB.LoadBalancer.IpAddressType
+	if desiredIPAddressType == string(currentIPAddressType) {
 		return nil
 	}
 
 	req := &elbv2sdk.SetIpAddressTypeInput{
 		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
-		IpAddressType:   awssdk.String(desiredIPAddressType),
+		IpAddressType:   elbv2types.IpAddressType(desiredIPAddressType),
 	}
 	changeDesc := fmt.Sprintf("%v => %v", currentIPAddressType, desiredIPAddressType)
 	m.logger.Info("modifying loadBalancer ipAddressType",
 		"stackID", resLB.Stack().StackID(),
 		"resourceID", resLB.ID(),
-		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
+		"arn", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn),
 		"change", changeDesc)
 	if _, err := m.elbv2Client.SetIpAddressTypeWithContext(ctx, req); err != nil {
 		return err
@@ -147,33 +151,60 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithIPAddressType(ctx 
 	m.logger.Info("modified loadBalancer ipAddressType",
 		"stackID", resLB.Stack().StackID(),
 		"resourceID", resLB.ID(),
-		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn))
+		"arn", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn))
 
 	return nil
 }
 
 func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
 	desiredSubnets := sets.NewString()
+	desiredIPv6Addresses := sets.NewString()
+	desiredSubnetsSourceNATPrefixes := sets.NewString()
+	currentSubnetsSourceNATPrefixes := sets.NewString()
 	for _, mapping := range resLB.Spec.SubnetMappings {
 		desiredSubnets.Insert(mapping.SubnetID)
+		if mapping.SourceNatIpv6Prefix != nil {
+			desiredSubnetsSourceNATPrefixes.Insert(awssdk.ToString(mapping.SourceNatIpv6Prefix))
+		}
+		if mapping.IPv6Address != nil {
+			desiredIPv6Addresses.Insert(awssdk.ToString(mapping.IPv6Address))
+		}
 	}
 	currentSubnets := sets.NewString()
+	currentIPv6Addresses := sets.NewString()
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
-		currentSubnets.Insert(awssdk.StringValue(az.SubnetId))
+		currentSubnets.Insert(awssdk.ToString(az.SubnetId))
+		if len(az.SourceNatIpv6Prefixes) != 0 {
+			currentSubnetsSourceNATPrefixes.Insert(az.SourceNatIpv6Prefixes[0])
+		}
+		if len(az.LoadBalancerAddresses) > 0 && az.LoadBalancerAddresses[0].IPv6Address != nil {
+			currentIPv6Addresses.Insert(awssdk.ToString(az.LoadBalancerAddresses[0].IPv6Address))
+		}
 	}
-	if desiredSubnets.Equal(currentSubnets) {
+	sdkLBEnablePrefixForIpv6SourceNatValue := string(elbv2model.EnablePrefixForIpv6SourceNatOff)
+	resLBEnablePrefixForIpv6SourceNatValue := string(elbv2model.EnablePrefixForIpv6SourceNatOff)
+
+	sdkLBEnablePrefixForIpv6SourceNatValue = string(sdkLB.LoadBalancer.EnablePrefixForIpv6SourceNat)
+
+	resLBEnablePrefixForIpv6SourceNatValue = string(resLB.Spec.EnablePrefixForIpv6SourceNat)
+
+	isFirstTimeIPv6Setup := currentIPv6Addresses.Len() == 0 && desiredIPv6Addresses.Len() > 0
+	needsDualstackIPv6Update := isIPv4ToDualstackUpdate(resLB, sdkLB) && isFirstTimeIPv6Setup
+	if !needsDualstackIPv6Update && desiredSubnets.Equal(currentSubnets) && desiredSubnetsSourceNATPrefixes.Equal(currentSubnetsSourceNATPrefixes) && ((sdkLBEnablePrefixForIpv6SourceNatValue == resLBEnablePrefixForIpv6SourceNatValue) || (resLBEnablePrefixForIpv6SourceNatValue == "")) {
 		return nil
 	}
-
 	req := &elbv2sdk.SetSubnetsInput{
 		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
 		SubnetMappings:  buildSDKSubnetMappings(resLB.Spec.SubnetMappings),
+	}
+	if resLB.Spec.Type == elbv2model.LoadBalancerTypeNetwork {
+		req.EnablePrefixForIpv6SourceNat = elbv2types.EnablePrefixForIpv6SourceNatEnum(resLBEnablePrefixForIpv6SourceNatValue)
 	}
 	changeDesc := fmt.Sprintf("%v => %v", currentSubnets.List(), desiredSubnets.List())
 	m.logger.Info("modifying loadBalancer subnetMappings",
 		"stackID", resLB.Stack().StackID(),
 		"resourceID", resLB.ID(),
-		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
+		"arn", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn),
 		"change", changeDesc)
 	if _, err := m.elbv2Client.SetSubnetsWithContext(ctx, req); err != nil {
 		return err
@@ -181,7 +212,7 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 	m.logger.Info("modified loadBalancer subnetMappings",
 		"stackID", resLB.Stack().StackID(),
 		"resourceID", resLB.ID(),
-		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn))
+		"arn", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn))
 
 	return nil
 }
@@ -191,8 +222,8 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSecurityGroups(ctx
 	if err != nil {
 		return err
 	}
-	desiredSecurityGroups := sets.NewString(awssdk.StringValueSlice(securityGroups)...)
-	currentSecurityGroups := sets.NewString(awssdk.StringValueSlice(sdkLB.LoadBalancer.SecurityGroups)...)
+	desiredSecurityGroups := sets.NewString(securityGroups...)
+	currentSecurityGroups := sets.NewString(sdkLB.LoadBalancer.SecurityGroups...)
 
 	isEnforceSGInboundRulesOnPrivateLinkUpdated, currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic := isEnforceSGInboundRulesOnPrivateLinkUpdated(resLB, sdkLB)
 	if desiredSecurityGroups.Equal(currentSecurityGroups) && !isEnforceSGInboundRulesOnPrivateLinkUpdated {
@@ -214,7 +245,7 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSecurityGroups(ctx
 	if isEnforceSGInboundRulesOnPrivateLinkUpdated {
 		changeEnforceSecurityGroupInboundRulesOnPrivateLinkTrafficDesc := fmt.Sprintf("%v => %v", currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic)
 		changeDescriptions = append(changeDescriptions, "changeEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic", changeEnforceSecurityGroupInboundRulesOnPrivateLinkTrafficDesc)
-		req.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = &desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
+		req.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = elbv2types.EnforceSecurityGroupInboundRulesOnPrivateLinkTrafficEnum(desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic)
 	}
 
 	if _, err := m.elbv2Client.SetSecurityGroupsWithContext(ctx, req); err != nil {
@@ -223,7 +254,7 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSecurityGroups(ctx
 	m.logger.Info("modified loadBalancer securityGroups",
 		"stackID", resLB.Stack().StackID(),
 		"resourceID", resLB.ID(),
-		"arn", awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
+		"arn", awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn),
 		"changeSecurityGroups", changeDescriptions,
 	)
 
@@ -231,17 +262,17 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSecurityGroups(ctx
 }
 
 func (m *defaultLoadBalancerManager) checkSDKLoadBalancerWithCOIPv4Pool(_ context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
-	if awssdk.StringValue(resLB.Spec.CustomerOwnedIPv4Pool) != awssdk.StringValue(sdkLB.LoadBalancer.CustomerOwnedIpv4Pool) {
+	if awssdk.ToString(resLB.Spec.CustomerOwnedIPv4Pool) != awssdk.ToString(sdkLB.LoadBalancer.CustomerOwnedIpv4Pool) {
 		m.logger.Info("loadBalancer has drifted CustomerOwnedIPv4Pool setting",
-			"desired", awssdk.StringValue(resLB.Spec.CustomerOwnedIPv4Pool),
-			"current", awssdk.StringValue(sdkLB.LoadBalancer.CustomerOwnedIpv4Pool))
+			"desired", awssdk.ToString(resLB.Spec.CustomerOwnedIPv4Pool),
+			"current", awssdk.ToString(sdkLB.LoadBalancer.CustomerOwnedIpv4Pool))
 	}
 	return nil
 }
 
 func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithTags(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
 	desiredLBTags := m.trackingProvider.ResourceTags(resLB.Stack(), resLB, resLB.Spec.Tags)
-	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn), desiredLBTags,
+	return m.taggingManager.ReconcileTags(ctx, awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn), desiredLBTags,
 		WithCurrentTags(sdkLB.Tags),
 		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()),
 		WithIgnoredTagKeys(m.externalManagedTags))
@@ -250,19 +281,9 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithTags(ctx context.C
 func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2sdk.CreateLoadBalancerInput, error) {
 	sdkObj := &elbv2sdk.CreateLoadBalancerInput{}
 	sdkObj.Name = awssdk.String(lbSpec.Name)
-	sdkObj.Type = awssdk.String(string(lbSpec.Type))
-
-	if lbSpec.Scheme != nil {
-		sdkObj.Scheme = (*string)(lbSpec.Scheme)
-	} else {
-		sdkObj.Scheme = nil
-	}
-
-	if lbSpec.IPAddressType != nil {
-		sdkObj.IpAddressType = (*string)(lbSpec.IPAddressType)
-	} else {
-		sdkObj.IpAddressType = nil
-	}
+	sdkObj.Type = elbv2types.LoadBalancerTypeEnum(lbSpec.Type)
+	sdkObj.Scheme = elbv2types.LoadBalancerSchemeEnum(lbSpec.Scheme)
+	sdkObj.IpAddressType = elbv2types.IpAddressType(lbSpec.IPAddressType)
 
 	sdkObj.SubnetMappings = buildSDKSubnetMappings(lbSpec.SubnetMappings)
 	if sdkSecurityGroups, err := buildSDKSecurityGroups(lbSpec.SecurityGroups); err != nil {
@@ -271,14 +292,18 @@ func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2
 		sdkObj.SecurityGroups = sdkSecurityGroups
 	}
 
+	if lbSpec.EnablePrefixForIpv6SourceNat != "" {
+		sdkObj.EnablePrefixForIpv6SourceNat = elbv2types.EnablePrefixForIpv6SourceNatEnum(lbSpec.EnablePrefixForIpv6SourceNat)
+	}
+
 	sdkObj.CustomerOwnedIpv4Pool = lbSpec.CustomerOwnedIPv4Pool
 	return sdkObj, nil
 }
 
-func buildSDKSubnetMappings(modelSubnetMappings []elbv2model.SubnetMapping) []*elbv2sdk.SubnetMapping {
-	var sdkSubnetMappings []*elbv2sdk.SubnetMapping
+func buildSDKSubnetMappings(modelSubnetMappings []elbv2model.SubnetMapping) []elbv2types.SubnetMapping {
+	var sdkSubnetMappings []elbv2types.SubnetMapping
 	if len(modelSubnetMappings) != 0 {
-		sdkSubnetMappings = make([]*elbv2sdk.SubnetMapping, 0, len(modelSubnetMappings))
+		sdkSubnetMappings = make([]elbv2types.SubnetMapping, 0, len(modelSubnetMappings))
 		for _, modelSubnetMapping := range modelSubnetMappings {
 			sdkSubnetMappings = append(sdkSubnetMappings, buildSDKSubnetMapping(modelSubnetMapping))
 		}
@@ -286,35 +311,36 @@ func buildSDKSubnetMappings(modelSubnetMappings []elbv2model.SubnetMapping) []*e
 	return sdkSubnetMappings
 }
 
-func buildSDKSecurityGroups(modelSecurityGroups []coremodel.StringToken) ([]*string, error) {
+func buildSDKSecurityGroups(modelSecurityGroups []coremodel.StringToken) ([]string, error) {
 	ctx := context.Background()
-	var sdkSecurityGroups []*string
+	var sdkSecurityGroups []string
 	if len(modelSecurityGroups) != 0 {
-		sdkSecurityGroups = make([]*string, 0, len(modelSecurityGroups))
+		sdkSecurityGroups = make([]string, 0, len(modelSecurityGroups))
 		for _, modelSecurityGroup := range modelSecurityGroups {
 			token, err := modelSecurityGroup.Resolve(ctx)
 			if err != nil {
 				return nil, err
 			}
-			sdkSecurityGroups = append(sdkSecurityGroups, awssdk.String(token))
+			sdkSecurityGroups = append(sdkSecurityGroups, token)
 		}
 	}
 	return sdkSecurityGroups, nil
 }
 
-func buildSDKSubnetMapping(modelSubnetMapping elbv2model.SubnetMapping) *elbv2sdk.SubnetMapping {
-	return &elbv2sdk.SubnetMapping{
-		AllocationId:       modelSubnetMapping.AllocationID,
-		PrivateIPv4Address: modelSubnetMapping.PrivateIPv4Address,
-		IPv6Address:        modelSubnetMapping.IPv6Address,
-		SubnetId:           awssdk.String(modelSubnetMapping.SubnetID),
+func buildSDKSubnetMapping(modelSubnetMapping elbv2model.SubnetMapping) elbv2types.SubnetMapping {
+	return elbv2types.SubnetMapping{
+		AllocationId:        modelSubnetMapping.AllocationID,
+		PrivateIPv4Address:  modelSubnetMapping.PrivateIPv4Address,
+		IPv6Address:         modelSubnetMapping.IPv6Address,
+		SubnetId:            awssdk.String(modelSubnetMapping.SubnetID),
+		SourceNatIpv6Prefix: modelSubnetMapping.SourceNatIpv6Prefix,
 	}
 }
 
 func buildResLoadBalancerStatus(sdkLB LoadBalancerWithTags) elbv2model.LoadBalancerStatus {
 	return elbv2model.LoadBalancerStatus{
-		LoadBalancerARN: awssdk.StringValue(sdkLB.LoadBalancer.LoadBalancerArn),
-		DNSName:         awssdk.StringValue(sdkLB.LoadBalancer.DNSName),
+		LoadBalancerARN: awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn),
+		DNSName:         awssdk.ToString(sdkLB.LoadBalancer.DNSName),
 	}
 }
 
@@ -329,7 +355,7 @@ func isEnforceSGInboundRulesOnPrivateLinkUpdated(resLB *elbv2model.LoadBalancer,
 	var currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic string
 
 	if sdkLB.LoadBalancer.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic != nil {
-		currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = awssdk.StringValue(sdkLB.LoadBalancer.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic)
+		currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic = awssdk.ToString(sdkLB.LoadBalancer.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic)
 	}
 
 	if desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic == currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic {
@@ -338,4 +364,16 @@ func isEnforceSGInboundRulesOnPrivateLinkUpdated(resLB *elbv2model.LoadBalancer,
 
 	return true, currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
 
+}
+
+func isIPv4ToDualstackUpdate(resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) bool {
+	if &resLB.Spec.IPAddressType == nil {
+		return false
+	}
+	desiredIPAddressType := string(resLB.Spec.IPAddressType)
+	currentIPAddressType := sdkLB.LoadBalancer.IpAddressType
+	isIPAddressTypeUpdated := desiredIPAddressType != string(currentIPAddressType)
+	return isIPAddressTypeUpdated &&
+		resLB.Spec.Type == elbv2model.LoadBalancerTypeNetwork &&
+		desiredIPAddressType == string(elbv2model.IPAddressTypeDualStack)
 }

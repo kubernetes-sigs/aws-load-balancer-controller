@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strconv"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
@@ -35,7 +35,7 @@ const (
 	partialAvailabilityZoneAffinity            = "partial_availability_zone_affinity"
 	anyAvailabilityZone                        = "any_availability_zone"
 	resourceIDLoadBalancer                     = "LoadBalancer"
-	minimalAvailableIPAddressCount             = int64(8)
+	minimalAvailableIPAddressCount             = int32(8)
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
@@ -57,7 +57,15 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+	enablePrefixForIpv6SourceNat, err := t.buildLoadBalancerEnablePrefixForIpv6SourceNat(ctx, ipAddressType, t.ec2Subnets)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
 	lbAttributes, err := t.buildLoadBalancerAttributes(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+	lbMinimumCapacity, err := t.buildLoadBalancerMinimumCapacity(ctx)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -69,7 +77,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
-	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, ipAddressType, scheme, t.ec2Subnets)
+	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, ipAddressType, scheme, t.ec2Subnets, enablePrefixForIpv6SourceNat)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -83,14 +91,16 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	}
 
 	spec := elbv2model.LoadBalancerSpec{
-		Name:                   name,
-		Type:                   elbv2model.LoadBalancerTypeNetwork,
-		Scheme:                 &scheme,
-		IPAddressType:          &ipAddressType,
-		SecurityGroups:         securityGroups,
-		SubnetMappings:         subnetMappings,
-		LoadBalancerAttributes: lbAttributes,
-		Tags:                   tags,
+		Name:                         name,
+		Type:                         elbv2model.LoadBalancerTypeNetwork,
+		Scheme:                       scheme,
+		IPAddressType:                ipAddressType,
+		EnablePrefixForIpv6SourceNat: enablePrefixForIpv6SourceNat,
+		SecurityGroups:               securityGroups,
+		SubnetMappings:               subnetMappings,
+		LoadBalancerAttributes:       lbAttributes,
+		MinimumLoadBalancerCapacity:  lbMinimumCapacity,
+		Tags:                         tags,
 	}
 
 	if securityGroupsInboundRulesOnPrivateLink != nil {
@@ -187,6 +197,20 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 	}
 }
 
+func (t *defaultModelBuildTask) buildLoadBalancerEnablePrefixForIpv6SourceNat(_ context.Context, ipAddressType elbv2model.IPAddressType, ec2Subnets []ec2types.Subnet) (elbv2model.EnablePrefixForIpv6SourceNat, error) {
+	rawEnablePrefixForIpv6SourceNat := ""
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.ScvLBSuffixEnablePrefixForIpv6SourceNat, &rawEnablePrefixForIpv6SourceNat, t.service.Annotations); !exists {
+		return elbv2model.EnablePrefixForIpv6SourceNatOff, nil
+	}
+
+	validationError := networking.ValidateEnablePrefixForIpv6SourceNat(rawEnablePrefixForIpv6SourceNat, ipAddressType, ec2Subnets)
+	if validationError != nil {
+		return "", validationError
+	}
+
+	return elbv2model.EnablePrefixForIpv6SourceNat(rawEnablePrefixForIpv6SourceNat), nil
+}
+
 func (t *defaultModelBuildTask) buildSecurityGroupsInboundRulesOnPrivateLink(_ context.Context) (*elbv2model.SecurityGroupsInboundRulesOnPrivateLinkStatus, error) {
 	var rawSecurityGroupsInboundRulesOnPrivateLink string
 	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEnforceSGInboundRulesOnPrivateLinkTraffic, &rawSecurityGroupsInboundRulesOnPrivateLink, t.service.Annotations); !exists {
@@ -217,7 +241,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerScheme(ctx context.Context) (el
 		return elbv2model.LoadBalancerSchemeInternal, err
 	}
 	if existingLB != nil {
-		switch awssdk.StringValue(existingLB.LoadBalancer.Scheme) {
+		switch string(existingLB.LoadBalancer.Scheme) {
 		case string(elbv2model.LoadBalancerSchemeInternal):
 			return elbv2model.LoadBalancerSchemeInternal, nil
 		case string(elbv2model.LoadBalancerSchemeInternetFacing):
@@ -226,7 +250,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerScheme(ctx context.Context) (el
 			return "", errors.New("invalid load balancer scheme")
 		}
 	}
-	return elbv2model.LoadBalancerSchemeInternal, nil
+	return t.defaultLoadBalancerScheme, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSchemeViaAnnotation(ctx context.Context) (elbv2model.LoadBalancerScheme, bool, error) {
@@ -297,7 +321,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(ctx context.Context) (map[
 	return t.buildAdditionalResourceTags(ctx)
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme, ec2Subnets []*ec2sdk.Subnet) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Context, ipAddressType elbv2model.IPAddressType, scheme elbv2model.LoadBalancerScheme, ec2Subnets []ec2types.Subnet, enablePrefixForIpv6SourceNat elbv2model.EnablePrefixForIpv6SourceNat) ([]elbv2model.SubnetMapping, error) {
 	var eipAllocation []string
 	eipConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixEIPAllocations, &eipAllocation, t.service.Annotations)
 	if eipConfigured {
@@ -355,10 +379,21 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 		}
 	}
 
+	var isPrefixForIpv6SourceNatEnabled = enablePrefixForIpv6SourceNat == elbv2model.EnablePrefixForIpv6SourceNatOn
+
+	var sourceNatIpv6Prefixes []string
+	sourceNatIpv6PrefixesConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.ScvLBSuffixSourceNatIpv6Prefixes, &sourceNatIpv6Prefixes, t.service.Annotations)
+	if sourceNatIpv6PrefixesConfigured {
+		sourceNatIpv6PrefixesError := networking.ValidateSourceNatPrefixes(sourceNatIpv6Prefixes, ipAddressType, isPrefixForIpv6SourceNatEnabled, ec2Subnets)
+		if sourceNatIpv6PrefixesError != nil {
+			return nil, sourceNatIpv6PrefixesError
+		}
+	}
+
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(ec2Subnets))
 	for idx, subnet := range ec2Subnets {
 		mapping := elbv2model.SubnetMapping{
-			SubnetID: awssdk.StringValue(subnet.SubnetId),
+			SubnetID: awssdk.ToString(subnet.SubnetId),
 		}
 		if eipConfigured {
 			mapping.AllocationID = awssdk.String(eipAllocation[idx])
@@ -370,10 +405,15 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 			}
 			ipv4AddressesWithinSubnet := networking.FilterIPsWithinCIDRs(ipv4Addresses, subnetIPv4CIDRs)
 			if len(ipv4AddressesWithinSubnet) != 1 {
-				return nil, errors.Errorf("expect one private IPv4 address configured for subnet: %v", awssdk.StringValue(subnet.SubnetId))
+				return nil, errors.Errorf("expect one private IPv4 address configured for subnet: %v", awssdk.ToString(subnet.SubnetId))
 			}
 			mapping.PrivateIPv4Address = awssdk.String(ipv4AddressesWithinSubnet[0].String())
 		}
+
+		if isPrefixForIpv6SourceNatEnabled && sourceNatIpv6PrefixesConfigured {
+			mapping.SourceNatIpv6Prefix = awssdk.String(sourceNatIpv6Prefixes[idx])
+		}
+
 		if ipv6AddrConfigured {
 			subnetIPv6CIDRs, err := networking.GetSubnetAssociatedIPv6CIDRs(subnet)
 			if err != nil {
@@ -381,7 +421,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 			}
 			ipv6AddressesWithinSubnet := networking.FilterIPsWithinCIDRs(ipv6Addresses, subnetIPv6CIDRs)
 			if len(ipv6AddressesWithinSubnet) != 1 {
-				return nil, errors.Errorf("expect one IPv6 address configured for subnet: %v", awssdk.StringValue(subnet.SubnetId))
+				return nil, errors.Errorf("expect one IPv6 address configured for subnet: %v", awssdk.ToString(subnet.SubnetId))
 			}
 			mapping.IPv6Address = awssdk.String(ipv6AddressesWithinSubnet[0].String())
 		}
@@ -390,7 +430,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 	return subnetMappings, nil
 }
 
-func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]*ec2sdk.Subnet, error) {
+func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]ec2types.Subnet, error) {
 	var rawSubnetNameOrIDs []string
 	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSubnets, &rawSubnetNameOrIDs, t.service.Annotations); exists {
 		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, rawSubnetNameOrIDs,
@@ -403,11 +443,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 	if err != nil {
 		return nil, err
 	}
-	if existingLB != nil && string(scheme) == awssdk.StringValue(existingLB.LoadBalancer.Scheme) {
+	if existingLB != nil && string(scheme) == string(existingLB.LoadBalancer.Scheme) {
 		availabilityZones := existingLB.LoadBalancer.AvailabilityZones
 		subnetIDs := make([]string, 0, len(availabilityZones))
 		for _, availabilityZone := range availabilityZones {
-			subnetID := awssdk.StringValue(availabilityZone.SubnetId)
+			subnetID := awssdk.ToString(availabilityZone.SubnetId)
 			subnetIDs = append(subnetIDs, subnetID)
 		}
 		return t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, subnetIDs,
@@ -447,6 +487,33 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 	}
 	mergedAttributes := algorithm.MergeStringMap(specificAttributes, loadBalancerAttributes)
 	return makeAttributesSliceFromMap(mergedAttributes), nil
+}
+
+func (t *defaultModelBuildTask) buildLoadBalancerMinimumCapacity(_ context.Context) (*elbv2model.MinimumLoadBalancerCapacity, error) {
+	if !t.featureGates.Enabled(config.LBCapacityReservation) {
+		return nil, nil
+	}
+	// Parse the annotation
+	var loadBalancerMinimumCapacityMap map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerCapacityReservation, &loadBalancerMinimumCapacityMap, t.service.Annotations); err != nil {
+		return nil, err
+	}
+	if loadBalancerMinimumCapacityMap == nil {
+		return nil, nil
+	}
+	// Transform annotation to minimumLoadBalancerCapacity object
+	var minimumLoadBalancerCapacity *elbv2model.MinimumLoadBalancerCapacity
+	var capacityUnits int64
+	for key, value := range loadBalancerMinimumCapacityMap {
+		if key != elbv2model.CapacityUnits {
+			return nil, errors.Errorf("invalid key to set the capacity: %v, Expected key: %v", key, elbv2model.CapacityUnits)
+		}
+		capacityUnits, _ = strconv.ParseInt(value, 10, 64)
+		minimumLoadBalancerCapacity = &elbv2model.MinimumLoadBalancerCapacity{
+			CapacityUnits: int32(capacityUnits),
+		}
+	}
+	return minimumLoadBalancerCapacity, nil
 }
 
 func makeAttributesSliceFromMap(loadBalancerAttributesMap map[string]string) []elbv2model.LoadBalancerAttribute {

@@ -1,9 +1,9 @@
 package throttle
 
 import (
-	"github.com/aws/aws-sdk-go/service/appmesh"
-	"github.com/aws/aws-sdk-go/service/elbv2"
-	"github.com/aws/aws-sdk-go/service/servicediscovery"
+	"github.com/aws/aws-sdk-go-v2/service/appmesh"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/servicediscovery"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"regexp"
@@ -122,7 +122,7 @@ func TestServiceOperationsThrottleConfig_Set(t *testing.T) {
 			name: "when default value contains non-empty defaults",
 			fields: fields{
 				value: map[string][]throttleConfig{
-					elbv2.ServiceID: {
+					elasticloadbalancingv2.ServiceID: {
 						{
 							operationPtn: regexp.MustCompile("^Create"),
 							r:            4.2,
@@ -136,7 +136,7 @@ func TestServiceOperationsThrottleConfig_Set(t *testing.T) {
 			},
 			want: ServiceOperationsThrottleConfig{
 				value: map[string][]throttleConfig{
-					elbv2.ServiceID: {
+					elasticloadbalancingv2.ServiceID: {
 						{
 							operationPtn: regexp.MustCompile("^Create"),
 							r:            4.2,

@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	ec2 "github.com/aws/aws-sdk-go/service/ec2"
+	types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -36,10 +36,10 @@ func (m *MockAZInfoProvider) EXPECT() *MockAZInfoProviderMockRecorder {
 }
 
 // FetchAZInfos mocks base method.
-func (m *MockAZInfoProvider) FetchAZInfos(arg0 context.Context, arg1 []string) (map[string]ec2.AvailabilityZone, error) {
+func (m *MockAZInfoProvider) FetchAZInfos(arg0 context.Context, arg1 []string) (map[string]types.AvailabilityZone, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FetchAZInfos", arg0, arg1)
-	ret0, _ := ret[0].(map[string]ec2.AvailabilityZone)
+	ret0, _ := ret[0].(map[string]types.AvailabilityZone)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

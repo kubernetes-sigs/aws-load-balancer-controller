@@ -4,9 +4,14 @@ import (
 	"context"
 	"testing"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -16,6 +21,8 @@ import (
 func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 	schemeInternetFacing := elbv2model.LoadBalancerSchemeInternetFacing
 	addressTypeDualStack := elbv2model.IPAddressTypeDualStack
+	enablePrefixForIpv6SourceNatOn := elbv2model.EnablePrefixForIpv6SourceNatOn
+	enablePrefixForIpv6SourceNatOff := elbv2model.EnablePrefixForIpv6SourceNatOff
 	type args struct {
 		lbSpec elbv2model.LoadBalancerSpec
 	}
@@ -31,8 +38,8 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 				lbSpec: elbv2model.LoadBalancerSpec{
 					Name:          "my-alb",
 					Type:          elbv2model.LoadBalancerTypeApplication,
-					Scheme:        &schemeInternetFacing,
-					IPAddressType: &addressTypeDualStack,
+					Scheme:        schemeInternetFacing,
+					IPAddressType: addressTypeDualStack,
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID: "subnet-A",
@@ -49,10 +56,10 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 			},
 			want: &elbv2sdk.CreateLoadBalancerInput{
 				Name:          awssdk.String("my-alb"),
-				Type:          awssdk.String("application"),
-				IpAddressType: awssdk.String("dualstack"),
-				Scheme:        awssdk.String("internet-facing"),
-				SubnetMappings: []*elbv2sdk.SubnetMapping{
+				Type:          elbv2types.LoadBalancerTypeEnumApplication,
+				IpAddressType: elbv2types.IpAddressTypeDualstack,
+				Scheme:        elbv2types.LoadBalancerSchemeEnumInternetFacing,
+				SubnetMappings: []elbv2types.SubnetMapping{
 					{
 						SubnetId: awssdk.String("subnet-A"),
 					},
@@ -60,7 +67,7 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 						SubnetId: awssdk.String("subnet-B"),
 					},
 				},
-				SecurityGroups: awssdk.StringSlice([]string{"sg-A", "sg-B"}),
+				SecurityGroups: []string{"sg-A", "sg-B"},
 			},
 		},
 		{
@@ -69,8 +76,8 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 				lbSpec: elbv2model.LoadBalancerSpec{
 					Name:          "my-nlb",
 					Type:          elbv2model.LoadBalancerTypeNetwork,
-					Scheme:        &schemeInternetFacing,
-					IPAddressType: &addressTypeDualStack,
+					Scheme:        schemeInternetFacing,
+					IPAddressType: addressTypeDualStack,
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID: "subnet-A",
@@ -83,10 +90,10 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 			},
 			want: &elbv2sdk.CreateLoadBalancerInput{
 				Name:          awssdk.String("my-nlb"),
-				Type:          awssdk.String("network"),
-				IpAddressType: awssdk.String("dualstack"),
-				Scheme:        awssdk.String("internet-facing"),
-				SubnetMappings: []*elbv2sdk.SubnetMapping{
+				Type:          elbv2types.LoadBalancerTypeEnumNetwork,
+				IpAddressType: elbv2types.IpAddressTypeDualstack,
+				Scheme:        elbv2types.LoadBalancerSchemeEnumInternetFacing,
+				SubnetMappings: []elbv2types.SubnetMapping{
 					{
 						SubnetId: awssdk.String("subnet-A"),
 					},
@@ -97,13 +104,83 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 			},
 		},
 		{
+			name: "network loadBalancer - Dualstack UDP Support over IPv6 - on",
+			args: args{
+				lbSpec: elbv2model.LoadBalancerSpec{
+					Name:          "my-nlb",
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					Scheme:        schemeInternetFacing,
+					IPAddressType: addressTypeDualStack,
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID: "subnet-A",
+						},
+						{
+							SubnetID: "subnet-B",
+						},
+					},
+					EnablePrefixForIpv6SourceNat: enablePrefixForIpv6SourceNatOn,
+				},
+			},
+			want: &elbv2sdk.CreateLoadBalancerInput{
+				Name:          awssdk.String("my-nlb"),
+				Type:          elbv2types.LoadBalancerTypeEnumNetwork,
+				IpAddressType: elbv2types.IpAddressTypeDualstack,
+				Scheme:        elbv2types.LoadBalancerSchemeEnumInternetFacing,
+				SubnetMappings: []elbv2types.SubnetMapping{
+					{
+						SubnetId: awssdk.String("subnet-A"),
+					},
+					{
+						SubnetId: awssdk.String("subnet-B"),
+					},
+				},
+				EnablePrefixForIpv6SourceNat: elbv2types.EnablePrefixForIpv6SourceNatEnumOn,
+			},
+		},
+		{
+			name: "network loadBalancer - Dualstack UDP Support over IPv6 - off",
+			args: args{
+				lbSpec: elbv2model.LoadBalancerSpec{
+					Name:          "my-nlb",
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					Scheme:        elbv2model.LoadBalancerSchemeInternetFacing,
+					IPAddressType: elbv2model.IPAddressTypeDualStack,
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID: "subnet-A",
+						},
+						{
+							SubnetID: "subnet-B",
+						},
+					},
+					EnablePrefixForIpv6SourceNat: enablePrefixForIpv6SourceNatOff,
+				},
+			},
+			want: &elbv2sdk.CreateLoadBalancerInput{
+				Name:          awssdk.String("my-nlb"),
+				Type:          elbv2types.LoadBalancerTypeEnumNetwork,
+				IpAddressType: elbv2types.IpAddressTypeDualstack,
+				Scheme:        elbv2types.LoadBalancerSchemeEnumInternetFacing,
+				SubnetMappings: []elbv2types.SubnetMapping{
+					{
+						SubnetId: awssdk.String("subnet-A"),
+					},
+					{
+						SubnetId: awssdk.String("subnet-B"),
+					},
+				},
+				EnablePrefixForIpv6SourceNat: elbv2types.EnablePrefixForIpv6SourceNatEnumOff,
+			},
+		},
+		{
 			name: "application loadBalancer - with CoIP pool",
 			args: args{
 				lbSpec: elbv2model.LoadBalancerSpec{
 					Name:          "my-alb",
 					Type:          elbv2model.LoadBalancerTypeApplication,
-					Scheme:        &schemeInternetFacing,
-					IPAddressType: &addressTypeDualStack,
+					Scheme:        schemeInternetFacing,
+					IPAddressType: addressTypeDualStack,
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID: "subnet-A",
@@ -121,10 +198,10 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 			},
 			want: &elbv2sdk.CreateLoadBalancerInput{
 				Name:          awssdk.String("my-alb"),
-				Type:          awssdk.String("application"),
-				IpAddressType: awssdk.String("dualstack"),
-				Scheme:        awssdk.String("internet-facing"),
-				SubnetMappings: []*elbv2sdk.SubnetMapping{
+				Type:          elbv2types.LoadBalancerTypeEnumApplication,
+				IpAddressType: elbv2types.IpAddressTypeDualstack,
+				Scheme:        elbv2types.LoadBalancerSchemeEnumInternetFacing,
+				SubnetMappings: []elbv2types.SubnetMapping{
 					{
 						SubnetId: awssdk.String("subnet-A"),
 					},
@@ -132,7 +209,7 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 						SubnetId: awssdk.String("subnet-B"),
 					},
 				},
-				SecurityGroups:        awssdk.StringSlice([]string{"sg-A", "sg-B"}),
+				SecurityGroups:        []string{"sg-A", "sg-B"},
 				CustomerOwnedIpv4Pool: awssdk.String("coIP-pool-x"),
 			},
 		},
@@ -151,13 +228,14 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 }
 
 func Test_buildSDKSubnetMappings(t *testing.T) {
+	sourceNatIpv6PrefixAutoAssigned := elbv2model.SourceNatIpv6PrefixAutoAssigned
 	type args struct {
 		modelSubnetMappings []elbv2model.SubnetMapping
 	}
 	tests := []struct {
 		name string
 		args args
-		want []*elbv2sdk.SubnetMapping
+		want []elbv2types.SubnetMapping
 	}{
 		{
 			name: "standard case",
@@ -171,12 +249,29 @@ func Test_buildSDKSubnetMappings(t *testing.T) {
 					},
 				},
 			},
-			want: []*elbv2sdk.SubnetMapping{
+			want: []elbv2types.SubnetMapping{
 				{
 					SubnetId: awssdk.String("subnet-a"),
 				},
 				{
 					SubnetId: awssdk.String("subnet-b"),
+				},
+			},
+		},
+		{
+			name: "subnet mappings with sourceNAT prefix",
+			args: args{
+				modelSubnetMappings: []elbv2model.SubnetMapping{
+					{
+						SubnetID:            "subnet-a",
+						SourceNatIpv6Prefix: &sourceNatIpv6PrefixAutoAssigned,
+					},
+				},
+			},
+			want: []elbv2types.SubnetMapping{
+				{
+					SubnetId:            awssdk.String("subnet-a"),
+					SourceNatIpv6Prefix: awssdk.String("auto_assigned"),
 				},
 			},
 		},
@@ -196,7 +291,7 @@ func Test_buildSDKSecurityGroups(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    []*string
+		want    []string
 		wantErr error
 	}{
 		{
@@ -206,7 +301,7 @@ func Test_buildSDKSecurityGroups(t *testing.T) {
 					coremodel.LiteralStringToken("sg-a"),
 				},
 			},
-			want: awssdk.StringSlice([]string{"sg-a"}),
+			want: []string{"sg-a"},
 		},
 		{
 			name: "multiple securityGroups",
@@ -216,7 +311,7 @@ func Test_buildSDKSecurityGroups(t *testing.T) {
 					coremodel.LiteralStringToken("sg-b"),
 				},
 			},
-			want: awssdk.StringSlice([]string{"sg-a", "sg-b"}),
+			want: []string{"sg-a", "sg-b"},
 		},
 	}
 	for _, tt := range tests {
@@ -239,7 +334,7 @@ func Test_buildSDKSubnetMapping(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *elbv2sdk.SubnetMapping
+		want elbv2types.SubnetMapping
 	}{
 		{
 			name: "stand case",
@@ -250,7 +345,7 @@ func Test_buildSDKSubnetMapping(t *testing.T) {
 					SubnetID:           "subnet-abc",
 				},
 			},
-			want: &elbv2sdk.SubnetMapping{
+			want: elbv2types.SubnetMapping{
 				AllocationId:       awssdk.String("some-id"),
 				PrivateIPv4Address: awssdk.String("192.168.100.0"),
 				SubnetId:           awssdk.String("subnet-abc"),
@@ -263,7 +358,7 @@ func Test_buildSDKSubnetMapping(t *testing.T) {
 					SubnetID: "subnet-abc",
 				},
 			},
-			want: &elbv2sdk.SubnetMapping{
+			want: elbv2types.SubnetMapping{
 				SubnetId: awssdk.String("subnet-abc"),
 			},
 		},
@@ -289,7 +384,7 @@ func Test_buildResLoadBalancerStatus(t *testing.T) {
 			name: "standard case",
 			args: args{
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
+					LoadBalancer: &elbv2types.LoadBalancer{
 						LoadBalancerArn: awssdk.String("my-arn"),
 						DNSName:         awssdk.String("www.example.com"),
 					},
@@ -328,7 +423,7 @@ func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testi
 					},
 				},
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
+					LoadBalancer: &elbv2types.LoadBalancer{
 						CustomerOwnedIpv4Pool: nil,
 					},
 				},
@@ -344,7 +439,7 @@ func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testi
 					},
 				},
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
+					LoadBalancer: &elbv2types.LoadBalancer{
 						CustomerOwnedIpv4Pool: awssdk.String("ipv4pool-coip-abc"),
 					},
 				},
@@ -360,7 +455,7 @@ func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testi
 					},
 				},
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
+					LoadBalancer: &elbv2types.LoadBalancer{
 						CustomerOwnedIpv4Pool: awssdk.String("ipv4pool-coip-def"),
 					},
 				},
@@ -376,7 +471,7 @@ func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testi
 					},
 				},
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
+					LoadBalancer: &elbv2types.LoadBalancer{
 						CustomerOwnedIpv4Pool: nil,
 					},
 				},
@@ -392,7 +487,7 @@ func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testi
 					},
 				},
 				sdkLB: LoadBalancerWithTags{
-					LoadBalancer: &elbv2sdk.LoadBalancer{
+					LoadBalancer: &elbv2types.LoadBalancer{
 						CustomerOwnedIpv4Pool: awssdk.String("ipv4pool-coip-abc"),
 					},
 				},
@@ -411,6 +506,183 @@ func Test_defaultLoadBalancerManager_checkSDKLoadBalancerWithCOIPv4Pool(t *testi
 			} else {
 				assert.NoError(t, err)
 			}
+		})
+	}
+}
+
+func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *testing.T) {
+	type setSubnetsWithContextCall struct {
+		req  *elbv2sdk.SetSubnetsInput
+		resp *elbv2sdk.SetSubnetsOutput
+		err  error
+	}
+	type fields struct {
+		setSubnetsWithContextCall setSubnetsWithContextCall
+	}
+	enablePrefixForIpv6SourceNatOn := elbv2model.EnablePrefixForIpv6SourceNatOn
+	enablePrefixForIpv6SourceNatOff := elbv2model.EnablePrefixForIpv6SourceNatOff
+	sourceNatIpv6PrefixAutoAssigned := elbv2model.SourceNatIpv6PrefixAutoAssigned
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
+	type args struct {
+		resLB *elbv2model.LoadBalancer
+		sdkLB LoadBalancerWithTags
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+		fields  fields
+	}{
+		{
+			name: "should set the updated sourceNAT SourceNatIpv6Prefix",
+			fields: fields{
+				setSubnetsWithContextCall: setSubnetsWithContextCall{
+					req: &elbv2sdk.SetSubnetsInput{
+						LoadBalancerArn:              awssdk.String("LoadBalancerArn"),
+						EnablePrefixForIpv6SourceNat: elbv2types.EnablePrefixForIpv6SourceNatEnumOn,
+						SubnetMappings: []elbv2types.SubnetMapping{
+							{
+								SubnetId:            awssdk.String("subnet-A"),
+								SourceNatIpv6Prefix: &sourceNatIpv6PrefixAutoAssigned,
+							},
+						},
+					},
+					resp: &elbv2sdk.SetSubnetsOutput{},
+				},
+			},
+			args: args{
+				resLB: &elbv2model.LoadBalancer{
+					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+					Spec: elbv2model.LoadBalancerSpec{
+						Type:                         elbv2model.LoadBalancerTypeNetwork,
+						EnablePrefixForIpv6SourceNat: enablePrefixForIpv6SourceNatOn,
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{
+								SubnetID:            "subnet-A",
+								SourceNatIpv6Prefix: &sourceNatIpv6PrefixAutoAssigned,
+							},
+						},
+					},
+				},
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						LoadBalancerArn:              awssdk.String("LoadBalancerArn"),
+						EnablePrefixForIpv6SourceNat: elbv2types.EnablePrefixForIpv6SourceNatEnumOn,
+						AvailabilityZones:            []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A"), SourceNatIpv6Prefixes: []string{"1024:004:003::/80"}}},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "should set the updated enablePrefixForIpv6SourceNat value",
+			fields: fields{
+				setSubnetsWithContextCall: setSubnetsWithContextCall{
+					req: &elbv2sdk.SetSubnetsInput{
+						LoadBalancerArn:              awssdk.String("LoadBalancerArn"),
+						EnablePrefixForIpv6SourceNat: elbv2types.EnablePrefixForIpv6SourceNatEnumOff,
+						SubnetMappings: []elbv2types.SubnetMapping{
+							{
+								SubnetId: awssdk.String("subnet-A"),
+							},
+						},
+					},
+					resp: &elbv2sdk.SetSubnetsOutput{},
+				},
+			},
+			args: args{
+				resLB: &elbv2model.LoadBalancer{
+					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+					Spec: elbv2model.LoadBalancerSpec{
+						Type: elbv2model.LoadBalancerTypeNetwork,
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{
+								SubnetID: "subnet-A",
+							},
+						},
+						EnablePrefixForIpv6SourceNat: enablePrefixForIpv6SourceNatOff,
+					},
+				},
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						LoadBalancerArn:              awssdk.String("LoadBalancerArn"),
+						EnablePrefixForIpv6SourceNat: elbv2types.EnablePrefixForIpv6SourceNatEnumOn,
+						AvailabilityZones:            []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A"), SourceNatIpv6Prefixes: []string{"1024:004:003::/80"}}},
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "Set NLB IPv6 address in dualstack mode during ip address type modification ",
+			fields: fields{
+				setSubnetsWithContextCall: setSubnetsWithContextCall{
+					req: &elbv2sdk.SetSubnetsInput{
+						LoadBalancerArn: awssdk.String("LoadBalancerArn"),
+						SubnetMappings: []elbv2types.SubnetMapping{
+							{
+								SubnetId:    awssdk.String("subnet-A"),
+								IPv6Address: aws.String("2600:1f18::1"),
+							},
+							{
+								SubnetId:    awssdk.String("subnet-B"),
+								IPv6Address: aws.String("2600:1f18::2"),
+							},
+						},
+					},
+					resp: &elbv2sdk.SetSubnetsOutput{},
+				},
+			},
+			args: args{
+				resLB: &elbv2model.LoadBalancer{
+					ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+					Spec: elbv2model.LoadBalancerSpec{
+						SubnetMappings: []elbv2model.SubnetMapping{
+							{
+								SubnetID:    "subnet-A",
+								IPv6Address: aws.String("2600:1f18::1"),
+							},
+							{
+								SubnetID:    "subnet-B",
+								IPv6Address: aws.String("2600:1f18::2"),
+							},
+						},
+						Type:          elbv2model.LoadBalancerTypeNetwork,
+						IPAddressType: elbv2model.IPAddressTypeDualStack,
+					},
+				},
+				sdkLB: LoadBalancerWithTags{
+					LoadBalancer: &elbv2types.LoadBalancer{
+						LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+						Type:              elbv2types.LoadBalancerTypeEnumNetwork,
+						AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+						IpAddressType:     elbv2types.IpAddressTypeIpv4,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			elbv2Client := services.NewMockELBV2(ctrl)
+			m := &defaultLoadBalancerManager{
+				logger:      logr.New(&log.NullLogSink{}),
+				elbv2Client: elbv2Client,
+			}
+
+			elbv2Client.EXPECT().SetSubnetsWithContext(gomock.Any(), tt.fields.setSubnetsWithContextCall.req).Return(tt.fields.setSubnetsWithContextCall.resp, tt.fields.setSubnetsWithContextCall.err)
+
+			err := m.updateSDKLoadBalancerWithSubnetMappings(context.Background(), tt.args.resLB, tt.args.sdkLB)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+
 		})
 	}
 }

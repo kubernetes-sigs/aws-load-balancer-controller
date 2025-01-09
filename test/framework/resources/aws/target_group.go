@@ -2,18 +2,21 @@ package aws
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 )
 
 // TargetGroupManager is responsible for TargetGroup resources.
 type TargetGroupManager interface {
-	GetTargetGroupsForLoadBalancer(ctx context.Context, lbARN string) ([]*elbv2sdk.TargetGroup, error)
+	GetTargetGroupsForLoadBalancer(ctx context.Context, lbARN string) ([]elbv2types.TargetGroup, error)
 	CheckTargetGroupHealthy(ctx context.Context, tgARN string, expectedTargetCount int) (bool, error)
 	GetCurrentTargetCount(ctx context.Context, tgARN string) (int, error)
-	GetTargetGroupAttributes(ctx context.Context, tgARN string) ([]*elbv2sdk.TargetGroupAttribute, error)
+	GetTargetGroupAttributes(ctx context.Context, tgARN string) ([]elbv2types.TargetGroupAttribute, error)
+	GetCurrentTargets(ctx context.Context, tgARN string) ([]elbv2types.TargetHealthDescription, error)
+	RegisterTargets(ctx context.Context, tgARN string, targets []elbv2types.TargetDescription) error
 }
 
 // NewDefaultTargetGroupManager constructs new defaultTargetGroupManager.
@@ -33,7 +36,7 @@ type defaultTargetGroupManager struct {
 }
 
 // GetTargetGroupsForLoadBalancer returns all targetgroups configured for the load balancer
-func (m *defaultTargetGroupManager) GetTargetGroupsForLoadBalancer(ctx context.Context, lbARN string) ([]*elbv2sdk.TargetGroup, error) {
+func (m *defaultTargetGroupManager) GetTargetGroupsForLoadBalancer(ctx context.Context, lbARN string) ([]elbv2types.TargetGroup, error) {
 	targetGroups, err := m.elbv2Client.DescribeTargetGroupsWithContext(ctx, &elbv2sdk.DescribeTargetGroupsInput{
 		LoadBalancerArn: awssdk.String(lbARN),
 	})
@@ -43,19 +46,27 @@ func (m *defaultTargetGroupManager) GetTargetGroupsForLoadBalancer(ctx context.C
 	return targetGroups.TargetGroups, nil
 }
 
-// GetCurrentTargetCount returns the count of all the targets in the target group that are currently in initial, healthy or unhealthy state
-func (m *defaultTargetGroupManager) GetCurrentTargetCount(ctx context.Context, tgARN string) (int, error) {
+func (m *defaultTargetGroupManager) GetCurrentTargets(ctx context.Context, tgARN string) ([]elbv2types.TargetHealthDescription, error) {
 	resp, err := m.elbv2Client.DescribeTargetHealthWithContext(ctx, &elbv2sdk.DescribeTargetHealthInput{
 		TargetGroupArn: awssdk.String(tgARN),
 	})
 	if err != nil {
+		return nil, err
+	}
+	return resp.TargetHealthDescriptions, nil
+}
+
+// GetCurrentTargetCount returns the count of all the targets in the target group that are currently in initial, healthy or unhealthy state
+func (m *defaultTargetGroupManager) GetCurrentTargetCount(ctx context.Context, tgARN string) (int, error) {
+	targets, err := m.GetCurrentTargets(ctx, tgARN)
+	if err != nil {
 		return 0, err
 	}
 	count := 0
-	for _, thd := range resp.TargetHealthDescriptions {
-		state := awssdk.StringValue(thd.TargetHealth.State)
-		if state == elbv2sdk.TargetHealthStateEnumHealthy || state == elbv2sdk.TargetHealthStateEnumInitial ||
-			state == elbv2sdk.TargetHealthStateEnumUnhealthy {
+	for _, thd := range targets {
+		state := string(thd.TargetHealth.State)
+		if elbv2types.TargetHealthStateEnum(state) == elbv2types.TargetHealthStateEnumHealthy || elbv2types.TargetHealthStateEnum(state) == elbv2types.TargetHealthStateEnumInitial ||
+			elbv2types.TargetHealthStateEnum(state) == elbv2types.TargetHealthStateEnumUnhealthy {
 			count++
 		}
 	}
@@ -63,7 +74,7 @@ func (m *defaultTargetGroupManager) GetCurrentTargetCount(ctx context.Context, t
 }
 
 // GetTargetGroupAttributes returns the targetgroup attributes for the given target group
-func (m *defaultTargetGroupManager) GetTargetGroupAttributes(ctx context.Context, tgARN string) ([]*elbv2sdk.TargetGroupAttribute, error) {
+func (m *defaultTargetGroupManager) GetTargetGroupAttributes(ctx context.Context, tgARN string) ([]elbv2types.TargetGroupAttribute, error) {
 	resp, err := m.elbv2Client.DescribeTargetGroupAttributesWithContext(ctx, &elbv2sdk.DescribeTargetGroupAttributesInput{
 		TargetGroupArn: awssdk.String(tgARN),
 	})
@@ -85,9 +96,19 @@ func (m *defaultTargetGroupManager) CheckTargetGroupHealthy(ctx context.Context,
 		return false, nil
 	}
 	for _, thd := range resp.TargetHealthDescriptions {
-		if awssdk.StringValue(thd.TargetHealth.State) != elbv2sdk.TargetHealthStateEnumHealthy {
+		if thd.TargetHealth.State != elbv2types.TargetHealthStateEnumHealthy {
 			return false, nil
 		}
 	}
 	return true, nil
+}
+
+// RegisterTargets register targets to the target group.
+func (m *defaultTargetGroupManager) RegisterTargets(ctx context.Context, tgARN string, targets []elbv2types.TargetDescription) error {
+	_, err := m.elbv2Client.RegisterTargetsWithContext(ctx, &elbv2sdk.RegisterTargetsInput{
+		TargetGroupArn: awssdk.String(tgARN),
+		Targets:        targets,
+	})
+
+	return err
 }

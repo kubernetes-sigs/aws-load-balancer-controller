@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -243,7 +243,7 @@ func (b *defaultEnhancedBackendBuilder) loadBackendServices(ctx context.Context,
 		svcNames := sets.NewString()
 		for _, tgt := range action.ForwardConfig.TargetGroups {
 			if tgt.ServiceName != nil {
-				svcNames.Insert(awssdk.StringValue(tgt.ServiceName))
+				svcNames.Insert(awssdk.ToString(tgt.ServiceName))
 			}
 		}
 		forwardToSingleSvc := (len(action.ForwardConfig.TargetGroups) == 1) && (svcNames.Len() == 1)
@@ -275,7 +275,7 @@ func (b *defaultEnhancedBackendBuilder) buildAuthConfig(ctx context.Context, act
 		action.ForwardConfig != nil &&
 		len(action.ForwardConfig.TargetGroups) == 1 &&
 		action.ForwardConfig.TargetGroups[0].ServiceName != nil {
-		svcName := awssdk.StringValue(action.ForwardConfig.TargetGroups[0].ServiceName)
+		svcName := awssdk.ToString(action.ForwardConfig.TargetGroups[0].ServiceName)
 		svcKey := types.NamespacedName{Namespace: namespace, Name: svcName}
 		svc := backendServices[svcKey]
 		svcAndIngAnnotations = algorithm.MergeStringMap(svc.Annotations, svcAndIngAnnotations)

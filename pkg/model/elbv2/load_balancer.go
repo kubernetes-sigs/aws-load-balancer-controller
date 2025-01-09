@@ -9,6 +9,9 @@ import (
 
 var _ core.Resource = &LoadBalancer{}
 
+const ON = "on"
+const OFF = "off"
+
 // LoadBalancer represents a ELBV2 LoadBalancer.
 type LoadBalancer struct {
 	core.ResourceMeta `json:"-"`
@@ -88,6 +91,13 @@ const (
 	IPAddressTypeDualStackWithoutPublicIPV4 IPAddressType = "dualstack-without-public-ipv4"
 )
 
+type EnablePrefixForIpv6SourceNat string
+
+const (
+	EnablePrefixForIpv6SourceNatOn  EnablePrefixForIpv6SourceNat = ON
+	EnablePrefixForIpv6SourceNatOff EnablePrefixForIpv6SourceNat = OFF
+)
+
 type SecurityGroupsInboundRulesOnPrivateLinkStatus string
 
 const (
@@ -102,6 +112,8 @@ const (
 	LoadBalancerSchemeInternetFacing LoadBalancerScheme = "internet-facing"
 )
 
+const SourceNatIpv6PrefixAutoAssigned = "auto_assigned"
+
 // Information about a subnet mapping.
 type SubnetMapping struct {
 	// [Network Load Balancers] The allocation ID of the Elastic IP address for
@@ -113,6 +125,9 @@ type SubnetMapping struct {
 
 	// [Network Load Balancers] The IPv6 address.
 	IPv6Address *string `json:"ipv6Address,omitempty"`
+
+	// [Network Load Balancers] the SourceNatIpv6Prefix
+	SourceNatIpv6Prefix *string `json:"sourceNatIpv6Prefix,omitempty"`
 
 	// The ID of the subnet.
 	SubnetID string `json:"subnetID"`
@@ -127,6 +142,17 @@ type LoadBalancerAttribute struct {
 	Value string `json:"value"`
 }
 
+// Unit for setting the capacity on load balancer
+const (
+	CapacityUnits string = "CapacityUnits"
+)
+
+// Information about a load balancer capacity reservation.
+type MinimumLoadBalancerCapacity struct {
+	// The Capacity Units Value.
+	CapacityUnits int32 `json:"capacityUnits"`
+}
+
 // LoadBalancerSpec defines the desired state of LoadBalancer
 type LoadBalancerSpec struct {
 	// The name of the load balancer.
@@ -138,11 +164,15 @@ type LoadBalancerSpec struct {
 	// The nodes of an Internet-facing load balancer have public IP addresses.
 	// The nodes of an internal load balancer have only private IP addresses.
 	// +optional
-	Scheme *LoadBalancerScheme `json:"scheme,omitempty"`
+	Scheme LoadBalancerScheme `json:"scheme,omitempty"`
 
 	// The type of IP addresses used by the subnets for your load balancer.
 	// +optional
-	IPAddressType *IPAddressType `json:"ipAddressType,omitempty"`
+	IPAddressType IPAddressType `json:"ipAddressType,omitempty"`
+
+	// Tells whether Prefix for Source NAT is enabled or not.
+	// +optional
+	EnablePrefixForIpv6SourceNat EnablePrefixForIpv6SourceNat `json:"enablePrefixForIpv6SourceNat,omitempty"`
 
 	// The IDs of the public subnets. You can specify only one subnet per Availability Zone.
 	// +optional
@@ -163,6 +193,10 @@ type LoadBalancerSpec struct {
 	// The load balancer attributes.
 	// +optional
 	LoadBalancerAttributes []LoadBalancerAttribute `json:"loadBalancerAttributes,omitempty"`
+
+	// The load balancer capacity reservation
+	// +optional
+	MinimumLoadBalancerCapacity *MinimumLoadBalancerCapacity `json:"minimumLoadBalancerCapacity,omitempty"`
 
 	// The tags.
 	// +optional

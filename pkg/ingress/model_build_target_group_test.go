@@ -2,7 +2,7 @@ package ingress
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -21,7 +21,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 		ingKey            types.NamespacedName
 		svc               *corev1.Service
 		port              intstr.IntOrString
-		tgPort            int64
+		tgPort            int32
 		targetType        elbv2model.TargetType
 		tgProtocol        elbv2model.Protocol
 		tgProtocolVersion elbv2model.ProtocolVersion
@@ -144,7 +144,7 @@ func Test_defaultModelBuildTask_buildTargetGroupPort(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want int64
+		want int32
 	}{
 		{
 			name: "instance targetGroup should use nodePort as port",
@@ -725,6 +725,163 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T
 			got, err := task.buildTargetGroupBindingNodeSelector(context.Background(), tt.args.ing, tt.args.svc, tt.args.targetType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildTargetGroupBindingMultiClusterFlag(t *testing.T) {
+	tests := []struct {
+		name    string
+		ing     ClassifiedIngress
+		svc     *corev1.Service
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "no annotation",
+			ing: ClassifiedIngress{
+				Ing: &networking.Ingress{},
+			},
+			svc:  &corev1.Service{},
+			want: false,
+		},
+		{
+			name: "ing annotation",
+			ing: ClassifiedIngress{
+				Ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "false",
+						},
+					},
+				},
+			},
+			svc:  &corev1.Service{},
+			want: false,
+		},
+		{
+			name: "svc annotation",
+			ing: ClassifiedIngress{
+				Ing: &networking.Ingress{},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "false",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ing true annotation",
+			ing: ClassifiedIngress{
+				Ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "true",
+						},
+					},
+				},
+			},
+			svc:  &corev1.Service{},
+			want: true,
+		},
+		{
+			name: "svc true annotation",
+			ing: ClassifiedIngress{
+				Ing: &networking.Ingress{},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "true",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "mix true annotation - ing true",
+			ing: ClassifiedIngress{
+				Ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "true",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "false",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "mix true annotation - svc true",
+			ing: ClassifiedIngress{
+				Ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "false",
+						},
+					},
+				},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "true",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "not a bool svc",
+			ing: ClassifiedIngress{
+				Ing: &networking.Ingress{},
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"alb.ingress.kubernetes.io/multi-cluster-target-group": "cat",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "not a bool ing",
+			ing: ClassifiedIngress{
+				Ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/multi-cluster-target-group": "cat",
+						},
+					},
+				},
+			},
+			svc:     &corev1.Service{},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+			got, err := task.buildTargetGroupBindingMultiClusterFlag(tt.ing, tt.svc)
+			if tt.wantErr {
+				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)

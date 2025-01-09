@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	awssdk "github.com/aws/aws-sdk-go/aws"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -160,6 +160,23 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
+			// remove this once listener attributes are available in isolated region
+			if !strings.Contains(tf.Options.AWSRegion, "-iso-") {
+				By("modifying listener attributes", func() {
+					err := stack.UpdateServiceAnnotations(ctx, tf, map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-listener-attributes.TCP-80": "tcp.idle_timeout.seconds=400",
+					})
+					Expect(err).NotTo(HaveOccurred())
+
+					lsARN := getLoadBalancerListenerARN(ctx, tf, lbARN, "80")
+
+					Eventually(func() bool {
+						return verifyListenerAttributes(ctx, tf, lsARN, map[string]string{
+							"tcp.idle_timeout.seconds": "400",
+						}) == nil
+					}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+				})
+			}
 		})
 		It("should provision internal load-balancer resources", func() {
 			By("deploying stack", func() {
@@ -348,7 +365,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(targetGroups)).To(Equal(1))
-				tgARN := awssdk.StringValue(targetGroups[0].TargetGroupArn)
+				tgARN := awssdk.ToString(targetGroups[0].TargetGroupArn)
 
 				err = verifyTargetGroupNumRegistered(ctx, tf, tgARN, 1)
 				Expect(err).ToNot(HaveOccurred())
@@ -360,7 +377,7 @@ var _ = Describe("test k8s service reconciled by the aws load balancer controlle
 				targetGroups, err := tf.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(targetGroups)).To(Equal(1))
-				tgARN := awssdk.StringValue(targetGroups[0].TargetGroupArn)
+				tgARN := awssdk.ToString(targetGroups[0].TargetGroupArn)
 
 				nodes, err := stack.GetWorkerNodes(ctx, tf)
 				Expect(err).ToNot(HaveOccurred())

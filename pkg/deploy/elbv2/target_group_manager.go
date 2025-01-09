@@ -2,9 +2,10 @@ package elbv2
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	elbv2sdk "github.com/aws/aws-sdk-go/service/elbv2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -76,13 +77,13 @@ func (m *defaultTargetGroupManager) Create(ctx context.Context, resTG *elbv2mode
 		return elbv2model.TargetGroupStatus{}, err
 	}
 	sdkTG := TargetGroupWithTags{
-		TargetGroup: resp.TargetGroups[0],
+		TargetGroup: &resp.TargetGroups[0],
 		Tags:        tgTags,
 	}
 	m.logger.Info("created targetGroup",
 		"stackID", resTG.Stack().StackID(),
 		"resourceID", resTG.ID(),
-		"arn", awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn))
+		"arn", awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn))
 	if err := m.attributesReconciler.Reconcile(ctx, resTG, sdkTG); err != nil {
 		return elbv2model.TargetGroupStatus{}, err
 	}
@@ -110,7 +111,7 @@ func (m *defaultTargetGroupManager) Delete(ctx context.Context, sdkTG TargetGrou
 	}
 
 	m.logger.Info("deleting targetGroup",
-		"arn", awssdk.StringValue(req.TargetGroupArn))
+		"arn", awssdk.ToString(req.TargetGroupArn))
 	if err := runtime.RetryImmediateOnError(m.waitTGDeletionPollInterval, m.waitTGDeletionTimeout, isTargetGroupResourceInUseError, func() error {
 		_, err := m.elbv2Client.DeleteTargetGroupWithContext(ctx, req)
 		return err
@@ -118,7 +119,7 @@ func (m *defaultTargetGroupManager) Delete(ctx context.Context, sdkTG TargetGrou
 		return errors.Wrap(err, "failed to delete targetGroup")
 	}
 	m.logger.Info("deleted targetGroup",
-		"arn", awssdk.StringValue(req.TargetGroupArn))
+		"arn", awssdk.ToString(req.TargetGroupArn))
 
 	return nil
 }
@@ -133,21 +134,21 @@ func (m *defaultTargetGroupManager) updateSDKTargetGroupWithHealthCheck(ctx cont
 	m.logger.Info("modifying targetGroup healthCheck",
 		"stackID", resTG.Stack().StackID(),
 		"resourceID", resTG.ID(),
-		"arn", awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn))
+		"arn", awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn))
 	if _, err := m.elbv2Client.ModifyTargetGroupWithContext(ctx, req); err != nil {
 		return err
 	}
 	m.logger.Info("modified targetGroup healthCheck",
 		"stackID", resTG.Stack().StackID(),
 		"resourceID", resTG.ID(),
-		"arn", awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn))
+		"arn", awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn))
 
 	return nil
 }
 
 func (m *defaultTargetGroupManager) updateSDKTargetGroupWithTags(ctx context.Context, resTG *elbv2model.TargetGroup, sdkTG TargetGroupWithTags) error {
 	desiredTGTags := m.trackingProvider.ResourceTags(resTG.Stack(), resTG, resTG.Spec.Tags)
-	return m.taggingManager.ReconcileTags(ctx, awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn), desiredTGTags,
+	return m.taggingManager.ReconcileTags(ctx, awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn), desiredTGTags,
 		WithCurrentTags(sdkTG.Tags),
 		WithIgnoredTagKeys(m.trackingProvider.LegacyTagKeys()),
 		WithIgnoredTagKeys(m.externalManagedTags))
@@ -159,28 +160,28 @@ func isSDKTargetGroupHealthCheckDrifted(tgSpec elbv2model.TargetGroupSpec, sdkTG
 	}
 	sdkObj := sdkTG.TargetGroup
 	hcConfig := *tgSpec.HealthCheckConfig
-	if hcConfig.Port != nil && hcConfig.Port.String() != awssdk.StringValue(sdkObj.HealthCheckPort) {
+	if hcConfig.Port != nil && hcConfig.Port.String() != awssdk.ToString(sdkObj.HealthCheckPort) {
 		return true
 	}
-	if hcConfig.Protocol != nil && string(*hcConfig.Protocol) != awssdk.StringValue(sdkObj.HealthCheckProtocol) {
+	if &hcConfig.Protocol != nil && string(hcConfig.Protocol) != string(sdkObj.HealthCheckProtocol) {
 		return true
 	}
-	if hcConfig.Path != nil && awssdk.StringValue(hcConfig.Path) != awssdk.StringValue(sdkObj.HealthCheckPath) {
+	if hcConfig.Path != nil && awssdk.ToString(hcConfig.Path) != awssdk.ToString(sdkObj.HealthCheckPath) {
 		return true
 	}
-	if hcConfig.Matcher != nil && (sdkObj.Matcher == nil || awssdk.StringValue(hcConfig.Matcher.GRPCCode) != awssdk.StringValue(sdkObj.Matcher.GrpcCode) || awssdk.StringValue(hcConfig.Matcher.HTTPCode) != awssdk.StringValue(sdkObj.Matcher.HttpCode)) {
+	if hcConfig.Matcher != nil && (sdkObj.Matcher == nil || awssdk.ToString(hcConfig.Matcher.GRPCCode) != awssdk.ToString(sdkObj.Matcher.GrpcCode) || awssdk.ToString(hcConfig.Matcher.HTTPCode) != awssdk.ToString(sdkObj.Matcher.HttpCode)) {
 		return true
 	}
-	if hcConfig.IntervalSeconds != nil && awssdk.Int64Value(hcConfig.IntervalSeconds) != awssdk.Int64Value(sdkObj.HealthCheckIntervalSeconds) {
+	if hcConfig.IntervalSeconds != nil && awssdk.ToInt32(hcConfig.IntervalSeconds) != awssdk.ToInt32(sdkObj.HealthCheckIntervalSeconds) {
 		return true
 	}
-	if hcConfig.TimeoutSeconds != nil && awssdk.Int64Value(hcConfig.TimeoutSeconds) != awssdk.Int64Value(sdkObj.HealthCheckTimeoutSeconds) {
+	if hcConfig.TimeoutSeconds != nil && awssdk.ToInt32(hcConfig.TimeoutSeconds) != awssdk.ToInt32(sdkObj.HealthCheckTimeoutSeconds) {
 		return true
 	}
-	if hcConfig.HealthyThresholdCount != nil && awssdk.Int64Value(hcConfig.HealthyThresholdCount) != awssdk.Int64Value(sdkObj.HealthyThresholdCount) {
+	if hcConfig.HealthyThresholdCount != nil && awssdk.ToInt32(hcConfig.HealthyThresholdCount) != awssdk.ToInt32(sdkObj.HealthyThresholdCount) {
 		return true
 	}
-	if hcConfig.UnhealthyThresholdCount != nil && awssdk.Int64Value(hcConfig.UnhealthyThresholdCount) != awssdk.Int64Value(sdkObj.UnhealthyThresholdCount) {
+	if hcConfig.UnhealthyThresholdCount != nil && awssdk.ToInt32(hcConfig.UnhealthyThresholdCount) != awssdk.ToInt32(sdkObj.UnhealthyThresholdCount) {
 		return true
 	}
 	return false
@@ -189,11 +190,11 @@ func isSDKTargetGroupHealthCheckDrifted(tgSpec elbv2model.TargetGroupSpec, sdkTG
 func buildSDKCreateTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk.CreateTargetGroupInput {
 	sdkObj := &elbv2sdk.CreateTargetGroupInput{}
 	sdkObj.Name = awssdk.String(tgSpec.Name)
-	sdkObj.TargetType = awssdk.String(string(tgSpec.TargetType))
-	sdkObj.Port = awssdk.Int64(tgSpec.Port)
-	sdkObj.Protocol = awssdk.String(string(tgSpec.Protocol))
-	if tgSpec.IPAddressType != nil && *tgSpec.IPAddressType != elbv2model.TargetGroupIPAddressTypeIPv4 {
-		sdkObj.IpAddressType = (*string)(tgSpec.IPAddressType)
+	sdkObj.TargetType = elbv2types.TargetTypeEnum(tgSpec.TargetType)
+	sdkObj.Port = tgSpec.Port
+	sdkObj.Protocol = elbv2types.ProtocolEnum(tgSpec.Protocol)
+	if &tgSpec.IPAddressType != nil && tgSpec.IPAddressType != elbv2model.TargetGroupIPAddressTypeIPv4 {
+		sdkObj.IpAddressType = elbv2types.TargetGroupIpAddressTypeEnum(tgSpec.IPAddressType)
 	}
 	if tgSpec.ProtocolVersion != nil {
 		sdkObj.ProtocolVersion = (*string)(tgSpec.ProtocolVersion)
@@ -204,7 +205,7 @@ func buildSDKCreateTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 		if hcConfig.Port != nil {
 			sdkObj.HealthCheckPort = awssdk.String(hcConfig.Port.String())
 		}
-		sdkObj.HealthCheckProtocol = (*string)(hcConfig.Protocol)
+		sdkObj.HealthCheckProtocol = elbv2types.ProtocolEnum(hcConfig.Protocol)
 		sdkObj.HealthCheckPath = hcConfig.Path
 		if tgSpec.HealthCheckConfig.Matcher != nil {
 			sdkObj.Matcher = buildSDKMatcher(*hcConfig.Matcher)
@@ -226,7 +227,7 @@ func buildSDKModifyTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 		if hcConfig.Port != nil {
 			sdkObj.HealthCheckPort = awssdk.String(hcConfig.Port.String())
 		}
-		sdkObj.HealthCheckProtocol = (*string)(hcConfig.Protocol)
+		sdkObj.HealthCheckProtocol = elbv2types.ProtocolEnum(hcConfig.Protocol)
 		sdkObj.HealthCheckPath = hcConfig.Path
 		if tgSpec.HealthCheckConfig.Matcher != nil {
 			sdkObj.Matcher = buildSDKMatcher(*hcConfig.Matcher)
@@ -239,8 +240,8 @@ func buildSDKModifyTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 	return sdkObj
 }
 
-func buildSDKMatcher(modelMatcher elbv2model.HealthCheckMatcher) *elbv2sdk.Matcher {
-	return &elbv2sdk.Matcher{
+func buildSDKMatcher(modelMatcher elbv2model.HealthCheckMatcher) *elbv2types.Matcher {
+	return &elbv2types.Matcher{
 		GrpcCode: modelMatcher.GRPCCode,
 		HttpCode: modelMatcher.HTTPCode,
 	}
@@ -248,14 +249,20 @@ func buildSDKMatcher(modelMatcher elbv2model.HealthCheckMatcher) *elbv2sdk.Match
 
 func buildResTargetGroupStatus(sdkTG TargetGroupWithTags) elbv2model.TargetGroupStatus {
 	return elbv2model.TargetGroupStatus{
-		TargetGroupARN: awssdk.StringValue(sdkTG.TargetGroup.TargetGroupArn),
+		TargetGroupARN: awssdk.ToString(sdkTG.TargetGroup.TargetGroupArn),
 	}
 }
 
 func isTargetGroupResourceInUseError(err error) bool {
-	var awsErr awserr.Error
+	var awsErr *elbv2types.ResourceInUseException
 	if errors.As(err, &awsErr) {
-		return awsErr.Code() == "ResourceInUse"
+		return true
+	}
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		code := apiErr.ErrorCode()
+
+		return code == "ResourceInUse"
 	}
 	return false
 }

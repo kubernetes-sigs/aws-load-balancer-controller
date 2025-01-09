@@ -1,8 +1,8 @@
 package networking
 
 import (
-	awssdk "github.com/aws/aws-sdk-go/aws"
-	ec2sdk "github.com/aws/aws-sdk-go/service/ec2"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 
@@ -230,7 +230,7 @@ func TestFilterIPsWithinCIDRs(t *testing.T) {
 
 func TestGetSubnetAssociatedIPv4CIDRs(t *testing.T) {
 	type args struct {
-		subnet *ec2sdk.Subnet
+		subnet ec2types.Subnet
 	}
 	tests := []struct {
 		name    string
@@ -241,7 +241,7 @@ func TestGetSubnetAssociatedIPv4CIDRs(t *testing.T) {
 		{
 			name: "one IPv4 CIDR",
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					CidrBlock: awssdk.String("192.168.1.0/24"),
 				},
 			},
@@ -264,7 +264,7 @@ func TestGetSubnetAssociatedIPv4CIDRs(t *testing.T) {
 
 func TestGetSubnetAssociatedIPv6CIDRs(t *testing.T) {
 	type args struct {
-		subnet *ec2sdk.Subnet
+		subnet ec2types.Subnet
 	}
 	tests := []struct {
 		name    string
@@ -275,13 +275,13 @@ func TestGetSubnetAssociatedIPv6CIDRs(t *testing.T) {
 		{
 			name: "one IPv6 CIDR",
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					CidrBlock: awssdk.String("192.168.1.0/24"),
-					Ipv6CidrBlockAssociationSet: []*ec2sdk.SubnetIpv6CidrBlockAssociation{
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
 						{
 							Ipv6CidrBlock: awssdk.String("2600:1f13:837:8500::/64"),
-							Ipv6CidrBlockState: &ec2sdk.SubnetCidrBlockState{
-								State: awssdk.String(ec2sdk.SubnetCidrBlockStateCodeAssociated),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -294,19 +294,19 @@ func TestGetSubnetAssociatedIPv6CIDRs(t *testing.T) {
 		{
 			name: "multiple IPv6 CIDR",
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					CidrBlock: awssdk.String("192.168.1.0/24"),
-					Ipv6CidrBlockAssociationSet: []*ec2sdk.SubnetIpv6CidrBlockAssociation{
+					Ipv6CidrBlockAssociationSet: []ec2types.SubnetIpv6CidrBlockAssociation{
 						{
 							Ipv6CidrBlock: awssdk.String("2600:1f13:837:8500::/64"),
-							Ipv6CidrBlockState: &ec2sdk.SubnetCidrBlockState{
-								State: awssdk.String(ec2sdk.SubnetCidrBlockStateCodeAssociated),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 						{
 							Ipv6CidrBlock: awssdk.String("2600:1f13:837:8504::/64"),
-							Ipv6CidrBlockState: &ec2sdk.SubnetCidrBlockState{
-								State: awssdk.String(ec2sdk.SubnetCidrBlockStateCodeAssociated),
+							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -320,7 +320,7 @@ func TestGetSubnetAssociatedIPv6CIDRs(t *testing.T) {
 		{
 			name: "zero IPv6 CIDR",
 			args: args{
-				subnet: &ec2sdk.Subnet{
+				subnet: ec2types.Subnet{
 					CidrBlock: awssdk.String("192.168.1.0/24"),
 				},
 			},

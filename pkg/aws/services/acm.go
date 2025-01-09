@@ -2,36 +2,49 @@ package services
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/acm"
-	"github.com/aws/aws-sdk-go/service/acm/acmiface"
+	"github.com/aws/aws-sdk-go-v2/service/acm"
+	"github.com/aws/aws-sdk-go-v2/service/acm/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 )
 
 type ACM interface {
-	acmiface.ACMAPI
-
 	// wrapper to ListCertificatesPagesWithContext API, which aggregates paged results into list.
-	ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]*acm.CertificateSummary, error)
+	ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]types.CertificateSummary, error)
+	DescribeCertificateWithContext(ctx context.Context, req *acm.DescribeCertificateInput) (*acm.DescribeCertificateOutput, error)
 }
 
 // NewACM constructs new ACM implementation.
-func NewACM(session *session.Session) *defaultACM {
-	return &defaultACM{
-		ACMAPI: acm.New(session),
+func NewACM(awsClientsProvider provider.AWSClientsProvider) ACM {
+	return &acmClient{
+		awsClientsProvider: awsClientsProvider,
 	}
 }
 
-type defaultACM struct {
-	acmiface.ACMAPI
+type acmClient struct {
+	awsClientsProvider provider.AWSClientsProvider
 }
 
-func (c *defaultACM) ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]*acm.CertificateSummary, error) {
-	var result []*acm.CertificateSummary
-	if err := c.ListCertificatesPagesWithContext(ctx, input, func(output *acm.ListCertificatesOutput, _ bool) bool {
-		result = append(result, output.CertificateSummaryList...)
-		return true
-	}); err != nil {
+func (c *acmClient) ListCertificatesAsList(ctx context.Context, input *acm.ListCertificatesInput) ([]types.CertificateSummary, error) {
+	var result []types.CertificateSummary
+	client, err := c.awsClientsProvider.GetACMClient(ctx, "ListCertificates")
+	if err != nil {
 		return nil, err
 	}
+	paginator := acm.NewListCertificatesPaginator(client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.CertificateSummaryList...)
+	}
 	return result, nil
+}
+
+func (c *acmClient) DescribeCertificateWithContext(ctx context.Context, input *acm.DescribeCertificateInput) (*acm.DescribeCertificateOutput, error) {
+	client, err := c.awsClientsProvider.GetACMClient(ctx, "DescribeCertificate")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeCertificate(ctx, input)
 }

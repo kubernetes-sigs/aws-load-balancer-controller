@@ -2,10 +2,10 @@ package services
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi/resourcegroupstaggingapiiface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
+	rgttypes "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
 )
 
 const (
@@ -14,41 +14,41 @@ const (
 )
 
 type RGT interface {
-	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
-
-	GetResourcesAsList(ctx context.Context, input *resourcegroupstaggingapi.GetResourcesInput) ([]*resourcegroupstaggingapi.ResourceTagMapping, error)
+	GetResourcesAsList(ctx context.Context, input *resourcegroupstaggingapi.GetResourcesInput) ([]rgttypes.ResourceTagMapping, error)
 }
 
 // NewRGT constructs new RGT implementation.
-func NewRGT(session *session.Session) RGT {
-	return &defaultRGT{
-		ResourceGroupsTaggingAPIAPI: resourcegroupstaggingapi.New(session),
+func NewRGT(awsClientsProvider provider.AWSClientsProvider) RGT {
+	return &rgtClient{
+		awsClientsProvider: awsClientsProvider,
 	}
 }
 
-var _ RGT = (*defaultRGT)(nil)
-
-type defaultRGT struct {
-	resourcegroupstaggingapiiface.ResourceGroupsTaggingAPIAPI
+type rgtClient struct {
+	awsClientsProvider provider.AWSClientsProvider
 }
 
-func (c *defaultRGT) GetResourcesAsList(ctx context.Context, input *resourcegroupstaggingapi.GetResourcesInput) ([]*resourcegroupstaggingapi.ResourceTagMapping, error) {
-	var result []*resourcegroupstaggingapi.ResourceTagMapping
-	if err := c.GetResourcesPagesWithContext(ctx, input, func(output *resourcegroupstaggingapi.GetResourcesOutput, _ bool) bool {
-		for _, i := range output.ResourceTagMappingList {
-			result = append(result, i)
-		}
-		return true
-	}); err != nil {
+func (c *rgtClient) GetResourcesAsList(ctx context.Context, input *resourcegroupstaggingapi.GetResourcesInput) ([]rgttypes.ResourceTagMapping, error) {
+	client, err := c.awsClientsProvider.GetRGTClient(ctx, "GetResources")
+	if err != nil {
 		return nil, err
+	}
+	var result []rgttypes.ResourceTagMapping
+	paginator := resourcegroupstaggingapi.NewGetResourcesPaginator(client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.ResourceTagMappingList...)
 	}
 	return result, nil
 }
 
-func ParseRGTTags(tags []*resourcegroupstaggingapi.Tag) map[string]string {
+func ParseRGTTags(tags []rgttypes.Tag) map[string]string {
 	result := make(map[string]string, len(tags))
 	for _, tag := range tags {
-		result[aws.StringValue(tag.Key)] = aws.StringValue(tag.Value)
+		result[aws.ToString(tag.Key)] = aws.ToString(tag.Value)
 	}
 	return result
 }

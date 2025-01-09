@@ -8,7 +8,7 @@ revisionHistoryLimit: 10
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.7.0
+  tag: v2.11.0
   pullPolicy: IfNotPresent
 
 runtimeClassName: ""
@@ -161,6 +161,10 @@ region:
 # The VPC ID for the Kubernetes cluster. Set this manually when your pods are unable to use the metadata service to determine this automatically
 vpcId:
 
+# This is alternative to vpcId. Set this when your pods are unable to use the metadata service to determine VPC automatically.
+vpcTags: {}
+# Name: tagValue
+
 # Custom AWS API Endpoints (serviceID1=URL1,serviceID2=URL2)
 awsApiEndpoints:
 
@@ -201,6 +205,10 @@ logLevel:
 # The address the metric endpoint binds to. (default ":8080")
 metricsBindAddr: ""
 
+webhookConfig:
+  # disableIngressValidation disables the validation of resources of kind Ingress, false by default
+  disableIngressValidation:
+
 # The TCP port the Webhook server binds to. (default 9443)
 webhookBindPort:
 
@@ -228,6 +236,9 @@ targetgroupbindingMaxConcurrentReconciles:
 
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
+
+# Interval at which the controller monitors the state of load balancer after creation for stabilization
+lbStabilizationMonitorInterval:
 
 # Period at which the controller forces the repopulation of its local object stores. (default 10h0m0s)
 syncPeriod:
@@ -282,10 +293,9 @@ env:
 # envSecretName: aws-secret
 
 # Use envFrom to set environment variables from a Secret or ConfigMap
-envFrom: 
-  # valueFrom:
-  #   - secretKeyRef:
-  #       name: aws-load-balancer-controller
+# envFrom:
+#   - secretRef:
+#       name: my-secret
 
 # Specifies if aws-load-balancer-controller should be started in hostNetwork mode.
 # This is required if using a custom CNI where the managed control plane nodes are unable to initiate
@@ -355,6 +365,7 @@ controllerConfig:
   # SubnetsClusterTagCheck: true
   # NLBHealthCheckAdvancedConfig: true
   # ALBSingleSubnet: false
+  # LBCapacityReservation: true
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope

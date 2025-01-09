@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -73,15 +73,20 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 	}
 
 	defaultActions := t.buildListenerDefaultActions(ctx, targetGroup)
+	lsAttributes, attributesErr := t.buildListenerAttributes(ctx, t.service.Annotations, port.Port, listenerProtocol)
+	if attributesErr != nil {
+		return elbv2model.ListenerSpec{}, attributesErr
+	}
 	return elbv2model.ListenerSpec{
-		LoadBalancerARN: t.loadBalancer.LoadBalancerARN(),
-		Port:            int64(port.Port),
-		Protocol:        listenerProtocol,
-		Certificates:    certificates,
-		SSLPolicy:       sslPolicy,
-		ALPNPolicy:      alpnPolicy,
-		DefaultActions:  defaultActions,
-		Tags:            tags,
+		LoadBalancerARN:    t.loadBalancer.LoadBalancerARN(),
+		Port:               port.Port,
+		Protocol:           listenerProtocol,
+		Certificates:       certificates,
+		SSLPolicy:          sslPolicy,
+		ALPNPolicy:         alpnPolicy,
+		DefaultActions:     defaultActions,
+		Tags:               tags,
+		ListenerAttributes: lsAttributes,
 	}, nil
 }
 
@@ -211,4 +216,21 @@ func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context) (*liste
 
 func (t *defaultModelBuildTask) buildListenerTags(ctx context.Context) (map[string]string, error) {
 	return t.buildAdditionalResourceTags(ctx)
+}
+
+// Build attributes for listener
+func (t *defaultModelBuildTask) buildListenerAttributes(ctx context.Context, svcAnnotations map[string]string, port int32, listenerProtocol elbv2model.Protocol) ([]elbv2model.ListenerAttribute, error) {
+	var rawAttributes map[string]string
+	annotationKey := fmt.Sprintf("%v.%v-%v", annotations.SvcLBSuffixlsAttsAnnotationPrefix, listenerProtocol, port)
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotationKey, &rawAttributes, svcAnnotations); err != nil {
+		return nil, err
+	}
+	attributes := make([]elbv2model.ListenerAttribute, 0, len(rawAttributes))
+	for attrKey, attrValue := range rawAttributes {
+		attributes = append(attributes, elbv2model.ListenerAttribute{
+			Key:   attrKey,
+			Value: attrValue,
+		})
+	}
+	return attributes, nil
 }
