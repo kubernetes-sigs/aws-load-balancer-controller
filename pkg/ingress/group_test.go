@@ -1,11 +1,11 @@
 package ingress
 
 import (
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func TestGroupID_IsExplicit(t *testing.T) {
@@ -123,7 +123,7 @@ func TestEncodeGroupIDToReconcileRequest(t *testing.T) {
 	tests := []struct {
 		name    string
 		groupID GroupID
-		want    ctrl.Request
+		want    reconcile.Request
 	}{
 		{
 			name: "explicit group",
@@ -131,7 +131,7 @@ func TestEncodeGroupIDToReconcileRequest(t *testing.T) {
 				Namespace: "",
 				Name:      "awesome-group",
 			},
-			want: ctrl.Request{NamespacedName: types.NamespacedName{
+			want: reconcile.Request{NamespacedName: types.NamespacedName{
 				Namespace: "",
 				Name:      "awesome-group",
 			}},
@@ -142,7 +142,7 @@ func TestEncodeGroupIDToReconcileRequest(t *testing.T) {
 				Namespace: "namespace",
 				Name:      "ingress",
 			},
-			want: ctrl.Request{NamespacedName: types.NamespacedName{
+			want: reconcile.Request{NamespacedName: types.NamespacedName{
 				Namespace: "namespace",
 				Name:      "ingress",
 			}},
@@ -159,12 +159,12 @@ func TestEncodeGroupIDToReconcileRequest(t *testing.T) {
 func TestDecodeGroupIDFromReconcileRequest(t *testing.T) {
 	tests := []struct {
 		name    string
-		request ctrl.Request
+		request reconcile.Request
 		want    GroupID
 	}{
 		{
 			name: "explicit group",
-			request: ctrl.Request{NamespacedName: types.NamespacedName{
+			request: reconcile.Request{NamespacedName: types.NamespacedName{
 				Namespace: "",
 				Name:      "awesome-group",
 			}},
@@ -175,7 +175,7 @@ func TestDecodeGroupIDFromReconcileRequest(t *testing.T) {
 		},
 		{
 			name: "implicit group",
-			request: ctrl.Request{NamespacedName: types.NamespacedName{
+			request: reconcile.Request{NamespacedName: types.NamespacedName{
 				Namespace: "namespace",
 				Name:      "ingress",
 			}},
