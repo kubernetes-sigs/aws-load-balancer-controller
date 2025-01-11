@@ -33,13 +33,13 @@ type enqueueRequestsForEndpointsEvent struct {
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
-func (h *enqueueRequestsForEndpointsEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForEndpointsEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	epNew := e.Object.(*corev1.Endpoints)
 	h.enqueueImpactedTargetGroupBindings(queue, epNew)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
-func (h *enqueueRequestsForEndpointsEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForEndpointsEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	epOld := e.ObjectOld.(*corev1.Endpoints)
 	epNew := e.ObjectNew.(*corev1.Endpoints)
 	if !equality.Semantic.DeepEqual(epOld.Subsets, epNew.Subsets) {
@@ -48,17 +48,17 @@ func (h *enqueueRequestsForEndpointsEvent) Update(ctx context.Context, e event.U
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
-func (h *enqueueRequestsForEndpointsEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForEndpointsEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	epOld := e.Object.(*corev1.Endpoints)
 	h.enqueueImpactedTargetGroupBindings(queue, epOld)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile AutoScaling, or a WebHook.
-func (h *enqueueRequestsForEndpointsEvent) Generic(context.Context, event.GenericEvent, workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForEndpointsEvent) Generic(context.Context, event.GenericEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
-func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedTargetGroupBindings(queue workqueue.RateLimitingInterface, ep *corev1.Endpoints) {
+func (h *enqueueRequestsForEndpointsEvent) enqueueImpactedTargetGroupBindings(queue workqueue.TypedRateLimitingInterface[reconcile.Request], ep *corev1.Endpoints) {
 	tgbList := &elbv2api.TargetGroupBindingList{}
 	if err := h.k8sClient.List(context.Background(), tgbList,
 		client.InNamespace(ep.Namespace),

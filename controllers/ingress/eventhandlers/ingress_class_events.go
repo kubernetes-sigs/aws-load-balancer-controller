@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	networking "k8s.io/api/networking/v1"
@@ -17,7 +18,7 @@ import (
 
 // NewEnqueueRequestsForIngressClassEvent constructs new enqueueRequestsForIngressClassEvent.
 func NewEnqueueRequestsForIngressClassEvent(ingEventChan chan<- event.TypedGenericEvent[*networking.Ingress],
-	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*networking.IngressClass] {
+	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*networking.IngressClass, reconcile.Request] {
 	return &enqueueRequestsForIngressClassEvent{
 		ingEventChan:  ingEventChan,
 		k8sClient:     k8sClient,
@@ -26,7 +27,7 @@ func NewEnqueueRequestsForIngressClassEvent(ingEventChan chan<- event.TypedGener
 	}
 }
 
-var _ handler.TypedEventHandler[*networking.IngressClass] = (*enqueueRequestsForIngressClassEvent)(nil)
+var _ handler.TypedEventHandler[*networking.IngressClass, reconcile.Request] = (*enqueueRequestsForIngressClassEvent)(nil)
 
 type enqueueRequestsForIngressClassEvent struct {
 	ingEventChan  chan<- event.TypedGenericEvent[*networking.Ingress]
@@ -35,12 +36,12 @@ type enqueueRequestsForIngressClassEvent struct {
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForIngressClassEvent) Create(ctx context.Context, e event.TypedCreateEvent[*networking.IngressClass], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForIngressClassEvent) Create(ctx context.Context, e event.TypedCreateEvent[*networking.IngressClass], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	ingClassNew := e.Object
 	h.enqueueImpactedIngresses(ingClassNew)
 }
 
-func (h *enqueueRequestsForIngressClassEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*networking.IngressClass], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForIngressClassEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*networking.IngressClass], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	ingClassOld := e.ObjectOld
 	ingClassNew := e.ObjectNew
 
@@ -55,12 +56,12 @@ func (h *enqueueRequestsForIngressClassEvent) Update(ctx context.Context, e even
 	h.enqueueImpactedIngresses(ingClassNew)
 }
 
-func (h *enqueueRequestsForIngressClassEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*networking.IngressClass], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForIngressClassEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*networking.IngressClass], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	ingClassOld := e.Object
 	h.enqueueImpactedIngresses(ingClassOld)
 }
 
-func (h *enqueueRequestsForIngressClassEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*networking.IngressClass], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForIngressClassEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*networking.IngressClass], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	ingClass := e.Object
 	h.enqueueImpactedIngresses(ingClass)
 }

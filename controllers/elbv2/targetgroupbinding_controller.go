@@ -21,6 +21,7 @@ import (
 	"fmt"
 	discv1 "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -91,12 +92,12 @@ type targetGroupBindingReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups="discovery.k8s.io",resources=endpointslices,verbs=get;list;watch
 
-func (r *targetGroupBindingReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *targetGroupBindingReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.logger.V(1).Info("Reconcile request", "name", req.Name)
 	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
 }
 
-func (r *targetGroupBindingReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
+func (r *targetGroupBindingReconciler) reconcile(ctx context.Context, req reconcile.Request) error {
 	tgb := &elbv2api.TargetGroupBinding{}
 	if err := r.k8sClient.Get(ctx, req.NamespacedName, tgb); err != nil {
 		return client.IgnoreNotFound(err)
@@ -194,7 +195,7 @@ func (r *targetGroupBindingReconciler) SetupWithManager(ctx context.Context, mgr
 		Watches(&corev1.Node{}, nodeEventsHandler).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.maxConcurrentReconciles,
-			RateLimiter:             workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, r.maxExponentialBackoffDelay)}).
+			RateLimiter:             workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](5*time.Millisecond, r.maxExponentialBackoffDelay)}).
 		Complete(r)
 }
 
