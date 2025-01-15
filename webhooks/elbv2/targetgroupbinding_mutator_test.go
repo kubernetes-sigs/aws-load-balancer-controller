@@ -2,8 +2,9 @@ package elbv2
 
 import (
 	"context"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -11,10 +12,22 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+func makeTargetGroupBinding(tgARN string) *elbv2api.TargetGroupBinding {
+	return &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: tgARN,
+		},
+	}
+}
 
 func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 	type describeTargetGroupsAsListCall struct {
@@ -292,8 +305,10 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
+			ctx := context.Background()
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err).AnyTimes()
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client).AnyTimes()
 			}
 
 			m := &targetGroupBindingMutator{
@@ -394,17 +409,20 @@ func Test_targetGroupBindingMutator_obtainSDKTargetTypeFromAWS(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
+			ctx := context.Background()
+
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client).AnyTimes()
 			}
 
 			m := &targetGroupBindingMutator{
 				elbv2Client: elbv2Client,
 				logger:      logr.New(&log.NullLogSink{}),
 			}
-			got, err := m.obtainSDKTargetTypeFromAWS(context.Background(), tt.args.tgARN)
+			got, err := m.obtainSDKTargetTypeFromAWS(context.Background(), makeTargetGroupBinding(tt.args.tgARN))
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -521,17 +539,20 @@ func Test_targetGroupBindingMutator_getIPAddressTypeFromAWS(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
+			ctx := context.Background()
+
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client).AnyTimes()
 			}
 
 			m := &targetGroupBindingMutator{
 				elbv2Client: elbv2Client,
 				logger:      logr.New(&log.NullLogSink{}),
 			}
-			got, err := m.getTargetGroupIPAddressTypeFromAWS(context.Background(), tt.args.tgARN)
+			got, err := m.getTargetGroupIPAddressTypeFromAWS(context.Background(), makeTargetGroupBinding(tt.args.tgARN))
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -604,17 +625,20 @@ func Test_targetGroupBindingMutator_obtainSDKVpcIDFromAWS(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
+			ctx := context.Background()
+
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client).AnyTimes()
 			}
 
 			m := &targetGroupBindingMutator{
 				elbv2Client: elbv2Client,
 				logger:      logr.New(&log.NullLogSink{}),
 			}
-			got, err := m.getVpcIDFromAWS(context.Background(), tt.args.tgARN)
+			got, err := m.getVpcIDFromAWS(context.Background(), makeTargetGroupBinding(tt.args.tgARN))
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

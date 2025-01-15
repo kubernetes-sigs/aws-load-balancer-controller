@@ -3,11 +3,12 @@ package targetgroupbinding
 import (
 	"context"
 	"fmt"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws/smithy-go"
 	"net/netip"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"time"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/smithy-go"
 
 	"k8s.io/client-go/tools/record"
 
@@ -95,6 +96,7 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 	var oldCheckPoint string
 	var isDeferred bool
 	var err error
+	AnnotationsToFields(tgb)
 
 	if *tgb.Spec.TargetType == elbv2api.TargetTypeIP {
 		newCheckPoint, oldCheckPoint, isDeferred, err = m.reconcileWithIPTargetType(ctx, tgb)
@@ -114,6 +116,7 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 }
 
 func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+	AnnotationsToFields(tgb)
 	if err := m.cleanupTargets(ctx, tgb); err != nil {
 		return err
 	}
@@ -168,9 +171,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		return newCheckPoint, oldCheckPoint, true, nil
 	}
 
-	tgARN := tgb.Spec.TargetGroupARN
-	vpcID := tgb.Spec.VpcID
-	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
+	targets, err := m.targetsManager.ListTargets(ctx, tgb)
 	if err != nil {
 		return "", "", false, err
 	}
@@ -211,7 +212,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	updateTrackedTargets := false
 	if len(unmatchedTargets) > 0 {
-		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets)
+		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, unmatchedTargets)
 		if err != nil {
 			return "", "", false, err
 		}
@@ -234,7 +235,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 			return "", "", false, err
 		}
 
-		if err := m.registerPodEndpoints(ctx, tgARN, vpcID, unmatchedEndpoints); err != nil {
+		if err := m.registerPodEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {
 			return "", "", false, err
 		}
 	}
@@ -298,8 +299,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		return newCheckPoint, oldCheckPoint, true, nil
 	}
 
-	tgARN := tgb.Spec.TargetGroupARN
-	targets, err := m.targetsManager.ListTargets(ctx, tgARN)
+	targets, err := m.targetsManager.ListTargets(ctx, tgb)
 	if err != nil {
 		return "", "", false, err
 	}
@@ -325,7 +325,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	updateTrackedTargets := false
 
 	if len(unmatchedTargets) > 0 {
-		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, tgARN, unmatchedTargets)
+		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, unmatchedTargets)
 		if err != nil {
 			return "", "", false, err
 		}
@@ -337,7 +337,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 			return "", "", false, err
 		}
 
-		if err := m.registerNodePortEndpoints(ctx, tgARN, unmatchedEndpoints); err != nil {
+		if err := m.registerNodePortEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {
 			return "", "", false, err
 		}
 	}
@@ -351,7 +351,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 }
 
 func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	targets, err := m.targetsManager.ListTargets(ctx, tgb.Spec.TargetGroupARN)
+	targets, err := m.targetsManager.ListTargets(ctx, tgb)
 	if err != nil {
 		if isELBV2TargetGroupNotFoundError(err) {
 			return nil
@@ -361,7 +361,7 @@ func (m *defaultResourceManager) cleanupTargets(ctx context.Context, tgb *elbv2a
 		return err
 	}
 
-	_, err = m.deregisterTargets(ctx, tgb, tgb.Spec.TargetGroupARN, targets)
+	_, err = m.deregisterTargets(ctx, tgb, targets)
 
 	if err != nil {
 		if isELBV2TargetGroupNotFoundError(err) {
@@ -527,7 +527,7 @@ func (m *defaultResourceManager) updatePodAsHealthyForDeletedTGB(ctx context.Con
 	return nil
 }
 
-func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, tgARN string, targets []TargetInfo) (bool, error) {
+func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []TargetInfo) (bool, error) {
 	filteredTargets, updateTrackedTargets, err := m.multiClusterManager.FilterTargetsForDeregistration(ctx, tgb, targets)
 	if err != nil {
 		return false, err
@@ -541,16 +541,34 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgb *elb
 	for _, target := range filteredTargets {
 		sdkTargets = append(sdkTargets, target.Target)
 	}
-	return true, m.targetsManager.DeregisterTargets(ctx, tgARN, sdkTargets)
+	return true, m.targetsManager.DeregisterTargets(ctx, tgb, sdkTargets)
 }
 
-func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN, tgVpcID string, endpoints []backend.PodEndpoint) error {
+func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error {
 	vpcID := m.vpcID
 	// Target group is in a different VPC from the cluster's VPC
-	if tgVpcID != "" && tgVpcID != m.vpcID {
-		vpcID = tgVpcID
-		m.logger.Info("registering endpoints using the targetGroup's vpcID", "TG VPC", tgVpcID,
-			"cluster's vpcID", m.vpcID)
+	if tgb.Spec.VpcID != "" && tgb.Spec.VpcID != m.vpcID {
+		vpcID = tgb.Spec.VpcID
+		m.logger.Info(fmt.Sprintf(
+			"registering endpoints using the targetGroup's vpcID %s which is different from the cluster's vpcID %s", tgb.Spec.VpcID, m.vpcID))
+
+		if tgb.Spec.IamRoleArnToAssume != "" {
+			// since we need to assume a role for this TGB,
+			// it is from a different account
+			// so the packets will need to leave the VPC and therefore
+			// target.AvailabilityZone = awssdk.String("all") must be set
+			// or else nothing will work
+			sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
+			for _, endpoint := range endpoints {
+				target := elbv2types.TargetDescription{
+					Id:   awssdk.String(endpoint.IP),
+					Port: awssdk.Int32(endpoint.Port),
+				}
+				target.AvailabilityZone = awssdk.String("all")
+				sdkTargets = append(sdkTargets, target)
+			}
+			return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+		}
 	}
 	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
 	if err != nil {
@@ -579,10 +597,10 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgARN
 		}
 		sdkTargets = append(sdkTargets, target)
 	}
-	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
+	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
 }
 
-func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, tgARN string, endpoints []backend.NodePortEndpoint) error {
+func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.NodePortEndpoint) error {
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		sdkTargets = append(sdkTargets, elbv2types.TargetDescription{
@@ -590,7 +608,7 @@ func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, 
 			Port: awssdk.Int32(endpoint.Port),
 		})
 	}
-	return m.targetsManager.RegisterTargets(ctx, tgARN, sdkTargets)
+	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
 }
 
 func (m *defaultResourceManager) updateTGBCheckPoint(ctx context.Context, tgb *elbv2api.TargetGroupBinding, newCheckPoint, previousCheckPoint string) error {

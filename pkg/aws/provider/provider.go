@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -19,4 +20,6 @@ type AWSClientsProvider interface {
 	GetWAFRegionClient(ctx context.Context, operationName string) (*wafregional.Client, error)
 	GetShieldClient(ctx context.Context, operationName string) (*shield.Client, error)
 	GetRGTClient(ctx context.Context, operationName string) (*resourcegroupstaggingapi.Client, error)
+
+	GetAWSConfig(ctx context.Context, operationName string) (*aws.Config, error)
 }

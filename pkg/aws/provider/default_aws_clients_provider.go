@@ -21,6 +21,8 @@ type defaultAWSClientsProvider struct {
 	wafRegionClient *wafregional.Client
 	shieldClient    *shield.Client
 	rgtClient       *resourcegroupstaggingapi.Client
+
+	awsConfig *aws.Config
 }
 
 func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.Resolver) (*defaultAWSClientsProvider, error) {
@@ -56,7 +58,7 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		o.Region = cfg.Region
 		o.BaseEndpoint = wafregionalCustomEndpoint
 	})
-	sheildClient := shield.NewFromConfig(cfg, func(o *shield.Options) {
+	shieldClient := shield.NewFromConfig(cfg, func(o *shield.Options) {
 		o.Region = cfg.Region
 		o.BaseEndpoint = shieldCustomEndpoint
 	})
@@ -72,8 +74,10 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		acmClient:       acmClient,
 		wafv2Client:     wafv2Client,
 		wafRegionClient: wafregionalClient,
-		shieldClient:    sheildClient,
+		shieldClient:    shieldClient,
 		rgtClient:       rgtClient,
+
+		awsConfig: &cfg,
 	}, nil
 }
 
@@ -106,4 +110,8 @@ func (p *defaultAWSClientsProvider) GetShieldClient(ctx context.Context, operati
 
 func (p *defaultAWSClientsProvider) GetRGTClient(ctx context.Context, operationName string) (*resourcegroupstaggingapi.Client, error) {
 	return p.rgtClient, nil
+}
+
+func (p *defaultAWSClientsProvider) GetAWSConfig(ctx context.Context, operationName string) (*aws.Config, error) {
+	return p.awsConfig, nil
 }

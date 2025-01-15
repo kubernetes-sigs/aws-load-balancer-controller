@@ -2,8 +2,9 @@ package deploy
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
@@ -23,7 +24,7 @@ type StackDeployer interface {
 }
 
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
-func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
+func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 	networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
 	elbv2TaggingManager elbv2.TaggingManager,
 	config config.ControllerConfig, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
@@ -58,7 +59,7 @@ var _ StackDeployer = &defaultStackDeployer{}
 
 // defaultStackDeployer is the default implementation for StackDeployer
 type defaultStackDeployer struct {
-	cloud                               aws.Cloud
+	cloud                               services.Cloud
 	k8sClient                           client.Client
 	controllerConfig                    config.ControllerConfig
 	addonsConfig                        config.AddonsConfig

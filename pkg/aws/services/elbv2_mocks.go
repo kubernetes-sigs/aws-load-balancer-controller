@@ -66,6 +66,20 @@ func (mr *MockELBV2MockRecorder) AddTagsWithContext(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTagsWithContext", reflect.TypeOf((*MockELBV2)(nil).AddTagsWithContext), arg0, arg1)
 }
 
+// AssumeRole mocks base method.
+func (m *MockELBV2) AssumeRole(arg0 context.Context, arg1, arg2 string) ELBV2 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssumeRole", arg0, arg1, arg2)
+	ret0, _ := ret[0].(ELBV2)
+	return ret0
+}
+
+// AssumeRole indicates an expected call of AssumeRole.
+func (mr *MockELBV2MockRecorder) AssumeRole(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssumeRole", reflect.TypeOf((*MockELBV2)(nil).AssumeRole), arg0, arg1, arg2)
+}
+
 // CreateListenerWithContext mocks base method.
 func (m *MockELBV2) CreateListenerWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.CreateListenerInput) (*elasticloadbalancingv2.CreateListenerOutput, error) {
 	m.ctrl.T.Helper()
