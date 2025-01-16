@@ -3,6 +3,7 @@ package elbv2
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"regexp"
 	"strings"
 
@@ -90,6 +91,9 @@ func (v *targetGroupBindingValidator) ValidateUpdate(ctx context.Context, obj ru
 	if err := v.checkAssumeRoleConfig(tgb); err != nil {
 		return err
 	}
+	if err := v.checkExistingTargetGroups(tgb); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -162,17 +166,29 @@ func (v *targetGroupBindingValidator) checkImmutableFields(tgb *elbv2api.TargetG
 }
 
 // checkExistingTargetGroups will check for unique TargetGroup per TargetGroupBinding
-func (v *targetGroupBindingValidator) checkExistingTargetGroups(tgb *elbv2api.TargetGroupBinding) error {
+func (v *targetGroupBindingValidator) checkExistingTargetGroups(updatedTgb *elbv2api.TargetGroupBinding) error {
 	ctx := context.Background()
 	tgbList := elbv2api.TargetGroupBindingList{}
 	if err := v.k8sClient.List(ctx, &tgbList); err != nil {
 		return errors.Wrap(err, "failed to list TargetGroupBindings in the cluster")
 	}
+
+	duplicateTGBs := make([]types.NamespacedName, 0)
+	multiClusterSupported := updatedTgb.Spec.MultiClusterTargetGroup
+
 	for _, tgbObj := range tgbList.Items {
-		if tgbObj.Spec.TargetGroupARN == tgb.Spec.TargetGroupARN {
-			return errors.Errorf("TargetGroup %v is already bound to TargetGroupBinding %v", tgb.Spec.TargetGroupARN, k8s.NamespacedName(&tgbObj).String())
+		if tgbObj.UID != updatedTgb.UID && tgbObj.Spec.TargetGroupARN == updatedTgb.Spec.TargetGroupARN {
+			if !tgbObj.Spec.MultiClusterTargetGroup {
+				multiClusterSupported = false
+			}
+			duplicateTGBs = append(duplicateTGBs, k8s.NamespacedName(&tgbObj))
 		}
 	}
+
+	if len(duplicateTGBs) != 0 && !multiClusterSupported {
+		return errors.Errorf("TargetGroup %v is already bound to following TargetGroupBindings %v. Please enable MultiCluster mode on all TargetGroupBindings referencing %v or choose a different Target Group ARN.", updatedTgb.Spec.TargetGroupARN, duplicateTGBs, updatedTgb.Spec.TargetGroupARN)
+	}
+
 	return nil
 }
 
