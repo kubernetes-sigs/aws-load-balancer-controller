@@ -89,7 +89,13 @@ func (m *cachedTargetsManager) RegisterTargets(ctx context.Context, tgb *elbv2ap
 		m.logger.Info("registering targets",
 			"arn", tgARN,
 			"targets", targetsChunk)
-		_, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId).RegisterTargetsWithContext(ctx, req)
+
+		clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
+		if err != nil {
+			return err
+		}
+
+		_, err = clientToUse.RegisterTargetsWithContext(ctx, req)
 		if err != nil {
 			return err
 		}
@@ -111,7 +117,11 @@ func (m *cachedTargetsManager) DeregisterTargets(ctx context.Context, tgb *elbv2
 		m.logger.Info("deRegistering targets",
 			"arn", tgARN,
 			"targets", targetsChunk)
-		_, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId).DeregisterTargetsWithContext(ctx, req)
+		clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
+		if err != nil {
+			return err
+		}
+		_, err = clientToUse.DeregisterTargetsWithContext(ctx, req)
 		if err != nil {
 			return err
 		}
@@ -199,7 +209,11 @@ func (m *cachedTargetsManager) listTargetsFromAWS(ctx context.Context, tgb *elbv
 		TargetGroupArn: aws.String(tgARN),
 		Targets:        pointerizeTargetDescriptions(targets),
 	}
-	resp, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId).DescribeTargetHealthWithContext(ctx, req)
+	clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := clientToUse.DescribeTargetHealthWithContext(ctx, req)
 	if err != nil {
 		return nil, err
 	}

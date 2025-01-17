@@ -60,7 +60,7 @@ type ELBV2 interface {
 	ModifyListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error)
 	ModifyCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyCapacityReservationInput) (*elasticloadbalancingv2.ModifyCapacityReservationOutput, error)
 	DescribeCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeCapacityReservationInput) (*elasticloadbalancingv2.DescribeCapacityReservationOutput, error)
-	AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) ELBV2
+	AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) (ELBV2, error)
 }
 
 func NewELBV2(awsClientsProvider provider.AWSClientsProvider, cloud Cloud) ELBV2 {
@@ -76,9 +76,9 @@ type elbv2Client struct {
 	cloud              Cloud
 }
 
-func (c *elbv2Client) AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) ELBV2 {
+func (c *elbv2Client) AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) (ELBV2, error) {
 	if assumeRoleArn == "" {
-		return c
+		return c, nil
 	}
 	return c.cloud.GetAssumedRoleELBV2(ctx, assumeRoleArn, externalId)
 }

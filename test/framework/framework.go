@@ -63,7 +63,7 @@ func InitFramework() (*Framework, error) {
 		VpcID:          globalOptions.AWSVPCID,
 		MaxRetries:     3,
 		ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig(),
-	}, nil, logger, nil)
+	}, "clusterName", nil, logger, nil)
 	if err != nil {
 		return nil, err
 	}

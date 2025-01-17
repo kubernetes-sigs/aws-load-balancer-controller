@@ -67,11 +67,12 @@ func (mr *MockELBV2MockRecorder) AddTagsWithContext(arg0, arg1 interface{}) *gom
 }
 
 // AssumeRole mocks base method.
-func (m *MockELBV2) AssumeRole(arg0 context.Context, arg1, arg2 string) ELBV2 {
+func (m *MockELBV2) AssumeRole(arg0 context.Context, arg1, arg2 string) (ELBV2, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssumeRole", arg0, arg1, arg2)
 	ret0, _ := ret[0].(ELBV2)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // AssumeRole indicates an expected call of AssumeRole.

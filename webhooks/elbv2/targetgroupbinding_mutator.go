@@ -13,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -48,7 +47,6 @@ func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtim
 	if err := m.getArnFromNameIfNeeded(ctx, tgb); err != nil {
 		return nil, err
 	}
-	targetgroupbinding.AnnotationsToFields(tgb)
 	if err := m.defaultingTargetType(ctx, tgb); err != nil {
 		return nil, err
 	}
@@ -63,7 +61,7 @@ func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtim
 
 func (m *targetGroupBindingMutator) getArnFromNameIfNeeded(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	if tgb.Spec.TargetGroupARN == "" && tgb.Spec.TargetGroupName != "" {
-		tgObj, err := m.getTargetGroupsByNameFromAWS(ctx, tgb.Spec.TargetGroupName)
+		tgObj, err := m.getTargetGroupsByNameFromAWS(ctx, tgb)
 		if err != nil {
 			return err
 		}
@@ -153,7 +151,14 @@ func (m *targetGroupBindingMutator) getTargetGroupFromAWS(ctx context.Context, t
 	req := &elbv2sdk.DescribeTargetGroupsInput{
 		TargetGroupArns: []string{tgARN},
 	}
-	tgList, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId).DescribeTargetGroupsAsList(ctx, req)
+
+	clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tgList, err := clientToUse.DescribeTargetGroupsAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -163,16 +168,22 @@ func (m *targetGroupBindingMutator) getTargetGroupFromAWS(ctx context.Context, t
 	return &tgList[0], nil
 }
 
-func (m *targetGroupBindingMutator) getTargetGroupsByNameFromAWS(ctx context.Context, tgName string) (*elbv2types.TargetGroup, error) {
+func (m *targetGroupBindingMutator) getTargetGroupsByNameFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (*elbv2types.TargetGroup, error) {
 	req := &elbv2sdk.DescribeTargetGroupsInput{
-		Names: []string{tgName},
+		Names: []string{tgb.Spec.TargetGroupName},
 	}
-	tgList, err := m.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
+	clientToUse, err := m.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	tgList, err := clientToUse.DescribeTargetGroupsAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}
 	if len(tgList) != 1 {
-		return nil, errors.Errorf("expecting a single targetGroup with name [%s] but got %v", tgName, len(tgList))
+		return nil, errors.Errorf("expecting a single targetGroup with name [%s] but got %v", tgb.Spec.TargetGroupName, len(tgList))
 	}
 	return &tgList[0], nil
 }

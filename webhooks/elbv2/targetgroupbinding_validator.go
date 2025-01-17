@@ -16,7 +16,6 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,7 +55,6 @@ func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Ob
 
 func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
-	targetgroupbinding.AnnotationsToFields(tgb)
 	if err := v.checkRequiredFields(ctx, tgb); err != nil {
 		return err
 	}
@@ -78,7 +76,6 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 func (v *targetGroupBindingValidator) ValidateUpdate(ctx context.Context, obj runtime.Object, oldObj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	oldTgb := oldObj.(*elbv2api.TargetGroupBinding)
-	targetgroupbinding.AnnotationsToFields(tgb)
 	if err := v.checkRequiredFields(ctx, tgb); err != nil {
 		return err
 	}
@@ -237,7 +234,13 @@ func (v *targetGroupBindingValidator) getTargetGroupFromAWS(ctx context.Context,
 	req := &elbv2sdk.DescribeTargetGroupsInput{
 		TargetGroupArns: []string{tgARN},
 	}
-	tgList, err := v.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId).DescribeTargetGroupsAsList(ctx, req)
+
+	clientToUse, err := v.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId)
+	if err != nil {
+		return nil, err
+	}
+
+	tgList, err := clientToUse.DescribeTargetGroupsAsList(ctx, req)
 	if err != nil {
 		return nil, err
 	}

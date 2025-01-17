@@ -112,10 +112,10 @@ spec:
 ### AssumeRole
 
 Sometimes the AWS LoadBalancer controller needs to manipulate target groups from different AWS accounts.
-The way to do that is assuming a role from such account. There are annotations that can help you with that:
+The way to do that is assuming a role from such account. The following spec fields help you with that.
 
-* `alb.ingress.kubernetes.io/IamRoleArnToAssume`: the ARN that you need to assume
-* `alb.ingress.kubernetes.io/AssumeRoleExternalId`: the external ID for the assume role operation. Optional, but recommended. It helps you to prevent the confused deputy problem ( https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html )
+* `iamRoleArnToAssume`: the ARN that you need to assume
+* `assumeRoleExternalId`: the external ID for the assume role operation. Optional, but recommended. It helps you to prevent the confused deputy problem ( https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html )
 
 
 ## Sample YAML
@@ -125,10 +125,9 @@ apiVersion: elbv2.k8s.aws/v1beta1
 kind: TargetGroupBinding
 metadata:
   name: my-tgb
-  annotations:
-    alb.ingress.kubernetes.io/IamRoleArnToAssume: "arn:aws:iam::999999999999:role/alb-controller-policy-to-assume"
-    alb.ingress.kubernetes.io/AssumeRoleExternalId: "some-magic-string"
 spec:
+  iamRoleArnToAssume: "arn:aws:iam::999999999999:role/alb-controller-policy-to-assume"
+  assumeRoleExternalId: "some-magic-string"
   ...
 ```
 

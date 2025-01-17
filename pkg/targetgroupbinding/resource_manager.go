@@ -96,7 +96,6 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 	var oldCheckPoint string
 	var isDeferred bool
 	var err error
-	AnnotationsToFields(tgb)
 
 	if *tgb.Spec.TargetType == elbv2api.TargetTypeIP {
 		newCheckPoint, oldCheckPoint, isDeferred, err = m.reconcileWithIPTargetType(ctx, tgb)
@@ -116,7 +115,6 @@ func (m *defaultResourceManager) Reconcile(ctx context.Context, tgb *elbv2api.Ta
 }
 
 func (m *defaultResourceManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	AnnotationsToFields(tgb)
 	if err := m.cleanupTargets(ctx, tgb); err != nil {
 		return err
 	}
@@ -546,42 +544,45 @@ func (m *defaultResourceManager) deregisterTargets(ctx context.Context, tgb *elb
 
 func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint) error {
 	vpcID := m.vpcID
-	// Target group is in a different VPC from the cluster's VPC
 	if tgb.Spec.VpcID != "" && tgb.Spec.VpcID != m.vpcID {
 		vpcID = tgb.Spec.VpcID
 		m.logger.Info(fmt.Sprintf(
 			"registering endpoints using the targetGroup's vpcID %s which is different from the cluster's vpcID %s", tgb.Spec.VpcID, m.vpcID))
+	}
 
-		if tgb.Spec.IamRoleArnToAssume != "" {
-			// since we need to assume a role for this TGB,
-			// it is from a different account
-			// so the packets will need to leave the VPC and therefore
-			// target.AvailabilityZone = awssdk.String("all") must be set
-			// or else nothing will work
-			sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
-			for _, endpoint := range endpoints {
-				target := elbv2types.TargetDescription{
-					Id:   awssdk.String(endpoint.IP),
-					Port: awssdk.Int32(endpoint.Port),
-				}
-				target.AvailabilityZone = awssdk.String("all")
-				sdkTargets = append(sdkTargets, target)
-			}
-			return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+	var overrideAzFn func(addr netip.Addr) bool
+	if tgb.Spec.IamRoleArnToAssume != "" {
+		// If we're interacting with another account, then we should always be sitting "all" AZ to allow this
+		// target to get registered by the ELB API.
+		overrideAzFn = func(_ netip.Addr) bool {
+			return true
+		}
+	} else {
+		vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
+		if err != nil {
+			return err
+		}
+		var vpcRawCIDRs []string
+		vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
+		vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
+		vpcCIDRs, err := networking.ParseCIDRs(vpcRawCIDRs)
+		if err != nil {
+			return err
+		}
+		// If the pod ip resides out of all the VPC CIDRs, then the only way to force the ELB API is to use "all" AZ.
+		overrideAzFn = func(addr netip.Addr) bool {
+			return !networking.IsIPWithinCIDRs(addr, vpcCIDRs)
 		}
 	}
-	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
-	if err != nil {
-		return err
-	}
-	var vpcRawCIDRs []string
-	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
-	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
-	vpcCIDRs, err := networking.ParseCIDRs(vpcRawCIDRs)
-	if err != nil {
-		return err
-	}
 
+	sdkTargets, err := m.prepareRegistrationCall(endpoints, overrideAzFn)
+	if err != nil {
+		return err
+	}
+	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+}
+
+func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.PodEndpoint, doAzOverride func(addr netip.Addr) bool) ([]elbv2types.TargetDescription, error) {
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		target := elbv2types.TargetDescription{
@@ -590,14 +591,14 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 		}
 		podIP, err := netip.ParseAddr(endpoint.IP)
 		if err != nil {
-			return err
+			return sdkTargets, err
 		}
-		if !networking.IsIPWithinCIDRs(podIP, vpcCIDRs) {
+		if doAzOverride(podIP) {
 			target.AvailabilityZone = awssdk.String("all")
 		}
 		sdkTargets = append(sdkTargets, target)
 	}
-	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+	return sdkTargets, nil
 }
 
 func (m *defaultResourceManager) registerNodePortEndpoints(ctx context.Context, tgb *elbv2api.TargetGroupBinding, endpoints []backend.NodePortEndpoint) error {
