@@ -6,7 +6,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/cache"
 	"net"
 	"os"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -39,8 +38,6 @@ const (
 	userAgent          = "elbv2.k8s.aws"
 	cacheTTLBufferTime = 30 * time.Second
 )
-
-var illegalValuesInSessionName = regexp.MustCompile(`[^a-zA-Z0-9=,.@-]+`)
 
 // NewCloud constructs new Cloud implementation.
 func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics.Collector, logger logr.Logger, awsClientsProvider provider.AWSClientsProvider) (services.Cloud, error) {
@@ -261,7 +258,7 @@ func (c *defaultCloud) GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn st
 	sourceAccount := sts.NewFromConfig(*existingAwsConfig)
 	response, err := sourceAccount.AssumeRole(ctx, &sts.AssumeRoleInput{
 		RoleArn:         aws.String(assumeRoleArn),
-		RoleSessionName: aws.String(c.makeClusterNameSessionNameSafe()),
+		RoleSessionName: aws.String(generateAssumeRoleSessionName(c.clusterName)),
 		ExternalId:      aws.String(externalId),
 	})
 	if err != nil {
@@ -284,11 +281,6 @@ func (c *defaultCloud) GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn st
 	defer c.assumeRoleElbV2CacheMutex.Unlock()
 	c.assumeRoleElbV2Cache.Set(assumeRoleArn, elbv2WithAssumedRole, cacheTTL-cacheTTLBufferTime)
 	return elbv2WithAssumedRole, nil
-}
-
-func (c *defaultCloud) makeClusterNameSessionNameSafe() string {
-	safeClusterName := illegalValuesInSessionName.ReplaceAllString(c.clusterName, "")
-	return fmt.Sprintf("AWS-LBC-%s", safeClusterName)
 }
 
 func (c *defaultCloud) EC2() services.EC2 {
