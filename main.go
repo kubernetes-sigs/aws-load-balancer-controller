@@ -17,11 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"k8s.io/client-go/util/workqueue"
-	"os"
-
-	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
-
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	zapraw "go.uber.org/zap"
@@ -29,7 +24,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
+	"os"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2controller "sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
@@ -37,6 +34,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
@@ -84,8 +82,6 @@ func main() {
 	klog.SetLoggerWithOptions(appLogger, klog.ContextualLogger(true))
 
 	var awsMetricsCollector *awsmetrics.Collector
-	lbcMetricsCollector := lbcmetrics.NewCollector(metrics.Registry)
-
 	if metrics.Registry != nil {
 		awsMetricsCollector = awsmetrics.NewCollector(metrics.Registry)
 	}
@@ -106,6 +102,17 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	// track the k8s resources with finalizers contains "k8s.aws"
+	// track the aws resources with cluster tag "elbv2.k8s.aws/cluster=$ClusterName"
+	lbcMetricsCollector := lbcmetrics.NewCollector(
+		metrics.Registry,
+		mgr.GetClient(),
+		cloud.RGT(),
+		"k8s.aws",
+		"elbv2.k8s.aws/cluster",
+		controllerCFG.ClusterName,
+	)
 
 	clientSet, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
@@ -210,6 +217,19 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+
+	// update of the managed resource metrics
+	go func() {
+		if err := lbcMetricsCollector.UpdateManagedK8sResourceMetrics(ctx); err != nil {
+			setupLog.Error(err, "failed to update managed Kubernetes resource metrics")
+		}
+		if err := lbcMetricsCollector.UpdateManagedALBMetrics(ctx); err != nil {
+			setupLog.Error(err, "failed to update managed ALB metrics")
+		}
+		if err := lbcMetricsCollector.UpdateManagedNLBMetrics(ctx); err != nil {
+			setupLog.Error(err, "failed to update managed NLB metrics")
+		}
+	}()
 }
 
 // loadControllerConfig loads the controller configuration.

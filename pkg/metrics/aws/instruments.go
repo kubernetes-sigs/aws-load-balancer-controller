@@ -59,8 +59,13 @@ func newInstruments(registerer prometheus.Registerer) *instruments {
 		Name:      metricAPIRequestDurationSeconds,
 		Help:      "Latency of an individual HTTP request to the service endpoint",
 	}, []string{labelService, labelOperation})
-
-	registerer.MustRegister(apiCallsTotal, apiCallDurationSeconds, apiCallRetries, apiRequestsTotal, apiRequestDurationSecond)
+	registerer.MustRegister(
+		apiCallsTotal,
+		apiCallDurationSeconds,
+		apiCallRetries,
+		apiRequestsTotal,
+		apiRequestDurationSecond,
+	)
 	return &instruments{
 		apiCallsTotal:            apiCallsTotal,
 		apiCallDurationSeconds:   apiCallDurationSeconds,
