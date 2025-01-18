@@ -552,7 +552,7 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 
 	var overrideAzFn func(addr netip.Addr) bool
 	if tgb.Spec.IamRoleArnToAssume != "" {
-		// If we're interacting with another account, then we should always be sitting "all" AZ to allow this
+		// If we're interacting with another account, then we should always be setting "all" AZ to allow this
 		// target to get registered by the ELB API.
 		overrideAzFn = func(_ netip.Addr) bool {
 			return true

@@ -112,10 +112,108 @@ spec:
 ### AssumeRole
 
 Sometimes the AWS LoadBalancer controller needs to manipulate target groups from different AWS accounts.
-The way to do that is assuming a role from such account. The following spec fields help you with that.
+The way to do that is assuming a role from such an account. The following spec fields help you with that.
 
 * `iamRoleArnToAssume`: the ARN that you need to assume
 * `assumeRoleExternalId`: the external ID for the assume role operation. Optional, but recommended. It helps you to prevent the confused deputy problem ( https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html )
+
+
+```yaml
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: peered-tg
+  namespace: nlb-game-2048-1
+spec:
+  assumeRoleExternalId: very-secret-string-2
+  iamRoleArnToAssume: arn:aws:iam::155642222660:role/tg-management-role
+  networking:
+    ingress:
+    - from:
+      - securityGroup:
+          groupID: sg-0b6a41a2fd959623f
+      ports:
+      - port: 80
+        protocol: TCP
+  serviceRef:
+    name: service-2048
+    port: 80
+  targetGroupARN: arn:aws:elasticloadbalancing:us-west-2:155642222660:targetgroup/peered-tg/6a4ecf7bfae473c1
+```
+
+In the following examples, we will refer to Cluster Owner (CO) and Target Group Owner (TGO) accounts.
+
+First, in the TGO account creates a role that will allow the AWS LBC in the CO account to assume it.
+For improved security, we only allow the AWS LBC role in CO account to assume the role.
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::565768096483:role/eksctl-awslbc-loadtest-addon-iamserviceaccoun-Role1-13RdJCMqV6p2"
+            },
+            "Action": "sts:AssumeRole",
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "very-secret-string"
+                }
+            }
+        }
+    ]
+}
+```
+
+Next, still in the TGO account we need to add the following permissions to the Role created in the first step.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "VisualEditor0",
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:RegisterTargets",
+        "elasticloadbalancing:DeregisterTargets"
+      ],
+      "Resource": [
+        "arn:aws:elasticloadbalancing:us-west-2:155642222660:targetgroup/tg1/*",
+        "arn:aws:elasticloadbalancing:us-west-2:155642222660:targetgroup/tg2/*"
+        // add more here //
+      ]
+    },
+    {
+      "Sid": "VisualEditor1",
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:DescribeTargetGroups",
+        "elasticloadbalancing:DescribeTargetHealth"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+
+Next, in the CO account, we need to allow the AWS LBC to perform the AssumeRole call.
+By default, this permission is not a part of the standard IAM policy that is vended with the LBC installation scripts.
+For improved security, it is possible to scope the AssumeRole permissions down to only roles that you know ahead of time the
+LBC will need to Assume.
+
+```json
+        {
+            "Effect": "Allow",
+            "Action": [
+                "sts:AssumeRole"
+            ],
+            "Resource": "*"
+        }
+```
 
 
 ## Sample YAML

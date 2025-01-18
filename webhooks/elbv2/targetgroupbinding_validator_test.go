@@ -1412,6 +1412,67 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 	}
 }
 
+func TestCheckAssumeRoleConfig(t *testing.T) {
+	instance := elbv2api.TargetTypeInstance
+	ip := elbv2api.TargetTypeIP
+	testCases := []struct {
+		name string
+		tgb  *elbv2api.TargetGroupBinding
+		err  error
+	}{
+		{
+			name: "ip no assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType: &ip,
+				},
+			},
+		},
+		{
+			name: "instance no assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType: &instance,
+				},
+			},
+		},
+		{
+			name: "ip with assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType:         &ip,
+					IamRoleArnToAssume: "foo",
+				},
+			},
+		},
+		{
+			name: "instance with assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType:         &instance,
+					IamRoleArnToAssume: "foo",
+				},
+			},
+			err: errors.New("Unable to use instance target type while using assume role"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			v := &targetGroupBindingValidator{
+				logger: logr.New(&log.NullLogSink{}),
+			}
+
+			err := v.checkAssumeRoleConfig(tc.tgb)
+			if tc.err == nil {
+				assert.Nil(t, err)
+			} else {
+				assert.EqualError(t, err, tc.err.Error())
+			}
+		})
+	}
+}
+
 func generateRandomString(n int, addChars ...rune) string {
 	const letters = "0123456789abcdef"
 

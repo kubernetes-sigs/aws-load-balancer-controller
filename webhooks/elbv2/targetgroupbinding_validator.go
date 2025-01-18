@@ -69,6 +69,9 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 	if err := v.checkTargetGroupVpcID(ctx, tgb); err != nil {
 		return err
 	}
+	if err := v.checkAssumeRoleConfig(tgb); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -82,6 +85,9 @@ func (v *targetGroupBindingValidator) ValidateUpdate(ctx context.Context, obj ru
 		return err
 	}
 	if err := v.checkNodeSelector(tgb); err != nil {
+		return err
+	}
+	if err := v.checkAssumeRoleConfig(tgb); err != nil {
 		return err
 	}
 	return nil
@@ -233,6 +239,19 @@ func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgb *
 		return "", err
 	}
 	return awssdk.ToString(targetGroup.VpcId), nil
+}
+
+// checkAssumeRoleConfig various checks for using cross account target group bindings.
+func (v *targetGroupBindingValidator) checkAssumeRoleConfig(tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.IamRoleArnToAssume == "" {
+		return nil
+	}
+
+	if tgb.Spec.TargetType != nil && *tgb.Spec.TargetType == elbv2api.TargetTypeInstance {
+		return errors.New("Unable to use instance target type while using assume role")
+	}
+
+	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=false,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=vtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1

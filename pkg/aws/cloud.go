@@ -10,17 +10,10 @@ import (
 	"sync"
 	"time"
 
-	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
-	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
-	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
-
-	smithymiddleware "github.com/aws/smithy-go/middleware"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
@@ -35,7 +28,6 @@ import (
 )
 
 const (
-	userAgent          = "elbv2.k8s.aws"
 	cacheTTLBufferTime = 30 * time.Second
 )
 
@@ -81,29 +73,11 @@ func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics
 		}
 		cfg.Region = region
 	}
-	awsConfig, err := config.LoadDefaultConfig(context.TODO(),
-		config.WithRegion(cfg.Region),
-		config.WithRetryer(func() aws.Retryer {
-			return retry.NewStandard(func(o *retry.StandardOptions) {
-				o.RateLimiter = ratelimit.None
-				o.MaxAttempts = cfg.MaxRetries
-			})
-		}),
-		config.WithEC2IMDSEndpointMode(ec2IMDSEndpointMode),
-		config.WithAPIOptions([]func(stack *smithymiddleware.Stack) error{
-			awsmiddleware.AddUserAgentKeyValue(userAgent, version.GitVersion),
-		}),
-	)
 
-	if cfg.ThrottleConfig != nil {
-		throttler := throttle.NewThrottler(cfg.ThrottleConfig)
-		awsConfig.APIOptions = append(awsConfig.APIOptions, func(stack *smithymiddleware.Stack) error {
-			return throttle.WithSDKRequestThrottleMiddleware(throttler)(stack)
-		})
-	}
-
-	if metricsCollector != nil {
-		awsConfig.APIOptions = aws_metrics.WithSDKMetricCollector(metricsCollector, awsConfig.APIOptions)
+	awsConfigGenerator := NewAWSConfigGenerator(cfg, ec2IMDSEndpointMode, metricsCollector)
+	awsConfig, err := awsConfigGenerator.GenerateAWSConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to generate AWS config")
 	}
 
 	if awsClientsProvider == nil {
@@ -131,6 +105,8 @@ func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics
 		wafRegional: services.NewWAFRegional(awsClientsProvider, cfg.Region),
 		shield:      services.NewShield(awsClientsProvider),
 		rgt:         services.NewRGT(awsClientsProvider),
+
+		awsConfigGenerator: awsConfigGenerator,
 
 		assumeRoleElbV2Cache: cache.NewExpiring(),
 
@@ -229,6 +205,8 @@ type defaultCloud struct {
 
 	clusterName string
 
+	awsConfigGenerator AWSConfigGenerator
+
 	// A cache holding elbv2 clients that are assuming a role.
 	assumeRoleElbV2Cache *cache.Expiring
 	// assumeRoleElbV2CacheMutex protects assumeRoleElbV2Cache
@@ -251,31 +229,33 @@ func (c *defaultCloud) GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn st
 	if exists {
 		return assumedRoleELBV2.(services.ELBV2), nil
 	}
-	c.logger.Info("awsCloud", "method", "GetAssumedRoleELBV2", "AssumeRoleArn", assumeRoleArn, "externalId", externalId)
+	c.logger.Info("Constructing new elbv2 client", "AssumeRoleArn", assumeRoleArn, "externalId", externalId)
 
-	existingAwsConfig, _ := c.awsClientsProvider.GetAWSConfig(ctx, "GetAWSConfigForIAMRoleImpersonation")
+	stsClient, err := c.awsClientsProvider.GetSTSClient(ctx, "AssumeRole")
+	if err != nil {
+		// This should never happen, but let's be forward-looking.
+		return nil, err
+	}
 
-	sourceAccount := sts.NewFromConfig(*existingAwsConfig)
-	response, err := sourceAccount.AssumeRole(ctx, &sts.AssumeRoleInput{
+	response, err := stsClient.AssumeRole(ctx, &sts.AssumeRoleInput{
 		RoleArn:         aws.String(assumeRoleArn),
 		RoleSessionName: aws.String(generateAssumeRoleSessionName(c.clusterName)),
 		ExternalId:      aws.String(externalId),
 	})
 	if err != nil {
-		c.logger.Error(err, "Unable to assume target role, %v")
+		c.logger.Error(err, "Unable to assume target role", "roleArn", assumeRoleArn)
 		return nil, err
 	}
 	assumedRoleCreds := response.Credentials
 	newCreds := credentials.NewStaticCredentialsProvider(*assumedRoleCreds.AccessKeyId, *assumedRoleCreds.SecretAccessKey, *assumedRoleCreds.SessionToken)
-	newAwsConfig, err := config.LoadDefaultConfig(ctx, config.WithRegion(c.cfg.Region), config.WithCredentialsProvider(newCreds))
+	newAwsConfig, err := c.awsConfigGenerator.GenerateAWSConfig(config.WithCredentialsProvider(newCreds))
 	if err != nil {
-		c.logger.Error(err, "Unable to load static credentials for service client config, %v. Attempting to use default client")
+		c.logger.Error(err, "Create new service client config service client config", "roleArn", assumeRoleArn)
 		return nil, err
 	}
 
 	cacheTTL := assumedRoleCreds.Expiration.Sub(time.Now())
-	existingAwsConfig.Credentials = newAwsConfig.Credentials
-	elbv2WithAssumedRole := services.NewELBV2(c.awsClientsProvider, c)
+	elbv2WithAssumedRole := services.NewELBV2FromStaticClient(c.awsClientsProvider.GenerateNewELBv2Client(newAwsConfig), c)
 
 	c.assumeRoleElbV2CacheMutex.Lock()
 	defer c.assumeRoleElbV2CacheMutex.Unlock()

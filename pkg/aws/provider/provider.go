@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go-v2/service/shield"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 )
@@ -20,6 +21,6 @@ type AWSClientsProvider interface {
 	GetWAFRegionClient(ctx context.Context, operationName string) (*wafregional.Client, error)
 	GetShieldClient(ctx context.Context, operationName string) (*shield.Client, error)
 	GetRGTClient(ctx context.Context, operationName string) (*resourcegroupstaggingapi.Client, error)
-
-	GetAWSConfig(ctx context.Context, operationName string) (*aws.Config, error)
+	GetSTSClient(ctx context.Context, operationName string) (*sts.Client, error)
+	GenerateNewELBv2Client(cfg aws.Config) *elasticloadbalancingv2.Client
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go-v2/service/shield"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/aws-sdk-go-v2/service/wafregional"
 	"github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/endpoints"
@@ -21,11 +22,13 @@ type defaultAWSClientsProvider struct {
 	wafRegionClient *wafregional.Client
 	shieldClient    *shield.Client
 	rgtClient       *resourcegroupstaggingapi.Client
+	stsClient       *sts.Client
 
-	awsConfig *aws.Config
+	// used for dynamic creation of ELBv2 client
+	elbv2CustomEndpoint *string
 }
 
-func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.Resolver) (*defaultAWSClientsProvider, error) {
+func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.Resolver) (AWSClientsProvider, error) {
 	ec2CustomEndpoint := endpointsResolver.EndpointFor(ec2.ServiceID)
 	elbv2CustomEndpoint := endpointsResolver.EndpointFor(elasticloadbalancingv2.ServiceID)
 	acmCustomEndpoint := endpointsResolver.EndpointFor(acm.ServiceID)
@@ -33,17 +36,16 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 	wafregionalCustomEndpoint := endpointsResolver.EndpointFor(wafregional.ServiceID)
 	shieldCustomEndpoint := endpointsResolver.EndpointFor(shield.ServiceID)
 	rgtCustomEndpoint := endpointsResolver.EndpointFor(resourcegroupstaggingapi.ServiceID)
+	stsCustomEndpoint := endpointsResolver.EndpointFor(sts.ServiceID)
 
 	ec2Client := ec2.NewFromConfig(cfg, func(o *ec2.Options) {
 		if ec2CustomEndpoint != nil {
 			o.BaseEndpoint = ec2CustomEndpoint
 		}
 	})
-	elbv2Client := elasticloadbalancingv2.NewFromConfig(cfg, func(o *elasticloadbalancingv2.Options) {
-		if elbv2CustomEndpoint != nil {
-			o.BaseEndpoint = elbv2CustomEndpoint
-		}
-	})
+
+	elbv2Client := generateNewELBv2ClientHelper(cfg, elbv2CustomEndpoint)
+
 	acmClient := acm.NewFromConfig(cfg, func(o *acm.Options) {
 		if acmCustomEndpoint != nil {
 			o.BaseEndpoint = acmCustomEndpoint
@@ -68,6 +70,12 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		}
 	})
 
+	stsClient := sts.NewFromConfig(cfg, func(o *sts.Options) {
+		if stsCustomEndpoint != nil {
+			o.BaseEndpoint = stsCustomEndpoint
+		}
+	})
+
 	return &defaultAWSClientsProvider{
 		ec2Client:       ec2Client,
 		elbv2Client:     elbv2Client,
@@ -76,8 +84,9 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		wafRegionClient: wafregionalClient,
 		shieldClient:    shieldClient,
 		rgtClient:       rgtClient,
+		stsClient:       stsClient,
 
-		awsConfig: &cfg,
+		elbv2CustomEndpoint: elbv2CustomEndpoint,
 	}, nil
 }
 
@@ -112,6 +121,18 @@ func (p *defaultAWSClientsProvider) GetRGTClient(ctx context.Context, operationN
 	return p.rgtClient, nil
 }
 
-func (p *defaultAWSClientsProvider) GetAWSConfig(ctx context.Context, operationName string) (*aws.Config, error) {
-	return p.awsConfig, nil
+func (p *defaultAWSClientsProvider) GetSTSClient(ctx context.Context, operationName string) (*sts.Client, error) {
+	return p.stsClient, nil
+}
+
+func (p *defaultAWSClientsProvider) GenerateNewELBv2Client(cfg aws.Config) *elasticloadbalancingv2.Client {
+	return generateNewELBv2ClientHelper(cfg, p.elbv2CustomEndpoint)
+}
+
+func generateNewELBv2ClientHelper(cfg aws.Config, elbv2CustomEndpoint *string) *elasticloadbalancingv2.Client {
+	return elasticloadbalancingv2.NewFromConfig(cfg, func(o *elasticloadbalancingv2.Options) {
+		if elbv2CustomEndpoint != nil {
+			o.BaseEndpoint = elbv2CustomEndpoint
+		}
+	})
 }
