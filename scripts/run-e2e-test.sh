@@ -14,7 +14,7 @@ TEST_IMAGE_REGISTRY=${TEST_IMAGE_REGISTRY:-"617930562442.dkr.ecr.us-west-2.amazo
 # PROD_IMAGE_REGISTRY is the registry in build-prod-* accounts where prod LBC images are stored
 PROD_IMAGE_REGISTRY=${PROD_IMAGE_REGISTRY:-"602401143452.dkr.ecr.us-west-2.amazonaws.com"}
 
-ADC_REGIONS="us-iso-east-1 us-isob-east-1 us-iso-west-1"
+ADC_REGIONS="us-iso-east-1 us-isob-east-1 us-iso-west-1 us-isof-south-1 us-isof-east-1 eu-isoe-west-1"
 CONTAINER_NAME="aws-load-balancer-controller"
 : "${DISABLE_WAFV2:=false}"
 DISABLE_WAFV2_FLAGS=""
@@ -75,6 +75,12 @@ elif [[ $ADC_REGIONS == *"$REGION"* ]]; then
   if [[ $REGION == "us-isob-east-1" ]]; then
     AWS_PARTITION="aws-iso-b"
     IAM_POLCIY_FILE="iam_policy_isob.json"
+  elif [[ $REGION == "us-isof-east-1" || $REGION == "us-isof-south-1" ]]; then
+    AWS_PARTITION="aws-iso-f"
+    IAM_POLCIY_FILE="iam_policy_isof.json"
+  elif [[ $REGION == "eu-isoe-west-1" ]]; then
+    AWS_PARTITION="aws-iso-e"
+    IAM_POLCIY_FILE="iam_policy_isoe.json"
   else
     AWS_PARTITION="aws-iso"
     IAM_POLCIY_FILE="iam_policy_iso.json"
@@ -143,7 +149,7 @@ function install_controller_for_adc_regions() {
     kubectl apply -f $cert_manager_yaml || true
     sleep 60s
     echo "install the controller via yaml"
-    controller_yaml="$SCRIPT_DIR"/../test/prow/v2_6_0_adc.yaml
+    controller_yaml="$SCRIPT_DIR"/../test/prow/v2_8_2_adc.yaml
     default_controller_image="public.ecr.aws/eks/aws-load-balancer-controller"
     sed -i "s#$default_controller_image#$IMAGE#g" "$controller_yaml"
     echo "Image URL in $controller_yaml has been updated to $IMAGE"
@@ -153,7 +159,7 @@ function install_controller_for_adc_regions() {
     kubectl rollout status -n kube-system deployment aws-load-balancer-controller || true
 
     echo "apply the manifest for ingressclass and ingressclassparam"
-    ingclass_yaml="$SCRIPT_DIR"/../test/prow/v2_6_0_ingclass.yaml
+    ingclass_yaml="$SCRIPT_DIR"/../test/prow/v2_8_2_ingclass.yaml
     kubectl apply -f $ingclass_yaml || true
 }
 
@@ -217,8 +223,8 @@ function run_ginkgo_test() {
   local focus=$1
   echo "Starting the ginkgo tests from generated ginkgo test binaries with focus: $focus"
   if [ "$IP_FAMILY" == "IPv4" ] || [ "$IP_FAMILY" == "IPv6" ]; then
-    CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 3h --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail
-    CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 3h --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail
+    CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/ingress.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail
+    CGO_ENABLED=0 GOOS=$OS_OVERRIDE ginkgo --no-color $EXTRA_GINKGO_FLAGS --focus="$focus" -v --timeout 2h --fail-on-pending $GINKGO_TEST_BUILD/service.test -- --kubeconfig=$KUBE_CONFIG_PATH --cluster-name=$CLUSTER_NAME --aws-region=$REGION --aws-vpc-id=$VPC_ID --test-image-registry=$TEST_IMAGE_REGISTRY --ip-family=$IP_FAMILY || TEST_RESULT=fail
   else
     echo "Invalid IP_FAMILY input, choose from IPv4 or IPv6 only"
   fi
