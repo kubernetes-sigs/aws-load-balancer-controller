@@ -199,7 +199,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 
 func (t *defaultModelBuildTask) buildLoadBalancerEnablePrefixForIpv6SourceNat(_ context.Context, ipAddressType elbv2model.IPAddressType, ec2Subnets []ec2types.Subnet) (elbv2model.EnablePrefixForIpv6SourceNat, error) {
 	rawEnablePrefixForIpv6SourceNat := ""
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.ScvLBSuffixEnablePrefixForIpv6SourceNat, &rawEnablePrefixForIpv6SourceNat, t.service.Annotations); !exists {
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEnablePrefixForIpv6SourceNat, &rawEnablePrefixForIpv6SourceNat, t.service.Annotations); !exists {
 		return elbv2model.EnablePrefixForIpv6SourceNatOff, nil
 	}
 
@@ -382,7 +382,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 	var isPrefixForIpv6SourceNatEnabled = enablePrefixForIpv6SourceNat == elbv2model.EnablePrefixForIpv6SourceNatOn
 
 	var sourceNatIpv6Prefixes []string
-	sourceNatIpv6PrefixesConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.ScvLBSuffixSourceNatIpv6Prefixes, &sourceNatIpv6Prefixes, t.service.Annotations)
+	sourceNatIpv6PrefixesConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSourceNatIpv6Prefixes, &sourceNatIpv6Prefixes, t.service.Annotations)
 	if sourceNatIpv6PrefixesConfigured {
 		sourceNatIpv6PrefixesError := networking.ValidateSourceNatPrefixes(sourceNatIpv6Prefixes, ipAddressType, isPrefixForIpv6SourceNatEnabled, ec2Subnets)
 		if sourceNatIpv6PrefixesError != nil {
