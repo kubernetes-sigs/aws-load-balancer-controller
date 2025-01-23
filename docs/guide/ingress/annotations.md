@@ -174,6 +174,10 @@ Traffic Routing can be controlled with following annotations:
 
         - Once defined on a single Ingress, it impacts every Ingress within the IngressGroup.
 
+    !!!note "Annotation Behavior"
+    
+        - This annotation **takes effect only during the creation** of the Ingress. If the Ingress already exists, the change will not be applied until the Ingress is **deleted and recreated**.
+        
     !!!example
         ```
         alb.ingress.kubernetes.io/load-balancer-name: custom-name
