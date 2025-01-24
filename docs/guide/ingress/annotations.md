@@ -61,6 +61,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/mutual-authentication](#mutual-authentication)                             | json                        |N/A| Ingress         | Exclusive     |
 | [alb.ingress.kubernetes.io/multi-cluster-target-group](#multi-cluster-target-group)                   | boolean                     |N/A| Ingress, Service | N/A           |
 | [alb.ingress.kubernetes.io/listener-attributes.${Protocol}-${Port}](#listener-attributes)                           | stringMap                        |N/A| Ingress         |Merge|
+| [alb.ingress.kubernetes.io/minimum-load-balancer-capacity](#load-balancer-capacity-reservation)                       | stringMap                   |N/A| Ingress         | Exclusive     |
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -173,6 +174,10 @@ Traffic Routing can be controlled with following annotations:
 
         - Once defined on a single Ingress, it impacts every Ingress within the IngressGroup.
 
+    !!!note "Annotation Behavior"
+    
+        - This annotation **takes effect only during the creation** of the Ingress. If the Ingress already exists, the change will not be applied until the Ingress is **deleted and recreated**.
+        
     !!!example
         ```
         alb.ingress.kubernetes.io/load-balancer-name: custom-name
@@ -804,6 +809,7 @@ TLS support can be controlled with the following annotations:
                - Both ARN and Name of trustStore are supported values.
                - `trustStore` is required when mode is `verify`.
             - `ignoreClientCertificateExpiry : true | false (default)`
+            - `advertiseTrustStoreCaNames : "on" | "off" (default)`
         - Once the Mutual Authentication is set, to turn it off, you will have to explicitly pass in this annotation with `mode : "off"`.
   
     !!!example
@@ -930,6 +936,26 @@ In addition, you can use annotations to specify additional tags
         ```
         alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
         ```
+
+## Capacity Unit Reservation
+Load balancer capacity unit reservation can be configured via following annotations:
+
+- <a name="load-balancer-capacity-reservation">`alb.ingress.kubernetes.io/minimum-load-balancer-capacity`</a> specifies the
+  [Capacity Unit Reservation](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/capacity-unit-reservation.html) to be configured.
+
+    !!!example
+        - set the capacity unit reservation to 1000
+          ```
+          alb.ingress.kubernetes.io/minimum-load-balancer-capacity: CapacityUnits=1000
+          ```
+        - reset the capacity unit reservation
+          ```
+          alb.ingress.kubernetes.io/minimum-load-balancer-capacity: CapacityUnits=0
+          ```
+
+    !!!note "Notes"
+        - If you specify this annotation, but remove it later, the capacity unit reservation is not reset. You need to reset the capacity by setting the capacity units to zero as show in the example above.
+        - If users do not want the controller to manage the capacity unit reservation on load balancer, they can disable the feature by setting controller command line feature gate flag ```--feature-gates=LBCapacityReservation=true```
 
 ## Addons
 

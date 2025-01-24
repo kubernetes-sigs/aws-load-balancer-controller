@@ -2,10 +2,10 @@ package ingress
 
 import (
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // GroupID is the unique identifier for an IngressGroup within cluster.
@@ -41,12 +41,12 @@ func NewGroupIDForImplicitGroup(ingKey types.NamespacedName) GroupID {
 }
 
 // EncodeGroupIDToReconcileRequest encodes a GroupID into a controller-runtime reconcile request
-func EncodeGroupIDToReconcileRequest(gID GroupID) ctrl.Request {
-	return ctrl.Request{NamespacedName: types.NamespacedName(gID)}
+func EncodeGroupIDToReconcileRequest(gID GroupID) reconcile.Request {
+	return reconcile.Request{NamespacedName: types.NamespacedName(gID)}
 }
 
 // DecodeGroupIDFromReconcileRequest decodes a GroupID from a controller-runtime reconcile request
-func DecodeGroupIDFromReconcileRequest(request ctrl.Request) GroupID {
+func DecodeGroupIDFromReconcileRequest(request reconcile.Request) GroupID {
 	return GroupID(request.NamespacedName)
 }
 

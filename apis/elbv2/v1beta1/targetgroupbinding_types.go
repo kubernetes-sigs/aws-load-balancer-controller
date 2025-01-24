@@ -124,8 +124,12 @@ type TargetGroupBindingNetworking struct {
 // TargetGroupBindingSpec defines the desired state of TargetGroupBinding
 type TargetGroupBindingSpec struct {
 	// targetGroupARN is the Amazon Resource Name (ARN) for the TargetGroup.
-	// +kubebuilder:validation:MinLength=1
-	TargetGroupARN string `json:"targetGroupARN"`
+	// +optional
+	TargetGroupARN string `json:"targetGroupARN,omitempty"`
+
+	// targetGroupName is the Name of the TargetGroup.
+	// +optional
+	TargetGroupName string `json:"targetGroupName,omitempty"`
 
 	// MultiClusterTargetGroup Denotes if the TargetGroup is shared among multiple clusters
 	// +optional
@@ -153,6 +157,14 @@ type TargetGroupBindingSpec struct {
 	// VpcID is the VPC of the TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
 	VpcID string `json:"vpcID,omitempty"`
+
+	// IAM Role ARN to assume when calling AWS APIs. Useful if the target group is in a different AWS account
+	// +optional
+	IamRoleArnToAssume string `json:"-"` // `json:"iamRoleArnToAssume,omitempty"`
+
+	// IAM Role ARN to assume when calling AWS APIs. Needed to assume a role in another account and prevent the confused deputy problem. https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html
+	// +optional
+	AssumeRoleExternalId string `json:"-"` // `json:"assumeRoleExternalId,omitempty"`
 }
 
 // TargetGroupBindingStatus defines the observed state of TargetGroupBinding
@@ -169,6 +181,7 @@ type TargetGroupBindingStatus struct {
 // +kubebuilder:printcolumn:name="SERVICE-PORT",type="string",JSONPath=".spec.serviceRef.port",description="The Kubernetes Service's port"
 // +kubebuilder:printcolumn:name="TARGET-TYPE",type="string",JSONPath=".spec.targetType",description="The AWS TargetGroup's TargetType"
 // +kubebuilder:printcolumn:name="ARN",type="string",JSONPath=".spec.targetGroupARN",description="The AWS TargetGroup's Amazon Resource Name",priority=1
+// +kubebuilder:printcolumn:name="NAME",type="string",JSONPath=".spec.targetGroupName",description="The AWS TargetGroup's Name",priority=2
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // TargetGroupBinding is the Schema for the TargetGroupBinding API
 type TargetGroupBinding struct {

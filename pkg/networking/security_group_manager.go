@@ -33,7 +33,7 @@ func (opts *FetchSGInfoOptions) ApplyOptions(options ...FetchSGInfoOption) {
 
 type FetchSGInfoOption func(opts *FetchSGInfoOptions)
 
-// WithReloadIgnoringCache is a option that sets the ReloadIgnoringCache to true.
+// WithReloadIgnoringCache is an option that sets the ReloadIgnoringCache to true.
 func WithReloadIgnoringCache() FetchSGInfoOption {
 	return func(opts *FetchSGInfoOptions) {
 		opts.ReloadIgnoringCache = true

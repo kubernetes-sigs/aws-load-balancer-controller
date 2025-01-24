@@ -2,8 +2,9 @@ package deploy
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
@@ -23,7 +24,7 @@ type StackDeployer interface {
 }
 
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
-func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
+func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 	networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
 	elbv2TaggingManager elbv2.TaggingManager,
 	config config.ControllerConfig, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
@@ -34,12 +35,13 @@ func NewDefaultStackDeployer(cloud aws.Cloud, k8sClient client.Client,
 	return &defaultStackDeployer{
 		cloud:                               cloud,
 		k8sClient:                           k8sClient,
+		controllerConfig:                    config,
 		addonsConfig:                        config.AddonsConfig,
 		trackingProvider:                    trackingProvider,
 		ec2TaggingManager:                   ec2TaggingManager,
 		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), trackingProvider, ec2TaggingManager, networkingSGReconciler, cloud.VpcID(), config.ExternalManagedTags, logger),
 		elbv2TaggingManager:                 elbv2TaggingManager,
-		elbv2LBManager:                      elbv2.NewDefaultLoadBalancerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, logger),
+		elbv2LBManager:                      elbv2.NewDefaultLoadBalancerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
 		elbv2LSManager:                      elbv2.NewDefaultListenerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
 		elbv2LRManager:                      elbv2.NewDefaultListenerRuleManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
 		elbv2TGManager:                      elbv2.NewDefaultTargetGroupManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, cloud.VpcID(), config.ExternalManagedTags, logger),
@@ -57,8 +59,9 @@ var _ StackDeployer = &defaultStackDeployer{}
 
 // defaultStackDeployer is the default implementation for StackDeployer
 type defaultStackDeployer struct {
-	cloud                               aws.Cloud
+	cloud                               services.Cloud
 	k8sClient                           client.Client
+	controllerConfig                    config.ControllerConfig
 	addonsConfig                        config.AddonsConfig
 	trackingProvider                    tracking.Provider
 	ec2TaggingManager                   ec2.TaggingManager
@@ -88,7 +91,7 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) err
 	synthesizers := []ResourceSynthesizer{
 		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.logger, stack),
 		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, d.featureGates, stack),
-		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, stack),
+		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, d.featureGates, d.controllerConfig, stack),
 		elbv2.NewListenerSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LSManager, d.logger, stack),
 		elbv2.NewListenerRuleSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LRManager, d.logger, stack),
 		elbv2.NewTargetGroupBindingSynthesizer(d.k8sClient, d.trackingProvider, d.elbv2TGBManager, d.logger, stack),

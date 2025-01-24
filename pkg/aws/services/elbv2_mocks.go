@@ -66,6 +66,20 @@ func (mr *MockELBV2MockRecorder) AddTagsWithContext(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTagsWithContext", reflect.TypeOf((*MockELBV2)(nil).AddTagsWithContext), arg0, arg1)
 }
 
+// AssumeRole mocks base method.
+func (m *MockELBV2) AssumeRole(arg0 context.Context, arg1, arg2 string) ELBV2 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssumeRole", arg0, arg1, arg2)
+	ret0, _ := ret[0].(ELBV2)
+	return ret0
+}
+
+// AssumeRole indicates an expected call of AssumeRole.
+func (mr *MockELBV2MockRecorder) AssumeRole(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssumeRole", reflect.TypeOf((*MockELBV2)(nil).AssumeRole), arg0, arg1, arg2)
+}
+
 // CreateListenerWithContext mocks base method.
 func (m *MockELBV2) CreateListenerWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.CreateListenerInput) (*elasticloadbalancingv2.CreateListenerOutput, error) {
 	m.ctrl.T.Helper()
@@ -199,6 +213,21 @@ func (m *MockELBV2) DeregisterTargetsWithContext(arg0 context.Context, arg1 *ela
 func (mr *MockELBV2MockRecorder) DeregisterTargetsWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeregisterTargetsWithContext", reflect.TypeOf((*MockELBV2)(nil).DeregisterTargetsWithContext), arg0, arg1)
+}
+
+// DescribeCapacityReservationWithContext mocks base method.
+func (m *MockELBV2) DescribeCapacityReservationWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.DescribeCapacityReservationInput) (*elasticloadbalancingv2.DescribeCapacityReservationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeCapacityReservationWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*elasticloadbalancingv2.DescribeCapacityReservationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeCapacityReservationWithContext indicates an expected call of DescribeCapacityReservationWithContext.
+func (mr *MockELBV2MockRecorder) DescribeCapacityReservationWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeCapacityReservationWithContext", reflect.TypeOf((*MockELBV2)(nil).DescribeCapacityReservationWithContext), arg0, arg1)
 }
 
 // DescribeListenerAttributesWithContext mocks base method.
@@ -424,6 +453,21 @@ func (m *MockELBV2) DescribeTrustStoresWithContext(arg0 context.Context, arg1 *e
 func (mr *MockELBV2MockRecorder) DescribeTrustStoresWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeTrustStoresWithContext", reflect.TypeOf((*MockELBV2)(nil).DescribeTrustStoresWithContext), arg0, arg1)
+}
+
+// ModifyCapacityReservationWithContext mocks base method.
+func (m *MockELBV2) ModifyCapacityReservationWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.ModifyCapacityReservationInput) (*elasticloadbalancingv2.ModifyCapacityReservationOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyCapacityReservationWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*elasticloadbalancingv2.ModifyCapacityReservationOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifyCapacityReservationWithContext indicates an expected call of ModifyCapacityReservationWithContext.
+func (mr *MockELBV2MockRecorder) ModifyCapacityReservationWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyCapacityReservationWithContext", reflect.TypeOf((*MockELBV2)(nil).ModifyCapacityReservationWithContext), arg0, arg1)
 }
 
 // ModifyListenerAttributesWithContext mocks base method.

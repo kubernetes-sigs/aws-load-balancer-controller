@@ -41,7 +41,8 @@
                 "elasticloadbalancing:DescribeTargetHealth",
                 "elasticloadbalancing:DescribeTags",
                 "elasticloadbalancing:DescribeTrustStores",
-                "elasticloadbalancing:DescribeListenerAttributes"
+                "elasticloadbalancing:DescribeListenerAttributes",
+                "elasticloadbalancing:DescribeCapacityReservation"
             ],
             "Resource": "*"
         },
@@ -213,7 +214,8 @@
                 "elasticloadbalancing:ModifyTargetGroup",
                 "elasticloadbalancing:ModifyTargetGroupAttributes",
                 "elasticloadbalancing:DeleteTargetGroup",
-                "elasticloadbalancing:ModifyListenerAttributes"
+                "elasticloadbalancing:ModifyListenerAttributes",
+                "elasticloadbalancing:ModifyCapacityReservation"
             ],
             "Resource": "*",
             "Condition": {

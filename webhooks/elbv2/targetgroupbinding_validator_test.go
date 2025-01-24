@@ -4,11 +4,12 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/google/uuid"
 	"math/big"
 	"strings"
 	"testing"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/google/uuid"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -96,8 +97,9 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &ipTargetType,
-						NodeSelector: &v1.LabelSelector{},
+						TargetGroupARN: "tg-1",
+						TargetType:     &ipTargetType,
+						NodeSelector:   &v1.LabelSelector{},
 					},
 				},
 			},
@@ -126,6 +128,47 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 						TargetGroupARN: "tg-2",
 						TargetType:     &instanceTargetType,
 						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "TargetGroupName can be resolved",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							Names: []string{"tg-name"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn:  awssdk.String("tg-arn"),
+								TargetGroupName: awssdk.String("tg-name"),
+								TargetType:      elbv2types.TargetTypeEnumInstance,
+							},
+						},
+					},
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-arn"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn:  awssdk.String("tg-arn"),
+								TargetGroupName: awssdk.String("tg-name"),
+								TargetType:      elbv2types.TargetTypeEnumInstance,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupName: "tg-name",
+						TargetType:      &instanceTargetType,
+						IPAddressType:   &targetGroupIPAddressTypeIPv4,
 					},
 				},
 			},
@@ -280,6 +323,8 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
+			ctx := context.Background()
+
 			defer ctrl.Finish()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
@@ -288,6 +333,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client).AnyTimes()
 			}
 			v := &targetGroupBindingValidator{
 				k8sClient:   k8sClient,
@@ -360,14 +406,16 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &ipTargetType,
-						NodeSelector: &v1.LabelSelector{},
+						TargetGroupARN: "tg-1",
+						TargetType:     &ipTargetType,
+						NodeSelector:   &v1.LabelSelector{},
 					},
 				},
 				oldObj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &ipTargetType,
-						NodeSelector: &v1.LabelSelector{},
+						TargetGroupARN: "tg-1",
+						TargetType:     &ipTargetType,
+						NodeSelector:   &v1.LabelSelector{},
 					},
 				},
 			},
@@ -450,6 +498,20 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 			wantErr: errors.New("TargetGroupBinding must specify these fields: spec.targetType"),
 		},
 		{
+			name: "either TargetGroupARN or TargetGroupName must be specified",
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:  "",
+						TargetGroupName: "",
+						// TargetType:     &ipTargetType,
+						TargetType: &instanceTargetType,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroupBinding must specify these fields: either TargetGroupARN or TargetGroupName"),
+		},
+		{
 			name: "targetType is set",
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
@@ -467,7 +529,7 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 			v := &targetGroupBindingValidator{
 				logger: logr.New(&log.NullLogSink{}),
 			}
-			err := v.checkRequiredFields(tt.args.tgb)
+			err := v.checkRequiredFields(context.Background(), tt.args.tgb)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -807,7 +869,8 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType: &ipTargetType,
+						TargetGroupARN: "tg-4",
+						TargetType:     &ipTargetType,
 					},
 				},
 			},
@@ -818,7 +881,8 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType: &instanceTargetType,
+						TargetGroupARN: "tg-5",
+						TargetType:     &instanceTargetType,
 					},
 				},
 			},
@@ -829,8 +893,9 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &instanceTargetType,
-						NodeSelector: &nodeSelector,
+						TargetGroupARN: "tg-6",
+						TargetType:     &instanceTargetType,
+						NodeSelector:   &nodeSelector,
 					},
 				},
 			},
@@ -841,8 +906,9 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 			args: args{
 				tgb: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetType:   &ipTargetType,
-						NodeSelector: &nodeSelector,
+						TargetGroupARN: "tg-7",
+						TargetType:     &ipTargetType,
+						NodeSelector:   &nodeSelector,
 					},
 				},
 			},
@@ -1319,6 +1385,8 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
+			ctx := context.Background()
+
 			defer ctrl.Finish()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
@@ -1327,6 +1395,7 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client).AnyTimes()
 			}
 			v := &targetGroupBindingValidator{
 				k8sClient:   k8sClient,

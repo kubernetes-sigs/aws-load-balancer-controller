@@ -24,3 +24,4 @@ site
 *.swo
 *~
 *.bak
+scripts/aws_sdk_model_override/*

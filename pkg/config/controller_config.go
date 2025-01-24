@@ -17,11 +17,13 @@ const (
 	flagK8sClusterName                               = "cluster-name"
 	flagDefaultTags                                  = "default-tags"
 	flagDefaultTargetType                            = "default-target-type"
+	flagDefaultLoadBalancerScheme                    = "default-load-balancer-scheme"
 	flagExternalManagedTags                          = "external-managed-tags"
 	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
 	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
+	flagLbStabilizationMonitorInterval               = "lb-stabilization-monitor-interval"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
 	flagEnableBackendSG                              = "enable-backend-security-group"
 	flagBackendSecurityGroup                         = "backend-security-group"
@@ -34,6 +36,7 @@ const (
 	defaultEnableBackendSG                           = true
 	defaultEnableEndpointSlices                      = false
 	defaultDisableRestrictedSGRules                  = false
+	defaultLbStabilizationMonitorInterval            = time.Second * 120
 )
 
 var (
@@ -72,6 +75,9 @@ type ControllerConfig struct {
 	// Default target type for Ingress and Service objects
 	DefaultTargetType string
 
+	// Default scheme for ELB
+	DefaultLoadBalancerScheme string
+
 	// List of Tag keys on AWS resources that will be managed externally.
 	ExternalManagedTags []string
 
@@ -102,6 +108,9 @@ type ControllerConfig struct {
 	// DisableRestrictedSGRules specifies whether to use restricted security group rules
 	DisableRestrictedSGRules bool
 
+	// LBStabilizationMonitorInterval specifies the duration of interval to monitor the load balancer state for stabilization
+	LBStabilizationMonitorInterval time.Duration
+
 	FeatureGates FeatureGates
 }
 
@@ -114,6 +123,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Default AWS Tags that will be applied to all AWS resources managed by this controller")
 	fs.StringVar(&cfg.DefaultTargetType, flagDefaultTargetType, string(elbv2.TargetTypeInstance),
 		"Default target type for Ingresses and Services - ip, instance")
+	fs.StringVar(&cfg.DefaultLoadBalancerScheme, flagDefaultLoadBalancerScheme, string(elbv2.LoadBalancerSchemeInternal),
+		"Default scheme for ELBs")
 	fs.StringSliceVar(&cfg.ExternalManagedTags, flagExternalManagedTags, nil,
 		"List of Tag keys on AWS resources that will be managed externally")
 	fs.IntVar(&cfg.ServiceMaxConcurrentReconciles, flagServiceMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
@@ -122,6 +133,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrently running reconcile loops for targetGroupBinding")
 	fs.DurationVar(&cfg.TargetGroupBindingMaxExponentialBackoffDelay, flagTargetGroupBindingMaxExponentialBackoffDelay, defaultMaxExponentialBackoffDelay,
 		"Maximum duration of exponential backoff for targetGroupBinding reconcile failures")
+	fs.DurationVar(&cfg.LBStabilizationMonitorInterval, flagLbStabilizationMonitorInterval, defaultLbStabilizationMonitorInterval,
+		"Duration of interval to monitor the load balancer state for stabilization")
 	fs.StringVar(&cfg.DefaultSSLPolicy, flagDefaultSSLPolicy, defaultSSLPolicy,
 		"Default SSL policy for load balancers listeners")
 	fs.BoolVar(&cfg.EnableBackendSecurityGroup, flagEnableBackendSG, defaultEnableBackendSG,
@@ -160,6 +173,9 @@ func (cfg *ControllerConfig) Validate() error {
 		return err
 	}
 	if err := cfg.validateDefaultTargetType(); err != nil {
+		return err
+	}
+	if err := cfg.validateDefaultLoadBalancerScheme(); err != nil {
 		return err
 	}
 	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
@@ -202,6 +218,15 @@ func (cfg *ControllerConfig) validateDefaultTargetType() error {
 		return nil
 	default:
 		return errors.Errorf("invalid value %v for default target type", cfg.DefaultTargetType)
+	}
+}
+
+func (cfg *ControllerConfig) validateDefaultLoadBalancerScheme() error {
+	switch cfg.DefaultLoadBalancerScheme {
+	case string(elbv2.LoadBalancerSchemeInternal), string(elbv2.LoadBalancerSchemeInternetFacing):
+		return nil
+	default:
+		return errors.Errorf("invalid value %v for default scheme", cfg.DefaultLoadBalancerScheme)
 	}
 }
 

@@ -101,6 +101,12 @@ type Listener struct {
 	ListenerAttributes []Attribute `json:"listenerAttributes,omitempty"`
 }
 
+// Information about a load balancer capacity reservation.
+type MinimumLoadBalancerCapacity struct {
+	// The Capacity Units Value.
+	CapacityUnits int32 `json:"capacityUnits"`
+}
+
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 type IngressClassParamsSpec struct {
 	// CertificateArn specifies the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
@@ -146,6 +152,10 @@ type IngressClassParamsSpec struct {
 	// Listeners define a list of listeners with their protocol, port and attributes.
 	// +optional
 	Listeners []Listener `json:"listeners,omitempty"`
+
+	// MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers for all Ingress that belong to IngressClass with this IngressClassParams.
+	// +optional
+	MinimumLoadBalancerCapacity *MinimumLoadBalancerCapacity `json:"minimumLoadBalancerCapacity,omitempty"`
 }
 
 // +kubebuilder:object:root=true

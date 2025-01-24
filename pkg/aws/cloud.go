@@ -3,6 +3,7 @@ package aws
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -11,7 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws/ratelimit"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+
 	smithymiddleware "github.com/aws/smithy-go/middleware"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
@@ -30,37 +34,8 @@ import (
 
 const userAgent = "elbv2.k8s.aws"
 
-type Cloud interface {
-	// EC2 provides API to AWS EC2
-	EC2() services.EC2
-
-	// ELBV2 provides API to AWS ELBV2
-	ELBV2() services.ELBV2
-
-	// ACM provides API to AWS ACM
-	ACM() services.ACM
-
-	// WAFv2 provides API to AWS WAFv2
-	WAFv2() services.WAFv2
-
-	// WAFRegional provides API to AWS WAFRegional
-	WAFRegional() services.WAFRegional
-
-	// Shield provides API to AWS Shield
-	Shield() services.Shield
-
-	// RGT provides API to AWS RGT
-	RGT() services.RGT
-
-	// Region for the kubernetes cluster
-	Region() string
-
-	// VpcID for the LoadBalancer resources.
-	VpcID() string
-}
-
 // NewCloud constructs new Cloud implementation.
-func NewCloud(cfg CloudConfig, metricsCollector *aws_metrics.Collector, logger logr.Logger, awsClientsProvider provider.AWSClientsProvider) (Cloud, error) {
+func NewCloud(cfg CloudConfig, metricsCollector *aws_metrics.Collector, logger logr.Logger, awsClientsProvider provider.AWSClientsProvider) (services.Cloud, error) {
 	hasIPv4 := true
 	addrs, err := net.InterfaceAddrs()
 	if err == nil {
@@ -139,17 +114,26 @@ func NewCloud(cfg CloudConfig, metricsCollector *aws_metrics.Collector, logger l
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get VPC ID")
 	}
+
 	cfg.VpcID = vpcID
-	return &defaultCloud{
+
+	thisObj := &defaultCloud{
 		cfg:         cfg,
 		ec2:         ec2Service,
-		elbv2:       services.NewELBV2(awsClientsProvider),
 		acm:         services.NewACM(awsClientsProvider),
 		wafv2:       services.NewWAFv2(awsClientsProvider),
 		wafRegional: services.NewWAFRegional(awsClientsProvider, cfg.Region),
 		shield:      services.NewShield(awsClientsProvider),
 		rgt:         services.NewRGT(awsClientsProvider),
-	}, nil
+
+		assumeRoleElbV2:    make(map[string]services.ELBV2),
+		awsClientsProvider: awsClientsProvider,
+		logger:             logger,
+	}
+
+	thisObj.elbv2 = services.NewELBV2(awsClientsProvider, thisObj)
+
+	return thisObj, nil
 }
 
 func getVpcID(cfg CloudConfig, ec2Service services.EC2, ec2Metadata services.EC2Metadata, logger logr.Logger) (string, error) {
@@ -227,7 +211,7 @@ func inferVPCIDFromTags(ec2Service services.EC2, VpcTags map[string]string) (str
 	return *vpcs[0].VpcId, nil
 }
 
-var _ Cloud = &defaultCloud{}
+var _ services.Cloud = &defaultCloud{}
 
 type defaultCloud struct {
 	cfg CloudConfig
@@ -239,6 +223,78 @@ type defaultCloud struct {
 	wafRegional services.WAFRegional
 	shield      services.Shield
 	rgt         services.RGT
+
+	assumeRoleElbV2    map[string]services.ELBV2
+	awsClientsProvider provider.AWSClientsProvider
+	logger             logr.Logger
+}
+
+// returns ELBV2 client for the given assumeRoleArn, or the default ELBV2 client if assumeRoleArn is empty
+func (c *defaultCloud) GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn string, externalId string) services.ELBV2 {
+
+	if assumeRoleArn == "" {
+		return c.elbv2
+	}
+
+	assumedRoleELBV2, exists := c.assumeRoleElbV2[assumeRoleArn]
+	if exists {
+		return assumedRoleELBV2
+	}
+	c.logger.Info("awsCloud", "method", "GetAssumedRoleELBV2", "AssumeRoleArn", assumeRoleArn, "externalId", externalId)
+
+	////////////////
+	existingAwsConfig, _ := c.awsClientsProvider.GetAWSConfig(ctx, "GetAWSConfigForIAMRoleImpersonation")
+
+	sourceAccount := sts.NewFromConfig(*existingAwsConfig)
+	response, err := sourceAccount.AssumeRole(ctx, &sts.AssumeRoleInput{
+		RoleArn:         aws.String(assumeRoleArn),
+		RoleSessionName: aws.String("aws-load-balancer-controller"),
+		ExternalId:      aws.String(externalId),
+	})
+	if err != nil {
+		log.Fatalf("Unable to assume target role, %v. Attempting to use default client", err)
+		return c.elbv2
+	}
+	assumedRoleCreds := response.Credentials
+	newCreds := credentials.NewStaticCredentialsProvider(*assumedRoleCreds.AccessKeyId, *assumedRoleCreds.SecretAccessKey, *assumedRoleCreds.SessionToken)
+	newAwsConfig, err := config.LoadDefaultConfig(ctx, config.WithRegion(c.cfg.Region), config.WithCredentialsProvider(newCreds))
+	if err != nil {
+		log.Fatalf("Unable to load static credentials for service client config, %v. Attempting to use default client", err)
+		return c.elbv2
+	}
+
+	existingAwsConfig.Credentials = newAwsConfig.Credentials //  response.Credentials
+
+	// // var assumedRoleCreds *stsTypes.Credentials = response.Credentials
+
+	// // Create config with target service client, using assumed role
+	// cfg, err = config.LoadDefaultConfig(ctx, config.WithRegion(region), config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*assumedRoleCreds.AccessKeyId, *assumedRoleCreds.SecretAccessKey, *assumedRoleCreds.SessionToken)))
+	// if err != nil {
+	// 	log.Fatalf("unable to load static credentials for service client config, %v", err)
+	// }
+
+	// ////////////////
+	// appCreds := stscreds.NewAssumeRoleProvider(client, assumeRoleArn)
+	// value, err := appCreds.Retrieve(context.TODO())
+	// if err != nil {
+	// 	// handle error
+	// }
+	// /////////
+
+	// ///////////// OLD
+	// creds := stscreds.NewCredentials(c.session, assumeRoleArn, func(p *stscreds.AssumeRoleProvider) {
+	// 	p.ExternalID = &externalId
+	// })
+	// //////////////
+
+	// c.awsConfig.Credentials = creds
+	// // newObj := services.NewELBV2(c.session, c, c.awsCFG)
+	// newObj := services.NewELBV2(*c.awsConfig, c.endpointsResolver, c)
+
+	newObj := services.NewELBV2(c.awsClientsProvider, c)
+	c.assumeRoleElbV2[assumeRoleArn] = newObj
+
+	return newObj
 }
 
 func (c *defaultCloud) EC2() services.EC2 {

@@ -24,7 +24,6 @@ type ELBV2 interface {
 
 	// wrapper to DescribeRulesWithContext API, which aggregates paged results into list.
 	DescribeRulesAsList(ctx context.Context, input *elasticloadbalancingv2.DescribeRulesInput) ([]types.Rule, error)
-
 	AddTagsWithContext(ctx context.Context, input *elasticloadbalancingv2.AddTagsInput) (*elasticloadbalancingv2.AddTagsOutput, error)
 	RemoveTagsWithContext(ctx context.Context, input *elasticloadbalancingv2.RemoveTagsInput) (*elasticloadbalancingv2.RemoveTagsOutput, error)
 	DescribeTagsWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeTagsInput) (*elasticloadbalancingv2.DescribeTagsOutput, error)
@@ -59,17 +58,29 @@ type ELBV2 interface {
 	AddListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.AddListenerCertificatesInput) (*elasticloadbalancingv2.AddListenerCertificatesOutput, error)
 	DescribeListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeListenerAttributesInput) (*elasticloadbalancingv2.DescribeListenerAttributesOutput, error)
 	ModifyListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error)
+	ModifyCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyCapacityReservationInput) (*elasticloadbalancingv2.ModifyCapacityReservationOutput, error)
+	DescribeCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeCapacityReservationInput) (*elasticloadbalancingv2.DescribeCapacityReservationOutput, error)
+	AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) ELBV2
 }
 
-func NewELBV2(awsClientsProvider provider.AWSClientsProvider) ELBV2 {
+func NewELBV2(awsClientsProvider provider.AWSClientsProvider, cloud Cloud) ELBV2 {
 	return &elbv2Client{
 		awsClientsProvider: awsClientsProvider,
+		cloud:              cloud,
 	}
 }
 
 // default implementation for ELBV2.
 type elbv2Client struct {
 	awsClientsProvider provider.AWSClientsProvider
+	cloud              Cloud
+}
+
+func (c *elbv2Client) AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) ELBV2 {
+	if assumeRoleArn == "" {
+		return c
+	}
+	return c.cloud.GetAssumedRoleELBV2(ctx, assumeRoleArn, externalId)
 }
 
 func (c *elbv2Client) AddListenerCertificatesWithContext(ctx context.Context, input *elasticloadbalancingv2.AddListenerCertificatesInput) (*elasticloadbalancingv2.AddListenerCertificatesOutput, error) {
@@ -439,4 +450,20 @@ func (c *elbv2Client) ModifyListenerAttributesWithContext(ctx context.Context, i
 		return nil, err
 	}
 	return client.ModifyListenerAttributes(ctx, input)
+}
+
+func (c *elbv2Client) ModifyCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyCapacityReservationInput) (*elasticloadbalancingv2.ModifyCapacityReservationOutput, error) {
+	client, err := c.awsClientsProvider.GetELBv2Client(ctx, "ModifyCapacityReservation")
+	if err != nil {
+		return nil, err
+	}
+	return client.ModifyCapacityReservation(ctx, input)
+}
+
+func (c *elbv2Client) DescribeCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeCapacityReservationInput) (*elasticloadbalancingv2.DescribeCapacityReservationOutput, error) {
+	client, err := c.awsClientsProvider.GetELBv2Client(ctx, "DescribeCapacityReservation")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeCapacityReservation(ctx, input)
 }

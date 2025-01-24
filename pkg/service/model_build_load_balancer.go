@@ -65,6 +65,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+	lbMinimumCapacity, err := t.buildLoadBalancerMinimumCapacity(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
 	securityGroups, err := t.buildLoadBalancerSecurityGroups(ctx, existingLB, ipAddressType)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
@@ -95,6 +99,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 		SecurityGroups:               securityGroups,
 		SubnetMappings:               subnetMappings,
 		LoadBalancerAttributes:       lbAttributes,
+		MinimumLoadBalancerCapacity:  lbMinimumCapacity,
 		Tags:                         tags,
 	}
 
@@ -194,7 +199,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 
 func (t *defaultModelBuildTask) buildLoadBalancerEnablePrefixForIpv6SourceNat(_ context.Context, ipAddressType elbv2model.IPAddressType, ec2Subnets []ec2types.Subnet) (elbv2model.EnablePrefixForIpv6SourceNat, error) {
 	rawEnablePrefixForIpv6SourceNat := ""
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.ScvLBSuffixEnablePrefixForIpv6SourceNat, &rawEnablePrefixForIpv6SourceNat, t.service.Annotations); !exists {
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEnablePrefixForIpv6SourceNat, &rawEnablePrefixForIpv6SourceNat, t.service.Annotations); !exists {
 		return elbv2model.EnablePrefixForIpv6SourceNatOff, nil
 	}
 
@@ -245,7 +250,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerScheme(ctx context.Context) (el
 			return "", errors.New("invalid load balancer scheme")
 		}
 	}
-	return elbv2model.LoadBalancerSchemeInternal, nil
+	return t.defaultLoadBalancerScheme, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSchemeViaAnnotation(ctx context.Context) (elbv2model.LoadBalancerScheme, bool, error) {
@@ -377,7 +382,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 	var isPrefixForIpv6SourceNatEnabled = enablePrefixForIpv6SourceNat == elbv2model.EnablePrefixForIpv6SourceNatOn
 
 	var sourceNatIpv6Prefixes []string
-	sourceNatIpv6PrefixesConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.ScvLBSuffixSourceNatIpv6Prefixes, &sourceNatIpv6Prefixes, t.service.Annotations)
+	sourceNatIpv6PrefixesConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSourceNatIpv6Prefixes, &sourceNatIpv6Prefixes, t.service.Annotations)
 	if sourceNatIpv6PrefixesConfigured {
 		sourceNatIpv6PrefixesError := networking.ValidateSourceNatPrefixes(sourceNatIpv6Prefixes, ipAddressType, isPrefixForIpv6SourceNatEnabled, ec2Subnets)
 		if sourceNatIpv6PrefixesError != nil {
@@ -482,6 +487,33 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 	}
 	mergedAttributes := algorithm.MergeStringMap(specificAttributes, loadBalancerAttributes)
 	return makeAttributesSliceFromMap(mergedAttributes), nil
+}
+
+func (t *defaultModelBuildTask) buildLoadBalancerMinimumCapacity(_ context.Context) (*elbv2model.MinimumLoadBalancerCapacity, error) {
+	if !t.featureGates.Enabled(config.LBCapacityReservation) {
+		return nil, nil
+	}
+	// Parse the annotation
+	var loadBalancerMinimumCapacityMap map[string]string
+	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerCapacityReservation, &loadBalancerMinimumCapacityMap, t.service.Annotations); err != nil {
+		return nil, err
+	}
+	if loadBalancerMinimumCapacityMap == nil {
+		return nil, nil
+	}
+	// Transform annotation to minimumLoadBalancerCapacity object
+	var minimumLoadBalancerCapacity *elbv2model.MinimumLoadBalancerCapacity
+	var capacityUnits int64
+	for key, value := range loadBalancerMinimumCapacityMap {
+		if key != elbv2model.CapacityUnits {
+			return nil, errors.Errorf("invalid key to set the capacity: %v, Expected key: %v", key, elbv2model.CapacityUnits)
+		}
+		capacityUnits, _ = strconv.ParseInt(value, 10, 64)
+		minimumLoadBalancerCapacity = &elbv2model.MinimumLoadBalancerCapacity{
+			CapacityUnits: int32(capacityUnits),
+		}
+	}
+	return minimumLoadBalancerCapacity, nil
 }
 
 func makeAttributesSliceFromMap(loadBalancerAttributesMap map[string]string) []elbv2model.LoadBalancerAttribute {

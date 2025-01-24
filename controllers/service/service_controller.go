@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -11,7 +12,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
@@ -34,7 +35,7 @@ const (
 	controllerName          = "service"
 )
 
-func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
+func NewServiceReconciler(cloud services.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingSGManager networking.SecurityGroupManager,
 	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig,
@@ -45,7 +46,7 @@ func NewServiceReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorde
 	serviceUtils := service.NewServiceUtils(annotationParser, serviceFinalizer, controllerConfig.ServiceConfig.LoadBalancerClass, controllerConfig.FeatureGates)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
 		elbv2TaggingManager, cloud.EC2(), controllerConfig.FeatureGates, controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
-		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), serviceUtils,
+		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), serviceUtils,
 		backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, serviceTagPrefix, logger)
@@ -88,11 +89,11 @@ type serviceReconciler struct {
 // +kubebuilder:rbac:groups="",resources=services/status,verbs=update;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-func (r *serviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *serviceReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
 }
 
-func (r *serviceReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
+func (r *serviceReconciler) reconcile(ctx context.Context, req reconcile.Request) error {
 	svc := &corev1.Service{}
 	if err := r.k8sClient.Get(ctx, req.NamespacedName, svc); err != nil {
 		return client.IgnoreNotFound(err)
@@ -124,6 +125,10 @@ func (r *serviceReconciler) buildModel(ctx context.Context, svc *corev1.Service)
 
 func (r *serviceReconciler) deployModel(ctx context.Context, svc *corev1.Service, stack core.Stack) error {
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		var requeueNeededAfter *runtime.RequeueNeededAfter
+		if errors.As(err, &requeueNeededAfter) {
+			return err
+		}
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		return err
 	}

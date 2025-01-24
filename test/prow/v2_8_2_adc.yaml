@@ -3,6 +3,8 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
   name: ingressclassparams.elbv2.k8s.aws
 spec:
   group: elbv2.k8s.aws
@@ -84,36 +86,6 @@ spec:
                 - dualstack
                 - dualstack-without-public-ipv4
                 type: string
-              listeners:
-                description: Listeners define a list of listeners with their protocol,
-                  port and attributes.
-                items:
-                  properties:
-                    listenerAttributes:
-                      description: The attributes of the listener
-                      items:
-                        description: Attributes defines custom attributes on resources.
-                        properties:
-                          key:
-                            description: The key of the attribute.
-                            type: string
-                          value:
-                            description: The value of the attribute.
-                            type: string
-                        required:
-                        - key
-                        - value
-                        type: object
-                      type: array
-                    port:
-                      description: The port of the listener
-                      format: int32
-                      type: integer
-                    protocol:
-                      description: The protocol of the listener
-                      type: string
-                  type: object
-                type: array
               loadBalancerAttributes:
                 description: LoadBalancerAttributes define the custom attributes to
                   LoadBalancers for all Ingress that that belong to IngressClass with
@@ -132,18 +104,6 @@ spec:
                   - value
                   type: object
                 type: array
-              minimumLoadBalancerCapacity:
-                description: MinimumLoadBalancerCapacity define the capacity reservation
-                  for LoadBalancers for all Ingress that belong to IngressClass with
-                  this IngressClassParams.
-                properties:
-                  capacityUnits:
-                    description: The Capacity Units Value.
-                    format: int32
-                    type: integer
-                required:
-                - capacityUnits
-                type: object
               namespaceSelector:
                 description: |-
                   NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
@@ -256,6 +216,8 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
   name: targetgroupbindings.elbv2.k8s.aws
 spec:
   group: elbv2.k8s.aws
@@ -283,11 +245,6 @@ spec:
       jsonPath: .spec.targetGroupARN
       name: ARN
       priority: 1
-      type: string
-    - description: The AWS TargetGroup's Name
-      jsonPath: .spec.targetGroupName
-      name: NAME
-      priority: 2
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
@@ -317,10 +274,6 @@ spec:
           spec:
             description: TargetGroupBindingSpec defines the desired state of TargetGroupBinding
             properties:
-              multiClusterTargetGroup:
-                description: MultiClusterTargetGroup Denotes if the TargetGroup is
-                  shared among multiple clusters
-                type: boolean
               networking:
                 description: networking provides the networking setup for ELBV2 LoadBalancer
                   to access targets in TargetGroup.
@@ -417,9 +370,6 @@ spec:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
                 type: string
-              targetGroupName:
-                description: targetGroupName is the Name of the TargetGroup.
-                type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,
                   it will be automatically inferred.
@@ -429,6 +379,7 @@ spec:
                 type: string
             required:
             - serviceRef
+            - targetGroupARN
             type: object
           status:
             description: TargetGroupBindingStatus defines the observed state of TargetGroupBinding
@@ -460,11 +411,6 @@ spec:
       jsonPath: .spec.targetGroupARN
       name: ARN
       priority: 1
-      type: string
-    - description: The AWS TargetGroup's Name
-      jsonPath: .spec.targetGroupName
-      name: NAME
-      priority: 2
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
@@ -501,10 +447,6 @@ spec:
                 - ipv4
                 - ipv6
                 type: string
-              multiClusterTargetGroup:
-                description: MultiClusterTargetGroup Denotes if the TargetGroup is
-                  shared among multiple clusters
-                type: boolean
               networking:
                 description: networking defines the networking rules to allow ELBV2
                   LoadBalancer to access targets in TargetGroup.
@@ -651,9 +593,7 @@ spec:
               targetGroupARN:
                 description: targetGroupARN is the Amazon Resource Name (ARN) for
                   the TargetGroup.
-                type: string
-              targetGroupName:
-                description: targetGroupName is the Name of the TargetGroup.
+                minLength: 1
                 type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,
@@ -668,6 +608,7 @@ spec:
                 type: string
             required:
             - serviceRef
+            - targetGroupARN
             type: object
           status:
             description: TargetGroupBindingStatus defines the observed state of TargetGroupBinding
@@ -682,3 +623,500 @@ spec:
     storage: true
     subresources:
       status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-controller
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-controller-leader-election-role
+  namespace: kube-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resourceNames:
+  - aws-load-balancer-controller-leader
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+- apiGroups:
+  - coordination.k8s.io
+  resourceNames:
+  - aws-load-balancer-controller-leader
+  resources:
+  - leases
+  verbs:
+  - get
+  - update
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-controller-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - ingressclassparams
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - targetgroupbindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - targetgroupbindings/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions
+  resources:
+  - ingresses/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingressclasses
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses/status
+  verbs:
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-controller-leader-election-rolebinding
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aws-load-balancer-controller-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: aws-load-balancer-controller
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-controller-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aws-load-balancer-controller-role
+subjects:
+- kind: ServiceAccount
+  name: aws-load-balancer-controller
+  namespace: kube-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-webhook-service
+  namespace: kube-system
+spec:
+  ports:
+  - port: 443
+    targetPort: 9443
+  selector:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: aws-load-balancer-controller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: controller
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-controller
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: controller
+      app.kubernetes.io/name: aws-load-balancer-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: controller
+        app.kubernetes.io/name: aws-load-balancer-controller
+    spec:
+      containers:
+      - args:
+        - --cluster-name=your-cluster-name
+        - --ingress-class=alb
+        image: public.ecr.aws/eks/aws-load-balancer-controller:v2.8.2
+        livenessProbe:
+          failureThreshold: 2
+          httpGet:
+            path: /healthz
+            port: 61779
+            scheme: HTTP
+          initialDelaySeconds: 30
+          timeoutSeconds: 10
+        name: controller
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 500Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      priorityClassName: system-cluster-critical
+      securityContext:
+        fsGroup: 1337
+      serviceAccountName: aws-load-balancer-controller
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: aws-load-balancer-webhook-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-serving-cert
+  namespace: kube-system
+spec:
+  dnsNames:
+  - aws-load-balancer-webhook-service.kube-system.svc
+  - aws-load-balancer-webhook-service.kube-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: aws-load-balancer-selfsigned-issuer
+  secretName: aws-load-balancer-webhook-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-selfsigned-issuer
+  namespace: kube-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kube-system/aws-load-balancer-serving-cert
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-webhook
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: aws-load-balancer-webhook-service
+      namespace: kube-system
+      path: /mutate-v1-service
+  failurePolicy: Fail
+  name: mservice.elbv2.k8s.aws
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - aws-load-balancer-controller
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - services
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: aws-load-balancer-webhook-service
+      namespace: kube-system
+      path: /mutate-v1-pod
+  failurePolicy: Fail
+  name: mpod.elbv2.k8s.aws
+  namespaceSelector:
+    matchExpressions:
+    - key: elbv2.k8s.aws/pod-readiness-gate-inject
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - aws-load-balancer-controller
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: aws-load-balancer-webhook-service
+      namespace: kube-system
+      path: /mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding
+  failurePolicy: Fail
+  name: mtargetgroupbinding.elbv2.k8s.aws
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - targetgroupbindings
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kube-system/aws-load-balancer-serving-cert
+  labels:
+    app.kubernetes.io/name: aws-load-balancer-controller
+  name: aws-load-balancer-webhook
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: aws-load-balancer-webhook-service
+      namespace: kube-system
+      path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
+  failurePolicy: Fail
+  name: vingressclassparams.elbv2.k8s.aws
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - aws-load-balancer-controller
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingressclassparams
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: aws-load-balancer-webhook-service
+      namespace: kube-system
+      path: /validate-elbv2-k8s-aws-v1beta1-targetgroupbinding
+  failurePolicy: Fail
+  name: vtargetgroupbinding.elbv2.k8s.aws
+  rules:
+  - apiGroups:
+    - elbv2.k8s.aws
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - targetgroupbindings
+  sideEffects: None
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
+    service:
+      name: aws-load-balancer-webhook-service
+      namespace: kube-system
+      path: /validate-networking-v1-ingress
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  name: vingress.elbv2.k8s.aws
+  rules:
+  - apiGroups:
+    - networking.k8s.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - ingresses
+  sideEffects: None

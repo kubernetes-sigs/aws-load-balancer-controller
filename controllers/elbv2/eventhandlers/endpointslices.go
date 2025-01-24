@@ -36,14 +36,14 @@ type enqueueRequestsForEndpointSlicesEvent struct {
 }
 
 // Create is called in response to an create event - e.g. EndpointSlice Creation.
-func (h *enqueueRequestsForEndpointSlicesEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForEndpointSlicesEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	epNew := e.Object.(*discv1.EndpointSlice)
 	h.logger.V(1).Info("Create event for EndpointSlices", "name", epNew.Name)
 	h.enqueueImpactedTargetGroupBindings(ctx, queue, epNew)
 }
 
 // Update is called in response to an update event -  e.g. EndpointSlice Updated.
-func (h *enqueueRequestsForEndpointSlicesEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForEndpointSlicesEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	epOld := e.ObjectOld.(*discv1.EndpointSlice)
 	epNew := e.ObjectNew.(*discv1.EndpointSlice)
 	h.logger.V(1).Info("Update event for EndpointSlices", "name", epNew.Name)
@@ -54,7 +54,7 @@ func (h *enqueueRequestsForEndpointSlicesEvent) Update(ctx context.Context, e ev
 }
 
 // Delete is called in response to a delete event - e.g. EndpointSlice Deleted.
-func (h *enqueueRequestsForEndpointSlicesEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForEndpointSlicesEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	epOld := e.Object.(*discv1.EndpointSlice)
 	h.logger.V(1).Info("Deletion event for EndpointSlices", "name", epOld.Name)
 	h.enqueueImpactedTargetGroupBindings(ctx, queue, epOld)
@@ -62,10 +62,10 @@ func (h *enqueueRequestsForEndpointSlicesEvent) Delete(ctx context.Context, e ev
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile AutoScaling, or a WebHook.
-func (h *enqueueRequestsForEndpointSlicesEvent) Generic(context.Context, event.GenericEvent, workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForEndpointSlicesEvent) Generic(context.Context, event.GenericEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 }
 
-func (h *enqueueRequestsForEndpointSlicesEvent) enqueueImpactedTargetGroupBindings(ctx context.Context, queue workqueue.RateLimitingInterface, epSlice *discv1.EndpointSlice) {
+func (h *enqueueRequestsForEndpointSlicesEvent) enqueueImpactedTargetGroupBindings(ctx context.Context, queue workqueue.TypedRateLimitingInterface[reconcile.Request], epSlice *discv1.EndpointSlice) {
 	tgbList := &elbv2api.TargetGroupBindingList{}
 	svcName, present := epSlice.Labels[svcNameLabel]
 	if !present {

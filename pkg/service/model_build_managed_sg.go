@@ -17,6 +17,15 @@ import (
 )
 
 const (
+	icmpv4Protocol = "icmp"
+	icmpv6Protocol = "icmpv6"
+
+	icmpv4TypeForPathMtu = 3 // https://www.iana.org/assignments/icmp-parameters/icmp-parameters.xhtml#icmp-parameters-codes-3
+	icmpv4CodeForPathMtu = 4
+
+	icmpv6TypeForPathMtu = 2 // https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml#icmpv6-parameters-codes-2
+	icmpv6CodeForPathMtu = 0
+
 	resourceIDManagedSecurityGroup = "ManagedLBSecurityGroup"
 )
 
@@ -65,7 +74,11 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupName(_ context.Context)
 func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx context.Context, ipAddressType elbv2model.IPAddressType) ([]ec2model.IPPermission, error) {
 	var permissions []ec2model.IPPermission
 	var prefixListIDs []string
+	var icmpForPathMtuConfiguredFlag string
+
+	icmpForPathMtuConfigured := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEnableIcmpForPathMtuDiscovery, &icmpForPathMtuConfiguredFlag, t.service.Annotations)
 	prefixListsConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSecurityGroupPrefixLists, &prefixListIDs, t.service.Annotations)
+
 	cidrs, err := t.buildCIDRsFromSourceRanges(ctx, ipAddressType, prefixListsConfigured)
 	if err != nil {
 		return nil, err
@@ -84,6 +97,18 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 						},
 					},
 				})
+				if icmpForPathMtuConfigured && icmpForPathMtuConfiguredFlag == "on" {
+					permissions = append(permissions, ec2model.IPPermission{
+						IPProtocol: string(icmpv4Protocol),
+						FromPort:   awssdk.Int32(icmpv4TypeForPathMtu),
+						ToPort:     awssdk.Int32(icmpv4CodeForPathMtu),
+						IPRanges: []ec2model.IPRange{
+							{
+								CIDRIP: cidr,
+							},
+						},
+					})
+				}
 			} else {
 				permissions = append(permissions, ec2model.IPPermission{
 					IPProtocol: strings.ToLower(string(port.Protocol)),
@@ -95,6 +120,18 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 						},
 					},
 				})
+				if icmpForPathMtuConfigured && icmpForPathMtuConfiguredFlag == "on" {
+					permissions = append(permissions, ec2model.IPPermission{
+						IPProtocol: string(icmpv6Protocol),
+						FromPort:   awssdk.Int32(icmpv6TypeForPathMtu),
+						ToPort:     awssdk.Int32(icmpv6CodeForPathMtu),
+						IPv6Range: []ec2model.IPv6Range{
+							{
+								CIDRIPv6: cidr,
+							},
+						},
+					})
+				}
 			}
 		}
 		if prefixListsConfigured {
@@ -112,6 +149,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 			}
 		}
 	}
+
 	return permissions, nil
 }
 

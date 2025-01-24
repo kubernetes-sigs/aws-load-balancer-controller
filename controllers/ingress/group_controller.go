@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -15,7 +16,7 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
@@ -43,7 +44,7 @@ const (
 )
 
 // NewGroupReconciler constructs new GroupReconciler
-func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
+func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder,
 	finalizerManager k8s.FinalizerManager, networkingSGManager networkingpkg.SecurityGroupManager,
 	networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
 	elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider,
@@ -59,7 +60,7 @@ func NewGroupReconciler(cloud aws.Cloud, k8sClient client.Client, eventRecorder 
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
-		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, backendSGProvider, sgResolver,
+		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver,
 		controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
@@ -114,11 +115,11 @@ type groupReconciler struct {
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
-func (r *groupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *groupReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
 }
 
-func (r *groupReconciler) reconcile(ctx context.Context, req ctrl.Request) error {
+func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) error {
 	ingGroupID := ingress.DecodeGroupIDFromReconcileRequest(req)
 	ingGroup, err := r.groupLoader.Load(ctx, ingGroupID)
 	if err != nil {
@@ -170,6 +171,10 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	r.logger.Info("successfully built model", "model", stackJSON)
 
 	if err := r.stackDeployer.Deploy(ctx, stack); err != nil {
+		var requeueNeededAfter *runtime.RequeueNeededAfter
+		if errors.As(err, &requeueNeededAfter) {
+			return nil, nil, err
+		}
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		return nil, nil, err
 	}
