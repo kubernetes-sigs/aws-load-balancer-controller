@@ -9,14 +9,12 @@ import (
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -56,7 +54,6 @@ func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Ob
 
 func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
-	targetgroupbinding.AnnotationsToFields(tgb)
 	if err := v.checkRequiredFields(ctx, tgb); err != nil {
 		return err
 	}
@@ -72,13 +69,15 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 	if err := v.checkTargetGroupVpcID(ctx, tgb); err != nil {
 		return err
 	}
+	if err := v.checkAssumeRoleConfig(tgb); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (v *targetGroupBindingValidator) ValidateUpdate(ctx context.Context, obj runtime.Object, oldObj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	oldTgb := oldObj.(*elbv2api.TargetGroupBinding)
-	targetgroupbinding.AnnotationsToFields(tgb)
 	if err := v.checkRequiredFields(ctx, tgb); err != nil {
 		return err
 	}
@@ -86,6 +85,9 @@ func (v *targetGroupBindingValidator) ValidateUpdate(ctx context.Context, obj ru
 		return err
 	}
 	if err := v.checkNodeSelector(tgb); err != nil {
+		return err
+	}
+	if err := v.checkAssumeRoleConfig(tgb); err != nil {
 		return err
 	}
 	return nil
@@ -113,7 +115,7 @@ func (v *targetGroupBindingValidator) checkRequiredFields(ctx context.Context, t
 				By changing the object here I guarantee as early as possible that that assumption is true.
 			*/
 
-			tgObj, err := v.getTargetGroupsByNameFromAWS(ctx, tgb.Spec.TargetGroupName)
+			tgObj, err := getTargetGroupsByNameFromAWS(ctx, v.elbv2Client, tgb)
 			if err != nil {
 				return fmt.Errorf("searching TargetGroup with name %s: %w", tgb.Spec.TargetGroupName, err)
 			}
@@ -215,7 +217,7 @@ func (v *targetGroupBindingValidator) checkTargetGroupVpcID(ctx context.Context,
 
 // getTargetGroupIPAddressTypeFromAWS returns the target group IP address type of AWS target group
 func (v *targetGroupBindingValidator) getTargetGroupIPAddressTypeFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (elbv2api.TargetGroupIPAddressType, error) {
-	targetGroup, err := v.getTargetGroupFromAWS(ctx, tgb)
+	targetGroup, err := getTargetGroupFromAWS(ctx, v.elbv2Client, tgb)
 	if err != nil {
 		return "", err
 	}
@@ -231,43 +233,25 @@ func (v *targetGroupBindingValidator) getTargetGroupIPAddressTypeFromAWS(ctx con
 	return ipAddressType, nil
 }
 
-// getTargetGroupFromAWS returns the AWS target group corresponding to the ARN
-func (v *targetGroupBindingValidator) getTargetGroupFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (*elbv2types.TargetGroup, error) {
-	tgARN := tgb.Spec.TargetGroupARN
-	req := &elbv2sdk.DescribeTargetGroupsInput{
-		TargetGroupArns: []string{tgARN},
-	}
-	tgList, err := v.elbv2Client.AssumeRole(ctx, tgb.Spec.IamRoleArnToAssume, tgb.Spec.AssumeRoleExternalId).DescribeTargetGroupsAsList(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	if len(tgList) != 1 {
-		return nil, errors.Errorf("expecting a single targetGroup but got %v", len(tgList))
-	}
-	return &tgList[0], nil
-}
-
 func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, error) {
-	targetGroup, err := v.getTargetGroupFromAWS(ctx, tgb)
+	targetGroup, err := getTargetGroupFromAWS(ctx, v.elbv2Client, tgb)
 	if err != nil {
 		return "", err
 	}
 	return awssdk.ToString(targetGroup.VpcId), nil
 }
 
-// getTargetGroupFromAWS returns the AWS target group corresponding to the tgName
-func (v *targetGroupBindingValidator) getTargetGroupsByNameFromAWS(ctx context.Context, tgName string) (*elbv2types.TargetGroup, error) {
-	req := &elbv2sdk.DescribeTargetGroupsInput{
-		Names: []string{tgName},
+// checkAssumeRoleConfig various checks for using cross account target group bindings.
+func (v *targetGroupBindingValidator) checkAssumeRoleConfig(tgb *elbv2api.TargetGroupBinding) error {
+	if tgb.Spec.IamRoleArnToAssume == "" {
+		return nil
 	}
-	tgList, err := v.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
-	if err != nil {
-		return nil, err
+
+	if tgb.Spec.TargetType != nil && *tgb.Spec.TargetType == elbv2api.TargetTypeInstance {
+		return errors.New("Unable to use instance target type while using assume role")
 	}
-	if len(tgList) != 1 {
-		return nil, errors.Errorf("expecting a single targetGroup with name [%s] but got %v", tgName, len(tgList))
-	}
-	return &tgList[0], nil
+
+	return nil
 }
 
 // +kubebuilder:webhook:path=/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding,mutating=false,failurePolicy=fail,groups=elbv2.k8s.aws,resources=targetgroupbindings,verbs=create;update,versions=v1beta1,name=vtargetgroupbinding.elbv2.k8s.aws,sideEffects=None,webhookVersions=v1,admissionReviewVersions=v1beta1

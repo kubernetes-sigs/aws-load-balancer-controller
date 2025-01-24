@@ -25,26 +25,7 @@ const (
 
 	// Index Key for "ServiceReference" index.
 	IndexKeyServiceRefName = "spec.serviceRef.name"
-
-	// Annotation for IAM Role ARN to assume when calling AWS APIs.
-	AnnotationIamRoleArnToAssume = "alb.ingress.kubernetes.io/IamRoleArnToAssume"
-
-	// Annotation for IAM Role External ID to use when calling AWS APIs.
-	AnnotationAssumeRoleExternalId = "alb.ingress.kubernetes.io/AssumeRoleExternalId"
 )
-
-// AnnotationsToFields converts annotations to fields. Currently it's tgb.Spec.IamRoleArnToAssume and tgb.Spec.AssumeRoleExternalId
-func AnnotationsToFields(tgb *elbv2api.TargetGroupBinding) {
-	for key, value := range tgb.Annotations {
-		if key == AnnotationIamRoleArnToAssume {
-			tgb.Spec.IamRoleArnToAssume = value
-		} else {
-			if key == AnnotationAssumeRoleExternalId {
-				tgb.Spec.AssumeRoleExternalId = value
-			}
-		}
-	}
-}
 
 // BuildTargetHealthPodConditionType constructs the condition type for TargetHealth pod condition.
 func BuildTargetHealthPodConditionType(tgb *elbv2api.TargetGroupBinding) corev1.PodConditionType {

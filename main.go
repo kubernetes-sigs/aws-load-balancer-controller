@@ -90,7 +90,7 @@ func main() {
 		awsMetricsCollector = awsmetrics.NewCollector(metrics.Registry)
 	}
 
-	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, awsMetricsCollector, ctrl.Log, nil)
+	cloud, err := aws.NewCloud(controllerCFG.AWSConfig, controllerCFG.ClusterName, awsMetricsCollector, ctrl.Log, nil)
 	if err != nil {
 		setupLog.Error(err, "unable to initialize AWS cloud")
 		os.Exit(1)

@@ -30,5 +30,5 @@ type Cloud interface {
 	// VpcID for the LoadBalancer resources.
 	VpcID() string
 
-	GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn string, externalId string) ELBV2
+	GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn string, externalId string) (ELBV2, error)
 }
