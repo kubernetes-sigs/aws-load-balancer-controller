@@ -131,6 +131,31 @@ func TestIsNodeSuitableAsTrafficProxy(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "node is ready but tainted with karpenter.sh/disrupted",
+			args: args{
+				node: &corev1.Node{
+					Status: corev1.NodeStatus{
+						Conditions: []corev1.NodeCondition{
+							{
+								Type:   corev1.NodeReady,
+								Status: corev1.ConditionTrue,
+							},
+						},
+					},
+					Spec: corev1.NodeSpec{
+						Unschedulable: false,
+						Taints: []corev1.Taint{
+							{
+								Key:    toBeDeletedByKarpenterTaint,
+								Effect: corev1.TaintEffectNoSchedule,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
