@@ -257,7 +257,7 @@ spec:
     name: awesome-service # route traffic to the awesome-service
     port: 80
   targetGroupARN: <arn-to-targetGroup>
-  multiClusterTargetGroup: "true"
+  multiClusterTargetGroup: true
 ```
 
 

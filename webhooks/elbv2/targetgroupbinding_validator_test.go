@@ -462,8 +462,14 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
 			v := &targetGroupBindingValidator{
-				logger: logr.New(&log.NullLogSink{}),
+				logger:    logr.New(&log.NullLogSink{}),
+				k8sClient: k8sClient,
 			}
 			err := v.ValidateUpdate(context.Background(), tt.args.obj, tt.args.oldObj)
 			if tt.wantErr != nil {
@@ -954,6 +960,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb1",
 						Namespace: "ns1",
+						UID:       "tgb1",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-1",
@@ -971,6 +978,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb1",
 							Namespace: "ns1",
+							UID:       "tgb1",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-1",
@@ -984,6 +992,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb2",
 						Namespace: "ns2",
+						UID:       "tgb2",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
@@ -1001,6 +1010,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb1",
 							Namespace: "ns1",
+							UID:       "tgb1",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-1",
@@ -1011,6 +1021,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb2",
 							Namespace: "ns2",
+							UID:       "tgb2",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-2",
@@ -1021,9 +1032,21 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb3",
 							Namespace: "ns3",
+							UID:       "tgb3",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-3",
+							TargetType:     nil,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb22",
+							Namespace: "ns1",
+							UID:       "tgb22",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN: "tg-22",
 							TargetType:     nil,
 						},
 					},
@@ -1034,6 +1057,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb22",
 						Namespace: "ns1",
+						UID:       "tgb22",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-22",
@@ -1051,6 +1075,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb1",
 							Namespace: "ns1",
+							UID:       "tgb1",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-1",
@@ -1064,6 +1089,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb2",
 						Namespace: "ns1",
+						UID:       "tgb2",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-1",
@@ -1071,7 +1097,98 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroup tg-1 is already bound to TargetGroupBinding ns1/tgb1"),
+			wantErr: errors.New("TargetGroup tg-1 is already bound to following TargetGroupBindings [ns1/tgb1]. Please enable MultiCluster mode on all TargetGroupBindings referencing tg-1 or choose a different Target Group ARN."),
+		},
+		{
+			name: "[ok] duplicate target groups with multi cluster support",
+			env: env{
+				existingTGBs: []elbv2api.TargetGroupBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb1",
+							Namespace: "ns1",
+							UID:       "tgb1",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN:          "tg-1",
+							TargetType:              nil,
+							MultiClusterTargetGroup: true,
+						},
+					},
+				},
+			},
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb2",
+						Namespace: "ns1",
+						UID:       "tgb2",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:          "tg-1",
+						TargetType:              nil,
+						MultiClusterTargetGroup: true,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "[err] try to add binding without multicluster support while multiple bindings are using the same tg arn",
+			env: env{
+				existingTGBs: []elbv2api.TargetGroupBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb1",
+							Namespace: "ns1",
+							UID:       "tgb1",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN:          "tg-1",
+							TargetType:              nil,
+							MultiClusterTargetGroup: true,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb3",
+							Namespace: "ns1",
+							UID:       "tgb3",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN:          "tg-1",
+							TargetType:              nil,
+							MultiClusterTargetGroup: true,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb4",
+							Namespace: "ns1",
+							UID:       "tgb4",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN:          "tg-1",
+							TargetType:              nil,
+							MultiClusterTargetGroup: true,
+						},
+					},
+				},
+			},
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb2",
+						Namespace: "ns1",
+						UID:       "tgb2",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-1",
+						TargetType:     nil,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroup tg-1 is already bound to following TargetGroupBindings [ns1/tgb1 ns1/tgb3 ns1/tgb4]. Please enable MultiCluster mode on all TargetGroupBindings referencing tg-1 or choose a different Target Group ARN."),
 		},
 		{
 			name: "[err] duplicate target groups - one target group binding",
@@ -1081,6 +1198,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb1",
 							Namespace: "ns1",
+							UID:       "tgb1",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-1",
@@ -1091,6 +1209,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb2",
 							Namespace: "ns2",
+							UID:       "tgb2",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-111",
@@ -1101,6 +1220,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb3",
 							Namespace: "ns3",
+							UID:       "tgb3",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-3",
@@ -1114,6 +1234,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb111",
 						Namespace: "ns1",
+						UID:       "tgb111",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-111",
@@ -1121,7 +1242,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroup tg-111 is already bound to TargetGroupBinding ns2/tgb2"),
+			wantErr: errors.New("TargetGroup tg-111 is already bound to following TargetGroupBindings [ns2/tgb2]. Please enable MultiCluster mode on all TargetGroupBindings referencing tg-111 or choose a different Target Group ARN."),
 		},
 	}
 	for _, tt := range tests {
