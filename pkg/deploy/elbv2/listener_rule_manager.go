@@ -126,27 +126,7 @@ func (m *defaultListenerRuleManager) Delete(ctx context.Context, sdkLR ListenerR
 }
 
 func (m *defaultListenerRuleManager) SetRulePriorities(ctx context.Context, matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair, unmatchedSDKLRs []ListenerRuleWithTags) error {
-	var lastAvailablePriority int32 = 50000
-	var sdkLRs []ListenerRuleWithTags
-
-	// Sort the unmatched existing SDK rules based on their priority to be pushed down in same order
-	sort.Slice(unmatchedSDKLRs, func(i, j int) bool {
-		priorityI, _ := strconv.Atoi(awssdk.ToString(unmatchedSDKLRs[i].ListenerRule.Priority))
-		priorityJ, _ := strconv.Atoi(awssdk.ToString(unmatchedSDKLRs[j].ListenerRule.Priority))
-		return priorityI < priorityJ
-	})
-	// Push down all the unmatched existing SDK rules on load balancer so that updated rules can take their place
-	for _, sdkLR := range slices.Backward(unmatchedSDKLRs) {
-		sdkLR.ListenerRule.Priority = awssdk.String(strconv.Itoa(int(lastAvailablePriority)))
-		sdkLRs = append(sdkLRs, sdkLR)
-		lastAvailablePriority--
-	}
-	//Reprioratize matched rules by settings
-	for _, resAndSDKLR := range matchedResAndSDKLRsBySettings {
-		resAndSDKLR.sdkLR.ListenerRule.Priority = awssdk.String(strconv.Itoa(int(resAndSDKLR.resLR.Spec.Priority)))
-		sdkLRs = append(sdkLRs, resAndSDKLR.sdkLR)
-	}
-	req := buildSDKSetRulePrioritiesInput(sdkLRs)
+	req := buildSDKSetRulePrioritiesInput(matchedResAndSDKLRsBySettings, unmatchedSDKLRs)
 	m.logger.Info("setting listener rule priorities",
 		"rule priority pairs", req.RulePriorities)
 	if _, err := m.elbv2Client.SetRulePrioritiesWithContext(ctx, req); err != nil {
@@ -217,8 +197,28 @@ func buildSDKModifyListenerRuleInput(_ elbv2model.ListenerRuleSpec, desiredActio
 	return sdkObj
 }
 
-func buildSDKSetRulePrioritiesInput(sdkLRs []ListenerRuleWithTags) *elbv2sdk.SetRulePrioritiesInput {
+func buildSDKSetRulePrioritiesInput(matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair, unmatchedSDKLRs []ListenerRuleWithTags) *elbv2sdk.SetRulePrioritiesInput {
 	var rulePriorities []elbv2types.RulePriorityPair
+	var lastAvailablePriority int32 = 50000
+	var sdkLRs []ListenerRuleWithTags
+
+	// Sort the unmatched existing SDK rules based on their priority to be pushed down in same order
+	sort.Slice(unmatchedSDKLRs, func(i, j int) bool {
+		priorityI, _ := strconv.Atoi(awssdk.ToString(unmatchedSDKLRs[i].ListenerRule.Priority))
+		priorityJ, _ := strconv.Atoi(awssdk.ToString(unmatchedSDKLRs[j].ListenerRule.Priority))
+		return priorityI < priorityJ
+	})
+	// Push down all the unmatched existing SDK rules on load balancer so that updated rules can take their place
+	for _, sdkLR := range slices.Backward(unmatchedSDKLRs) {
+		sdkLR.ListenerRule.Priority = awssdk.String(strconv.Itoa(int(lastAvailablePriority)))
+		sdkLRs = append(sdkLRs, sdkLR)
+		lastAvailablePriority--
+	}
+	//Re-Prioritize matched rules by settings
+	for _, resAndSDKLR := range matchedResAndSDKLRsBySettings {
+		resAndSDKLR.sdkLR.ListenerRule.Priority = awssdk.String(strconv.Itoa(int(resAndSDKLR.resLR.Spec.Priority)))
+		sdkLRs = append(sdkLRs, resAndSDKLR.sdkLR)
+	}
 	for _, sdkLR := range sdkLRs {
 		p, _ := strconv.ParseInt(awssdk.ToString(sdkLR.ListenerRule.Priority), 10, 32)
 		rulePriorityPair := elbv2types.RulePriorityPair{
