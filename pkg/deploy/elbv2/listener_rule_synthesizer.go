@@ -3,9 +3,13 @@ package elbv2
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"strconv"
@@ -13,11 +17,12 @@ import (
 
 // NewListenerRuleSynthesizer constructs new listenerRuleSynthesizer.
 func NewListenerRuleSynthesizer(elbv2Client services.ELBV2, taggingManager TaggingManager,
-	lrManager ListenerRuleManager, logger logr.Logger, stack core.Stack) *listenerRuleSynthesizer {
+	lrManager ListenerRuleManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack) *listenerRuleSynthesizer {
 	return &listenerRuleSynthesizer{
 		elbv2Client:    elbv2Client,
 		lrManager:      lrManager,
 		logger:         logger,
+		featureGates:   featureGates,
 		taggingManager: taggingManager,
 		stack:          stack,
 	}
@@ -26,6 +31,7 @@ func NewListenerRuleSynthesizer(elbv2Client services.ELBV2, taggingManager Taggi
 type listenerRuleSynthesizer struct {
 	elbv2Client    services.ELBV2
 	lrManager      ListenerRuleManager
+	featureGates   config.FeatureGates
 	logger         logr.Logger
 	taggingManager TaggingManager
 
@@ -62,29 +68,74 @@ func (s *listenerRuleSynthesizer) PostSynthesize(ctx context.Context) error {
 
 func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.Context, lsARN string, resLRs []*elbv2model.ListenerRule) error {
 	sdkLRs, err := s.findSDKListenersRulesOnLS(ctx, lsARN)
+	var lastAvailablePriority int32 = 50000
 	if err != nil {
 		return err
 	}
-
-	matchedResAndSDKLRs, unmatchedResLRs, unmatchedSDKLRs := matchResAndSDKListenerRules(resLRs, sdkLRs)
-	for _, sdkLR := range unmatchedSDKLRs {
-		if err := s.lrManager.Delete(ctx, sdkLR); err != nil {
+	// Find rules which are matching priority
+	matchedResAndSDKLRsByPriority, unmatchedResLRs, unmatchedSDKLRs := matchResAndSDKListenerRules(resLRs, sdkLRs)
+	// Push down all the unmatched existing rules on load balancer
+	if len(unmatchedSDKLRs) != 0 {
+		p, err := s.lrManager.SetRulePriorities(ctx, unmatchedSDKLRs, lastAvailablePriority)
+		if err != nil {
 			return err
 		}
+		lastAvailablePriority = p
 	}
+	// Create all the unmatched/ new rules on the LB
 	for _, resLR := range unmatchedResLRs {
-		lrStatus, err := s.lrManager.Create(ctx, resLR)
+		lrStatus, err := s.lrManager.Create(ctx, resLR, nil)
 		if err != nil {
 			return err
 		}
 		resLR.SetStatus(lrStatus)
 	}
-	for _, resAndSDKLR := range matchedResAndSDKLRs {
+	// Filter the rules on the same priority based on their setting (actions and conditions)
+	matchedResAndSDKLRsBySettings, unmatchedResAndSDKLRsBySettings, unmatchedResLRsDesiredActionsAndConditions, err := s.matchResAndSDKListenerRulesBySettings(matchedResAndSDKLRsByPriority)
+	if err != nil {
+		return err
+	}
+
+	var unmatchedSDKLRsBySettings []ListenerRuleWithTags
+	var unmatchedResLRsBySettings []*elbv2model.ListenerRule
+	if len(unmatchedResAndSDKLRsBySettings) != 0 {
+		for _, resAndSDKLR := range unmatchedResAndSDKLRsBySettings {
+			unmatchedSDKLRsBySettings = append(unmatchedSDKLRsBySettings, resAndSDKLR.sdkLR)
+			unmatchedResLRsBySettings = append(unmatchedResLRsBySettings, resAndSDKLR.resLR)
+		}
+		// Push down all the unmatched existing rules by settings on load balancer
+		if _, err := s.lrManager.SetRulePriorities(ctx, unmatchedSDKLRsBySettings, lastAvailablePriority); err != nil {
+			return err
+		}
+		// Create new rules on the same priorities with new settings
+		for i, resLR := range unmatchedResLRsBySettings {
+			lrStatus, err := s.lrManager.Create(ctx, resLR, unmatchedResLRsDesiredActionsAndConditions[i])
+			if err != nil {
+				return err
+			}
+			resLR.SetStatus(lrStatus)
+		}
+	}
+
+	// Update tags for all the matching rules
+	for _, resAndSDKLR := range matchedResAndSDKLRsBySettings {
 		lsStatus, err := s.lrManager.Update(ctx, resAndSDKLR.resLR, resAndSDKLR.sdkLR)
 		if err != nil {
 			return err
 		}
 		resAndSDKLR.resLR.SetStatus(lsStatus)
+	}
+
+	// Once all the required rules are created and updated, delete all the rules which were pushed down since they are not required anymore
+	for _, sdkLR := range unmatchedSDKLRs {
+		if err := s.lrManager.Delete(ctx, sdkLR); err != nil {
+			return err
+		}
+	}
+	for _, sdkLR := range unmatchedSDKLRsBySettings {
+		if err := s.lrManager.Delete(ctx, sdkLR); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -108,6 +159,11 @@ func (s *listenerRuleSynthesizer) findSDKListenersRulesOnLS(ctx context.Context,
 type resAndSDKListenerRulePair struct {
 	resLR *elbv2model.ListenerRule
 	sdkLR ListenerRuleWithTags
+}
+
+type resLRDesiredActionsAndConditionsPair struct {
+	desiredActions    []types.Action
+	desiredConditions []types.RuleCondition
 }
 
 func matchResAndSDKListenerRules(resLRs []*elbv2model.ListenerRule, sdkLRs []ListenerRuleWithTags) ([]resAndSDKListenerRulePair, []*elbv2model.ListenerRule, []ListenerRuleWithTags) {
@@ -143,6 +199,33 @@ func mapResListenerRuleByPriority(resLRs []*elbv2model.ListenerRule) map[int32]*
 		resLRByPriority[resLR.Spec.Priority] = resLR
 	}
 	return resLRByPriority
+}
+
+// Filter the rules based on their settings aka actions and conditions
+func (s *listenerRuleSynthesizer) matchResAndSDKListenerRulesBySettings(matchedResAndSDKLRsByPriority []resAndSDKListenerRulePair) ([]resAndSDKListenerRulePair, []resAndSDKListenerRulePair, []*resLRDesiredActionsAndConditionsPair, error) {
+	var unmatchedResAndSDKListenerRulesBySettings []resAndSDKListenerRulePair
+	var matchedResAndSDKListenerRulesBySettings []resAndSDKListenerRulePair
+	var unmatchedResLRDesiredActionsAndConditionsPair []*resLRDesiredActionsAndConditionsPair
+	for _, resAndSDKLR := range matchedResAndSDKLRsByPriority {
+		desiredActions, err := buildSDKActions(resAndSDKLR.resLR.Spec.Actions, s.featureGates)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		desiredConditions := buildSDKRuleConditions(resAndSDKLR.resLR.Spec.Conditions)
+		if !cmp.Equal(desiredActions, resAndSDKLR.sdkLR.ListenerRule.Actions, elbv2equality.CompareOptionForActions()) ||
+			!cmp.Equal(desiredConditions, resAndSDKLR.sdkLR.ListenerRule.Conditions, elbv2equality.CompareOptionForRuleConditions()) {
+			unmatchedResAndSDKListenerRulesBySettings = append(unmatchedResAndSDKListenerRulesBySettings, resAndSDKLR)
+			// Storing these so that we don't need to build SDK actions and conditions later during building create request input
+			unmatchedResLRDesiredActionsAndConditionsPair = append(unmatchedResLRDesiredActionsAndConditionsPair, &resLRDesiredActionsAndConditionsPair{
+				desiredActions:    desiredActions,
+				desiredConditions: desiredConditions,
+			})
+		} else {
+			matchedResAndSDKListenerRulesBySettings = append(matchedResAndSDKListenerRulesBySettings, resAndSDKLR)
+		}
+	}
+
+	return matchedResAndSDKListenerRulesBySettings, unmatchedResAndSDKListenerRulesBySettings, unmatchedResLRDesiredActionsAndConditionsPair, nil
 }
 
 func mapSDKListenerRuleByPriority(sdkLRs []ListenerRuleWithTags) map[int32]ListenerRuleWithTags {
