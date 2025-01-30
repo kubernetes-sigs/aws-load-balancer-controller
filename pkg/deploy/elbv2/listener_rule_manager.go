@@ -13,6 +13,7 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"slices"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -128,6 +129,12 @@ func (m *defaultListenerRuleManager) SetRulePriorities(ctx context.Context, matc
 	var lastAvailablePriority int32 = 50000
 	var sdkLRs []ListenerRuleWithTags
 
+	// Sort the unmatched existing SDK rules based on their priority to be pushed down in same order
+	sort.Slice(unmatchedSDKLRs, func(i, j int) bool {
+		priorityI, _ := strconv.Atoi(awssdk.ToString(unmatchedSDKLRs[i].ListenerRule.Priority))
+		priorityJ, _ := strconv.Atoi(awssdk.ToString(unmatchedSDKLRs[j].ListenerRule.Priority))
+		return priorityI < priorityJ
+	})
 	// Push down all the unmatched existing SDK rules on load balancer so that updated rules can take their place
 	for _, sdkLR := range slices.Backward(unmatchedSDKLRs) {
 		sdkLR.ListenerRule.Priority = awssdk.String(strconv.Itoa(int(lastAvailablePriority)))
