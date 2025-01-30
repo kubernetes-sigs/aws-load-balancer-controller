@@ -12,7 +12,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
-	"slices"
 	"strconv"
 	"time"
 )
@@ -25,7 +24,7 @@ type ListenerRuleManager interface {
 
 	Delete(ctx context.Context, sdkLR ListenerRuleWithTags) error
 
-	SetRulePriorities(ctx context.Context, sdkLR []ListenerRuleWithTags, lastAvailablePriority int32) (int32, error)
+	SetRulePriorities(ctx context.Context, matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair) error
 }
 
 // NewDefaultListenerRuleManager constructs new defaultListenerRuleManager.
@@ -115,21 +114,22 @@ func (m *defaultListenerRuleManager) Delete(ctx context.Context, sdkLR ListenerR
 	return nil
 }
 
-func (m *defaultListenerRuleManager) SetRulePriorities(ctx context.Context, unmatchedSDKLRs []ListenerRuleWithTags, lastAvailablePriority int32) (int32, error) {
-	for _, sdkLR := range slices.Backward(unmatchedSDKLRs) {
+func (m *defaultListenerRuleManager) SetRulePriorities(ctx context.Context, matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair) error {
+	var sdkLRs []ListenerRuleWithTags
+	for _, resAndSDKLR := range matchedResAndSDKLRsBySettings {
 		//Update rule priorities
-		sdkLR.ListenerRule.Priority = awssdk.String(strconv.Itoa(int(lastAvailablePriority)))
-		lastAvailablePriority--
+		resAndSDKLR.sdkLR.ListenerRule.Priority = awssdk.String(strconv.Itoa(int(resAndSDKLR.resLR.Spec.Priority)))
+		sdkLRs = append(sdkLRs, resAndSDKLR.sdkLR)
 	}
-	req := buildSDKSetRulePrioritiesInput(unmatchedSDKLRs)
+	req := buildSDKSetRulePrioritiesInput(sdkLRs)
 	m.logger.Info("setting listener rule priorities",
 		"rule priority pairs", req.RulePriorities)
 	if _, err := m.elbv2Client.SetRulePrioritiesWithContext(ctx, req); err != nil {
-		return lastAvailablePriority, err
+		return err
 	}
 	m.logger.Info("setting listener rule priorities complete",
 		"rule priority pairs", req.RulePriorities)
-	return lastAvailablePriority, nil
+	return nil
 }
 
 func (m *defaultListenerRuleManager) updateSDKListenerRuleWithTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) error {
