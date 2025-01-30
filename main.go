@@ -50,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	"time"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -209,6 +210,28 @@ func main() {
 		deferredTGBQueue.Run()
 	}()
 
+	// TODO: we can better improve this to update the metrics per reconcile
+	go func() {
+		ticker := time.NewTicker(2 * time.Minute)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				setupLog.Info("updating managed resource metrics")
+				if err := lbcMetricsCollector.UpdateManagedK8sResourceMetrics(ctx); err != nil {
+					setupLog.Error(err, "failed to update managed Kubernetes resource metrics")
+				}
+				if err := lbcMetricsCollector.UpdateManagedALBMetrics(ctx); err != nil {
+					setupLog.Error(err, "failed to update managed ALB metrics")
+				}
+				if err := lbcMetricsCollector.UpdateManagedNLBMetrics(ctx); err != nil {
+					setupLog.Error(err, "failed to update managed NLB metrics")
+				}
+			}
+		}
+	}()
+
 	if err := podInfoRepo.WaitForCacheSync(ctx); err != nil {
 		setupLog.Error(err, "problem wait for podInfo repo sync")
 		os.Exit(1)
@@ -217,19 +240,6 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
-
-	// update of the managed resource metrics
-	go func() {
-		if err := lbcMetricsCollector.UpdateManagedK8sResourceMetrics(ctx); err != nil {
-			setupLog.Error(err, "failed to update managed Kubernetes resource metrics")
-		}
-		if err := lbcMetricsCollector.UpdateManagedALBMetrics(ctx); err != nil {
-			setupLog.Error(err, "failed to update managed ALB metrics")
-		}
-		if err := lbcMetricsCollector.UpdateManagedNLBMetrics(ctx); err != nil {
-			setupLog.Error(err, "failed to update managed NLB metrics")
-		}
-	}()
 }
 
 // loadControllerConfig loads the controller configuration.
