@@ -27,11 +27,12 @@ func NewIngressValidator(client client.Client, ingConfig config.IngressConfig, l
 	return &ingressValidator{
 		annotationParser:                   annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress),
 		classAnnotationMatcher:             ingress.NewDefaultClassAnnotationMatcher(ingConfig.IngressClass),
-		classLoader:                        ingress.NewDefaultClassLoader(client, false),
+		classLoader:                        ingress.NewDefaultClassLoader(client, false, ingConfig.ControllerClass),
 		disableIngressClassAnnotation:      ingConfig.DisableIngressClassAnnotation,
 		disableIngressGroupAnnotation:      ingConfig.DisableIngressGroupNameAnnotation,
 		manageIngressesWithoutIngressClass: ingConfig.IngressClass == "",
 		logger:                             logger,
+		controllerClass:                    ingConfig.ControllerClass,
 	}
 }
 
@@ -47,6 +48,7 @@ type ingressValidator struct {
 	// and "spec.ingressClassName" should be managed or not.
 	manageIngressesWithoutIngressClass bool
 	logger                             logr.Logger
+	controllerClass                    string
 }
 
 func (v *ingressValidator) Prototype(req admission.Request) (runtime.Object, error) {
@@ -108,7 +110,7 @@ func (v *ingressValidator) checkIngressClass(ctx context.Context, ing *networkin
 		return false, err
 	}
 	if classConfiguration.IngClass != nil {
-		return classConfiguration.IngClass.Spec.Controller != ingress.IngressClassControllerALB, nil
+		return classConfiguration.IngClass.Spec.Controller != v.controllerClass, nil
 	}
 	return !v.manageIngressesWithoutIngressClass, nil
 }
