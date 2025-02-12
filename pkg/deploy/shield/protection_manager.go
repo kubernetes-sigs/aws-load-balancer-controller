@@ -88,22 +88,46 @@ func (m *defaultProtectionManager) CreateProtection(ctx context.Context, resourc
 }
 
 func (m *defaultProtectionManager) DeleteProtection(ctx context.Context, resourceARN string, protectionID string) error {
-	req := &shieldsdk.DeleteProtectionInput{
-		ProtectionId: awssdk.String(protectionID),
-	}
-	m.logger.Info("disabling shield protection",
-		"resourceARN", resourceARN,
-		"protectionID", protectionID)
-	_, err := m.shieldClient.DeleteProtectionWithContext(ctx, req)
-	if err != nil {
-		return err
-	}
-	m.logger.Info("disabled shield protection",
-		"resourceARN", resourceARN)
+    req := &shieldsdk.DeleteProtectionInput{
+        ProtectionId: awssdk.String(protectionID),
+    }
+    m.logger.Info("disabling shield protection",
+        "resourceARN", resourceARN,
+        "protectionID", protectionID)
+    _, err := m.shieldClient.DeleteProtectionWithContext(ctx, req)
+    if err != nil {
+        return err
+    }
+    m.logger.Info("disabled shield protection",
+        "resourceARN", resourceARN)
 
-	var protectionInfo *ProtectionInfo
-	m.protectionInfoByResourceARNCache.Set(resourceARN, protectionInfo, m.protectionInfoByResourceARNCacheTTL)
-	return nil
+    // Remove the protection info from the cache
+    m.protectionInfoByResourceARNCache.Delete(resourceARN)
+
+    // Verify that the protection resource is deleted
+    err = m.verifyProtectionDeleted(ctx, protectionID)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
+func (m *defaultProtectionManager) verifyProtectionDeleted(ctx context.Context, protectionID string) error {
+    req := &shieldsdk.DescribeProtectionInput{
+        ProtectionId: awssdk.String(protectionID),
+    }
+    _, err := m.shieldClient.DescribeProtectionWithContext(ctx, req)
+    if err != nil {
+        var resourceNotFoundException *shieldtypes.ResourceNotFoundException
+        if errors.As(err, &resourceNotFoundException) {
+            // Protection resource is successfully deleted
+            return nil
+        }
+        return err
+    }
+    // Protection resource still exists
+    return errors.New("protection resource still exists")
 }
 
 func (m *defaultProtectionManager) GetProtection(ctx context.Context, resourceARN string) (*ProtectionInfo, error) {
