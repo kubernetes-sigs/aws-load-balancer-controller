@@ -19,7 +19,7 @@ webhooks:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
       path: /mutate-v1-pod
-  failurePolicy: Ignore
+  failurePolicy: {{ .Values.podMutatorWebhookConfig.failurePolicy }}
   name: mpod.elbv2.k8s.aws
   admissionReviewVersions:
   - v1beta1

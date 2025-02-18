@@ -430,6 +430,11 @@ serviceMutatorWebhookConfig:
   - CREATE
     # - UPDATE
 
+# podMutatorWebhookConfig contains configurations specific to the service mutator webhook
+podMutatorWebhookConfig:
+  # whether or not to fail the pod creation if the webhook fails
+  failurePolicy: Ignore
+
 # serviceTargetENISGTags specifies AWS tags, in addition to the cluster tags, for finding the target ENI SG to which to add inbound rules from NLBs.
 serviceTargetENISGTags:
 

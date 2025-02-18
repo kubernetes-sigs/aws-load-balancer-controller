@@ -11,7 +11,7 @@ webhooks:
         name: webhook-service
         namespace: system
         path: /mutate-v1-pod
-    failurePolicy: Fail
+    failurePolicy: Ignore
     name: mpod.elbv2.k8s.aws
     rules:
       - apiGroups:
