@@ -58,6 +58,7 @@ const (
 	IngressSuffixlsAttsAnnotationPrefix          = "listener-attributes"
 	IngressLBSuffixMultiClusterTargetGroup       = "multi-cluster-target-group"
 	IngressSuffixLoadBalancerCapacityReservation = "minimum-load-balancer-capacity"
+	IngressSuffixInboundSecurityGroups           = "inbound-security-groups"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io
