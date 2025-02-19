@@ -125,7 +125,7 @@ the NLB will route traffic to. See [Network Load Balancers](https://docs.aws.ama
 
     !!!warning "limitations"
         - Each subnets must be from a different Availability Zone
-        - AWS has restrictions on disabling existing subnets for NLB. As a result, you might not be able to edit this annotation once the NLB gets provisioned.
+        - Similar to any delete operation, removing an Availability Zone can be a potentially disruptive operation. We recommend you evaluate for any potential impact on existing connections, traffic flows, or production workloads. Refer to [product documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/availability-zones.html) for prescriptive guidance on how to use this capability in a safe manner.
 
     !!!example
         ```
