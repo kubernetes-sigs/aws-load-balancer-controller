@@ -50,7 +50,8 @@ type ELBV2 interface {
 	DescribeRulesWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeRulesInput) (*elasticloadbalancingv2.DescribeRulesOutput, error)
 	CreateRuleWithContext(ctx context.Context, input *elasticloadbalancingv2.CreateRuleInput) (*elasticloadbalancingv2.CreateRuleOutput, error)
 	DeleteRuleWithContext(ctx context.Context, input *elasticloadbalancingv2.DeleteRuleInput) (*elasticloadbalancingv2.DeleteRuleOutput, error)
-	ModifyRuleWithContext(ctx context.Context, inout *elasticloadbalancingv2.ModifyRuleInput) (*elasticloadbalancingv2.ModifyRuleOutput, error)
+	ModifyRuleWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyRuleInput) (*elasticloadbalancingv2.ModifyRuleOutput, error)
+	SetRulePrioritiesWithContext(ctx context.Context, input *elasticloadbalancingv2.SetRulePrioritiesInput) (*elasticloadbalancingv2.SetRulePrioritiesOutput, error)
 	RegisterTargetsWithContext(ctx context.Context, input *elasticloadbalancingv2.RegisterTargetsInput) (*elasticloadbalancingv2.RegisterTargetsOutput, error)
 	DeregisterTargetsWithContext(ctx context.Context, input *elasticloadbalancingv2.DeregisterTargetsInput) (*elasticloadbalancingv2.DeregisterTargetsOutput, error)
 	DescribeTrustStoresWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeTrustStoresInput) (*elasticloadbalancingv2.DescribeTrustStoresOutput, error)
@@ -161,6 +162,14 @@ func (c *elbv2Client) DeleteRuleWithContext(ctx context.Context, input *elasticl
 		return nil, err
 	}
 	return client.DeleteRule(ctx, input)
+}
+
+func (c *elbv2Client) SetRulePrioritiesWithContext(ctx context.Context, input *elasticloadbalancingv2.SetRulePrioritiesInput) (*elasticloadbalancingv2.SetRulePrioritiesOutput, error) {
+	client, err := c.awsClientsProvider.GetELBv2Client(ctx, "SetRulePriorities")
+	if err != nil {
+		return nil, err
+	}
+	return client.SetRulePriorities(ctx, input)
 }
 
 func (c *elbv2Client) CreateRuleWithContext(ctx context.Context, input *elasticloadbalancingv2.CreateRuleInput) (*elasticloadbalancingv2.CreateRuleOutput, error) {
