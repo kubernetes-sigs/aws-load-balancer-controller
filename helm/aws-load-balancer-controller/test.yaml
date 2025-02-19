@@ -353,3 +353,7 @@ serviceMutatorWebhookConfig:
   operations:
   - CREATE
   # - UPDATE
+
+podMutatorWebhookConfig:
+  # whether or not to fail the pod creation if the webhook fails
+  failurePolicy: Ignore
