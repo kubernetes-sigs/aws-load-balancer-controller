@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -16,10 +17,11 @@ const (
 )
 
 // NewServiceMutator returns a mutator for Service.
-func NewServiceMutator(lbClass string, logger logr.Logger) *serviceMutator {
+func NewServiceMutator(lbClass string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *serviceMutator {
 	return &serviceMutator{
 		logger:            logger,
 		loadBalancerClass: lbClass,
+		metricsCollector:  metricsCollector,
 	}
 }
 
@@ -28,6 +30,7 @@ var _ webhook.Mutator = &serviceMutator{}
 type serviceMutator struct {
 	logger            logr.Logger
 	loadBalancerClass string
+	metricsCollector  lbcmetrics.MetricCollector
 }
 
 func (m *serviceMutator) Prototype(_ admission.Request) (runtime.Object, error) {

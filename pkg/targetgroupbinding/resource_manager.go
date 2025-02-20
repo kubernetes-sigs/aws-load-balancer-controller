@@ -4,25 +4,24 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"time"
 
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go"
-
-	"k8s.io/client-go/tools/record"
-
-	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/record"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
+	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -153,7 +152,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
 			return "", "", false, m.Cleanup(ctx, tgb)
 		}
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics("targetGroupBinding", "resolve_pod_endpoints_error", err, m.metricsCollector)
 	}
 
 	newCheckPoint, err := calculateTGBReconcileCheckpoint(endpoints, tgb)
@@ -281,7 +280,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
 			return "", "", false, m.Cleanup(ctx, tgb)
 		}
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics("targetGroupBinding", "resolve_nodeport_endpoints_error", err, m.metricsCollector)
 	}
 
 	newCheckPoint, err := calculateTGBReconcileCheckpoint(endpoints, tgb)

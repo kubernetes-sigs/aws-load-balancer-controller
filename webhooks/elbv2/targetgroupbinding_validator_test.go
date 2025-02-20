@@ -16,6 +16,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -335,10 +336,12 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
 				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil).AnyTimes()
 			}
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				k8sClient:   k8sClient,
-				elbv2Client: elbv2Client,
-				logger:      logr.New(&log.NullLogSink{}),
+				k8sClient:        k8sClient,
+				elbv2Client:      elbv2Client,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.ValidateCreate(context.Background(), tt.args.obj)
 			if tt.wantErr != nil {
@@ -467,9 +470,11 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 			elbv2api.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
 
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				logger:    logr.New(&log.NullLogSink{}),
-				k8sClient: k8sClient,
+				logger:           logr.New(&log.NullLogSink{}),
+				k8sClient:        k8sClient,
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.ValidateUpdate(context.Background(), tt.args.obj, tt.args.oldObj)
 			if tt.wantErr != nil {
@@ -532,8 +537,10 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				logger: logr.New(&log.NullLogSink{}),
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.checkRequiredFields(context.Background(), tt.args.tgb)
 			if tt.wantErr != nil {
@@ -844,9 +851,11 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				logger: logr.New(&log.NullLogSink{}),
-				vpcID:  clusterVpcID,
+				logger:           logr.New(&log.NullLogSink{}),
+				vpcID:            clusterVpcID,
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.checkImmutableFields(tt.args.tgb, tt.args.oldTGB)
 			if tt.wantErr != nil {
@@ -923,8 +932,10 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				logger: logr.New(&log.NullLogSink{}),
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.checkNodeSelector(tt.args.tgb)
 			if tt.wantErr != nil {
@@ -1251,9 +1262,11 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				k8sClient: k8sClient,
-				logger:    logr.New(&log.NullLogSink{}),
+				k8sClient:        k8sClient,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			for _, tgb := range tt.env.existingTGBs {
 				assert.NoError(t, k8sClient.Create(context.Background(), tgb.DeepCopy()))
@@ -1518,10 +1531,12 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
 				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil).AnyTimes()
 			}
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				k8sClient:   k8sClient,
-				elbv2Client: elbv2Client,
-				logger:      logr.New(&log.NullLogSink{}),
+				k8sClient:        k8sClient,
+				elbv2Client:      elbv2Client,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.checkTargetGroupVpcID(context.Background(), tt.args.obj)
 			if tt.wantErr != nil {
@@ -1580,8 +1595,10 @@ func TestCheckAssumeRoleConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				logger: logr.New(&log.NullLogSink{}),
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 
 			err := v.checkAssumeRoleConfig(tc.tgb)
