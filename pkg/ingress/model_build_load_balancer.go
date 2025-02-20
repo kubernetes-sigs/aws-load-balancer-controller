@@ -5,18 +5,20 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
+	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -41,39 +43,39 @@ func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, listenPor
 func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig) (elbv2model.LoadBalancerSpec, error) {
 	scheme, err := t.buildLoadBalancerScheme(ctx)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, errmetrics.NewErrorWithMetrics("ingress", "build_load_balancer_scheme_error", err, t.metricsCollector)
 	}
 	ipAddressType, err := t.buildLoadBalancerIPAddressType(ctx)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, errmetrics.NewErrorWithMetrics("ingress", "build_ip_address_type_error", err, t.metricsCollector)
 	}
 	subnetMappings, err := t.buildLoadBalancerSubnetMappings(ctx, scheme)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, errmetrics.NewErrorWithMetrics("ingress", "build_subnet_mappings_error", err, t.metricsCollector)
 	}
 	securityGroups, err := t.buildLoadBalancerSecurityGroups(ctx, listenPortConfigByPort, ipAddressType)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, errmetrics.NewErrorWithMetrics("ingress", "build_security_groups_error", err, t.metricsCollector)
 	}
 	coIPv4Pool, err := t.buildLoadBalancerCOIPv4Pool(ctx)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, errmetrics.NewErrorWithMetrics("ingress", "build_customer_owned_ipv4_pool", err, t.metricsCollector)
 	}
 	loadBalancerAttributes, err := t.buildLoadBalancerAttributes(ctx)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, errmetrics.NewErrorWithMetrics("ingress", "build_load_balancer_attributs", err, t.metricsCollector)
 	}
 	tags, err := t.buildLoadBalancerTags(ctx)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, errmetrics.NewErrorWithMetrics("ingress", "build_load_balancer_tags", err, t.metricsCollector)
 	}
 	name, err := t.buildLoadBalancerName(ctx, scheme)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, errmetrics.NewErrorWithMetrics("ingress", "build_load_balancer_name", err, t.metricsCollector)
 	}
 	lbMinimumCapacity, err := t.buildLoadBalancerMinimumCapacity(ctx)
 	if err != nil {
-		return elbv2model.LoadBalancerSpec{}, err
+		return elbv2model.LoadBalancerSpec{}, errmetrics.NewErrorWithMetrics("ingress", "build_load_balancer_minimum_capacity", err, t.metricsCollector)
 	}
 	return elbv2model.LoadBalancerSpec{
 		Name:                        name,
