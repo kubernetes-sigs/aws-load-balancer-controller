@@ -13,6 +13,11 @@ const (
 
 	metricAPIRequestsTotal          = "api_requests_total"
 	metricAPIRequestDurationSeconds = "api_request_duration_seconds"
+
+	metricAPIPermissionErrorsTotal           = "api_call_permission_errors_total"
+	metricAPIServiceLimitExceededErrorsTotal = "api_call_service_limit_exceeded_errors_total"
+	metricAPIThrottledErrorsTotal            = "api_call_throttled_errors_total"
+	metricAPIValidationErrorsTotal           = "api_call_validation_errors_total"
 )
 
 const (
@@ -28,6 +33,11 @@ type instruments struct {
 	apiCallRetries           *prometheus.HistogramVec
 	apiRequestsTotal         *prometheus.CounterVec
 	apiRequestDurationSecond *prometheus.HistogramVec
+
+	apiCallPermissionErrorsTotal    *prometheus.CounterVec
+	apiCallLimitExceededErrorsTotal *prometheus.CounterVec
+	apiCallThrottledErrorsTotal     *prometheus.CounterVec
+	apiCallValidationErrorsTotal    *prometheus.CounterVec
 }
 
 // newInstruments allocates and register new metrics to registerer
@@ -60,12 +70,41 @@ func newInstruments(registerer prometheus.Registerer) *instruments {
 		Help:      "Latency of an individual HTTP request to the service endpoint",
 	}, []string{labelService, labelOperation})
 
-	registerer.MustRegister(apiCallsTotal, apiCallDurationSeconds, apiCallRetries, apiRequestsTotal, apiRequestDurationSecond)
+	apiCallPermissionErrorsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: metricSubSystem,
+		Name:      metricAPIPermissionErrorsTotal,
+		Help:      "Number of failed AWS API calls due to auth or authrorization failures",
+	}, []string{labelService, labelOperation, labelStatusCode, labelErrorCode})
+
+	apiCallLimitExceededErrorsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: metricSubSystem,
+		Name:      metricAPIServiceLimitExceededErrorsTotal,
+		Help:      "Number of failed AWS API calls due to exceeding servce limit",
+	}, []string{labelService, labelOperation, labelStatusCode, labelErrorCode})
+
+	apiCallThrottledErrorsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: metricSubSystem,
+		Name:      metricAPIThrottledErrorsTotal,
+		Help:      "Number of failed AWS API calls due to throtting error",
+	}, []string{labelService, labelOperation, labelStatusCode, labelErrorCode})
+
+	apiCallValidationErrorsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: metricSubSystem,
+		Name:      metricAPIValidationErrorsTotal,
+		Help:      "Number of failed AWS API calls due to validation error",
+	}, []string{labelService, labelOperation, labelStatusCode, labelErrorCode})
+
+	registerer.MustRegister(apiCallsTotal, apiCallDurationSeconds, apiCallRetries, apiRequestsTotal, apiRequestDurationSecond, apiCallPermissionErrorsTotal, apiCallLimitExceededErrorsTotal, apiCallThrottledErrorsTotal, apiCallValidationErrorsTotal)
+
 	return &instruments{
-		apiCallsTotal:            apiCallsTotal,
-		apiCallDurationSeconds:   apiCallDurationSeconds,
-		apiCallRetries:           apiCallRetries,
-		apiRequestsTotal:         apiRequestsTotal,
-		apiRequestDurationSecond: apiRequestDurationSecond,
+		apiCallsTotal:                   apiCallsTotal,
+		apiCallDurationSeconds:          apiCallDurationSeconds,
+		apiCallRetries:                  apiCallRetries,
+		apiRequestsTotal:                apiRequestsTotal,
+		apiRequestDurationSecond:        apiRequestDurationSecond,
+		apiCallPermissionErrorsTotal:    apiCallPermissionErrorsTotal,
+		apiCallLimitExceededErrorsTotal: apiCallLimitExceededErrorsTotal,
+		apiCallThrottledErrorsTotal:     apiCallThrottledErrorsTotal,
+		apiCallValidationErrorsTotal:    apiCallValidationErrorsTotal,
 	}
 }

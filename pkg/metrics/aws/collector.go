@@ -2,6 +2,9 @@ package aws
 
 import (
 	"context"
+	"strconv"
+	"time"
+
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/smithy-go"
@@ -9,8 +12,6 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"strconv"
-	"time"
 )
 
 const (
@@ -65,12 +66,25 @@ func WithSDKCallMetricCollector(c *Collector) func(stack *smithymiddleware.Stack
 			errorCode := errorCodeForRequest(err)
 			retryCount := getRetryMetricsForRequest(metadata)
 			duration := time.Since(start)
-			c.instruments.apiCallsTotal.With(map[string]string{
+			labels := map[string]string{
 				labelService:    service,
 				labelOperation:  operation,
 				labelStatusCode: statusCode,
 				labelErrorCode:  errorCode,
-			}).Inc()
+			}
+			c.instruments.apiCallsTotal.With(labels).Inc()
+
+			// https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/CommonErrors.html
+			if statusCode == "401" || statusCode == "403" || errorCode == "AccessDeniedException" {
+				c.instruments.apiCallPermissionErrorsTotal.With(labels).Inc()
+			} else if errorCode == "ServiceLimitExceeded" {
+				c.instruments.apiCallLimitExceededErrorsTotal.With(labels).Inc()
+			} else if errorCode == "ThrottlingException" || errorCode == "Throttling" {
+				c.instruments.apiCallThrottledErrorsTotal.With(labels).Inc()
+			} else if errorCode == "ValidationError" {
+				c.instruments.apiCallValidationErrorsTotal.With(labels).Inc()
+			}
+
 			c.instruments.apiCallDurationSeconds.With(map[string]string{
 				labelService:   service,
 				labelOperation: operation,

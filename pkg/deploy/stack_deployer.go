@@ -2,6 +2,7 @@ package deploy
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -12,6 +13,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafregional"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafv2"
+	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,14 +23,14 @@ import (
 // StackDeployer will deploy a resource stack into AWS and K8S.
 type StackDeployer interface {
 	// Deploy a resource stack.
-	Deploy(ctx context.Context, stack core.Stack) error
+	Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string) error
 }
 
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
 func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 	networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
 	elbv2TaggingManager elbv2.TaggingManager,
-	config config.ControllerConfig, tagPrefix string, logger logr.Logger) *defaultStackDeployer {
+	config config.ControllerConfig, tagPrefix string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, controllerName string) *defaultStackDeployer {
 
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
 	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, cloud.VpcID(), logger)
@@ -52,6 +55,8 @@ func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 		featureGates:                        config.FeatureGates,
 		vpcID:                               cloud.VpcID(),
 		logger:                              logger,
+		metricsCollector:                    metricsCollector,
+		controllerName:                      controllerName,
 	}
 }
 
@@ -77,6 +82,8 @@ type defaultStackDeployer struct {
 	shieldProtectionManager             shield.ProtectionManager
 	featureGates                        config.FeatureGates
 	vpcID                               string
+	metricsCollector                    lbcmetrics.MetricCollector
+	controllerName                      string
 
 	logger logr.Logger
 }
@@ -87,7 +94,7 @@ type ResourceSynthesizer interface {
 }
 
 // Deploy a resource stack.
-func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
+func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string) error {
 	synthesizers := []ResourceSynthesizer{
 		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.logger, stack),
 		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, d.featureGates, stack),
@@ -113,8 +120,15 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) err
 	}
 
 	for _, synthesizer := range synthesizers {
-		if err := synthesizer.Synthesize(ctx); err != nil {
-			return err
+		var err error
+		// Get synthesizer type name for better context
+		synthesizerType := fmt.Sprintf("%T", synthesizer)
+		synthesizeFn := func() {
+			err = synthesizer.Synthesize(ctx)
+		}
+		d.metricsCollector.ObserveControllerReconcileLatency(controllerName, synthesizerType, synthesizeFn)
+		if err != nil {
+			return errmetrics.NewErrorWithMetrics(controllerName, synthesizerType, err, d.metricsCollector)
 		}
 	}
 	for i := len(synthesizers) - 1; i >= 0; i-- {
