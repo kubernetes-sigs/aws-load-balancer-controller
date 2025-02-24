@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"strconv"
 	"sync"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -15,7 +16,9 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -32,7 +35,7 @@ const (
 // ModelBuilder builds the model stack for the service resource.
 type ModelBuilder interface {
 	// Build model stack for service
-	Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, bool, error)
+	Build(ctx context.Context, service *corev1.Service, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, bool, error)
 }
 
 // NewDefaultModelBuilder construct a new defaultModelBuilder
@@ -41,7 +44,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
-	disableRestrictedSGRules bool, logger logr.Logger) *defaultModelBuilder {
+	disableRestrictedSGRules bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:          annotationParser,
 		subnetsResolver:           subnetsResolver,
@@ -64,6 +67,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		enableBackendSG:           enableBackendSG,
 		disableRestrictedSGRules:  disableRestrictedSGRules,
 		logger:                    logger,
+		metricsCollector:          metricsCollector,
 	}
 }
 
@@ -92,9 +96,10 @@ type defaultModelBuilder struct {
 	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
 	enableIPTargetType        bool
 	logger                    logr.Logger
+	metricsCollector          lbcmetrics.MetricCollector
 }
 
-func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
+func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(service)))
 	task := &defaultModelBuildTask{
 		clusterName:              b.clusterName,
@@ -113,6 +118,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		enableBackendSG:          b.enableBackendSG,
 		disableRestrictedSGRules: b.disableRestrictedSGRules,
 		logger:                   b.logger,
+		metricsCollector:         b.metricsCollector,
 
 		service:   service,
 		stack:     stack,
@@ -170,6 +176,7 @@ type defaultModelBuildTask struct {
 	enableIPTargetType  bool
 	ec2Client           services.EC2
 	logger              logr.Logger
+	metricsCollector    lbcmetrics.MetricCollector
 
 	service *corev1.Service
 
@@ -239,19 +246,19 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	scheme, err := t.buildLoadBalancerScheme(ctx)
 	if err != nil {
-		return err
+		return errmetrics.NewErrorWithMetrics("service", "build_load_balancer_scheme_error", err, t.metricsCollector)
 	}
 	t.ec2Subnets, err = t.buildLoadBalancerSubnets(ctx, scheme)
 	if err != nil {
-		return err
+		return errmetrics.NewErrorWithMetrics("service", "build_load_balancer_subnets_error", err, t.metricsCollector)
 	}
 	err = t.buildLoadBalancer(ctx, scheme)
 	if err != nil {
-		return err
+		return errmetrics.NewErrorWithMetrics("service", "build_load_balancer_error", err, t.metricsCollector)
 	}
 	err = t.buildListeners(ctx, scheme)
 	if err != nil {
-		return err
+		return errmetrics.NewErrorWithMetrics("service", "build_listeners_error", err, t.metricsCollector)
 	}
 	return nil
 }
