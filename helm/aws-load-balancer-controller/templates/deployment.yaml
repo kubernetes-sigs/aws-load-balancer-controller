@@ -10,7 +10,9 @@ metadata:
   labels:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 spec:
+  {{ if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{ end }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
