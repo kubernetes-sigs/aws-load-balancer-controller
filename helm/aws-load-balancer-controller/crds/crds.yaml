@@ -245,6 +245,9 @@ spec:
                   - value
                   type: object
                 type: array
+              wafv2AclArn:
+                description: WAFv2ACLArn specifies ARN for the Amazon WAFv2 web ACL.
+                type: string
             type: object
         type: object
     served: true

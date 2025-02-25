@@ -187,8 +187,9 @@ Cluster administrators can use the optional `inboundCIDRs` field to specify the 
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/inbound-cidrs` annotation.
 
 #### spec.certificateArn
+
 Cluster administrators can use the optional `certificateARN` field to specify the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
-    
+
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/certificate-arn` annotation.
 
 #### spec.sslPolicy
@@ -252,3 +253,9 @@ They may specify `capacityUnits`. If the field is specified, LBC will ignore the
 ##### spec.minimumLoadBalancerCapacity.capacityUnits
 
 If `capacityUnits` is specified, it must be to valid positive value greater than 0. If set to 0, the LBC will reset the capacity reservation for the load balancer.
+
+#### spec.wafv2AclArn
+
+Cluster administrators can use the optional `wafv2AclArn` field to specify ARN for the Amazon WAFv2 web ACL.
+Only Regional WAFv2 is supported.
+When this annotation is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the annotation value to 'none'.
