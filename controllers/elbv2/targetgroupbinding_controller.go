@@ -19,10 +19,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
 	discv1 "k8s.io/api/discovery/v1"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
@@ -31,16 +32,19 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 
 	"github.com/go-logr/logr"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	metricsutil "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/util"
 )
 
 const (
@@ -51,7 +55,7 @@ const (
 // NewTargetGroupBindingReconciler constructs new targetGroupBindingReconciler
 func NewTargetGroupBindingReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, finalizerManager k8s.FinalizerManager,
 	tgbResourceManager targetgroupbinding.ResourceManager, config config.ControllerConfig, deferredTargetGroupBindingReconciler DeferredTargetGroupBindingReconciler,
-	logger logr.Logger) *targetGroupBindingReconciler {
+	logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) *targetGroupBindingReconciler {
 
 	return &targetGroupBindingReconciler{
 		k8sClient:                            k8sClient,
@@ -60,6 +64,8 @@ func NewTargetGroupBindingReconciler(k8sClient client.Client, eventRecorder reco
 		tgbResourceManager:                   tgbResourceManager,
 		deferredTargetGroupBindingReconciler: deferredTargetGroupBindingReconciler,
 		logger:                               logger,
+		metricsCollector:                     metricsCollector,
+		reconcileCounters:                    reconcileCounters,
 
 		maxConcurrentReconciles:    config.TargetGroupBindingMaxConcurrentReconciles,
 		maxExponentialBackoffDelay: config.TargetGroupBindingMaxExponentialBackoffDelay,
@@ -75,6 +81,8 @@ type targetGroupBindingReconciler struct {
 	tgbResourceManager                   targetgroupbinding.ResourceManager
 	deferredTargetGroupBindingReconciler DeferredTargetGroupBindingReconciler
 	logger                               logr.Logger
+	metricsCollector                     lbcmetrics.MetricCollector
+	reconcileCounters                    *metricsutil.ReconcileCounters
 
 	maxConcurrentReconciles    int
 	maxExponentialBackoffDelay time.Duration
@@ -93,6 +101,7 @@ type targetGroupBindingReconciler struct {
 // +kubebuilder:rbac:groups="discovery.k8s.io",resources=endpointslices,verbs=get;list;watch
 
 func (r *targetGroupBindingReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
+	r.reconcileCounters.IncrementTGB(req.NamespacedName)
 	r.logger.V(1).Info("Reconcile request", "name", req.Name)
 	return runtime.HandleReconcileError(r.reconcile(ctx, req), r.logger)
 }
@@ -110,15 +119,23 @@ func (r *targetGroupBindingReconciler) reconcile(ctx context.Context, req reconc
 }
 
 func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	if err := r.finalizerManager.AddFinalizers(ctx, tgb, targetGroupBindingFinalizer); err != nil {
+	var err error
+	finalizerFn := func() {
+		err = r.finalizerManager.AddFinalizers(ctx, tgb, targetGroupBindingFinalizer)
+	}
+	r.metricsCollector.ObserveControllerReconcileLatency("targetGroupBinding", "add_finalizers", finalizerFn)
+	if err != nil {
 		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
-		return err
+		return errmetrics.NewErrorWithMetrics("targetGroupBinding", "add_finalizers_error", err, r.metricsCollector)
 	}
 
-	deferred, err := r.tgbResourceManager.Reconcile(ctx, tgb)
-
+	var deferred bool
+	tgbResourceFn := func() {
+		deferred, err = r.tgbResourceManager.Reconcile(ctx, tgb)
+	}
+	r.metricsCollector.ObserveControllerReconcileLatency("targetGroupBinding", "reconcile_targetgroupblinding", tgbResourceFn)
 	if err != nil {
-		return err
+		return errmetrics.NewErrorWithMetrics("targetGroupBinding", "reconcile_targetgroupblinding_error", err, r.metricsCollector)
 	}
 
 	if deferred {
@@ -126,9 +143,12 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 		return nil
 	}
 
-	if err := r.updateTargetGroupBindingStatus(ctx, tgb); err != nil {
-		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
-		return err
+	updateTargetGroupBindingStatusFn := func() {
+		err = r.updateTargetGroupBindingStatus(ctx, tgb)
+	}
+	r.metricsCollector.ObserveControllerReconcileLatency("targetGroupBinding", "update_status", updateTargetGroupBindingStatusFn)
+	if err != nil {
+		return errmetrics.NewErrorWithMetrics("targetGroupBinding", "update_status_error", err, r.metricsCollector)
 	}
 
 	r.eventRecorder.Event(tgb, corev1.EventTypeNormal, k8s.TargetGroupBindingEventReasonSuccessfullyReconciled, "Successfully reconciled")
