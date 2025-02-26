@@ -201,6 +201,9 @@ type LoadBalancerSpec struct {
 	// The tags.
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// The IPv4 IPAM pool ID
+	IPv4IPAMPool *string `json:"ipv4IPAMPool,omitempty"`
 }
 
 // LoadBalancerStatus defines the observed state of LoadBalancer

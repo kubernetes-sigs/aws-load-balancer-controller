@@ -90,6 +90,10 @@ func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2mod
 }
 
 func (m *defaultLoadBalancerManager) Update(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) (elbv2model.LoadBalancerStatus, error) {
+	// It's important to remove ipam pools first, because we need to remove any ipam pools before changing the IP Address type.
+	if err := m.removeIPAMPools(ctx, resLB, sdkLB); err != nil {
+		return elbv2model.LoadBalancerStatus{}, err
+	}
 	if err := m.updateSDKLoadBalancerWithTags(ctx, resLB, sdkLB); err != nil {
 		return elbv2model.LoadBalancerStatus{}, err
 	}
@@ -108,6 +112,11 @@ func (m *defaultLoadBalancerManager) Update(ctx context.Context, resLB *elbv2mod
 	if err := m.checkSDKLoadBalancerWithCOIPv4Pool(ctx, resLB, sdkLB); err != nil {
 		return elbv2model.LoadBalancerStatus{}, err
 	}
+	// We can safely change the IPAM pool here after all other modifications are done.
+	if err := m.addIPAMPools(ctx, resLB, sdkLB); err != nil {
+		return elbv2model.LoadBalancerStatus{}, err
+	}
+
 	return buildResLoadBalancerStatus(sdkLB), nil
 }
 
@@ -278,6 +287,43 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithTags(ctx context.C
 		WithIgnoredTagKeys(m.externalManagedTags))
 }
 
+func (m *defaultLoadBalancerManager) removeIPAMPools(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
+	// No IPAM pool to remove or the request is to actually add / change IPAM pool.
+	if sdkLB.LoadBalancer.IpamPools == nil || resLB.Spec.IPv4IPAMPool != nil {
+		return nil
+	}
+
+	req := &elbv2sdk.ModifyIpPoolsInput{
+		RemoveIpamPools: []elbv2types.RemoveIpamPoolEnum{elbv2types.RemoveIpamPoolEnumIpv4},
+		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
+	}
+
+	_, err := m.elbv2Client.ModifyIPPoolsWithContext(ctx, req)
+	return err
+}
+
+func (m *defaultLoadBalancerManager) addIPAMPools(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
+	// No IPAM pool to set, this case should be handled by removeIPAMPools
+	if resLB.Spec.IPv4IPAMPool == nil {
+		return nil
+	}
+
+	// IPAM pool is already correctly set
+	if sdkLB.LoadBalancer.IpamPools != nil && awssdk.ToString(sdkLB.LoadBalancer.IpamPools.Ipv4IpamPoolId) == awssdk.ToString(resLB.Spec.IPv4IPAMPool) {
+		return nil
+	}
+
+	req := &elbv2sdk.ModifyIpPoolsInput{
+		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
+		IpamPools: &elbv2types.IpamPools{
+			Ipv4IpamPoolId: resLB.Spec.IPv4IPAMPool,
+		},
+	}
+
+	_, err := m.elbv2Client.ModifyIPPoolsWithContext(ctx, req)
+	return err
+}
+
 func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2sdk.CreateLoadBalancerInput, error) {
 	sdkObj := &elbv2sdk.CreateLoadBalancerInput{}
 	sdkObj.Name = awssdk.String(lbSpec.Name)
@@ -294,6 +340,12 @@ func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2
 
 	if lbSpec.EnablePrefixForIpv6SourceNat != "" {
 		sdkObj.EnablePrefixForIpv6SourceNat = elbv2types.EnablePrefixForIpv6SourceNatEnum(lbSpec.EnablePrefixForIpv6SourceNat)
+	}
+
+	if lbSpec.IPv4IPAMPool != nil && awssdk.ToString(lbSpec.IPv4IPAMPool) != "" {
+		sdkObj.IpamPools = &elbv2types.IpamPools{
+			Ipv4IpamPoolId: lbSpec.IPv4IPAMPool,
+		}
 	}
 
 	sdkObj.CustomerOwnedIpv4Pool = lbSpec.CustomerOwnedIPv4Pool

@@ -213,6 +213,48 @@ func Test_buildSDKCreateLoadBalancerInput(t *testing.T) {
 				CustomerOwnedIpv4Pool: awssdk.String("coIP-pool-x"),
 			},
 		},
+		{
+			name: "application loadBalancer - with ipv4 ipam pool case",
+			args: args{
+				lbSpec: elbv2model.LoadBalancerSpec{
+					Name:          "my-alb",
+					Type:          elbv2model.LoadBalancerTypeApplication,
+					Scheme:        schemeInternetFacing,
+					IPAddressType: addressTypeDualStack,
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID: "subnet-A",
+						},
+						{
+							SubnetID: "subnet-B",
+						},
+					},
+					SecurityGroups: []coremodel.StringToken{
+						coremodel.LiteralStringToken("sg-A"),
+						coremodel.LiteralStringToken("sg-B"),
+					},
+					IPv4IPAMPool: awssdk.String("my-ipv4-ipam-pool"),
+				},
+			},
+			want: &elbv2sdk.CreateLoadBalancerInput{
+				Name:          awssdk.String("my-alb"),
+				Type:          elbv2types.LoadBalancerTypeEnumApplication,
+				IpAddressType: elbv2types.IpAddressTypeDualstack,
+				Scheme:        elbv2types.LoadBalancerSchemeEnumInternetFacing,
+				SubnetMappings: []elbv2types.SubnetMapping{
+					{
+						SubnetId: awssdk.String("subnet-A"),
+					},
+					{
+						SubnetId: awssdk.String("subnet-B"),
+					},
+				},
+				SecurityGroups: []string{"sg-A", "sg-B"},
+				IpamPools: &elbv2types.IpamPools{
+					Ipv4IpamPoolId: awssdk.String("my-ipv4-ipam-pool"),
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -677,6 +719,311 @@ func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *
 			elbv2Client.EXPECT().SetSubnetsWithContext(gomock.Any(), tt.fields.setSubnetsWithContextCall.req).Return(tt.fields.setSubnetsWithContextCall.resp, tt.fields.setSubnetsWithContextCall.err)
 
 			err := m.updateSDKLoadBalancerWithSubnetMappings(context.Background(), tt.args.resLB, tt.args.sdkLB)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+
+		})
+	}
+}
+
+func Test_defaultLoadBalancerManager_removeIPAMPools(t *testing.T) {
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
+	tests := []struct {
+		name       string
+		resLB      *elbv2model.LoadBalancer
+		sdkLB      LoadBalancerWithTags
+		wantErr    error
+		wantModify int
+	}{
+		{
+			name: "remove ipam pools when ipam already not set",
+			sdkLB: LoadBalancerWithTags{
+				LoadBalancer: &elbv2types.LoadBalancer{
+					LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+					Type:              elbv2types.LoadBalancerTypeEnumApplication,
+					AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+					IpAddressType:     elbv2types.IpAddressTypeIpv4,
+				},
+			},
+			resLB: &elbv2model.LoadBalancer{
+				ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+				Spec: elbv2model.LoadBalancerSpec{
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID:    "subnet-A",
+							IPv6Address: aws.String("2600:1f18::1"),
+						},
+						{
+							SubnetID:    "subnet-B",
+							IPv6Address: aws.String("2600:1f18::2"),
+						},
+					},
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					IPAddressType: elbv2model.IPAddressTypeDualStack,
+				},
+			},
+		},
+		{
+			name: "remove ipam pools when ipam set",
+			sdkLB: LoadBalancerWithTags{
+				LoadBalancer: &elbv2types.LoadBalancer{
+					LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+					Type:              elbv2types.LoadBalancerTypeEnumApplication,
+					AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+					IpAddressType:     elbv2types.IpAddressTypeIpv4,
+					IpamPools:         &elbv2types.IpamPools{Ipv4IpamPoolId: awssdk.String("foo")},
+				},
+			},
+			resLB: &elbv2model.LoadBalancer{
+				ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+				Spec: elbv2model.LoadBalancerSpec{
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID:    "subnet-A",
+							IPv6Address: aws.String("2600:1f18::1"),
+						},
+						{
+							SubnetID:    "subnet-B",
+							IPv6Address: aws.String("2600:1f18::2"),
+						},
+					},
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					IPAddressType: elbv2model.IPAddressTypeDualStack,
+				},
+			},
+			wantModify: 1,
+		},
+		{
+			name: "add ipam pools when ipam set",
+			sdkLB: LoadBalancerWithTags{
+				LoadBalancer: &elbv2types.LoadBalancer{
+					LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+					Type:              elbv2types.LoadBalancerTypeEnumApplication,
+					AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+					IpAddressType:     elbv2types.IpAddressTypeIpv4,
+					IpamPools:         &elbv2types.IpamPools{Ipv4IpamPoolId: awssdk.String("foo")},
+				},
+			},
+			resLB: &elbv2model.LoadBalancer{
+				ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+				Spec: elbv2model.LoadBalancerSpec{
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID:    "subnet-A",
+							IPv6Address: aws.String("2600:1f18::1"),
+						},
+						{
+							SubnetID:    "subnet-B",
+							IPv6Address: aws.String("2600:1f18::2"),
+						},
+					},
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					IPAddressType: elbv2model.IPAddressTypeDualStack,
+					IPv4IPAMPool:  awssdk.String("bar"),
+				},
+			},
+		},
+		{
+			name: "add ipam pools when ipam not set",
+			sdkLB: LoadBalancerWithTags{
+				LoadBalancer: &elbv2types.LoadBalancer{
+					LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+					Type:              elbv2types.LoadBalancerTypeEnumApplication,
+					AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+					IpAddressType:     elbv2types.IpAddressTypeIpv4,
+				},
+			},
+			resLB: &elbv2model.LoadBalancer{
+				ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+				Spec: elbv2model.LoadBalancerSpec{
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID:    "subnet-A",
+							IPv6Address: aws.String("2600:1f18::1"),
+						},
+						{
+							SubnetID:    "subnet-B",
+							IPv6Address: aws.String("2600:1f18::2"),
+						},
+					},
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					IPAddressType: elbv2model.IPAddressTypeDualStack,
+					IPv4IPAMPool:  awssdk.String("bar"),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			elbv2Client := services.NewMockELBV2(ctrl)
+			m := &defaultLoadBalancerManager{
+				logger:      logr.New(&log.NullLogSink{}),
+				elbv2Client: elbv2Client,
+			}
+
+			elbv2Client.EXPECT().ModifyIPPoolsWithContext(gomock.Any(), &elbv2sdk.ModifyIpPoolsInput{LoadBalancerArn: awssdk.String("LoadBalancerArn"), RemoveIpamPools: []elbv2types.RemoveIpamPoolEnum{elbv2types.RemoveIpamPoolEnumIpv4}}).Return(&elbv2sdk.ModifyIpPoolsOutput{}, tt.wantErr).Times(tt.wantModify)
+
+			err := m.removeIPAMPools(context.Background(), tt.resLB, tt.sdkLB)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+
+		})
+	}
+}
+
+func Test_defaultLoadBalancerManager_addIPAMPools(t *testing.T) {
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
+	tests := []struct {
+		name       string
+		resLB      *elbv2model.LoadBalancer
+		sdkLB      LoadBalancerWithTags
+		wantErr    error
+		wantModify int
+	}{
+		{
+			name: "add ipam pools when ipam not set",
+			sdkLB: LoadBalancerWithTags{
+				LoadBalancer: &elbv2types.LoadBalancer{
+					LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+					Type:              elbv2types.LoadBalancerTypeEnumApplication,
+					AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+					IpAddressType:     elbv2types.IpAddressTypeIpv4,
+				},
+			},
+			resLB: &elbv2model.LoadBalancer{
+				ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+				Spec: elbv2model.LoadBalancerSpec{
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID:    "subnet-A",
+							IPv6Address: aws.String("2600:1f18::1"),
+						},
+						{
+							SubnetID:    "subnet-B",
+							IPv6Address: aws.String("2600:1f18::2"),
+						},
+					},
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					IPAddressType: elbv2model.IPAddressTypeDualStack,
+					IPv4IPAMPool:  awssdk.String("bar"),
+				},
+			},
+			wantModify: 1,
+		},
+		{
+			name: "change ipam pools when already ipam set",
+			sdkLB: LoadBalancerWithTags{
+				LoadBalancer: &elbv2types.LoadBalancer{
+					LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+					Type:              elbv2types.LoadBalancerTypeEnumApplication,
+					AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+					IpAddressType:     elbv2types.IpAddressTypeIpv4,
+					IpamPools:         &elbv2types.IpamPools{Ipv4IpamPoolId: awssdk.String("foo")},
+				},
+			},
+			resLB: &elbv2model.LoadBalancer{
+				ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+				Spec: elbv2model.LoadBalancerSpec{
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID:    "subnet-A",
+							IPv6Address: aws.String("2600:1f18::1"),
+						},
+						{
+							SubnetID:    "subnet-B",
+							IPv6Address: aws.String("2600:1f18::2"),
+						},
+					},
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					IPAddressType: elbv2model.IPAddressTypeDualStack,
+					IPv4IPAMPool:  awssdk.String("bar"),
+				},
+			},
+			wantModify: 1,
+		},
+		{
+			name: "ipam pool equal between sdk and res",
+			sdkLB: LoadBalancerWithTags{
+				LoadBalancer: &elbv2types.LoadBalancer{
+					LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+					Type:              elbv2types.LoadBalancerTypeEnumApplication,
+					AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+					IpAddressType:     elbv2types.IpAddressTypeIpv4,
+					IpamPools:         &elbv2types.IpamPools{Ipv4IpamPoolId: awssdk.String("bar")},
+				},
+			},
+			resLB: &elbv2model.LoadBalancer{
+				ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+				Spec: elbv2model.LoadBalancerSpec{
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID:    "subnet-A",
+							IPv6Address: aws.String("2600:1f18::1"),
+						},
+						{
+							SubnetID:    "subnet-B",
+							IPv6Address: aws.String("2600:1f18::2"),
+						},
+					},
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					IPAddressType: elbv2model.IPAddressTypeDualStack,
+					IPv4IPAMPool:  awssdk.String("bar"),
+				},
+			},
+		},
+		{
+			name: "ipam pool not set in res",
+			sdkLB: LoadBalancerWithTags{
+				LoadBalancer: &elbv2types.LoadBalancer{
+					LoadBalancerArn:   awssdk.String("LoadBalancerArn"),
+					Type:              elbv2types.LoadBalancerTypeEnumApplication,
+					AvailabilityZones: []elbv2types.AvailabilityZone{{SubnetId: awssdk.String("subnet-A")}, {SubnetId: awssdk.String("subnet-B")}},
+					IpAddressType:     elbv2types.IpAddressTypeIpv4,
+					IpamPools:         &elbv2types.IpamPools{Ipv4IpamPoolId: awssdk.String("foo")},
+				},
+			},
+			resLB: &elbv2model.LoadBalancer{
+				ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::LoadBalancer", "id-1"),
+				Spec: elbv2model.LoadBalancerSpec{
+					SubnetMappings: []elbv2model.SubnetMapping{
+						{
+							SubnetID:    "subnet-A",
+							IPv6Address: aws.String("2600:1f18::1"),
+						},
+						{
+							SubnetID:    "subnet-B",
+							IPv6Address: aws.String("2600:1f18::2"),
+						},
+					},
+					Type:          elbv2model.LoadBalancerTypeNetwork,
+					IPAddressType: elbv2model.IPAddressTypeDualStack,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			elbv2Client := services.NewMockELBV2(ctrl)
+			m := &defaultLoadBalancerManager{
+				logger:      logr.New(&log.NullLogSink{}),
+				elbv2Client: elbv2Client,
+			}
+
+			elbv2Client.EXPECT().ModifyIPPoolsWithContext(gomock.Any(), &elbv2sdk.ModifyIpPoolsInput{LoadBalancerArn: awssdk.String("LoadBalancerArn"), IpamPools: &elbv2types.IpamPools{Ipv4IpamPoolId: awssdk.String("bar")}}).Return(&elbv2sdk.ModifyIpPoolsOutput{}, tt.wantErr).Times(tt.wantModify)
+
+			err := m.addIPAMPools(context.Background(), tt.resLB, tt.sdkLB)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

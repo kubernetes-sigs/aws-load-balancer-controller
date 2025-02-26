@@ -85,6 +85,15 @@ spec:
                 - dualstack
                 - dualstack-without-public-ipv4
                 type: string
+              ipamConfiguration:
+                description: IPAMConfiguration defines the IPAM settings for a Load
+                  Balancer.
+                properties:
+                  ipv4IPAMPoolId:
+                    description: IPv4IPAMPoolId defines the IPAM pool ID used for
+                      IPv4 Addresses on the ALB.
+                    type: string
+                type: object
               listeners:
                 description: Listeners define a list of listeners with their protocol,
                   port and attributes.
