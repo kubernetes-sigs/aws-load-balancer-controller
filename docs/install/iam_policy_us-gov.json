@@ -42,7 +42,8 @@
                 "elasticloadbalancing:DescribeTags",
                 "elasticloadbalancing:DescribeTrustStores",
                 "elasticloadbalancing:DescribeListenerAttributes",
-                "elasticloadbalancing:DescribeCapacityReservation"
+                "elasticloadbalancing:DescribeCapacityReservation",
+                "elasticloadbalancing:ModifyIpPools"
             ],
             "Resource": "*"
         },

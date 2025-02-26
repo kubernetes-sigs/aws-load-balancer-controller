@@ -60,6 +60,7 @@ type ELBV2 interface {
 	ModifyListenerAttributesWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error)
 	ModifyCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyCapacityReservationInput) (*elasticloadbalancingv2.ModifyCapacityReservationOutput, error)
 	DescribeCapacityReservationWithContext(ctx context.Context, input *elasticloadbalancingv2.DescribeCapacityReservationInput) (*elasticloadbalancingv2.DescribeCapacityReservationOutput, error)
+	ModifyIPPoolsWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyIpPoolsInput) (*elasticloadbalancingv2.ModifyIpPoolsOutput, error)
 	AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) (ELBV2, error)
 }
 
@@ -474,6 +475,14 @@ func (c *elbv2Client) DescribeCapacityReservationWithContext(ctx context.Context
 		return nil, err
 	}
 	return client.DescribeCapacityReservation(ctx, input)
+}
+
+func (c *elbv2Client) ModifyIPPoolsWithContext(ctx context.Context, input *elasticloadbalancingv2.ModifyIpPoolsInput) (*elasticloadbalancingv2.ModifyIpPoolsOutput, error) {
+	client, err := c.getClient(ctx, "ModifyIpPools")
+	if err != nil {
+		return nil, err
+	}
+	return client.ModifyIpPools(ctx, input)
 }
 
 func (c *elbv2Client) getClient(ctx context.Context, operation string) (*elasticloadbalancingv2.Client, error) {

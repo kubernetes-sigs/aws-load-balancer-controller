@@ -75,6 +75,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+	ipv4IPAM, err := t.buildIPv4IPAMPoolID()
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+
 	return elbv2model.LoadBalancerSpec{
 		Name:                        name,
 		Type:                        elbv2model.LoadBalancerTypeApplication,
@@ -86,6 +91,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 		LoadBalancerAttributes:      loadBalancerAttributes,
 		MinimumLoadBalancerCapacity: lbMinimumCapacity,
 		Tags:                        tags,
+		IPv4IPAMPool:                ipv4IPAM,
 	}, nil
 }
 
