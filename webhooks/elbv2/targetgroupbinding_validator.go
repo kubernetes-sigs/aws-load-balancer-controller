@@ -3,9 +3,10 @@ package elbv2
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
 	"regexp"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
@@ -160,7 +161,7 @@ func (v *targetGroupBindingValidator) checkImmutableFields(tgb *elbv2api.TargetG
 		changedImmutableFields = append(changedImmutableFields, "spec.vpcID")
 	}
 	if len(changedImmutableFields) != 0 {
-		return errors.Errorf("%s update may not change these fields: %s", "TargetGroupBinding", strings.Join(changedImmutableFields, ","))
+		return errors.Errorf("%s update may not change these immutable fields: %s", "TargetGroupBinding", strings.Join(changedImmutableFields, ","))
 	}
 	return nil
 }

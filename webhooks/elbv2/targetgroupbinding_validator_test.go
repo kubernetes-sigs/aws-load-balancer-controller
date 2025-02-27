@@ -399,7 +399,7 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetGroupARN"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetGroupARN"),
 		},
 		{
 			name: "[err] targetType is ip, nodeSelector is set",
@@ -439,7 +439,7 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
 		},
 		{
 			name: "[ok] no update to spec",
@@ -576,7 +576,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetGroupARN"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetGroupARN"),
 		},
 		{
 			name: "targetType is changed",
@@ -594,7 +594,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetType"),
 		},
 		{
 			name: "targetType is changed from unset to set",
@@ -612,7 +612,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetType"),
 		},
 		{
 			name: "targetType is changed from set to unset",
@@ -630,7 +630,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetType"),
 		},
 		{
 			name: "both targetGroupARN and targetType are changed",
@@ -648,7 +648,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetGroupARN,spec.targetType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetGroupARN,spec.targetType"),
 		},
 		{
 			name: "both targetGroupARN and targetType are not changed",
@@ -686,7 +686,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
 		},
 		{
 			name: "ipAddressType modified, old value nil",
@@ -705,7 +705,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
 		},
 		{
 			name: "ipAddressType modified from nil to ipv4",
@@ -743,7 +743,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
 		},
 		{
 			name: "ipAddressType modified from nil to ipv6",
@@ -762,7 +762,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
 		},
 		{
 			name: "VpcID modified from vpc-0aaaaaaa to vpc-0bbbbbbb",
@@ -782,7 +782,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.vpcID"),
 		},
 		{
 			name: "VpcID modified from vpc-0aaaaaaa to nil",
@@ -801,7 +801,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.vpcID"),
 		},
 		{
 			name: "VpcID modified from nil to vpc-0aaaaaaa",
@@ -820,7 +820,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.vpcID"),
 		},
 		{
 			name: "VpcID modified from nil to cluster vpc-id is allowed",
