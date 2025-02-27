@@ -498,12 +498,12 @@ Load balancer access can be controlled via following annotations:
 - <a name="lb-source-ranges">`service.beta.kubernetes.io/load-balancer-source-ranges`</a> specifies the CIDRs that are allowed to access the NLB.
 
     !!!tip
-        we recommend specifying CIDRs in the service `spec.loadBalancerSourceRanges` instead
+        - We recommend specifying CIDRs in the service `spec.loadBalancerSourceRanges` instead
+        - For enhanced security with `internal` network load balancers, we recommend limiting access by specifying allowed source IP ranges.  This can be done using either the `service.beta.kubernetes.io/load-balancer-source-ranges` annotation or the `spec.loadBalancerSourceRanges` field.
 
     !!!note "Default"
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"
         - `0.0.0.0/0` and `::/0` will be used if the IPAddressType is "dualstack"
-        - The VPC CIDR will be used if `service.beta.kubernetes.io/aws-load-balancer-scheme` is `internal`
 
     !!!warning ""
         This annotation will be ignored in case preserve client IP is not enabled.
