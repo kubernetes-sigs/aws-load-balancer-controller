@@ -6,24 +6,29 @@ import (
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	elbv2equality "sigs.k8s.io/aws-load-balancer-controller/pkg/equality/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	"slices"
+	"sort"
+	"strconv"
 	"time"
 )
 
 // ListenerRuleManager is responsible for create/update/delete ListenerRule resources.
 type ListenerRuleManager interface {
-	Create(ctx context.Context, resLR *elbv2model.ListenerRule) (elbv2model.ListenerRuleStatus, error)
+	Create(ctx context.Context, resLR *elbv2model.ListenerRule, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) (elbv2model.ListenerRuleStatus, error)
 
-	Update(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error)
+	UpdateRules(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) (elbv2model.ListenerRuleStatus, error)
+
+	UpdateRulesTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error)
 
 	Delete(ctx context.Context, sdkLR ListenerRuleWithTags) error
+
+	SetRulePriorities(ctx context.Context, matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair, unmatchedSDKLRs []ListenerRuleWithTags) error
 }
 
 // NewDefaultListenerRuleManager constructs new defaultListenerRuleManager.
@@ -54,8 +59,8 @@ type defaultListenerRuleManager struct {
 	waitLSExistenceTimeout      time.Duration
 }
 
-func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2model.ListenerRule) (elbv2model.ListenerRuleStatus, error) {
-	req, err := buildSDKCreateListenerRuleInput(resLR.Spec, m.featureGates)
+func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2model.ListenerRule, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) (elbv2model.ListenerRuleStatus, error) {
+	req, err := buildSDKCreateListenerRuleInput(resLR.Spec, desiredActionsAndConditions, m.featureGates)
 	if err != nil {
 		return elbv2model.ListenerRuleStatus{}, err
 	}
@@ -90,13 +95,17 @@ func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2mod
 	return buildResListenerRuleStatus(sdkLR), nil
 }
 
-func (m *defaultListenerRuleManager) Update(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error) {
+func (m *defaultListenerRuleManager) UpdateRulesTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error) {
 	if m.featureGates.Enabled(config.ListenerRulesTagging) {
 		if err := m.updateSDKListenerRuleWithTags(ctx, resLR, sdkLR); err != nil {
 			return elbv2model.ListenerRuleStatus{}, err
 		}
 	}
-	if err := m.updateSDKListenerRuleWithSettings(ctx, resLR, sdkLR); err != nil {
+	return buildResListenerRuleStatus(sdkLR), nil
+}
+
+func (m *defaultListenerRuleManager) UpdateRules(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) (elbv2model.ListenerRuleStatus, error) {
+	if err := m.updateSDKListenerRuleWithSettings(ctx, resLR, sdkLR, desiredActionsAndConditions); err != nil {
 		return elbv2model.ListenerRuleStatus{}, err
 	}
 	return buildResListenerRuleStatus(sdkLR), nil
@@ -116,15 +125,28 @@ func (m *defaultListenerRuleManager) Delete(ctx context.Context, sdkLR ListenerR
 	return nil
 }
 
-func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) error {
-	desiredActions, err := buildSDKActions(resLR.Spec.Actions, m.featureGates)
-	if err != nil {
+func (m *defaultListenerRuleManager) SetRulePriorities(ctx context.Context, matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair, unmatchedSDKLRs []ListenerRuleWithTags) error {
+	req := buildSDKSetRulePrioritiesInput(matchedResAndSDKLRsBySettings, unmatchedSDKLRs)
+	m.logger.Info("setting listener rule priorities",
+		"rule priority pairs", req.RulePriorities)
+	if _, err := m.elbv2Client.SetRulePrioritiesWithContext(ctx, req); err != nil {
 		return err
 	}
-	desiredConditions := buildSDKRuleConditions(resLR.Spec.Conditions)
-	if !isSDKListenerRuleSettingsDrifted(resLR.Spec, sdkLR, desiredActions, desiredConditions) {
-		return nil
-	}
+	m.logger.Info("setting listener rule priorities complete",
+		"rule priority pairs", req.RulePriorities)
+	return nil
+}
+
+func (m *defaultListenerRuleManager) updateSDKListenerRuleWithTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) error {
+	desiredTags := m.trackingProvider.ResourceTags(resLR.Stack(), resLR, resLR.Spec.Tags)
+	return m.taggingManager.ReconcileTags(ctx, awssdk.ToString(sdkLR.ListenerRule.RuleArn), desiredTags,
+		WithCurrentTags(sdkLR.Tags),
+		WithIgnoredTagKeys(m.externalManagedTags))
+}
+
+func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) error {
+	desiredActions := desiredActionsAndConditions.desiredActions
+	desiredConditions := desiredActionsAndConditions.desiredConditions
 
 	req := buildSDKModifyListenerRuleInput(resLR.Spec, desiredActions, desiredConditions)
 	req.RuleArn = sdkLR.ListenerRule.RuleArn
@@ -142,27 +164,7 @@ func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx conte
 	return nil
 }
 
-func (m *defaultListenerRuleManager) updateSDKListenerRuleWithTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) error {
-	desiredTags := m.trackingProvider.ResourceTags(resLR.Stack(), resLR, resLR.Spec.Tags)
-	return m.taggingManager.ReconcileTags(ctx, awssdk.ToString(sdkLR.ListenerRule.RuleArn), desiredTags,
-		WithCurrentTags(sdkLR.Tags),
-		WithIgnoredTagKeys(m.externalManagedTags))
-}
-
-func isSDKListenerRuleSettingsDrifted(lrSpec elbv2model.ListenerRuleSpec, sdkLR ListenerRuleWithTags,
-	desiredActions []elbv2types.Action, desiredConditions []elbv2types.RuleCondition) bool {
-
-	if !cmp.Equal(desiredActions, sdkLR.ListenerRule.Actions, elbv2equality.CompareOptionForActions()) {
-		return true
-	}
-	if !cmp.Equal(desiredConditions, sdkLR.ListenerRule.Conditions, elbv2equality.CompareOptionForRuleConditions()) {
-		return true
-	}
-
-	return false
-}
-
-func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, featureGates config.FeatureGates) (*elbv2sdk.CreateRuleInput, error) {
+func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair, featureGates config.FeatureGates) (*elbv2sdk.CreateRuleInput, error) {
 	ctx := context.Background()
 	lsARN, err := lrSpec.ListenerARN.Resolve(ctx)
 	if err != nil {
@@ -171,12 +173,20 @@ func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, feature
 	sdkObj := &elbv2sdk.CreateRuleInput{}
 	sdkObj.ListenerArn = awssdk.String(lsARN)
 	sdkObj.Priority = awssdk.Int32(lrSpec.Priority)
-	actions, err := buildSDKActions(lrSpec.Actions, featureGates)
-	if err != nil {
-		return nil, err
+	if desiredActionsAndConditions != nil && desiredActionsAndConditions.desiredActions != nil {
+		sdkObj.Actions = desiredActionsAndConditions.desiredActions
+	} else {
+		actions, err := buildSDKActions(lrSpec.Actions, featureGates)
+		if err != nil {
+			return nil, err
+		}
+		sdkObj.Actions = actions
 	}
-	sdkObj.Actions = actions
-	sdkObj.Conditions = buildSDKRuleConditions(lrSpec.Conditions)
+	if desiredActionsAndConditions != nil && desiredActionsAndConditions.desiredConditions != nil {
+		sdkObj.Conditions = desiredActionsAndConditions.desiredConditions
+	} else {
+		sdkObj.Conditions = buildSDKRuleConditions(lrSpec.Conditions)
+	}
 	return sdkObj, nil
 }
 
@@ -187,6 +197,41 @@ func buildSDKModifyListenerRuleInput(_ elbv2model.ListenerRuleSpec, desiredActio
 	return sdkObj
 }
 
+func buildSDKSetRulePrioritiesInput(matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair, unmatchedSDKLRs []ListenerRuleWithTags) *elbv2sdk.SetRulePrioritiesInput {
+	var rulePriorities []elbv2types.RulePriorityPair
+	var lastAvailablePriority int32 = 50000
+	var sdkLRs []ListenerRuleWithTags
+
+	// Sort the unmatched existing SDK rules based on their priority to be pushed down in same order
+	sort.Slice(unmatchedSDKLRs, func(i, j int) bool {
+		priorityI, _ := strconv.Atoi(awssdk.ToString(unmatchedSDKLRs[i].ListenerRule.Priority))
+		priorityJ, _ := strconv.Atoi(awssdk.ToString(unmatchedSDKLRs[j].ListenerRule.Priority))
+		return priorityI < priorityJ
+	})
+	// Push down all the unmatched existing SDK rules on load balancer so that updated rules can take their place
+	for _, sdkLR := range slices.Backward(unmatchedSDKLRs) {
+		sdkLR.ListenerRule.Priority = awssdk.String(strconv.Itoa(int(lastAvailablePriority)))
+		sdkLRs = append(sdkLRs, sdkLR)
+		lastAvailablePriority--
+	}
+	//Re-Prioritize matched rules by settings
+	for _, resAndSDKLR := range matchedResAndSDKLRsBySettings {
+		resAndSDKLR.sdkLR.ListenerRule.Priority = awssdk.String(strconv.Itoa(int(resAndSDKLR.resLR.Spec.Priority)))
+		sdkLRs = append(sdkLRs, resAndSDKLR.sdkLR)
+	}
+	for _, sdkLR := range sdkLRs {
+		p, _ := strconv.ParseInt(awssdk.ToString(sdkLR.ListenerRule.Priority), 10, 32)
+		rulePriorityPair := elbv2types.RulePriorityPair{
+			RuleArn:  sdkLR.ListenerRule.RuleArn,
+			Priority: awssdk.Int32(int32(p)),
+		}
+		rulePriorities = append(rulePriorities, rulePriorityPair)
+	}
+	sdkObj := &elbv2sdk.SetRulePrioritiesInput{
+		RulePriorities: rulePriorities,
+	}
+	return sdkObj
+}
 func buildResListenerRuleStatus(sdkLR ListenerRuleWithTags) elbv2model.ListenerRuleStatus {
 	return elbv2model.ListenerRuleStatus{
 		RuleARN: awssdk.ToString(sdkLR.ListenerRule.RuleArn),

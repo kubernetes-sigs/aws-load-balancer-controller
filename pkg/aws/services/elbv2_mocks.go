@@ -621,6 +621,21 @@ func (mr *MockELBV2MockRecorder) SetIpAddressTypeWithContext(arg0, arg1 interfac
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetIpAddressTypeWithContext", reflect.TypeOf((*MockELBV2)(nil).SetIpAddressTypeWithContext), arg0, arg1)
 }
 
+// SetRulePrioritiesWithContext mocks base method.
+func (m *MockELBV2) SetRulePrioritiesWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.SetRulePrioritiesInput) (*elasticloadbalancingv2.SetRulePrioritiesOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRulePrioritiesWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*elasticloadbalancingv2.SetRulePrioritiesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetRulePrioritiesWithContext indicates an expected call of SetRulePrioritiesWithContext.
+func (mr *MockELBV2MockRecorder) SetRulePrioritiesWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRulePrioritiesWithContext", reflect.TypeOf((*MockELBV2)(nil).SetRulePrioritiesWithContext), arg0, arg1)
+}
+
 // SetSecurityGroupsWithContext mocks base method.
 func (m *MockELBV2) SetSecurityGroupsWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.SetSecurityGroupsInput) (*elasticloadbalancingv2.SetSecurityGroupsOutput, error) {
 	m.ctrl.T.Helper()
