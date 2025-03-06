@@ -44,7 +44,7 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev
 	if err != nil {
 		return nil, err
 	}
-	tgAttrs, err := t.buildTargetGroupAttributes(ctx)
+	tgAttrs, err := t.buildTargetGroupAttributes(ctx, port)
 	if err != nil {
 		return nil, err
 	}
@@ -204,41 +204,64 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context, svcPort 
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context) ([]elbv2model.TargetGroupAttribute, error) {
-	var rawAttributes map[string]string
-	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetGroupAttributes, &rawAttributes, t.service.Annotations); err != nil {
-		return nil, err
-	}
-	if rawAttributes == nil {
-		rawAttributes = make(map[string]string)
-	}
-	if _, ok := rawAttributes[tgAttrsProxyProtocolV2Enabled]; !ok {
-		rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
-	}
-	proxyV2Annotation := ""
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations); exists {
-		if proxyV2Annotation != "*" {
-			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
-		}
-		rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
-	}
-	if rawPreserveIPEnabled, ok := rawAttributes[tgAttrsPreserveClientIPEnabled]; ok {
-		_, err := strconv.ParseBool(rawPreserveIPEnabled)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, rawPreserveIPEnabled)
-		}
-	}
-	attributes := make([]elbv2model.TargetGroupAttribute, 0, len(rawAttributes))
-	for attrKey, attrValue := range rawAttributes {
-		attributes = append(attributes, elbv2model.TargetGroupAttribute{
-			Key:   attrKey,
-			Value: attrValue,
-		})
-	}
-	sort.Slice(attributes, func(i, j int) bool {
-		return attributes[i].Key < attributes[j].Key
-	})
-	return attributes, nil
+func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, port corev1.ServicePort) ([]elbv2model.TargetGroupAttribute, error) {
+    var rawAttributes map[string]string
+    if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixTargetGroupAttributes, &rawAttributes, t.service.Annotations); err != nil {
+        return nil, err
+    }
+    if rawAttributes == nil {
+        rawAttributes = make(map[string]string)
+    }
+    if _, ok := rawAttributes[tgAttrsProxyProtocolV2Enabled]; !ok {
+        rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
+    }
+
+	var proxyProtocolPerTG string
+    if t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocolPerTargetGroup, &proxyProtocolPerTG, t.service.Annotations) {
+        pairs := strings.Split(proxyProtocolPerTG, ",")
+        if len(pairs)%2 != 0 {
+            return nil, errors.Errorf("invalid format for proxy-protocol-per-target-group: %v", proxyProtocolPerTG)
+        }
+        for i := 0; i < len(pairs); i += 2 {
+            portStr := strings.TrimSpace(pairs[i])
+            enabledStr := strings.TrimSpace(pairs[i+1])
+            if portStr == strconv.FormatInt(int64(port.Port), 10) {
+                enabled, err := strconv.ParseBool(enabledStr)
+                if err != nil {
+                    return nil, errors.Errorf("invalid boolean value for port %v: %v", portStr, enabledStr)
+                }
+                rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(enabled)
+                break
+            }
+        }
+    }
+
+    proxyV2Annotation := ""
+    if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations); exists {
+        if proxyV2Annotation != "*" {
+            return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
+        }
+        rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
+    }
+
+    if rawPreserveIPEnabled, ok := rawAttributes[tgAttrsPreserveClientIPEnabled]; ok {
+        _, err := strconv.ParseBool(rawPreserveIPEnabled)
+        if err != nil {
+            return nil, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, rawPreserveIPEnabled)
+        }
+    }
+
+    attributes := make([]elbv2model.TargetGroupAttribute, 0, len(rawAttributes))
+    for attrKey, attrValue := range rawAttributes {
+        attributes = append(attributes, elbv2model.TargetGroupAttribute{
+            Key:   attrKey,
+            Value: attrValue,
+        })
+    }
+    sort.Slice(attributes, func(i, j int) bool {
+        return attributes[i].Key < attributes[j].Key
+    })
+    return attributes, nil
 }
 
 func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, targetType elbv2model.TargetType, tgAttrs []elbv2model.TargetGroupAttribute) (bool, error) {
