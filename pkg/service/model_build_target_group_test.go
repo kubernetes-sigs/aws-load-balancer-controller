@@ -26,6 +26,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 	tests := []struct {
 		testName  string
 		svc       *corev1.Service
+		port      corev1.ServicePort
 		wantError bool
 		wantValue []elbv2.TargetGroupAttribute
 	}{
@@ -140,6 +141,45 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			},
 			wantError: true,
 		},
+		{
+			testName: "proxy protocol per target group port 80",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "80, true, 443, false",
+						
+					},
+				},
+			},
+			port:      corev1.ServicePort{Port: 80},
+			wantError: false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key: tgAttrsProxyProtocolV2Enabled, 
+					Value: "true",
+				},
+			},
+		},
+		{
+			testName: "proxy protocol per target group port 80 proxy v2 override",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "80, false, 443, false",
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":          "*",
+						
+					},
+				},
+			},
+			port:      corev1.ServicePort{Port: 80},
+			wantError: false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key: tgAttrsProxyProtocolV2Enabled, 
+					Value: "true",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
@@ -148,7 +188,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				service:          tt.svc,
 				annotationParser: parser,
 			}
-			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background())
+			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background(), tt.port)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
