@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 )
 
 func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
@@ -168,7 +169,9 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := &ingressClassParamsValidator{}
+
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
+			v := &ingressClassParamsValidator{metricsCollector: mockMetricsCollector}
 			t.Run("create", func(t *testing.T) {
 				err := v.ValidateCreate(context.Background(), tt.obj)
 				if tt.wantErr != "" {
