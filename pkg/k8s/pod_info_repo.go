@@ -15,7 +15,7 @@ import (
 
 const (
 	resourceTypePods        = "pods"
-	waitCacheSyncPollPeriod = 2 * time.Second
+	waitCacheSyncPollPeriod = 60 * time.Second
 )
 
 // PodInfoRepo provides access to pod information within cluster.
