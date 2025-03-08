@@ -107,6 +107,13 @@ type MinimumLoadBalancerCapacity struct {
 	CapacityUnits int32 `json:"capacityUnits"`
 }
 
+// IPAMConfiguration defines the IPAM configuration for an Ingress.
+type IPAMConfiguration struct {
+	// IPv4IPAMPoolId defines the IPAM pool ID used for IPv4 Addresses on the ALB.
+	// +optional
+	IPv4IPAMPoolId *string `json:"ipv4IPAMPoolId,omitempty"`
+}
+
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 type IngressClassParamsSpec struct {
 	// CertificateArn specifies the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
@@ -156,6 +163,10 @@ type IngressClassParamsSpec struct {
 	// MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers for all Ingress that belong to IngressClass with this IngressClassParams.
 	// +optional
 	MinimumLoadBalancerCapacity *MinimumLoadBalancerCapacity `json:"minimumLoadBalancerCapacity,omitempty"`
+
+	// IPAMConfiguration defines the IPAM settings for a Load Balancer.
+	// +optional
+	IPAMConfiguration *IPAMConfiguration `json:"ipamConfiguration,omitempty"`
 }
 
 // +kubebuilder:object:root=true

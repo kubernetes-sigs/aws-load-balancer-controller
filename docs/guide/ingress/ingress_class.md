@@ -252,3 +252,9 @@ They may specify `capacityUnits`. If the field is specified, LBC will ignore the
 ##### spec.minimumLoadBalancerCapacity.capacityUnits
 
 If `capacityUnits` is specified, it must be to valid positive value greater than 0. If set to 0, the LBC will reset the capacity reservation for the load balancer.
+
+#### spec.ipv4IPAMPoolId
+
+The IPAM pool you choose will be the preferred source of public IPv4 addresses.
+If the pool is depleted, IPv4 addresses will be assigned by AWS.
+To remove the IPAM pool from your ALB, remove `spec.ipv4IPAMPoolId` from the IngressClass definition.
