@@ -216,23 +216,25 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
         rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
     }
 
-	var proxyProtocolPerTG string
+    var proxyProtocolPerTG string
     if t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocolPerTargetGroup, &proxyProtocolPerTG, t.service.Annotations) {
-        pairs := strings.Split(proxyProtocolPerTG, ",")
-        if len(pairs)%2 != 0 {
-            return nil, errors.Errorf("invalid format for proxy-protocol-per-target-group: %v", proxyProtocolPerTG)
-        }
-        for i := 0; i < len(pairs); i += 2 {
-            portStr := strings.TrimSpace(pairs[i])
-            enabledStr := strings.TrimSpace(pairs[i+1])
-            if portStr == strconv.FormatInt(int64(port.Port), 10) {
-                enabled, err := strconv.ParseBool(enabledStr)
-                if err != nil {
-                    return nil, errors.Errorf("invalid boolean value for port %v: %v", portStr, enabledStr)
+        ports := strings.Split(proxyProtocolPerTG, ",")
+        enabledPorts := make(map[string]struct{})
+        for _, p := range ports {
+            trimmedPort := strings.TrimSpace(p)
+            if trimmedPort != "" {
+                if _, err := strconv.Atoi(trimmedPort); err != nil {
+                    return nil, errors.Errorf("invalid port number in proxy-protocol-per-target-group: %v", trimmedPort)
                 }
-                rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(enabled)
-                break
+                enabledPorts[trimmedPort] = struct{}{}
             }
+        }
+
+        currentPortStr := strconv.FormatInt(int64(port.Port), 10)
+        if _, enabled := enabledPorts[currentPortStr]; enabled {
+            rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
+        } else {
+            rawAttributes[tgAttrsProxyProtocolV2Enabled] = "false"
         }
     }
 

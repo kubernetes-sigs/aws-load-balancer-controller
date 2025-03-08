@@ -146,8 +146,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "80, true, 443, false",
-						
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "80",	
 					},
 				},
 			},
@@ -165,7 +164,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "80, false, 443, false",
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "443, 22",
 						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":          "*",
 						
 					},
