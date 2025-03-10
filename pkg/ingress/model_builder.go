@@ -55,7 +55,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
-	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
+	vpcID string, clusterName string, defaultSubnets []string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
 	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *defaultModelBuilder {
 	certDiscovery := certs.NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
@@ -78,6 +78,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		trackingProvider:           trackingProvider,
 		elbv2TaggingManager:        elbv2TaggingManager,
 		featureGates:               featureGates,
+		defaultSubnets:             defaultSubnets,
 		defaultTags:                defaultTags,
 		externalManagedTags:        sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:           defaultSSLPolicy,
@@ -118,6 +119,7 @@ type defaultModelBuilder struct {
 	trackingProvider           tracking.Provider
 	elbv2TaggingManager        elbv2deploy.TaggingManager
 	featureGates               config.FeatureGates
+	defaultSubnets             []string
 	defaultTags                map[string]string
 	externalManagedTags        sets.String
 	defaultSSLPolicy           string
@@ -169,6 +171,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		stack:                              stack,
 		frontendNlbTargetGroupDesiredState: frontendNlbTargetGroupDesiredState,
 
+		defaultSubnets:                            b.defaultSubnets,
 		defaultTags:                               b.defaultTags,
 		externalManagedTags:                       b.externalManagedTags,
 		defaultIPAddressType:                      elbv2model.IPAddressTypeIPV4,
@@ -230,6 +233,7 @@ type defaultModelBuildTask struct {
 	disableRestrictedSGRules   bool
 	enableIPTargetType         bool
 
+	defaultSubnets                            []string
 	defaultTags                               map[string]string
 	externalManagedTags                       sets.String
 	defaultIPAddressType                      elbv2model.IPAddressType

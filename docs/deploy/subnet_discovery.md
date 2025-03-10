@@ -61,7 +61,8 @@ A subnet is classified as public if its route table contains a route to an Inter
 The controller selects one subnet per availability zone. When multiple subnets exist per Availability Zone, the following priority order applies:
 
 1. Subnets with cluster tag for the current cluster (`kubernetes.io/cluster/<clusterName>`) are prioritized
-2. Subnets with lower lexicographical order of subnet ID are prioritized
+2. Subnets with the `--default-subnets` flag (prioritized in the order specified)
+3. Subnets with lower lexicographical order of subnet ID are prioritized
 
 ## Minimum Subnet Requirements
 

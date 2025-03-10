@@ -65,7 +65,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 		cloud.EC2(), cloud.ELBV2(), cloud.WAFv2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
-		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
+		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultSubnets, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver,
 		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger, metricsCollector)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()

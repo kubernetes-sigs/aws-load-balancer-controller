@@ -7174,7 +7174,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				}
 				mockMetricsCollector := lbcmetrics.NewMockCollector()
 				builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
-					"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
+					"my-cluster", nil, nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
 					backendSGProvider, sgResolver, tt.enableBackendSG, tt.enableManageBackendSGRules, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}), mockMetricsCollector, tcpUdpEnabled)
 				ctx := context.Background()
 				stack, _, _, err := builder.Build(ctx, tt.svc, mockMetricsCollector)

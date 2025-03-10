@@ -476,11 +476,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 		return t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithDefaultSubnets(t.defaultSubnets),
 		)
 	}
 	return t.subnetsResolver.ResolveViaDiscovery(ctx,
 		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 		networking.WithSubnetsResolveLBScheme(scheme),
+		networking.WithDefaultSubnets(t.defaultSubnets),
 	)
 }
 

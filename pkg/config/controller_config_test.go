@@ -1,10 +1,11 @@
 package config
 
 import (
+	"testing"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"testing"
 )
 
 func TestControllerConfig_validateDefaultTagsCollisionWithTrackingTags(t *testing.T) {
@@ -213,6 +214,52 @@ func TestControllerConfig_validateManageBackendSecurityGroupRulesConfiguration(t
 			if tt.wantErr {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestControllerConfig_validateDefaultSubnets(t *testing.T) {
+	type fields struct {
+		DefaultSubnets []string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr error
+	}{
+		{
+			name: "default subnets is empty",
+			fields: fields{
+				DefaultSubnets: nil,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "default subnets is not empty",
+			fields: fields{
+				DefaultSubnets: []string{"subnet-1", "subnet-2"},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "default subnets is not empty and duplicate subnets are specified",
+			fields: fields{
+				DefaultSubnets: []string{"subnet-1", "subnet-2", "subnet-1"},
+			},
+			wantErr: errors.New("duplicate subnet id subnet-1 is specified in the --default-subnets flag"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &ControllerConfig{
+				DefaultSubnets: tt.fields.DefaultSubnets,
+			}
+			err := cfg.validateDefaultSubnets()
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
 			}

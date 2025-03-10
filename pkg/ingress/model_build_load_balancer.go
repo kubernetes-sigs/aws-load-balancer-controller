@@ -262,6 +262,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
+			networking.WithDefaultSubnets(t.defaultSubnets),
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't auto-discover subnets")
