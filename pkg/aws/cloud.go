@@ -126,7 +126,7 @@ func getVpcID(cfg CloudConfig, ec2Service services.EC2, ec2Metadata services.EC2
 	}
 
 	if cfg.VpcTags != nil {
-		return inferVPCIDFromTags(ec2Service, cfg.VpcNameTagKey, cfg.VpcTags[cfg.VpcNameTagKey])
+		return inferVPCIDFromTags(ec2Service, cfg.VpcTags)
 	}
 
 	return inferVPCID(ec2Metadata, ec2Service)
@@ -168,23 +168,27 @@ func inferVPCID(ec2Metadata services.EC2Metadata, ec2Service services.EC2) (stri
 	return "", amerrors.NewAggregate(errList)
 }
 
-func inferVPCIDFromTags(ec2Service services.EC2, VpcNameTagKey string, VpcNameTagValue string) (string, error) {
+func inferVPCIDFromTags(ec2Service services.EC2, VpcTags map[string]string) (string, error) {
+	vpcFilter := []ec2types.Filter{}
+
+	for tagKey, tagValue := range VpcTags {
+		vpcFilter = append(vpcFilter, ec2types.Filter{
+			Name:   aws.String(fmt.Sprintf("tag:%s", tagKey)),
+			Values: []string{tagValue},
+		})
+	}
+
 	vpcs, err := ec2Service.DescribeVPCsAsList(context.Background(), &ec2.DescribeVpcsInput{
-		Filters: []ec2types.Filter{
-			{
-				Name:   aws.String("tag:" + VpcNameTagKey),
-				Values: []string{VpcNameTagValue},
-			},
-		},
+		Filters: vpcFilter,
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to fetch VPC ID with tag: %w", err)
+		return "", fmt.Errorf("failed to fetch VPC ID with tags(s): %w", err)
 	}
 	if len(vpcs) == 0 {
-		return "", fmt.Errorf("no VPC exists with tag: %w", err)
+		return "", fmt.Errorf("no VPC exists with tags(s): %w", err)
 	}
 	if len(vpcs) > 1 {
-		return "", fmt.Errorf("multiple VPCs exists with tag: %w", err)
+		return "", fmt.Errorf("multiple VPCs exists with tag(s): %w", err)
 	}
 
 	return *vpcs[0].VpcId, nil
