@@ -52,6 +52,8 @@ type SubnetsResolveOptions struct {
 	SubnetsClusterTagCheck bool
 	// whether to allow using only 1 subnet for provisioning ALB, default to false
 	ALBSingleSubnet bool
+	// Subnets specified with --default-subnets
+	DefaultSubnets []string
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -103,6 +105,13 @@ func WithSubnetsClusterTagCheck(SubnetsClusterTagCheck bool) SubnetsResolveOptio
 func WithALBSingleSubnet(ALBSingleSubnet bool) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.ALBSingleSubnet = ALBSingleSubnet
+	}
+}
+
+// WithDefaultSubnets generates an option that configures DefaultSubnets.
+func WithDefaultSubnets(defaultSubnets []string) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.DefaultSubnets = defaultSubnets
 	}
 }
 
@@ -234,6 +243,15 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 		}
 		subnetsByAZ := mapSDKSubnetsByAZ(filteredSubnets)
 		chosenSubnets = make([]ec2types.Subnet, 0, len(subnetsByAZ))
+
+		prioritySubnetMap := make(map[string]int)
+
+		if len(resolveOpts.DefaultSubnets) > 0 {
+			for i, subnetID := range resolveOpts.DefaultSubnets {
+				prioritySubnetMap[subnetID] = i
+			}
+		}
+
 		for az, subnets := range subnetsByAZ {
 			if len(subnets) == 1 {
 				chosenSubnets = append(chosenSubnets, subnets[0])
@@ -245,6 +263,21 @@ func (r *defaultSubnetsResolver) ResolveViaSelector(ctx context.Context, selecto
 						if clusterTagI {
 							return true
 						}
+						return false
+					}
+
+					// When subnets are specified in --default-subnets, the subnets list will be sorted according to this order.
+					// Any subnets not specified in --default-subnets will be sorted in lexicographical order and placed after the prioritized subnets.
+					iVal, iExists := prioritySubnetMap[awssdk.ToString(subnets[i].SubnetId)]
+					jVal, jExists := prioritySubnetMap[awssdk.ToString(subnets[j].SubnetId)]
+
+					if iExists && jExists {
+						return iVal < jVal
+					}
+					if iExists {
+						return true
+					}
+					if jExists {
 						return false
 					}
 					return awssdk.ToString(subnets[i].SubnetId) < awssdk.ToString(subnets[j].SubnetId)

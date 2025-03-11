@@ -4,6 +4,7 @@ set [Feature Gate ALBSingleSubnet](https://kubernetes-sigs.github.io/aws-load-ba
 The subnets must be tagged appropriately for auto-discovery to work. The controller chooses one subnet from each Availability Zone. During auto-discovery, the controller
 considers subnets with at least eight available IP addresses. In the case of multiple qualified tagged subnets in an Availability Zone, the controller chooses the first one in lexicographical 
 order by the subnet IDs.
+However, if subnets are specified using the --default-subnets flag, those will take precedence over the auto-discovered subnets.
 For more information about the subnets for the LBC, see [Application Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html) 
 and [Network Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html).
 If you used `eksctl` or an Amazon EKS AWS CloudFormation template to create your VPC after March 26, 2020, then the subnets are tagged appropriately when they're created. For 
