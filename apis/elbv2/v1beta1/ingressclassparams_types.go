@@ -167,6 +167,9 @@ type IngressClassParamsSpec struct {
 	// IPAMConfiguration defines the IPAM settings for a Load Balancer.
 	// +optional
 	IPAMConfiguration *IPAMConfiguration `json:"ipamConfiguration,omitempty"`
+
+	// PrefixListsIDs defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
+	PrefixListsIDs []string `json:"PrefixListsIDs,omitempty"`
 }
 
 // +kubebuilder:object:root=true
