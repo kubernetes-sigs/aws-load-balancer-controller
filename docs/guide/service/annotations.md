@@ -456,9 +456,16 @@ You can configure TLS support via the following annotations:
         See [Server Certificates](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#tls-listener-certificates) for further details.
 
     !!!example
-        ```
-        service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
-        ```
+        - single certificate
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
+            ```
+        - multiple certificates
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3
+            ```
+
+
 
 - <a name="ssl-ports">`service.beta.kubernetes.io/aws-load-balancer-ssl-ports`</a> specifies the frontend ports with TLS listeners.
 
