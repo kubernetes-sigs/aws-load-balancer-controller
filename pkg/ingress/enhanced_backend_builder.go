@@ -11,7 +11,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -240,16 +239,22 @@ func (b *defaultEnhancedBackendBuilder) normalizeServicePortForBackwardsCompatib
 func (b *defaultEnhancedBackendBuilder) loadBackendServices(ctx context.Context, action *Action, namespace string,
 	backendServices map[types.NamespacedName]*corev1.Service) error {
 	if action.Type == ActionTypeForward && action.ForwardConfig != nil {
-		svcNames := sets.NewString()
+		svcKeys := map[types.NamespacedName]bool{}
 		for _, tgt := range action.ForwardConfig.TargetGroups {
+			svcNamespace := namespace
+			if tgt.ServiceNamespace != nil {
+				svcNamespace = awssdk.ToString(tgt.ServiceNamespace)
+			}
 			if tgt.ServiceName != nil {
-				svcNames.Insert(awssdk.ToString(tgt.ServiceName))
+				svcKey := types.NamespacedName{Namespace: svcNamespace, Name: awssdk.ToString(tgt.ServiceName)}
+				if _, ok := svcKeys[svcKey]; !ok {
+					svcKeys[svcKey] = true
+				}
 			}
 		}
-		forwardToSingleSvc := (len(action.ForwardConfig.TargetGroups) == 1) && (svcNames.Len() == 1)
+		forwardToSingleSvc := (len(action.ForwardConfig.TargetGroups) == 1) && (len(svcKeys) == 1)
 		tolerateNonExistentBackendService := b.tolerateNonExistentBackendService && forwardToSingleSvc
-		for svcName := range svcNames {
-			svcKey := types.NamespacedName{Namespace: namespace, Name: svcName}
+		for svcKey := range svcKeys {
 			if _, ok := backendServices[svcKey]; ok {
 				continue
 			}

@@ -1083,6 +1083,42 @@ func Test_defaultEnhancedBackendBuilder_buildActionViaAnnotation(t *testing.T) {
 			},
 		},
 		{
+			name: "forward action - advanced schema - namespaces provided",
+			args: args{
+				ingAnnotation: map[string]string{
+					"alb.ingress.kubernetes.io/actions.forward-multiple-tg": `{"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"service-1","servicePort":"http","serviceNamespace":"namespace-1","weight":20},{"serviceName":"service-2","servicePort":80,"serviceNamespace":"namespace-2","weight":20},{"targetGroupARN":"tg-arn","weight":60}],"targetGroupStickinessConfig":{"enabled":true,"durationSeconds":200}}}`,
+				},
+				svcName: "forward-multiple-tg",
+			},
+			want: Action{
+				Type: ActionTypeForward,
+				ForwardConfig: &ForwardActionConfig{
+					TargetGroups: []TargetGroupTuple{
+						{
+							ServiceName:      awssdk.String("service-1"),
+							ServicePort:      &portHTTP,
+							ServiceNamespace: awssdk.String("namespace-1"),
+							Weight:           awssdk.Int32(20),
+						},
+						{
+							ServiceName:      awssdk.String("service-2"),
+							ServicePort:      &port80,
+							ServiceNamespace: awssdk.String("namespace-2"),
+							Weight:           awssdk.Int32(20),
+						},
+						{
+							TargetGroupARN: awssdk.String("tg-arn"),
+							Weight:         awssdk.Int32(60),
+						},
+					},
+					TargetGroupStickinessConfig: &TargetGroupStickinessConfig{
+						Enabled:         awssdk.Bool(true),
+						DurationSeconds: awssdk.Int32(200),
+					},
+				},
+			},
+		},
+		{
 			name: "forward action - advanced schema - old camelcase case json key",
 			args: args{
 				ingAnnotation: map[string]string{
@@ -1323,6 +1359,12 @@ func Test_defaultEnhancedBackendBuilder_loadBackendServices(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "awesome-ns",
 			Name:      "svc-2",
+		},
+	}
+	svc3 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "awesome-ns-2",
+			Name:      "svc-3",
 		},
 	}
 
@@ -1566,6 +1608,55 @@ func Test_defaultEnhancedBackendBuilder_loadBackendServices(t *testing.T) {
 				backendServices: map[types.NamespacedName]*corev1.Service{},
 			},
 			wantErr: errors.New("services \"svc-2\" not found"),
+		},
+		{
+			name: "forward to multiple exists service with multiple namespaces",
+			env: env{
+				svcs: []*corev1.Service{svc1, svc3},
+			},
+			fields: fields{
+				tolerateNonExistentBackendService: true,
+			},
+			args: args{
+				action: &Action{
+					Type: ActionTypeForward,
+					ForwardConfig: &ForwardActionConfig{
+						TargetGroups: []TargetGroupTuple{
+							{
+								ServiceName: awssdk.String("svc-1"),
+								ServicePort: &port80,
+							},
+							{
+								ServiceName:      awssdk.String("svc-3"),
+								ServicePort:      &port80,
+								ServiceNamespace: awssdk.String("awesome-ns-2"),
+							},
+						},
+					},
+				},
+				namespace:       "awesome-ns",
+				backendServices: map[types.NamespacedName]*corev1.Service{},
+			},
+			wantAction: Action{
+				Type: ActionTypeForward,
+				ForwardConfig: &ForwardActionConfig{
+					TargetGroups: []TargetGroupTuple{
+						{
+							ServiceName: awssdk.String("svc-1"),
+							ServicePort: &port80,
+						},
+						{
+							ServiceName:      awssdk.String("svc-3"),
+							ServicePort:      &port80,
+							ServiceNamespace: awssdk.String("awesome-ns-2"),
+						},
+					},
+				},
+			},
+			wantBackendServices: map[types.NamespacedName]*corev1.Service{
+				types.NamespacedName{Namespace: "awesome-ns", Name: "svc-1"}:   svc1,
+				types.NamespacedName{Namespace: "awesome-ns-2", Name: "svc-3"}: svc3,
+			},
 		},
 		{
 			name: "load for fixed response action is noop",
