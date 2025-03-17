@@ -2,9 +2,16 @@ package targetgroupbinding
 
 import (
 	"context"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/smithy-go"
+	"github.com/golang/mock/gomock"
+	"k8s.io/apimachinery/pkg/util/cache"
+	"net/netip"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -478,6 +485,220 @@ func Test_containsTargetsInInitialState(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := containsTargetsInInitialState(tt.args.matchedEndpointAndTargets)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
+
+	vpcId := "foo"
+
+	type ipTestCase struct {
+		ip     netip.Addr
+		result bool
+	}
+
+	testCases := []struct {
+		name         string
+		vpcInfoCalls int
+		assumeRole   string
+		vpcInfo      networking.VPCInfo
+		vpcInfoError error
+		ipTestCases  []ipTestCase
+		expectErr    bool
+	}{
+		{
+			name:         "standard case ipv4",
+			vpcInfoCalls: 1,
+			vpcInfo: networking.VPCInfo{
+				CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
+					{
+						CidrBlock: aws.String("127.0.0.0/24"),
+						CidrBlockState: &ec2types.VpcCidrBlockState{
+							State: ec2types.VpcCidrBlockStateCodeAssociated,
+						},
+					},
+				},
+			},
+			ipTestCases: []ipTestCase{
+				{
+					ip:     netip.MustParseAddr("172.0.0.0"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("127.0.0.1"),
+					result: false,
+				},
+				{
+					ip:     netip.MustParseAddr("127.0.0.2"),
+					result: false,
+				},
+			},
+		},
+		{
+			name:         "standard case ipv6",
+			vpcInfoCalls: 1,
+			vpcInfo: networking.VPCInfo{
+				Ipv6CidrBlockAssociationSet: []ec2types.VpcIpv6CidrBlockAssociation{
+					{
+						Ipv6CidrBlock: aws.String("2001:db8::/32"),
+						Ipv6CidrBlockState: &ec2types.VpcCidrBlockState{
+							State: ec2types.VpcCidrBlockStateCodeAssociated,
+						},
+					},
+				},
+			},
+			ipTestCases: []ipTestCase{
+				{
+					ip:     netip.MustParseAddr("5001:db8:ffff:ffff:ffff:ffff:ffff:ffff"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("2001:db8:0:0:0:0:0:0"),
+					result: false,
+				},
+				{
+					ip:     netip.MustParseAddr("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"),
+					result: false,
+				},
+			},
+		},
+		{
+			name:         "assume role case ram shared vpc ipv4",
+			vpcInfoCalls: 1,
+			assumeRole:   "foo",
+			vpcInfo: networking.VPCInfo{
+				CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
+					{
+						CidrBlock: aws.String("127.0.0.0/24"),
+						CidrBlockState: &ec2types.VpcCidrBlockState{
+							State: ec2types.VpcCidrBlockStateCodeAssociated,
+						},
+					},
+				},
+			},
+			ipTestCases: []ipTestCase{
+				{
+					ip:     netip.MustParseAddr("172.0.0.0"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("127.0.0.1"),
+					result: false,
+				},
+				{
+					ip:     netip.MustParseAddr("127.0.0.2"),
+					result: false,
+				},
+			},
+		},
+		{
+			name:         "assume role ram shared vpc case ipv6",
+			vpcInfoCalls: 1,
+			assumeRole:   "foo",
+			vpcInfo: networking.VPCInfo{
+				Ipv6CidrBlockAssociationSet: []ec2types.VpcIpv6CidrBlockAssociation{
+					{
+						Ipv6CidrBlock: aws.String("2001:db8::/32"),
+						Ipv6CidrBlockState: &ec2types.VpcCidrBlockState{
+							State: ec2types.VpcCidrBlockStateCodeAssociated,
+						},
+					},
+				},
+			},
+			ipTestCases: []ipTestCase{
+				{
+					ip:     netip.MustParseAddr("5001:db8:ffff:ffff:ffff:ffff:ffff:ffff"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("2001:db8:0:0:0:0:0:0"),
+					result: false,
+				},
+				{
+					ip:     netip.MustParseAddr("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"),
+					result: false,
+				},
+			},
+		},
+		{
+			name:         "assume role case peered vpc ipv4",
+			vpcInfoCalls: 1,
+			assumeRole:   "foo",
+			vpcInfoError: &smithy.GenericAPIError{Code: "InvalidVpcID.NotFound", Message: ""},
+			ipTestCases: []ipTestCase{
+				{
+					ip:     netip.MustParseAddr("172.0.0.0"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("127.0.0.1"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("127.0.0.2"),
+					result: true,
+				},
+			},
+		},
+		{
+			name:         "assume role peered vpc case ipv6",
+			vpcInfoCalls: 1,
+			assumeRole:   "foo",
+			vpcInfoError: &smithy.GenericAPIError{Code: "InvalidVpcID.NotFound", Message: ""},
+			ipTestCases: []ipTestCase{
+				{
+					ip:     netip.MustParseAddr("5001:db8:ffff:ffff:ffff:ffff:ffff:ffff"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("2001:db8:0:0:0:0:0:0"),
+					result: true,
+				},
+				{
+					ip:     netip.MustParseAddr("2001:db8:ffff:ffff:ffff:ffff:ffff:ffff"),
+					result: true,
+				},
+			},
+		},
+		{
+			name:         "not found error from vpc info should be propagated when not using assume role",
+			vpcInfoCalls: 1,
+			vpcInfoError: &smithy.GenericAPIError{Code: "InvalidVpcID.NotFound", Message: ""},
+			expectErr:    true,
+		},
+		{
+			name:         "assume role case peered vpc other error should get propagated",
+			vpcInfoCalls: 1,
+			assumeRole:   "foo",
+			vpcInfoError: &smithy.GenericAPIError{Code: "other error", Message: ""},
+			expectErr:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+			vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(tc.vpcInfo, tc.vpcInfoError).Times(tc.vpcInfoCalls)
+			m := &defaultResourceManager{
+				logger:          logr.New(&log.NullLogSink{}),
+				invalidVpcCache: cache.NewExpiring(),
+				vpcInfoProvider: vpcInfoProvider,
+			}
+
+			returnedFn, err := m.generateOverrideAzFn(context.Background(), vpcId, tc.assumeRole)
+
+			if tc.expectErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			for _, iptc := range tc.ipTestCases {
+				assert.Equal(t, iptc.result, returnedFn(iptc.ip), iptc.ip)
+			}
 		})
 	}
 }
