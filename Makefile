@@ -18,6 +18,9 @@ CRD_OPTIONS ?= "crd:crdVersions=v1"
 # Whether to override AWS SDK models. set to 'y' when we need to build against custom AWS SDK models.
 AWS_SDK_MODEL_OVERRIDE ?= "n"
 
+# Move Gateway API CRDs from bases directory to gateway directory
+MOVE_GATEWAY_CRDS = mv config/crd/bases/gateway.k8s.aws_targetgroupconfigurations.yaml config/crd/gateway/gateway.k8s.aws_targetgroupconfigurations.yaml
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -61,8 +64,9 @@ manifests: controller-gen kustomize
 	yq eval '.metadata.name = "webhook"' -i config/webhook/manifests.yaml
 
 crds: manifests
+	$(MOVE_GATEWAY_CRDS)
 	$(KUSTOMIZE) build config/crd > helm/aws-load-balancer-controller/crds/crds.yaml
-
+	$(KUSTOMIZE) build config/crd/gateway > config/crd/gateway/gateway-crds.yaml
 
 # Run go fmt against code
 fmt:
