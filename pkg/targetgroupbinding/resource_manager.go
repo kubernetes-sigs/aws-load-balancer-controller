@@ -3,8 +3,10 @@ package targetgroupbinding
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/cache"
 	"net/netip"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
+	"sync"
 	"time"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -28,7 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const defaultRequeueDuration = 15 * time.Second
+const (
+	defaultRequeueDuration = 15 * time.Second
+	invalidVPCTTL          = 60 * time.Minute
+)
 
 // ResourceManager manages the TargetGroupBinding resource.
 type ResourceManager interface {
@@ -64,6 +69,9 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		multiClusterManager: multiClusterManager,
 		metricsCollector:    metricsCollector,
 
+		invalidVpcCache:    cache.NewExpiring(),
+		invalidVpcCacheTTL: defaultTargetsCacheTTL,
+
 		requeueDuration: defaultRequeueDuration,
 	}
 }
@@ -83,6 +91,10 @@ type defaultResourceManager struct {
 	multiClusterManager MultiClusterManager
 	metricsCollector    lbcmetrics.MetricCollector
 	vpcID               string
+
+	invalidVpcCache      *cache.Expiring
+	invalidVpcCacheTTL   time.Duration
+	invalidVpcCacheMutex sync.RWMutex
 
 	requeueDuration time.Duration
 }
@@ -550,29 +562,10 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 			"registering endpoints using the targetGroup's vpcID %s which is different from the cluster's vpcID %s", tgb.Spec.VpcID, m.vpcID))
 	}
 
-	var overrideAzFn func(addr netip.Addr) bool
-	if tgb.Spec.IamRoleArnToAssume != "" {
-		// If we're interacting with another account, then we should always be setting "all" AZ to allow this
-		// target to get registered by the ELB API.
-		overrideAzFn = func(_ netip.Addr) bool {
-			return true
-		}
-	} else {
-		vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
-		if err != nil {
-			return err
-		}
-		var vpcRawCIDRs []string
-		vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
-		vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
-		vpcCIDRs, err := networking.ParseCIDRs(vpcRawCIDRs)
-		if err != nil {
-			return err
-		}
-		// If the pod ip resides out of all the VPC CIDRs, then the only way to force the ELB API is to use "all" AZ.
-		overrideAzFn = func(addr netip.Addr) bool {
-			return !networking.IsIPWithinCIDRs(addr, vpcCIDRs)
-		}
+	overrideAzFn, err := m.generateOverrideAzFn(ctx, vpcID, tgb.Spec.IamRoleArnToAssume)
+
+	if err != nil {
+		return err
 	}
 
 	sdkTargets, err := m.prepareRegistrationCall(endpoints, overrideAzFn)
@@ -624,6 +617,66 @@ func (m *defaultResourceManager) updateTGBCheckPoint(ctx context.Context, tgb *e
 		return errors.Wrapf(err, "failed to update targetGroupBinding checkpoint: %v", k8s.NamespacedName(tgb))
 	}
 	return nil
+}
+
+func (m *defaultResourceManager) generateOverrideAzFn(ctx context.Context, vpcID string, assumeRole string) (func(addr netip.Addr) bool, error) {
+	// Cross-Account is configured by assuming a role.
+	usingCrossAccount := assumeRole != ""
+
+	// We need to cache the vpc response for the various assume roles.
+	// There are two cases to consider when using assuming a role:
+	// 1. Using a peered VPC connection to provide connectivity among accounts.
+	// 2. Using RAM shared subnet(s) to provide connectivity among accounts.
+	// We need to handle the case where the user is potentially using the same VPC in the peered context
+	// as well as the RAM shared context.
+	// Using peered VPC connection, we will always need to override the AZ.
+	// Using a RAM shared subnet / VPC means that we follow the standard logic of checking the pod ip against the VPC CIDRs.
+
+	invalidVPCCacheKey := fmt.Sprintf("%s-%s", assumeRole, vpcID)
+
+	if usingCrossAccount {
+		// Prevent spamming EC2 with requests.
+		// We can use the cached result for this VPC ID given for the current assume role ARN
+		m.invalidVpcCacheMutex.RLock()
+		_, invalidVPC := m.invalidVpcCache.Get(invalidVPCCacheKey)
+		m.invalidVpcCacheMutex.RUnlock()
+
+		// In this case, we already received that this VPC was invalid, we can shortcut the EC2 call and just override the AZ.
+		if invalidVPC {
+			return func(addr netip.Addr) bool {
+				return true
+			}, nil
+		}
+	}
+
+	vpcInfo, err := m.vpcInfoProvider.FetchVPCInfo(ctx, vpcID)
+	if err != nil {
+		// A VPC Not Found Error along with cross-account usage means that the VPC either, is not shared with the assume
+		// role account OR this falls into case (1) from above where the VPC is just peered but not shared with RAM.
+		// As we can't differentiate if RAM sharing wasn't set up correctly OR the VPC is set up via peering, we will
+		// just default to assume that the VPC is peered but not shared.
+		if isVPCNotFoundError(err) && usingCrossAccount {
+			m.invalidVpcCacheMutex.Lock()
+			m.invalidVpcCache.Set(invalidVPCCacheKey, true, m.invalidVpcCacheTTL)
+			m.invalidVpcCacheMutex.Unlock()
+			return func(addr netip.Addr) bool {
+				return true
+			}, nil
+		}
+		return nil, err
+	}
+	var vpcRawCIDRs []string
+	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv4CIDRs()...)
+	vpcRawCIDRs = append(vpcRawCIDRs, vpcInfo.AssociatedIPv6CIDRs()...)
+	vpcCIDRs, err := networking.ParseCIDRs(vpcRawCIDRs)
+	if err != nil {
+		return nil, err
+	}
+	// By getting here, we have a valid VPC for whatever credential was used. We return "true" in the function below
+	// when the pod ip falls outside the VPCs configured CIDRs, other we return "false" to ensure that the "all" is NOT injected.
+	return func(addr netip.Addr) bool {
+		return !networking.IsIPWithinCIDRs(addr, vpcCIDRs)
+	}, nil
 }
 
 type podEndpointAndTargetPair struct {
@@ -744,6 +797,15 @@ func isELBV2TargetGroupARNInvalidError(err error) bool {
 		code := apiErr.ErrorCode()
 
 		return code == "ValidationError"
+	}
+	return false
+}
+
+func isVPCNotFoundError(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		code := apiErr.ErrorCode()
+		return code == "InvalidVpcID.NotFound"
 	}
 	return false
 }

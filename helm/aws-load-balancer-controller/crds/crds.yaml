@@ -54,6 +54,12 @@ spec:
           spec:
             description: IngressClassParamsSpec defines the desired state of IngressClassParams
             properties:
+              PrefixListsIDs:
+                description: PrefixListsIDs defines the security group prefix lists
+                  for all Ingresses that belong to IngressClass with this IngressClassParams.
+                items:
+                  type: string
+                type: array
               certificateArn:
                 description: CertificateArn specifies the ARN of the certificates
                   for all Ingresses that belong to IngressClass with this IngressClassParams.
