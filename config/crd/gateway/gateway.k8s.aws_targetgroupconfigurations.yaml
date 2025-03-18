@@ -49,6 +49,175 @@ spec:
             description: TargetGroupConfigurationSpec defines the TargetGroup properties
               for a route.
             properties:
+              defaultConfiguration:
+                description: defaultRouteConfiguration fallback configuration applied
+                  to all routes, unless overridden by route-specific configurations.
+                properties:
+                  healthCheckConfig:
+                    description: healthCheckConfig The Health Check configuration
+                      for this backend.
+                    properties:
+                      healthCheckInterval:
+                        description: healthCheckInterval The approximate amount of
+                          time, in seconds, between health checks of an individual
+                          target.
+                        format: int32
+                        type: integer
+                      healthCheckPath:
+                        description: healthCheckPath The destination for health checks
+                          on the targets.
+                        type: string
+                      healthCheckPort:
+                        description: healthCheckPort The port to use to connect with
+                          the target.
+                        format: int32
+                        type: integer
+                      healthCheckProtocol:
+                        description: healthCheckProtocol The protocol to use to connect
+                          with the target. The GENEVE, TLS, UDP, and TCP_UDP protocols
+                          are not supported for health checks.
+                        enum:
+                        - http
+                        - https
+                        - tcp
+                        type: string
+                      healthCheckTimeout:
+                        description: healthCheckTimeout The amount of time, in seconds,
+                          during which no response means a failed health check
+                        format: int32
+                        type: integer
+                      healthyThresholdCount:
+                        description: healthyThresholdCount The number of consecutive
+                          health checks successes required before considering an unhealthy
+                          target healthy.
+                        format: int32
+                        type: integer
+                      matcher:
+                        description: healthCheckCodes The HTTP or gRPC codes to use
+                          when checking for a successful response from a target
+                        properties:
+                          grpcCode:
+                            description: The gRPC codes
+                            type: string
+                          httpCode:
+                            description: The HTTP codes.
+                            type: string
+                        type: object
+                      unhealthyThresholdCount:
+                        description: unhealthyThresholdCount The number of consecutive
+                          health check failures required before considering the target
+                          unhealthy.
+                        format: int32
+                        type: integer
+                    type: object
+                  ipAddressType:
+                    description: ipAddressType specifies whether the target group
+                      is of type IPv4 or IPv6. If unspecified, it will be automatically
+                      inferred.
+                    enum:
+                    - ipv4
+                    - ipv6
+                    type: string
+                  nodeSelector:
+                    description: node selector for instance type target groups to
+                      only register certain nodes
+                    properties:
+                      matchExpressions:
+                        description: matchExpressions is a list of label selector
+                          requirements. The requirements are ANDed.
+                        items:
+                          description: |-
+                            A label selector requirement is a selector that contains values, a key, and an operator that
+                            relates the key and values.
+                          properties:
+                            key:
+                              description: key is the label key that the selector
+                                applies to.
+                              type: string
+                            operator:
+                              description: |-
+                                operator represents a key's relationship to a set of values.
+                                Valid operators are In, NotIn, Exists and DoesNotExist.
+                              type: string
+                            values:
+                              description: |-
+                                values is an array of string values. If the operator is In or NotIn,
+                                the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                the values array must be empty. This array is replaced during a strategic
+                                merge patch.
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          required:
+                          - key
+                          - operator
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                          map is equivalent to an element of matchExpressions, whose key field is "key", the
+                          operator is "In", and the values array contains only "value". The requirements are ANDed.
+                        type: object
+                    type: object
+                    x-kubernetes-map-type: atomic
+                  protocolVersion:
+                    description: protocolVersion [HTTP/HTTPS protocol] The protocol
+                      version. The possible values are GRPC , HTTP1 and HTTP2
+                    enum:
+                    - http1
+                    - http2
+                    - grpc
+                    type: string
+                  tags:
+                    description: Tags defines list of Tags on target group.
+                    items:
+                      description: Tag defines a AWS Tag on resources.
+                      properties:
+                        key:
+                          description: The key of the tag.
+                          type: string
+                        value:
+                          description: The value of the tag.
+                          type: string
+                      required:
+                      - key
+                      - value
+                      type: object
+                    type: array
+                  targetGroupAttributes:
+                    description: targetGroupAttributes defines the attribute of target
+                      group
+                    items:
+                      description: TargetGroupAttribute defines target group attribute.
+                      properties:
+                        key:
+                          description: The key of the attribute.
+                          type: string
+                        value:
+                          description: The value of the attribute.
+                          type: string
+                      required:
+                      - key
+                      - value
+                      type: object
+                    type: array
+                  targetType:
+                    description: targetType is the TargetType of TargetGroup. If unspecified,
+                      it will be automatically inferred as instance.
+                    enum:
+                    - instance
+                    - ip
+                    type: string
+                  vpcID:
+                    description: vpcID is the VPC of the TargetGroup. If unspecified,
+                      it will be automatically inferred.
+                    type: string
+                type: object
               routeConfigurations:
                 description: routeConfigurations the route configuration for specific
                   routes
@@ -57,7 +226,7 @@ spec:
                   properties:
                     name:
                       description: name the name of the route, it should be in the
-                        form of ROUTE:NAME:NAMESPACE
+                        form of ROUTE:NAMESPACE:NAME
                       pattern: ^(HTTPRoute|TLSRoute|TCPRoute|UDPRoute|GRPCRoute)?:([^:]+)?:([^:]+)?$
                       type: string
                     targetGroupProps:
@@ -255,19 +424,6 @@ spec:
 
 
                       Defaults to "Service" when not specified.
-
-
-                      ExternalName services can refer to CNAME DNS records that may live
-                      outside of the cluster and as such are difficult to reason about in
-                      terms of conformance. They also may not be safe to forward to (see
-                      CVE-2021-25740 for more information). Implementations SHOULD NOT
-                      support ExternalName Services.
-
-
-                      Support: Core (Services with a type other than ExternalName)
-
-
-                      Support: Implementation-specific (Services with type ExternalName)
                     type: string
                   name:
                     description: Name is the name of the referent.

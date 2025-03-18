@@ -19,7 +19,7 @@ CRD_OPTIONS ?= "crd:crdVersions=v1"
 AWS_SDK_MODEL_OVERRIDE ?= "n"
 
 # Move Gateway API CRDs from bases directory to gateway directory
-MOVE_GATEWAY_CRDS = mv config/crd/bases/gateway.k8s.aws_targetgroupconfigurations.yaml config/crd/gateway/gateway.k8s.aws_targetgroupconfigurations.yaml
+MOVE_GATEWAY_CRDS = mv config/crd/bases/gateway.k8s.aws_* config/crd/gateway/
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
