@@ -14,12 +14,12 @@ const (
 	GRPCRouteKind = "GRPCRoute"
 )
 
-var allRoutes = map[string]func(context context.Context, client client.Client) ([]RouteDescriptor, error){
+var allRoutes = map[string]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error){
 	TCPRouteKind:  ListTCPRoutes,
 	UDPRouteKind:  ListUDPRoutes,
 	TLSRouteKind:  ListTLSRoutes,
-	HTTPRouteKind: nil,
-	GRPCRouteKind: nil,
+	HTTPRouteKind: ListHTTPRoutes,
+	GRPCRouteKind: ListGRPCRoutes,
 }
 
 var defaultProtocolToRouteKindMap = map[gwv1.ProtocolType]string{

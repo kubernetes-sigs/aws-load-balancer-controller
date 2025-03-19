@@ -10,21 +10,34 @@ import (
 )
 
 type ListenerToRouteMapper interface {
-	Map(context context.Context, client client.Client, gw *gwv1.Gateway, routes []RouteDescriptor) (map[int][]RouteDescriptor, error)
+	Map(context context.Context, gw *gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, error)
 }
 
 var _ ListenerToRouteMapper = &listenerToRouteMapper{}
 
 type listenerToRouteMapper struct {
+	k8sClient client.Client
 }
 
-func (ltr *listenerToRouteMapper) Map(ctx context.Context, k8sclient client.Client, gw *gwv1.Gateway, routes []RouteDescriptor) (map[int][]RouteDescriptor, error) {
-	result := make(map[int][]RouteDescriptor)
+func (ltr *listenerToRouteMapper) Map(ctx context.Context, gw *gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, error) {
+	result := make(map[int][]preLoadRouteDescriptor)
+
+	routesForGateway := make([]preLoadRouteDescriptor, 0)
+	for _, route := range routes {
+		if ltr.doesRouteAttachToGateway(gw, route) {
+			routesForGateway = append(routesForGateway, route)
+		}
+	}
 
 	// Approach is to greedily add as many relevant routes to each listener.
 	for _, listener := range gw.Spec.Listeners {
-		for _, route := range routes {
-			allowedAttachment, err := ltr.listenerAllowsAttachment(ctx, k8sclient, gw, listener, route)
+		for _, route := range routesForGateway {
+
+			if !ltr.routeAllowsAttachment(listener, route) {
+				continue
+			}
+
+			allowedAttachment, err := ltr.listenerAllowsAttachment(ctx, gw, listener, route)
 			if err != nil {
 				return nil, err
 			}
@@ -37,8 +50,50 @@ func (ltr *listenerToRouteMapper) Map(ctx context.Context, k8sclient client.Clie
 	return result, nil
 }
 
-func (ltr *listenerToRouteMapper) listenerAllowsAttachment(ctx context.Context, k8sclient client.Client, gw *gwv1.Gateway, listener gwv1.Listener, route RouteDescriptor) (bool, error) {
-	namespaceOK, err := ltr.namespaceCheck(ctx, k8sclient, gw, listener, route)
+func (ltr *listenerToRouteMapper) doesRouteAttachToGateway(gw *gwv1.Gateway, route preLoadRouteDescriptor) bool {
+	for _, parentRef := range route.GetParentRefs() {
+
+		// Default for kind is Gateway.
+		if parentRef.Kind != nil && *parentRef.Kind != "Gateway" {
+			continue
+		}
+
+		var namespaceToCompare string
+
+		if parentRef.Namespace != nil {
+			namespaceToCompare = string(*parentRef.Namespace)
+		} else {
+			namespaceToCompare = gw.Namespace
+		}
+
+		if string(parentRef.Name) == gw.Name && gw.Namespace == namespaceToCompare {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (ltr *listenerToRouteMapper) routeAllowsAttachment(listener gwv1.Listener, route preLoadRouteDescriptor) bool {
+	// We've already validated that the route belongs to the gateway.
+	for _, parentRef := range route.GetParentRefs() {
+
+		if parentRef.SectionName != nil && string(*parentRef.SectionName) != string(listener.Name) {
+			continue
+		}
+
+		if parentRef.Port != nil && *parentRef.Port != listener.Port {
+			continue
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func (ltr *listenerToRouteMapper) listenerAllowsAttachment(ctx context.Context, gw *gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
+	namespaceOK, err := ltr.namespaceCheck(ctx, gw, listener, route)
 	if err != nil {
 		return false, err
 	}
@@ -53,51 +108,43 @@ func (ltr *listenerToRouteMapper) listenerAllowsAttachment(ctx context.Context, 
 	return true, nil
 }
 
-func (ltr *listenerToRouteMapper) namespaceCheck(ctx context.Context, k8sclient client.Client, gw *gwv1.Gateway, listener gwv1.Listener, route RouteDescriptor) (bool, error) {
-	if listener.AllowedRoutes == nil {
-		return gw.Namespace == route.GetRouteNamespace(), nil
-	}
-
+func (ltr *listenerToRouteMapper) namespaceCheck(ctx context.Context, gw *gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
 	var allowedNamespaces gwv1.FromNamespaces
 
-	if listener.AllowedRoutes.Namespaces == nil || listener.AllowedRoutes.Namespaces.From == nil {
+	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Namespaces == nil || listener.AllowedRoutes.Namespaces.From == nil {
 		allowedNamespaces = gwv1.NamespacesFromSame
 	} else {
 		allowedNamespaces = *listener.AllowedRoutes.Namespaces.From
 	}
 
+	namespacedName := route.GetRouteNamespacedName()
+
 	switch allowedNamespaces {
 	case gwv1.NamespacesFromSame:
-		if gw.Namespace != route.GetRouteNamespace() {
-			return false, nil
-		}
-		break
+		return gw.Namespace == namespacedName.Namespace, nil
+	case gwv1.NamespacesFromAll:
+		return true, nil
 	case gwv1.NamespacesFromSelector:
 		if listener.AllowedRoutes.Namespaces.Selector == nil {
 			return false, nil
 		}
 		// This should be executed off the client-go cache, hence we do not need to perform local caching.
-		namespaces, err := ltr.getNamespacesFromSelector(ctx, k8sclient, listener.AllowedRoutes.Namespaces.Selector)
+		namespaces, err := ltr.getNamespacesFromSelector(ctx, listener.AllowedRoutes.Namespaces.Selector)
 		if err != nil {
 			return false, err
 		}
 
-		if !namespaces.Has(route.GetRouteNamespace()) {
+		if !namespaces.Has(namespacedName.Namespace) {
 			return false, nil
 		}
-		break
-	case gwv1.NamespacesFromAll:
-		// Nothing to check
-		break
+		return true, nil
 	default:
 		// Unclear what to do in this case, let's try to be best effort and just ignore this value.
 		return false, nil
 	}
-
-	return false, nil
 }
 
-func (ltr *listenerToRouteMapper) kindCheck(listener gwv1.Listener, route RouteDescriptor) bool {
+func (ltr *listenerToRouteMapper) kindCheck(listener gwv1.Listener, route preLoadRouteDescriptor) bool {
 
 	var allowedRoutes sets.Set[string]
 
@@ -115,7 +162,7 @@ func (ltr *listenerToRouteMapper) kindCheck(listener gwv1.Listener, route RouteD
 	return allowedRoutes.Has(route.GetRouteKind())
 }
 
-func (ltr *listenerToRouteMapper) getNamespacesFromSelector(context context.Context, k8sclient client.Client, selector *metav1.LabelSelector) (sets.Set[string], error) {
+func (ltr *listenerToRouteMapper) getNamespacesFromSelector(context context.Context, selector *metav1.LabelSelector) (sets.Set[string], error) {
 	namespaceList := v1.NamespaceList{}
 
 	convertedSelector, err := metav1.LabelSelectorAsSelector(selector)
@@ -124,7 +171,7 @@ func (ltr *listenerToRouteMapper) getNamespacesFromSelector(context context.Cont
 	}
 	listOpts := client.ListOptions{LabelSelector: convertedSelector}
 
-	err = k8sclient.List(context, &namespaceList, &listOpts)
+	err = ltr.k8sClient.List(context, &namespaceList, &listOpts)
 	if err != nil {
 		return nil, err
 	}
