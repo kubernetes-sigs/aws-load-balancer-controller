@@ -8,6 +8,8 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+/* Route Rule */
+
 var _ RouteRule = &convertedHTTPRouteRule{}
 
 type convertedHTTPRouteRule struct {
@@ -22,6 +24,10 @@ func convertHTTPRouteRule(rule *gwv1.HTTPRouteRule, backends []Backend) RouteRul
 	}
 }
 
+func (t *convertedHTTPRouteRule) GetRawRouteRule() interface{} {
+	return t.rule
+}
+
 func (t *convertedHTTPRouteRule) GetSectionName() *gwv1.SectionName {
 	return t.rule.Name
 }
@@ -30,14 +36,12 @@ func (t *convertedHTTPRouteRule) GetBackends() []Backend {
 	return t.backends
 }
 
-func (t *convertedHTTPRouteRule) GetHostnames() []string {
-	// TODO - What to do about HTTPS?
-	return []string{}
-}
+/* Route Description */
 
 type httpRouteDescription struct {
-	route *gwv1.HTTPRoute
-	rules []RouteRule
+	route         *gwv1.HTTPRoute
+	rules         []RouteRule
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error)
 }
 
 func (httpRoute *httpRouteDescription) GetAttachedRules() []RouteRule {
@@ -48,15 +52,15 @@ func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8
 	convertedRules := make([]RouteRule, 0)
 	for _, rule := range httpRoute.route.Spec.Rules {
 		convertedBackends := make([]Backend, 0)
-
 		for _, backend := range rule.BackendRefs {
-			// TODO - What are we missing here when just using backend refs?
-			// Backend filters - HTTPRouteFilters
-			convertedBackend, err := commonBackendLoader(ctx, k8sClient, backend.BackendRef, httpRoute.GetRouteNamespacedName(), httpRoute.GetRouteKind())
+			convertedBackend, err := httpRoute.backendLoader(ctx, k8sClient, backend, backend.BackendRef, httpRoute.GetRouteNamespacedName(), httpRoute.GetRouteKind())
 			if err != nil {
 				return nil, err
 			}
-			convertedBackends = append(convertedBackends, *convertedBackend)
+
+			if convertedBackend != nil {
+				convertedBackends = append(convertedBackends, *convertedBackend)
+			}
 		}
 
 		convertedRules = append(convertedRules, convertHTTPRouteRule(&rule, convertedBackends))
@@ -64,6 +68,10 @@ func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8
 
 	httpRoute.rules = convertedRules
 	return httpRoute, nil
+}
+
+func (httpRoute *httpRouteDescription) GetHostnames() []gwv1.Hostname {
+	return httpRoute.route.Spec.Hostnames
 }
 
 func (httpRoute *httpRouteDescription) GetParentRefs() []gwv1.ParentReference {
@@ -79,7 +87,7 @@ func (httpRoute *httpRouteDescription) GetRouteNamespacedName() types.Namespaced
 }
 
 func convertHTTPRoute(r gwv1.HTTPRoute) *httpRouteDescription {
-	return &httpRouteDescription{route: &r}
+	return &httpRouteDescription{route: &r, backendLoader: commonBackendLoader}
 }
 
 func (httpRoute *httpRouteDescription) GetRawRoute() interface{} {

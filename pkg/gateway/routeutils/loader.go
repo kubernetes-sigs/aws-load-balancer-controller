@@ -37,14 +37,15 @@ type Loader interface {
 var _ Loader = &loaderImpl{}
 
 type loaderImpl struct {
-	mapper    ListenerToRouteMapper
-	k8sClient client.Client
+	mapper          ListenerToRouteMapper
+	k8sClient       client.Client
+	allRouteLoaders map[string]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
 }
 
 func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw *gwv1.Gateway, filter LoadRouteFilter) (map[int][]RouteDescriptor, error) {
 	// 1. Load all relevant routes according to the filter
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
-	for route, loader := range allRoutes {
+	for route, loader := range l.allRouteLoaders {
 		if filter.IsApplicable(route) {
 			data, err := loader(ctx, l.k8sClient)
 			if err != nil {

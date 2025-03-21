@@ -10,6 +10,7 @@ import (
 type routeMetadataDescriptor interface {
 	GetRouteNamespacedName() types.NamespacedName
 	GetRouteKind() string
+	GetHostnames() []gwv1.Hostname
 	GetParentRefs() []gwv1.ParentReference
 	GetRawRoute() interface{}
 }

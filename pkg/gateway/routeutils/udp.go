@@ -9,6 +9,8 @@ import (
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
+/* Route Rule */
+
 var _ RouteRule = &convertedUDPRouteRule{}
 
 type convertedUDPRouteRule struct {
@@ -23,6 +25,10 @@ func convertUDPRouteRule(rule *gwalpha2.UDPRouteRule, backends []Backend) RouteR
 	}
 }
 
+func (t *convertedUDPRouteRule) GetRawRouteRule() interface{} {
+	return t.rule
+}
+
 func (t *convertedUDPRouteRule) GetSectionName() *gwv1.SectionName {
 	return t.rule.Name
 }
@@ -31,14 +37,12 @@ func (t *convertedUDPRouteRule) GetBackends() []Backend {
 	return t.backends
 }
 
-func (t *convertedUDPRouteRule) GetHostnames() []string {
-	// Not supported for UDP route rules
-	return []string{}
-}
+/* Route Description */
 
 type udpRouteDescription struct {
-	route *gwalpha2.UDPRoute
-	rules []RouteRule
+	route         *gwalpha2.UDPRoute
+	rules         []RouteRule
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error)
 }
 
 func (udpRoute *udpRouteDescription) GetAttachedRules() []RouteRule {
@@ -51,11 +55,13 @@ func (udpRoute *udpRouteDescription) loadAttachedRules(ctx context.Context, k8sC
 		convertedBackends := make([]Backend, 0)
 
 		for _, backend := range rule.BackendRefs {
-			convertedBackend, err := commonBackendLoader(ctx, k8sClient, backend, udpRoute.GetRouteNamespacedName(), udpRoute.GetRouteKind())
+			convertedBackend, err := udpRoute.backendLoader(ctx, k8sClient, backend, backend, udpRoute.GetRouteNamespacedName(), udpRoute.GetRouteKind())
 			if err != nil {
 				return nil, err
 			}
-			convertedBackends = append(convertedBackends, *convertedBackend)
+			if convertedBackend != nil {
+				convertedBackends = append(convertedBackends, *convertedBackend)
+			}
 		}
 
 		convertedRules = append(convertedRules, convertUDPRouteRule(&rule, convertedBackends))
@@ -63,6 +69,10 @@ func (udpRoute *udpRouteDescription) loadAttachedRules(ctx context.Context, k8sC
 
 	udpRoute.rules = convertedRules
 	return udpRoute, nil
+}
+
+func (udpRoute *udpRouteDescription) GetHostnames() []gwv1.Hostname {
+	return []gwv1.Hostname{}
 }
 
 func (udpRoute *udpRouteDescription) GetParentRefs() []gwv1.ParentReference {
@@ -74,7 +84,7 @@ func (udpRoute *udpRouteDescription) GetRouteKind() string {
 }
 
 func convertUDPRoute(r gwalpha2.UDPRoute) *udpRouteDescription {
-	return &udpRouteDescription{route: &r}
+	return &udpRouteDescription{route: &r, backendLoader: commonBackendLoader}
 }
 
 func (udpRoute *udpRouteDescription) GetRouteNamespacedName() types.NamespacedName {

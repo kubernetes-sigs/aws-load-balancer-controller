@@ -9,10 +9,7 @@ import (
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-type tcpRouteDescription struct {
-	route *gwalpha2.TCPRoute
-	rules []RouteRule
-}
+/* Route Rule */
 
 var _ RouteRule = &convertedTCPRouteRule{}
 
@@ -28,6 +25,10 @@ func convertTCPRouteRule(rule *gwalpha2.TCPRouteRule, backends []Backend) RouteR
 	}
 }
 
+func (t *convertedTCPRouteRule) GetRawRouteRule() interface{} {
+	return t.rule
+}
+
 func (t *convertedTCPRouteRule) GetSectionName() *gwv1.SectionName {
 	return t.rule.Name
 }
@@ -36,9 +37,12 @@ func (t *convertedTCPRouteRule) GetBackends() []Backend {
 	return t.backends
 }
 
-func (t *convertedTCPRouteRule) GetHostnames() []string {
-	// Not supported for TCP route rules
-	return []string{}
+/* Route Description */
+
+type tcpRouteDescription struct {
+	route         *gwalpha2.TCPRoute
+	rules         []RouteRule
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error)
 }
 
 func (tcpRoute *tcpRouteDescription) GetAttachedRules() []RouteRule {
@@ -52,11 +56,13 @@ func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sC
 		convertedBackends := make([]Backend, 0)
 
 		for _, backend := range rule.BackendRefs {
-			convertedBackend, err := commonBackendLoader(ctx, k8sClient, backend, tcpRoute.GetRouteNamespacedName(), tcpRoute.GetRouteKind())
+			convertedBackend, err := tcpRoute.backendLoader(ctx, k8sClient, backend, backend, tcpRoute.GetRouteNamespacedName(), tcpRoute.GetRouteKind())
 			if err != nil {
 				return nil, err
 			}
-			convertedBackends = append(convertedBackends, *convertedBackend)
+			if convertedBackend != nil {
+				convertedBackends = append(convertedBackends, *convertedBackend)
+			}
 		}
 
 		convertedRules = append(convertedRules, convertTCPRouteRule(&rule, convertedBackends))
@@ -64,6 +70,10 @@ func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sC
 
 	tcpRoute.rules = convertedRules
 	return tcpRoute, nil
+}
+
+func (tcpRoute *tcpRouteDescription) GetHostnames() []gwv1.Hostname {
+	return []gwv1.Hostname{}
 }
 
 func (tcpRoute *tcpRouteDescription) GetRouteKind() string {
@@ -75,7 +85,7 @@ func (tcpRoute *tcpRouteDescription) GetRouteNamespacedName() types.NamespacedNa
 }
 
 func convertTCPRoute(r gwalpha2.TCPRoute) *tcpRouteDescription {
-	return &tcpRouteDescription{route: &r}
+	return &tcpRouteDescription{route: &r, backendLoader: commonBackendLoader}
 }
 
 func (tcpRoute *tcpRouteDescription) GetRawRoute() interface{} {

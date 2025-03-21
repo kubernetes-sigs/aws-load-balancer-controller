@@ -8,11 +8,17 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+/* Route Rule */
+
 var _ RouteRule = &convertedGRPCRouteRule{}
 
 type convertedGRPCRouteRule struct {
 	rule     *gwv1.GRPCRouteRule
 	backends []Backend
+}
+
+func (t *convertedGRPCRouteRule) GetRawRouteRule() interface{} {
+	return t.rule
 }
 
 func convertGRPCRouteRule(rule *gwv1.GRPCRouteRule, backends []Backend) RouteRule {
@@ -30,28 +36,26 @@ func (t *convertedGRPCRouteRule) GetBackends() []Backend {
 	return t.backends
 }
 
-func (t *convertedGRPCRouteRule) GetHostnames() []string {
-	return t.GetHostnames()
-}
+/* Route Description */
 
 type grpcRouteDescription struct {
-	route *gwv1.GRPCRoute
-	rules []RouteRule
+	route         *gwv1.GRPCRoute
+	rules         []RouteRule
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error)
 }
 
 func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, error) {
 	convertedRules := make([]RouteRule, 0)
 	for _, rule := range grpcRoute.route.Spec.Rules {
 		convertedBackends := make([]Backend, 0)
-
 		for _, backend := range rule.BackendRefs {
-			// TODO - Figure out what stuff we need to transpose from GRPCBackendRef.
-			// GRPCRouteFilter
-			convertedBackend, err := commonBackendLoader(ctx, k8sClient, backend.BackendRef, grpcRoute.GetRouteNamespacedName(), grpcRoute.GetRouteKind())
+			convertedBackend, err := grpcRoute.backendLoader(ctx, k8sClient, backend, backend.BackendRef, grpcRoute.GetRouteNamespacedName(), grpcRoute.GetRouteKind())
 			if err != nil {
 				return nil, err
 			}
-			convertedBackends = append(convertedBackends, *convertedBackend)
+			if convertedBackend != nil {
+				convertedBackends = append(convertedBackends, *convertedBackend)
+			}
 		}
 
 		convertedRules = append(convertedRules, convertGRPCRouteRule(&rule, convertedBackends))
@@ -59,6 +63,10 @@ func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8
 
 	grpcRoute.rules = convertedRules
 	return grpcRoute, nil
+}
+
+func (grpcRoute *grpcRouteDescription) GetHostnames() []gwv1.Hostname {
+	return grpcRoute.route.Spec.Hostnames
 }
 
 func (grpcRoute *grpcRouteDescription) GetAttachedRules() []RouteRule {
@@ -78,7 +86,7 @@ func (grpcRoute *grpcRouteDescription) GetRouteNamespacedName() types.Namespaced
 }
 
 func convertGRPCRoute(r gwv1.GRPCRoute) *grpcRouteDescription {
-	return &grpcRouteDescription{route: &r}
+	return &grpcRouteDescription{route: &r, backendLoader: commonBackendLoader}
 }
 
 func (grpcRoute *grpcRouteDescription) GetRawRoute() interface{} {

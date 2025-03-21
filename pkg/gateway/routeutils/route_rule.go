@@ -5,7 +5,7 @@ import (
 )
 
 type RouteRule interface {
+	GetRawRouteRule() interface{}
 	GetSectionName() *gwv1.SectionName
 	GetBackends() []Backend
-	GetHostnames() []string
 }
