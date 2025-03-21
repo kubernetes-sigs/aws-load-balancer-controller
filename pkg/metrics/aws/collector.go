@@ -2,6 +2,10 @@ package aws
 
 import (
 	"context"
+	"strconv"
+	"strings"
+	"time"
+
 	awsmiddleware "github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	"github.com/aws/smithy-go"
@@ -9,8 +13,6 @@ import (
 	smithyhttp "github.com/aws/smithy-go/transport/http"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"strconv"
-	"time"
 )
 
 const (
@@ -65,12 +67,24 @@ func WithSDKCallMetricCollector(c *Collector) func(stack *smithymiddleware.Stack
 			errorCode := errorCodeForRequest(err)
 			retryCount := getRetryMetricsForRequest(metadata)
 			duration := time.Since(start)
-			c.instruments.apiCallsTotal.With(map[string]string{
+			labels := map[string]string{
 				labelService:    service,
 				labelOperation:  operation,
 				labelStatusCode: statusCode,
 				labelErrorCode:  errorCode,
-			}).Inc()
+			}
+			c.instruments.apiCallsTotal.With(labels).Inc()
+
+			if statusCode == "401" || statusCode == "403" || errorCode == "AccessDeniedException" || errorCode == "AuthFailure" {
+				c.instruments.apiCallPermissionErrorsTotal.With(labels).Inc()
+			} else if strings.Contains(errorCode, "LimitExceeded") {
+				c.instruments.apiCallLimitExceededErrorsTotal.With(labels).Inc()
+			} else if isThrottleError(errorCode) {
+				c.instruments.apiCallThrottledErrorsTotal.With(labels).Inc()
+			} else if errorCode == "ValidationError" {
+				c.instruments.apiCallValidationErrorsTotal.With(labels).Inc()
+			}
+
 			c.instruments.apiCallDurationSeconds.With(map[string]string{
 				labelService:   service,
 				labelOperation: operation,
@@ -157,4 +171,9 @@ func operationForRequest(ctx context.Context) string {
 		return awsmiddleware.GetOperationName(ctx)
 	}
 	return "?"
+}
+
+func isThrottleError(errorCode string) bool {
+	_, exists := retry.DefaultThrottleErrorCodes[errorCode]
+	return exists
 }

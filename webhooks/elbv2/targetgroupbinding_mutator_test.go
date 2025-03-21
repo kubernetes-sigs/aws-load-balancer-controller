@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -48,11 +49,12 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 		obj *elbv2api.TargetGroupBinding
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		want    *elbv2api.TargetGroupBinding
-		wantErr error
+		name       string
+		fields     fields
+		args       args
+		want       *elbv2api.TargetGroupBinding
+		wantErr    error
+		wantMetric bool
 	}{
 		{
 			name: "targetGroupBinding with TargetType and ipAddressType and vpcID already set",
@@ -169,7 +171,8 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("unsupported TargetType: lambda"),
+			wantErr:    errors.New("unsupported TargetType: lambda"),
+			wantMetric: true,
 		},
 		{
 			name: "targetGroupBinding with IPAddressType already set to ipv6",
@@ -250,7 +253,8 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("unable to get target group VpcID: vpcid not found"),
+			wantErr:    errors.New("unable to get target group VpcID: vpcid not found"),
+			wantMetric: true,
 		},
 		{
 			name: "targetGroupBinding with TargetGroupName instead of TargetGroupARN",
@@ -310,10 +314,11 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err).AnyTimes()
 				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil).AnyTimes()
 			}
-
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			m := &targetGroupBindingMutator{
-				elbv2Client: elbv2Client,
-				logger:      logr.New(&log.NullLogSink{}),
+				elbv2Client:      elbv2Client,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			got, err := m.MutateCreate(context.Background(), tt.args.obj)
 			if tt.wantErr != nil {
@@ -322,7 +327,11 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
+
+			mockCollector := m.metricsCollector.(*lbcmetrics.MockCollector)
+			assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricWebhookMutationFailure]) == 1)
 		})
+
 	}
 }
 
@@ -417,10 +426,11 @@ func Test_targetGroupBindingMutator_obtainSDKTargetTypeFromAWS(t *testing.T) {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
 				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil).AnyTimes()
 			}
-
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			m := &targetGroupBindingMutator{
-				elbv2Client: elbv2Client,
-				logger:      logr.New(&log.NullLogSink{}),
+				elbv2Client:      elbv2Client,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			got, err := m.obtainSDKTargetTypeFromAWS(context.Background(), makeTargetGroupBinding(tt.args.tgARN))
 			if tt.wantErr != nil {
@@ -548,9 +558,11 @@ func Test_targetGroupBindingMutator_getIPAddressTypeFromAWS(t *testing.T) {
 				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil).AnyTimes()
 			}
 
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			m := &targetGroupBindingMutator{
-				elbv2Client: elbv2Client,
-				logger:      logr.New(&log.NullLogSink{}),
+				elbv2Client:      elbv2Client,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			got, err := m.getTargetGroupIPAddressTypeFromAWS(context.Background(), makeTargetGroupBinding(tt.args.tgARN))
 			if tt.wantErr != nil {
@@ -633,10 +645,11 @@ func Test_targetGroupBindingMutator_obtainSDKVpcIDFromAWS(t *testing.T) {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
 				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil).AnyTimes()
 			}
-
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			m := &targetGroupBindingMutator{
-				elbv2Client: elbv2Client,
-				logger:      logr.New(&log.NullLogSink{}),
+				elbv2Client:      elbv2Client,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			got, err := m.getVpcIDFromAWS(context.Background(), makeTargetGroupBinding(tt.args.tgARN))
 			if tt.wantErr != nil {

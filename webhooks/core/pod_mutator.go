@@ -6,6 +6,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	inject "sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -16,9 +17,10 @@ const (
 )
 
 // NewPodMutator returns a mutator for Pod.
-func NewPodMutator(podReadinessGateInjector *inject.PodReadinessGate) *podMutator {
+func NewPodMutator(podReadinessGateInjector *inject.PodReadinessGate, metricsCollector lbcmetrics.MetricCollector) *podMutator {
 	return &podMutator{
 		podReadinessGateInjector: podReadinessGateInjector,
+		metricsCollector:         metricsCollector,
 	}
 }
 
@@ -26,6 +28,7 @@ var _ webhook.Mutator = &podMutator{}
 
 type podMutator struct {
 	podReadinessGateInjector *inject.PodReadinessGate
+	metricsCollector         lbcmetrics.MetricCollector
 }
 
 func (m *podMutator) Prototype(_ admission.Request) (runtime.Object, error) {
@@ -35,6 +38,7 @@ func (m *podMutator) Prototype(_ admission.Request) (runtime.Object, error) {
 func (m *podMutator) MutateCreate(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
 	pod := obj.(*corev1.Pod)
 	if err := m.podReadinessGateInjector.Mutate(ctx, pod); err != nil {
+		m.metricsCollector.ObserveWebhookMutationError(apiPathMutatePod, "podReadinessGateInjector")
 		return pod, err
 	}
 	return pod, nil

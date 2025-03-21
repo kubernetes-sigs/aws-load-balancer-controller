@@ -3,28 +3,28 @@ package targetgroupbinding
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/cache"
 	"net/netip"
-	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sync"
 	"time"
 
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws/smithy-go"
-
-	"k8s.io/client-go/tools/record"
+	"k8s.io/apimachinery/pkg/util/cache"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/tools/record"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
+	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,6 +33,9 @@ import (
 const (
 	defaultRequeueDuration = 15 * time.Second
 	invalidVPCTTL          = 60 * time.Minute
+)
+const (
+	controllerName = "targetGroupBinding"
 )
 
 // ResourceManager manages the TargetGroupBinding resource.
@@ -165,13 +168,13 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
 			return "", "", false, m.Cleanup(ctx, tgb)
 		}
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "resolve_pod_endpoints_error", err, m.metricsCollector)
 	}
 
 	newCheckPoint, err := calculateTGBReconcileCheckpoint(endpoints, tgb)
 
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
 	}
 
 	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
@@ -183,7 +186,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 	targets, err := m.targetsManager.ListTargets(ctx, tgb)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "list_targets_error", err, m.metricsCollector)
 	}
 
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
@@ -216,7 +219,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		err = m.updateTGBCheckPoint(ctx, tgb, "", oldCheckPoint)
 		if err != nil {
 			tgbScopedLogger.Error(err, "Unable to update checkpoint before mutating change")
-			return "", "", false, err
+			return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "update_tgb_checkpoint_error", err, m.metricsCollector)
 		}
 	}
 
@@ -224,7 +227,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if len(unmatchedTargets) > 0 {
 		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, unmatchedTargets)
 		if err != nil {
-			return "", "", false, err
+			return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "deregister_targets_error", err, m.metricsCollector)
 		}
 	}
 
@@ -242,21 +245,21 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		updateTrackedTargets = false
 
 		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, true, endpoints, tgb); err != nil {
-			return "", "", false, err
+			return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "update_tracked_ip_targets_error", err, m.metricsCollector)
 		}
 
 		if err := m.registerPodEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {
-			return "", "", false, err
+			return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "register_pod_endpoint_error", err, m.metricsCollector)
 		}
 	}
 
 	if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, updateTrackedTargets, endpoints, tgb); err != nil {
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "update_tracked_ip_targets_error", err, m.metricsCollector)
 	}
 
 	anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints, tgb)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "update_target_health_pod_condition_error", err, m.metricsCollector)
 	}
 
 	if anyPodNeedFurtherProbe {
@@ -283,7 +286,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
 	nodeSelector, err := backend.GetTrafficProxyNodeSelector(tgb)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "get_traffic_proxy_node_selector_error", err, m.metricsCollector)
 	}
 
 	resolveOpts := []backend.EndpointResolveOption{backend.WithNodeSelector(nodeSelector)}
@@ -293,13 +296,13 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
 			return "", "", false, m.Cleanup(ctx, tgb)
 		}
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "resolve_nodeport_endpoints_error", err, m.metricsCollector)
 	}
 
 	newCheckPoint, err := calculateTGBReconcileCheckpoint(endpoints, tgb)
 
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
 	}
 
 	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
@@ -311,7 +314,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 
 	targets, err := m.targetsManager.ListTargets(ctx, tgb)
 	if err != nil {
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "list_targets_error", err, m.metricsCollector)
 	}
 
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
@@ -320,7 +323,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 
 	if err := m.networkingManager.ReconcileForNodePortEndpoints(ctx, tgb, endpoints); err != nil {
 		tgbScopedLogger.Error(err, "Requesting network requeue due to error from ReconcileForNodePortEndpoints")
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "reconcile_nodeport_endpoints_error", err, m.metricsCollector)
 	}
 
 	if len(unmatchedEndpoints) > 0 || len(unmatchedTargets) > 0 {
@@ -328,7 +331,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		err = m.updateTGBCheckPoint(ctx, tgb, "", oldCheckPoint)
 		if err != nil {
 			tgbScopedLogger.Error(err, "Unable to update checkpoint before mutating change")
-			return "", "", false, err
+			return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "update_tgb_checkpoint_error", err, m.metricsCollector)
 		}
 	}
 
@@ -337,23 +340,23 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if len(unmatchedTargets) > 0 {
 		updateTrackedTargets, err = m.deregisterTargets(ctx, tgb, unmatchedTargets)
 		if err != nil {
-			return "", "", false, err
+			return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "deregister_targets_error", err, m.metricsCollector)
 		}
 	}
 
 	if len(unmatchedEndpoints) > 0 {
 		updateTrackedTargets = false
 		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, true, endpoints, tgb); err != nil {
-			return "", "", false, err
+			return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "update_tracked_instance_targets_error", err, m.metricsCollector)
 		}
 
 		if err := m.registerNodePortEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {
-			return "", "", false, err
+			return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "update_node_port_endpoints_error", err, m.metricsCollector)
 		}
 	}
 
 	if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, updateTrackedTargets, endpoints, tgb); err != nil {
-		return "", "", false, err
+		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "update_tracked_instance_targets_error", err, m.metricsCollector)
 	}
 
 	tgbScopedLogger.Info("Successful reconcile", "checkpoint", newCheckPoint)

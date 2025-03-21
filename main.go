@@ -17,8 +17,9 @@ limitations under the License.
 package main
 
 import (
-	"k8s.io/client-go/util/workqueue"
 	"os"
+
+	"k8s.io/client-go/util/workqueue"
 
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 
@@ -41,6 +42,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
+	metricsutil "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/util"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
@@ -84,7 +86,6 @@ func main() {
 	klog.SetLoggerWithOptions(appLogger, klog.ContextualLogger(true))
 
 	var awsMetricsCollector *awsmetrics.Collector
-	lbcMetricsCollector := lbcmetrics.NewCollector(metrics.Registry)
 
 	if metrics.Registry != nil {
 		awsMetricsCollector = awsmetrics.NewCollector(metrics.Registry)
@@ -106,6 +107,9 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	reconcileCounters := metricsutil.NewReconcileCounters()
+	lbcMetricsCollector := lbcmetrics.NewCollector(metrics.Registry, mgr, reconcileCounters, ctrl.Log.WithName("controller_metrics"))
 
 	clientSet, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
@@ -131,10 +135,10 @@ func main() {
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerCFG.FeatureGates, cloud.RGT(), ctrl.Log)
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver, elbv2TaggingManager,
-		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"))
+		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"), lbcMetricsCollector, reconcileCounters)
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager,
-		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"))
+		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"), lbcMetricsCollector, reconcileCounters)
 
 	delayingQueue := workqueue.NewDelayingQueueWithConfig(workqueue.DelayingQueueConfig{
 		Name: "delayed-target-group-binding",
@@ -142,7 +146,7 @@ func main() {
 
 	deferredTGBQueue := elbv2controller.NewDeferredTargetGroupBindingReconciler(delayingQueue, controllerCFG.RuntimeConfig.SyncPeriod, mgr.GetClient(), ctrl.Log.WithName("deferredTGBQueue"))
 	tgbReconciler := elbv2controller.NewTargetGroupBindingReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("targetGroupBinding"),
-		finalizerManager, tgbResManager, controllerCFG, deferredTGBQueue, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"))
+		finalizerManager, tgbResManager, controllerCFG, deferredTGBQueue, ctrl.Log.WithName("controllers").WithName("targetGroupBinding"), lbcMetricsCollector, reconcileCounters)
 
 	ctx := ctrl.SetupSignalHandler()
 	if err = ingGroupReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {
@@ -181,12 +185,12 @@ func main() {
 
 	podReadinessGateInjector := inject.NewPodReadinessGate(controllerCFG.PodWebhookConfig,
 		mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
-	corewebhook.NewPodMutator(podReadinessGateInjector).SetupWithManager(mgr)
-	corewebhook.NewServiceMutator(controllerCFG.ServiceConfig.LoadBalancerClass, ctrl.Log).SetupWithManager(mgr)
-	elbv2webhook.NewIngressClassParamsValidator().SetupWithManager(mgr)
-	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log).SetupWithManager(mgr)
-	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), cloud.VpcID(), ctrl.Log).SetupWithManager(mgr)
-	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log).SetupWithManager(mgr)
+	corewebhook.NewPodMutator(podReadinessGateInjector, lbcMetricsCollector).SetupWithManager(mgr)
+	corewebhook.NewServiceMutator(controllerCFG.ServiceConfig.LoadBalancerClass, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+	elbv2webhook.NewIngressClassParamsValidator(lbcMetricsCollector).SetupWithManager(mgr)
+	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), cloud.VpcID(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	//+kubebuilder:scaffold:builder
 
 	go func() {
@@ -206,6 +210,17 @@ func main() {
 		setupLog.Error(err, "problem wait for podInfo repo sync")
 		os.Exit(1)
 	}
+
+	go func() {
+		setupLog.Info("starting collect cache size")
+		lbcMetricsCollector.StartCollectCacheSize(ctx)
+	}()
+
+	go func() {
+		setupLog.Info("starting collect top talkers")
+		lbcMetricsCollector.StartCollectTopTalkers(ctx)
+	}()
+
 	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

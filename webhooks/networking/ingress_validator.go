@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -23,7 +24,7 @@ const (
 )
 
 // NewIngressValidator returns a validator for Ingress API.
-func NewIngressValidator(client client.Client, ingConfig config.IngressConfig, logger logr.Logger) *ingressValidator {
+func NewIngressValidator(client client.Client, ingConfig config.IngressConfig, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *ingressValidator {
 	return &ingressValidator{
 		annotationParser:                   annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress),
 		classAnnotationMatcher:             ingress.NewDefaultClassAnnotationMatcher(ingConfig.IngressClass),
@@ -32,6 +33,7 @@ func NewIngressValidator(client client.Client, ingConfig config.IngressConfig, l
 		disableIngressGroupAnnotation:      ingConfig.DisableIngressGroupNameAnnotation,
 		manageIngressesWithoutIngressClass: ingConfig.IngressClass == "",
 		logger:                             logger,
+		metricsCollector:                   metricsCollector,
 	}
 }
 
@@ -47,6 +49,7 @@ type ingressValidator struct {
 	// and "spec.ingressClassName" should be managed or not.
 	manageIngressesWithoutIngressClass bool
 	logger                             logr.Logger
+	metricsCollector                   lbcmetrics.MetricCollector
 }
 
 func (v *ingressValidator) Prototype(req admission.Request) (runtime.Object, error) {
@@ -56,18 +59,23 @@ func (v *ingressValidator) Prototype(req admission.Request) (runtime.Object, err
 func (v *ingressValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	ing := obj.(*networking.Ingress)
 	if skip, err := v.checkIngressClass(ctx, ing); skip || err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressClass")
 		return err
 	}
 	if err := v.checkIngressClassAnnotationUsage(ing, nil); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressClassAnnotationUsage")
 		return err
 	}
 	if err := v.checkGroupNameAnnotationUsage(ing, nil); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkGroupNameAnnotationUsage")
 		return err
 	}
 	if err := v.checkIngressClassUsage(ctx, ing, nil); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressClassUsage")
 		return err
 	}
 	if err := v.checkIngressAnnotationConditions(ing); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressAnnotationConditions")
 		return err
 	}
 	return nil
@@ -77,18 +85,23 @@ func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Objec
 	ing := obj.(*networking.Ingress)
 	oldIng := oldObj.(*networking.Ingress)
 	if skip, err := v.checkIngressClass(ctx, ing); skip || err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressClass")
 		return err
 	}
 	if err := v.checkIngressClassAnnotationUsage(ing, oldIng); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressClassAnnotationUsage")
 		return err
 	}
 	if err := v.checkGroupNameAnnotationUsage(ing, oldIng); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkGroupNameAnnotationUsage")
 		return err
 	}
 	if err := v.checkIngressClassUsage(ctx, ing, oldIng); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressClassUsage")
 		return err
 	}
 	if err := v.checkIngressAnnotationConditions(ing); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressAnnotationConditions")
 		return err
 	}
 	return nil

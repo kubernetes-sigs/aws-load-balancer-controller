@@ -3,10 +3,11 @@ package ingress
 import (
 	"context"
 	"encoding/json"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 	"time"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -29,6 +30,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -614,6 +616,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		fields                    fields
 		wantStackPatch            string
 		wantErr                   string
+		wantMetric                bool
 	}{
 		{
 			name: "Ingress - vanilla internal",
@@ -2328,7 +2331,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "deletion_protection is enabled, cannot delete the ingress: hello-ingress",
+			wantErr:    "deletion_protection is enabled, cannot delete the ingress: hello-ingress",
+			wantMetric: false,
 		},
 		{
 			name: "Ingress - with SG annotation",
@@ -2534,7 +2538,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "backendSG feature is required to manage worker node SG rules when frontendSG manually specified",
+			wantErr:    "backendSG feature is required to manage worker node SG rules when frontendSG manually specified",
+			wantMetric: true,
 		},
 		{
 			name: "Ingress with IPv6 service",
@@ -2784,7 +2789,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "ingress: ns-1/ing-1: unsupported IPv6 configuration, lb not dual-stack",
+			wantErr:    "ingress: ns-1/ing-1: unsupported IPv6 configuration, lb not dual-stack",
+			wantMetric: true,
 		},
 		{
 			name: "target type IP with enableIPTargetType set to false",
@@ -2837,7 +2843,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "ingress: ns-1/ing-1: unsupported targetType: ip when EnableIPTargetType is false",
+			wantErr:    "ingress: ns-1/ing-1: unsupported targetType: ip when EnableIPTargetType is false",
+			wantMetric: true,
 		},
 		{
 			name: "target type IP with named target port",
@@ -3939,6 +3946,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				defaultSSLPolicy:          "ELBSecurityPolicy-2016-08",
 				defaultTargetType:         elbv2model.TargetType(defaultTargetType),
 				defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
+				metricsCollector:          lbcmetrics.NewMockCollector(),
 			}
 
 			if tt.enableIPTargetType == nil {
@@ -3947,7 +3955,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				b.enableIPTargetType = *tt.enableIPTargetType
 			}
 
-			gotStack, _, _, _, err := b.Build(context.Background(), tt.args.ingGroup)
+			gotStack, _, _, _, err := b.Build(context.Background(), tt.args.ingGroup, b.metricsCollector)
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
@@ -3993,6 +4001,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					t.Log(string(patch))
 				}
 			}
+			mockCollector := b.metricsCollector.(*lbcmetrics.MockCollector)
+			assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricControllerReconcileErrors]) == 1)
+
 		})
 	}
 }
