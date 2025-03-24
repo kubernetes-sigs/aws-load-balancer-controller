@@ -2,7 +2,7 @@ package routeutils
 
 import (
 	"context"
-	"k8s.io/apimachinery/pkg/types"
+	"fmt"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -19,6 +19,17 @@ type routeFilterImpl struct {
 func (r *routeFilterImpl) IsApplicable(kind string) bool {
 	return r.acceptedKinds.Has(kind)
 }
+
+/*
+
+TLS mappings -- Should we enforce that here?
+
+Listener Protocol |	TLS Mode 	 | Route Type Supported
+TLS 	          | Passthrough  | TLSRoute
+TLS 	          | Terminate 	 | TCPRoute
+HTTPS 	          | Terminate 	 | HTTPRoute
+GRPC 	          | Terminate 	 | GRPCRoute
+*/
 
 // L4RouteFilter use this to load routes only pertaining to the L4 Gateway Implementation (AWS NLB)
 var L4RouteFilter LoadRouteFilter = &routeFilterImpl{
@@ -69,7 +80,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw *gwv1.Gateway,
 func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor) (map[int][]RouteDescriptor, error) {
 	// Cache to reduce duplicate route look ups.
 	// Kind -> [NamespacedName:Previously Loaded Descriptor]
-	resourceCache := make(map[string]map[types.NamespacedName]RouteDescriptor)
+	resourceCache := make(map[string]RouteDescriptor)
 
 	loadedRouteData := make(map[int][]RouteDescriptor)
 
@@ -77,15 +88,9 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 		for _, preloadedRoute := range preloadedRouteList {
 			namespacedNameRoute := preloadedRoute.GetRouteNamespacedName()
 			routeKind := preloadedRoute.GetRouteKind()
+			cacheKey := fmt.Sprintf("%s-%s-%s", routeKind, namespacedNameRoute.Name, namespacedNameRoute.Namespace)
 
-			kindSpecificCache, ok := resourceCache[routeKind]
-
-			if !ok {
-				resourceCache[routeKind] = make(map[types.NamespacedName]RouteDescriptor)
-				kindSpecificCache = resourceCache[routeKind]
-			}
-
-			cachedRoute, ok := kindSpecificCache[namespacedNameRoute]
+			cachedRoute, ok := resourceCache[cacheKey]
 			if ok {
 				loadedRouteData[port] = append(loadedRouteData[port], cachedRoute)
 				continue
@@ -96,7 +101,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 				return nil, err
 			}
 			loadedRouteData[port] = append(loadedRouteData[port], generatedRoute)
-			kindSpecificCache[namespacedNameRoute] = generatedRoute
+			resourceCache[cacheKey] = generatedRoute
 		}
 	}
 
