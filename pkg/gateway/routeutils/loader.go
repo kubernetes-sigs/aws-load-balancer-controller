@@ -42,7 +42,7 @@ var L7RouteFilter LoadRouteFilter = &routeFilterImpl{
 }
 
 type Loader interface {
-	LoadRoutesForGateway(ctx context.Context, gw *gwv1.Gateway, filter LoadRouteFilter) (map[int][]RouteDescriptor, error)
+	LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter) (map[int][]RouteDescriptor, error)
 }
 
 var _ Loader = &loaderImpl{}
@@ -53,7 +53,7 @@ type loaderImpl struct {
 	allRouteLoaders map[string]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
 }
 
-func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw *gwv1.Gateway, filter LoadRouteFilter) (map[int][]RouteDescriptor, error) {
+func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter) (map[int][]RouteDescriptor, error) {
 	// 1. Load all relevant routes according to the filter
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
 	for route, loader := range l.allRouteLoaders {

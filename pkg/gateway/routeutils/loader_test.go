@@ -16,7 +16,7 @@ type mockMapper struct {
 	mapToReturn    map[int][]preLoadRouteDescriptor
 }
 
-func (m *mockMapper) Map(context context.Context, gw *gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, error) {
+func (m *mockMapper) Map(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
 	return m.mapToReturn, nil
 }
@@ -206,7 +206,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 			}
 
 			filter := &routeFilterImpl{acceptedKinds: tc.acceptedKinds}
-			result, err := loader.LoadRoutesForGateway(context.Background(), &gwv1.Gateway{}, filter)
+			result, err := loader.LoadRoutesForGateway(context.Background(), gwv1.Gateway{}, filter)
 			if tc.expectError {
 				assert.Error(t, err)
 				return

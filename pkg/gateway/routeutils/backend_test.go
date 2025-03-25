@@ -6,11 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
 )
@@ -173,10 +169,7 @@ func TestCommonBackendLoader(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			k8sSchema := runtime.NewScheme()
-			clientgoscheme.AddToScheme(k8sSchema)
-			elbv2api.AddToScheme(k8sSchema)
-			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+			k8sClient := generateTestClient()
 
 			if tc.storedService != nil {
 				k8sClient.Create(context.Background(), tc.storedService)

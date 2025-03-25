@@ -5,12 +5,8 @@ import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"testing"
@@ -34,12 +30,7 @@ func Test_ConvertTCPRuleToRouteRule(t *testing.T) {
 }
 
 func Test_ListTCPRoutes(t *testing.T) {
-	k8sSchema := runtime.NewScheme()
-	clientgoscheme.AddToScheme(k8sSchema)
-	elbv2api.AddToScheme(k8sSchema)
-	gwv1.AddToScheme(k8sSchema)
-	gwalpha2.AddToScheme(k8sSchema)
-	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+	k8sClient := generateTestClient()
 
 	k8sClient.Create(context.Background(), &gwalpha2.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{
