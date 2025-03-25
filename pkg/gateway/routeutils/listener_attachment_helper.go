@@ -2,21 +2,25 @@ package routeutils
 
 import (
 	"context"
-	"fmt"
 	"k8s.io/apimachinery/pkg/util/sets"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// listenerAttachmentHelper is an internal utility interface that can be used to determine if a listener will allow
+// a route to attach to it.
 type listenerAttachmentHelper interface {
 	listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error)
 }
 
 var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
 
+// listenerAttachmentHelperImpl implements the listenerAttachmentHelper interface.
 type listenerAttachmentHelperImpl struct {
 	namespaceSelector namespaceSelector
 }
 
+// listenerAllowsAttachment utility method to determine if a listener will allow a route to connect using
+// Gateway API rules to determine compatibility between lister and route.
 func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
 	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, gw, listener, route)
 	if err != nil {
@@ -24,17 +28,17 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 	}
 
 	if !namespaceOK {
-		fmt.Printf("name ok is false\n")
 		return false, nil
 	}
 
 	if !attachmentHelper.kindCheck(listener, route) {
-		fmt.Printf("kind ok is false\n")
 		return false, nil
 	}
 	return true, nil
 }
 
+// namespaceCheck namespace check implements the Gateway API spec for namespace matching between listener
+// and route to determine compatibility.
 func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
 	var allowedNamespaces gwv1.FromNamespaces
 
@@ -71,6 +75,8 @@ func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context
 	}
 }
 
+// kindCheck kind check implements the Gateway API spec for kindCheck matching between listener
+// and route to determine compatibility.
 func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Listener, route preLoadRouteDescriptor) bool {
 
 	var allowedRoutes sets.Set[string]

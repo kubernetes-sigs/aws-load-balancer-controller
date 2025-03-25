@@ -9,6 +9,12 @@ import (
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
+/*
+This class holds the representation of an TCP route.
+Generally, outside consumers will use GetRawRouteRule to inspect the
+TCP specific features of the route.
+*/
+
 /* Route Rule */
 
 var _ RouteRule = &convertedTCPRouteRule{}

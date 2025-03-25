@@ -43,7 +43,7 @@ func (m *mockRouteAttachmentHelper) routeAllowsAttachmentToListener(listener gwv
 	return m.routeListenerMap[k]
 }
 
-func Test_Map(t *testing.T) {
+func Test_mapGatewayAndRoutes(t *testing.T) {
 
 	route1 := convertHTTPRoute(gwv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -311,7 +311,7 @@ func Test_Map(t *testing.T) {
 				},
 			}
 
-			result, err := mapper.Map(context.Background(), tc.gw, tc.routes)
+			result, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)
 
 			if tc.expectErr {
 				assert.Error(t, err)

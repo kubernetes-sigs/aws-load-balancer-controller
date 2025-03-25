@@ -8,10 +8,12 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// LoadRouteFilter is an interface that consumers can use to tell the loader which routes to load.
 type LoadRouteFilter interface {
 	IsApplicable(kind string) bool
 }
 
+// routeFilterImpl implements LoadRouteFilter
 type routeFilterImpl struct {
 	acceptedKinds sets.Set[string]
 }
@@ -41,6 +43,8 @@ var L7RouteFilter LoadRouteFilter = &routeFilterImpl{
 	acceptedKinds: sets.New(HTTPRouteKind, GRPCRouteKind),
 }
 
+// Loader will load all data Kubernetes that are pertinent to a gateway (Routes, Services, Target Group Configurations).
+// It will output the data using a map which maps listener port to the various routing rules for that port.
 type Loader interface {
 	LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter) (map[int][]RouteDescriptor, error)
 }
@@ -48,11 +52,12 @@ type Loader interface {
 var _ Loader = &loaderImpl{}
 
 type loaderImpl struct {
-	mapper          ListenerToRouteMapper
+	mapper          listenerToRouteMapper
 	k8sClient       client.Client
 	allRouteLoaders map[string]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
 }
 
+// LoadRoutesForGateway loads all relevant data for a single Gateway.
 func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter) (map[int][]RouteDescriptor, error) {
 	// 1. Load all relevant routes according to the filter
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
@@ -68,7 +73,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	// 2. Remove routes that aren't granted attachment by the listener.
 	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, err := l.mapper.Map(ctx, gw, loadedRoutes)
+	mappedRoutes, err := l.mapper.mapGatewayAndRoutes(ctx, gw, loadedRoutes)
 	if err != nil {
 		return nil, err
 	}
@@ -77,6 +82,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	return l.loadChildResources(ctx, mappedRoutes)
 }
 
+// loadChildResources responsible for loading all resources that a route descriptor references.
 func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor) (map[int][]RouteDescriptor, error) {
 	// Cache to reduce duplicate route look ups.
 	// Kind -> [NamespacedName:Previously Loaded Descriptor]

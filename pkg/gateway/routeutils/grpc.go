@@ -8,6 +8,12 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+/*
+This class holds the representation of a GRPC route.
+Generally, outside consumers will use GetRawRouteRule to inspect the
+GRPC specific features of the route.
+*/
+
 /* Route Rule */
 
 var _ RouteRule = &convertedGRPCRouteRule{}

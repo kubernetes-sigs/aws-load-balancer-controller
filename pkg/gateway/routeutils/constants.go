@@ -6,6 +6,7 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// Route Kinds
 const (
 	TCPRouteKind  = "TCPRoute"
 	UDPRouteKind  = "UDPRoute"
@@ -14,6 +15,7 @@ const (
 	GRPCRouteKind = "GRPCRoute"
 )
 
+// RouteKind to Route Loader. These functions will pull data directly from the kube api or local cache.
 var allRoutes = map[string]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error){
 	TCPRouteKind:  ListTCPRoutes,
 	UDPRouteKind:  ListUDPRoutes,
@@ -22,6 +24,7 @@ var allRoutes = map[string]func(context context.Context, client client.Client) (
 	GRPCRouteKind: ListGRPCRoutes,
 }
 
+// Default protocol map used to infer accepted route kinds when a listener doesn't specify the `allowedRoutes` field.
 var defaultProtocolToRouteKindMap = map[gwv1.ProtocolType]string{
 	gwv1.TCPProtocolType:   TCPRouteKind,
 	gwv1.UDPProtocolType:   UDPRouteKind,

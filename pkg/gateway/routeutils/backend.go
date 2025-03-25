@@ -10,6 +10,7 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
+// Backend an abstraction on the Gateway Backend, meant to hide the underlying backend type from consumers (unless they really want to see it :))
 type Backend struct {
 	Service             *corev1.Service
 	ServicePort         *corev1.ServicePort
@@ -18,7 +19,12 @@ type Backend struct {
 	// Add TG config here //
 }
 
+// TODOs:
+// 1/ Add reference grant checking
+// 2/ Add target group configuration resolution
+
 // NOTE: Currently routeKind is not used, however, we will need it to load TG specific configuration.
+// commonBackendLoader this function will load the services and target group configurations associated with this gateway backend.
 func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error) {
 
 	// We only support references of type service.
