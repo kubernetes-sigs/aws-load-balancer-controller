@@ -17,8 +17,9 @@ limitations under the License.
 package main
 
 import (
-	"k8s.io/client-go/util/workqueue"
 	"os"
+
+	"k8s.io/client-go/util/workqueue"
 
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 
@@ -119,7 +120,11 @@ func main() {
 	sgReconciler := networking.NewDefaultSecurityGroupReconciler(sgManager, ctrl.Log)
 	azInfoProvider := networking.NewDefaultAZInfoProvider(cloud.EC2(), ctrl.Log.WithName("az-info-provider"))
 	vpcInfoProvider := networking.NewDefaultVPCInfoProvider(cloud.EC2(), ctrl.Log.WithName("vpc-info-provider"))
-	subnetResolver := networking.NewDefaultSubnetsResolver(azInfoProvider, cloud.EC2(), cloud.VpcID(), controllerCFG.ClusterName, ctrl.Log.WithName("subnets-resolver"))
+	subnetResolver := networking.NewDefaultSubnetsResolver(azInfoProvider, cloud.EC2(), cloud.VpcID(), controllerCFG.ClusterName,
+		controllerCFG.FeatureGates.Enabled(config.SubnetsClusterTagCheck),
+		controllerCFG.FeatureGates.Enabled(config.ALBSingleSubnet),
+		controllerCFG.FeatureGates.Enabled(config.SubnetDiscoveryByReachability),
+		ctrl.Log.WithName("subnets-resolver"))
 	multiClusterManager := targetgroupbinding.NewMultiClusterManager(mgr.GetClient(), mgr.GetAPIReader(), ctrl.Log)
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), cloud.EC2(),
 		podInfoRepo, sgManager, sgReconciler, vpcInfoProvider, multiClusterManager, lbcMetricsCollector,
