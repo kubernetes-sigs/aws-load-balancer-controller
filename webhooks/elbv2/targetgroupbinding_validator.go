@@ -17,6 +17,7 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,22 +33,24 @@ const (
 var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17}|vpc-[0-9a-f]{32})$")
 
 // NewTargetGroupBindingValidator returns a validator for TargetGroupBinding CRD.
-func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, logger logr.Logger) *targetGroupBindingValidator {
+func NewTargetGroupBindingValidator(k8sClient client.Client, elbv2Client services.ELBV2, vpcID string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *targetGroupBindingValidator {
 	return &targetGroupBindingValidator{
-		k8sClient:   k8sClient,
-		elbv2Client: elbv2Client,
-		logger:      logger,
-		vpcID:       vpcID,
+		k8sClient:        k8sClient,
+		elbv2Client:      elbv2Client,
+		logger:           logger,
+		vpcID:            vpcID,
+		metricsCollector: metricsCollector,
 	}
 }
 
 var _ webhook.Validator = &targetGroupBindingValidator{}
 
 type targetGroupBindingValidator struct {
-	k8sClient   client.Client
-	elbv2Client services.ELBV2
-	logger      logr.Logger
-	vpcID       string
+	k8sClient        client.Client
+	elbv2Client      services.ELBV2
+	logger           logr.Logger
+	vpcID            string
+	metricsCollector lbcmetrics.MetricCollector
 }
 
 func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Object, error) {
@@ -57,21 +60,28 @@ func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Ob
 func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	if err := v.checkRequiredFields(ctx, tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkRequiredFields")
 		return err
 	}
 	if err := v.checkNodeSelector(tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkNodeSelector")
 		return err
 	}
 	if err := v.checkExistingTargetGroups(tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkExistingTargetGroups")
 		return err
 	}
 	if err := v.checkTargetGroupIPAddressType(ctx, tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkTargetGroupIPAddressType")
 		return err
 	}
 	if err := v.checkTargetGroupVpcID(ctx, tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkTargetGroupVpcID")
 		return err
+
 	}
 	if err := v.checkAssumeRoleConfig(tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkAssumeRoleConfig")
 		return err
 	}
 	return nil
@@ -81,18 +91,23 @@ func (v *targetGroupBindingValidator) ValidateUpdate(ctx context.Context, obj ru
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	oldTgb := oldObj.(*elbv2api.TargetGroupBinding)
 	if err := v.checkRequiredFields(ctx, tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkRequiredFields")
 		return err
 	}
 	if err := v.checkImmutableFields(tgb, oldTgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkImmutableFields")
 		return err
 	}
 	if err := v.checkNodeSelector(tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkNodeSelector")
 		return err
 	}
 	if err := v.checkAssumeRoleConfig(tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkAssumeRoleConfig")
 		return err
 	}
 	if err := v.checkExistingTargetGroups(tgb); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkExistingTargetGroups")
 		return err
 	}
 	return nil

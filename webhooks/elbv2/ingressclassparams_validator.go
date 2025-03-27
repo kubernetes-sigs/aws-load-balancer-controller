@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -17,13 +18,16 @@ import (
 const apiPathValidateELBv2IngressClassParams = "/validate-elbv2-k8s-aws-v1beta1-ingressclassparams"
 
 // NewIngressClassParamsValidator returns a validator for the IngressClassParams CRD.
-func NewIngressClassParamsValidator() *ingressClassParamsValidator {
-	return &ingressClassParamsValidator{}
+func NewIngressClassParamsValidator(metricsCollector lbcmetrics.MetricCollector) *ingressClassParamsValidator {
+	return &ingressClassParamsValidator{
+		metricsCollector: metricsCollector,
+	}
 }
 
 var _ webhook.Validator = &ingressClassParamsValidator{}
 
 type ingressClassParamsValidator struct {
+	metricsCollector lbcmetrics.MetricCollector
 }
 
 func (v *ingressClassParamsValidator) Prototype(_ admission.Request) (runtime.Object, error) {
@@ -33,18 +37,28 @@ func (v *ingressClassParamsValidator) Prototype(_ admission.Request) (runtime.Ob
 func (v *ingressClassParamsValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	icp := obj.(*elbv2api.IngressClassParams)
 	allErrs := field.ErrorList{}
-	allErrs = append(allErrs, v.checkInboundCIDRs(icp)...)
-	allErrs = append(allErrs, v.checkSubnetSelectors(icp)...)
-
+	if errs := v.checkInboundCIDRs(icp); len(errs) > 0 {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2IngressClassParams, "checkInboundCIDRs")
+		allErrs = append(allErrs, errs...)
+	}
+	if errs := v.checkSubnetSelectors(icp); len(errs) > 0 {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2IngressClassParams, "checkSubnetSelectors")
+		allErrs = append(allErrs, errs...)
+	}
 	return allErrs.ToAggregate()
 }
 
 func (v *ingressClassParamsValidator) ValidateUpdate(ctx context.Context, obj runtime.Object, oldObj runtime.Object) error {
 	icp := obj.(*elbv2api.IngressClassParams)
 	allErrs := field.ErrorList{}
-	allErrs = append(allErrs, v.checkInboundCIDRs(icp)...)
-	allErrs = append(allErrs, v.checkSubnetSelectors(icp)...)
-
+	if errs := v.checkInboundCIDRs(icp); len(errs) > 0 {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2IngressClassParams, "checkInboundCIDRs")
+		allErrs = append(allErrs, errs...)
+	}
+	if errs := v.checkSubnetSelectors(icp); len(errs) > 0 {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2IngressClassParams, "checkSubnetSelectors")
+		allErrs = append(allErrs, errs...)
+	}
 	return allErrs.ToAggregate()
 }
 
