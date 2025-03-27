@@ -22,8 +22,9 @@ const (
 	NLBHealthCheckAdvancedConfig  Feature = "NLBHealthCheckAdvancedConfig"
 	NLBSecurityGroup              Feature = "NLBSecurityGroup"
 	ALBSingleSubnet               Feature = "ALBSingleSubnet"
-	SubnetDiscoveryByReachability Feature = "SubnetDiscoveryByReachability"
 	LBCapacityReservation         Feature = "LBCapacityReservation"
+	SubnetDiscoveryByReachability Feature = "SubnetDiscoveryByReachability"
+	GatewayAPI                    Feature = "ELBGatewayAPI"
 )
 
 type FeatureGates interface {
@@ -64,6 +65,7 @@ func NewFeatureGates() FeatureGates {
 			ALBSingleSubnet:               false,
 			SubnetDiscoveryByReachability: true,
 			LBCapacityReservation:         true,
+			GatewayAPI:                    false,
 		},
 	}
 }
