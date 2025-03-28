@@ -7,7 +7,7 @@ IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.12.0
 GOLANG_VERSION ?= $(shell cat .go-version)
 BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:$(GOLANG_VERSION)
 # Image URL to use for base layer in Docker build
-BASE_IMAGE ?= public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2024-08-13-1723575672.2
+BASE_IMAGE ?= public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2025-01-01-1735689705.2023
 IMG_PLATFORM ?= linux/amd64,linux/arm64
 # ECR doesn't appear to support SPDX SBOM
 IMG_SBOM ?= none

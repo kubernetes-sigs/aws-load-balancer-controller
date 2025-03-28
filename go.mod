@@ -1,6 +1,6 @@
 module sigs.k8s.io/aws-load-balancer-controller
 
-go 1.23.6
+go 1.24.1
 
 require (
 	github.com/aws/aws-sdk-go v1.55.5
@@ -73,7 +73,11 @@ require (
 	github.com/containerd/errdefs v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
+<<<<<<< Updated upstream
 	github.com/cyphar/filepath-securejoin v0.3.6 // indirect
+=======
+	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
+>>>>>>> Stashed changes
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/cli v25.0.1+incompatible // indirect
