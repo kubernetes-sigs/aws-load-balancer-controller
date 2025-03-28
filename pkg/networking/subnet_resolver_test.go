@@ -3,8 +3,9 @@ package networking
 import (
 	"context"
 	"errors"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"testing"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2sdk "github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -1139,6 +1140,297 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 					AvailabilityZoneId:      awssdk.String("usw2-az2"),
 					VpcId:                   awssdk.String("vpc-1"),
 					AvailableIpAddressCount: awssdk.Int32(25),
+				},
+			},
+		},
+		{
+			name: "When multiple subnets from the same Availability Zone are specified in the --default-subnets flag, the first written subnet will be selected",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []ec2types.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: []string{"vpc-1"},
+								},
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: []string{"", "1"},
+								},
+							},
+						},
+						output: []ec2types.Subnet{
+							{
+								SubnetId:           awssdk.String("subnet-1"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-3"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-4"),
+								AvailabilityZone:   awssdk.String("us-west-2b"),
+								AvailabilityZoneId: awssdk.String("usw2-az2"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-2"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-5"),
+								AvailabilityZone:   awssdk.String("us-west-2c"),
+								AvailabilityZoneId: awssdk.String("usw2-az3"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az3"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az3": {
+								ZoneId:   awssdk.String("usw2-az3"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithDefaultSubnets([]string{"subnet-3", "subnet-1"}),
+				},
+			},
+			want: []ec2types.Subnet{
+				{
+					SubnetId:           awssdk.String("subnet-3"),
+					AvailabilityZone:   awssdk.String("us-west-2a"),
+					AvailabilityZoneId: awssdk.String("usw2-az1"),
+					VpcId:              awssdk.String("vpc-1"),
+				},
+				{
+					SubnetId:           awssdk.String("subnet-4"),
+					AvailabilityZone:   awssdk.String("us-west-2b"),
+					AvailabilityZoneId: awssdk.String("usw2-az2"),
+					VpcId:              awssdk.String("vpc-1"),
+				},
+				{
+					SubnetId:           awssdk.String("subnet-5"),
+					AvailabilityZone:   awssdk.String("us-west-2c"),
+					AvailabilityZoneId: awssdk.String("usw2-az3"),
+					VpcId:              awssdk.String("vpc-1"),
+				},
+			},
+		},
+		{
+			name: "When subnets from different AZs are specified in the --default-subnets flag, the specified subnet will be selected for each AZ.",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []ec2types.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: []string{"vpc-1"},
+								},
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: []string{"", "1"},
+								},
+							},
+						},
+						output: []ec2types.Subnet{
+							{
+								SubnetId:           awssdk.String("subnet-1"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-3"),
+								AvailabilityZone:   awssdk.String("us-west-2b"),
+								AvailabilityZoneId: awssdk.String("usw2-az2"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-2"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-4"),
+								AvailabilityZone:   awssdk.String("us-west-2b"),
+								AvailabilityZoneId: awssdk.String("usw2-az2"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithDefaultSubnets([]string{"subnet-4", "subnet-1"}),
+				},
+			},
+			want: []ec2types.Subnet{
+				{
+					SubnetId:           awssdk.String("subnet-1"),
+					AvailabilityZone:   awssdk.String("us-west-2a"),
+					AvailabilityZoneId: awssdk.String("usw2-az1"),
+					VpcId:              awssdk.String("vpc-1"),
+				},
+				{
+					SubnetId:           awssdk.String("subnet-4"),
+					AvailabilityZone:   awssdk.String("us-west-2b"),
+					AvailabilityZoneId: awssdk.String("usw2-az2"),
+					VpcId:              awssdk.String("vpc-1"),
+				},
+			},
+		},
+		{
+			name: "When non-existent subnets specified for the --default-subnets flag, ",
+			fields: fields{
+				vpcID:       "vpc-1",
+				clusterName: "kube-cluster",
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []ec2types.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: []string{"vpc-1"},
+								},
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: []string{"", "1"},
+								},
+							},
+						},
+						output: []ec2types.Subnet{
+							{
+								SubnetId:           awssdk.String("subnet-1"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-3"),
+								AvailabilityZone:   awssdk.String("us-west-2b"),
+								AvailabilityZoneId: awssdk.String("usw2-az2"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-2"),
+								AvailabilityZone:   awssdk.String("us-west-2a"),
+								AvailabilityZoneId: awssdk.String("usw2-az1"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+							{
+								SubnetId:           awssdk.String("subnet-4"),
+								AvailabilityZone:   awssdk.String("us-west-2b"),
+								AvailabilityZoneId: awssdk.String("usw2-az2"),
+								VpcId:              awssdk.String("vpc-1"),
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+					WithDefaultSubnets([]string{"subnet-6", "subnet-1"}),
+				},
+			},
+			want: []ec2types.Subnet{
+				{
+					SubnetId:           awssdk.String("subnet-1"),
+					AvailabilityZone:   awssdk.String("us-west-2a"),
+					AvailabilityZoneId: awssdk.String("usw2-az1"),
+					VpcId:              awssdk.String("vpc-1"),
+				},
+				{
+					SubnetId:           awssdk.String("subnet-3"),
+					AvailabilityZone:   awssdk.String("us-west-2b"),
+					AvailabilityZoneId: awssdk.String("usw2-az2"),
+					VpcId:              awssdk.String("vpc-1"),
 				},
 			},
 		},
