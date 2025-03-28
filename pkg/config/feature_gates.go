@@ -11,18 +11,19 @@ import (
 type Feature string
 
 const (
-	ListenerRulesTagging         Feature = "ListenerRulesTagging"
-	WeightedTargetGroups         Feature = "WeightedTargetGroups"
-	ServiceTypeLoadBalancerOnly  Feature = "ServiceTypeLoadBalancerOnly"
-	EndpointsFailOpen            Feature = "EndpointsFailOpen"
-	EnableServiceController      Feature = "EnableServiceController"
-	EnableIPTargetType           Feature = "EnableIPTargetType"
-	EnableRGTAPI                 Feature = "EnableRGTAPI"
-	SubnetsClusterTagCheck       Feature = "SubnetsClusterTagCheck"
-	NLBHealthCheckAdvancedConfig Feature = "NLBHealthCheckAdvancedConfig"
-	NLBSecurityGroup             Feature = "NLBSecurityGroup"
-	ALBSingleSubnet              Feature = "ALBSingleSubnet"
-	LBCapacityReservation        Feature = "LBCapacityReservation"
+	ListenerRulesTagging          Feature = "ListenerRulesTagging"
+	WeightedTargetGroups          Feature = "WeightedTargetGroups"
+	ServiceTypeLoadBalancerOnly   Feature = "ServiceTypeLoadBalancerOnly"
+	EndpointsFailOpen             Feature = "EndpointsFailOpen"
+	EnableServiceController       Feature = "EnableServiceController"
+	EnableIPTargetType            Feature = "EnableIPTargetType"
+	EnableRGTAPI                  Feature = "EnableRGTAPI"
+	SubnetsClusterTagCheck        Feature = "SubnetsClusterTagCheck"
+	NLBHealthCheckAdvancedConfig  Feature = "NLBHealthCheckAdvancedConfig"
+	NLBSecurityGroup              Feature = "NLBSecurityGroup"
+	ALBSingleSubnet               Feature = "ALBSingleSubnet"
+	SubnetDiscoveryByReachability Feature = "SubnetDiscoveryByReachability"
+	LBCapacityReservation         Feature = "LBCapacityReservation"
 )
 
 type FeatureGates interface {
@@ -50,18 +51,19 @@ type defaultFeatureGates struct {
 func NewFeatureGates() FeatureGates {
 	return &defaultFeatureGates{
 		featureState: map[Feature]bool{
-			ListenerRulesTagging:         true,
-			WeightedTargetGroups:         true,
-			ServiceTypeLoadBalancerOnly:  false,
-			EndpointsFailOpen:            true,
-			EnableServiceController:      true,
-			EnableIPTargetType:           true,
-			EnableRGTAPI:                 false,
-			SubnetsClusterTagCheck:       true,
-			NLBHealthCheckAdvancedConfig: true,
-			NLBSecurityGroup:             true,
-			ALBSingleSubnet:              false,
-			LBCapacityReservation:        true,
+			ListenerRulesTagging:          true,
+			WeightedTargetGroups:          true,
+			ServiceTypeLoadBalancerOnly:   false,
+			EndpointsFailOpen:             true,
+			EnableServiceController:       true,
+			EnableIPTargetType:            true,
+			EnableRGTAPI:                  false,
+			SubnetsClusterTagCheck:        true,
+			NLBHealthCheckAdvancedConfig:  true,
+			NLBSecurityGroup:              true,
+			ALBSingleSubnet:               false,
+			SubnetDiscoveryByReachability: true,
+			LBCapacityReservation:         true,
 		},
 	}
 }

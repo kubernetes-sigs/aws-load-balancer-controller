@@ -77,7 +77,7 @@ func (mr *MockSubnetsResolverMockRecorder) ResolveViaNameOrIDSlice(arg0, arg1 in
 }
 
 // ResolveViaSelector mocks base method.
-func (m *MockSubnetsResolver) ResolveViaSelector(arg0 context.Context, arg1 *v1beta1.SubnetSelector, arg2 ...SubnetsResolveOption) ([]types.Subnet, error) {
+func (m *MockSubnetsResolver) ResolveViaSelector(arg0 context.Context, arg1 v1beta1.SubnetSelector, arg2 ...SubnetsResolveOption) ([]types.Subnet, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{arg0, arg1}
 	for _, a := range arg2 {

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/provider"
@@ -23,6 +24,9 @@ type EC2 interface {
 
 	// DescribeVPCsAsList wraps the DescribeVpcsPagesWithContext API, which aggregates paged results into list.
 	DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeVpcsInput) ([]types.Vpc, error)
+
+	// DescribeRouteTablesAsList wraps the DescribeRouteTablesWithContext API, which aggregates paged results into list.
+	DescribeRouteTablesAsList(ctx context.Context, input *ec2.DescribeRouteTablesInput) ([]types.RouteTable, error)
 
 	CreateTagsWithContext(ctx context.Context, input *ec2.CreateTagsInput) (*ec2.CreateTagsOutput, error)
 	DeleteTagsWithContext(ctx context.Context, input *ec2.DeleteTagsInput) (*ec2.DeleteTagsOutput, error)
@@ -137,6 +141,23 @@ func (c *ec2Client) DescribeVPCsAsList(ctx context.Context, input *ec2.DescribeV
 			return nil, err
 		}
 		result = append(result, output.Vpcs...)
+	}
+	return result, nil
+}
+
+func (c *ec2Client) DescribeRouteTablesAsList(ctx context.Context, input *ec2.DescribeRouteTablesInput) ([]types.RouteTable, error) {
+	var result []types.RouteTable
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeRouteTables")
+	if err != nil {
+		return nil, err
+	}
+	paginator := ec2.NewDescribeRouteTablesPaginator(client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.RouteTables...)
 	}
 	return result, nil
 }

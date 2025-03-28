@@ -35,7 +35,6 @@ const (
 	partialAvailabilityZoneAffinity            = "partial_availability_zone_affinity"
 	anyAvailabilityZone                        = "any_availability_zone"
 	resourceIDLoadBalancer                     = "LoadBalancer"
-	minimalAvailableIPAddressCount             = int32(8)
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
@@ -465,14 +464,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 		return t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
-			networking.WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),
-			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
 		)
 	}
 	return t.subnetsResolver.ResolveViaDiscovery(ctx,
 		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 		networking.WithSubnetsResolveLBScheme(scheme),
-		networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
 	)
 }
 

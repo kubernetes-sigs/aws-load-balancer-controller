@@ -171,6 +171,21 @@ func (mr *MockEC2MockRecorder) DescribeNetworkInterfacesAsList(arg0, arg1 interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeNetworkInterfacesAsList", reflect.TypeOf((*MockEC2)(nil).DescribeNetworkInterfacesAsList), arg0, arg1)
 }
 
+// DescribeRouteTablesAsList mocks base method.
+func (m *MockEC2) DescribeRouteTablesAsList(arg0 context.Context, arg1 *ec2.DescribeRouteTablesInput) ([]types.RouteTable, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeRouteTablesAsList", arg0, arg1)
+	ret0, _ := ret[0].([]types.RouteTable)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeRouteTablesAsList indicates an expected call of DescribeRouteTablesAsList.
+func (mr *MockEC2MockRecorder) DescribeRouteTablesAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeRouteTablesAsList", reflect.TypeOf((*MockEC2)(nil).DescribeRouteTablesAsList), arg0, arg1)
+}
+
 // DescribeSecurityGroupsAsList mocks base method.
 func (m *MockEC2) DescribeSecurityGroupsAsList(arg0 context.Context, arg1 *ec2.DescribeSecurityGroupsInput) ([]types.SecurityGroup, error) {
 	m.ctrl.T.Helper()
