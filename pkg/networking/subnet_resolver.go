@@ -41,6 +41,8 @@ const (
 const (
 	// both ALB & NLB requires minimal 8 ip address count for it's subnet
 	defaultMinimalAvailableIPAddressCount = 8
+	// the ec2's vpcID filter
+	ec2FilterNameVpcID = "vpc-id"
 )
 
 // options for resolve subnets.
@@ -147,7 +149,7 @@ type defaultSubnetsResolver struct {
 	// - The subnet has a Kubernetes cluster tag matching the current cluster
 	clusterTagCheckEnabled bool
 	// whether to enable a single subnet as ALB subnet
-	// by default ALB requires two subent, only whitelisted users can use a single subnet
+	// by default ALB requires two subent, only allowlisted users can use a single subnet
 	albSingleSubnetEnabled bool
 	// whether to enable discovery subnet by reachability(public/private)
 	discoverByReachabilityEnabled bool
@@ -281,7 +283,7 @@ func (r *defaultSubnetsResolver) listSubnetsByNames(ctx context.Context, subnetN
 	req := &ec2sdk.DescribeSubnetsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   awssdk.String("vpc-id"),
+				Name:   awssdk.String(ec2FilterNameVpcID),
 				Values: []string{r.vpcID},
 			},
 			{
@@ -305,7 +307,7 @@ func (r *defaultSubnetsResolver) listSubnetsByTagFilters(ctx context.Context, ta
 	req := &ec2sdk.DescribeSubnetsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   awssdk.String("vpc-id"),
+				Name:   awssdk.String(ec2FilterNameVpcID),
 				Values: []string{r.vpcID},
 			},
 		},
@@ -324,7 +326,7 @@ func (r *defaultSubnetsResolver) listSubnetsByReachability(ctx context.Context, 
 	subnetsReq := &ec2sdk.DescribeSubnetsInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   awssdk.String("vpc-id"),
+				Name:   awssdk.String(ec2FilterNameVpcID),
 				Values: []string{r.vpcID},
 			},
 		},
@@ -336,7 +338,7 @@ func (r *defaultSubnetsResolver) listSubnetsByReachability(ctx context.Context, 
 	routeTablesReq := &ec2sdk.DescribeRouteTablesInput{
 		Filters: []ec2types.Filter{
 			{
-				Name:   awssdk.String("vpc-id"),
+				Name:   awssdk.String(ec2FilterNameVpcID),
 				Values: []string{r.vpcID},
 			},
 		},

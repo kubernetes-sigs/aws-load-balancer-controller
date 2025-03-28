@@ -68,4 +68,4 @@ The controller selects one subnet per availability zone. When multiple subnets e
 * **ALBs**: Require at least two subnets across different Availability Zones by default
 
     !!! tip
-        For customers whitelished by the AWS Elastic Load Balancing team, you can enable the [ALBSingleSubnet feature gate](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/configurations/#feature-gates). This allows provisioning an ALB with just one subnet instead of the standard requirement of two subnets.
+        For customers allowlisted by the AWS Elastic Load Balancing team, you can enable the [ALBSingleSubnet feature gate](https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/configurations/#feature-gates). This allows provisioning an ALB with just one subnet instead of the standard requirement of two subnets.
