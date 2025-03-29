@@ -3,13 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"sort"
+	"strconv"
+	"testing"
+
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/golang/mock/gomock"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"sort"
-	"strconv"
-	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
@@ -146,7 +147,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "80",	
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "80",
 					},
 				},
 			},
@@ -154,7 +155,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key: tgAttrsProxyProtocolV2Enabled, 
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -165,8 +166,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "443, 22",
-						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":          "*",
-						
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":                  "*",
 					},
 				},
 			},
@@ -174,7 +174,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key: tgAttrsProxyProtocolV2Enabled, 
+					Key:   tgAttrsProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
