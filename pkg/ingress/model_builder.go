@@ -332,12 +332,22 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 	var mergedSSLPolicy *string
 
 	var mergedTLSCerts []string
+
+	// Set the default cert as the first cert
+	// This process allows the same certificate to be specified for both the default certificate and the SNI certificate.
+	for _, cfg := range listenPortConfigs {
+		if len(cfg.listenPortConfig.tlsCerts) > 0 {
+			mergedTLSCerts = append(mergedTLSCerts, cfg.listenPortConfig.tlsCerts[0])
+			break
+		}
+	}
+
 	mergedTLSCertsSet := sets.NewString()
 
 	var mergedMtlsAttributesProvider *types.NamespacedName
 	var mergedMtlsAttributes *elbv2model.MutualAuthenticationAttributes
 
-	for _, cfg := range listenPortConfigs {
+	for i, cfg := range listenPortConfigs {
 		if mergedProtocolProvider == nil {
 			mergedProtocolProvider = &cfg.ingKey
 			mergedProtocol = cfg.listenPortConfig.protocol
@@ -380,7 +390,12 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 			}
 		}
 
-		for _, cert := range cfg.listenPortConfig.tlsCerts {
+		for j, cert := range cfg.listenPortConfig.tlsCerts {
+			// Ignore the first cert as it is the default cert
+			// Default cert is already added to the mergedTLSCerts
+			if i == 0 && j == 0 {
+				continue
+			}
 			if mergedTLSCertsSet.Has(cert) {
 				continue
 			}
