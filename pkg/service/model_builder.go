@@ -261,6 +261,9 @@ func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	if err != nil {
 		return errmetrics.NewErrorWithMetrics(controllerName, "build_listeners_error", err, t.metricsCollector)
 	}
+	if err := t.buildLoadBalancerAddOns(ctx, t.loadBalancer.LoadBalancerARN()); err != nil {
+		return err
+	}
 	return nil
 }
 
