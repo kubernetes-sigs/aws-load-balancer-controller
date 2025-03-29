@@ -5,9 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"regexp"
 	"strconv"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -153,7 +154,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Co
 func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	ing ClassifiedIngress, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort) (elbv2model.TargetGroupSpec, error) {
 	svcAndIngAnnotations := algorithm.MergeStringMap(svc.Annotations, ing.Ing.Annotations)
-	targetType, err := t.buildTargetGroupTargetType(ctx, svcAndIngAnnotations)
+	targetType, err := t.buildTargetGroupTargetType(ctx, svcAndIngAnnotations, ing.IngClassConfig)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
@@ -220,9 +221,12 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.TargetType, error) {
+func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, svcAndIngAnnotations map[string]string, classCfg ClassConfiguration) (elbv2model.TargetType, error) {
 	rawTargetType := string(t.defaultTargetType)
 	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixTargetType, &rawTargetType, svcAndIngAnnotations)
+	if classCfg.IngClassParams != nil && classCfg.IngClassParams.Spec.TargetType != "" {
+		rawTargetType = string(classCfg.IngClassParams.Spec.TargetType)
+	}
 	switch rawTargetType {
 	case string(elbv2model.TargetTypeInstance):
 		return elbv2model.TargetTypeInstance, nil
