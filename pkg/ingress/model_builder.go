@@ -316,9 +316,11 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 
 	// Set the default cert as the first cert
 	// This process allows the same certificate to be specified for both the default certificate and the SNI certificate.
-	for _, cfg := range listenPortConfigs {
+	var defaultCertMemberIndex int
+	for i, cfg := range listenPortConfigs {
 		if len(cfg.listenPortConfig.tlsCerts) > 0 {
 			mergedTLSCerts = append(mergedTLSCerts, cfg.listenPortConfig.tlsCerts[0])
+			defaultCertMemberIndex = i
 			break
 		}
 	}
@@ -372,9 +374,8 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 		}
 
 		for j, cert := range cfg.listenPortConfig.tlsCerts {
-			// Ignore the first cert as it is the default cert
-			// Default cert is already added to the mergedTLSCerts
-			if i == 0 && j == 0 {
+			// The first certificate is ignored as it is the default certificate, which has already been added to the mergedTLSCerts.
+			if i == defaultCertMemberIndex && j == 0 {
 				continue
 			}
 			if mergedTLSCertsSet.Has(cert) {
