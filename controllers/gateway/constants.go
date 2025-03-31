@@ -36,7 +36,7 @@ const (
 	albGatewayController = "gateway.k8s.aws/alb"
 
 	// albGatewayTagPrefix the tag applied to all resources created by the ALB Gateway controller.
-	albGatewayTagPrefix = "gateway.k8s.aws.nlb"
+	albGatewayTagPrefix = "gateway.k8s.aws.alb"
 
 	// albRouteResourceGroupVersion the groupVersion used by HTTPRoute and GRPCRoute
 	albRouteResourceGroupVersion = "gateway.networking.k8s.io/v1"

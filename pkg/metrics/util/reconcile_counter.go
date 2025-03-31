@@ -8,10 +8,12 @@ import (
 )
 
 type ReconcileCounters struct {
-	serviceReconciles map[types.NamespacedName]int
-	ingressReconciles map[types.NamespacedName]int
-	tgbReconciles     map[types.NamespacedName]int
-	mutex             sync.Mutex
+	serviceReconciles    map[types.NamespacedName]int
+	ingressReconciles    map[types.NamespacedName]int
+	tgbReconciles        map[types.NamespacedName]int
+	nlbGatewayReconciles map[types.NamespacedName]int
+	albGatewayReconciles map[types.NamespacedName]int
+	mutex                sync.Mutex
 }
 
 type ResourceReconcileCount struct {
@@ -46,6 +48,17 @@ func (c *ReconcileCounters) IncrementTGB(namespaceName types.NamespacedName) {
 	c.tgbReconciles[namespaceName]++
 }
 
+func (c *ReconcileCounters) IncrementNLBGateway(namespaceName types.NamespacedName) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.nlbGatewayReconciles[namespaceName]++
+}
+
+func (c *ReconcileCounters) IncrementALBGateway(namespaceName types.NamespacedName) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.albGatewayReconciles[namespaceName]++
+}
 func (c *ReconcileCounters) GetTopReconciles(n int) map[string][]ResourceReconcileCount {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -68,6 +81,8 @@ func (c *ReconcileCounters) GetTopReconciles(n int) map[string][]ResourceReconci
 	topReconciles["service"] = getTopN(c.serviceReconciles)
 	topReconciles["ingress"] = getTopN(c.ingressReconciles)
 	topReconciles["targetgroupbinding"] = getTopN(c.tgbReconciles)
+	topReconciles["nlbgateway"] = getTopN(c.nlbGatewayReconciles)
+	topReconciles["albgateway"] = getTopN(c.albGatewayReconciles)
 
 	return topReconciles
 }
@@ -78,4 +93,6 @@ func (c *ReconcileCounters) ResetCounter() {
 	c.serviceReconciles = make(map[types.NamespacedName]int)
 	c.ingressReconciles = make(map[types.NamespacedName]int)
 	c.tgbReconciles = make(map[types.NamespacedName]int)
+	c.nlbGatewayReconciles = make(map[types.NamespacedName]int)
+	c.albGatewayReconciles = make(map[types.NamespacedName]int)
 }
