@@ -24,7 +24,8 @@ const (
 	ALBSingleSubnet               Feature = "ALBSingleSubnet"
 	LBCapacityReservation         Feature = "LBCapacityReservation"
 	SubnetDiscoveryByReachability Feature = "SubnetDiscoveryByReachability"
-	GatewayAPI                    Feature = "ELBGatewayAPI"
+	NLBGatewayAPI                 Feature = "NLBGatewayAPI"
+	ALBGatewayAPI                 Feature = "ALBGatewayAPI"
 )
 
 type FeatureGates interface {
@@ -65,7 +66,8 @@ func NewFeatureGates() FeatureGates {
 			ALBSingleSubnet:               false,
 			SubnetDiscoveryByReachability: true,
 			LBCapacityReservation:         true,
-			GatewayAPI:                    false,
+			NLBGatewayAPI:                 false,
+			ALBGatewayAPI:                 false,
 		},
 	}
 }
