@@ -458,20 +458,20 @@ func (r *defaultSubnetsResolver) chooseSubnetsPerAZ(subnets []ec2types.Subnet) [
 	for az, azSubnets := range subnetsByAZ {
 		if len(azSubnets) == 1 {
 			chosenSubnets = append(chosenSubnets, azSubnets[0])
-		} else if len(subnets) > 1 {
-			sort.Slice(subnets, func(i, j int) bool {
-				subnetIHasCurrentClusterTag := r.isSubnetContainsCurrentClusterTag(subnets[i])
-				subnetJHasCurrentClusterTag := r.isSubnetContainsCurrentClusterTag(subnets[j])
+		} else if len(azSubnets) > 1 {
+			sort.Slice(azSubnets, func(i, j int) bool {
+				subnetIHasCurrentClusterTag := r.isSubnetContainsCurrentClusterTag(azSubnets[i])
+				subnetJHasCurrentClusterTag := r.isSubnetContainsCurrentClusterTag(azSubnets[j])
 				if subnetIHasCurrentClusterTag && (!subnetJHasCurrentClusterTag) {
 					return true
 				} else if (!subnetIHasCurrentClusterTag) && subnetJHasCurrentClusterTag {
 					return false
 				}
-				return awssdk.ToString(subnets[i].SubnetId) < awssdk.ToString(subnets[j].SubnetId)
+				return awssdk.ToString(azSubnets[i].SubnetId) < awssdk.ToString(azSubnets[j].SubnetId)
 			})
 			r.logger.V(1).Info("multiple subnets in the same AvailabilityZone", "AvailabilityZone", az,
-				"chosen", subnets[0].SubnetId, "ignored", extractSubnetIDs(subnets[1:]))
-			chosenSubnets = append(chosenSubnets, subnets[0])
+				"chosen", azSubnets[0].SubnetId, "ignored", extractSubnetIDs(azSubnets[1:]))
+			chosenSubnets = append(chosenSubnets, azSubnets[0])
 		}
 	}
 	sortSubnetsByID(chosenSubnets)
@@ -528,9 +528,9 @@ func (r *defaultSubnetsResolver) isSubnetContainsSufficientIPAddresses(subnet ec
 // subnets passed-in must be non-empty
 func (r *defaultSubnetsResolver) validateSubnetsAZExclusivity(subnets []ec2types.Subnet) error {
 	subnetsByAZ := mapSDKSubnetsByAZ(subnets)
-	for az, subnets := range subnetsByAZ {
-		if len(subnets) > 1 {
-			return fmt.Errorf("multiple subnets in same Availability Zone %v: %v", az, extractSubnetIDs(subnets))
+	for az, azSubnets := range subnetsByAZ {
+		if len(azSubnets) > 1 {
+			return fmt.Errorf("multiple subnets in same Availability Zone %v: %v", az, extractSubnetIDs(azSubnets))
 		}
 	}
 	return nil

@@ -1025,6 +1025,146 @@ func Test_defaultSubnetsResolver_ResolveViaDiscovery(t *testing.T) {
 			wantErr: errors.New("unable to resolve at least one subnet. Evaluated 2 subnets: 1 are tagged for other clusters, and 1 have insufficient available IP addresses"),
 		},
 		{
+			name: "multiple subnets found per AZ, pick one per az",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							Filters: []ec2types.Filter{
+								{
+									Name:   awssdk.String("vpc-id"),
+									Values: []string{"vpc-dummy"},
+								},
+								{
+									Name:   awssdk.String("tag:kubernetes.io/role/elb"),
+									Values: []string{"", "1"},
+								},
+							},
+						},
+						output: []ec2types.Subnet{
+							{
+								SubnetId:                awssdk.String("subnet-1"),
+								AvailabilityZone:        awssdk.String("us-west-2a"),
+								AvailabilityZoneId:      awssdk.String("usw2-az1"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/role/elb"),
+										Value: awssdk.String("1"),
+									},
+								},
+							},
+							{
+								SubnetId:                awssdk.String("subnet-2"),
+								AvailabilityZone:        awssdk.String("us-west-2a"),
+								AvailabilityZoneId:      awssdk.String("usw2-az1"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/role/elb"),
+										Value: awssdk.String("1"),
+									},
+									{
+										Key:   awssdk.String("kubernetes.io/cluster/cluster-dummy"),
+										Value: awssdk.String("owned"),
+									},
+								},
+							},
+							{
+								SubnetId:                awssdk.String("subnet-3"),
+								AvailabilityZone:        awssdk.String("us-west-2b"),
+								AvailabilityZoneId:      awssdk.String("usw2-az2"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/role/elb"),
+										Value: awssdk.String("1"),
+									},
+								},
+							},
+							{
+								SubnetId:                awssdk.String("subnet-4"),
+								AvailabilityZone:        awssdk.String("us-west-2b"),
+								AvailabilityZoneId:      awssdk.String("usw2-az2"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/role/elb"),
+										Value: awssdk.String("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+					{
+						availabilityZoneIDs: []string{"usw2-az2"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az2": {
+								ZoneId:   awssdk.String("usw2-az2"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				opts: []SubnetsResolveOption{
+					WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
+					WithSubnetsResolveLBScheme(elbv2model.LoadBalancerSchemeInternetFacing),
+				},
+			},
+			want: []ec2types.Subnet{
+				{
+					SubnetId:                awssdk.String("subnet-2"),
+					AvailabilityZone:        awssdk.String("us-west-2a"),
+					AvailabilityZoneId:      awssdk.String("usw2-az1"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+					Tags: []ec2types.Tag{
+						{
+							Key:   awssdk.String("kubernetes.io/role/elb"),
+							Value: awssdk.String("1"),
+						},
+						{
+							Key:   awssdk.String("kubernetes.io/cluster/cluster-dummy"),
+							Value: awssdk.String("owned"),
+						},
+					},
+				},
+				{
+					SubnetId:                awssdk.String("subnet-3"),
+					AvailabilityZone:        awssdk.String("us-west-2b"),
+					AvailabilityZoneId:      awssdk.String("usw2-az2"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+					Tags: []ec2types.Tag{
+						{
+							Key:   awssdk.String("kubernetes.io/role/elb"),
+							Value: awssdk.String("1"),
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "fallback to reachability were disabled",
 			fields: fields{
 				clusterTagCheckEnabled:         true,
@@ -2353,6 +2493,13 @@ func Test_defaultSubnetsResolver_chooseSubnetsPerAZ(t *testing.T) {
 					AvailableIpAddressCount: awssdk.Int32(8),
 					VpcId:                   awssdk.String("vpc-dummy"),
 				},
+				{
+					SubnetId:                awssdk.String("subnet-4"),
+					AvailabilityZone:        awssdk.String("us-west-2b"),
+					AvailabilityZoneId:      awssdk.String("usw2-az2"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+				},
 			},
 			want: []ec2types.Subnet{
 				{
@@ -2396,6 +2543,13 @@ func Test_defaultSubnetsResolver_chooseSubnetsPerAZ(t *testing.T) {
 				},
 				{
 					SubnetId:                awssdk.String("subnet-3"),
+					AvailabilityZone:        awssdk.String("us-west-2b"),
+					AvailabilityZoneId:      awssdk.String("usw2-az2"),
+					AvailableIpAddressCount: awssdk.Int32(8),
+					VpcId:                   awssdk.String("vpc-dummy"),
+				},
+				{
+					SubnetId:                awssdk.String("subnet-4"),
 					AvailabilityZone:        awssdk.String("us-west-2b"),
 					AvailabilityZoneId:      awssdk.String("usw2-az2"),
 					AvailableIpAddressCount: awssdk.Int32(8),
