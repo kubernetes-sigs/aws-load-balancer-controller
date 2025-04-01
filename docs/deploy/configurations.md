@@ -1,5 +1,5 @@
 # Controller configuration options
-This document covers configuration of the AWS Load Balancer controller
+This document primarily covers the runtime configuration options for the AWS Load Balancer Controller. For installation-specific configuration options, see the [Helm chart values documentation](https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller#configuration).
 
 !!!warning "limitation"
     The v2.0.0+ version of AWSLoadBalancerController currently only support one controller deployment(with one or multiple replicas) per cluster.
