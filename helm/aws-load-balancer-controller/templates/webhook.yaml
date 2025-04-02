@@ -237,6 +237,14 @@ spec:
     kind: Issuer
     name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
   secretName: {{ template "aws-load-balancer-controller.webhookCertSecret" . }}
+  {{- with .Values.certManager -}}
+  {{ if .duration }}
+  duration: {{ .duration }}
+  {{- end }}
+  {{- if .renewBefore }}
+  renewBefore: {{ .renewBefore }}
+  {{- end }}
+  {{- end }}
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer

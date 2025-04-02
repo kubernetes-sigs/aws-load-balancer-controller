@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"strings"
 	"testing"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -685,13 +686,15 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 
 var (
 	subnet1 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-1"),
-		AvailabilityZone: awssdk.String("az1"),
-		VpcId:            awssdk.String("vpc-1"),
+		SubnetId:                awssdk.String("subnet-1"),
+		AvailabilityZone:        awssdk.String("az1"),
+		AvailableIpAddressCount: awssdk.Int32(8),
+		VpcId:                   awssdk.String("vpc-1"),
 	}
 	subnet2 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-2"),
-		AvailabilityZone: awssdk.String("az2"),
+		SubnetId:                awssdk.String("subnet-2"),
+		AvailabilityZone:        awssdk.String("az2"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
@@ -701,13 +704,15 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet3 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-3"),
-		AvailabilityZone: awssdk.String("az3"),
-		VpcId:            awssdk.String("vpc-1"),
+		SubnetId:                awssdk.String("subnet-3"),
+		AvailabilityZone:        awssdk.String("az3"),
+		AvailableIpAddressCount: awssdk.Int32(8),
+		VpcId:                   awssdk.String("vpc-1"),
 	}
 	subnet4 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-4"),
-		AvailabilityZone: awssdk.String("az4"),
+		SubnetId:                awssdk.String("subnet-4"),
+		AvailabilityZone:        awssdk.String("az4"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
@@ -717,8 +722,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet5 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-5"),
-		AvailabilityZone: awssdk.String("az5"),
+		SubnetId:                awssdk.String("subnet-5"),
+		AvailabilityZone:        awssdk.String("az5"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
@@ -728,8 +734,9 @@ var (
 		VpcId: awssdk.String("vpc-2"),
 	}
 	subnet6 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-6"),
-		AvailabilityZone: awssdk.String("az6"),
+		SubnetId:                awssdk.String("subnet-6"),
+		AvailabilityZone:        awssdk.String("az6"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
@@ -739,8 +746,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet7 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-7"),
-		AvailabilityZone: awssdk.String("az7"),
+		SubnetId:                awssdk.String("subnet-7"),
+		AvailabilityZone:        awssdk.String("az7"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
@@ -753,8 +761,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet8 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-8"),
-		AvailabilityZone: awssdk.String("az8"),
+		SubnetId:                awssdk.String("subnet-8"),
+		AvailabilityZone:        awssdk.String("az8"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("alb"),
@@ -764,8 +773,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet9 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-9"),
-		AvailabilityZone: awssdk.String("az9"),
+		SubnetId:                awssdk.String("subnet-9"),
+		AvailabilityZone:        awssdk.String("az9"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("Name"),
@@ -782,8 +792,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet10 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-10"),
-		AvailabilityZone: awssdk.String("az10"),
+		SubnetId:                awssdk.String("subnet-10"),
+		AvailabilityZone:        awssdk.String("az10"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("alb"),
@@ -797,8 +808,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet11 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-11"),
-		AvailabilityZone: awssdk.String("az11"),
+		SubnetId:                awssdk.String("subnet-11"),
+		AvailabilityZone:        awssdk.String("az11"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest"),
@@ -812,8 +824,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet12 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-12"),
-		AvailabilityZone: awssdk.String("az12"),
+		SubnetId:                awssdk.String("subnet-12"),
+		AvailabilityZone:        awssdk.String("az12"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest"),
@@ -823,8 +836,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet13 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-13"),
-		AvailabilityZone: awssdk.String("az13"),
+		SubnetId:                awssdk.String("subnet-13"),
+		AvailabilityZone:        awssdk.String("az13"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest"),
@@ -838,8 +852,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet14 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-14"),
-		AvailabilityZone: awssdk.String("az14"),
+		SubnetId:                awssdk.String("subnet-14"),
+		AvailabilityZone:        awssdk.String("az14"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest2"),
@@ -849,8 +864,9 @@ var (
 		VpcId: awssdk.String("vpc-1"),
 	}
 	subnet15 = ec2types.Subnet{
-		SubnetId:         awssdk.String("subnet-15"),
-		AvailabilityZone: awssdk.String("az14"),
+		SubnetId:                awssdk.String("subnet-15"),
+		AvailabilityZone:        awssdk.String("az14"),
+		AvailableIpAddressCount: awssdk.Int32(8),
 		Tags: []ec2types.Tag{
 			{
 				Key:   awssdk.String("tagtest2"),
@@ -1177,7 +1193,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "couldn't find all subnets, IDs: [subnet-1234 subnet-1], found: 1",
+			wantErr: "failed to list subnets by IDs: couldn't find all subnets, want: [subnet-1234 subnet-1], found: [subnet-1]",
 		},
 		{
 			name: "classparams ignore tagged other cluster",
@@ -1271,6 +1287,9 @@ func Test_defaultModelBuildTask_buildLoadBalancerSubnets(t *testing.T) {
 				mockEC2,
 				"vpc-1",
 				"test-cluster",
+				true,
+				true,
+				true,
 				logr.New(&log.NullLogSink{}),
 			)
 

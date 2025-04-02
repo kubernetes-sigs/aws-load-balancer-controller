@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -19,18 +20,20 @@ import (
 const apiPathMutateELBv2TargetGroupBinding = "/mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
 
 // NewTargetGroupBindingMutator returns a mutator for TargetGroupBinding CRD.
-func NewTargetGroupBindingMutator(elbv2Client services.ELBV2, logger logr.Logger) *targetGroupBindingMutator {
+func NewTargetGroupBindingMutator(elbv2Client services.ELBV2, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *targetGroupBindingMutator {
 	return &targetGroupBindingMutator{
-		elbv2Client: elbv2Client,
-		logger:      logger,
+		elbv2Client:      elbv2Client,
+		logger:           logger,
+		metricsCollector: metricsCollector,
 	}
 }
 
 var _ webhook.Mutator = &targetGroupBindingMutator{}
 
 type targetGroupBindingMutator struct {
-	elbv2Client services.ELBV2
-	logger      logr.Logger
+	elbv2Client      services.ELBV2
+	logger           logr.Logger
+	metricsCollector lbcmetrics.MetricCollector
 }
 
 func (m *targetGroupBindingMutator) Prototype(_ admission.Request) (runtime.Object, error) {
@@ -40,18 +43,23 @@ func (m *targetGroupBindingMutator) Prototype(_ admission.Request) (runtime.Obje
 func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
 	if tgb.Spec.TargetGroupARN == "" && tgb.Spec.TargetGroupName == "" {
+		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "checkTargetGroupArnOrName")
 		return nil, errors.Errorf("must provide either TargetGroupARN or TargetGroupName")
 	}
 	if err := m.getArnFromNameIfNeeded(ctx, tgb); err != nil {
+		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "getArnFromNameIfNeeded")
 		return nil, err
 	}
 	if err := m.defaultingTargetType(ctx, tgb); err != nil {
+		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "defaultingTargetType")
 		return nil, err
 	}
 	if err := m.defaultingIPAddressType(ctx, tgb); err != nil {
+		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "defaultingIPAddressType")
 		return nil, err
 	}
 	if err := m.defaultingVpcID(ctx, tgb); err != nil {
+		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "defaultingVpcID")
 		return nil, err
 	}
 	return tgb, nil
