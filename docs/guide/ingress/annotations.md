@@ -787,7 +787,9 @@ TLS support can be controlled with the following annotations:
 - <a name="certificate-arn">`alb.ingress.kubernetes.io/certificate-arn`</a> specifies the ARN of one or more certificate managed by [AWS Certificate Manager](https://aws.amazon.com/certificate-manager)
 
     !!!tip ""
-        The first certificate in the list will be added as default certificate. And remaining certificate will be added to the optional certificate list.
+        The first certificate in the list will be added as the default certificate.
+        The remaining certificates will be added to the optional SNI certificate list.
+        If the same certificate as the default certificate is also listed again (either explicitly in the list or via annotations from other IngressGroup members), it will still be added to the SNI list as well.
         See [SSL Certificates](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-https-listener.html#https-listener-certificates) for more details.
 
     !!!tip "Certificate Discovery"
