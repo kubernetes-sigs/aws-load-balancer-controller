@@ -3955,7 +3955,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				b.enableIPTargetType = *tt.enableIPTargetType
 			}
 
-			gotStack, _, _, _, err := b.Build(context.Background(), tt.args.ingGroup, b.metricsCollector)
+			gotStack, _, _, _, _, _, err := b.Build(context.Background(), tt.args.ingGroup, b.metricsCollector)
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {

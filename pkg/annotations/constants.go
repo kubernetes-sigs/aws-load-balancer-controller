@@ -59,6 +59,19 @@ const (
 	IngressLBSuffixMultiClusterTargetGroup       = "multi-cluster-target-group"
 	IngressSuffixLoadBalancerCapacityReservation = "minimum-load-balancer-capacity"
 	IngressSuffixIPAMIPv4PoolId                  = "ipam-ipv4-pool-id"
+	IngressSuffixEnableFrontendNlb                             = "enable-frontend-nlb"
+	IngressSuffixFrontendNlbScheme                             = "frontend-nlb-scheme"
+	IngressSuffixFrontendNlbSubnets                            = "frontend-nlb-subnets"
+	IngressSuffixFrontendNlbSecurityGroups                     = "frontend-nlb-security-groups"
+	IngressSuffixFrontendNlbListenerPortMapping                = "frontend-nlb-listener-port-mapping"
+	IngressSuffixFrontendNlbHealthCheckPort                    = "frontend-nlb-healthcheck-port"
+	IngressSuffixFrontendNlbHealthCheckProtocol                = "frontend-nlb-healthcheck-protocol"
+	IngressSuffixFrontendNlbHealthCheckPath                    = "frontend-nlb-healthcheck-path"
+	IngressSuffixFrontendNlbHealthCheckIntervalSeconds         = "frontend-nlb-healthcheck-interval-seconds"
+	IngressSuffixFrontendNlbHealthCheckTimeoutSeconds          = "frontend-nlb-healthcheck-timeout-seconds"
+	IngressSuffixFrontendNlbHealthCheckHealthyThresholdCount   = "frontend-nlb-healthcheck-healthy-threshold-count"
+	IngressSuffixFrontendNlHealthCheckbUnhealthyThresholdCount = "frontend-nlb-healthcheck-unhealthy-threshold-count"
+	IngressSuffixFrontendNlbHealthCheckSuccessCodes            = "frontend-nlb-healthcheck-success-codes"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io

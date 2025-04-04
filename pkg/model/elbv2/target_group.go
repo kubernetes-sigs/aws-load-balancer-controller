@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -55,6 +56,7 @@ type TargetType string
 const (
 	TargetTypeInstance TargetType = "instance"
 	TargetTypeIP       TargetType = "ip"
+	TargetTypeALB      TargetType = "alb"
 )
 
 type TargetGroupIPAddressType string
