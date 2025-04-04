@@ -12,29 +12,29 @@ import (
 )
 
 const (
-	// IndexKeyServiceRefName is index key for services referenced by Ingress.
+	// IndexKeyServiceRefName is index key for services referenced by Ingress
 	IndexKeyServiceRefName = "ingress.serviceRef.name"
-	// IndexKeySecretRefName is index key for secrets referenced by Ingress or Service.
+	// IndexKeySecretRefName is index key for secrets referenced by Ingress or Service
 	IndexKeySecretRefName = "ingress.secretRef.name"
-	// IndexKeyIngressClassRefName is index key for ingressClass referenced by Ingress.
+	// IndexKeyIngressClassRefName is index key for ingressClass referenced by Ingress
 	IndexKeyIngressClassRefName = "ingress.ingressClassRef.name"
-	// IndexKeyIngressClassParamsRefName is index key for ingressClassParams referenced by IngressClass.
+	// IndexKeyIngressClassParamsRefName is index key for ingressClassParams referenced by IngressClass
 	IndexKeyIngressClassParamsRefName = "ingressClass.ingressClassParamsRef.name"
 )
 
-// ReferenceIndexer has the ability to index Ingresses with referenced objects.
+// ReferenceIndexer has the ability to index Ingresses with referenced objects
 type ReferenceIndexer interface {
-	// BuildServiceRefIndexes returns the name of related Service objects.
+	// BuildServiceRefIndexes returns the name of related Service objects
 	BuildServiceRefIndexes(ctx context.Context, ing *networking.Ingress) []string
-	// BuildSecretRefIndexes returns the name of related Secret objects.
-	BuildSecretRefIndexes(ctx context.Context, ingOrSvc client.Object) []string
-	// BuildIngressClassRefIndexes returns the name of related IngressClass objects.
+	// BuildSecretRefIndexes returns the name of related Secret objects
+	BuildSecretRefIndexes(ctx context.Context, ingressClassParams *elbv2api.IngressClassParams, ingOrSvc client.Object) []string
+	// BuildIngressClassRefIndexes returns the name of related IngressClass objects
 	BuildIngressClassRefIndexes(ctx context.Context, ing *networking.Ingress) []string
-	// BuildIngressClassParamsRefIndexes returns the name of related IngressClassParams objects.
+	// BuildIngressClassParamsRefIndexes returns the name of related IngressClassParams objects
 	BuildIngressClassParamsRefIndexes(ctx context.Context, ingClass *networking.IngressClass) []string
 }
 
-// NewDefaultReferenceIndexer constructs new defaultReferenceIndexer.
+// NewDefaultReferenceIndexer constructs new defaultReferenceIndexer
 func NewDefaultReferenceIndexer(enhancedBackendBuilder EnhancedBackendBuilder, authConfigBuilder AuthConfigBuilder, logger logr.Logger) *defaultReferenceIndexer {
 	return &defaultReferenceIndexer{
 		enhancedBackendBuilder: enhancedBackendBuilder,
@@ -45,7 +45,7 @@ func NewDefaultReferenceIndexer(enhancedBackendBuilder EnhancedBackendBuilder, a
 
 var _ ReferenceIndexer = &defaultReferenceIndexer{}
 
-// default implementation for ReferenceIndexer
+// Default implementation for ReferenceIndexer
 type defaultReferenceIndexer struct {
 	enhancedBackendBuilder EnhancedBackendBuilder
 	authConfigBuilder      AuthConfigBuilder
@@ -68,7 +68,7 @@ func (i *defaultReferenceIndexer) BuildServiceRefIndexes(ctx context.Context, in
 
 	serviceNames := sets.NewString()
 	for _, backend := range backends {
-		enhancedBackend, err := i.enhancedBackendBuilder.Build(ctx, ing, backend,
+		enhancedBackend, err := i.enhancedBackendBuilder.Build(ctx, ing, backend, nil,
 			WithLoadBackendServices(false, nil),
 			WithLoadAuthConfig(false),
 		)
@@ -83,8 +83,14 @@ func (i *defaultReferenceIndexer) BuildServiceRefIndexes(ctx context.Context, in
 	return serviceNames.List()
 }
 
-func (i *defaultReferenceIndexer) BuildSecretRefIndexes(ctx context.Context, ingOrSvc client.Object) []string {
-	authCfg, err := i.authConfigBuilder.Build(ctx, ingOrSvc.GetAnnotations())
+func (i *defaultReferenceIndexer) BuildSecretRefIndexes(ctx context.Context, ingressClassParams *elbv2api.IngressClassParams, ingOrSvc client.Object) []string {
+	// If AuthConfig exists in Ingress class params, extract the secret from it
+	if ingressClassParams != nil && ingressClassParams.Spec.AuthConfig != nil {
+		return extractSecretNamesFromIngressClassParams(ingressClassParams)
+	}
+
+	// Otherwise, build the authConfig and extract the secret from the annotations
+	authCfg, err := i.authConfigBuilder.Build(ctx, nil, ingOrSvc.GetAnnotations())
 	if err != nil {
 		i.logger.Error(err, "failed to build Ingress indexes",
 			"indexKey", IndexKeySecretRefName)
@@ -132,6 +138,13 @@ func extractServiceNamesFromTargetGroupTuple(tgt TargetGroupTuple) []string {
 		return nil
 	}
 	return []string{*tgt.ServiceName}
+}
+
+func extractSecretNamesFromIngressClassParams(ingressClassParams *elbv2api.IngressClassParams) []string {
+	if ingressClassParams.Spec.AuthConfig.IDPConfigOIDC == nil {
+		return nil
+	}
+	return []string{ingressClassParams.Spec.AuthConfig.IDPConfigOIDC.SecretName}
 }
 
 func extractSecretNamesFromAuthConfig(authCfg AuthConfig) []string {

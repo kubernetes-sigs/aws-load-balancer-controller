@@ -114,6 +114,90 @@ type IPAMConfiguration struct {
 	IPv4IPAMPoolId *string `json:"ipv4IPAMPoolId,omitempty"`
 }
 
+type AuthType string
+
+const (
+	AuthTypeNone    AuthType = "none"
+	AuthTypeCognito AuthType = "cognito"
+	AuthTypeOIDC    AuthType = "oidc"
+)
+
+// Amazon Cognito user pools configuration
+type AuthIDPConfigCognito struct {
+	// The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
+	UserPoolARN string `json:"userPoolARN"`
+
+	// The ID of the Amazon Cognito user pool client.
+	UserPoolClientID string `json:"userPoolClientID"`
+
+	// The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
+	UserPoolDomain string `json:"userPoolDomain"`
+
+	// The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=10
+	// +optional
+	AuthenticationRequestExtraParams map[string]string `json:"authenticationRequestExtraParams,omitempty"`
+}
+
+// OpenID Connect (OIDC) identity provider (IdP) configuration
+type AuthIDPConfigOIDC struct {
+	// The OIDC issuer identifier of the IdP.
+	Issuer string `json:"issuer"`
+
+	// The authorization endpoint of the IdP.
+	AuthorizationEndpoint string `json:"authorizationEndpoint"`
+
+	// The token endpoint of the IdP.
+	TokenEndpoint string `json:"tokenEndpoint"`
+
+	// The user info endpoint of the IdP.
+	UserInfoEndpoint string `json:"userInfoEndpoint"`
+
+	// The k8s secretName. Secret must be within the same namespace as the Ingress.
+	SecretName string `json:"secretName"`
+
+	// The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=10
+	// +optional
+	AuthenticationRequestExtraParams map[string]string `json:"authenticationRequestExtraParams,omitempty"`
+}
+
+// Auth config for Service / Ingresses
+type AuthConfig struct {
+	// The authentication type on targets.
+	// +kubebuilder:validation:Enum=none;oidc;cognito
+	Type AuthType `json:"type"`
+
+	// The Cognito IfP configuration.
+	// +optional
+	IDPConfigCognito *AuthIDPConfigCognito `json:"idpCognitoConfiguration,omitempty"`
+
+	// The OIDC IdP configuration.
+	// +optional
+	IDPConfigOIDC *AuthIDPConfigOIDC `json:"idpOidcConfiguration,omitempty"`
+
+	// The behavior if the user is not authenticated.
+	// +kubebuilder:validation:Enum=authenticate;deny;allow
+	// +optional
+	OnUnauthenticatedRequest string `json:"onUnauthenticatedRequest,omitempty"`
+
+	// The set of user claims to be requested from the Cognito IdP or OIDC IdP, in a space-separated list.
+	// * Options: phone, email, profile, openid, aws.cognito.signin.user.admin
+	// * Ex. 'email openid'
+	// +optional
+	Scope string `json:"scope,omitempty"`
+
+	// The name of the cookie used to maintain session information.
+	// +optional
+	SessionCookieName string `json:"sessionCookie,omitempty"`
+
+	// The maximum duration of the authentication session, in seconds.
+	// +optional
+	SessionTimeout *int64 `json:"sessionTimeout,omitempty"`
+}
+
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 type IngressClassParamsSpec struct {
 	// CertificateArn specifies the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
@@ -145,7 +229,7 @@ type IngressClassParamsSpec struct {
 	// +optional
 	Subnets *SubnetSelector `json:"subnets,omitempty"`
 
-	// IPAddressType defines the ip address type for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// IPAddressType defines the IP address type for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
 	IPAddressType *IPAddressType `json:"ipAddressType,omitempty"`
 
@@ -169,7 +253,12 @@ type IngressClassParamsSpec struct {
 	IPAMConfiguration *IPAMConfiguration `json:"ipamConfiguration,omitempty"`
 
 	// PrefixListsIDs defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
 	PrefixListsIDs []string `json:"PrefixListsIDs,omitempty"`
+
+	// AuthenticationConfiguration defines the authentication configuration for a Load Balancer. Application Load Balancer supports authentication with Cognito or OIDC.
+	// +optional
+	AuthConfig *AuthConfig `json:"authenticationConfiguration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
