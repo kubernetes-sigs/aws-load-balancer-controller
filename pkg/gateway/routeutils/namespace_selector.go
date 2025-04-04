@@ -21,6 +21,12 @@ type namespaceSelectorImpl struct {
 	k8sClient client.Client
 }
 
+func newNamespaceSelector(k8sClient client.Client) namespaceSelector {
+	return &namespaceSelectorImpl{
+		k8sClient: k8sClient,
+	}
+}
+
 // getNamespacesFromSelector queries the Kubernetes API for all namespaces that match a selector.
 func (n *namespaceSelectorImpl) getNamespacesFromSelector(context context.Context, selector *metav1.LabelSelector) (sets.Set[string], error) {
 	namespaceList := v1.NamespaceList{}

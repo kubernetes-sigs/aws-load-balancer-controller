@@ -15,6 +15,10 @@ var _ routeAttachmentHelper = &routeAttachmentHelperImpl{}
 type routeAttachmentHelperImpl struct {
 }
 
+func newRouteAttachmentHelper() routeAttachmentHelper {
+	return &routeAttachmentHelperImpl{}
+}
+
 // doesRouteAttachToGateway is responsible for determining if a route and gateway should be connected.
 // This function implements the Gateway API spec for determining Gateway -> Route attachment.
 func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, route preLoadRouteDescriptor) bool {

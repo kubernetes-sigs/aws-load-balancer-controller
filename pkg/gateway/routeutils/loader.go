@@ -57,6 +57,14 @@ type loaderImpl struct {
 	allRouteLoaders map[string]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
 }
 
+func NewLoader(k8sClient client.Client) Loader {
+	return &loaderImpl{
+		mapper:          newListenerToRouteMapper(k8sClient),
+		k8sClient:       k8sClient,
+		allRouteLoaders: allRoutes,
+	}
+}
+
 // LoadRoutesForGateway loads all relevant data for a single Gateway.
 func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter) (map[int][]RouteDescriptor, error) {
 	// 1. Load all relevant routes according to the filter

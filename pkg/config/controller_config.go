@@ -98,6 +98,12 @@ type ControllerConfig struct {
 	// Max exponential backoff delay for reconcile failures of TargetGroupBinding
 	TargetGroupBindingMaxExponentialBackoffDelay time.Duration
 
+	// ALBGatewayMaxConcurrentReconciles Max concurrent reconcile loops for ALB Gateway objects
+	ALBGatewayMaxConcurrentReconciles int
+
+	// NLBGatewayMaxConcurrentReconciles Max concurrent reconcile loops for NLB Gateway objects
+	NLBGatewayMaxConcurrentReconciles int
+
 	// EnableBackendSecurityGroup specifies whether to use optimized security group rules
 	EnableBackendSecurityGroup bool
 

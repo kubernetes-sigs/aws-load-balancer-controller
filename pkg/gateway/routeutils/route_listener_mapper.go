@@ -2,6 +2,7 @@ package routeutils
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -16,6 +17,13 @@ var _ listenerToRouteMapper = &listenerToRouteMapperImpl{}
 type listenerToRouteMapperImpl struct {
 	listenerAttachmentHelper listenerAttachmentHelper
 	routeAttachmentHelper    routeAttachmentHelper
+}
+
+func newListenerToRouteMapper(k8sClient client.Client) listenerToRouteMapper {
+	return &listenerToRouteMapperImpl{
+		listenerAttachmentHelper: newListenerAttachmentHelper(k8sClient),
+		routeAttachmentHelper:    newRouteAttachmentHelper(),
+	}
 }
 
 // mapGatewayAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
