@@ -14,255 +14,382 @@ spec:
     singular: ingressclassparams
   scope: Cluster
   versions:
-  - additionalPrinterColumns:
-    - description: The Ingress Group name
-      jsonPath: .spec.group.name
-      name: GROUP-NAME
-      type: string
-    - description: The AWS Load Balancer scheme
-      jsonPath: .spec.scheme
-      name: SCHEME
-      type: string
-    - description: The AWS Load Balancer ipAddressType
-      jsonPath: .spec.ipAddressType
-      name: IP-ADDRESS-TYPE
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: AGE
-      type: date
-    name: v1beta1
-    schema:
-      openAPIV3Schema:
-        description: IngressClassParams is the Schema for the IngressClassParams API
-        properties:
-          apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-            type: string
-          kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: IngressClassParamsSpec defines the desired state of IngressClassParams
-            properties:
-              PrefixListsIDs:
-                description: PrefixListsIDs defines the security group prefix lists
-                  for all Ingresses that belong to IngressClass with this IngressClassParams.
-                items:
-                  type: string
-                type: array
-              certificateArn:
-                description: CertificateArn specifies the ARN of the certificates
-                  for all Ingresses that belong to IngressClass with this IngressClassParams.
-                items:
-                  type: string
-                type: array
-              group:
-                description: Group defines the IngressGroup for all Ingresses that
-                  belong to IngressClass with this IngressClassParams.
-                properties:
-                  name:
-                    description: Name is the name of IngressGroup.
+    - additionalPrinterColumns:
+        - description: The Ingress Group name
+          jsonPath: .spec.group.name
+          name: GROUP-NAME
+          type: string
+        - description: The AWS Load Balancer scheme
+          jsonPath: .spec.scheme
+          name: SCHEME
+          type: string
+        - description: The AWS Load Balancer ipAddressType
+          jsonPath: .spec.ipAddressType
+          name: IP-ADDRESS-TYPE
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: AGE
+          type: date
+      name: v1beta1
+      schema:
+        openAPIV3Schema:
+          description: IngressClassParams is the Schema for the IngressClassParams API
+          properties:
+            apiVersion:
+              description: |-
+                APIVersion defines the versioned schema of this representation of an object.
+                Servers should convert recognized schemas to the latest internal value, and
+                may reject unrecognized values.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+              type: string
+            kind:
+              description: |-
+                Kind is a string value representing the REST resource this object represents.
+                Servers may infer this from the endpoint the client submits requests to.
+                Cannot be updated.
+                In CamelCase.
+                More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: IngressClassParamsSpec defines the desired state of IngressClassParams
+              properties:
+                PrefixListsIDs:
+                  description:
+                    PrefixListsIDs defines the security group prefix lists
+                    for all Ingresses that belong to IngressClass with this IngressClassParams.
+                  items:
                     type: string
-                required:
-                - name
-                type: object
-              inboundCIDRs:
-                description: InboundCIDRs specifies the CIDRs that are allowed to
-                  access the Ingresses that belong to IngressClass with this IngressClassParams.
-                items:
-                  type: string
-                type: array
-              ipAddressType:
-                description: IPAddressType defines the ip address type for all Ingresses
-                  that belong to IngressClass with this IngressClassParams.
-                enum:
-                - ipv4
-                - dualstack
-                - dualstack-without-public-ipv4
-                type: string
-              ipamConfiguration:
-                description: IPAMConfiguration defines the IPAM settings for a Load
-                  Balancer.
-                properties:
-                  ipv4IPAMPoolId:
-                    description: IPv4IPAMPoolId defines the IPAM pool ID used for
-                      IPv4 Addresses on the ALB.
-                    type: string
-                type: object
-              listeners:
-                description: Listeners define a list of listeners with their protocol,
-                  port and attributes.
-                items:
+                  type: array
+                authenticationConfiguration:
+                  description:
+                    AuthenticationConfiguration defines the authentication
+                    configuration for a Load Balancer. Application Load Balancer supports
+                    authentication with Cognito or OIDC.
                   properties:
-                    listenerAttributes:
-                      description: The attributes of the listener
-                      items:
-                        description: Attributes defines custom attributes on resources.
-                        properties:
-                          key:
-                            description: The key of the attribute.
+                    idpCognitoConfiguration:
+                      description: The Cognito IdP configuration.
+                      properties:
+                        authenticationRequestExtraParams:
+                          additionalProperties:
                             type: string
-                          value:
-                            description: The value of the attribute.
+                          description:
+                            The query parameters (up to 10) to include in
+                            the redirect request to the authorization endpoint.
+                          maxProperties: 10
+                          minProperties: 1
+                          type: object
+                        userPoolARN:
+                          description:
+                            The Amazon Resource Name (ARN) of the Amazon
+                            Cognito user pool.
+                          type: string
+                        userPoolClientID:
+                          description: The ID of the Amazon Cognito user pool client.
+                          type: string
+                        userPoolDomain:
+                          description:
+                            The domain prefix or fully-qualified domain name
+                            of the Amazon Cognito user pool. If you are using Amazon Cognito Domain, the userPoolDomain should be set to the domain prefix (my-domain) instead of full domain (https://my-domain.auth.us-west-2.amazoncognito.com).
+                          type: string
+                      required:
+                        - userPoolARN
+                        - userPoolClientID
+                        - userPoolDomain
+                      type: object
+                    idpOidcConfiguration:
+                      description: The OIDC IdP configuration.
+                      properties:
+                        authenticationRequestExtraParams:
+                          additionalProperties:
                             type: string
-                        required:
-                        - key
-                        - value
-                        type: object
-                      type: array
-                    port:
-                      description: The port of the listener
+                          description:
+                            The query parameters (up to 10) to include in
+                            the redirect request to the authorization endpoint.
+                          maxProperties: 10
+                          minProperties: 1
+                          type: object
+                        authorizationEndpoint:
+                          description: The authorization endpoint of the IdP.
+                          type: string
+                        issuer:
+                          description: The OIDC issuer identifier of the IdP.
+                          type: string
+                        secretName:
+                          description: |-
+                            The k8s secretName. You need to create an secret within the same namespace as Ingress to hold your OIDC clientID and clientSecret. 
+                            The format of secret is as below:
+                              apiVersion: v1
+                              kind: Secret
+                              metadata:
+                                namespace: testcase
+                                name: my-k8s-secret
+                              data:
+                                clientID: base64 of your plain text clientId
+                                clientSecret: base64 of your plain text clientSecret
+                          type: string
+                        tokenEndpoint:
+                          description: The token endpoint of the IdP.
+                          type: string
+                        userInfoEndpoint:
+                          description: The user info endpoint of the IdP.
+                          type: string
+                      required:
+                        - authorizationEndpoint
+                        - issuer
+                        - secretName
+                        - tokenEndpoint
+                        - userInfoEndpoint
+                      type: object
+                    onUnauthenticatedRequest:
+                      description: The behavior if the user is not authenticated.
+                      enum:
+                        - authenticate
+                        - deny
+                        - allow
+                      type: string
+                    scope:
+                      description: |-
+                        The set of user claims to be requested from the Cognito IDP or OIDC IDP, in a space-separated list.
+                        * Options: phone, email, profile, openid, aws.cognito.signin.user.admin
+                        * Ex. 'email openid'
+                      type: string
+                    sessionCookie:
+                      description: The name of the cookie used to maintain session information.
+                      type: string
+                    sessionTimeout:
+                      description: The maximum duration of the authentication session, in seconds.
+                      format: int64
+                      type: integer
+                    type:
+                      description: The authentication type on targets.
+                      enum:
+                        - none
+                        - oidc
+                        - cognito
+                      type: string
+                  required:
+                    - type
+                  type: object
+                certificateArn:
+                  description:
+                    CertificateArn specifies the ARN of the certificates
+                    for all Ingresses that belong to IngressClass with this IngressClassParams.
+                  items:
+                    type: string
+                  type: array
+                group:
+                  description:
+                    Group defines the IngressGroup for all Ingresses that
+                    belong to IngressClass with this IngressClassParams.
+                  properties:
+                    name:
+                      description: Name is the name of IngressGroup.
+                      type: string
+                  required:
+                    - name
+                  type: object
+                inboundCIDRs:
+                  description:
+                    InboundCIDRs specifies the CIDRs that are allowed to
+                    access the Ingresses that belong to IngressClass with this IngressClassParams.
+                  items:
+                    type: string
+                  type: array
+                ipAddressType:
+                  description:
+                    IPAddressType defines the IP address type for all Ingresses
+                    that belong to IngressClass with this IngressClassParams.
+                  enum:
+                    - ipv4
+                    - dualstack
+                    - dualstack-without-public-ipv4
+                  type: string
+                ipamConfiguration:
+                  description:
+                    IPAMConfiguration defines the IPAM settings for a Load
+                    Balancer.
+                  properties:
+                    ipv4IPAMPoolId:
+                      description:
+                        IPv4IPAMPoolId defines the IPAM pool ID used for
+                        IPv4 Addresses on the ALB.
+                      type: string
+                  type: object
+                listeners:
+                  description:
+                    Listeners define a list of listeners with their protocol,
+                    port and attributes.
+                  items:
+                    properties:
+                      listenerAttributes:
+                        description: The attributes of the listener
+                        items:
+                          description: Attributes defines custom attributes on resources.
+                          properties:
+                            key:
+                              description: The key of the attribute.
+                              type: string
+                            value:
+                              description: The value of the attribute.
+                              type: string
+                          required:
+                            - key
+                            - value
+                          type: object
+                        type: array
+                      port:
+                        description: The port of the listener
+                        format: int32
+                        type: integer
+                      protocol:
+                        description: The protocol of the listener
+                        type: string
+                    type: object
+                  type: array
+                loadBalancerAttributes:
+                  description:
+                    LoadBalancerAttributes define the custom attributes to
+                    LoadBalancers for all Ingress that that belong to IngressClass with
+                    this IngressClassParams.
+                  items:
+                    description: Attributes defines custom attributes on resources.
+                    properties:
+                      key:
+                        description: The key of the attribute.
+                        type: string
+                      value:
+                        description: The value of the attribute.
+                        type: string
+                    required:
+                      - key
+                      - value
+                    type: object
+                  type: array
+                minimumLoadBalancerCapacity:
+                  description:
+                    MinimumLoadBalancerCapacity define the capacity reservation
+                    for LoadBalancers for all Ingress that belong to IngressClass with
+                    this IngressClassParams.
+                  properties:
+                    capacityUnits:
+                      description: The Capacity Units Value.
                       format: int32
                       type: integer
-                    protocol:
-                      description: The protocol of the listener
-                      type: string
-                  type: object
-                type: array
-              loadBalancerAttributes:
-                description: LoadBalancerAttributes define the custom attributes to
-                  LoadBalancers for all Ingress that that belong to IngressClass with
-                  this IngressClassParams.
-                items:
-                  description: Attributes defines custom attributes on resources.
-                  properties:
-                    key:
-                      description: The key of the attribute.
-                      type: string
-                    value:
-                      description: The value of the attribute.
-                      type: string
                   required:
-                  - key
-                  - value
+                    - capacityUnits
                   type: object
-                type: array
-              minimumLoadBalancerCapacity:
-                description: MinimumLoadBalancerCapacity define the capacity reservation
-                  for LoadBalancers for all Ingress that belong to IngressClass with
-                  this IngressClassParams.
-                properties:
-                  capacityUnits:
-                    description: The Capacity Units Value.
-                    format: int32
-                    type: integer
-                required:
-                - capacityUnits
-                type: object
-              namespaceSelector:
-                description: |-
-                  NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
-                  * if absent or present but empty, it selects all namespaces.
-                properties:
-                  matchExpressions:
-                    description: matchExpressions is a list of label selector requirements.
-                      The requirements are ANDed.
-                    items:
-                      description: |-
-                        A label selector requirement is a selector that contains values, a key, and an operator that
-                        relates the key and values.
-                      properties:
-                        key:
-                          description: key is the label key that the selector applies
-                            to.
-                          type: string
-                        operator:
-                          description: |-
-                            operator represents a key's relationship to a set of values.
-                            Valid operators are In, NotIn, Exists and DoesNotExist.
-                          type: string
-                        values:
-                          description: |-
-                            values is an array of string values. If the operator is In or NotIn,
-                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                            the values array must be empty. This array is replaced during a strategic
-                            merge patch.
-                          items:
-                            type: string
-                          type: array
-                          x-kubernetes-list-type: atomic
-                      required:
-                      - key
-                      - operator
-                      type: object
-                    type: array
-                    x-kubernetes-list-type: atomic
-                  matchLabels:
-                    additionalProperties:
-                      type: string
-                    description: |-
-                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                      map is equivalent to an element of matchExpressions, whose key field is "key", the
-                      operator is "In", and the values array contains only "value". The requirements are ANDed.
-                    type: object
-                type: object
-                x-kubernetes-map-type: atomic
-              scheme:
-                description: Scheme defines the scheme for all Ingresses that belong
-                  to IngressClass with this IngressClassParams.
-                enum:
-                - internal
-                - internet-facing
-                type: string
-              sslPolicy:
-                description: SSLPolicy specifies the SSL Policy for all Ingresses
-                  that belong to IngressClass with this IngressClassParams.
-                type: string
-              subnets:
-                description: Subnets defines the subnets for all Ingresses that belong
-                  to IngressClass with this IngressClassParams.
-                properties:
-                  ids:
-                    description: IDs specify the resource IDs of subnets. Exactly
-                      one of this or `tags` must be specified.
-                    items:
-                      description: SubnetID specifies a subnet ID.
-                      pattern: subnet-[0-9a-f]+
-                      type: string
-                    minItems: 1
-                    type: array
-                  tags:
-                    additionalProperties:
+                namespaceSelector:
+                  description: |-
+                    NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
+                    * if absent or present but empty, it selects all namespaces.
+                  properties:
+                    matchExpressions:
+                      description:
+                        matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
                       items:
-                        type: string
+                        description: |-
+                          A label selector requirement is a selector that contains values, a key, and an operator that
+                          relates the key and values.
+                        properties:
+                          key:
+                            description:
+                              key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: |-
+                              operator represents a key's relationship to a set of values.
+                              Valid operators are In, NotIn, Exists and DoesNotExist.
+                            type: string
+                          values:
+                            description: |-
+                              values is an array of string values. If the operator is In or NotIn,
+                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                              the values array must be empty. This array is replaced during a strategic
+                              merge patch.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                          - key
+                          - operator
+                        type: object
                       type: array
-                    description: |-
-                      Tags specifies subnets in the load balancer's VPC where each
-                      tag specified in the map key contains one of the values in the corresponding
-                      value list.
-                      Exactly one of this or `ids` must be specified.
-                    type: object
-                type: object
-              tags:
-                description: Tags defines list of Tags on AWS resources provisioned
-                  for Ingresses that belong to IngressClass with this IngressClassParams.
-                items:
-                  description: Tag defines a AWS Tag on resources.
-                  properties:
-                    key:
-                      description: The key of the tag.
-                      type: string
-                    value:
-                      description: The value of the tag.
-                      type: string
-                  required:
-                  - key
-                  - value
+                      x-kubernetes-list-type: atomic
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                        map is equivalent to an element of matchExpressions, whose key field is "key", the
+                        operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      type: object
                   type: object
-                type: array
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources: {}
+                  x-kubernetes-map-type: atomic
+                scheme:
+                  description:
+                    Scheme defines the scheme for all Ingresses that belong
+                    to IngressClass with this IngressClassParams.
+                  enum:
+                    - internal
+                    - internet-facing
+                  type: string
+                sslPolicy:
+                  description:
+                    SSLPolicy specifies the SSL Policy for all Ingresses
+                    that belong to IngressClass with this IngressClassParams.
+                  type: string
+                subnets:
+                  description:
+                    Subnets defines the subnets for all Ingresses that belong
+                    to IngressClass with this IngressClassParams.
+                  properties:
+                    ids:
+                      description:
+                        IDs specify the resource IDs of subnets. Exactly
+                        one of this or `tags` must be specified.
+                      items:
+                        description: SubnetID specifies a subnet ID.
+                        pattern: subnet-[0-9a-f]+
+                        type: string
+                      minItems: 1
+                      type: array
+                    tags:
+                      additionalProperties:
+                        items:
+                          type: string
+                        type: array
+                      description: |-
+                        Tags specifies subnets in the load balancer's VPC where each
+                        tag specified in the map key contains one of the values in the corresponding
+                        value list.
+                        Exactly one of this or `ids` must be specified.
+                      type: object
+                  type: object
+                tags:
+                  description:
+                    Tags defines list of Tags on AWS resources provisioned
+                    for Ingresses that belong to IngressClass with this IngressClassParams.
+                  items:
+                    description: Tag defines a AWS Tag on resources.
+                    properties:
+                      key:
+                        description: The key of the tag.
+                        type: string
+                      value:
+                        description: The value of the tag.
+                        type: string
+                    required:
+                      - key
+                      - value
+                    type: object
+                  type: array
+              type: object
+          type: object
+      served: true
+      storage: true
+      subresources: {}

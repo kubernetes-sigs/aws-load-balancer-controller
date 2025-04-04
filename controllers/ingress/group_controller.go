@@ -45,6 +45,7 @@ const (
 	// the groupVersion of used Ingress & IngressClass resource.
 	ingressResourcesGroupVersion = "networking.k8s.io/v1"
 	ingressClassKind             = "IngressClass"
+	ingressClassParams           = "IngressClassParams"
 )
 
 // NewGroupReconciler constructs new GroupReconciler
@@ -282,8 +283,10 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 	if err != nil {
 		return err
 	}
+
+	ingressClassParamsAvailable := isResourceKindAvailable(resList, ingressClassParams)
 	ingressClassResourceAvailable := isResourceKindAvailable(resList, ingressClassKind)
-	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer(), ingressClassResourceAvailable); err != nil {
+	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer(), ingressClassParamsAvailable, ingressClassResourceAvailable); err != nil {
 		return err
 	}
 	if err := r.setupWatches(ctx, c, mgr, ingressClassResourceAvailable, clientSet); err != nil {
@@ -292,7 +295,8 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 	return nil
 }
 
-func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer, ingressClassResourceAvailable bool) error {
+func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer, ingressClassParamsAvailable bool, ingressClassResourceAvailable bool) error {
+	// This index is always needed
 	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeyServiceRefName,
 		func(obj client.Object) []string {
 			return r.referenceIndexer.BuildServiceRefIndexes(context.Background(), obj.(*networking.Ingress))
@@ -300,20 +304,40 @@ func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.
 	); err != nil {
 		return err
 	}
-	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeySecretRefName,
-		func(obj client.Object) []string {
-			return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), obj.(*networking.Ingress))
-		},
-	); err != nil {
-		return err
+
+	if ingressClassParamsAvailable {
+		// Indexes using IngressClassParams should only be set up if IngressClassParams Customer Resource Definition (CRD) is installed
+		if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeySecretRefName,
+			func(obj client.Object) []string {
+				return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), &elbv2api.IngressClassParams{}, obj.(*networking.Ingress))
+			},
+		); err != nil {
+			return err
+		}
+		if err := fieldIndexer.IndexField(ctx, &corev1.Service{}, ingress.IndexKeySecretRefName,
+			func(obj client.Object) []string {
+				return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), &elbv2api.IngressClassParams{}, obj.(*corev1.Service))
+			},
+		); err != nil {
+			return err
+		}
+	} else {
+		if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeySecretRefName,
+			func(obj client.Object) []string {
+				return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), nil, obj.(*networking.Ingress))
+			},
+		); err != nil {
+			return err
+		}
+		if err := fieldIndexer.IndexField(ctx, &corev1.Service{}, ingress.IndexKeySecretRefName,
+			func(obj client.Object) []string {
+				return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), nil, obj.(*corev1.Service))
+			},
+		); err != nil {
+			return err
+		}
 	}
-	if err := fieldIndexer.IndexField(ctx, &corev1.Service{}, ingress.IndexKeySecretRefName,
-		func(obj client.Object) []string {
-			return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), obj.(*corev1.Service))
-		},
-	); err != nil {
-		return err
-	}
+
 	if ingressClassResourceAvailable {
 		if err := fieldIndexer.IndexField(ctx, &networking.IngressClass{}, ingress.IndexKeyIngressClassParamsRefName,
 			func(obj client.Object) []string {

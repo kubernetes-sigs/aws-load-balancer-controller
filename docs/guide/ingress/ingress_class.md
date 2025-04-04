@@ -150,6 +150,41 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
       minimumLoadBalancerCapacity:
         capacityUnits: 1000
     ```
+    - with authenticationConfiguration type cognito
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: my-ingress-class-params
+    spec:
+      authenticationConfiguration:
+        type: cognito
+        idpCognitoConfiguration:
+          userPoolARN: arn:aws:cognito-idp:us-east-x:xxxx  
+          userPoolClientID: my-client-id                      
+          userPoolDomain: us-east-1xxxx
+        onUnauthenticatedRequest: deny
+        sessionTimeout: 12345
+    ```
+    - with authenticationConfiguration type oidc
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: my-ingress-class-params
+    spec:
+      authenticationConfiguration:
+        type: oidc
+        idpOidcConfiguration:
+          issuer: https://my-site.com
+          authorizationEndpoint: https://super-strong-auth.my-site.com
+          tokenEndpoint: https://token.my-site.com
+          userInfoEndpoint: https://user.my-site.com
+          secretName: top-secret
+          authenticationRequestExtraParams: 
+            key: "value"
+        onUnauthenticatedRequest: deny
+        sessionTimeout: 12345
+        scope: email openid    
 
 ### IngressClassParams specification
 
@@ -267,3 +302,104 @@ Cluster administrators can use `prefixListIDs` field to specify the managed pref
 
 1. If `prefixListIDs` is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.
 2. If `prefixListIDs` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/security-group-prefix-lists` annotation to specify the load balancer prefix lists.
+
+#### spec.authenticationConfiguration
+
+Cluster administrators can use the optional `authenticationConfiguration` field to specify the authentication configuration for all load balancers that belong to this IngressClass. Application Load Balancer supports authentication with Cognito or OIDC for HTTPS listeners. 
+
+For all authentication types, the following specifications are available:
+- `type`
+  - The authentication type on targets.
+  - Value: `none`, `oidc`, `cognito`
+  - Type: `string`
+  - Required
+- `idpCognitoConfiguration`
+  - The Cognito IdP configuration.
+  - Type: `object`
+- `idpOidcConfiguration`
+  - The OIDC IdP configuration.
+  - Type: `object`
+- `onUnauthenticatedRequest`
+  - The behavior if the user is not authenticated.
+  - Value: `authenticate`, `deny`, `allow`
+  - Type: `string`
+- `scope`
+  - The set of user claims to be requested from the Cognito IDP or OIDC IDP, in a space-separated list.
+    - Options: `phone`, `email`, `profile`, `openid`, `aws.cognito.signin.user.admin`
+    - Ex. `'email openid'`
+  - Type: `string`
+- `sessionCookie`
+  - The name of the cookie used to maintain session information.
+  - Type: `string`  
+- `sessionTimeout`
+  - The maximum duration of the authentication session, in seconds.
+  - Type: `integer`
+
+If the `authenticationConfiguration` type is `oidc`, then set the `idpOidcConfiguration` field with the following properties
+- `authorizationEndpoint`
+  - The authorization endpoint of the IdP.
+  - Type: `string`
+  - Required
+- `issuer`
+  - The OIDC issuer identifier of the IdP.
+  - Type: `string`
+  - Required
+- `secretName`
+  - The k8s secretName. 
+  - You need to create an secret within the same namespace as Ingress to hold your OIDC `clientID` and `clientSecret`. The format of secret is as below:
+    ```
+    apiVersion: v1
+    kind: Secret
+    metadata:
+      namespace: testcase
+      name: my-k8s-secret
+    data:
+      clientID: base64 of your plain text clientId
+      clientSecret: base64 of your plain text clientSecret
+    ```
+  - Type: `string`
+  - Required
+- `tokenEndpoint`
+  - The token endpoint of the IdP.
+  - Type: `string`
+  - Required
+- `userInfoEndpoint`
+  - The user info endpoint of the IdP.
+  - Type: `string`
+  - Required
+- `additionalProperties`
+  - The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+  - Type: `object`
+
+If the `authenticationConfiguration` type is `cognito`, then set the `idpCognitoConfiguration` field with the following properties
+- `authenticationRequestExtraParams` 
+  - The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+  - Type: `object`
+  - Required
+- `userPoolARN`
+  - The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
+  - Type: `string`
+  - Required
+- `userPoolClientID`
+  - The ID of the Amazon Cognito user pool client.
+  - Type: `string`
+  - Required
+- `userPoolDomain`
+  - The domain prefix or fully-qualified domain name of the Amazon Cognito user pool. 
+    - If you are using Amazon Cognito Domain, the userPoolDomain should be set to the domain prefix (ex. my-domain) instead of full domain (ex. https://my-domain.auth.us-west-2.amazoncognito.com).
+  - Type: `string`
+  - Required
+- `additionalProperties`
+  - The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+  - Type: `object`
+
+To remove the IngressClass authentication configuration from your ALB, remove `spec.authenticationConfiguration` from the IngressClass definition.
+
+When `spec.authenticationConfiguration` is specified, LBC will ignore the following Ingress annotations: 
+- `alb.ingress.kubernetes.io/auth-type`
+- `alb.ingress.kubernetes.io/auth-idp-cognito`
+- `alb.ingress.kubernetes.io/auth-idp-oidc`
+- `alb.ingress.kubernetes.io/auth-on-unauthenticated-request`
+- `alb.ingress.kubernetes.io/auth-scope`
+- `alb.ingress.kubernetes.io/auth-session-cookie`
+- `alb.ingress.kubernetes.io/auth-session-timeout`

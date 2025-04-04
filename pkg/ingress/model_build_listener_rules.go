@@ -31,6 +31,7 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 			}
 			for _, path := range paths {
 				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, path.Backend,
+					ing.IngClassConfig.IngClassParams,
 					WithLoadBackendServices(true, t.backendServices),
 					WithLoadAuthConfig(true))
 				if err != nil {
