@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -328,7 +329,8 @@ func Test_defaultReferenceIndexer_BuildServiceRefIndexes(t *testing.T) {
 
 func Test_defaultReferenceIndexer_BuildSecretRefIndexes(t *testing.T) {
 	type args struct {
-		ingOrSvc client.Object
+		ingOrSvc           client.Object
+		ingressClassParams *elbv2api.IngressClassParams
 	}
 	tests := []struct {
 		name string
@@ -360,6 +362,26 @@ func Test_defaultReferenceIndexer_BuildSecretRefIndexes(t *testing.T) {
 			},
 			want: nil,
 		},
+		{
+			name: "ingress class params with auth config type oidc",
+			args: args{
+				ingressClassParams: &elbv2api.IngressClassParams{
+					Spec: elbv2api.IngressClassParamsSpec{
+						AuthConfig: &elbv2api.AuthConfig{
+							Type: "oidc",
+							IDPConfigOIDC: &elbv2api.AuthIDPConfigOIDC{
+								Issuer:                "https://my-site.com",
+								AuthorizationEndpoint: "https://super-strong-auth.my-site.com",
+								TokenEndpoint:         "https://token.my-site.com",
+								UserInfoEndpoint:      "https://user.my-site.com",
+								SecretName:            "top-secret",
+							},
+						},
+					},
+				},
+			},
+			want: []string{"top-secret"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -371,7 +393,7 @@ func Test_defaultReferenceIndexer_BuildSecretRefIndexes(t *testing.T) {
 				authConfigBuilder:      authConfigBuilder,
 				logger:                 logr.New(&log.NullLogSink{}),
 			}
-			got := i.BuildSecretRefIndexes(context.Background(), tt.args.ingOrSvc)
+			got := i.BuildSecretRefIndexes(context.Background(), tt.args.ingressClassParams, tt.args.ingOrSvc)
 			assert.Equal(t, tt.want, got)
 		})
 	}

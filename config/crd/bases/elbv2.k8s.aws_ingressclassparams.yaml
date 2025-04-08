@@ -61,6 +61,113 @@ spec:
                 items:
                   type: string
                 type: array
+              authenticationConfiguration:
+                description: AuthenticationConfiguration defines the authentication
+                  configuration for a Load Balancer. Application Load Balancer (ALB)
+                  supports authentication with Cognito or OIDC.
+                properties:
+                  idpCognitoConfiguration:
+                    description: The Cognito IdP configuration.
+                    properties:
+                      authenticationRequestExtraParams:
+                        additionalProperties:
+                          type: string
+                        description: The query parameters (up to 10) to include in
+                          the redirect request to the authorization endpoint.
+                        maxProperties: 10
+                        minProperties: 1
+                        type: object
+                      userPoolARN:
+                        description: The Amazon Resource Name (ARN) of the Amazon
+                          Cognito user pool.
+                        type: string
+                      userPoolClientID:
+                        description: The ID of the Amazon Cognito user pool client.
+                        type: string
+                      userPoolDomain:
+                        description: |-
+                          The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
+                          If you are using Amazon Cognito Domain, the userPoolDomain should be set to the domain prefix (my-domain) instead of full domain (https://my-domain.auth.us-west-2.amazoncognito.com).
+                        type: string
+                    required:
+                    - userPoolARN
+                    - userPoolClientID
+                    - userPoolDomain
+                    type: object
+                  idpOidcConfiguration:
+                    description: The OIDC IdP configuration.
+                    properties:
+                      authenticationRequestExtraParams:
+                        additionalProperties:
+                          type: string
+                        description: The query parameters (up to 10) to include in
+                          the redirect request to the authorization endpoint.
+                        maxProperties: 10
+                        minProperties: 1
+                        type: object
+                      authorizationEndpoint:
+                        description: The authorization endpoint of the IdP.
+                        type: string
+                      issuer:
+                        description: The OIDC issuer identifier of the IdP.
+                        type: string
+                      secretName:
+                        description: |-
+                          The k8s secret name. The secret must be in the 'default' namespace.
+                          Example format:
+                            apiVersion: v1
+                            kind: Secret
+                            metadata:
+                              namespace: default
+                              name: my-k8s-secret
+                            data:
+                              clientID: base64 of your plain text clientId
+                              clientSecret: base64 of your plain text clientSecret
+                        type: string
+                      tokenEndpoint:
+                        description: The token endpoint of the IdP.
+                        type: string
+                      userInfoEndpoint:
+                        description: The user info endpoint of the IdP.
+                        type: string
+                    required:
+                    - authorizationEndpoint
+                    - issuer
+                    - secretName
+                    - tokenEndpoint
+                    - userInfoEndpoint
+                    type: object
+                  onUnauthenticatedRequest:
+                    description: The behavior if the user is not authenticated.
+                    enum:
+                    - authenticate
+                    - deny
+                    - allow
+                    type: string
+                  scope:
+                    description: |-
+                      The set of user claims to be requested from the Cognito IdP or OIDC IdP, in a space-separated list.
+                      * Options: phone, email, profile, openid, aws.cognito.signin.user.admin
+                      * Ex. 'email openid'
+                    type: string
+                  sessionCookie:
+                    description: The name of the cookie used to maintain session information.
+                    type: string
+                  sessionTimeout:
+                    description: The maximum duration of the authentication session,
+                      in seconds.
+                    format: int64
+                    type: integer
+                  type:
+                    description: The authentication type on targets.
+                    enum:
+                    - none
+                    - oidc
+                    - cognito
+                    type: string
+                required:
+                - type
+                type: object
               certificateArn:
                 description: CertificateArn specifies the ARN of the certificates
                   for all Ingresses that belong to IngressClass with this IngressClassParams.
@@ -84,7 +191,7 @@ spec:
                   type: string
                 type: array
               ipAddressType:
-                description: IPAddressType defines the ip address type for all Ingresses
+                description: IPAddressType defines the IP address type for all Ingresses
                   that belong to IngressClass with this IngressClassParams.
                 enum:
                 - ipv4
@@ -163,7 +270,7 @@ spec:
               namespaceSelector:
                 description: |-
                   NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
-                  * if absent or present but empty, it selects all namespaces.
+                  * If absent or present but empty, it selects all namespaces.
                 properties:
                   matchExpressions:
                     description: matchExpressions is a list of label selector requirements.

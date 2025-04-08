@@ -114,6 +114,100 @@ type IPAMConfiguration struct {
 	IPv4IPAMPoolId *string `json:"ipv4IPAMPoolId,omitempty"`
 }
 
+type AuthType string
+
+const (
+	AuthTypeNone    AuthType = "none"
+	AuthTypeCognito AuthType = "cognito"
+	AuthTypeOIDC    AuthType = "oidc"
+)
+
+// Amazon Cognito user pools configuration
+type AuthIDPConfigCognito struct {
+	// The Amazon Resource Name (ARN) of the Amazon Cognito user pool.
+	UserPoolARN string `json:"userPoolARN"`
+
+	// The ID of the Amazon Cognito user pool client.
+	UserPoolClientID string `json:"userPoolClientID"`
+
+	// The domain prefix or fully-qualified domain name of the Amazon Cognito user pool.
+	// If you are using Amazon Cognito Domain, the userPoolDomain should be set to the domain prefix (my-domain) instead of full domain (https://my-domain.auth.us-west-2.amazoncognito.com).
+	UserPoolDomain string `json:"userPoolDomain"`
+
+	// The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=10
+	// +optional
+	AuthenticationRequestExtraParams map[string]string `json:"authenticationRequestExtraParams,omitempty"`
+}
+
+// OpenID Connect (OIDC) identity provider (IdP) configuration
+type AuthIDPConfigOIDC struct {
+	// The OIDC issuer identifier of the IdP.
+	Issuer string `json:"issuer"`
+
+	// The authorization endpoint of the IdP.
+	AuthorizationEndpoint string `json:"authorizationEndpoint"`
+
+	// The token endpoint of the IdP.
+	TokenEndpoint string `json:"tokenEndpoint"`
+
+	// The user info endpoint of the IdP.
+	UserInfoEndpoint string `json:"userInfoEndpoint"`
+
+	// The k8s secret name. The secret must be in the 'default' namespace.
+	// Example format:
+	//   apiVersion: v1
+	//   kind: Secret
+	//   metadata:
+	//     namespace: default
+	//     name: my-k8s-secret
+	//   data:
+	//     clientID: base64 of your plain text clientId
+	//     clientSecret: base64 of your plain text clientSecret
+	SecretName string `json:"secretName"`
+
+	// The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=10
+	// +optional
+	AuthenticationRequestExtraParams map[string]string `json:"authenticationRequestExtraParams,omitempty"`
+}
+
+// Authentication configuration for Ingress
+type AuthConfig struct {
+	// The authentication type on targets.
+	// +kubebuilder:validation:Enum=none;oidc;cognito
+	Type AuthType `json:"type"`
+
+	// The Cognito IdP configuration.
+	// +optional
+	IDPConfigCognito *AuthIDPConfigCognito `json:"idpCognitoConfiguration,omitempty"`
+
+	// The OIDC IdP configuration.
+	// +optional
+	IDPConfigOIDC *AuthIDPConfigOIDC `json:"idpOidcConfiguration,omitempty"`
+
+	// The behavior if the user is not authenticated.
+	// +kubebuilder:validation:Enum=authenticate;deny;allow
+	// +optional
+	OnUnauthenticatedRequest string `json:"onUnauthenticatedRequest,omitempty"`
+
+	// The set of user claims to be requested from the Cognito IdP or OIDC IdP, in a space-separated list.
+	// * Options: phone, email, profile, openid, aws.cognito.signin.user.admin
+	// * Ex. 'email openid'
+	// +optional
+	Scope string `json:"scope,omitempty"`
+
+	// The name of the cookie used to maintain session information.
+	// +optional
+	SessionCookieName string `json:"sessionCookie,omitempty"`
+
+	// The maximum duration of the authentication session, in seconds.
+	// +optional
+	SessionTimeout *int64 `json:"sessionTimeout,omitempty"`
+}
+
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 type IngressClassParamsSpec struct {
 	// CertificateArn specifies the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
@@ -121,7 +215,7 @@ type IngressClassParamsSpec struct {
 	CertificateArn []string `json:"certificateArn,omitempty"`
 
 	// NamespaceSelector restrict the namespaces of Ingresses that are allowed to specify the IngressClass with this IngressClassParams.
-	// * if absent or present but empty, it selects all namespaces.
+	// * If absent or present but empty, it selects all namespaces.
 	// +optional
 	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitempty"`
 
@@ -145,11 +239,12 @@ type IngressClassParamsSpec struct {
 	// +optional
 	Subnets *SubnetSelector `json:"subnets,omitempty"`
 
-	// IPAddressType defines the ip address type for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// IPAddressType defines the IP address type for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
 	IPAddressType *IPAddressType `json:"ipAddressType,omitempty"`
 
 	// Tags defines list of Tags on AWS resources provisioned for Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
 	Tags []Tag `json:"tags,omitempty"`
 
 	// LoadBalancerAttributes define the custom attributes to LoadBalancers for all Ingress that that belong to IngressClass with this IngressClassParams.
@@ -169,7 +264,12 @@ type IngressClassParamsSpec struct {
 	IPAMConfiguration *IPAMConfiguration `json:"ipamConfiguration,omitempty"`
 
 	// PrefixListsIDs defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
 	PrefixListsIDs []string `json:"PrefixListsIDs,omitempty"`
+
+	// AuthenticationConfiguration defines the authentication configuration for a Load Balancer. Application Load Balancer (ALB) supports authentication with Cognito or OIDC.
+	// +optional
+	AuthConfig *AuthConfig `json:"authenticationConfiguration,omitempty"`
 }
 
 // +kubebuilder:object:root=true

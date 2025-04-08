@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -45,6 +44,7 @@ const (
 	// the groupVersion of used Ingress & IngressClass resource.
 	ingressResourcesGroupVersion = "networking.k8s.io/v1"
 	ingressClassKind             = "IngressClass"
+	ingressClassParams           = "IngressClassParams"
 )
 
 // NewGroupReconciler constructs new GroupReconciler
@@ -282,8 +282,10 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 	if err != nil {
 		return err
 	}
+
+	ingressClassParamsAvailable := isResourceKindAvailable(resList, ingressClassParams)
 	ingressClassResourceAvailable := isResourceKindAvailable(resList, ingressClassKind)
-	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer(), ingressClassResourceAvailable); err != nil {
+	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer(), ingressClassParamsAvailable, ingressClassResourceAvailable); err != nil {
 		return err
 	}
 	if err := r.setupWatches(ctx, c, mgr, ingressClassResourceAvailable, clientSet); err != nil {
@@ -292,7 +294,8 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 	return nil
 }
 
-func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer, ingressClassResourceAvailable bool) error {
+func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer, ingressClassParamsAvailable bool, ingressClassResourceAvailable bool) error {
+	// Service indexes
 	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeyServiceRefName,
 		func(obj client.Object) []string {
 			return r.referenceIndexer.BuildServiceRefIndexes(context.Background(), obj.(*networking.Ingress))
@@ -300,20 +303,38 @@ func (r *groupReconciler) setupIndexes(ctx context.Context, fieldIndexer client.
 	); err != nil {
 		return err
 	}
+
+	// Secret indexes
+	if ingressClassParamsAvailable {
+		if err := fieldIndexer.IndexField(ctx, &elbv2api.IngressClassParams{}, ingress.IndexKeySecretRefName,
+			func(obj client.Object) []string {
+				ingClassParamsObj := obj.(*elbv2api.IngressClassParams)
+				if ingClassParamsObj.Spec.AuthConfig != nil && ingClassParamsObj.Spec.AuthConfig.IDPConfigOIDC != nil {
+					return []string{ingClassParamsObj.Spec.AuthConfig.IDPConfigOIDC.SecretName}
+				}
+				return nil
+			},
+		); err != nil {
+			return err
+		}
+	}
+
 	if err := fieldIndexer.IndexField(ctx, &networking.Ingress{}, ingress.IndexKeySecretRefName,
 		func(obj client.Object) []string {
-			return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), obj.(*networking.Ingress))
+			return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), &elbv2api.IngressClassParams{}, obj.(*networking.Ingress))
 		},
 	); err != nil {
 		return err
 	}
+
 	if err := fieldIndexer.IndexField(ctx, &corev1.Service{}, ingress.IndexKeySecretRefName,
 		func(obj client.Object) []string {
-			return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), obj.(*corev1.Service))
+			return r.referenceIndexer.BuildSecretRefIndexes(context.Background(), &elbv2api.IngressClassParams{}, obj.(*corev1.Service))
 		},
 	); err != nil {
 		return err
 	}
+
 	if ingressClassResourceAvailable {
 		if err := fieldIndexer.IndexField(ctx, &networking.IngressClass{}, ingress.IndexKeyIngressClassParamsRefName,
 			func(obj client.Object) []string {
@@ -353,6 +374,10 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 		return err
 	}
 	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
+		return err
+	}
+	// Add this watch for Secrets
+	if err := c.Watch(source.Kind(mgr.GetCache(), &corev1.Secret{}, secretEventHandler)); err != nil {
 		return err
 	}
 	if err := c.Watch(source.Channel(secretEventsChan, secretEventHandler)); err != nil {

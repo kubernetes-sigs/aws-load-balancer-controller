@@ -31,6 +31,7 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 			}
 			for _, path := range paths {
 				enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, path.Backend,
+					ing.IngClassConfig.IngClassParams,
 					WithLoadBackendServices(true, t.backendServices),
 					WithLoadAuthConfig(true))
 				if err != nil {
@@ -40,7 +41,7 @@ func (t *defaultModelBuildTask) buildListenerRules(ctx context.Context, lsARN co
 				if err != nil {
 					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
 				}
-				actions, err := t.buildActions(ctx, protocol, ing, enhancedBackend)
+				actions, err := t.buildActions(ctx, protocol, ing, enhancedBackend, ing.IngClassConfig.IngClassParams)
 				if err != nil {
 					return errors.Wrapf(err, "ingress: %v", k8s.NamespacedName(ing.Ing))
 				}
