@@ -263,11 +263,6 @@ func (in *LoadBalancerConfigurationSpec) DeepCopyInto(out *LoadBalancerConfigura
 		*out = new(LoadBalancerIpAddressType)
 		**out = **in
 	}
-	if in.EnablePrefixForIpv6SourceNat != nil {
-		in, out := &in.EnablePrefixForIpv6SourceNat, &out.EnablePrefixForIpv6SourceNat
-		*out = new(EnablePrefixForIpv6SourceNatEnum)
-		**out = **in
-	}
 	if in.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic != nil {
 		in, out := &in.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, &out.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
 		*out = new(string)
@@ -286,6 +281,26 @@ func (in *LoadBalancerConfigurationSpec) DeepCopyInto(out *LoadBalancerConfigura
 			*out = make([]SubnetConfiguration, len(*in))
 			for i := range *in {
 				(*in)[i].DeepCopyInto(&(*out)[i])
+			}
+		}
+	}
+	if in.LoadBalancerSubnetsSelector != nil {
+		in, out := &in.LoadBalancerSubnetsSelector, &out.LoadBalancerSubnetsSelector
+		*out = new(map[string][]string)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make(map[string][]string, len(*in))
+			for key, val := range *in {
+				var outVal []string
+				if val == nil {
+					(*out)[key] = nil
+				} else {
+					inVal := (*in)[key]
+					in, out := &inVal, &outVal
+					*out = make([]string, len(*in))
+					copy(*out, *in)
+				}
+				(*out)[key] = outVal
 			}
 		}
 	}
@@ -478,8 +493,13 @@ func (in *SubnetConfiguration) DeepCopyInto(out *SubnetConfiguration) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.PrivateIPv6Allocation != nil {
-		in, out := &in.PrivateIPv6Allocation, &out.PrivateIPv6Allocation
+	if in.IPv6Allocation != nil {
+		in, out := &in.IPv6Allocation, &out.IPv6Allocation
+		*out = new(string)
+		**out = **in
+	}
+	if in.SourceNatIPv6Prefix != nil {
+		in, out := &in.SourceNatIPv6Prefix, &out.SourceNatIPv6Prefix
 		*out = new(string)
 		**out = **in
 	}
