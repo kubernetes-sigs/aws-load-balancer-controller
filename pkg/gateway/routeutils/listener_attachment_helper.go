@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -17,6 +18,12 @@ var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
 // listenerAttachmentHelperImpl implements the listenerAttachmentHelper interface.
 type listenerAttachmentHelperImpl struct {
 	namespaceSelector namespaceSelector
+}
+
+func newListenerAttachmentHelper(k8sClient client.Client) listenerAttachmentHelper {
+	return &listenerAttachmentHelperImpl{
+		namespaceSelector: newNamespaceSelector(k8sClient),
+	}
 }
 
 // listenerAllowsAttachment utility method to determine if a listener will allow a route to connect using
