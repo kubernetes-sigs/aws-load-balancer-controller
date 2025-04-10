@@ -49,14 +49,6 @@ spec:
                 description: customerOwnedIpv4Pool is the ID of the customer-owned
                   address for Application Load Balancers on Outposts pool.
                 type: string
-              enablePrefixForIpv6SourceNat:
-                description: enablePrefixForIpv6SourceNat indicates whether to use
-                  an IPv6 prefix from each subnet for source NAT for Network Load
-                  Balancers with UDP listeners.
-                enum:
-                - "on"
-                - "off"
-                type: string
               enforceSecurityGroupInboundRulesOnPrivateLinkTraffic:
                 description: enforceSecurityGroupInboundRulesOnPrivateLinkTraffic
                   Indicates whether to evaluate inbound security group rules for traffic
@@ -179,30 +171,48 @@ spec:
                 minLength: 1
                 type: string
               loadBalancerSubnets:
-                description: loadBalancerSubnets is an optional list of subnet configurations
-                  to be used in the LB
+                description: |-
+                  loadBalancerSubnets is an optional list of subnet configurations to be used in the LB
+                  This value takes precedence over loadBalancerSubnetsSelector if both are selected.
                 items:
                   description: SubnetConfiguration defines the subnet settings for
                     a Load Balancer.
                   properties:
                     eipAllocation:
-                      description: eipAllocation the EIP name for this subnet.
+                      description: eipAllocation [Network LoadBalancer] the EIP name
+                        for this subnet.
                       type: string
                     identifier:
-                      description: identifier name or id for the subnet
+                      description: identifier [Application LoadBalancer / Network
+                        LoadBalancer] name or id for the subnet
+                      type: string
+                    ipv6Allocation:
+                      description: IPv6Allocation [Network LoadBalancer] the ipv6
+                        address to assign to this subnet.
                       type: string
                     privateIPv4Allocation:
-                      description: privateIPv4Allocation the private ipv4 address
-                        to assign to this subnet.
+                      description: privateIPv4Allocation [Network LoadBalancer] the
+                        private ipv4 address to assign to this subnet.
                       type: string
-                    privateIPv6Allocation:
-                      description: privateIPv6Allocation the private ipv6 address
-                        to assign to this subnet.
+                    sourceNatIPv6Prefix:
+                      description: SourceNatIPv6Prefix [Network LoadBalancer] The
+                        IPv6 prefix to use for source NAT. Specify an IPv6 prefix
+                        (/80 netmask) from the subnet CIDR block or auto_assigned
+                        to use an IPv6 prefix selected at random from the subnet CIDR
+                        block.
                       type: string
-                  required:
-                  - identifier
                   type: object
                 type: array
+              loadBalancerSubnetsSelector:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                description: |-
+                  LoadBalancerSubnetsSelector specifies subnets in the load balancer's VPC where each
+                  tag specified in the map key contains one of the values in the corresponding
+                  value list.
+                type: object
               scheme:
                 description: scheme defines the type of LB to provision. If unspecified,
                   it will be automatically inferred.

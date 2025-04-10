@@ -10,6 +10,8 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
+const requiredPrefixLengthForSourceNatCidr = "80"
+
 // ParseCIDRs will parse CIDRs in string format into parsed IPPrefix
 func ParseCIDRs(cidrs []string) ([]netip.Prefix, error) {
 	var ipPrefixes []netip.Prefix
@@ -111,7 +113,6 @@ func ValidateEnablePrefixForIpv6SourceNat(EnablePrefixForIpv6SourceNat string, i
 
 // ValidateSourceNatPrefixes function returns the validation error if error exists for sourceNatIpv6Prefixes annotation value
 func ValidateSourceNatPrefixes(sourceNatIpv6Prefixes []string, ipAddressType elbv2model.IPAddressType, isPrefixForIpv6SourceNatEnabled bool, ec2Subnets []ec2types.Subnet) error {
-	const requiredPrefixLengthForSourceNatCidr = "80"
 	if ipAddressType != elbv2model.IPAddressTypeDualStack {
 		return errors.Errorf("source-nat-ipv6-prefixes annotation can only be set for Network Load Balancers using Dualstack IP address type.")
 	}
@@ -123,36 +124,43 @@ func ValidateSourceNatPrefixes(sourceNatIpv6Prefixes []string, ipAddressType elb
 		return errors.Errorf("Number of values in source-nat-ipv6-prefixes (%d) must match the number of subnets (%d).", len(sourceNatIpv6Prefixes), len(ec2Subnets))
 	}
 	for idx, sourceNatIpv6Prefix := range sourceNatIpv6Prefixes {
-		var subnet = ec2Subnets[idx]
-		var sourceNatIpv6PrefixParsedList []netip.Addr
-		if sourceNatIpv6Prefix != elbv2model.SourceNatIpv6PrefixAutoAssigned {
-			subStrings := strings.Split(sourceNatIpv6Prefix, "/")
-			if len(subStrings) < 2 {
-				return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v.", sourceNatIpv6Prefix)
-			}
-			var ipAddressPart = subStrings[0]
-			var prefixLengthPart = subStrings[1]
-			if prefixLengthPart != requiredPrefixLengthForSourceNatCidr {
-				return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v. Prefix length must be %v, but %v is specified.", sourceNatIpv6Prefix, requiredPrefixLengthForSourceNatCidr, prefixLengthPart)
-			}
-			sourceNatIpv6PrefixNetIpParsed, err := netip.ParseAddr(ipAddressPart)
-			if err != nil {
-				return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v. Value must be a valid IPv6 CIDR.", sourceNatIpv6Prefix)
-			}
-			sourceNatIpv6PrefixParsedList = append(sourceNatIpv6PrefixParsedList, sourceNatIpv6PrefixNetIpParsed)
-			if !sourceNatIpv6PrefixNetIpParsed.Is6() {
-				return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v. Value must be a valid IPv6 CIDR.", sourceNatIpv6Prefix)
-			}
-			subnetIPv6CIDRs, err := GetSubnetAssociatedIPv6CIDRs(subnet)
-			if err != nil {
-				return errors.Errorf("Subnet has invalid IPv6 CIDRs: %v. Subnet must have valid IPv6 CIDRs.", subnetIPv6CIDRs)
-			}
-			sourceNatIpv6PrefixWithinSubnet := FilterIPsWithinCIDRs(sourceNatIpv6PrefixParsedList, subnetIPv6CIDRs)
-			if len(sourceNatIpv6PrefixWithinSubnet) != 1 {
-				return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v. Value must be within subnet CIDR range: %v.", sourceNatIpv6Prefix, subnetIPv6CIDRs)
-			}
+		err := ValidateSourceNatPrefixForSubnetPair(sourceNatIpv6Prefix, ec2Subnets[idx])
+		if err != nil {
+			return err
 		}
 	}
 
+	return nil
+}
+
+// ValidateSourceNatPrefixForSubnetPair validates the input for one source nat ipv6 prefix -> ec2 subnet pair
+func ValidateSourceNatPrefixForSubnetPair(sourceNatIpv6Prefix string, subnet ec2types.Subnet) error {
+	if sourceNatIpv6Prefix == elbv2model.SourceNatIpv6PrefixAutoAssigned {
+		return nil
+	}
+	subStrings := strings.Split(sourceNatIpv6Prefix, "/")
+	if len(subStrings) < 2 {
+		return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v.", sourceNatIpv6Prefix)
+	}
+	var ipAddressPart = subStrings[0]
+	var prefixLengthPart = subStrings[1]
+	if prefixLengthPart != requiredPrefixLengthForSourceNatCidr {
+		return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v. Prefix length must be %v, but %v is specified.", sourceNatIpv6Prefix, requiredPrefixLengthForSourceNatCidr, prefixLengthPart)
+	}
+	sourceNatIpv6PrefixNetIpParsed, err := netip.ParseAddr(ipAddressPart)
+	if err != nil {
+		return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v. Value must be a valid IPv6 CIDR.", sourceNatIpv6Prefix)
+	}
+	if !sourceNatIpv6PrefixNetIpParsed.Is6() {
+		return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v. Value must be a valid IPv6 CIDR.", sourceNatIpv6Prefix)
+	}
+	subnetIPv6CIDRs, err := GetSubnetAssociatedIPv6CIDRs(subnet)
+	if err != nil {
+		return errors.Errorf("Subnet has invalid IPv6 CIDRs: %v. Subnet must have valid IPv6 CIDRs.", subnetIPv6CIDRs)
+	}
+	sourceNatIpv6PrefixWithinSubnet := FilterIPsWithinCIDRs([]netip.Addr{sourceNatIpv6PrefixNetIpParsed}, subnetIPv6CIDRs)
+	if len(sourceNatIpv6PrefixWithinSubnet) != 1 {
+		return errors.Errorf("Invalid value in source-nat-ipv6-prefixes: %v. Value must be within subnet CIDR range: %v.", sourceNatIpv6Prefix, subnetIPv6CIDRs)
+	}
 	return nil
 }
