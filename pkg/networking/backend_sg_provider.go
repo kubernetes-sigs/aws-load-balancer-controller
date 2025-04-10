@@ -298,10 +298,14 @@ func (p *defaultBackendSGProvider) getBackendSGFromEC2(ctx context.Context, sgNa
 			},
 		},
 	}
-	p.logger.V(1).Info("Queriying existing SG", "vpc-id", vpcID, "name", sgName)
+	tags := fmt.Sprintf("%v=%v, %v=%v", tagKeyK8sCluster, p.clusterName, tagKeyResource, tagValueBackend)
+	p.logger.V(1).Info("Querying existing SG", "vpc-id", vpcID, "tags", tags)
 	sgs, err := p.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
 	if err != nil && !isEC2SecurityGroupNotFoundError(err) {
 		return "", err
+	}
+	if len(sgs) > 1 {
+		return "", errors.Errorf("Found multiple SGs with vpc-id %v and tags %v", vpcID, tags)
 	}
 	if len(sgs) > 0 {
 		return awssdk.ToString(sgs[0].GroupId), nil
