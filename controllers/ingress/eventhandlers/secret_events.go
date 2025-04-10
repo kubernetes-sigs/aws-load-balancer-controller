@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
@@ -18,11 +19,12 @@ import (
 )
 
 // NewEnqueueRequestsForSecretEvent constructs new enqueueRequestsForSecretEvent.
-func NewEnqueueRequestsForSecretEvent(ingEventChan chan<- event.TypedGenericEvent[*networking.Ingress], svcEventChan chan<- event.TypedGenericEvent[*corev1.Service],
+func NewEnqueueRequestsForSecretEvent(ingEventChan chan<- event.TypedGenericEvent[*networking.Ingress], svcEventChan chan<- event.TypedGenericEvent[*corev1.Service], icpEventChan chan<- event.TypedGenericEvent[*elbv2api.IngressClassParams],
 	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*corev1.Secret, reconcile.Request] {
 	return &enqueueRequestsForSecretEvent{
 		ingEventChan:  ingEventChan,
 		svcEventChan:  svcEventChan,
+		icpEventChan:  icpEventChan,
 		k8sClient:     k8sClient,
 		eventRecorder: eventRecorder,
 		logger:        logger,
@@ -34,6 +36,7 @@ var _ handler.TypedEventHandler[*corev1.Secret, reconcile.Request] = (*enqueueRe
 type enqueueRequestsForSecretEvent struct {
 	ingEventChan  chan<- event.TypedGenericEvent[*networking.Ingress]
 	svcEventChan  chan<- event.TypedGenericEvent[*corev1.Service]
+	icpEventChan  chan<- event.TypedGenericEvent[*elbv2api.IngressClassParams]
 	k8sClient     client.Client
 	eventRecorder record.EventRecorder
 	logger        logr.Logger
@@ -69,7 +72,7 @@ func (h *enqueueRequestsForSecretEvent) Generic(ctx context.Context, e event.Typ
 	h.enqueueImpactedObjects(ctx, secretObj)
 }
 
-func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(ctx context.Context, secret *corev1.Secret) {
+func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(_ context.Context, secret *corev1.Secret) {
 	secretKey := k8s.NamespacedName(secret)
 
 	ingList := &networking.IngressList{}
@@ -79,6 +82,7 @@ func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(ctx context.Conte
 		h.logger.Error(err, "failed to fetch ingresses")
 		return
 	}
+
 	for index := range ingList.Items {
 		ing := &ingList.Items[index]
 
@@ -105,6 +109,29 @@ func (h *enqueueRequestsForSecretEvent) enqueueImpactedObjects(ctx context.Conte
 			"service", k8s.NamespacedName(svc))
 		h.svcEventChan <- event.TypedGenericEvent[*corev1.Service]{
 			Object: svc,
+		}
+	}
+
+	if h.icpEventChan == nil {
+		return
+	}
+
+	ingressClassParamsList := &elbv2api.IngressClassParamsList{}
+	if err := h.k8sClient.List(context.Background(), ingressClassParamsList,
+		client.InNamespace(""),
+		client.MatchingFields{ingress.IndexKeyIngressClassParamsSecretRefName: secret.GetName()}); err != nil {
+		h.logger.Error(err, "failed to fetch ingress class params")
+		return
+	}
+
+	for index := range ingressClassParamsList.Items {
+		icp := &ingressClassParamsList.Items[index]
+
+		h.logger.Info("enqueue ingress class for secret event",
+			"secret", secretKey,
+			"icp", k8s.NamespacedName(icp))
+		h.icpEventChan <- event.TypedGenericEvent[*elbv2api.IngressClassParams]{
+			Object: icp,
 		}
 	}
 }
