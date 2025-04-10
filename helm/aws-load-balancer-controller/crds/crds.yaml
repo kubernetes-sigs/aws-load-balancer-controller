@@ -260,6 +260,13 @@ spec:
                   - value
                   type: object
                 type: array
+              targetType:
+                description: TargetType defines the target type of target groups for
+                  all Ingresses that belong to IngressClass with this IngressClassParams.
+                enum:
+                - instance
+                - ip
+                type: string
             type: object
         type: object
     served: true
