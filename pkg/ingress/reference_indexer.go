@@ -20,6 +20,8 @@ const (
 	IndexKeyIngressClassRefName = "ingress.ingressClassRef.name"
 	// IndexKeyIngressClassParamsRefName is index key for ingressClassParams referenced by IngressClass
 	IndexKeyIngressClassParamsRefName = "ingressClass.ingressClassParamsRef.name"
+	// IndexKeyIngressClassParamsSecretRefName is index key for secrets referenced by IngressClassParams
+	IndexKeyIngressClassParamsSecretRefName = "ingressClass.ingressClassParamsRef.secret"
 )
 
 // ReferenceIndexer has the ability to index Ingresses with referenced objects
@@ -32,6 +34,8 @@ type ReferenceIndexer interface {
 	BuildIngressClassRefIndexes(ctx context.Context, ing *networking.Ingress) []string
 	// BuildIngressClassParamsRefIndexes returns the name of related IngressClassParams objects
 	BuildIngressClassParamsRefIndexes(ctx context.Context, ingClass *networking.IngressClass) []string
+	// BuildIngressClassParamsSecretIndexes returns the secret names that the ingress class param references
+	BuildIngressClassParamsSecretIndexes(ctx context.Context, ingressClassParams *elbv2api.IngressClassParams) []string
 }
 
 // NewDefaultReferenceIndexer constructs new defaultReferenceIndexer
@@ -119,6 +123,16 @@ func (i *defaultReferenceIndexer) BuildIngressClassParamsRefIndexes(_ context.Co
 	}
 	ingClassParamsName := ingClass.Spec.Parameters.Name
 	return []string{ingClassParamsName}
+}
+
+func (i *defaultReferenceIndexer) BuildIngressClassParamsSecretIndexes(_ context.Context, ingressClassParams *elbv2api.IngressClassParams) []string {
+	if ingressClassParams == nil {
+		return nil
+	}
+	if ingressClassParams.Spec.AuthConfig != nil && ingressClassParams.Spec.AuthConfig.IDPConfigOIDC != nil && ingressClassParams.Spec.AuthConfig.IDPConfigOIDC.SecretName != "" {
+		return []string{ingressClassParams.Spec.AuthConfig.IDPConfigOIDC.SecretName}
+	}
+	return nil
 }
 
 func extractServiceNamesFromAction(action Action) []string {

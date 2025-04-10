@@ -61,8 +61,8 @@ func (h *enqueueRequestsForIngressClassParamsEvent) Delete(ctx context.Context, 
 	h.enqueueImpactedIngressClasses(ctx, ingClassParamsOld)
 }
 
-func (h *enqueueRequestsForIngressClassParamsEvent) Generic(context.Context, event.TypedGenericEvent[*elbv2api.IngressClassParams], workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	// we don't have any generic event for secrets.
+func (h *enqueueRequestsForIngressClassParamsEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*elbv2api.IngressClassParams], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+	h.enqueueImpactedIngressClasses(ctx, e.Object)
 }
 
 func (h *enqueueRequestsForIngressClassParamsEvent) enqueueImpactedIngressClasses(ctx context.Context, ingClassParams *elbv2api.IngressClassParams) {
