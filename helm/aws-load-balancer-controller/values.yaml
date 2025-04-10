@@ -201,6 +201,9 @@ enableWaf:
 # Enable WAF V2 addon for ALB (default true)
 enableWafv2:
 
+# The address the health probe endpoint binds to. (default ":61779")
+healthProbeBindAddr: ""
+
 # Maximum number of concurrently running reconcile loops for ingress (default 3)
 ingressMaxConcurrentReconciles:
 
@@ -267,25 +270,20 @@ tolerateNonExistentBackendAction:
 defaultSSLPolicy:
 
 # Liveness probe configuration for the controller
-livenessProbe:
-  failureThreshold: 2
-  httpGet:
-    path: /healthz
-    port: 61779
-    scheme: HTTP
-  initialDelaySeconds: 30
-  timeoutSeconds: 10
+livenessProbe: {}
+  # failureThreshold: 3
+  # initialDelaySeconds: 30
+  # periodSeconds: 10
+  # successThreshold: 1
+  # timeoutSeconds: 1
 
 # readiness probe configuration for the controller
-readinessProbe:
-  failureThreshold: 2
-  httpGet:
-    path: /readyz
-    port: 61779
-    scheme: HTTP
-  successThreshold: 1
-  initialDelaySeconds: 10
-  timeoutSeconds: 10
+readinessProbe: {}
+  # failureThreshold: 3
+  # initialDelaySeconds: 10
+  # periodSeconds: 10
+  # successThreshold: 1
+  # timeoutSeconds: 1
 
 # Environment variables to set for aws-load-balancer-controller pod.
 # We strongly discourage programming access credentials in the controller environment. You should setup IRSA or

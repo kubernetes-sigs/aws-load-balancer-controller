@@ -178,6 +178,9 @@ spec:
         {{- if .Values.vpcTags }}
         - --aws-vpc-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.vpcTags | trimSuffix "," }}
         {{- end }}
+        {{- if .Values.healthProbeBindAddr }}
+        - --health-probe-bind-addr={{ .Values.healthProbeBindAddr }}
+        {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:
         {{- if .Values.env}}
@@ -225,14 +228,26 @@ spec:
           protocol: TCP
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
-        {{- with .Values.livenessProbe }}
         livenessProbe:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
-        {{- with .Values.readinessProbe }}
+          httpGet:
+            path: /healthz
+            port: {{ (split ":" .Values.healthProbeBindAddr)._1 | default 61779 }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds | default 30 }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds | default 10 }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds | default 10 }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold | default 1 }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold | default 2 }}
         readinessProbe:
-          {{- toYaml . | nindent 10 }}
-        {{- end }}
+          httpGet:
+            path: /readyz
+            port: {{ (split ":" .Values.healthProbeBindAddr)._1 | default 61779 }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds | default 10 }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds | default 10 }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds | default 10 }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold | default 1 }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold | default 2 }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
