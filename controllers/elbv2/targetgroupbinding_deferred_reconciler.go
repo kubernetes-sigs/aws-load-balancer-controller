@@ -2,15 +2,16 @@ package controllers
 
 import (
 	"context"
+	"math/rand"
+	"time"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	"math/rand"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 const (
@@ -56,7 +57,7 @@ func (d *deferredTargetGroupBindingReconcilerImpl) Enqueue(tgb *elbv2api.TargetG
 	nsn := k8s.NamespacedName(tgb)
 	if d.isEligibleForDefer(tgb) {
 		d.enqueue(nsn)
-		d.logger.Info("enqueued new deferred TGB", "TGB", nsn.Name)
+		d.logger.Info("enqueued new deferred TGB", "tgb", nsn.Name)
 	}
 }
 
@@ -88,7 +89,7 @@ func (d *deferredTargetGroupBindingReconcilerImpl) handleDeferredItem(nsn types.
 
 	// Re-check that this tgb hasn't been updated since it was enqueued
 	if !d.isEligibleForDefer(tgb) {
-		d.logger.Info("TGB not eligible for deferral", "TGB", nsn)
+		d.logger.Info("TGB not eligible for deferral", "tgb", nsn)
 		return
 	}
 
@@ -99,13 +100,13 @@ func (d *deferredTargetGroupBindingReconcilerImpl) handleDeferredItem(nsn types.
 		d.handleDeferredItemError(nsn, err, "Failed to reset TGB checkpoint")
 		return
 	}
-	d.logger.Info("TGB checkpoint reset", "TGB", nsn)
+	d.logger.Info("TGB checkpoint reset", "tgb", nsn)
 }
 
 func (d *deferredTargetGroupBindingReconcilerImpl) handleDeferredItemError(nsn types.NamespacedName, err error, msg string) {
 	err = client.IgnoreNotFound(err)
 	if err != nil {
-		d.logger.Error(err, msg, "TGB", nsn)
+		d.logger.Error(err, msg, "tgb", nsn)
 		d.enqueue(nsn)
 	}
 }
