@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
@@ -15,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -35,6 +37,8 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 		loadBackendServices bool
 		loadAuthConfig      bool
 		backendServices     map[types.NamespacedName]*corev1.Service
+
+		ingressClassParams elbv2api.IngressClassParams
 	}
 
 	svc1 := &corev1.Service{
@@ -622,6 +626,94 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 			},
 			wantErr: errors.New("missing required \"service\" field"),
 		},
+		{
+			name: "ingress class params based serviceBackend",
+			env: env{
+				svcs: []*corev1.Service{svc1},
+			},
+			fields: fields{
+				tolerateNonExistentBackendService: true,
+				tolerateNonExistentBackendAction:  true,
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/actions.fake-my-svc": `{"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"svc-1","servicePort":"http"}]}}`,
+							"alb.ingress.kubernetes.io/auth-type":           "cognito",
+							"alb.ingress.kubernetes.io/auth-idp-cognito":    "{\"userPoolARN\":\"arn:aws:cognito-idp:us-west-2:xxx:userpool/xxx\",\"userPoolClientID\":\"my-clientID\",\"userPoolDomain\":\"my-domain\"}",
+						},
+					},
+				},
+				backend: networking.IngressBackend{
+					Service: &networking.IngressServiceBackend{
+						Name: "fake-my-svc",
+						Port: networking.ServiceBackendPort{
+							Name: "use-annotation",
+						},
+					},
+				},
+				loadBackendServices: true,
+				loadAuthConfig:      true,
+				backendServices:     map[types.NamespacedName]*corev1.Service{},
+				ingressClassParams: elbv2api.IngressClassParams{
+					Spec: elbv2api.IngressClassParamsSpec{
+						AuthConfig: &elbv2api.AuthConfig{
+							Type: "oidc",
+							IDPConfigOIDC: &elbv2api.AuthIDPConfigOIDC{
+								Issuer:                "https://my-site.com",
+								AuthorizationEndpoint: "https://super-strong-auth.my-site.com",
+								TokenEndpoint:         "https://token.my-site.com",
+								UserInfoEndpoint:      "https://user.my-site.com",
+								SecretName:            "top-secret",
+								AuthenticationRequestExtraParams: map[string]string{
+									"key": "value",
+								},
+							},
+							OnUnauthenticatedRequest: "deny",
+							Scope:                    "email phone",
+							SessionCookieName:        "my-session-cookie",
+							SessionTimeout:           aws.Int64(1234),
+						},
+					},
+				},
+			},
+			want: EnhancedBackend{
+				Action: Action{
+					Type: ActionTypeForward,
+					ForwardConfig: &ForwardActionConfig{
+						TargetGroups: []TargetGroupTuple{
+							{
+								ServiceName: awssdk.String("svc-1"),
+								ServicePort: &portHTTP,
+							},
+						},
+					},
+				},
+				AuthConfig: AuthConfig{
+					Type:             AuthTypeOIDC,
+					IDPConfigCognito: nil,
+					IDPConfigOIDC: &AuthIDPConfigOIDC{
+						Issuer:                "https://my-site.com",
+						AuthorizationEndpoint: "https://super-strong-auth.my-site.com",
+						TokenEndpoint:         "https://token.my-site.com",
+						UserInfoEndpoint:      "https://user.my-site.com",
+						SecretName:            "top-secret",
+						AuthenticationRequestExtraParams: map[string]string{
+							"key": "value",
+						},
+					},
+					OnUnauthenticatedRequest: "deny",
+					Scope:                    "email phone",
+					SessionCookieName:        "my-session-cookie",
+					SessionTimeout:           1234,
+				},
+			},
+			wantBackendServices: map[types.NamespacedName]*corev1.Service{
+				{Namespace: "awesome-ns", Name: "svc-1"}: svc1,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -643,7 +735,7 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 				tolerateNonExistentBackendAction:  tt.fields.tolerateNonExistentBackendAction,
 			}
 
-			got, err := b.Build(context.Background(), tt.args.ing, tt.args.backend,
+			got, err := b.Build(context.Background(), tt.args.ing, tt.args.backend, &tt.args.ingressClassParams,
 				WithLoadBackendServices(tt.args.loadBackendServices, tt.args.backendServices),
 				WithLoadAuthConfig(tt.args.loadAuthConfig))
 			if tt.wantErr != nil {
@@ -1624,10 +1716,11 @@ func Test_defaultEnhancedBackendBuilder_loadBackendServices(t *testing.T) {
 func Test_defaultEnhancedBackendBuilder_buildAuthConfig(t *testing.T) {
 	port80 := intstr.FromInt(80)
 	type args struct {
-		action          Action
-		namespace       string
-		ingAnnotation   map[string]string
-		backendServices map[types.NamespacedName]*corev1.Service
+		action             Action
+		namespace          string
+		ingAnnotation      map[string]string
+		backendServices    map[types.NamespacedName]*corev1.Service
+		ingressClassParams *elbv2api.IngressClassParams
 	}
 	tests := []struct {
 		name    string
@@ -1752,6 +1845,58 @@ func Test_defaultEnhancedBackendBuilder_buildAuthConfig(t *testing.T) {
 				SessionTimeout:           604800,
 			},
 		},
+		{
+			name: "build authConfig type cognito from IngressClassParams, ignore Ingress annotations",
+			args: args{
+				action: Action{
+					Type: ActionTypeFixedResponse,
+					FixedResponseConfig: &FixedResponseActionConfig{
+						ContentType: awssdk.String("text/plain"),
+						StatusCode:  "404",
+					},
+				},
+				namespace: "awesome-ns",
+				ingAnnotation: map[string]string{
+					"alb.ingress.kubernetes.io/auth-type":        "cognito",
+					"alb.ingress.kubernetes.io/auth-idp-cognito": "{\"userPoolARN\":\"arn:aws:cognito-idp:us-west-2:xxx:userpool/xxx\",\"userPoolClientID\":\"my-clientID\",\"userPoolDomain\":\"my-domain\"}",
+				},
+				backendServices: map[types.NamespacedName]*corev1.Service{},
+				ingressClassParams: &elbv2api.IngressClassParams{
+					Spec: elbv2api.IngressClassParamsSpec{
+						AuthConfig: &elbv2api.AuthConfig{
+							Type: "cognito",
+							IDPConfigCognito: &elbv2api.AuthIDPConfigCognito{
+								UserPoolARN:      "arn:aws:cognito-idp:us-east-1:xxx:userpool/xxx",
+								UserPoolClientID: "client1234",
+								UserPoolDomain:   "https://us-east-1xxx.auth.us-east-1.amazoncognito.com",
+								AuthenticationRequestExtraParams: map[string]string{
+									"key": "value",
+								},
+							},
+							OnUnauthenticatedRequest: "deny",
+							Scope:                    "aws.cognito.signin.user.admin email phone",
+							SessionCookieName:        "my-session-cookie",
+							SessionTimeout:           aws.Int64(1234),
+						},
+					},
+				},
+			},
+			want: AuthConfig{
+				Type: AuthTypeCognito,
+				IDPConfigCognito: &AuthIDPConfigCognito{
+					UserPoolARN:      "arn:aws:cognito-idp:us-east-1:xxx:userpool/xxx",
+					UserPoolClientID: "client1234",
+					UserPoolDomain:   "https://us-east-1xxx.auth.us-east-1.amazoncognito.com",
+					AuthenticationRequestExtraParams: map[string]string{
+						"key": "value",
+					},
+				},
+				OnUnauthenticatedRequest: "deny",
+				Scope:                    "aws.cognito.signin.user.admin email phone",
+				SessionCookieName:        "my-session-cookie",
+				SessionTimeout:           1234,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1761,7 +1906,7 @@ func Test_defaultEnhancedBackendBuilder_buildAuthConfig(t *testing.T) {
 				annotationParser:  annotationParser,
 				authConfigBuilder: authConfigBuilder,
 			}
-			got, err := b.buildAuthConfig(context.Background(), tt.args.action, tt.args.namespace, tt.args.ingAnnotation, tt.args.backendServices)
+			got, err := b.buildAuthConfig(context.Background(), tt.args.action, tt.args.namespace, tt.args.ingAnnotation, tt.args.backendServices, tt.args.ingressClassParams)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
