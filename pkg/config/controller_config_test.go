@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
 )
 
@@ -28,7 +29,7 @@ func TestControllerConfig_validateDefaultTagsCollisionWithTrackingTags(t *testin
 			name: "default tags and tracking tags have collision",
 			fields: fields{
 				DefaultTags: map[string]string{
-					"elbv2.k8s.aws/cluster": "value-a",
+					shared_constants.TagKeyK8sCluster: "value-a",
 				},
 			},
 			wantErr: errors.New("tag key elbv2.k8s.aws/cluster cannot be specified in default-tags flag"),
@@ -75,7 +76,7 @@ func TestControllerConfig_validateExternalManagedTagsCollisionWithTrackingTags(t
 		{
 			name: "external managed tags and tracking tags have collision",
 			fields: fields{
-				ExternalManagedTags: []string{"elbv2.k8s.aws/cluster"},
+				ExternalManagedTags: []string{shared_constants.TagKeyK8sCluster},
 			},
 			wantErr: errors.New("tag key elbv2.k8s.aws/cluster cannot be specified in external-managed-tags flag"),
 		},

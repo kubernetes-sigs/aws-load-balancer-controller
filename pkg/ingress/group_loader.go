@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strings"
 
@@ -117,10 +118,10 @@ func (m *defaultGroupLoader) LoadGroupIDIfAny(ctx context.Context, ing *networki
 func (m *defaultGroupLoader) LoadGroupIDsPendingFinalization(_ context.Context, ing *networking.Ingress) []GroupID {
 	var groupIDs []GroupID
 	for _, finalizer := range ing.GetFinalizers() {
-		if finalizer == implicitGroupFinalizer {
+		if finalizer == shared_constants.ImplicitGroupFinalizer {
 			groupIDs = append(groupIDs, NewGroupIDForImplicitGroup(k8s.NamespacedName(ing)))
-		} else if strings.HasPrefix(finalizer, explicitGroupFinalizerPrefix) {
-			groupName := finalizer[len(explicitGroupFinalizerPrefix):]
+		} else if strings.HasPrefix(finalizer, shared_constants.ExplicitGroupFinalizerPrefix) {
+			groupName := finalizer[len(shared_constants.ExplicitGroupFinalizerPrefix):]
 			groupIDs = append(groupIDs, NewGroupIDForExplicitGroup(groupName))
 		}
 	}

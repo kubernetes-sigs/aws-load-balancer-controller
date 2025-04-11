@@ -51,9 +51,8 @@ type securityGroupBuilder interface {
 }
 
 type securityGroupBuilderImpl struct {
-	tagHelper   tagHelper
-	clusterName string
-
+	tagHelper         tagHelper
+	clusterName       string
 	sgResolver        networking.SecurityGroupResolver
 	backendSGProvider networking.BackendSGProvider
 
@@ -102,6 +101,7 @@ func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.
 			return securityGroupOutput{}, err
 		}
 		backendSGAllocated = true
+		lbSGTokens = append(lbSGTokens, backendSecurityGroupToken)
 	}
 	builder.logger.Info("Auto Create SG", "LB SGs", lbSGTokens, "backend SG", backendSecurityGroupToken)
 	return securityGroupOutput{
@@ -133,6 +133,7 @@ func (builder *securityGroupBuilderImpl) handleCustomerSpecifiedSecurityGroups(c
 			return securityGroupOutput{}, err
 		}
 		backendSGAllocated = true
+		lbSGTokens = append(lbSGTokens, backendSecurityGroupToken)
 	}
 	builder.logger.Info("SG configured via annotation", "LB SGs", lbSGTokens, "backend SG", backendSecurityGroupToken)
 	return securityGroupOutput{
@@ -143,7 +144,7 @@ func (builder *securityGroupBuilderImpl) handleCustomerSpecifiedSecurityGroups(c
 }
 
 func (builder *securityGroupBuilderImpl) getBackendSecurityGroup(ctx context.Context, gw *gwv1.Gateway) (core.StringToken, error) {
-	backendSGID, err := builder.backendSGProvider.Get(ctx, networking.ResourceTypeIngress, []types.NamespacedName{k8s.NamespacedName(gw)})
+	backendSGID, err := builder.backendSGProvider.Get(ctx, networking.ResourceTypeGateway, []types.NamespacedName{k8s.NamespacedName(gw)})
 	if err != nil {
 		return nil, err
 	}
