@@ -15,8 +15,13 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
+type buildLoadBalancerSubnetsOutput struct {
+	subnets              []elbv2model.SubnetMapping
+	sourceIPv6NatEnabled bool
+}
+
 type subnetModelBuilder interface {
-	buildLoadBalancerSubnets(ctx context.Context, gwSubnetConfig *[]elbv2gw.SubnetConfiguration, gwSubnetTagSelectors *map[string][]string, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, stack core.Stack) ([]elbv2model.SubnetMapping, bool, error)
+	buildLoadBalancerSubnets(ctx context.Context, gwSubnetConfig *[]elbv2gw.SubnetConfiguration, gwSubnetTagSelectors *map[string][]string, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, stack core.Stack) (buildLoadBalancerSubnetsOutput, error)
 }
 
 type subnetModelBuilderImpl struct {
@@ -50,17 +55,17 @@ func newSubnetModelBuilder(loadBalancerType elbv2model.LoadBalancerType, trackin
 	}
 }
 
-func (subnetBuilder *subnetModelBuilderImpl) buildLoadBalancerSubnets(ctx context.Context, gwSubnetConfig *[]elbv2gw.SubnetConfiguration, gwSubnetTagSelectors *map[string][]string, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, stack core.Stack) ([]elbv2model.SubnetMapping, bool, error) {
+func (subnetBuilder *subnetModelBuilderImpl) buildLoadBalancerSubnets(ctx context.Context, gwSubnetConfig *[]elbv2gw.SubnetConfiguration, gwSubnetTagSelectors *map[string][]string, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, stack core.Stack) (buildLoadBalancerSubnetsOutput, error) {
 	sourceNATEnabled, err := subnetBuilder.validateSubnetsInput(gwSubnetConfig, scheme, ipAddressType)
 
 	if err != nil {
-		return nil, false, err
+		return buildLoadBalancerSubnetsOutput{}, err
 	}
 
 	resolvedEC2Subnets, err := subnetBuilder.resolveEC2Subnets(ctx, stack, gwSubnetConfig, gwSubnetTagSelectors, scheme)
 
 	if err != nil {
-		return nil, false, err
+		return buildLoadBalancerSubnetsOutput{}, err
 	}
 
 	resultPtrs := make([]*elbv2model.SubnetMapping, 0)
@@ -80,7 +85,7 @@ func (subnetBuilder *subnetModelBuilderImpl) buildLoadBalancerSubnets(ctx contex
 	for _, mutator := range subnetBuilder.subnetMutatorChain {
 		err := mutator.Mutate(resultPtrs, resolvedEC2Subnets, subnetConfig)
 		if err != nil {
-			return nil, false, err
+			return buildLoadBalancerSubnetsOutput{}, err
 		}
 	}
 
@@ -90,7 +95,10 @@ func (subnetBuilder *subnetModelBuilderImpl) buildLoadBalancerSubnets(ctx contex
 		result = append(result, *v)
 	}
 
-	return result, sourceNATEnabled, nil
+	return buildLoadBalancerSubnetsOutput{
+		subnets:              result,
+		sourceIPv6NatEnabled: sourceNATEnabled,
+	}, nil
 }
 
 func (subnetBuilder *subnetModelBuilderImpl) validateSubnetsInput(subnetConfigsPtr *[]elbv2gw.SubnetConfiguration, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType) (bool, error) {
