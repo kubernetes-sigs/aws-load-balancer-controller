@@ -25,9 +25,6 @@ const (
 
 	// NLBRouteResourceGroupVersion the groupVersion used by TCPRoute and UDPRoute
 	NLBRouteResourceGroupVersion = "gateway.networking.k8s.io/v1alpha2"
-
-	// NLBGatewayFinalizer the finalizer we attach the NLB Gateway object
-	NLBGatewayFinalizer = "gateway.k8s.aws/nlb-finalizer"
 )
 
 /*
@@ -43,7 +40,4 @@ const (
 
 	// ALBRouteResourceGroupVersion the groupVersion used by HTTPRoute and GRPCRoute
 	ALBRouteResourceGroupVersion = "gateway.networking.k8s.io/v1"
-
-	// ALBGatewayFinalizer the finalizer we attach the ALB Gateway object
-	ALBGatewayFinalizer = "gateway.k8s.aws/alb-finalizer"
 )

@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"encoding/json"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
 	"time"
 
@@ -2169,8 +2170,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									Scheme: elbv2types.LoadBalancerSchemeEnumInternal,
 								},
 								Tags: map[string]string{
-									"elbv2.k8s.aws/cluster": "cluster-name",
-									"ingress.k8s.aws/stack": "ns-1/ing-1",
+									shared_constants.TagKeyK8sCluster: "cluster-name",
+									"ingress.k8s.aws/stack":           "ns-1/ing-1",
 								},
 							},
 							{

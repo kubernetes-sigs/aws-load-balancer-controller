@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -28,7 +27,7 @@ const (
 )
 
 type loadBalancerBuilder interface {
-	buildLoadBalancerSpec(ctx context.Context, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput, securityGroupTokens []core.StringToken) (elbv2model.LoadBalancerSpec, error)
+	buildLoadBalancerSpec(scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput, securityGroupTokens []core.StringToken) (elbv2model.LoadBalancerSpec, error)
 }
 
 type loadBalancerBuilderImpl struct {
@@ -45,7 +44,7 @@ func newLoadBalancerBuilder(loadBalancerType elbv2model.LoadBalancerType, tagHel
 	}
 }
 
-func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerSpec(ctx context.Context, scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput, securityGroupTokens []core.StringToken) (elbv2model.LoadBalancerSpec, error) {
+func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerSpec(scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput, securityGroupTokens []core.StringToken) (elbv2model.LoadBalancerSpec, error) {
 
 	name, err := lbModelBuilder.buildLoadBalancerName(lbConf, gw, scheme)
 	if err != nil {

@@ -5,11 +5,7 @@ import (
 	"fmt"
 	networking "k8s.io/api/networking/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-)
-
-const (
-	explicitGroupFinalizerPrefix = "group.ingress.k8s.aws/"
-	implicitGroupFinalizer       = "ingress.k8s.aws/resources"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
 
 // FinalizerManager manages finalizer for ingresses.
@@ -62,7 +58,7 @@ func (m *defaultFinalizerManager) RemoveGroupFinalizer(ctx context.Context, grou
 // for implicit group, the format is "ingress.k8s.aws/resources"
 func buildGroupFinalizer(groupID GroupID) string {
 	if groupID.IsExplicit() {
-		return fmt.Sprintf("%s%s", explicitGroupFinalizerPrefix, groupID.Name)
+		return fmt.Sprintf("%s%s", shared_constants.ExplicitGroupFinalizerPrefix, groupID.Name)
 	}
-	return implicitGroupFinalizer
+	return shared_constants.ImplicitGroupFinalizer
 }

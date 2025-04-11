@@ -6,6 +6,7 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -1265,8 +1266,8 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 								Scheme: elbv2types.LoadBalancerSchemeEnumInternal,
 							},
 							Tags: map[string]string{
-								"elbv2.k8s.aws/cluster": "cluster-name",
-								"service.k8s.aws/stack": "namespace/serviceName",
+								shared_constants.TagKeyK8sCluster: "cluster-name",
+								"service.k8s.aws/stack":           "namespace/serviceName",
 							},
 						},
 					},

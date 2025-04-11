@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
+
+// TODO(ztn) - Add Gateway documentation here?
 
 //we use AWS tags and K8s labels to track resources we have created.
 //
@@ -31,9 +34,6 @@ import (
 //  * For Service, the following tags will be applied on all K8s resources:
 //    * `service.k8s.aws/stack-namespace: namespace`
 //    * `service.k8s.aws/stack-name: serviceName`
-
-// AWS TagKey for cluster resources.
-const clusterNameTagKey = "elbv2.k8s.aws/cluster"
 
 // Legacy AWS TagKey for cluster resources, which is used by AWSALBIngressController(v1.1.3+)
 const clusterNameTagKeyLegacy = "ingress.k8s.aws/cluster"
@@ -85,8 +85,8 @@ func (p *defaultProvider) ResourceIDTagKey() string {
 func (p *defaultProvider) StackTags(stack core.Stack) map[string]string {
 	stackID := stack.StackID()
 	return map[string]string{
-		clusterNameTagKey:              p.clusterName,
-		p.prefixedTrackingKey("stack"): stackID.String(),
+		shared_constants.TagKeyK8sCluster: p.clusterName,
+		p.prefixedTrackingKey("stack"):    stackID.String(),
 	}
 }
 

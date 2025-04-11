@@ -36,11 +36,12 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	gwTagHelper := newTagHelper(sets.New(lbcConfig.ExternalManagedTags...), lbcConfig.DefaultTags)
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
 	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, enableBackendSG, sgResolver, backendSGProvider, logger)
+	lbBuilder := newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName)
 
 	return &baseModelBuilder{
 		subnetBuilder:        subnetBuilder,
 		securityGroupBuilder: sgBuilder,
-		lbBuilder:            newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName),
+		lbBuilder:            lbBuilder,
 		logger:               logger,
 
 		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
@@ -62,13 +63,13 @@ type baseModelBuilder struct {
 }
 
 func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
+	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 	if gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero() {
 		if baseBuilder.isDeleteProtected(lbConf) {
 			return nil, nil, false, errors.Errorf("Unable to delete gateway %+v because deletion protection is enabled.", k8s.NamespacedName(gw))
 		}
+		return stack, nil, false, nil
 	}
-
-	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 
 	/* Basic LB stuff (Scheme, IP Address Type) */
 	scheme, err := baseBuilder.buildLoadBalancerScheme(lbConf)
@@ -100,15 +101,15 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 	}
 
 	/* Combine everything to form a LoadBalancer */
-
-	// TODO - Fix
-	_, err = baseBuilder.lbBuilder.buildLoadBalancerSpec(ctx, scheme, ipAddressType, gw, lbConf, subnets, securityGroups.securityGroupTokens)
+	spec, err := baseBuilder.lbBuilder.buildLoadBalancerSpec(scheme, ipAddressType, gw, lbConf, subnets, securityGroups.securityGroupTokens)
 
 	if err != nil {
 		return nil, nil, false, err
 	}
 
-	return stack, nil, false, nil
+	lb := elbv2model.NewLoadBalancer(stack, resourceIDLoadBalancer, spec)
+
+	return stack, lb, securityGroups.backendSecurityGroupAllocated, nil
 }
 
 func (baseBuilder *baseModelBuilder) isDeleteProtected(lbConf *elbv2gw.LoadBalancerConfiguration) bool {
