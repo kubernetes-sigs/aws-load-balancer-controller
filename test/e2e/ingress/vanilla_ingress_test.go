@@ -828,6 +828,60 @@ var _ = Describe("vanilla ingress tests", func() {
 				Body().Equal("Hello World!")
 		})
 	})
+
+	Context("with frontend NLB enabled", func() {
+		It("should create a frontend NLB and route traffic correctly", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			annotation := map[string]string{
+				"kubernetes.io/ingress.class":                             "alb",
+				"alb.ingress.kubernetes.io/scheme":                        "internet-facing",
+				"alb.ingress.kubernetes.io/listen-ports":                  `[{"HTTP": 80}]`,
+				"alb.ingress.kubernetes.io/enable-frontend-nlb":           "true",
+				"alb.ingress.kubernetes.io/frontend-nlb-healthcheck-path": "/path",
+				"alb.ingress.kubernetes.io/frontend-nlb-scheme":           "internet-facing",
+			}
+
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			time.Sleep(6 * time.Minute) // Waiting 6 minutes for target registration and DNS propagation, and health check
+
+			albARN, albDNS, nlbARN, nlbDNS := ExpectTwoLBProvisionedForIngress(ctx, tf, ing)
+
+			// test alb traffic
+			ExpectLBDNSBeAvailable(ctx, tf, albARN, albDNS)
+			httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", albDNS))
+			httpExp.GET("/path").Expect().
+				Status(http.StatusOK).
+				Body().Equal("Hello World!")
+
+			// test nlb traffic
+			ExpectLBDNSBeAvailable(ctx, tf, nlbARN, nlbDNS)
+			nlbHttpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", nlbDNS))
+			nlbHttpExp.GET("/path").Expect().
+				Status(http.StatusOK).
+				Body().Equal("Hello World!")
+
+		})
+
+	})
+
 })
 
 // ExpectOneLBProvisionedForIngress expects one LoadBalancer provisioned for Ingress.
@@ -845,6 +899,30 @@ func ExpectOneLBProvisionedForIngress(ctx context.Context, tf *framework.Framewo
 	Expect(err).ShouldNot(HaveOccurred())
 	tf.Logger.Info("ALB provisioned", "arn", lbARN)
 	return lbARN, lbDNS
+}
+
+// ExpectTwoLBProvisionedForIngress expects one ALB and one frontend NLB provisioned for the Ingress.
+func ExpectTwoLBProvisionedForIngress(ctx context.Context, tf *framework.Framework, ing *networking.Ingress) (albARN string, albDNS string, nlbARN string, nlbDNS string) {
+	// Verify ALB is provisioned
+	Eventually(func(g Gomega) {
+		err := tf.K8sClient.Get(ctx, k8s.NamespacedName(ing), ing)
+		g.Expect(err).NotTo(HaveOccurred())
+		albDNS, nlbDNS = FindIngressTwoDNSName(ing)
+		g.Expect(albDNS).ShouldNot(BeEmpty())
+		g.Expect(nlbDNS).ShouldNot(BeEmpty())
+	}, utils.IngressReconcileTimeout, utils.PollIntervalShort).Should(Succeed())
+	tf.Logger.Info("ingress DNS populated", "dnsName", albDNS)
+	tf.Logger.Info("ingress DNS populated", "dnsName", nlbDNS)
+
+	var err error
+	albARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, albDNS)
+	Expect(err).ShouldNot(HaveOccurred())
+	tf.Logger.Info("ALB provisioned", "arn", albARN)
+
+	nlbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, nlbDNS)
+	Expect(err).ShouldNot(HaveOccurred())
+	tf.Logger.Info("NLB provisioned", "arn", nlbARN)
+	return albARN, albDNS, nlbARN, nlbDNS
 }
 
 // ExpectNoLBProvisionedForIngress expects no LoadBalancer provisioned for Ingress.
