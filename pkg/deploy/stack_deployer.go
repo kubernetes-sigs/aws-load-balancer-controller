@@ -20,10 +20,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	ingressController = "ingress"
+)
+
 // StackDeployer will deploy a resource stack into AWS and K8S.
 type StackDeployer interface {
 	// Deploy a resource stack.
-	Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string) error
+	Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState) error
 }
 
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
@@ -49,6 +53,7 @@ func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 		elbv2LRManager:                      elbv2.NewDefaultListenerRuleManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
 		elbv2TGManager:                      elbv2.NewDefaultTargetGroupManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, cloud.VpcID(), config.ExternalManagedTags, logger),
 		elbv2TGBManager:                     elbv2.NewDefaultTargetGroupBindingManager(k8sClient, trackingProvider, logger),
+		elbv2FrontendNlbTargetsManager:      elbv2.NewFrontendNlbTargetsManager(cloud.ELBV2(), logger),
 		wafv2WebACLAssociationManager:       wafv2.NewDefaultWebACLAssociationManager(cloud.WAFv2(), logger),
 		wafRegionalWebACLAssociationManager: wafregional.NewDefaultWebACLAssociationManager(cloud.WAFRegional(), logger),
 		shieldProtectionManager:             shield.NewDefaultProtectionManager(cloud.Shield(), logger),
@@ -77,6 +82,7 @@ type defaultStackDeployer struct {
 	elbv2LRManager                      elbv2.ListenerRuleManager
 	elbv2TGManager                      elbv2.TargetGroupManager
 	elbv2TGBManager                     elbv2.TargetGroupBindingManager
+	elbv2FrontendNlbTargetsManager      elbv2.FrontendNlbTargetsManager
 	wafv2WebACLAssociationManager       wafv2.WebACLAssociationManager
 	wafRegionalWebACLAssociationManager wafregional.WebACLAssociationManager
 	shieldProtectionManager             shield.ProtectionManager
@@ -94,15 +100,21 @@ type ResourceSynthesizer interface {
 }
 
 // Deploy a resource stack.
-func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string) error {
+func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState) error {
 	synthesizers := []ResourceSynthesizer{
 		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.logger, stack),
+	}
+
+	if controllerName == ingressController {
+		synthesizers = append(synthesizers, elbv2.NewFrontendNlbTargetSynthesizer(d.k8sClient, d.trackingProvider, d.elbv2TaggingManager, d.elbv2FrontendNlbTargetsManager, d.logger, d.featureGates, stack, frontendNlbTargetGroupDesiredState))
+	}
+
+	synthesizers = append(synthesizers,
 		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, d.featureGates, stack),
 		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, d.featureGates, d.controllerConfig, stack),
 		elbv2.NewListenerSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LSManager, d.logger, stack),
 		elbv2.NewListenerRuleSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LRManager, d.logger, d.featureGates, stack),
-		elbv2.NewTargetGroupBindingSynthesizer(d.k8sClient, d.trackingProvider, d.elbv2TGBManager, d.logger, stack),
-	}
+		elbv2.NewTargetGroupBindingSynthesizer(d.k8sClient, d.trackingProvider, d.elbv2TGBManager, d.logger, stack))
 
 	if d.addonsConfig.WAFV2Enabled {
 		synthesizers = append(synthesizers, wafv2.NewWebACLAssociationSynthesizer(d.wafv2WebACLAssociationManager, d.logger, stack))
