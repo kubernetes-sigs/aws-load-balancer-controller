@@ -97,11 +97,11 @@ func Test_BuildLoadBalancerSubnets(t *testing.T) {
 		},
 	}
 
-	subnetMappings, ipv6SourceNatEnabled, err := builder.buildLoadBalancerSubnets(context.Background(), &gwSubnetConfig, nil, elbv2model.LoadBalancerSchemeInternal, elbv2model.IPAddressTypeIPV4, nil)
+	output, err := builder.buildLoadBalancerSubnets(context.Background(), &gwSubnetConfig, nil, elbv2model.LoadBalancerSchemeInternal, elbv2model.IPAddressTypeIPV4, nil)
 
 	assert.NoError(t, err)
-	assert.Equal(t, expectedMappings, subnetMappings)
-	assert.False(t, ipv6SourceNatEnabled)
+	assert.Equal(t, expectedMappings, output.subnets)
+	assert.False(t, output.sourceIPv6NatEnabled)
 	assert.Equal(t, 1, mm.called)
 }
 

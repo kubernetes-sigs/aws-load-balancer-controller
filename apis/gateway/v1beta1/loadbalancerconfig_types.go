@@ -44,8 +44,8 @@ type ListenerAttribute struct {
 	Value string `json:"value"`
 }
 
-// Tag defines a AWS Tag on resources.
-type LoadBalancerTag struct {
+// AWSTag defines a AWS Tag on resources.
+type AWSTag struct {
 	// The key of the tag.
 	Key string `json:"key"`
 
@@ -73,7 +73,7 @@ type SubnetConfiguration struct {
 
 	// SourceNatIPv6Prefix [Network LoadBalancer] The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or auto_assigned to use an IPv6 prefix selected at random from the subnet CIDR block.
 	// +optional
-	SourceNatIPv6Prefix *string `json:"sourceNatIPv6Prefix,omitempty"`
+	SourceNatIPv6Prefix *string `json:"sourceNAT,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=HTTP1Only;HTTP2Only;HTTP2Optional;HTTP2Preferred;None
@@ -183,9 +183,15 @@ type LoadBalancerConfigurationSpec struct {
 	// +optional
 	EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic *string `json:"enforceSecurityGroupInboundRulesOnPrivateLinkTraffic,omitempty"`
 
-	// customerOwnedIpv4Pool is the ID of the customer-owned address for Application Load Balancers on Outposts pool.
+	// customerOwnedIpv4Pool [Application LoadBalancer]
+	// is the ID of the customer-owned address for Application Load Balancers on Outposts pool.
 	// +optional
 	CustomerOwnedIpv4Pool *string `json:"customerOwnedIpv4Pool,omitempty"`
+
+	// IPv4IPAMPoolId [Application LoadBalancer]
+	// defines the IPAM pool ID used for IPv4 Addresses on the ALB.
+	// +optional
+	IPv4IPAMPoolId *string `json:"ipv4IPAMPoolId,omitempty"`
 
 	// loadBalancerSubnets is an optional list of subnet configurations to be used in the LB
 	// This value takes precedence over loadBalancerSubnetsSelector if both are selected.
@@ -224,7 +230,19 @@ type LoadBalancerConfigurationSpec struct {
 
 	// Tags defines list of Tags on LB.
 	// +optional
-	Tags []LoadBalancerTag `json:"tags,omitempty"`
+	Tags []AWSTag `json:"tags,omitempty"`
+
+	// EnableICMP [Network LoadBalancer]
+	// enables the creation of security group rules to the managed security group
+	// to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs
+	// +optional
+	EnableICMP bool `json:"enableICMP,omitempty"`
+
+	// ManageBackendSecurityGroupRules [Application / Network LoadBalancer]
+	// specifies whether you want the controller to configure security group rules on Node/Pod for traffic access
+	// when you specify securityGroups
+	// +optional
+	ManageBackendSecurityGroupRules bool `json:"manageBackendSecurityGroupRules,omitempty"`
 }
 
 // TODO -- these can be used to set what generation the gateway is currently on to track progress on reconcile.

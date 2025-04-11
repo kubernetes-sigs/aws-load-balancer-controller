@@ -28,15 +28,23 @@ type Builder interface {
 // NewModelBuilder construct a new baseModelBuilder
 func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, loadBalancerType elbv2model.LoadBalancerType, trackingProvider tracking.Provider,
-	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
+	elbv2TaggingManager elbv2deploy.TaggingManager, lbcConfig config.ControllerConfig, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags sets.Set[string], defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
 	disableRestrictedSGRules bool, logger logr.Logger) Builder {
 
+	gwTagHelper := newTagHelper(sets.New(lbcConfig.ExternalManagedTags...), lbcConfig.DefaultTags)
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
+	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, enableBackendSG, sgResolver, backendSGProvider, logger)
 
 	return &baseModelBuilder{
-		lbBuilder: newLoadBalancerBuilder(subnetBuilder, defaultLoadBalancerScheme),
+		subnetBuilder:        subnetBuilder,
+		securityGroupBuilder: sgBuilder,
+		lbBuilder:            newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName),
+		logger:               logger,
+
+		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
+		defaultIPType:             elbv2model.IPAddressTypeIPV4,
 	}
 }
 
@@ -45,6 +53,12 @@ var _ Builder = &baseModelBuilder{}
 type baseModelBuilder struct {
 	lbBuilder loadBalancerBuilder
 	logger    logr.Logger
+
+	subnetBuilder        subnetModelBuilder
+	securityGroupBuilder securityGroupBuilder
+
+	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
+	defaultIPType             elbv2model.IPAddressType
 }
 
 func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
@@ -56,8 +70,39 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 
+	/* Basic LB stuff (Scheme, IP Address Type) */
+	scheme, err := baseBuilder.buildLoadBalancerScheme(lbConf)
+
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	ipAddressType, err := baseBuilder.buildLoadBalancerIPAddressType(lbConf)
+
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	/* Subnets */
+
+	subnets, err := baseBuilder.subnetBuilder.buildLoadBalancerSubnets(ctx, lbConf.Spec.LoadBalancerSubnets, lbConf.Spec.LoadBalancerSubnetsSelector, scheme, ipAddressType, stack)
+
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	/* Security Groups */
+
+	securityGroups, err := baseBuilder.securityGroupBuilder.buildSecurityGroups(ctx, stack, lbConf, gw, routes, ipAddressType)
+
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	/* Combine everything to form a LoadBalancer */
+
 	// TODO - Fix
-	_, err := baseBuilder.lbBuilder.buildLoadBalancerSpec(ctx, gw, stack, lbConf, routes)
+	_, err = baseBuilder.lbBuilder.buildLoadBalancerSpec(ctx, scheme, ipAddressType, gw, lbConf, subnets, securityGroups.securityGroupTokens)
 
 	if err != nil {
 		return nil, nil, false, err
@@ -85,4 +130,39 @@ func (baseBuilder *baseModelBuilder) isDeleteProtected(lbConf *elbv2gw.LoadBalan
 	}
 
 	return false
+}
+
+func (baseBuilder *baseModelBuilder) buildLoadBalancerScheme(lbConf *elbv2gw.LoadBalancerConfiguration) (elbv2model.LoadBalancerScheme, error) {
+	scheme := lbConf.Spec.Scheme
+
+	if scheme == nil {
+		return baseBuilder.defaultLoadBalancerScheme, nil
+	}
+	switch *scheme {
+	case elbv2gw.LoadBalancerScheme(elbv2model.LoadBalancerSchemeInternetFacing):
+		return elbv2model.LoadBalancerSchemeInternetFacing, nil
+	case elbv2gw.LoadBalancerScheme(elbv2model.LoadBalancerSchemeInternal):
+		return elbv2model.LoadBalancerSchemeInternal, nil
+	default:
+		return "", errors.Errorf("unknown scheme: %v", *scheme)
+	}
+}
+
+// buildLoadBalancerIPAddressType builds the LoadBalancer IPAddressType.
+func (baseBuilder *baseModelBuilder) buildLoadBalancerIPAddressType(lbConf *elbv2gw.LoadBalancerConfiguration) (elbv2model.IPAddressType, error) {
+
+	if lbConf.Spec.IpAddressType == nil {
+		return baseBuilder.defaultIPType, nil
+	}
+
+	switch *lbConf.Spec.IpAddressType {
+	case elbv2gw.LoadBalancerIpAddressType(elbv2model.IPAddressTypeIPV4):
+		return elbv2model.IPAddressTypeIPV4, nil
+	case elbv2gw.LoadBalancerIpAddressType(elbv2model.IPAddressTypeDualStack):
+		return elbv2model.IPAddressTypeDualStack, nil
+	case elbv2gw.LoadBalancerIpAddressType(elbv2model.IPAddressTypeDualStackWithoutPublicIPV4):
+		return elbv2model.IPAddressTypeDualStackWithoutPublicIPV4, nil
+	default:
+		return "", errors.Errorf("unknown IPAddressType: %v", *lbConf.Spec.IpAddressType)
+	}
 }

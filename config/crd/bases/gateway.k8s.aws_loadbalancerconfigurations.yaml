@@ -1,0 +1,298 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: loadbalancerconfigurations.gateway.k8s.aws
+spec:
+  group: gateway.k8s.aws
+  names:
+    kind: LoadBalancerConfiguration
+    listKind: LoadBalancerConfigurationList
+    plural: loadbalancerconfigurations
+    singular: loadbalancerconfiguration
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: LoadBalancerConfiguration is the Schema for the LoadBalancerConfiguration
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: LoadBalancerConfigurationSpec defines the desired state of
+              LoadBalancerConfiguration
+            properties:
+              customerOwnedIpv4Pool:
+                description: |-
+                  customerOwnedIpv4Pool [Application LoadBalancer]
+                  is the ID of the customer-owned address for Application Load Balancers on Outposts pool.
+                type: string
+              enableICMP:
+                description: |-
+                  EnableICMP [Network LoadBalancer]
+                  enables the creation of security group rules to the managed security group
+                  to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs
+                type: boolean
+              enforceSecurityGroupInboundRulesOnPrivateLinkTraffic:
+                description: enforceSecurityGroupInboundRulesOnPrivateLinkTraffic
+                  Indicates whether to evaluate inbound security group rules for traffic
+                  sent to a Network Load Balancer through Amazon Web Services PrivateLink.
+                type: string
+              ipAddressType:
+                description: loadBalancerIPType defines what kind of load balancer
+                  to provision (ipv4, dual stack)
+                enum:
+                - ipv4
+                - dualstack
+                - dualstack-without-public-ipv4
+                type: string
+              ipv4IPAMPoolId:
+                description: |-
+                  IPv4IPAMPoolId [Application LoadBalancer]
+                  defines the IPAM pool ID used for IPv4 Addresses on the ALB.
+                type: string
+              listenerConfigurations:
+                description: listenerConfigurations is an optional list of configurations
+                  for each listener on LB
+                items:
+                  properties:
+                    alpnPolicy:
+                      description: alpnPolicy an optional string that allows you to
+                        configure ALPN policies on your Load Balancer
+                      enum:
+                      - HTTP1Only
+                      - HTTP2Only
+                      - HTTP2Optional
+                      - HTTP2Preferred
+                      - None
+                      type: string
+                    certificates:
+                      description: certificates is the list of other certificates
+                        to add to the listener.
+                      items:
+                        type: string
+                      type: array
+                    defaultCertificate:
+                      description: |-
+                        TODO: Add validation in admission webhook to make it required for secure protocols
+                        defaultCertificate the cert arn to be used by default.
+                      type: string
+                    listenerAttributes:
+                      description: listenerAttributes defines the attributes for the
+                        listener
+                      items:
+                        description: ListenerAttribute defines listener attribute.
+                        properties:
+                          key:
+                            description: The key of the attribute.
+                            type: string
+                          value:
+                            description: The value of the attribute.
+                            type: string
+                        required:
+                        - key
+                        - value
+                        type: object
+                      type: array
+                    mutualAuthentication:
+                      description: mutualAuthentication defines the mutual authentication
+                        configuration information.
+                      properties:
+                        advertiseTrustStoreCaNames:
+                          description: Indicates whether trust store CA certificate
+                            names are advertised.
+                          enum:
+                          - "on"
+                          - "off"
+                          type: string
+                        ignoreClientCertificateExpiry:
+                          description: Indicates whether expired client certificates
+                            are ignored.
+                          type: boolean
+                        mode:
+                          description: The client certificate handling method. Options
+                            are off , passthrough or verify
+                          enum:
+                          - "off"
+                          - passthrough
+                          - verify
+                          type: string
+                        trustStore:
+                          description: The Name or ARN of the trust store.
+                          type: string
+                      required:
+                      - mode
+                      type: object
+                    protocolPort:
+                      description: protocolPort is identifier for the listener on
+                        load balancer. It should be of the form PROTOCOL:PORT
+                      pattern: ^(HTTP|HTTPS|TLS|TCP|UDP)?:(6553[0-5]|655[0-2]\d|65[0-4]\d{2}|6[0-4]\d{3}|[1-5]\d{4}|[1-9]\d{0,3})?$
+                      type: string
+                    sslPolicy:
+                      description: sslPolicy is the security policy that defines which
+                        protocols and ciphers are supported for secure listeners [HTTPS
+                        or TLS listener].
+                      type: string
+                  required:
+                  - protocolPort
+                  type: object
+                type: array
+              loadBalancerAttributes:
+                description: LoadBalancerAttributes defines the attribute of LB
+                items:
+                  description: LoadBalancerAttribute defines LB attribute.
+                  properties:
+                    key:
+                      description: The key of the attribute.
+                      type: string
+                    value:
+                      description: The value of the attribute.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
+              loadBalancerName:
+                description: loadBalancerName defines the name of the LB to provision.
+                  If unspecified, it will be automatically generated.
+                maxLength: 32
+                minLength: 1
+                type: string
+              loadBalancerSubnets:
+                description: |-
+                  loadBalancerSubnets is an optional list of subnet configurations to be used in the LB
+                  This value takes precedence over loadBalancerSubnetsSelector if both are selected.
+                items:
+                  description: SubnetConfiguration defines the subnet settings for
+                    a Load Balancer.
+                  properties:
+                    eipAllocation:
+                      description: eipAllocation [Network LoadBalancer] the EIP name
+                        for this subnet.
+                      type: string
+                    identifier:
+                      description: identifier [Application LoadBalancer / Network
+                        LoadBalancer] name or id for the subnet
+                      type: string
+                    ipv6Allocation:
+                      description: IPv6Allocation [Network LoadBalancer] the ipv6
+                        address to assign to this subnet.
+                      type: string
+                    privateIPv4Allocation:
+                      description: privateIPv4Allocation [Network LoadBalancer] the
+                        private ipv4 address to assign to this subnet.
+                      type: string
+                    sourceNAT:
+                      description: SourceNatIPv6Prefix [Network LoadBalancer] The
+                        IPv6 prefix to use for source NAT. Specify an IPv6 prefix
+                        (/80 netmask) from the subnet CIDR block or auto_assigned
+                        to use an IPv6 prefix selected at random from the subnet CIDR
+                        block.
+                      type: string
+                  type: object
+                type: array
+              loadBalancerSubnetsSelector:
+                additionalProperties:
+                  items:
+                    type: string
+                  type: array
+                description: |-
+                  LoadBalancerSubnetsSelector specifies subnets in the load balancer's VPC where each
+                  tag specified in the map key contains one of the values in the corresponding
+                  value list.
+                type: object
+              manageBackendSecurityGroupRules:
+                description: |-
+                  ManageBackendSecurityGroupRules [Application / Network LoadBalancer]
+                  specifies whether you want the controller to configure security group rules on Node/Pod for traffic access
+                  when you specify securityGroups
+                type: boolean
+              scheme:
+                description: scheme defines the type of LB to provision. If unspecified,
+                  it will be automatically inferred.
+                enum:
+                - internal
+                - internet-facing
+                type: string
+              securityGroupPrefixes:
+                description: securityGroupPrefixes an optional list of prefixes that
+                  are allowed to access the LB.
+                items:
+                  type: string
+                type: array
+              securityGroups:
+                description: securityGroups an optional list of security group ids
+                  or names to apply to the LB
+                items:
+                  type: string
+                type: array
+              sourceRanges:
+                description: sourceRanges an optional list of CIDRs that are allowed
+                  to access the LB.
+                items:
+                  type: string
+                type: array
+              tags:
+                description: Tags defines list of Tags on LB.
+                items:
+                  description: AWSTag defines a AWS Tag on resources.
+                  properties:
+                    key:
+                      description: The key of the tag.
+                      type: string
+                    value:
+                      description: The value of the tag.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
+              vpcId:
+                description: vpcId is the ID of the VPC for the load balancer.
+                type: string
+            type: object
+          status:
+            description: LoadBalancerConfigurationStatus defines the observed state
+              of TargetGroupBinding
+            properties:
+              observedGatewayClassConfigurationGeneration:
+                description: The generation of the Gateway Configuration attached
+                  to the GatewayClass object.
+                format: int64
+                type: integer
+              observedGatewayConfigurationGeneration:
+                description: The generation of the Gateway Configuration attached
+                  to the Gateway object.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
