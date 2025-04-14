@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -17,15 +18,6 @@ import (
 )
 
 const (
-	icmpv4Protocol = "icmp"
-	icmpv6Protocol = "icmpv6"
-
-	icmpv4TypeForPathMtu = 3 // https://www.iana.org/assignments/icmp-parameters/icmp-parameters.xhtml#icmp-parameters-codes-3
-	icmpv4CodeForPathMtu = 4
-
-	icmpv6TypeForPathMtu = 2 // https://www.iana.org/assignments/icmpv6-parameters/icmpv6-parameters.xhtml#icmpv6-parameters-codes-2
-	icmpv6CodeForPathMtu = 0
-
 	resourceIDManagedSecurityGroup = "ManagedLBSecurityGroup"
 )
 
@@ -99,9 +91,9 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 				})
 				if icmpForPathMtuConfigured && icmpForPathMtuConfiguredFlag == "on" {
 					permissions = append(permissions, ec2model.IPPermission{
-						IPProtocol: string(icmpv4Protocol),
-						FromPort:   awssdk.Int32(icmpv4TypeForPathMtu),
-						ToPort:     awssdk.Int32(icmpv4CodeForPathMtu),
+						IPProtocol: shared_constants.ICMPV4Protocol,
+						FromPort:   awssdk.Int32(shared_constants.ICMPV4TypeForPathMtu),
+						ToPort:     awssdk.Int32(shared_constants.ICMPV4CodeForPathMtu),
 						IPRanges: []ec2model.IPRange{
 							{
 								CIDRIP: cidr,
@@ -122,9 +114,9 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 				})
 				if icmpForPathMtuConfigured && icmpForPathMtuConfiguredFlag == "on" {
 					permissions = append(permissions, ec2model.IPPermission{
-						IPProtocol: string(icmpv6Protocol),
-						FromPort:   awssdk.Int32(icmpv6TypeForPathMtu),
-						ToPort:     awssdk.Int32(icmpv6CodeForPathMtu),
+						IPProtocol: shared_constants.ICMPV6Protocol,
+						FromPort:   awssdk.Int32(shared_constants.ICMPV6TypeForPathMtu),
+						ToPort:     awssdk.Int32(shared_constants.ICMPV6CodeForPathMtu),
 						IPv6Range: []ec2model.IPv6Range{
 							{
 								CIDRIPv6: cidr,

@@ -15,15 +15,7 @@ import (
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 const (
-	lbAttrsAccessLogsS3Enabled                 = "access_logs.s3.enabled"
-	lbAttrsAccessLogsS3Bucket                  = "access_logs.s3.bucket"
-	lbAttrsAccessLogsS3Prefix                  = "access_logs.s3.prefix"
-	lbAttrsLoadBalancingCrossZoneEnabled       = "load_balancing.cross_zone.enabled"
-	lbAttrsLoadBalancingDnsClientRoutingPolicy = "dns_record.client_routing_policy"
-	availabilityZoneAffinity                   = "availability_zone_affinity"
-	partialAvailabilityZoneAffinity            = "partial_availability_zone_affinity"
-	anyAvailabilityZone                        = "any_availability_zone"
-	resourceIDLoadBalancer                     = "LoadBalancer"
+	resourceIDLoadBalancer = "LoadBalancer"
 )
 
 type loadBalancerBuilder interface {
