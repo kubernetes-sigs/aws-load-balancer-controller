@@ -56,7 +56,7 @@ type BackendSGProvider interface {
 
 // NewBackendSGProvider constructs a new  defaultBackendSGProvider
 func NewBackendSGProvider(clusterName string, backendSG string, vpcID string,
-	ec2Client services.EC2, k8sClient client.Client, defaultTags map[string]string, enableNLBGateway bool, enableALBGateway bool, logger logr.Logger) *defaultBackendSGProvider {
+	ec2Client services.EC2, k8sClient client.Client, defaultTags map[string]string, enableGatewayCheck bool, logger logr.Logger) *defaultBackendSGProvider {
 	return &defaultBackendSGProvider{
 		vpcID:       vpcID,
 		clusterName: clusterName,
@@ -67,7 +67,7 @@ func NewBackendSGProvider(clusterName string, backendSG string, vpcID string,
 		logger:      logger,
 		mutex:       sync.Mutex{},
 
-		enableGatewayCheck: enableALBGateway || enableNLBGateway,
+		enableGatewayCheck: enableGatewayCheck,
 
 		checkIngressFinalizersFunc: func(finalizers []string) bool {
 			for _, fin := range finalizers {
@@ -186,7 +186,7 @@ func (p *defaultBackendSGProvider) isBackendSGRequired(ctx context.Context) (boo
 	if required, err := p.checkServiceListForUnmapped(ctx); required || err != nil {
 		return required, err
 	}
-	if required, err := p.checkServiceListForUnmapped(ctx); required || err != nil {
+	if required, err := p.checkGatewayListForUnmapped(ctx); required || err != nil {
 		return required, err
 	}
 	return false, nil
@@ -332,7 +332,7 @@ func (p *defaultBackendSGProvider) getBackendSGFromEC2(ctx context.Context, sgNa
 			},
 		},
 	}
-	p.logger.V(1).Info("Queriying existing SG", "vpc-id", vpcID, "name", sgName)
+	p.logger.V(1).Info("Querying existing SG", "vpc-id", vpcID, "name", sgName)
 	sgs, err := p.ec2Client.DescribeSecurityGroupsAsList(ctx, req)
 	if err != nil && !isEC2SecurityGroupNotFoundError(err) {
 		return "", err
