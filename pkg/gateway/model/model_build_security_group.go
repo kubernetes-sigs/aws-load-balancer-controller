@@ -75,7 +75,7 @@ func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context
 		return builder.handleManagedSecurityGroup(ctx, stack, lbConf, gw, routes, ipAddressType)
 	}
 
-	return builder.handleCustomerSpecifiedSecurityGroups(ctx, lbConf, gw, sgNameOrIds)
+	return builder.handleExplicitSecurityGroups(ctx, lbConf, gw, sgNameOrIds)
 }
 
 func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.Context, stack core.Stack, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
@@ -105,7 +105,7 @@ func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.
 	}, nil
 }
 
-func (builder *securityGroupBuilderImpl) handleCustomerSpecifiedSecurityGroups(ctx context.Context, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, sgNameOrIds []string) (securityGroupOutput, error) {
+func (builder *securityGroupBuilderImpl) handleExplicitSecurityGroups(ctx context.Context, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, sgNameOrIds []string) (securityGroupOutput, error) {
 	var lbSGTokens []core.StringToken
 	manageBackendSGRules := lbConf.Spec.ManageBackendSecurityGroupRules
 	frontendSGIDs, err := builder.sgResolver.ResolveViaNameOrID(ctx, sgNameOrIds)
