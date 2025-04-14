@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	"reflect"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -30,8 +31,7 @@ import (
 )
 
 const (
-	lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
-	controllerName                   = "ingress"
+	controllerName = "ingress"
 )
 
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
@@ -458,8 +458,8 @@ func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(ing *networki
 	if err != nil {
 		return false, err
 	}
-	if _, deletionProtectionSpecified := lbAttributes[lbAttrsDeletionProtectionEnabled]; deletionProtectionSpecified {
-		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[lbAttrsDeletionProtectionEnabled])
+	if _, deletionProtectionSpecified := lbAttributes[shared_constants.LBAttributeDeletionProtection]; deletionProtectionSpecified {
+		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[shared_constants.LBAttributeDeletionProtection])
 		if err != nil {
 			return false, err
 		}

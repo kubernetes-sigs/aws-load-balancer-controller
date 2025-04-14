@@ -25,8 +25,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
-const lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
-
 func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 	tests := []struct {
 		testName  string
@@ -79,7 +77,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsDeletionProtectionEnabled,
+					Key:   shared_constants.LBAttributeDeletionProtection,
 					Value: "true",
 				},
 			},
@@ -113,7 +111,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsDeletionProtectionEnabled,
+					Key:   shared_constants.LBAttributeDeletionProtection,
 					Value: "true",
 				},
 				{

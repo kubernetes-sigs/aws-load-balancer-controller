@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
 	"sync"
 
@@ -29,7 +30,6 @@ const (
 	LoadBalancerTypeExternal       = "external"
 	LoadBalancerTargetTypeIP       = "ip"
 	LoadBalancerTargetTypeInstance = "instance"
-	lbAttrsDeletionProtection      = "deletion_protection.enabled"
 	controllerName                 = "service"
 )
 
@@ -274,8 +274,8 @@ func (t *defaultModelBuildTask) getDeletionProtectionViaAnnotation(svc corev1.Se
 	if err != nil {
 		return false, err
 	}
-	if _, deletionProtectionSpecified := lbAttributes[lbAttrsDeletionProtection]; deletionProtectionSpecified {
-		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[lbAttrsDeletionProtection])
+	if _, deletionProtectionSpecified := lbAttributes[shared_constants.LBAttributeDeletionProtection]; deletionProtectionSpecified {
+		deletionProtectionEnabled, err := strconv.ParseBool(lbAttributes[shared_constants.LBAttributeDeletionProtection])
 		if err != nil {
 			return false, err
 		}

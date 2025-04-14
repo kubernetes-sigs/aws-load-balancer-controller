@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"strconv"
 )
@@ -118,7 +119,7 @@ func (baseBuilder *baseModelBuilder) isDeleteProtected(lbConf *elbv2gw.LoadBalan
 	}
 
 	for _, attr := range lbConf.Spec.LoadBalancerAttributes {
-		if attr.Key == deletionProtectionAttributeKey {
+		if attr.Key == shared_constants.LBAttributeDeletionProtection {
 			deletionProtectionEnabled, err := strconv.ParseBool(attr.Value)
 
 			if err != nil {
