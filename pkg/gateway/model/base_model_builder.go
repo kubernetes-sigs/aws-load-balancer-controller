@@ -58,6 +58,8 @@ type baseModelBuilder struct {
 	lbBuilder loadBalancerBuilder
 	logger    logr.Logger
 
+	tgByResID map[string]*elbv2model.TargetGroup
+
 	subnetBuilder        subnetModelBuilder
 	securityGroupBuilder securityGroupBuilder
 	tgBuilder            targetGroupBuilder
