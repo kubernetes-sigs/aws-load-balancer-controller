@@ -1,7 +1,6 @@
 package subnet
 
 import (
-	"fmt"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/pkg/errors"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
@@ -27,7 +26,6 @@ func (mutator *eipMutator) Mutate(elbSubnets []*elbv2model.SubnetMapping, _ []ec
 	}
 
 	for i, elbSubnet := range elbSubnets {
-		fmt.Println("HERE!")
 		elbSubnet.AllocationID = subnetConfig[i].EIPAllocation
 	}
 	return nil
