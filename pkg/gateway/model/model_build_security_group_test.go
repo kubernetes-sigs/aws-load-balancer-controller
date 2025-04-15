@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"fmt"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -306,6 +308,547 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 			if tc.hasBackendSg {
 				assert.NotNil(t, out.backendSecurityGroupToken)
 			}
+		})
+	}
+}
+
+func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *testing.T) {
+	testCases := []struct {
+		name          string
+		lbConf        *elbv2gw.LoadBalancerConfiguration
+		ipAddressType elbv2model.IPAddressType
+		routes        map[int][]routeutils.RouteDescriptor
+		expected      []ec2model.IPPermission
+	}{
+		{
+			name:     "no routes",
+			lbConf:   &elbv2gw.LoadBalancerConfiguration{},
+			expected: make([]ec2model.IPPermission, 0),
+		},
+		{
+			name: "ipv4 - tcp - with source range",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"127.0.0.1/24",
+						"127.100.0.1/24",
+						"127.200.0.1/24",
+					},
+				},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.100.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.200.0.1/24",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ipv4 - udp - with source range",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"127.0.0.1/24",
+						"127.100.0.1/24",
+						"127.200.0.1/24",
+					},
+				},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.UDPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "udp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "udp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.100.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "udp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.200.0.1/24",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ipv4 - udp - with source range - icmp enabled",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"127.0.0.1/24",
+					},
+					EnableICMP: true,
+				},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.UDPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "udp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "icmp",
+					FromPort:   awssdk.Int32(2),
+					ToPort:     awssdk.Int32(3),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ipv4 - with duplicated route type - with source range",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"127.0.0.1/24",
+						"127.100.0.1/24",
+						"127.200.0.1/24",
+					},
+				},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+					&routeutils.MockRoute{
+						Kind: routeutils.HTTPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.100.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.200.0.1/24",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "ipv4 - with duplicated route type - with source range - multiple ports",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"127.0.0.1/24",
+						"127.100.0.1/24",
+						"127.200.0.1/24",
+					},
+				},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+					&routeutils.MockRoute{
+						Kind: routeutils.HTTPRouteKind,
+					},
+				},
+				85: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+					&routeutils.MockRoute{
+						Kind: routeutils.HTTPRouteKind,
+					},
+				},
+				90: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+					&routeutils.MockRoute{
+						Kind: routeutils.HTTPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.100.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.200.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(85),
+					ToPort:     awssdk.Int32(85),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(85),
+					ToPort:     awssdk.Int32(85),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.100.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(85),
+					ToPort:     awssdk.Int32(85),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.200.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(90),
+					ToPort:     awssdk.Int32(90),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(90),
+					ToPort:     awssdk.Int32(90),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.100.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(90),
+					ToPort:     awssdk.Int32(90),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.200.0.1/24",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "ipv6 - with source range",
+			ipAddressType: elbv2model.IPAddressTypeDualStack,
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"2001:db8::/32",
+					},
+				},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+					&routeutils.MockRoute{
+						Kind: routeutils.HTTPRouteKind,
+					},
+				},
+				85: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+					&routeutils.MockRoute{
+						Kind: routeutils.HTTPRouteKind,
+					},
+				},
+				90: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+					&routeutils.MockRoute{
+						Kind: routeutils.HTTPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "2001:db8::/32",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(85),
+					ToPort:     awssdk.Int32(85),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "2001:db8::/32",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(90),
+					ToPort:     awssdk.Int32(90),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "2001:db8::/32",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "ipv6 + ipv4 - with source range",
+			ipAddressType: elbv2model.IPAddressTypeDualStack,
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"2001:db8::/32",
+						"127.0.0.1/24",
+					},
+				},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "2001:db8::/32",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "ipv6 + ipv4 - with source range - but lb type doesnt support ipv6",
+			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"2001:db8::/32",
+						"127.0.0.1/24",
+					},
+				},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "prefix list",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					SourceRanges: &[]string{
+						"127.0.0.1/24",
+					},
+					SecurityGroupPrefixes: &[]string{"pl1", "pl2"},
+				},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					PrefixLists: []ec2model.PrefixList{
+						{
+							ListID: "pl1",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					PrefixLists: []ec2model.PrefixList{
+						{
+							ListID: "pl2",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			builder := &securityGroupBuilderImpl{}
+			permissions := builder.buildManagedSecurityGroupIngressPermissions(tc.lbConf, tc.routes, tc.ipAddressType)
+			assert.ElementsMatch(t, tc.expected, permissions, fmt.Sprintf("%+v", permissions))
 		})
 	}
 }
