@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,7 +28,6 @@ import (
 const (
 	tgAttrsProxyProtocolV2Enabled  = "proxy_protocol_v2.enabled"
 	tgAttrsPreserveClientIPEnabled = "preserve_client_ip.enabled"
-	healthCheckPortTrafficPort     = "traffic-port"
 )
 
 func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
@@ -304,7 +304,7 @@ func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetTy
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Context, defaultHealthCheckPort string, targetType elbv2model.TargetType) (intstr.IntOrString, error) {
 	rawHealthCheckPort := defaultHealthCheckPort
 	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPort, &rawHealthCheckPort, t.service.Annotations)
-	if rawHealthCheckPort == healthCheckPortTrafficPort {
+	if rawHealthCheckPort == shared_constants.HealthCheckPortTrafficPort {
 		return intstr.FromString(rawHealthCheckPort), nil
 	}
 	healthCheckPort := intstr.Parse(rawHealthCheckPort)
@@ -514,7 +514,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 				Protocol: &protocolUDP,
 				Port:     &tgPort,
 			})
-			if hcPort.String() == healthCheckPortTrafficPort || (hcPort.Type == intstr.Int && hcPort.IntValue() == tgPort.IntValue()) {
+			if hcPort.String() == shared_constants.HealthCheckPortTrafficPort || (hcPort.Type == intstr.Int && hcPort.IntValue() == tgPort.IntValue()) {
 				ports = append(ports, elbv2api.NetworkingPort{
 					Protocol: &protocolTCP,
 					Port:     &tgPort,
@@ -522,7 +522,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 			}
 		}
 
-		if hcPort.String() != healthCheckPortTrafficPort && (hcPort.Type == intstr.Int && hcPort.IntValue() != tgPort.IntValue()) {
+		if hcPort.String() != shared_constants.HealthCheckPortTrafficPort && (hcPort.Type == intstr.Int && hcPort.IntValue() != tgPort.IntValue()) {
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolTCP,
 				Port:     &hcPort,
@@ -612,7 +612,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 	if healthCheckSourceCIDRs := t.buildHealthCheckSourceCIDRs(trafficSource, loadBalancerSubnetCIDRs, tgPort, hcPort,
 		tgProtocol, defaultRangeUsed); len(healthCheckSourceCIDRs) > 0 {
 		networkingHealthCheckPort := hcPort
-		if hcPort.String() == healthCheckPortTrafficPort {
+		if hcPort.String() == shared_constants.HealthCheckPortTrafficPort {
 			networkingHealthCheckPort = tgPort
 		}
 		tgbNetworking.Ingress = append(tgbNetworking.Ingress, elbv2model.NetworkingIngressRule{
@@ -698,7 +698,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 func (t *defaultModelBuildTask) buildHealthCheckSourceCIDRs(trafficSource, subnetCIDRs []string, tgPort, hcPort intstr.IntOrString,
 	tgProtocol corev1.Protocol, defaultRangeUsed bool) []string {
 	if tgProtocol != corev1.ProtocolUDP &&
-		(hcPort.String() == healthCheckPortTrafficPort || hcPort.IntValue() == tgPort.IntValue()) {
+		(hcPort.String() == shared_constants.HealthCheckPortTrafficPort || hcPort.IntValue() == tgPort.IntValue()) {
 		if !t.preserveClientIP {
 			return nil
 		}
