@@ -164,3 +164,57 @@ func TestControllerConfig_validateExternalManagedTagsCollisionWithDefaultTags(t 
 		})
 	}
 }
+
+func TestControllerConfig_validateManageBackendSecurityGroupRulesConfiguration(t *testing.T) {
+	tests := []struct {
+		name                                  string
+		enableManageBackendSecurityGroupRules bool
+		enableBackendSecurityGroup            bool
+		wantErr                               bool
+		errMsg                                string
+	}{
+		{
+			name:                                  "with enableManageBackendSecurityGroupRules=false and enableBackendSecurityGroup=false - should succeed",
+			enableManageBackendSecurityGroupRules: false,
+			enableBackendSecurityGroup:            false,
+			wantErr:                               false,
+		},
+		{
+			name:                                  "with enableManageBackendSecurityGroupRules=true and enableBackendSecurityGroup=true - should succeed",
+			enableManageBackendSecurityGroupRules: true,
+			enableBackendSecurityGroup:            true,
+			wantErr:                               false,
+		},
+		{
+			name:                                  "with enableBackendSecurityGroup=true - should succeed",
+			enableManageBackendSecurityGroupRules: false,
+			enableBackendSecurityGroup:            true,
+			wantErr:                               false,
+		},
+		{
+			name:                                  "with enableManageBackendSecurityGroupRules=true and enableBackendSecurityGroup=false - expect error",
+			enableManageBackendSecurityGroupRules: true,
+			enableBackendSecurityGroup:            false,
+			wantErr:                               true,
+			errMsg:                                "backend security group must be enabled when manage backend security group rule is enabled",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &ControllerConfig{
+				EnableManageBackendSecurityGroupRules: tt.enableManageBackendSecurityGroupRules,
+				EnableBackendSecurityGroup:            tt.enableBackendSecurityGroup,
+			}
+
+			err := cfg.validateManageBackendSecurityGroupRulesConfiguration()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}

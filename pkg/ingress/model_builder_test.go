@@ -4621,3 +4621,107 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_buildManageSecurityGroupRulesFlag(t *testing.T) {
+	type fields struct {
+		ingGroup                   Group
+		enableManageBackendSGRules bool
+		enableBackendSGRules       bool
+	}
+
+	tests := []struct {
+		name      string
+		fields    fields
+		want      bool
+		wantError string
+	}{
+		{
+			name: "with enableManageBackendSGRules and manage-backend-security-group-rules annotation",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+						},
+					},
+				},
+				enableManageBackendSGRules: true,
+			},
+			want:      true,
+			wantError: "",
+		},
+		{
+			name: "with no annotation - should take value from cli flag",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
+							},
+						},
+					},
+				},
+				enableManageBackendSGRules: true,
+			},
+			want:      true,
+			wantError: "",
+		},
+		{
+			name: "with multiple ingress group have conflict value",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "false",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+						},
+					},
+				},
+				enableManageBackendSGRules: true,
+			},
+			wantError: "conflicting manage backend security group rules settings",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+			task := &defaultModelBuildTask{
+				annotationParser:           annotationParser,
+				ingGroup:                   tt.fields.ingGroup,
+				enableManageBackendSGRules: tt.fields.enableManageBackendSGRules,
+			}
+			got, err := task.buildManageSecurityGroupRulesFlag(context.Background())
+			if tt.wantError != "" {
+				assert.EqualError(t, err, tt.wantError)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+
+}

@@ -26,6 +26,7 @@ const (
 	flagLbStabilizationMonitorInterval               = "lb-stabilization-monitor-interval"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
 	flagEnableBackendSG                              = "enable-backend-security-group"
+	flagEnableManageBackendSGRules                   = "enable-manage-backend-security-group-rules"
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
@@ -34,6 +35,7 @@ const (
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
 	defaultEnableBackendSG                           = true
+	defaultEnableManageBackendSGRules                = false
 	defaultEnableEndpointSlices                      = false
 	defaultDisableRestrictedSGRules                  = false
 	defaultLbStabilizationMonitorInterval            = time.Second * 120
@@ -107,6 +109,9 @@ type ControllerConfig struct {
 	// EnableBackendSecurityGroup specifies whether to use optimized security group rules
 	EnableBackendSecurityGroup bool
 
+	// EnableManageBackendSecurityGroupRules specifies whether to have controller manages security group rules
+	EnableManageBackendSecurityGroupRules bool
+
 	// BackendSecurityGroups specifies the configured backend security group to use
 	// for optimized security group rules
 	BackendSecurityGroup string
@@ -145,6 +150,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Default SSL policy for load balancers listeners")
 	fs.BoolVar(&cfg.EnableBackendSecurityGroup, flagEnableBackendSG, defaultEnableBackendSG,
 		"Enable sharing of security groups for backend traffic")
+	fs.BoolVar(&cfg.EnableManageBackendSecurityGroupRules, flagEnableManageBackendSGRules, defaultEnableManageBackendSGRules,
+		"Enable managing of backend security group rules by controller")
 	fs.StringVar(&cfg.BackendSecurityGroup, flagBackendSecurityGroup, "",
 		"Backend security group id to use for the ingress rules on the worker node SG")
 	fs.BoolVar(&cfg.EnableEndpointSlices, flagEnableEndpointSlices, defaultEnableEndpointSlices,
@@ -185,6 +192,9 @@ func (cfg *ControllerConfig) Validate() error {
 		return err
 	}
 	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
+		return err
+	}
+	if err := cfg.validateManageBackendSecurityGroupRulesConfiguration(); err != nil {
 		return err
 	}
 	return nil
@@ -242,6 +252,13 @@ func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {
 	}
 	if !strings.HasPrefix(cfg.BackendSecurityGroup, "sg-") {
 		return errors.Errorf("invalid value %v for backend security group id", cfg.BackendSecurityGroup)
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) validateManageBackendSecurityGroupRulesConfiguration() error {
+	if cfg.EnableManageBackendSecurityGroupRules && !cfg.EnableBackendSecurityGroup {
+		return errors.Errorf("backend security group must be enabled when manage backend security group rule is enabled")
 	}
 	return nil
 }
