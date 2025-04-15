@@ -112,9 +112,9 @@ const (
 type TargetGroupHealthCheckProtocol string
 
 const (
-	TargetGroupHealthCheckProtocolHTTP  TargetGroupHealthCheckProtocol = "http"
-	TargetGroupHealthCheckProtocolHTTPS TargetGroupHealthCheckProtocol = "https"
-	TargetGroupHealthCheckProtocolTCP   TargetGroupHealthCheckProtocol = "tcp"
+	TargetGroupHealthCheckProtocolHTTP  TargetGroupHealthCheckProtocol = "HTTP"
+	TargetGroupHealthCheckProtocolHTTPS TargetGroupHealthCheckProtocol = "HTTPS"
+	TargetGroupHealthCheckProtocolTCP   TargetGroupHealthCheckProtocol = "TCP"
 )
 
 // +kubebuilder:validation:Enum=HTTP;HTTPS;TCP;TLS;UDP;TCP_UDP
@@ -133,9 +133,9 @@ const (
 type ProtocolVersion string
 
 const (
-	ProtocolVersionHTTP1 ProtocolVersion = "http1"
-	ProtocolVersionHTTP2 ProtocolVersion = "http2"
-	ProtocolVersionGRPC  ProtocolVersion = "grpc"
+	ProtocolVersionHTTP1 ProtocolVersion = "HTTP1"
+	ProtocolVersionHTTP2 ProtocolVersion = "HTTP2"
+	ProtocolVersionGRPC  ProtocolVersion = "GRPC"
 )
 
 // +kubebuilder:validation:Enum=none;prefer-route-specific;prefer-default
