@@ -277,14 +277,11 @@ func generateProtocolListFromRoutes(routes []routeutils.RouteDescriptor) []strin
 
 	for _, route := range routes {
 		switch route.GetRouteKind() {
-		case routeutils.HTTPRouteKind:
-		case routeutils.GRPCRouteKind:
-		case routeutils.TCPRouteKind:
-		case routeutils.TLSRouteKind:
+		case routeutils.HTTPRouteKind, routeutils.GRPCRouteKind, routeutils.TCPRouteKind, routeutils.TLSRouteKind:
 			protocolSet.Insert(string(ec2types.ProtocolTcp))
 			break
 		case routeutils.UDPRouteKind:
-			protocolSet.Insert(string(ec2types.ProtocolUdp))
+			protocolSet = protocolSet.Insert(string(ec2types.ProtocolUdp))
 			break
 		default:
 			// Ignore? Throw error?
