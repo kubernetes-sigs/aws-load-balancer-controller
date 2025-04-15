@@ -197,7 +197,7 @@ rules:
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
-  - gateways
+  - gatewayclasses
   verbs:
   - get
   - list
@@ -205,8 +205,32 @@ rules:
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
+  - gatewayclasses/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gatewayclasses/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - gateways
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
   - gateways/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - gateway.networking.k8s.io

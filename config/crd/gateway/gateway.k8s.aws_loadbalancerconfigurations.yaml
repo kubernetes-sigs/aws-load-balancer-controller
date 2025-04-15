@@ -46,9 +46,16 @@ spec:
               LoadBalancerConfiguration
             properties:
               customerOwnedIpv4Pool:
-                description: customerOwnedIpv4Pool is the ID of the customer-owned
-                  address for Application Load Balancers on Outposts pool.
+                description: |-
+                  customerOwnedIpv4Pool [Application LoadBalancer]
+                  is the ID of the customer-owned address for Application Load Balancers on Outposts pool.
                 type: string
+              enableICMP:
+                description: |-
+                  EnableICMP [Network LoadBalancer]
+                  enables the creation of security group rules to the managed security group
+                  to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs
+                type: boolean
               enforceSecurityGroupInboundRulesOnPrivateLinkTraffic:
                 description: enforceSecurityGroupInboundRulesOnPrivateLinkTraffic
                   Indicates whether to evaluate inbound security group rules for traffic
@@ -61,6 +68,11 @@ spec:
                 - ipv4
                 - dualstack
                 - dualstack-without-public-ipv4
+                type: string
+              ipv4IPAMPoolId:
+                description: |-
+                  IPv4IPAMPoolId [Application LoadBalancer]
+                  defines the IPAM pool ID used for IPv4 Addresses on the ALB.
                 type: string
               listenerConfigurations:
                 description: listenerConfigurations is an optional list of configurations
@@ -194,7 +206,7 @@ spec:
                       description: privateIPv4Allocation [Network LoadBalancer] the
                         private ipv4 address to assign to this subnet.
                       type: string
-                    sourceNatIPv6Prefix:
+                    sourceNAT:
                       description: SourceNatIPv6Prefix [Network LoadBalancer] The
                         IPv6 prefix to use for source NAT. Specify an IPv6 prefix
                         (/80 netmask) from the subnet CIDR block or auto_assigned
@@ -213,6 +225,12 @@ spec:
                   tag specified in the map key contains one of the values in the corresponding
                   value list.
                 type: object
+              manageBackendSecurityGroupRules:
+                description: |-
+                  ManageBackendSecurityGroupRules [Application / Network LoadBalancer]
+                  specifies whether you want the controller to configure security group rules on Node/Pod for traffic access
+                  when you specify securityGroups
+                type: boolean
               scheme:
                 description: scheme defines the type of LB to provision. If unspecified,
                   it will be automatically inferred.
@@ -241,7 +259,7 @@ spec:
               tags:
                 description: Tags defines list of Tags on LB.
                 items:
-                  description: Tag defines a AWS Tag on resources.
+                  description: AWSTag defines a AWS Tag on resources.
                   properties:
                     key:
                       description: The key of the tag.
