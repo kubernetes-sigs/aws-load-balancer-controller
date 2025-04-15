@@ -169,15 +169,20 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 }
 
 func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(ctx context.Context) (bool, error) {
+	manageSGRules := t.enableManageBackendSGRules
+
 	var rawEnabled bool
 	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixManageSGRules, &rawEnabled, t.service.Annotations)
 	if err != nil {
 		return false, err
 	}
 	if exists {
-		return rawEnabled, nil
+		if rawEnabled != manageSGRules {
+			manageSGRules = rawEnabled
+			t.logger.V(1).Info("Override enable manage backend security group rules flag with annotation", "value: ", rawEnabled, "for service", k8s.NamespacedName(t.service).String(), "in service yaml file")
+		}
 	}
-	return false, nil
+	return manageSGRules, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context) (elbv2model.IPAddressType, error) {
