@@ -105,28 +105,6 @@ func (subnetBuilder *subnetModelBuilderImpl) validateSubnetsInput(subnetConfigsP
 	privateIPv4AllocationSpecified := subnetsConfig[0].PrivateIPv4Allocation != nil
 	sourceNATSpecified := subnetsConfig[0].SourceNatIPv6Prefix != nil
 
-	for _, subnetConfig := range subnetsConfig {
-		if (subnetConfig.Identifier != "") != identifierSpecified {
-			return false, errors.Errorf("Either specify all subnet identifiers or none.")
-		}
-
-		if (subnetConfig.EIPAllocation != nil) != eipAllocationSpecified {
-			return false, errors.Errorf("Either specify all eip allocations or none.")
-		}
-
-		if (subnetConfig.IPv6Allocation != nil) != ipv6AllocationSpecified {
-			return false, errors.Errorf("Either specify all ipv6 allocations or none.")
-		}
-
-		if (subnetConfig.PrivateIPv4Allocation != nil) != privateIPv4AllocationSpecified {
-			return false, errors.Errorf("Either specify all private ipv4 allocations or none.")
-		}
-
-		if (subnetConfig.SourceNatIPv6Prefix != nil) != sourceNATSpecified {
-			return false, errors.Errorf("Either specify all source nat prefixes or none.")
-		}
-	}
-
 	if eipAllocationSpecified {
 		if subnetBuilder.loadBalancerType != elbv2model.LoadBalancerTypeNetwork {
 			return false, errors.Errorf("EIP Allocation is only allowed for Network LoadBalancers")
@@ -160,6 +138,28 @@ func (subnetBuilder *subnetModelBuilderImpl) validateSubnetsInput(subnetConfigsP
 	if sourceNATSpecified {
 		if subnetBuilder.loadBalancerType != elbv2model.LoadBalancerTypeNetwork {
 			return false, errors.Errorf("SourceNatIPv6Prefix is only supported for Network LoadBalancers")
+		}
+	}
+
+	for _, subnetConfig := range subnetsConfig {
+		if (subnetConfig.Identifier != "") != identifierSpecified {
+			return false, errors.Errorf("Either specify all subnet identifiers or none.")
+		}
+
+		if (subnetConfig.EIPAllocation != nil) != eipAllocationSpecified {
+			return false, errors.Errorf("Either specify all eip allocations or none.")
+		}
+
+		if (subnetConfig.IPv6Allocation != nil) != ipv6AllocationSpecified {
+			return false, errors.Errorf("Either specify all ipv6 allocations or none.")
+		}
+
+		if (subnetConfig.PrivateIPv4Allocation != nil) != privateIPv4AllocationSpecified {
+			return false, errors.Errorf("Either specify all private ipv4 allocations or none.")
+		}
+
+		if (subnetConfig.SourceNatIPv6Prefix != nil) != sourceNATSpecified {
+			return false, errors.Errorf("Either specify all source nat prefixes or none.")
 		}
 	}
 
