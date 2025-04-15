@@ -2,10 +2,12 @@ package ec2
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
@@ -14,13 +16,14 @@ import (
 
 // NewSecurityGroupSynthesizer constructs new securityGroupSynthesizer.
 func NewSecurityGroupSynthesizer(ec2Client services.EC2, trackingProvider tracking.Provider, taggingManager TaggingManager,
-	sgManager SecurityGroupManager, vpcID string, logger logr.Logger, stack core.Stack) *securityGroupSynthesizer {
+	sgManager SecurityGroupManager, vpcID string, featureGates config.FeatureGates, logger logr.Logger, stack core.Stack) *securityGroupSynthesizer {
 	return &securityGroupSynthesizer{
 		ec2Client:        ec2Client,
 		trackingProvider: trackingProvider,
 		taggingManager:   taggingManager,
 		sgManager:        sgManager,
 		vpcID:            vpcID,
+		featureGates:     featureGates,
 		logger:           logger,
 		stack:            stack,
 		unmatchedSDKSGs:  nil,
@@ -33,6 +36,7 @@ type securityGroupSynthesizer struct {
 	taggingManager   TaggingManager
 	sgManager        SecurityGroupManager
 	vpcID            string
+	featureGates     config.FeatureGates
 	logger           logr.Logger
 
 	stack           core.Stack
@@ -60,6 +64,9 @@ func (s *securityGroupSynthesizer) Synthesize(ctx context.Context) error {
 			return err
 		}
 		resSG.SetStatus(sgStatus)
+	}
+	if s.featureGates.Enabled(config.NLBSecurityGroupNoUpdate) {
+		return nil
 	}
 	for _, resAndSDKSG := range matchedResAndSDKSGs {
 		sgStatus, err := s.sgManager.Update(ctx, resAndSDKSG.resSG, resAndSDKSG.sdkSG)

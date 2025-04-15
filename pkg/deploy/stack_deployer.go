@@ -89,7 +89,7 @@ type ResourceSynthesizer interface {
 // Deploy a resource stack.
 func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack) error {
 	synthesizers := []ResourceSynthesizer{
-		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.logger, stack),
+		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.featureGates, d.logger, stack),
 		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, d.featureGates, stack),
 		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, d.featureGates, d.controllerConfig, stack),
 		elbv2.NewListenerSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LSManager, d.logger, stack),
