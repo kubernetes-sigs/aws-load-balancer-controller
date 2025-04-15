@@ -140,7 +140,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultTargetType:                    b.defaultTargetType,
 		defaultLoadBalancerScheme:            b.defaultLoadBalancerScheme,
 		defaultHealthCheckProtocol:           elbv2model.ProtocolTCP,
-		defaultHealthCheckPort:               healthCheckPortTrafficPort,
+		defaultHealthCheckPort:               shared_constants.HealthCheckPortTrafficPort,
 		defaultHealthCheckPath:               "/",
 		defaultHealthCheckInterval:           10,
 		defaultHealthCheckTimeout:            10,

@@ -65,9 +65,10 @@ type HealthCheckConfiguration struct {
 	// +optional
 	HealthCheckPath *string `json:"healthCheckPath,omitempty"`
 
-	// healthCheckPort The port to use to connect with the target.
+	// healthCheckPort The port the load balancer uses when performing health checks on targets.
+	// The default is to use the port on which each target receives traffic from the load balancer.
 	// +optional
-	HealthCheckPort *int32 `json:"healthCheckPort,omitempty"`
+	HealthCheckPort *string `json:"healthCheckPort,omitempty"`
 
 	// healthCheckProtocol The protocol to use to connect with the target. The GENEVE, TLS, UDP, and TCP_UDP protocols are not supported for health checks.
 	// +optional
@@ -116,6 +117,18 @@ const (
 	TargetGroupHealthCheckProtocolTCP   TargetGroupHealthCheckProtocol = "tcp"
 )
 
+// +kubebuilder:validation:Enum=HTTP;HTTPS;TCP;TLS;UDP;TCP_UDP
+type Protocol string
+
+const (
+	ProtocolHTTP    Protocol = "HTTP"
+	ProtocolHTTPS   Protocol = "HTTPS"
+	ProtocolTCP     Protocol = "TCP"
+	ProtocolTLS     Protocol = "TLS"
+	ProtocolUDP     Protocol = "UDP"
+	ProtocolTCP_UDP Protocol = "TCP_UDP"
+)
+
 // +kubebuilder:validation:Enum=http1;http2;grpc
 type ProtocolVersion string
 
@@ -125,11 +138,22 @@ const (
 	ProtocolVersionGRPC  ProtocolVersion = "grpc"
 )
 
+// +kubebuilder:validation:Enum=none;prefer-route-specific;prefer-default
+type MergeMode string
+
+const (
+	MergeModeNone                MergeMode = "none"
+	MergeModePreferRouteSpecific MergeMode = "prefer-route-specific"
+	MergeModePreferDefault       MergeMode = "prefer-default"
+)
+
 // TargetGroupConfigurationSpec defines the TargetGroup properties for a route.
 type TargetGroupConfigurationSpec struct {
 
 	// targetReference the kubernetes object to attach the Target Group settings to.
 	TargetReference Reference `json:"targetReference"`
+
+	// mergeMode the mode to use for merging the identified per-route configuration and default configuration.
 
 	// defaultRouteConfiguration fallback configuration applied to all routes, unless overridden by route-specific configurations.
 	// +optional
@@ -141,12 +165,12 @@ type TargetGroupConfigurationSpec struct {
 }
 
 // +kubebuilder:validation:Pattern="^(HTTPRoute|TLSRoute|TCPRoute|UDPRoute|GRPCRoute)?:([^:]+)?:([^:]+)?$"
-type RouteName string
+type RouteIdentifier string
 
 // RouteConfiguration defines the per route configuration
 type RouteConfiguration struct {
-	// name the name of the route, it should be in the form of ROUTE:NAMESPACE:NAME
-	Name RouteName `json:"name"`
+	// name the identifier of the route, it should be in the form of ROUTE:NAMESPACE:NAME
+	Identifier RouteIdentifier `json:"identifier"`
 
 	// targetGroupProps the target group specific properties
 	TargetGroupProps TargetGroupProps `json:"targetGroupProps"`
@@ -154,6 +178,10 @@ type RouteConfiguration struct {
 
 // TargetGroupProps defines the target group properties
 type TargetGroupProps struct {
+	// targetGroupName specifies the name to assign to the Target Group. If not defined, then one is generated.
+	// +optional
+	TargetGroupName string `json:"targetGroupName,omitempty"`
+
 	// ipAddressType specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.
 	// +optional
 	IPAddressType *TargetGroupIPAddressType `json:"ipAddressType,omitempty"`
@@ -174,9 +202,19 @@ type TargetGroupProps struct {
 	// +optional
 	TargetType *TargetType `json:"targetType,omitempty"`
 
+	// Protocol [Application / Network Load Balancer] the protocol for the target group.
+	// If unspecified, it will be automatically inferred.
+	// +optional
+	Protocol *Protocol `json:"protocol,omitempty"`
+
 	// protocolVersion [HTTP/HTTPS protocol] The protocol version. The possible values are GRPC , HTTP1 and HTTP2
 	// +optional
 	ProtocolVersion *ProtocolVersion `json:"protocolVersion,omitempty"`
+
+	// enableProxyProtocolV2 [Network LoadBalancers] Indicates whether proxy protocol version 2 is enabled.
+	// By default, proxy protocol is disabled.
+	// +optional
+	EnableProxyProtocolV2 *bool `json:"enableProxyProtocolV2,omitempty"`
 
 	// vpcID is the VPC of the TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
@@ -229,6 +267,10 @@ type TargetGroupConfiguration struct {
 
 	Spec   TargetGroupConfigurationSpec   `json:"spec,omitempty"`
 	Status TargetGroupConfigurationStatus `json:"status,omitempty"`
+}
+
+func (tgConfig *TargetGroupConfiguration) GetTargetGroupConfigForRoute(name, namespace, kind string) *TargetGroupProps {
+	return &tgConfig.Spec.DefaultConfiguration
 }
 
 // +kubebuilder:object:root=true
