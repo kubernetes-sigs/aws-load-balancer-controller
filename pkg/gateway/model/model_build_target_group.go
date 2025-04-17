@@ -84,12 +84,7 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 func (builder *targetGroupBuilderImpl) buildTargetGroup(tgByResID *map[string]buildTargetGroupOutput,
 	gw *gwv1.Gateway, lbConfig *elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (buildTargetGroupOutput, error) {
 
-	var targetGroupProps *elbv2gw.TargetGroupProps
-
-	if backend.ELBv2TargetGroupConfig != nil {
-		routeNamespacedName := routeDescriptor.GetRouteNamespacedName()
-		targetGroupProps = backend.ELBv2TargetGroupConfig.GetTargetGroupConfigForRoute(routeNamespacedName.Name, routeNamespacedName.Namespace, routeDescriptor.GetRouteKind())
-	}
+	targetGroupProps := builder.getTargetProps(routeDescriptor, backend)
 
 	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.Service), routeDescriptor.GetRouteNamespacedName(), backend.ServicePort.TargetPort)
 	if tg, exists := (*tgByResID)[tgResID]; exists {
@@ -110,6 +105,15 @@ func (builder *targetGroupBuilderImpl) buildTargetGroup(tgByResID *map[string]bu
 
 	(*tgByResID)[tgResID] = output
 	return output, nil
+}
+
+func (builder *targetGroupBuilderImpl) getTargetProps(routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) *elbv2gw.TargetGroupProps {
+	var targetGroupProps *elbv2gw.TargetGroupProps
+	if backend.ELBv2TargetGroupConfig != nil {
+		routeNamespacedName := routeDescriptor.GetRouteNamespacedName()
+		targetGroupProps = backend.ELBv2TargetGroupConfig.GetTargetGroupConfigForRoute(routeNamespacedName.Name, routeNamespacedName.Namespace, routeDescriptor.GetRouteKind())
+	}
+	return targetGroupProps
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(lbConfig *elbv2gw.LoadBalancerConfiguration, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
@@ -422,9 +426,9 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetG
 		Protocol:                healthCheckProtocol,
 		Path:                    healthCheckPath,
 		Matcher:                 healthCheckMatcher,
-		IntervalSeconds:         awssdk.Int32(int32(healthCheckIntervalSeconds)),
-		TimeoutSeconds:          awssdk.Int32(int32(healthCheckTimeoutSeconds)),
-		HealthyThresholdCount:   awssdk.Int32(int32(healthCheckHealthyThresholdCount)),
+		IntervalSeconds:         awssdk.Int32(healthCheckIntervalSeconds),
+		TimeoutSeconds:          awssdk.Int32(healthCheckTimeoutSeconds),
+		HealthyThresholdCount:   awssdk.Int32(healthCheckHealthyThresholdCount),
 		UnhealthyThresholdCount: awssdk.Int32(healthCheckUnhealthyThresholdCount),
 	}
 

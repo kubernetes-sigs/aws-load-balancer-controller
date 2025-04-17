@@ -6,7 +6,9 @@ import (
 )
 
 type MockRoute struct {
-	Kind string
+	Kind      string
+	Name      string
+	Namespace string
 }
 
 func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
@@ -15,8 +17,10 @@ func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
 }
 
 func (m *MockRoute) GetRouteNamespacedName() types.NamespacedName {
-	//TODO implement me
-	panic("implement me")
+	return types.NamespacedName{
+		Namespace: m.Namespace,
+		Name:      m.Name,
+	}
 }
 
 func (m *MockRoute) GetRouteKind() string {

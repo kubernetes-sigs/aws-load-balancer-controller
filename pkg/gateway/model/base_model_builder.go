@@ -122,6 +122,7 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 			for _, rule := range descriptor.GetAttachedRules() {
 				for _, backend := range rule.GetBackends() {
 					// TODO -- Figure out what to do with the return value (it's also inserted into the tgByResID map)
+					// TODO -- I'm not in love with this API.
 					_, tgErr := baseBuilder.tgBuilder.buildTargetGroup(&tgByResID, gw, lbConf, lb.Spec.IPAddressType, descriptor, backend, securityGroups.backendSecurityGroupToken)
 					if tgErr != nil {
 						return nil, nil, false, err
