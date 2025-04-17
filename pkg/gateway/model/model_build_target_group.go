@@ -27,11 +27,6 @@ type buildTargetGroupOutput struct {
 	bindingSpec     elbv2model.TargetGroupBindingResourceSpec
 }
 
-const (
-	tgAttrsProxyProtocolV2Enabled  = "proxy_protocol_v2.enabled"
-	tgAttrsPreserveClientIPEnabled = "preserve_client_ip.enabled"
-)
-
 type targetGroupBuilder interface {
 	buildTargetGroup(tgByResID *map[string]buildTargetGroupOutput,
 		gw *gwv1.Gateway, lbConfig *elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (buildTargetGroupOutput, error)
@@ -579,12 +574,12 @@ func (builder *targetGroupBuilderImpl) buildL4TargetGroupAttributes(attributeMap
 		return
 	}
 
-	if _, ok := (*attributeMap)[tgAttrsProxyProtocolV2Enabled]; !ok {
-		(*attributeMap)[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(builder.defaultProxyProtocolV2Enabled)
+	if _, ok := (*attributeMap)[shared_constants.TGAttributeProxyProtocolV2Enabled]; !ok {
+		(*attributeMap)[shared_constants.TGAttributeProxyProtocolV2Enabled] = strconv.FormatBool(builder.defaultProxyProtocolV2Enabled)
 	}
 
 	if targetGroupProps.EnableProxyProtocolV2 != nil {
-		(*attributeMap)[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(*targetGroupProps.EnableProxyProtocolV2)
+		(*attributeMap)[shared_constants.TGAttributeProxyProtocolV2Enabled] = strconv.FormatBool(*targetGroupProps.EnableProxyProtocolV2)
 	}
 
 	// TODO -- buildPreserveClientIPFlag

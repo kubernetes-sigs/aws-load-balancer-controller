@@ -42,7 +42,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "false",
 				},
 			},
@@ -59,7 +59,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -86,11 +86,11 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "false",
 				},
 				{
-					Key:   tgAttrsPreserveClientIPEnabled,
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
 					Value: "true",
 				},
 				{
@@ -109,14 +109,14 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsProxyProtocolV2Enabled + "=false",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": shared_constants.TGAttributeProxyProtocolV2Enabled + "=false",
 						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":          "*",
 					},
 				},
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -137,7 +137,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "= FalSe",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": shared_constants.TGAttributePreserveClientIPEnabled + "= FalSe",
 					},
 				},
 			},
@@ -156,7 +156,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -175,7 +175,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -1499,7 +1499,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			targetType: elbv2.TargetTypeIP,
 			tgAttrs: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "false",
 				},
 				{
@@ -1522,7 +1522,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 					Value: "value",
 				},
 				{
-					Key:   tgAttrsPreserveClientIPEnabled,
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
 					Value: "true",
 				},
 			},
@@ -1538,7 +1538,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			targetType: elbv2.TargetTypeInstance,
 			tgAttrs: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsPreserveClientIPEnabled,
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
 					Value: "false",
 				},
 				{
@@ -1553,7 +1553,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			targetType: elbv2.TargetTypeInstance,
 			tgAttrs: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsPreserveClientIPEnabled,
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
 					Value: " FalSe",
 				},
 				{
