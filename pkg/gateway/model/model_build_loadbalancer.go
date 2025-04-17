@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"github.com/pkg/errors"
 	"regexp"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -61,23 +60,31 @@ func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerSpec(scheme elbv
 	}
 
 	if lbModelBuilder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
-		spec.EnablePrefixForIpv6SourceNat = lbModelBuilder.translateSourcePrefixEnabled(subnets.sourceIPv6NatEnabled)
-
-		if lbConf.Spec.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic != nil {
-			spec.SecurityGroupsInboundRulesOnPrivateLink = (*elbv2model.SecurityGroupsInboundRulesOnPrivateLinkStatus)(lbConf.Spec.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic)
-		}
+		lbModelBuilder.addL4Fields(&spec, lbConf, subnets)
 	}
 
 	if lbModelBuilder.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
-		spec.CustomerOwnedIPv4Pool = lbConf.Spec.CustomerOwnedIpv4Pool
-		spec.IPv4IPAMPool = lbConf.Spec.IPv4IPAMPoolId
+		lbModelBuilder.addL7Fields(&spec, lbConf)
 	}
 
 	return spec, nil
 }
 
-func (lbModelBuilder *loadBalancerBuilderImpl) translateSourcePrefixEnabled(b bool) elbv2model.EnablePrefixForIpv6SourceNat {
-	if b {
+func (lbModelBuilder *loadBalancerBuilderImpl) addL4Fields(spec *elbv2model.LoadBalancerSpec, lbConf *elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput) {
+	spec.EnablePrefixForIpv6SourceNat = lbModelBuilder.translateSourcePrefixEnabled(subnets.sourceIPv6NatEnabled)
+
+	if lbConf.Spec.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic != nil {
+		spec.SecurityGroupsInboundRulesOnPrivateLink = (*elbv2model.SecurityGroupsInboundRulesOnPrivateLinkStatus)(lbConf.Spec.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic)
+	}
+}
+
+func (lbModelBuilder *loadBalancerBuilderImpl) addL7Fields(spec *elbv2model.LoadBalancerSpec, lbConf *elbv2gw.LoadBalancerConfiguration) {
+	spec.CustomerOwnedIPv4Pool = lbConf.Spec.CustomerOwnedIpv4Pool
+	spec.IPv4IPAMPool = lbConf.Spec.IPv4IPAMPoolId
+}
+
+func (lbModelBuilder *loadBalancerBuilderImpl) translateSourcePrefixEnabled(sourceNATEnabled bool) elbv2model.EnablePrefixForIpv6SourceNat {
+	if sourceNATEnabled {
 		return elbv2model.EnablePrefixForIpv6SourceNatOn
 	}
 	return elbv2model.EnablePrefixForIpv6SourceNatOff
@@ -86,10 +93,6 @@ func (lbModelBuilder *loadBalancerBuilderImpl) translateSourcePrefixEnabled(b bo
 func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerName(lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, scheme elbv2model.LoadBalancerScheme) (string, error) {
 	if lbConf.Spec.LoadBalancerName != nil {
 		name := *lbConf.Spec.LoadBalancerName
-		// The name of the loadbalancer can only have up to 32 characters
-		if len(name) > 32 {
-			return "", errors.New("load balancer name cannot be longer than 32 characters")
-		}
 		return name, nil
 	}
 	uuidHash := sha256.New()
