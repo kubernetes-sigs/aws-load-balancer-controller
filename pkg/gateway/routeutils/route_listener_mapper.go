@@ -37,7 +37,7 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 	routesForGateway := make([]preLoadRouteDescriptor, 0)
 	for _, route := range routes {
 		allowsAttachment := ltr.routeAttachmentHelper.doesRouteAttachToGateway(gw, route)
-		ltr.logger.Info("Route is eligible for attachment", "route", route.GetRouteNamespacedName(), "allowed attachment", allowsAttachment)
+		ltr.logger.V(1).Info("Route is eligible for attachment", "route", route.GetRouteNamespacedName(), "allowed attachment", allowsAttachment)
 		if allowsAttachment {
 			routesForGateway = append(routesForGateway, route)
 		}
@@ -50,7 +50,7 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 			// We need to check both paths (route -> listener) and (listener -> route)
 			// for connection viability.
 			if !ltr.routeAttachmentHelper.routeAllowsAttachmentToListener(listener, route) {
-				ltr.logger.Info("Route doesnt allow attachment")
+				ltr.logger.V(1).Info("Route doesnt allow attachment")
 				continue
 			}
 
@@ -59,7 +59,7 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 				return nil, err
 			}
 
-			ltr.logger.Info("lister allows attachment", "allowedAttachment", allowedAttachment)
+			ltr.logger.V(1).Info("lister allows attachment", "route", route.GetRouteNamespacedName(), "allowedAttachment", allowedAttachment)
 			if allowedAttachment {
 				result[int(listener.Port)] = append(result[int(listener.Port)], route)
 			}

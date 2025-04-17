@@ -30,7 +30,6 @@ func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, 
 
 		// Default for kind is Gateway.
 		if parentRef.Kind != nil && *parentRef.Kind != "Gateway" {
-			rah.logger.Info("False due to kind check")
 			continue
 		}
 
@@ -44,15 +43,10 @@ func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, 
 
 		nameCheck := string(parentRef.Name) == gw.Name
 		nsCheck := gw.Namespace == namespaceToCompare
-
-		rah.logger.Info("check??", "name", nameCheck, "ns", nsCheck)
-
 		if nameCheck && nsCheck {
 			return true
 		}
 	}
-
-	rah.logger.Info("(DEFAULT) returning false.")
 	return false
 }
 

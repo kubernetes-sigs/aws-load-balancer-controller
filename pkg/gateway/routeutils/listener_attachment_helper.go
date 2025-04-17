@@ -36,13 +36,9 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 	if err != nil {
 		return false, err
 	}
-
-	attachmentHelper.logger.Info("name space not ok", "check", namespaceOK)
 	if !namespaceOK {
 		return false, nil
 	}
-
-	attachmentHelper.logger.Info("kind check", "check", attachmentHelper.kindCheck(listener, route))
 	return attachmentHelper.kindCheck(listener, route), nil
 }
 
@@ -58,8 +54,6 @@ func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context
 	}
 
 	namespacedName := route.GetRouteNamespacedName()
-
-	attachmentHelper.logger.Info("Allowed namespaces", "allowed", allowedNamespaces, "ns", namespacedName.Namespace)
 
 	switch allowedNamespaces {
 	case gwv1.NamespacesFromSame:

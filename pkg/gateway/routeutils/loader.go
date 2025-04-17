@@ -73,10 +73,11 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	// 1. Load all relevant routes according to the filter
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
 	for route, loader := range l.allRouteLoaders {
-		l.logger.Info("Got this route..", "route", route, "is applicable", filter.IsApplicable(route))
-		if filter.IsApplicable(route) {
+
+		applicable := filter.IsApplicable(route)
+		l.logger.V(1).Info("Processing route", "route", route, "is applicable", applicable)
+		if applicable {
 			data, err := loader(ctx, l.k8sClient)
-			l.logger.Info("data from load", "data", data, "err", err)
 			if err != nil {
 				return nil, err
 			}
