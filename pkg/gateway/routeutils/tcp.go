@@ -128,6 +128,5 @@ func ListTCPRoutes(context context.Context, k8sClient client.Client) ([]preLoadR
 	for _, item := range routeList.Items {
 		result = append(result, convertTCPRoute(item))
 	}
-
 	return result, err
 }

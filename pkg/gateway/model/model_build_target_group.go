@@ -1,7 +1,6 @@
 package model
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -34,8 +33,8 @@ const (
 )
 
 type targetGroupBuilder interface {
-	buildTargetGroup(ctx context.Context,
-		gw *gwv1.Gateway, lbConfig *elbv2gw.LoadBalancerConfiguration, targetGroupConfig *elbv2gw.TargetGroupConfiguration, routeDescriptor routeutils.Backend, backendDescriptor routeutils.Backend) (*elbv2model.TargetGroup, error)
+	buildTargetGroup(tgByResID *map[string]buildTargetGroupOutput,
+		gw *gwv1.Gateway, lbConfig *elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (buildTargetGroupOutput, error)
 }
 
 type targetGroupBuilderImpl struct {
@@ -50,8 +49,6 @@ type targetGroupBuilderImpl struct {
 	defaultTargetType elbv2model.TargetType
 
 	defaultProxyProtocolV2Enabled bool
-
-	defaultHealthCheckProtocol elbv2model.Protocol
 
 	defaultL7BackendProtocol        elbv2model.Protocol
 	defaultL7BackendProtocolVersion elbv2model.ProtocolVersion
@@ -68,14 +65,35 @@ type targetGroupBuilderImpl struct {
 	defaultHealthCheckInterval                int32
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroup(ctx context.Context, tgByResID *map[string]buildTargetGroupOutput,
-	gw *gwv1.Gateway, targetGroupConfig *elbv2gw.TargetGroupConfiguration, lbConfig *elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (buildTargetGroupOutput, error) {
+func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper, loadBalancerType elbv2model.LoadBalancerType, disableRestrictedSGRules bool, defaultTargetType string) targetGroupBuilder {
+	return &targetGroupBuilderImpl{
+		loadBalancerType:                          loadBalancerType,
+		clusterName:                               clusterName,
+		vpcID:                                     vpcId,
+		tagHelper:                                 tagHelper,
+		disableRestrictedSGRules:                  disableRestrictedSGRules,
+		defaultTargetType:                         elbv2model.TargetType(defaultTargetType),
+		defaultL7BackendProtocol:                  elbv2model.ProtocolHTTP,
+		defaultL7BackendProtocolVersion:           elbv2model.ProtocolVersionHTTP1,
+		defaultHealthCheckMatcherHTTPCode:         "200-399",
+		defaultHealthCheckMatcherGRPCCode:         "12",
+		defaultHealthCheckPathHTTP:                "/",
+		defaultHealthCheckPathGRPC:                "/AWS.ALB/healthcheck",
+		defaultHealthCheckUnhealthyThresholdCount: 3,
+		defaultHealthyThresholdCount:              3,
+		defaultHealthCheckTimeout:                 10,
+		defaultHealthCheckInterval:                10,
+	}
+}
+
+func (builder *targetGroupBuilderImpl) buildTargetGroup(tgByResID *map[string]buildTargetGroupOutput,
+	gw *gwv1.Gateway, lbConfig *elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (buildTargetGroupOutput, error) {
 
 	var targetGroupProps *elbv2gw.TargetGroupProps
 
-	if targetGroupConfig != nil {
+	if backend.ELBv2TargetGroupConfig != nil {
 		routeNamespacedName := routeDescriptor.GetRouteNamespacedName()
-		targetGroupProps = targetGroupConfig.GetTargetGroupConfigForRoute(routeNamespacedName.Name, routeNamespacedName.Namespace, routeDescriptor.GetRouteKind())
+		targetGroupProps = backend.ELBv2TargetGroupConfig.GetTargetGroupConfigForRoute(routeNamespacedName.Name, routeNamespacedName.Namespace, routeDescriptor.GetRouteKind())
 	}
 
 	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.Service), routeDescriptor.GetRouteNamespacedName(), backend.ServicePort.TargetPort)
@@ -99,7 +117,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroup(ctx context.Context, tgB
 	return output, nil
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(lbConfig *elbv2gw.LoadBalancerConfiguration, tgSpec *elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
+func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(lbConfig *elbv2gw.LoadBalancerConfiguration, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
 	targetType := elbv2api.TargetType(tgSpec.TargetType)
 	targetPort := backend.ServicePort.TargetPort
 	if targetType == elbv2api.TargetTypeInstance {
@@ -120,7 +138,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(lbConfig *elb
 				TargetType:     &targetType,
 				ServiceRef: elbv2api.ServiceReference{
 					Name: backend.Service.Name,
-					Port: backend.ServicePort.TargetPort,
+					Port: intstr.FromInt32(backend.ServicePort.Port),
 				},
 				Networking:              tgbNetworking,
 				NodeSelector:            nodeSelector,
@@ -138,6 +156,9 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetP
 	}
 	protocolTCP := elbv2api.NetworkingProtocolTCP
 	protocolUDP := elbv2api.NetworkingProtocolUDP
+
+	udpSupported := port.Protocol == corev1.ProtocolUDP
+
 	if builder.disableRestrictedSGRules {
 		ports := []elbv2api.NetworkingPort{
 			{
@@ -146,7 +167,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetP
 			},
 		}
 
-		if port.Protocol == corev1.ProtocolUDP {
+		if udpSupported {
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolUDP,
 				Port:     nil,
@@ -154,7 +175,6 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetP
 		}
 
 		return &elbv2model.TargetGroupBindingNetworking{
-
 			Ingress: []elbv2model.NetworkingIngressRule{
 				{
 					From: []elbv2model.NetworkingPeer{
@@ -169,18 +189,34 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetP
 			},
 		}
 	}
+
 	var networkingPorts []elbv2api.NetworkingPort
 	var networkingRules []elbv2model.NetworkingIngressRule
+
+	protocolToUse := &protocolTCP
+	if udpSupported {
+		protocolToUse = &protocolUDP
+	}
+
 	networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
-		Protocol: &protocolTCP,
+		Protocol: protocolToUse,
 		Port:     &targetPort,
 	})
-	if healthCheckPort.String() != shared_constants.HealthCheckPortTrafficPort {
+
+	if udpSupported || (healthCheckPort.Type == intstr.Int && healthCheckPort.IntValue() != targetPort.IntValue()) {
+		var hcPortToUse intstr.IntOrString
+		if healthCheckPort.Type == intstr.String {
+			hcPortToUse = targetPort
+		} else {
+			hcPortToUse = healthCheckPort
+		}
+
 		networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
 			Protocol: &protocolTCP,
-			Port:     &healthCheckPort,
+			Port:     &hcPortToUse,
 		})
 	}
+
 	for _, port := range networkingPorts {
 		networkingRules = append(networkingRules, elbv2model.NetworkingIngressRule{
 			From: []elbv2model.NetworkingPeer{
@@ -243,7 +279,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *el
 	gwKey types.NamespacedName, routeKey types.NamespacedName, svcKey types.NamespacedName, port intstr.IntOrString, tgPort int32,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion) string {
 
-	if targetGroupProps.TargetGroupName != "" {
+	if targetGroupProps != nil && targetGroupProps.TargetGroupName != "" {
 		return targetGroupProps.TargetGroupName
 	}
 
@@ -296,7 +332,8 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupIPAddressType(svc *corev1
 
 // buildTargetGroupPort constructs the TargetGroup's port.
 // Note: TargetGroup's port is not in the data path as we always register targets with port specified.
-// so this settings don't really matter to our controller, and we do our best to use the most appropriate port as targetGroup's port to avoid UX confusing.
+// so these settings don't really matter to our controller,
+// and we do our best to use the most appropriate port as targetGroup's port to avoid UX confusing.
 func (builder *targetGroupBuilderImpl) buildTargetGroupPort(targetType elbv2model.TargetType, svcPort corev1.ServicePort) int32 {
 	if targetType == elbv2model.TargetTypeInstance {
 		// Maybe an error? Because the service has no node port, instance type targets don't work.
@@ -308,13 +345,12 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupPort(targetType elbv2mode
 	if svcPort.TargetPort.Type == intstr.Int {
 		return int32(svcPort.TargetPort.IntValue())
 	}
-
-	// when a literal targetPort is used, we just use a fixed 1 here as this setting is not in the data path.
-	// also, under extreme edge case, it can actually be different ports for different pods.
+	// If all else fails, just return 1 as alluded to above, this setting doesn't really matter.
 	return 1
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.Protocol, error) {
+	// TODO - Not convinced that this is good, maybe auto detect certs == HTTPS / TLS.
 	if builder.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
 		return builder.buildL7TargetGroupProtocol(targetGroupProps)
 	}
@@ -323,7 +359,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupProtocol(targetGroupProps
 }
 
 func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.Protocol, error) {
-	if targetGroupProps.Protocol == nil {
+	if targetGroupProps == nil || targetGroupProps.Protocol == nil {
 		return builder.defaultL7BackendProtocol, nil
 	}
 	switch string(*targetGroupProps.Protocol) {
@@ -337,7 +373,8 @@ func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupPro
 }
 
 func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.Protocol, error) {
-	if targetGroupProps.Protocol == nil {
+	// TODO, auto infer?
+	if targetGroupProps == nil || targetGroupProps.Protocol == nil {
 		// infer this somehow!?
 		// use the backend config to get the protocol type.
 		return elbv2model.ProtocolTCP, nil
@@ -362,7 +399,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupProtocolVersion(targetGro
 	if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
 		return nil
 	}
-	if targetGroupProps.ProtocolVersion != nil {
+	if targetGroupProps != nil && targetGroupProps.ProtocolVersion != nil {
 		pv := elbv2model.ProtocolVersion(*targetGroupProps.ProtocolVersion)
 		return &pv
 	}
@@ -370,13 +407,17 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupProtocolVersion(targetGro
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion, targetType elbv2model.TargetType, backend routeutils.Backend) (elbv2model.TargetGroupHealthCheckConfig, error) {
+	// For my notes, when translating from svc to gateway:
+	// https://github.com/kubernetes-sigs/gateway-api/issues/451
+	// Gateway API doesn't have the same ServiceExternalTrafficPolicyLocal support.
+	// TODO - Maybe a TargetGroupConfig attribute to support the same behavior?
 	healthCheckPort, err := builder.buildTargetGroupHealthCheckPort(targetGroupProps, targetType, backend)
 	if err != nil {
 		return elbv2model.TargetGroupHealthCheckConfig{}, err
 	}
-	healthCheckProtocol := builder.buildTargetGroupHealthCheckProtocol(targetGroupProps)
+	healthCheckProtocol := builder.buildTargetGroupHealthCheckProtocol(targetGroupProps, tgProtocol)
 	healthCheckPath := builder.buildTargetGroupHealthCheckPath(targetGroupProps, tgProtocolVersion, healthCheckProtocol)
-	healthCheckMatcher := builder.buildTargetGroupHealthCheckMatcher(targetGroupProps)
+	healthCheckMatcher := builder.buildTargetGroupHealthCheckMatcher(targetGroupProps, healthCheckProtocol)
 	healthCheckIntervalSeconds := builder.buildTargetGroupHealthCheckIntervalSeconds(targetGroupProps)
 	healthCheckTimeoutSeconds := builder.buildTargetGroupHealthCheckTimeoutSeconds(targetGroupProps)
 	healthCheckHealthyThresholdCount := builder.buildTargetGroupHealthCheckHealthyThresholdCount(targetGroupProps)
@@ -385,7 +426,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetG
 		Port:                    &healthCheckPort,
 		Protocol:                healthCheckProtocol,
 		Path:                    healthCheckPath,
-		Matcher:                 &healthCheckMatcher,
+		Matcher:                 healthCheckMatcher,
 		IntervalSeconds:         awssdk.Int32(int32(healthCheckIntervalSeconds)),
 		TimeoutSeconds:          awssdk.Int32(int32(healthCheckTimeoutSeconds)),
 		HealthyThresholdCount:   awssdk.Int32(int32(healthCheckHealthyThresholdCount)),
@@ -396,8 +437,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetG
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPort(targetGroupProps *elbv2gw.TargetGroupProps, targetType elbv2model.TargetType, backend routeutils.Backend) (intstr.IntOrString, error) {
-
-	if targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckPort == nil || *targetGroupProps.HealthCheckConfig.HealthCheckPort == shared_constants.HealthCheckPortTrafficPort {
+	if targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckPort == nil || *targetGroupProps.HealthCheckConfig.HealthCheckPort == shared_constants.HealthCheckPortTrafficPort {
 		return intstr.FromString(shared_constants.HealthCheckPortTrafficPort), nil
 	}
 
@@ -407,22 +447,22 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPort(targetGro
 	}
 
 	/* TODO - Zac revisit this? */
-	svcPort, err := k8s.LookupServicePort(backend.Service, healthCheckPort)
-	if err != nil {
-		return intstr.IntOrString{}, errors.Wrap(err, "failed to resolve healthCheckPort")
-	}
 	if targetType == elbv2model.TargetTypeInstance {
-		return intstr.FromInt(int(svcPort.NodePort)), nil
+		return intstr.FromInt(int(backend.ServicePort.NodePort)), nil
 	}
-	if svcPort.TargetPort.Type == intstr.Int {
-		return svcPort.TargetPort, nil
+	if backend.ServicePort.TargetPort.Type == intstr.Int {
+		return backend.ServicePort.TargetPort, nil
 	}
 	return intstr.IntOrString{}, errors.New("cannot use named healthCheckPort for IP TargetType when service's targetPort is a named port")
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckProtocol(targetGroupProps *elbv2gw.TargetGroupProps) elbv2model.Protocol {
-	if targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckProtocol == nil {
-		return builder.defaultHealthCheckProtocol
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckProtocol(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocol elbv2model.Protocol) elbv2model.Protocol {
+
+	if targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckProtocol == nil {
+		if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
+			return elbv2model.ProtocolTCP
+		}
+		return tgProtocol
 	}
 
 	switch *targetGroupProps.HealthCheckConfig.HealthCheckProtocol {
@@ -433,7 +473,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckProtocol(targe
 	case elbv2gw.TargetGroupHealthCheckProtocolHTTPS:
 		return elbv2model.ProtocolHTTPS
 	default:
-		return ""
+		return tgProtocol
 	}
 }
 
@@ -442,7 +482,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPath(targetGro
 		return nil
 	}
 
-	if targetGroupProps.HealthCheckConfig.HealthCheckPath != nil {
+	if targetGroupProps != nil && targetGroupProps.HealthCheckConfig.HealthCheckPath != nil {
 		return targetGroupProps.HealthCheckConfig.HealthCheckPath
 	}
 
@@ -453,21 +493,26 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPath(targetGro
 	return &builder.defaultHealthCheckPathHTTP
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckMatcher(targetGroupProps *elbv2gw.TargetGroupProps) elbv2model.HealthCheckMatcher {
-	if targetGroupProps.ProtocolVersion != nil && string(*targetGroupProps.ProtocolVersion) == string(elbv2model.ProtocolVersionGRPC) {
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckMatcher(targetGroupProps *elbv2gw.TargetGroupProps, hcProtocol elbv2model.Protocol) *elbv2model.HealthCheckMatcher {
+
+	if hcProtocol == elbv2model.ProtocolTCP {
+		return nil
+	}
+
+	if targetGroupProps != nil && targetGroupProps.ProtocolVersion != nil && string(*targetGroupProps.ProtocolVersion) == string(elbv2model.ProtocolVersionGRPC) {
 		matcher := builder.defaultHealthCheckMatcherGRPCCode
 		if targetGroupProps.ProtocolVersion != nil && targetGroupProps.HealthCheckConfig != nil && targetGroupProps.HealthCheckConfig.Matcher != nil && targetGroupProps.HealthCheckConfig.Matcher.GRPCCode != nil {
 			matcher = *targetGroupProps.HealthCheckConfig.Matcher.GRPCCode
 		}
-		return elbv2model.HealthCheckMatcher{
+		return &elbv2model.HealthCheckMatcher{
 			GRPCCode: &matcher,
 		}
 	}
 	matcher := builder.defaultHealthCheckMatcherHTTPCode
-	if targetGroupProps.ProtocolVersion != nil && targetGroupProps.HealthCheckConfig != nil && targetGroupProps.HealthCheckConfig.Matcher != nil && targetGroupProps.HealthCheckConfig.Matcher.HTTPCode != nil {
+	if targetGroupProps != nil && targetGroupProps.ProtocolVersion != nil && targetGroupProps.HealthCheckConfig != nil && targetGroupProps.HealthCheckConfig.Matcher != nil && targetGroupProps.HealthCheckConfig.Matcher.HTTPCode != nil {
 		matcher = *targetGroupProps.HealthCheckConfig.Matcher.HTTPCode
 	}
-	return elbv2model.HealthCheckMatcher{
+	return &elbv2model.HealthCheckMatcher{
 		HTTPCode: &matcher,
 	}
 }
@@ -503,6 +548,10 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckUnhealthyThres
 func (builder *targetGroupBuilderImpl) buildTargetGroupAttributes(targetGroupProps *elbv2gw.TargetGroupProps) map[string]string {
 	attributeMap := make(map[string]string)
 
+	if targetGroupProps == nil {
+		return attributeMap
+	}
+
 	for _, attr := range targetGroupProps.TargetGroupAttributes {
 		attributeMap[attr.Key] = attr.Value
 	}
@@ -526,6 +575,10 @@ func (builder *targetGroupBuilderImpl) convertMapToAttributes(attributeMap map[s
 }
 
 func (builder *targetGroupBuilderImpl) buildL4TargetGroupAttributes(attributeMap *map[string]string, targetGroupProps *elbv2gw.TargetGroupProps) {
+	if targetGroupProps == nil {
+		return
+	}
+
 	if _, ok := (*attributeMap)[tgAttrsProxyProtocolV2Enabled]; !ok {
 		(*attributeMap)[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(builder.defaultProxyProtocolV2Enabled)
 	}

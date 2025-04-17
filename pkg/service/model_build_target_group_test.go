@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
 	"testing"
@@ -204,7 +205,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 }
 
 func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
-	trafficPort := intstr.FromString(healthCheckPortTrafficPort)
+	trafficPort := intstr.FromString(shared_constants.HealthCheckPortTrafficPort)
 	port8888 := intstr.FromInt(8888)
 	port31223 := intstr.FromInt(31223)
 	tests := []struct {
@@ -410,7 +411,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultLoadBalancingCrossZoneEnabled: false,
 				defaultProxyProtocolV2Enabled:        false,
 				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
-				defaultHealthCheckPort:               healthCheckPortTrafficPort,
+				defaultHealthCheckPort:               shared_constants.HealthCheckPortTrafficPort,
 				defaultHealthCheckPath:               "/",
 				defaultHealthCheckInterval:           10,
 				defaultHealthCheckTimeout:            10,

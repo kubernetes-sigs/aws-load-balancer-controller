@@ -1,6 +1,7 @@
 package routeutils
 
 import (
+	"github.com/go-logr/logr"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -13,10 +14,13 @@ type routeAttachmentHelper interface {
 var _ routeAttachmentHelper = &routeAttachmentHelperImpl{}
 
 type routeAttachmentHelperImpl struct {
+	logger logr.Logger
 }
 
-func newRouteAttachmentHelper() routeAttachmentHelper {
-	return &routeAttachmentHelperImpl{}
+func newRouteAttachmentHelper(logger logr.Logger) routeAttachmentHelper {
+	return &routeAttachmentHelperImpl{
+		logger: logger,
+	}
 }
 
 // doesRouteAttachToGateway is responsible for determining if a route and gateway should be connected.
@@ -26,6 +30,7 @@ func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, 
 
 		// Default for kind is Gateway.
 		if parentRef.Kind != nil && *parentRef.Kind != "Gateway" {
+			rah.logger.Info("False due to kind check")
 			continue
 		}
 
@@ -37,11 +42,17 @@ func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, 
 			namespaceToCompare = gw.Namespace
 		}
 
-		if string(parentRef.Name) == gw.Name && gw.Namespace == namespaceToCompare {
+		nameCheck := string(parentRef.Name) == gw.Name
+		nsCheck := gw.Namespace == namespaceToCompare
+
+		rah.logger.Info("check??", "name", nameCheck, "ns", nsCheck)
+
+		if nameCheck && nsCheck {
 			return true
 		}
 	}
 
+	rah.logger.Info("(DEFAULT) returning false.")
 	return false
 }
 

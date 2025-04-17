@@ -60,7 +60,7 @@ func (in *HealthCheckConfiguration) DeepCopyInto(out *HealthCheckConfiguration) 
 	}
 	if in.HealthCheckPort != nil {
 		in, out := &in.HealthCheckPort, &out.HealthCheckPort
-		*out = new(int32)
+		*out = new(string)
 		**out = **in
 	}
 	if in.HealthCheckProtocol != nil {
@@ -686,9 +686,19 @@ func (in *TargetGroupProps) DeepCopyInto(out *TargetGroupProps) {
 		*out = new(TargetType)
 		**out = **in
 	}
+	if in.Protocol != nil {
+		in, out := &in.Protocol, &out.Protocol
+		*out = new(Protocol)
+		**out = **in
+	}
 	if in.ProtocolVersion != nil {
 		in, out := &in.ProtocolVersion, &out.ProtocolVersion
 		*out = new(ProtocolVersion)
+		**out = **in
+	}
+	if in.EnableProxyProtocolV2 != nil {
+		in, out := &in.EnableProxyProtocolV2, &out.EnableProxyProtocolV2
+		*out = new(bool)
 		**out = **in
 	}
 	if in.VpcID != nil {

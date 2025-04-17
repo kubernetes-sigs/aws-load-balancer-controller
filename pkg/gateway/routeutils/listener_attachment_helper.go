@@ -2,6 +2,7 @@ package routeutils
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -18,11 +19,13 @@ var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
 // listenerAttachmentHelperImpl implements the listenerAttachmentHelper interface.
 type listenerAttachmentHelperImpl struct {
 	namespaceSelector namespaceSelector
+	logger            logr.Logger
 }
 
-func newListenerAttachmentHelper(k8sClient client.Client) listenerAttachmentHelper {
+func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) listenerAttachmentHelper {
 	return &listenerAttachmentHelperImpl{
 		namespaceSelector: newNamespaceSelector(k8sClient),
+		logger:            logger,
 	}
 }
 
@@ -34,14 +37,13 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 		return false, err
 	}
 
+	attachmentHelper.logger.Info("name space not ok", "check", namespaceOK)
 	if !namespaceOK {
 		return false, nil
 	}
 
-	if !attachmentHelper.kindCheck(listener, route) {
-		return false, nil
-	}
-	return true, nil
+	attachmentHelper.logger.Info("kind check", "check", attachmentHelper.kindCheck(listener, route))
+	return attachmentHelper.kindCheck(listener, route), nil
 }
 
 // namespaceCheck namespace check implements the Gateway API spec for namespace matching between listener
@@ -56,6 +58,8 @@ func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context
 	}
 
 	namespacedName := route.GetRouteNamespacedName()
+
+	attachmentHelper.logger.Info("Allowed namespaces", "allowed", allowedNamespaces, "ns", namespacedName.Namespace)
 
 	switch allowedNamespaces {
 	case gwv1.NamespacesFromSame:
