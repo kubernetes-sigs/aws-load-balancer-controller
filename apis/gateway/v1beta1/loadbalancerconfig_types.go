@@ -26,15 +26,6 @@ const (
 	LoadBalancerIpAddressTypeDualstackWithoutPublicIpv4 LoadBalancerIpAddressType = "dualstack-without-public-ipv4"
 )
 
-// +kubebuilder:validation:Enum=on;off
-// EnablePrefixForIpv6SourceNatEnum defines the enum values for EnablePrefixForIpv6SourceNat
-type EnablePrefixForIpv6SourceNatEnum string
-
-const (
-	EnablePrefixForIpv6SourceNatEnumOn  EnablePrefixForIpv6SourceNatEnum = "on"
-	EnablePrefixForIpv6SourceNatEnumOff EnablePrefixForIpv6SourceNatEnum = "off"
-)
-
 // LoadBalancerAttribute defines LB attribute.
 type LoadBalancerAttribute struct {
 	// The key of the attribute.
@@ -64,20 +55,25 @@ type LoadBalancerTag struct {
 
 // SubnetConfiguration defines the subnet settings for a Load Balancer.
 type SubnetConfiguration struct {
-	// identifier name or id for the subnet
+	// identifier [Application LoadBalancer / Network LoadBalancer] name or id for the subnet
+	// +optional
 	Identifier string `json:"identifier"`
 
-	// eipAllocation the EIP name for this subnet.
+	// eipAllocation [Network LoadBalancer] the EIP name for this subnet.
 	// +optional
 	EIPAllocation *string `json:"eipAllocation,omitempty"`
 
-	// privateIPv4Allocation the private ipv4 address to assign to this subnet.
+	// privateIPv4Allocation [Network LoadBalancer] the private ipv4 address to assign to this subnet.
 	// +optional
 	PrivateIPv4Allocation *string `json:"privateIPv4Allocation,omitempty"`
 
-	// privateIPv6Allocation the private ipv6 address to assign to this subnet.
+	// IPv6Allocation [Network LoadBalancer] the ipv6 address to assign to this subnet.
 	// +optional
-	PrivateIPv6Allocation *string `json:"privateIPv6Allocation,omitempty"`
+	IPv6Allocation *string `json:"ipv6Allocation,omitempty"`
+
+	// SourceNatIPv6Prefix [Network LoadBalancer] The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or auto_assigned to use an IPv6 prefix selected at random from the subnet CIDR block.
+	// +optional
+	SourceNatIPv6Prefix *string `json:"sourceNatIPv6Prefix,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=HTTP1Only;HTTP2Only;HTTP2Optional;HTTP2Preferred;None
@@ -183,10 +179,6 @@ type LoadBalancerConfigurationSpec struct {
 	// +optional
 	IpAddressType *LoadBalancerIpAddressType `json:"ipAddressType,omitempty"`
 
-	// enablePrefixForIpv6SourceNat indicates whether to use an IPv6 prefix from each subnet for source NAT for Network Load Balancers with UDP listeners.
-	// +optional
-	EnablePrefixForIpv6SourceNat *EnablePrefixForIpv6SourceNatEnum `json:"enablePrefixForIpv6SourceNat,omitempty"`
-
 	// enforceSecurityGroupInboundRulesOnPrivateLinkTraffic Indicates whether to evaluate inbound security group rules for traffic sent to a Network Load Balancer through Amazon Web Services PrivateLink.
 	// +optional
 	EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic *string `json:"enforceSecurityGroupInboundRulesOnPrivateLinkTraffic,omitempty"`
@@ -196,8 +188,15 @@ type LoadBalancerConfigurationSpec struct {
 	CustomerOwnedIpv4Pool *string `json:"customerOwnedIpv4Pool,omitempty"`
 
 	// loadBalancerSubnets is an optional list of subnet configurations to be used in the LB
+	// This value takes precedence over loadBalancerSubnetsSelector if both are selected.
 	// +optional
 	LoadBalancerSubnets *[]SubnetConfiguration `json:"loadBalancerSubnets,omitempty"`
+
+	// LoadBalancerSubnetsSelector specifies subnets in the load balancer's VPC where each
+	// tag specified in the map key contains one of the values in the corresponding
+	// value list.
+	// +optional
+	LoadBalancerSubnetsSelector *map[string][]string `json:"loadBalancerSubnetsSelector,omitempty"`
 
 	// listenerConfigurations is an optional list of configurations for each listener on LB
 	// +optional

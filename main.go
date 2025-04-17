@@ -173,9 +173,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	var routeLoader routeutils.Loader
 	if controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI) {
-		routeLoader = routeutils.NewLoader(mgr.GetClient())
+		routeLoader := routeutils.NewLoader(mgr.GetClient())
 		nlbGatewayReconciler := gateway.NewNLBGatewayReconciler(routeLoader, cloud, mgr.GetClient(), mgr.GetEventRecorderFor("nlbgateway"), controllerCFG, finalizerManager, sgReconciler, sgManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("nlbgateway"), lbcMetricsCollector, reconcileCounters)
 		nlbControllerError := nlbGatewayReconciler.SetupWithManager(mgr)
 		if nlbControllerError != nil {
@@ -183,11 +182,8 @@ func main() {
 			os.Exit(1)
 		}
 	}
-
 	if controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI) {
-		if routeLoader == nil {
-			routeLoader = routeutils.NewLoader(mgr.GetClient())
-		}
+		routeLoader := routeutils.NewLoader(mgr.GetClient())
 		albGatewayReconciler := gateway.NewALBGatewayReconciler(routeLoader, cloud, mgr.GetClient(), mgr.GetEventRecorderFor("albgateway"), controllerCFG, finalizerManager, sgReconciler, sgManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("albgateway"), lbcMetricsCollector, reconcileCounters)
 		albControllerErr := albGatewayReconciler.SetupWithManager(mgr)
 		if albControllerErr != nil {
