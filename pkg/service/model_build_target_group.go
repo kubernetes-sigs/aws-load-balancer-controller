@@ -25,11 +25,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
-const (
-	tgAttrsProxyProtocolV2Enabled  = "proxy_protocol_v2.enabled"
-	tgAttrsPreserveClientIPEnabled = "preserve_client_ip.enabled"
-)
-
 func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
 	svcPort := intstr.FromInt(int(port.Port))
 	tgResourceID := t.buildTargetGroupResourceID(k8s.NamespacedName(t.service), svcPort)
@@ -212,8 +207,8 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
 	if rawAttributes == nil {
 		rawAttributes = make(map[string]string)
 	}
-	if _, ok := rawAttributes[tgAttrsProxyProtocolV2Enabled]; !ok {
-		rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
+	if _, ok := rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled]; !ok {
+		rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
 	}
 
 	var proxyProtocolPerTG string
@@ -232,9 +227,9 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
 
 		currentPortStr := strconv.FormatInt(int64(port.Port), 10)
 		if _, enabled := enabledPorts[currentPortStr]; enabled {
-			rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
+			rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "true"
 		} else {
-			rawAttributes[tgAttrsProxyProtocolV2Enabled] = "false"
+			rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "false"
 		}
 	}
 
@@ -243,13 +238,13 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
 		if proxyV2Annotation != "*" {
 			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
 		}
-		rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
+		rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "true"
 	}
 
-	if rawPreserveIPEnabled, ok := rawAttributes[tgAttrsPreserveClientIPEnabled]; ok {
+	if rawPreserveIPEnabled, ok := rawAttributes[shared_constants.TGAttributePreserveClientIPEnabled]; ok {
 		_, err := strconv.ParseBool(rawPreserveIPEnabled)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, rawPreserveIPEnabled)
+			return nil, errors.Wrapf(err, "failed to parse attribute %v=%v", shared_constants.TGAttributePreserveClientIPEnabled, rawPreserveIPEnabled)
 		}
 	}
 
@@ -268,10 +263,10 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
 
 func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, targetType elbv2model.TargetType, tgAttrs []elbv2model.TargetGroupAttribute) (bool, error) {
 	for _, attr := range tgAttrs {
-		if attr.Key == tgAttrsPreserveClientIPEnabled {
+		if attr.Key == shared_constants.TGAttributePreserveClientIPEnabled {
 			preserveClientIP, err := strconv.ParseBool(attr.Value)
 			if err != nil {
-				return false, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, attr.Value)
+				return false, errors.Wrapf(err, "failed to parse attribute %v=%v", shared_constants.TGAttributePreserveClientIPEnabled, attr.Value)
 			}
 			return preserveClientIP, nil
 		}
