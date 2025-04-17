@@ -144,6 +144,9 @@ type gatewayReconciler struct {
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/finalizers,verbs=update
 
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations,verbs=get;list;watch
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations,verbs=get;list;watch
+
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
 	err := r.reconcileHelper(ctx, req)
@@ -180,6 +183,8 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	}
 
 	allRoutes, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter)
+
+	r.logger.Info("In Gateway Controller - Got these routes", "routes", allRoutes)
 
 	if err != nil {
 		return err

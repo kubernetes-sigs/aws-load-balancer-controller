@@ -2,6 +2,7 @@ package routeutils
 
 import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -221,7 +222,9 @@ func Test_doesRouteAttachToGateway(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			helper := &routeAttachmentHelperImpl{}
+			helper := &routeAttachmentHelperImpl{
+				logger: logr.Discard(),
+			}
 			assert.Equal(t, tc.result, helper.doesRouteAttachToGateway(tc.gw, tc.route))
 		})
 	}
@@ -359,7 +362,9 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			helper := &routeAttachmentHelperImpl{}
+			helper := &routeAttachmentHelperImpl{
+				logger: logr.Discard(),
+			}
 			assert.Equal(t, tc.result, helper.routeAllowsAttachmentToListener(tc.listener, tc.route))
 		})
 	}

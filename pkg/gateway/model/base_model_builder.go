@@ -38,11 +38,13 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
 	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, enableBackendSG, sgResolver, backendSGProvider, logger)
 	lbBuilder := newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName)
+	tgBuilder := newTargetGroupBuilder(clusterName, vpcID, gwTagHelper, loadBalancerType, disableRestrictedSGRules, defaultTargetType)
 
 	return &baseModelBuilder{
 		subnetBuilder:        subnetBuilder,
 		securityGroupBuilder: sgBuilder,
 		lbBuilder:            lbBuilder,
+		tgBuilder:            tgBuilder,
 		logger:               logger,
 
 		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
@@ -56,10 +58,9 @@ type baseModelBuilder struct {
 	lbBuilder loadBalancerBuilder
 	logger    logr.Logger
 
-	tgByResID map[string]*elbv2model.TargetGroup
-
 	subnetBuilder        subnetModelBuilder
 	securityGroupBuilder securityGroupBuilder
+	tgBuilder            targetGroupBuilder
 
 	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
 	defaultIPType             elbv2model.IPAddressType
@@ -111,6 +112,30 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 	}
 
 	lb := elbv2model.NewLoadBalancer(stack, resourceIDLoadBalancer, spec)
+
+	baseBuilder.logger.Info("Got this route details", "routes", routes)
+	/* Target Groups */
+	// TODO - Figure out how to map this back to a listener?
+	tgByResID := make(map[string]buildTargetGroupOutput)
+	for _, descriptors := range routes {
+		for _, descriptor := range descriptors {
+			for _, rule := range descriptor.GetAttachedRules() {
+				for _, backend := range rule.GetBackends() {
+					// TODO -- Figure out what to do with the return value (it's also inserted into the tgByResID map)
+					_, tgErr := baseBuilder.tgBuilder.buildTargetGroup(&tgByResID, gw, lbConf, lb.Spec.IPAddressType, descriptor, backend, securityGroups.backendSecurityGroupToken)
+					if tgErr != nil {
+						return nil, nil, false, err
+					}
+				}
+			}
+		}
+	}
+
+	for tgResID, tgOut := range tgByResID {
+		tg := elbv2model.NewTargetGroup(stack, tgResID, tgOut.targetGroupSpec)
+		tgOut.bindingSpec.Template.Spec.TargetGroupARN = tg.TargetGroupARN()
+		elbv2model.NewTargetGroupBindingResource(stack, tg.ID(), tgOut.bindingSpec)
+	}
 
 	return stack, lb, securityGroups.backendSecurityGroupAllocated, nil
 }

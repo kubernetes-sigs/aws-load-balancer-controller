@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -54,14 +55,16 @@ var _ Loader = &loaderImpl{}
 type loaderImpl struct {
 	mapper          listenerToRouteMapper
 	k8sClient       client.Client
+	logger          logr.Logger
 	allRouteLoaders map[string]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
 }
 
-func NewLoader(k8sClient client.Client) Loader {
+func NewLoader(k8sClient client.Client, logger logr.Logger) Loader {
 	return &loaderImpl{
-		mapper:          newListenerToRouteMapper(k8sClient),
+		mapper:          newListenerToRouteMapper(k8sClient, logger.WithName("route-mapper")),
 		k8sClient:       k8sClient,
 		allRouteLoaders: allRoutes,
+		logger:          logger,
 	}
 }
 
@@ -70,8 +73,10 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	// 1. Load all relevant routes according to the filter
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
 	for route, loader := range l.allRouteLoaders {
+		l.logger.Info("Got this route..", "route", route, "is applicable", filter.IsApplicable(route))
 		if filter.IsApplicable(route) {
 			data, err := loader(ctx, l.k8sClient)
+			l.logger.Info("data from load", "data", data, "err", err)
 			if err != nil {
 				return nil, err
 			}
