@@ -154,6 +154,9 @@ spec:
         {{- if kindIs "bool" .Values.enableBackendSecurityGroup }}
         - --enable-backend-security-group={{ .Values.enableBackendSecurityGroup }}
         {{- end }}
+        {{- if kindIs "bool" .Values.enableManageBackendSecurityGroupRules }}
+        - --enable-manage-backend-security-group-rules={{ .Values.enableManageBackendSecurityGroupRules }}
+        {{- end }}
         {{- if .Values.backendSecurityGroup }}
         - --backend-security-group={{ .Values.backendSecurityGroup }}
         {{- end }}

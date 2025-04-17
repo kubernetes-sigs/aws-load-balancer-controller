@@ -1879,3 +1879,83 @@ func Test_defaultModelBuilderTask_buildLbCapacity(t *testing.T) {
 		})
 	}
 }
+
+func Test_defaultModelBuildTask_buildManageSecurityGroupRulesFlag(t *testing.T) {
+	tests := []struct {
+		name                       string
+		enableManageBackendSGRules bool
+		annotations                map[string]string
+		wantManageSGRules          bool
+		wantErr                    bool
+	}{
+		{
+			name:                       "with no annotation and enableManageBackendSGRules=false - expect enable manage security group rules to be false",
+			enableManageBackendSGRules: false,
+			annotations:                map[string]string{},
+			wantManageSGRules:          false,
+			wantErr:                    false,
+		},
+		{
+			name:                       "with no annotation and enableManageBackendSGRules=true - expect enable manage security group rules to be true",
+			enableManageBackendSGRules: true,
+			annotations:                map[string]string{},
+			wantManageSGRules:          true,
+			wantErr:                    false,
+		},
+		{
+			name:                       "with annotation true and enableManageBackendSGRules=false - expect override and enable manage security group rules to be true",
+			enableManageBackendSGRules: false,
+			annotations: map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules": "true",
+			},
+			wantManageSGRules: true,
+			wantErr:           false,
+		},
+		{
+			name:                       "with annotation false and enableManageBackendSGRules=true - expect override and enable manage security group rules to be false",
+			enableManageBackendSGRules: true,
+			annotations: map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules": "false",
+			},
+			wantManageSGRules: false,
+			wantErr:           false,
+		},
+		{
+			name:                       "with invalid annotation - expect error",
+			enableManageBackendSGRules: false,
+			annotations: map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules": "invalid",
+			},
+			wantManageSGRules: false,
+			wantErr:           true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+
+			task := &defaultModelBuildTask{
+				enableManageBackendSGRules: tt.enableManageBackendSGRules,
+				service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: tt.annotations,
+					},
+				},
+				annotationParser: annotationParser,
+			}
+
+			got, err := task.buildManageSecurityGroupRulesFlag(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("buildManageSecurityGroupRulesFlag() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.wantManageSGRules {
+				t.Errorf("buildManageSecurityGroupRulesFlag() got = %v, want %v", got, tt.wantManageSGRules)
+			}
+		})
+	}
+}

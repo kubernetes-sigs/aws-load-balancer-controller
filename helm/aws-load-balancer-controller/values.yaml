@@ -351,6 +351,9 @@ enableEndpointSlices:
 # enableBackendSecurityGroup enables shared security group for backend traffic (default true)
 enableBackendSecurityGroup:
 
+# enableManageBackendSecurityGroupRules enables controller manages security group rules (default false)
+enableManageBackendSecurityGroupRules:
+
 # backendSecurityGroup specifies backend security group id (default controller auto create backend security group)
 backendSecurityGroup:
 
