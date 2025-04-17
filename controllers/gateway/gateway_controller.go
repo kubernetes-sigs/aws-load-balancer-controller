@@ -184,8 +184,6 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 
 	allRoutes, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter)
 
-	r.logger.Info("In Gateway Controller - Got these routes", "routes", allRoutes)
-
 	if err != nil {
 		return err
 	}
