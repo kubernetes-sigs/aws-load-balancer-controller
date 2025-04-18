@@ -22,6 +22,8 @@ const (
 	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
 	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
+	flagALBGatewayMaxConcurrentReconciles            = "alb-gateway-max-concurrent-reconciles"
+	flagNLBGatewayMaxConcurrentReconciles            = "nlb-gateway-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagLbStabilizationMonitorInterval               = "lb-stabilization-monitor-interval"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
@@ -142,6 +144,10 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrently running reconcile loops for service")
 	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for targetGroupBinding")
+	fs.IntVar(&cfg.ALBGatewayMaxConcurrentReconciles, flagALBGatewayMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
+		"Maximum number of concurrently running reconcile loops for alb gateway")
+	fs.IntVar(&cfg.NLBGatewayMaxConcurrentReconciles, flagNLBGatewayMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
+		"Maximum number of concurrently running reconcile loops for nlb gateway")
 	fs.DurationVar(&cfg.TargetGroupBindingMaxExponentialBackoffDelay, flagTargetGroupBindingMaxExponentialBackoffDelay, defaultMaxExponentialBackoffDelay,
 		"Maximum duration of exponential backoff for targetGroupBinding reconcile failures")
 	fs.DurationVar(&cfg.LBStabilizationMonitorInterval, flagLbStabilizationMonitorInterval, defaultLbStabilizationMonitorInterval,

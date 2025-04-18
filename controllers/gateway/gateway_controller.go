@@ -10,11 +10,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	gatewaymodel "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -27,25 +29,29 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 type Reconciler interface {
 	Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error)
-	SetupWithManager(mgr ctrl.Manager) error
+	SetupWithManager(ctx context.Context, mgr ctrl.Manager) (controller.Controller, error)
+	SetupWatches(ctx context.Context, controller controller.Controller, mgr ctrl.Manager) error
 }
 
 var _ Reconciler = &gatewayReconciler{}
 
 // NewNLBGatewayReconciler constructs a gateway reconciler to handle specifically for NLB gateways
 func NewNLBGatewayReconciler(routeLoader routeutils.Loader, cloud services.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder, controllerConfig config.ControllerConfig, finalizerManager k8s.FinalizerManager, networkingSGReconciler networking.SecurityGroupReconciler, networkingSGManager networking.SecurityGroupManager, elbv2TaggingManager elbv2deploy.TaggingManager, subnetResolver networking.SubnetsResolver, vpcInfoProvider networking.VPCInfoProvider, backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) Reconciler {
-	return newGatewayReconciler(NLBGatewayController, elbv2model.LoadBalancerTypeNetwork, controllerConfig.NLBGatewayMaxConcurrentReconciles, NLBGatewayTagPrefix, NLBGatewayFinalizer, routeLoader, routeutils.L4RouteFilter, cloud, k8sClient, eventRecorder, controllerConfig, finalizerManager, networkingSGReconciler, networkingSGManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, logger, metricsCollector, reconcileCounters.IncrementNLBGateway)
+	return newGatewayReconciler(constants.NLBGatewayController, elbv2model.LoadBalancerTypeNetwork, controllerConfig.NLBGatewayMaxConcurrentReconciles, constants.NLBGatewayTagPrefix, constants.NLBGatewayFinalizer, routeLoader, routeutils.L4RouteFilter, cloud, k8sClient, eventRecorder, controllerConfig, finalizerManager, networkingSGReconciler, networkingSGManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, logger, metricsCollector, reconcileCounters.IncrementNLBGateway)
 }
 
 // NewALBGatewayReconciler constructs a gateway reconciler to handle specifically for ALB gateways
 func NewALBGatewayReconciler(routeLoader routeutils.Loader, cloud services.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder, controllerConfig config.ControllerConfig, finalizerManager k8s.FinalizerManager, networkingSGReconciler networking.SecurityGroupReconciler, networkingSGManager networking.SecurityGroupManager, elbv2TaggingManager elbv2deploy.TaggingManager, subnetResolver networking.SubnetsResolver, vpcInfoProvider networking.VPCInfoProvider, backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) Reconciler {
-	return newGatewayReconciler(ALBGatewayController, elbv2model.LoadBalancerTypeApplication, controllerConfig.ALBGatewayMaxConcurrentReconciles, ALBGatewayTagPrefix, ALBGatewayFinalizer, routeLoader, routeutils.L7RouteFilter, cloud, k8sClient, eventRecorder, controllerConfig, finalizerManager, networkingSGReconciler, networkingSGManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, logger, metricsCollector, reconcileCounters.IncrementALBGateway)
+	return newGatewayReconciler(constants.ALBGatewayController, elbv2model.LoadBalancerTypeApplication, controllerConfig.ALBGatewayMaxConcurrentReconciles, constants.ALBGatewayTagPrefix, constants.ALBGatewayFinalizer, routeLoader, routeutils.L7RouteFilter, cloud, k8sClient, eventRecorder, controllerConfig, finalizerManager, networkingSGReconciler, networkingSGManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, logger, metricsCollector, reconcileCounters.IncrementALBGateway)
 }
 
 // newGatewayReconciler constructs a reconciler that responds to gateway object changes
@@ -59,6 +65,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 
 	return &gatewayReconciler{
 		controllerName:          controllerName,
+		lbType:                  lbType,
 		maxConcurrentReconciles: maxConcurrentReconciles,
 		finalizer:               finalizer,
 		gatewayLoader:           routeLoader,
@@ -79,6 +86,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 // gatewayReconciler reconciles a Gateway.
 type gatewayReconciler struct {
 	controllerName          string
+	lbType                  elbv2model.LoadBalancerType
 	finalizer               string
 	maxConcurrentReconciles int
 	gatewayLoader           routeutils.Loader
@@ -102,6 +110,18 @@ type gatewayReconciler struct {
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/finalizers,verbs=update
 
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses,verbs=get;list;watch
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses/finalizers,verbs=update
+
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations,verbs=get;list;watch
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations/finalizers,verbs=update
+
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations,verbs=get;list;watch
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations/finalizers,verbs=update
+
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=udproutes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=udproutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=udproutes/finalizers,verbs=update
@@ -109,6 +129,18 @@ type gatewayReconciler struct {
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=tcproutes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=tcproutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=tcproutes/finalizers,verbs=update
+
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=tlsroutes,verbs=get;list;watch
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=tlsroutes/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=tlsroutes/finalizers,verbs=update
+
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes/finalizers,verbs=update
+
+// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/finalizers,verbs=update
 
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
@@ -263,30 +295,152 @@ func (r *gatewayReconciler) updateGatewayStatus(ctx context.Context, lbDNS strin
 	return nil
 }
 
-func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	/*
-		gatewayClassHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(r.logger, r.k8sClient, r.config)
-		tcpRouteHandler := eventhandlers.NewEnqueueRequestsForTCPRouteEvent(r.logger, r.k8sClient, r.config)
-		udpRouteHandler := eventhandlers.NewEnqueueRequestsForUDPRouteEvent(r.logger, r.k8sClient, r.config)
-		return ctrl.NewControllerManagedBy(mgr).
-			Named("nlbgateway").
-			// Anything that influences a gateway object must be added here.
-			For(&gwv1.Gateway{}).
-			Watches(&gwv1.GatewayClass{}, gatewayClassHandler).
-			Watches(&gwalpha2.TCPRoute{}, tcpRouteHandler).
-			Watches(&gwalpha2.UDPRoute{}, udpRouteHandler).
-			WithOptions(controller.Options{
-				MaxConcurrentReconciles: r.config.MaxConcurrentReconciles,
-			}).
-			Complete(r)
-	*/
+func (r *gatewayReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) (controller.Controller, error) {
+	c, err := controller.New(r.controllerName, mgr, controller.Options{
+		MaxConcurrentReconciles: r.maxConcurrentReconciles,
+		Reconciler:              r,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
 
-	return ctrl.NewControllerManagedBy(mgr).
-		Named(r.controllerName).
-		// Anything that influences a gateway object must be added here.
-		For(&gwv1.Gateway{}).
-		WithOptions(controller.Options{
-			MaxConcurrentReconciles: r.maxConcurrentReconciles,
-		}).
-		Complete(r)
+func (r *gatewayReconciler) SetupWatches(ctx context.Context, c controller.Controller, mgr ctrl.Manager) error {
+	if err := r.setupCommonGatewayControllerWatches(c, mgr); err != nil {
+		return err
+	}
+	switch r.controllerName {
+	case constants.ALBGatewayController:
+		if err := r.setupALBGatewayControllerWatches(c, mgr); err != nil {
+			return err
+		}
+		break
+	case constants.NLBGatewayController:
+		if err := r.setupNLBGatewayControllerWatches(c, mgr); err != nil {
+			return err
+		}
+		break
+	default:
+		return fmt.Errorf("unknown controller %v", r.controllerName)
+	}
+	return nil
+}
+
+func (r *gatewayReconciler) setupCommonGatewayControllerWatches(ctrl controller.Controller, mgr ctrl.Manager) error {
+	loggerPrefix := r.logger.WithName("eventHandlers")
+	gwClassEventChan := make(chan event.TypedGenericEvent[*gwv1.GatewayClass])
+	lbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration])
+
+	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(r.k8sClient, r.eventRecorder, r.controllerName,
+		loggerPrefix.WithName("GatewayClass"))
+	lbConfigEventHandler := eventhandlers.NewEnqueueRequestsForLoadBalancerConfigurationEvent(gwClassEventChan, r.k8sClient, r.eventRecorder, r.controllerName,
+		loggerPrefix.WithName("LoadBalancerConfiguration"))
+
+	if err := ctrl.Watch(source.Channel(gwClassEventChan, gwClassEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(lbConfigEventChan, lbConfigEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.GatewayClass{}, gwClassEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.LoadBalancerConfiguration{}, lbConfigEventHandler)); err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Controller, mgr ctrl.Manager) error {
+	loggerPrefix := r.logger.WithName("eventHandlers")
+	tbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.TargetGroupConfiguration])
+	httpRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.HTTPRoute])
+	grpcRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.GRPCRoute])
+	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
+	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("TargetGroupConfiguration"))
+	grpcRouteEventHandler := eventhandlers.NewEnqueueRequestsForGRPCRouteEvent(r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("GRPCRoute"))
+	httpRouteEventHandler := eventhandlers.NewEnqueueRequestsForHTTPRouteEvent(r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("HTTPRoute"))
+	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(httpRouteEventChan, grpcRouteEventChan, nil, nil, nil, r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("Service"), constants.ALBGatewayController)
+	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(httpRouteEventChan, httpRouteEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(grpcRouteEventChan, grpcRouteEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(svcEventChan, svcEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.TargetGroupConfiguration{}, tgConfigEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.HTTPRoute{}, httpRouteEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.GRPCRoute{}, grpcRouteEventHandler)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Controller, mgr ctrl.Manager) error {
+	loggerPrefix := r.logger.WithName("eventHandlers")
+	tbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.TargetGroupConfiguration])
+	tcpRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.TCPRoute])
+	udpRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.UDPRoute])
+	tlsRouteEventChan := make(chan event.TypedGenericEvent[*gwalpha2.TLSRoute])
+	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
+	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("TargetGroupConfiguration"))
+	tcpRouteEventHandler := eventhandlers.NewEnqueueRequestsForTCPRouteEvent(r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("TCPRoute"))
+	udpRouteEventHandler := eventhandlers.NewEnqueueRequestsForUDPRouteEvent(r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("UDPRoute"))
+	tlsRouteEventHandler := eventhandlers.NewEnqueueRequestsForTLSRouteEvent(r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("TLSRoute"))
+	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(nil, nil, tcpRouteEventChan, udpRouteEventChan, tlsRouteEventChan, r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("Service"), constants.NLBGatewayController)
+	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(tcpRouteEventChan, tcpRouteEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(udpRouteEventChan, udpRouteEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(tlsRouteEventChan, tlsRouteEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(svcEventChan, svcEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.TargetGroupConfiguration{}, tgConfigEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.TCPRoute{}, tcpRouteEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.UDPRoute{}, udpRouteEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.TLSRoute{}, tlsRouteEventHandler)); err != nil {
+		return err
+	}
+	return nil
+
 }

@@ -102,6 +102,16 @@ func (tlsRoute *tlsRouteDescription) GetRawRoute() interface{} {
 	return tlsRoute.route
 }
 
+func (tlsRoute *tlsRouteDescription) GetBackendRefs() []gwv1.BackendRef {
+	backendRefs := make([]gwv1.BackendRef, 0)
+	if tlsRoute.route.Spec.Rules != nil {
+		for _, rule := range tlsRoute.route.Spec.Rules {
+			backendRefs = append(backendRefs, rule.BackendRefs...)
+		}
+	}
+	return backendRefs
+}
+
 var _ RouteDescriptor = &tlsRouteDescription{}
 
 func ListTLSRoutes(context context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {

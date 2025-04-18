@@ -1,4 +1,4 @@
-package gateway
+package constants
 
 /*
 Common constants
@@ -7,10 +7,13 @@ Common constants
 const (
 	// GatewayResourceGroupVersion the groupVersion used by Gateway & GatewayClass resources.
 	GatewayResourceGroupVersion = "gateway.networking.k8s.io/v1"
+
+	// LoadBalancerConfiguration the CRD name of LoadBalancerConfiguration
+	LoadBalancerConfiguration = "LoadBalancerConfiguration"
 )
 
 /*
-NLB constants
+   NLB Gateway constants
 */
 
 const (
@@ -28,7 +31,7 @@ const (
 )
 
 /*
-ALB Constants
+   ALB Gateway Constants
 */
 
 const (

@@ -99,6 +99,18 @@ func (grpcRoute *grpcRouteDescription) GetRawRoute() interface{} {
 	return grpcRoute.route
 }
 
+func (grpcRoute *grpcRouteDescription) GetBackendRefs() []gwv1.BackendRef {
+	backendRefs := make([]gwv1.BackendRef, 0)
+	if grpcRoute.route.Spec.Rules != nil {
+		for _, rule := range grpcRoute.route.Spec.Rules {
+			for _, grpcBackendRef := range rule.BackendRefs {
+				backendRefs = append(backendRefs, grpcBackendRef.BackendRef)
+			}
+		}
+	}
+	return backendRefs
+}
+
 var _ RouteDescriptor = &grpcRouteDescription{}
 
 // Can we use an indexer here to query more efficiently?

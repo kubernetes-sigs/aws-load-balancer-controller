@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -30,7 +31,7 @@ func Test_ConvertUDPRuleToRouteRule(t *testing.T) {
 }
 
 func Test_ListUDPRoutes(t *testing.T) {
-	k8sClient := generateTestClient()
+	k8sClient := testutils.GenerateTestClient()
 
 	k8sClient.Create(context.Background(), &gwalpha2.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -38,7 +39,25 @@ func Test_ListUDPRoutes(t *testing.T) {
 			Namespace: "bar1",
 		},
 		Spec: gwalpha2.UDPRouteSpec{
-			Rules: nil,
+			Rules: []gwalpha2.UDPRouteRule{
+				{
+					BackendRefs: []gwalpha2.BackendRef{
+						{},
+						{},
+					},
+				},
+				{
+					BackendRefs: []gwalpha2.BackendRef{
+						{},
+						{},
+						{},
+						{},
+					},
+				},
+				{
+					BackendRefs: []gwalpha2.BackendRef{},
+				},
+			},
 		},
 	})
 
@@ -70,6 +89,17 @@ func Test_ListUDPRoutes(t *testing.T) {
 		assert.Equal(t, UDPRouteKind, v.GetRouteKind())
 		assert.NotNil(t, v.GetRawRoute())
 		assert.Equal(t, 0, len(v.GetHostnames()))
+		if routeNsn.Name == "foo1" {
+			assert.Equal(t, 6, len(v.GetBackendRefs()))
+		}
+
+		if routeNsn.Name == "foo2" {
+			assert.Equal(t, 0, len(v.GetBackendRefs()))
+		}
+
+		if routeNsn.Name == "foo3" {
+			assert.Equal(t, 0, len(v.GetBackendRefs()))
+		}
 	}
 
 	assert.Equal(t, "foo1", itemMap["bar1"])

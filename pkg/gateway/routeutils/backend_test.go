@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"testing"
@@ -302,7 +303,7 @@ func TestCommonBackendLoader(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			k8sClient := generateTestClient()
+			k8sClient := testutils.GenerateTestClient()
 
 			if tc.storedService != nil {
 				err := k8sClient.Create(context.Background(), tc.storedService)
@@ -520,7 +521,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			k8sClient := generateTestClient()
+			k8sClient := testutils.GenerateTestClient()
 			for _, c := range tc.allTargetGroupConfigurations {
 				err := k8sClient.Create(context.Background(), &c)
 				assert.NoError(t, err)
@@ -702,7 +703,7 @@ func Test_referenceGrantCheck(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			k8sClient := generateTestClient()
+			k8sClient := testutils.GenerateTestClient()
 			for _, ref := range tc.referenceGrants {
 				err := k8sClient.Create(context.Background(), &ref)
 				assert.NoError(t, err)

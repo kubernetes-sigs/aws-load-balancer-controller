@@ -16,6 +16,7 @@ type routeMetadataDescriptor interface {
 	GetHostnames() []gwv1.Hostname
 	GetParentRefs() []gwv1.ParentReference
 	GetRawRoute() interface{}
+	GetBackendRefs() []gwv1.BackendRef
 }
 
 // preLoadRouteDescriptor this object is used to represent a route description that has not loaded its child data (services, tg config)
