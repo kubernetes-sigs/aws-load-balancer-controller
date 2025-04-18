@@ -9,6 +9,11 @@ type MockRoute struct {
 	Kind string
 }
 
+func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *MockRoute) GetRouteNamespacedName() types.NamespacedName {
 	//TODO implement me
 	panic("implement me")

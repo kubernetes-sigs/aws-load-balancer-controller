@@ -326,6 +326,31 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 			expected: make([]ec2model.IPPermission, 0),
 		},
 		{
+			name: "ipv4 - tcp - with default source ranges",
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "0.0.0.0/0",
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "ipv4 - tcp - with source range",
 			lbConf: &elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
@@ -646,6 +671,45 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					IPRanges: []ec2model.IPRange{
 						{
 							CIDRIP: "127.200.0.1/24",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "ipv6 - with default source ranges",
+			ipAddressType: elbv2model.IPAddressTypeDualStack,
+			lbConf: &elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
+			},
+			routes: map[int][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind: routeutils.TCPRouteKind,
+					},
+					&routeutils.MockRoute{
+						Kind: routeutils.HTTPRouteKind,
+					},
+				},
+			},
+			expected: []ec2model.IPPermission{
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "0.0.0.0/0",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(80),
+					ToPort:     awssdk.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "::/0",
 						},
 					},
 				},
