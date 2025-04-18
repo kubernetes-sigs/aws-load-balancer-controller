@@ -115,6 +115,28 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			want: "sg-autogen",
 		},
 		{
+			name: "backend sg enabled, auto-gen, multiple SGs exist",
+			fields: fields{
+				describeSGCalls: []describeSecurityGroupsAsListCall{
+					{
+						req: &ec2sdk.DescribeSecurityGroupsInput{
+							Filters: defaultEC2Filters,
+						},
+						resp: []ec2types.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-autogen"),
+							},
+							{
+								GroupId: awssdk.String("sg-other"),
+							},
+						},
+					},
+				},
+				ingResources: []*networking.Ingress{ing, ing1},
+			},
+			wantErr: errors.New("Found multiple SGs with vpc-id vpc-xxxyyy and tags elbv2.k8s.aws/cluster=testCluster, elbv2.k8s.aws/resource=backend-sg"),
+		},
+		{
 			name: "backend sg enabled, auto-gen new SG",
 			fields: fields{
 				describeSGCalls: []describeSecurityGroupsAsListCall{
