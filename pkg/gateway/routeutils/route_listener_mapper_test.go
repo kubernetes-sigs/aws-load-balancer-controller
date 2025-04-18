@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -309,6 +310,7 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 					routeListenerMap: tc.routeListenerMap,
 					routeGatewayMap:  tc.routeGatewayMap,
 				},
+				logger: logr.Discard(),
 			}
 
 			result, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)

@@ -224,7 +224,7 @@ func main() {
 
 		// Setup NLB Gateway controller if enabled
 		if nlbGatewayEnabled {
-			gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient())
+			gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient(), mgr.GetLogger().WithName("gateway-route-loader"))
 			if err := setupGatewayController(ctx, mgr, gwControllerConfig, constants.NLBGatewayController); err != nil {
 				setupLog.Error(err, "failed to setup NLB Gateway controller")
 				os.Exit(1)
@@ -234,7 +234,7 @@ func main() {
 		// Setup ALB Gateway controller if enabled
 		if albGatewayEnabled {
 			if gwControllerConfig.routeLoader == nil {
-				gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient())
+				gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient(), mgr.GetLogger().WithName("gateway-route-loader"))
 			}
 			if err := setupGatewayController(ctx, mgr, gwControllerConfig, constants.ALBGatewayController); err != nil {
 				setupLog.Error(err, "failed to setup ALB Gateway controller")

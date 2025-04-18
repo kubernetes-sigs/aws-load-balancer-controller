@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
 	"testing"
@@ -41,7 +42,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "false",
 				},
 			},
@@ -58,7 +59,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -85,11 +86,11 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "false",
 				},
 				{
-					Key:   tgAttrsPreserveClientIPEnabled,
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
 					Value: "true",
 				},
 				{
@@ -108,14 +109,14 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsProxyProtocolV2Enabled + "=false",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": shared_constants.TGAttributeProxyProtocolV2Enabled + "=false",
 						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":          "*",
 					},
 				},
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -136,7 +137,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": tgAttrsPreserveClientIPEnabled + "= FalSe",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": shared_constants.TGAttributePreserveClientIPEnabled + "= FalSe",
 					},
 				},
 			},
@@ -155,7 +156,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -174,7 +175,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "true",
 				},
 			},
@@ -204,7 +205,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 }
 
 func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
-	trafficPort := intstr.FromString(healthCheckPortTrafficPort)
+	trafficPort := intstr.FromString(shared_constants.HealthCheckPortTrafficPort)
 	port8888 := intstr.FromInt(8888)
 	port31223 := intstr.FromInt(31223)
 	tests := []struct {
@@ -410,7 +411,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultLoadBalancingCrossZoneEnabled: false,
 				defaultProxyProtocolV2Enabled:        false,
 				defaultHealthCheckProtocol:           elbv2.ProtocolTCP,
-				defaultHealthCheckPort:               healthCheckPortTrafficPort,
+				defaultHealthCheckPort:               shared_constants.HealthCheckPortTrafficPort,
 				defaultHealthCheckPath:               "/",
 				defaultHealthCheckInterval:           10,
 				defaultHealthCheckTimeout:            10,
@@ -1498,7 +1499,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			targetType: elbv2.TargetTypeIP,
 			tgAttrs: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsProxyProtocolV2Enabled,
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "false",
 				},
 				{
@@ -1521,7 +1522,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 					Value: "value",
 				},
 				{
-					Key:   tgAttrsPreserveClientIPEnabled,
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
 					Value: "true",
 				},
 			},
@@ -1537,7 +1538,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			targetType: elbv2.TargetTypeInstance,
 			tgAttrs: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsPreserveClientIPEnabled,
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
 					Value: "false",
 				},
 				{
@@ -1552,7 +1553,7 @@ func Test_defaultModelBuilder_buildPreserveClientIPFlag(t *testing.T) {
 			targetType: elbv2.TargetTypeInstance,
 			tgAttrs: []elbv2.TargetGroupAttribute{
 				{
-					Key:   tgAttrsPreserveClientIPEnabled,
+					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
 					Value: " FalSe",
 				},
 				{

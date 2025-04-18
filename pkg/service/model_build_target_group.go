@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
 	"strings"
@@ -22,12 +23,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-)
-
-const (
-	tgAttrsProxyProtocolV2Enabled  = "proxy_protocol_v2.enabled"
-	tgAttrsPreserveClientIPEnabled = "preserve_client_ip.enabled"
-	healthCheckPortTrafficPort     = "traffic-port"
 )
 
 func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
@@ -212,8 +207,8 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
 	if rawAttributes == nil {
 		rawAttributes = make(map[string]string)
 	}
-	if _, ok := rawAttributes[tgAttrsProxyProtocolV2Enabled]; !ok {
-		rawAttributes[tgAttrsProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
+	if _, ok := rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled]; !ok {
+		rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = strconv.FormatBool(t.defaultProxyProtocolV2Enabled)
 	}
 
 	var proxyProtocolPerTG string
@@ -232,9 +227,9 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
 
 		currentPortStr := strconv.FormatInt(int64(port.Port), 10)
 		if _, enabled := enabledPorts[currentPortStr]; enabled {
-			rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
+			rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "true"
 		} else {
-			rawAttributes[tgAttrsProxyProtocolV2Enabled] = "false"
+			rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "false"
 		}
 	}
 
@@ -243,13 +238,13 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
 		if proxyV2Annotation != "*" {
 			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
 		}
-		rawAttributes[tgAttrsProxyProtocolV2Enabled] = "true"
+		rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "true"
 	}
 
-	if rawPreserveIPEnabled, ok := rawAttributes[tgAttrsPreserveClientIPEnabled]; ok {
+	if rawPreserveIPEnabled, ok := rawAttributes[shared_constants.TGAttributePreserveClientIPEnabled]; ok {
 		_, err := strconv.ParseBool(rawPreserveIPEnabled)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, rawPreserveIPEnabled)
+			return nil, errors.Wrapf(err, "failed to parse attribute %v=%v", shared_constants.TGAttributePreserveClientIPEnabled, rawPreserveIPEnabled)
 		}
 	}
 
@@ -268,10 +263,10 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
 
 func (t *defaultModelBuildTask) buildPreserveClientIPFlag(_ context.Context, targetType elbv2model.TargetType, tgAttrs []elbv2model.TargetGroupAttribute) (bool, error) {
 	for _, attr := range tgAttrs {
-		if attr.Key == tgAttrsPreserveClientIPEnabled {
+		if attr.Key == shared_constants.TGAttributePreserveClientIPEnabled {
 			preserveClientIP, err := strconv.ParseBool(attr.Value)
 			if err != nil {
-				return false, errors.Wrapf(err, "failed to parse attribute %v=%v", tgAttrsPreserveClientIPEnabled, attr.Value)
+				return false, errors.Wrapf(err, "failed to parse attribute %v=%v", shared_constants.TGAttributePreserveClientIPEnabled, attr.Value)
 			}
 			return preserveClientIP, nil
 		}
@@ -304,7 +299,7 @@ func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetTy
 func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Context, defaultHealthCheckPort string, targetType elbv2model.TargetType) (intstr.IntOrString, error) {
 	rawHealthCheckPort := defaultHealthCheckPort
 	t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixHCPort, &rawHealthCheckPort, t.service.Annotations)
-	if rawHealthCheckPort == healthCheckPortTrafficPort {
+	if rawHealthCheckPort == shared_constants.HealthCheckPortTrafficPort {
 		return intstr.FromString(rawHealthCheckPort), nil
 	}
 	healthCheckPort := intstr.Parse(rawHealthCheckPort)
@@ -514,7 +509,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 				Protocol: &protocolUDP,
 				Port:     &tgPort,
 			})
-			if hcPort.String() == healthCheckPortTrafficPort || (hcPort.Type == intstr.Int && hcPort.IntValue() == tgPort.IntValue()) {
+			if hcPort.String() == shared_constants.HealthCheckPortTrafficPort || (hcPort.Type == intstr.Int && hcPort.IntValue() == tgPort.IntValue()) {
 				ports = append(ports, elbv2api.NetworkingPort{
 					Protocol: &protocolTCP,
 					Port:     &tgPort,
@@ -522,7 +517,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 			}
 		}
 
-		if hcPort.String() != healthCheckPortTrafficPort && (hcPort.Type == intstr.Int && hcPort.IntValue() != tgPort.IntValue()) {
+		if hcPort.String() != shared_constants.HealthCheckPortTrafficPort && (hcPort.Type == intstr.Int && hcPort.IntValue() != tgPort.IntValue()) {
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolTCP,
 				Port:     &hcPort,
@@ -612,7 +607,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 	if healthCheckSourceCIDRs := t.buildHealthCheckSourceCIDRs(trafficSource, loadBalancerSubnetCIDRs, tgPort, hcPort,
 		tgProtocol, defaultRangeUsed); len(healthCheckSourceCIDRs) > 0 {
 		networkingHealthCheckPort := hcPort
-		if hcPort.String() == healthCheckPortTrafficPort {
+		if hcPort.String() == shared_constants.HealthCheckPortTrafficPort {
 			networkingHealthCheckPort = tgPort
 		}
 		tgbNetworking.Ingress = append(tgbNetworking.Ingress, elbv2model.NetworkingIngressRule{
@@ -698,7 +693,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 func (t *defaultModelBuildTask) buildHealthCheckSourceCIDRs(trafficSource, subnetCIDRs []string, tgPort, hcPort intstr.IntOrString,
 	tgProtocol corev1.Protocol, defaultRangeUsed bool) []string {
 	if tgProtocol != corev1.ProtocolUDP &&
-		(hcPort.String() == healthCheckPortTrafficPort || hcPort.IntValue() == tgPort.IntValue()) {
+		(hcPort.String() == shared_constants.HealthCheckPortTrafficPort || hcPort.IntValue() == tgPort.IntValue()) {
 		if !t.preserveClientIP {
 			return nil
 		}
