@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
@@ -32,7 +33,7 @@ func Test_ConvertGRPCRuleToRouteRule(t *testing.T) {
 }
 
 func Test_ListGRPCRoutes(t *testing.T) {
-	k8sClient := generateTestClient()
+	k8sClient := testutils.GenerateTestClient()
 
 	k8sClient.Create(context.Background(), &gwv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -43,7 +44,25 @@ func Test_ListGRPCRoutes(t *testing.T) {
 			Hostnames: []gwv1.Hostname{
 				"host1",
 			},
-			Rules: nil,
+			Rules: []gwv1.GRPCRouteRule{
+				{
+					BackendRefs: []gwv1.GRPCBackendRef{
+						{},
+						{},
+					},
+				},
+				{
+					BackendRefs: []gwv1.GRPCBackendRef{
+						{},
+						{},
+						{},
+						{},
+					},
+				},
+				{
+					BackendRefs: []gwv1.GRPCBackendRef{},
+				},
+			},
 		},
 	})
 
@@ -82,16 +101,19 @@ func Test_ListGRPCRoutes(t *testing.T) {
 			assert.Equal(t, []gwv1.Hostname{
 				"host1",
 			}, v.GetHostnames())
+			assert.Equal(t, 6, len(v.GetBackendRefs()))
 		}
 
 		if routeNsn.Name == "foo2" {
 			assert.Equal(t, []gwv1.Hostname{
 				"host2",
 			}, v.GetHostnames())
+			assert.Equal(t, 0, len(v.GetBackendRefs()))
 		}
 
 		if routeNsn.Name == "foo3" {
 			assert.Equal(t, 0, len(v.GetHostnames()))
+			assert.Equal(t, 0, len(v.GetBackendRefs()))
 		}
 
 	}

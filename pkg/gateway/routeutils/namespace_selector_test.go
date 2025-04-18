@@ -6,6 +6,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"testing"
 )
 
@@ -92,7 +93,7 @@ func Test_getNamespacesFromSelector(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			k8sClient := generateTestClient()
+			k8sClient := testutils.GenerateTestClient()
 			nsSelector := namespaceSelectorImpl{
 				k8sClient: k8sClient,
 			}

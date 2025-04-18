@@ -101,6 +101,16 @@ func (udpRoute *udpRouteDescription) GetRawRoute() interface{} {
 	return udpRoute.route
 }
 
+func (udpRoute *udpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
+	backendRefs := make([]gwv1.BackendRef, 0)
+	if udpRoute.route.Spec.Rules != nil {
+		for _, rule := range udpRoute.route.Spec.Rules {
+			backendRefs = append(backendRefs, rule.BackendRefs...)
+		}
+	}
+	return backendRefs
+}
+
 var _ RouteDescriptor = &udpRouteDescription{}
 
 func ListUDPRoutes(context context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {

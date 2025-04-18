@@ -17,9 +17,17 @@ limitations under the License.
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"k8s.io/client-go/util/workqueue"
 
@@ -68,7 +76,28 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = elbv2api.AddToScheme(scheme)
+	_ = elbv2gw.AddToScheme(scheme)
+	_ = gwv1.AddToScheme(scheme)
+	_ = gwalpha2.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
+}
+
+// Define a struct to hold common gateway controller dependencies
+type gatewayControllerConfig struct {
+	routeLoader         routeutils.Loader
+	cloud               services.Cloud
+	k8sClient           client.Client
+	controllerCFG       config.ControllerConfig
+	finalizerManager    k8s.FinalizerManager
+	sgReconciler        networking.SecurityGroupReconciler
+	sgManager           networking.SecurityGroupManager
+	elbv2TaggingManager elbv2deploy.TaggingManager
+	subnetResolver      networking.SubnetsResolver
+	vpcInfoProvider     networking.VPCInfoProvider
+	backendSGProvider   networking.BackendSGProvider
+	sgResolver          networking.SecurityGroupResolver
+	metricsCollector    lbcmetrics.MetricCollector
+	reconcileCounters   *metricsutil.ReconcileCounters
 }
 
 func main() {
@@ -173,25 +202,44 @@ func main() {
 		os.Exit(1)
 	}
 
-	if controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI) {
-		routeLoader := routeutils.NewLoader(mgr.GetClient())
-		nlbGatewayReconciler := gateway.NewNLBGatewayReconciler(routeLoader, cloud, mgr.GetClient(), mgr.GetEventRecorderFor("nlbgateway"), controllerCFG, finalizerManager, sgReconciler, sgManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("nlbgateway"), lbcMetricsCollector, reconcileCounters)
-		nlbControllerError := nlbGatewayReconciler.SetupWithManager(mgr)
-		if nlbControllerError != nil {
-			setupLog.Error(nlbControllerError, "Unable to create NLB Gateway controller")
-			os.Exit(1)
+	// Initialize common gateway configuration
+	if controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI) || controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI) {
+		gwControllerConfig := &gatewayControllerConfig{
+			cloud:               cloud,
+			k8sClient:           mgr.GetClient(),
+			controllerCFG:       controllerCFG,
+			finalizerManager:    finalizerManager,
+			sgReconciler:        sgReconciler,
+			sgManager:           sgManager,
+			elbv2TaggingManager: elbv2TaggingManager,
+			subnetResolver:      subnetResolver,
+			vpcInfoProvider:     vpcInfoProvider,
+			backendSGProvider:   backendSGProvider,
+			sgResolver:          sgResolver,
+			metricsCollector:    lbcMetricsCollector,
+			reconcileCounters:   reconcileCounters,
 		}
-	}
-	if controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI) {
-		routeLoader := routeutils.NewLoader(mgr.GetClient())
-		albGatewayReconciler := gateway.NewALBGatewayReconciler(routeLoader, cloud, mgr.GetClient(), mgr.GetEventRecorderFor("albgateway"), controllerCFG, finalizerManager, sgReconciler, sgManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("albgateway"), lbcMetricsCollector, reconcileCounters)
-		albControllerErr := albGatewayReconciler.SetupWithManager(mgr)
-		if albControllerErr != nil {
-			setupLog.Error(albControllerErr, "Unable to create ALB Gateway controller")
-			os.Exit(1)
-		}
-	}
 
+		// Setup NLB Gateway controller if enabled
+		if controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI) {
+			gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient())
+			if err := setupGatewayController(ctx, mgr, gwControllerConfig, constants.NLBGatewayController); err != nil {
+				setupLog.Error(err, "failed to setup NLB Gateway controller")
+				os.Exit(1)
+			}
+		}
+
+		// Setup ALB Gateway controller if enabled
+		if controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI) {
+			if gwControllerConfig.routeLoader == nil {
+				gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient())
+			}
+			if err := setupGatewayController(ctx, mgr, gwControllerConfig, constants.ALBGatewayController); err != nil {
+				setupLog.Error(err, "failed to setup ALB Gateway controller")
+				os.Exit(1)
+			}
+		}
+	}
 	// Add liveness probe
 	err = mgr.AddHealthzCheck("health-ping", healthz.Ping)
 	setupLog.Info("adding health check for controller")
@@ -250,6 +298,66 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// setupGatewayController handles the setup of both NLB and ALB gateway controllers
+func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayControllerConfig, controllerType string) error {
+	logger := ctrl.Log.WithName("controllers").WithName(controllerType)
+
+	var reconciler gateway.Reconciler
+	switch controllerType {
+	case constants.NLBGatewayController:
+		reconciler = gateway.NewNLBGatewayReconciler(
+			cfg.routeLoader,
+			cfg.cloud,
+			cfg.k8sClient,
+			mgr.GetEventRecorderFor(controllerType),
+			cfg.controllerCFG,
+			cfg.finalizerManager,
+			cfg.sgReconciler,
+			cfg.sgManager,
+			cfg.elbv2TaggingManager,
+			cfg.subnetResolver,
+			cfg.vpcInfoProvider,
+			cfg.backendSGProvider,
+			cfg.sgResolver,
+			logger,
+			cfg.metricsCollector,
+			cfg.reconcileCounters,
+		)
+	case constants.ALBGatewayController:
+		reconciler = gateway.NewALBGatewayReconciler(
+			cfg.routeLoader,
+			cfg.cloud,
+			cfg.k8sClient,
+			mgr.GetEventRecorderFor(controllerType),
+			cfg.controllerCFG,
+			cfg.finalizerManager,
+			cfg.sgReconciler,
+			cfg.sgManager,
+			cfg.elbv2TaggingManager,
+			cfg.subnetResolver,
+			cfg.vpcInfoProvider,
+			cfg.backendSGProvider,
+			cfg.sgResolver,
+			logger,
+			cfg.metricsCollector,
+			cfg.reconcileCounters,
+		)
+	default:
+		return fmt.Errorf("unknown controller type: %s", controllerType)
+	}
+
+	controller, err := reconciler.SetupWithManager(ctx, mgr)
+	if err != nil {
+		return fmt.Errorf("unable to create %s controller: %w", controllerType, err)
+	}
+
+	if err := reconciler.SetupWatches(ctx, controller, mgr); err != nil {
+		return fmt.Errorf("unable to setup watches for %s controller: %w", controllerType, err)
+	}
+
+	return nil
 }
 
 // loadControllerConfig loads the controller configuration.
