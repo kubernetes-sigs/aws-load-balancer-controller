@@ -63,6 +63,19 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/listener-attributes.${Protocol}-${Port}](#listener-attributes)                           | stringMap                                          |N/A| Ingress         |Merge|
 | [alb.ingress.kubernetes.io/minimum-load-balancer-capacity](#load-balancer-capacity-reservation)                       | stringMap                                          |N/A| Ingress         | Exclusive     |
 | [alb.ingress.kubernetes.io/ipam-ipv4-pool-id](#ipam-ipv4-pool-id)                       | string                                             |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/enable-frontend-nlb](#enable-frontend-nlb)                                 | boolean                                            |false | Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/frontend-nlb-scheme](#frontend-nlb-scheme)                                 | internal \| internet-facing                        |internal| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/frontend-nlb-subnets](#frontend-nlb-subnets)                               | stringList                                         |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/frontend-nlb-security-groups](#frontend-nlb-security-groups)               | stringList                                         |N/A| Ingress         | Exclusive     |
+| [alb.ingress.kubernetes.io/frontend-nlb-listener-port-mapping](#frontend-nlb-listener-port-mapping)   | stringMap                                               |N/A| Ingress         | Merge         |
+| [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-port](#frontend-nlb-healthcheck-port)             | integer \| traffic-port                            |traffic-port| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-protocol](#frontend-nlb-healthcheck-protocol)     | HTTP \| HTTPS                                      |HTTP| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-path](#frontend-nlb-healthcheck-path)             | string                                             |/| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-interval-seconds](#frontend-nlb-healthcheck-interval-seconds) | integer                                   |15| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-timeout-seconds](#frontend-nlb-healthcheck-timeout-seconds) | integer                                     |5| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-healthy-threshold-count](#frontend-nlb-healthcheck-healthy-threshold-count) | integer                         |3| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-unhealthy-threshold-count](#frontend-nlb-healthcheck-unhealthy-threshold-count) | integer                     |3| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-success-codes](#frontend-nlb-healthcheck-success-codes) | string                                     |200| Ingress | N/A           |
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -1023,4 +1036,119 @@ Load balancer capacity unit reservation can be configured via following annotati
             ```
         - disable shield protection
             ```alb.ingress.kubernetes.io/shield-advanced-protection: 'false'
+            ```
+
+
+## Enable frontend NLB
+When this option is set to true, the controller will automatically provision a Network Load Balancer and register the Application Load Balancer as its target. Additional annotations are available to customize the NLB configurations, including options for scheme, security groups, subnets, and health check. The ingress resource will have two status entries, one for the NLB DNS and one for the ALB DNS. This allows users to combine the benefits of NLB and ALB into a single solution, leveraging NLB features like static IP address and PrivateLink, while retaining the rich routing capabilities of ALB.
+
+!!!warning 
+    - If you need to change the ALB [scheme](#scheme), make sure to disable this feature first. Changing the scheme will create a new ALB, which could interfere with the current configuration.
+    - If you create ingress and enable the feature at once, provisioning the NLB and registering the ALB as target can take up to 3-4 mins to complete.
+
+- <a name="enable-frontend-nlb">`alb.ingress.kubernetes.io/enable-frontend-nlb`</a> enables frontend Network Load Balancer functionality. 
+
+    !!!example
+        - Enable frontend nlb
+            ```
+            alb.ingress.kubernetes.io/enable-frontend-nlb: "true"
+            ```
+
+- <a name="frontend-nlb-scheme">`alb.ingress.kubernetes.io/frontend-nlb-scheme`</a> specifies the scheme for the Network Load Balancer.
+
+    !!!example
+        - Set NLB scheme to internet-facing
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-scheme: internet-facing
+            ```
+
+- <a name="frontend-nlb-subnets">`alb.ingress.kubernetes.io/frontend-nlb-subnets`</a> specifies the subnets for the Network Load Balancer.
+
+    !!!example
+        - Specify subnets for NLB
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-subnets: subnet-xxxx1,subnet-xxxx2
+            ```
+
+- <a name="frontend-nlb-security-groups">`alb.ingress.kubernetes.io/frontend-nlb-security-groups`</a> specifies the security groups for the Network Load Balancer.
+
+    !!!example
+        - Specify security groups for NLB
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-security-groups: sg-xxxx1,sg-xxxx2
+            ```
+
+- <a name="frontend-nlb-listener-port-mapping">`alb.ingress.kubernetes.io/frontend-nlb-listener-port-mapping`</a> specifies the port mapping configuration for the Network Load Balancer listeners.
+
+    !!!note "Default"
+        - The port defaults to match the ALB listener port, based on whether `alb.ingress.kubernetes.io/listen-ports`(#listen-ports) is specified.
+
+    !!!example
+        - Forward TCP traffic from NLB:80 to ALB:443
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-listener-port-mapping: 80=443
+            ```
+
+- <a name="frontend-nlb-healthcheck-port">`alb.ingress.kubernetes.io/frontend-nlb-healthcheck-port`</a> specifies the port used for health checks.
+
+    !!!example
+        - Set health check port
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-healthcheck-port: traffic-port
+            ```
+
+- <a name="frontend-nlb-healthcheck-protocol">`alb.ingress.kubernetes.io/frontend-nlb-healthcheck-protocol`</a> specifies the protocol used for health checks.
+
+    !!!example
+        - Set health check protocol
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-healthcheck-protocol: HTTP
+            ```
+
+- <a name="frontend-nlb-healthcheck-path">`alb.ingress.kubernetes.io/frontend-nlb-healthcheck-path`</a> specifies the destination path for health checks.
+
+    !!!example
+        - Set health check path
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-healthcheck-path: /health
+            ```
+
+- <a name="frontend-nlb-healthcheck-interval-seconds">`alb.ingress.kubernetes.io/frontend-nlb-healthcheck-interval-seconds`</a> specifies the interval between consecutive health checks.
+
+    !!!example
+        - Set health check interval
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-healthcheck-interval-seconds: '15'
+            ```
+
+- <a name="frontend-nlb-healthcheck-timeout-seconds">`alb.ingress.kubernetes.io/frontend-nlb-healthcheck-timeout-seconds`</a> specifies the target group health check timeout.
+
+    !!!example
+        - Set health check timeout
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-healthcheck-timeout-seconds: '5'
+            ```
+
+- <a name="frontend-nlb-healthcheck-healthy-threshold-count">`alb.ingress.kubernetes.io/frontend-nlb-healthcheck-healthy-threshold-count`</a> specifies the consecutive health check successes required before a target is considered healthy.
+
+    !!!example
+        - Set healthy threshold count
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-healthcheck-healthy-threshold-count: '3'
+            ```
+
+- <a name="frontend-nlb-healthcheck-unhealthy-threshold-count">`alb.ingress.kubernetes.io/frontend-nlb-healthcheck-unhealthy-threshold-count`</a> specifies the consecutive health check failures before a target gets marked unhealthy.
+
+    !!!example
+        - Set unhealthy threshold count
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-healthcheck-unhealthy-threshold-count: '3'
+            ```
+
+- <a name="frontend-nlb-healthcheck-success-codes">`alb.ingress.kubernetes.io/frontend-nlb-healthcheck-success-codes`</a> specifies the HTTP codes that indicate a successful health check.
+
+    !!!example
+        - Set success codes for health check
+            ```
+            alb.ingress.kubernetes.io/frontend-nlb-healthcheck-success-codes: '200'
             ```
