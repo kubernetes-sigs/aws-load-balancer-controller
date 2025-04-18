@@ -37,7 +37,7 @@ const (
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
 type ModelBuilder interface {
 	// build mode stack for a IngressGroup.
-	Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, error)
+	Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *core.FrontendNlbTargetGroupDesiredState, *elbv2model.LoadBalancer, error)
 }
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
@@ -121,8 +121,10 @@ type defaultModelBuilder struct {
 }
 
 // build mode stack for a IngressGroup.
-func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, error) {
+func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *core.FrontendNlbTargetGroupDesiredState, *elbv2model.LoadBalancer, error) {
 	stack := core.NewDefaultStack(core.StackID(ingGroup.ID))
+	frontendNlbTargetGroupDesiredState := core.NewFrontendNlbTargetGroupDesiredState()
+
 	task := &defaultModelBuildTask{
 		k8sClient:                  b.k8sClient,
 		eventRecorder:              b.eventRecorder,
@@ -148,8 +150,9 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		enableIPTargetType:         b.enableIPTargetType,
 		metricsCollector:           b.metricsCollector,
 
-		ingGroup: ingGroup,
-		stack:    stack,
+		ingGroup:                           ingGroup,
+		stack:                              stack,
+		frontendNlbTargetGroupDesiredState: frontendNlbTargetGroupDesiredState,
 
 		defaultTags:                               b.defaultTags,
 		externalManagedTags:                       b.externalManagedTags,
@@ -169,13 +172,14 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		defaultHealthCheckMatcherGRPCCode:         "12",
 
 		loadBalancer:    nil,
+		frontendNlb:     nil,
 		tgByResID:       make(map[string]*elbv2model.TargetGroup),
 		backendServices: make(map[types.NamespacedName]*corev1.Service),
 	}
 	if err := task.run(ctx); err != nil {
-		return nil, nil, nil, false, err
+		return nil, nil, nil, false, nil, nil, err
 	}
-	return task.stack, task.loadBalancer, task.secretKeys, task.backendSGAllocated, nil
+	return task.stack, task.loadBalancer, task.secretKeys, task.backendSGAllocated, frontendNlbTargetGroupDesiredState, task.frontendNlb, nil
 }
 
 // the default model build task
@@ -226,10 +230,12 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckMatcherHTTPCode         string
 	defaultHealthCheckMatcherGRPCCode         string
 
-	loadBalancer    *elbv2model.LoadBalancer
-	tgByResID       map[string]*elbv2model.TargetGroup
-	backendServices map[types.NamespacedName]*corev1.Service
-	secretKeys      []types.NamespacedName
+	loadBalancer                       *elbv2model.LoadBalancer
+	tgByResID                          map[string]*elbv2model.TargetGroup
+	backendServices                    map[types.NamespacedName]*corev1.Service
+	secretKeys                         []types.NamespacedName
+	frontendNlb                        *elbv2model.LoadBalancer
+	frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
 
 	metricsCollector lbcmetrics.MetricCollector
 }
@@ -250,6 +256,7 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 		return nil
 	}
 
+	listenerPortConfigByIngress := make(map[types.NamespacedName]map[int32]listenPortConfig)
 	ingListByPort := make(map[int32][]ClassifiedIngress)
 	listenPortConfigsByPort := make(map[int32][]listenPortConfigWithIngress)
 	for _, member := range t.ingGroup.Members {
@@ -258,6 +265,9 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "ingress: %v", ingKey.String())
 		}
+
+		listenerPortConfigByIngress[ingKey] = listenPortConfigByPortForIngress
+
 		for port, cfg := range listenPortConfigByPortForIngress {
 			ingListByPort[port] = append(ingListByPort[port], member)
 			listenPortConfigsByPort[port] = append(listenPortConfigsByPort[port], listenPortConfigWithIngress{
@@ -299,6 +309,11 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 	if err := t.buildLoadBalancerAddOns(ctx, lb.LoadBalancerARN()); err != nil {
 		return errmetrics.NewErrorWithMetrics(controllerName, "build_load_balancer_addons", err, t.metricsCollector)
 	}
+
+	if err := t.buildFrontendNlbModel(ctx, lb, listenerPortConfigByIngress); err != nil {
+		return errmetrics.NewErrorWithMetrics(controllerName, "build_frontend_nlb", err, t.metricsCollector)
+	}
+
 	return nil
 }
 
