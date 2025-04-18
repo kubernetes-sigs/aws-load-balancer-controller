@@ -23,10 +23,12 @@ type ResourceReconcileCount struct {
 
 func NewReconcileCounters() *ReconcileCounters {
 	return &ReconcileCounters{
-		serviceReconciles: make(map[types.NamespacedName]int),
-		ingressReconciles: make(map[types.NamespacedName]int),
-		tgbReconciles:     make(map[types.NamespacedName]int),
-		mutex:             sync.Mutex{},
+		serviceReconciles:    make(map[types.NamespacedName]int),
+		ingressReconciles:    make(map[types.NamespacedName]int),
+		tgbReconciles:        make(map[types.NamespacedName]int),
+		nlbGatewayReconciles: make(map[types.NamespacedName]int),
+		albGatewayReconciles: make(map[types.NamespacedName]int),
+		mutex:                sync.Mutex{},
 	}
 }
 

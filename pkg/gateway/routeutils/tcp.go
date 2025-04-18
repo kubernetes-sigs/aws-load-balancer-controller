@@ -102,6 +102,16 @@ func (tcpRoute *tcpRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return tcpRoute.route.Spec.ParentRefs
 }
 
+func (tcpRoute *tcpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
+	backendRefs := make([]gwv1.BackendRef, 0)
+	if tcpRoute.route.Spec.Rules != nil {
+		for _, rule := range tcpRoute.route.Spec.Rules {
+			backendRefs = append(backendRefs, rule.BackendRefs...)
+		}
+	}
+	return backendRefs
+}
+
 var _ RouteDescriptor = &tcpRouteDescription{}
 
 // Can we use an indexer here to query more efficiently?

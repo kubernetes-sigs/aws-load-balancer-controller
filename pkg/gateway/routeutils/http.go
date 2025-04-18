@@ -92,6 +92,18 @@ func (httpRoute *httpRouteDescription) GetRouteNamespacedName() types.Namespaced
 	return k8s.NamespacedName(httpRoute.route)
 }
 
+func (httpRoute *httpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
+	backendRefs := make([]gwv1.BackendRef, 0)
+	if httpRoute.route.Spec.Rules != nil {
+		for _, rule := range httpRoute.route.Spec.Rules {
+			for _, httpBackendRef := range rule.BackendRefs {
+				backendRefs = append(backendRefs, httpBackendRef.BackendRef)
+			}
+		}
+	}
+	return backendRefs
+}
+
 func convertHTTPRoute(r gwv1.HTTPRoute) *httpRouteDescription {
 	return &httpRouteDescription{route: &r, backendLoader: commonBackendLoader}
 }
