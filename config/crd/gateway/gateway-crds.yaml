@@ -205,7 +205,7 @@ spec:
                       description: privateIPv4Allocation [Network LoadBalancer] the
                         private ipv4 address to assign to this subnet.
                       type: string
-                    sourceNAT:
+                    sourceNatIPv6Prefix:
                       description: SourceNatIPv6Prefix [Network LoadBalancer] The
                         IPv6 prefix to use for source NAT. Specify an IPv6 prefix
                         (/80 netmask) from the subnet CIDR block or auto_assigned

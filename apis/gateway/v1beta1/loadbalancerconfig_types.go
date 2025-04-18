@@ -73,7 +73,7 @@ type SubnetConfiguration struct {
 
 	// SourceNatIPv6Prefix [Network LoadBalancer] The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or auto_assigned to use an IPv6 prefix selected at random from the subnet CIDR block.
 	// +optional
-	SourceNatIPv6Prefix *string `json:"sourceNAT,omitempty"`
+	SourceNatIPv6Prefix *string `json:"sourceNatIPv6Prefix,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=HTTP1Only;HTTP2Only;HTTP2Optional;HTTP2Preferred;None

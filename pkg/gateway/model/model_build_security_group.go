@@ -177,19 +177,25 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupName(gw *gwv1.
 func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermissions(lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
 	var permissions []ec2model.IPPermission
 
-	var sourceRanges []string
+	// Default to 0.0.0.0/0 and ::/0
+	// If user specified actual ranges, then these values will be overridden.
+	// TODO - Document this
+	sourceRanges := []string{
+		"0.0.0.0/0",
+		"::/0",
+	}
 	var prefixes []string
 	var enableICMP bool
 
-	if lbConf.Spec.SourceRanges != nil {
+	if lbConf != nil && lbConf.Spec.SourceRanges != nil {
 		sourceRanges = *lbConf.Spec.SourceRanges
 	}
 
-	if lbConf.Spec.SecurityGroupPrefixes != nil {
+	if lbConf != nil && lbConf.Spec.SecurityGroupPrefixes != nil {
 		prefixes = *lbConf.Spec.SecurityGroupPrefixes
 	}
 
-	if lbConf.Spec.EnableICMP {
+	if lbConf != nil && lbConf.Spec.EnableICMP {
 		enableICMP = true
 	}
 
