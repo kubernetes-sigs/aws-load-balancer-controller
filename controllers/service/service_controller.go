@@ -152,7 +152,7 @@ func (r *serviceReconciler) buildModel(ctx context.Context, svc *corev1.Service)
 }
 
 func (r *serviceReconciler) deployModel(ctx context.Context, svc *corev1.Service, stack core.Stack) error {
-	if err := r.stackDeployer.Deploy(ctx, stack, r.metricsCollector, "service"); err != nil {
+	if err := r.stackDeployer.Deploy(ctx, stack, r.metricsCollector, "service", nil); err != nil {
 		var requeueNeededAfter *runtime.RequeueNeededAfter
 		if errors.As(err, &requeueNeededAfter) {
 			return err
