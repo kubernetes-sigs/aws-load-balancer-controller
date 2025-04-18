@@ -148,6 +148,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	nlbGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI)
+	albGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI)
 	podInfoRepo := k8s.NewDefaultPodInfoRepo(clientSet.CoreV1().RESTClient(), controllerCFG.RuntimeConfig.WatchNamespace, ctrl.Log)
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient(), ctrl.Log)
 	sgManager := networking.NewDefaultSecurityGroupManager(cloud.EC2(), ctrl.Log)
@@ -165,7 +167,7 @@ func main() {
 		cloud.VpcID(), controllerCFG.ClusterName, controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices, controllerCFG.DisableRestrictedSGRules,
 		controllerCFG.ServiceTargetENISGTags, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
 	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
-		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, ctrl.Log.WithName("backend-sg-provider"))
+		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, nlbGatewayEnabled || albGatewayEnabled, ctrl.Log.WithName("backend-sg-provider"))
 	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerCFG.FeatureGates, cloud.RGT(), ctrl.Log)
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
@@ -221,7 +223,7 @@ func main() {
 		}
 
 		// Setup NLB Gateway controller if enabled
-		if controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI) {
+		if nlbGatewayEnabled {
 			gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient())
 			if err := setupGatewayController(ctx, mgr, gwControllerConfig, constants.NLBGatewayController); err != nil {
 				setupLog.Error(err, "failed to setup NLB Gateway controller")
@@ -230,7 +232,7 @@ func main() {
 		}
 
 		// Setup ALB Gateway controller if enabled
-		if controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI) {
+		if albGatewayEnabled {
 			if gwControllerConfig.routeLoader == nil {
 				gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient())
 			}

@@ -3,6 +3,7 @@ package tracking
 import (
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
 )
 
@@ -46,8 +47,8 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "", Name: "awesome-group"})},
 			want: map[string]string{
-				"elbv2.k8s.aws/cluster": "cluster-name",
-				"ingress.k8s.aws/stack": "awesome-group",
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"ingress.k8s.aws/stack":           "awesome-group",
 			},
 		},
 		{
@@ -55,8 +56,8 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "ingressName"})},
 			want: map[string]string{
-				"elbv2.k8s.aws/cluster": "cluster-name",
-				"ingress.k8s.aws/stack": "namespace/ingressName",
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"ingress.k8s.aws/stack":           "namespace/ingressName",
 			},
 		},
 		{
@@ -64,8 +65,8 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 			provider: NewDefaultProvider("service.k8s.aws", "cluster-name"),
 			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})},
 			want: map[string]string{
-				"elbv2.k8s.aws/cluster": "cluster-name",
-				"service.k8s.aws/stack": "namespace/serviceName",
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"service.k8s.aws/stack":           "namespace/serviceName",
 			},
 		},
 	}
@@ -100,9 +101,9 @@ func Test_defaultProvider_ResourceTags(t *testing.T) {
 				res:   fakeRes,
 			},
 			want: map[string]string{
-				"elbv2.k8s.aws/cluster":    "cluster-name",
-				"ingress.k8s.aws/stack":    "namespace/ingressName",
-				"ingress.k8s.aws/resource": "fake-id",
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"ingress.k8s.aws/stack":           "namespace/ingressName",
+				"ingress.k8s.aws/resource":        "fake-id",
 			},
 		},
 	}

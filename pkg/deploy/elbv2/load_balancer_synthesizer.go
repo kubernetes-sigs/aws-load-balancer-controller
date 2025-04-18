@@ -14,11 +14,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
-)
-
-const (
-	lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
 )
 
 // NewLoadBalancerSynthesizer constructs loadBalancerSynthesizer
@@ -116,7 +113,7 @@ func (s *loadBalancerSynthesizer) disableDeletionProtection(ctx context.Context,
 	input := &elbv2sdk.ModifyLoadBalancerAttributesInput{
 		Attributes: []elbv2types.LoadBalancerAttribute{
 			{
-				Key:   awssdk.String(lbAttrsDeletionProtectionEnabled),
+				Key:   awssdk.String(shared_constants.LBAttributeDeletionProtection),
 				Value: awssdk.String("false"),
 			},
 		},

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -33,7 +34,6 @@ import (
 )
 
 const (
-	serviceFinalizer        = "service.k8s.aws/resources"
 	serviceTagPrefix        = "service.k8s.aws"
 	serviceAnnotationPrefix = "service.beta.kubernetes.io"
 	controllerName          = "service"
@@ -47,7 +47,7 @@ func NewServiceReconciler(cloud services.Cloud, k8sClient client.Client, eventRe
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, controllerConfig.ClusterName)
-	serviceUtils := service.NewServiceUtils(annotationParser, serviceFinalizer, controllerConfig.ServiceConfig.LoadBalancerClass, controllerConfig.FeatureGates)
+	serviceUtils := service.NewServiceUtils(annotationParser, shared_constants.ServiceFinalizer, controllerConfig.ServiceConfig.LoadBalancerClass, controllerConfig.FeatureGates)
 	modelBuilder := service.NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, cloud.VpcID(), trackingProvider,
 		elbv2TaggingManager, cloud.EC2(), controllerConfig.FeatureGates, controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), serviceUtils,
@@ -170,7 +170,7 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 
 	var err error
 	addFinalizersFn := func() {
-		err = r.finalizerManager.AddFinalizers(ctx, svc, serviceFinalizer)
+		err = r.finalizerManager.AddFinalizers(ctx, svc, shared_constants.ServiceFinalizer)
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "add_finalizers", addFinalizersFn)
 	if err != nil {
@@ -214,7 +214,7 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 }
 
 func (r *serviceReconciler) cleanupLoadBalancerResources(ctx context.Context, svc *corev1.Service, stack core.Stack) error {
-	if k8s.HasFinalizer(svc, serviceFinalizer) {
+	if k8s.HasFinalizer(svc, shared_constants.ServiceFinalizer) {
 		err := r.deployModel(ctx, svc, stack)
 		if err != nil {
 			return err
@@ -226,7 +226,7 @@ func (r *serviceReconciler) cleanupLoadBalancerResources(ctx context.Context, sv
 			r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedCleanupStatus, fmt.Sprintf("Failed update status due to %v", err))
 			return err
 		}
-		if err := r.finalizerManager.RemoveFinalizers(ctx, svc, serviceFinalizer); err != nil {
+		if err := r.finalizerManager.RemoveFinalizers(ctx, svc, shared_constants.ServiceFinalizer); err != nil {
 			r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
 			return err
 		}

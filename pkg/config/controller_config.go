@@ -1,6 +1,7 @@
 package config
 
 import (
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 	"time"
 
@@ -45,12 +46,16 @@ const (
 
 var (
 	trackingTagKeys = sets.NewString(
-		"elbv2.k8s.aws/cluster",
-		"elbv2.k8s.aws/resource",
+		shared_constants.TagKeyK8sCluster,
+		shared_constants.TagKeyResource,
 		"ingress.k8s.aws/stack",
 		"ingress.k8s.aws/resource",
 		"service.k8s.aws/stack",
 		"service.k8s.aws/resource",
+		"gateway.k8s.aws.nlb/resource",
+		"gateway.k8s.aws.alb/resource",
+		"gateway.k8s.aws.nlb/stack",
+		"gateway.k8s.aws.alb/stack",
 	)
 )
 
