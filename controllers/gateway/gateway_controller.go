@@ -330,6 +330,11 @@ func (r *gatewayReconciler) SetupWatches(ctx context.Context, c controller.Contr
 
 func (r *gatewayReconciler) setupCommonGatewayControllerWatches(ctrl controller.Controller, mgr ctrl.Manager) error {
 	loggerPrefix := r.logger.WithName("eventHandlers")
+
+	gwEventHandler := eventhandlers.NewEnqueueRequestsForGatewayEventHandler(r.k8sClient, r.eventRecorder, r.controllerName,
+		loggerPrefix.WithName("Gateway"))
+	ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.Gateway{}, gwEventHandler))
+
 	gwClassEventChan := make(chan event.TypedGenericEvent[*gwv1.GatewayClass])
 	lbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration])
 
