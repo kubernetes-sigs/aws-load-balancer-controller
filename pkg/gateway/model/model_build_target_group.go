@@ -76,8 +76,8 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 		defaultHealthCheckPathGRPC:                "/AWS.ALB/healthcheck",
 		defaultHealthCheckUnhealthyThresholdCount: 3,
 		defaultHealthyThresholdCount:              3,
-		defaultHealthCheckTimeout:                 10,
-		defaultHealthCheckInterval:                10,
+		defaultHealthCheckTimeout:                 5,
+		defaultHealthCheckInterval:                15,
 	}
 }
 
