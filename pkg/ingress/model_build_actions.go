@@ -3,20 +3,29 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"strings"
+	"unicode"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"strings"
-	"unicode"
 )
 
-func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2model.Protocol, ing ClassifiedIngress, backend EnhancedBackend) ([]elbv2model.Action, error) {
+func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2model.Protocol, ing ClassifiedIngress, backend EnhancedBackend, ingClassParams *elbv2api.IngressClassParams) ([]elbv2model.Action, error) {
 	var actions []elbv2model.Action
 	if protocol == elbv2model.ProtocolHTTPS {
-		authAction, err := t.buildAuthAction(ctx, ing.Ing.Namespace, backend)
+		var namespace string
+		if ingClassParams != nil && ingClassParams.Spec.AuthConfig != nil {
+			namespace = metav1.NamespaceDefault
+		} else {
+			namespace = ing.Ing.Namespace
+		}
+		authAction, err := t.buildAuthAction(ctx, namespace, backend)
 		if err != nil {
 			return nil, err
 		}

@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -72,7 +73,7 @@ func WithLoadAuthConfig(loadAuthConfig bool) EnhancedBackendBuildOption {
 
 // EnhancedBackendBuilder is capable of build EnhancedBackend for Ingress backend.
 type EnhancedBackendBuilder interface {
-	Build(ctx context.Context, ing *networking.Ingress, backend networking.IngressBackend, opts ...EnhancedBackendBuildOption) (EnhancedBackend, error)
+	Build(ctx context.Context, ing *networking.Ingress, backend networking.IngressBackend, ingressClassParams *elbv2api.IngressClassParams, opts ...EnhancedBackendBuildOption) (EnhancedBackend, error)
 }
 
 // NewDefaultEnhancedBackendBuilder constructs new defaultEnhancedBackendBuilder.
@@ -102,7 +103,7 @@ type defaultEnhancedBackendBuilder struct {
 	tolerateNonExistentBackendAction bool
 }
 
-func (b *defaultEnhancedBackendBuilder) Build(ctx context.Context, ing *networking.Ingress, backend networking.IngressBackend, opts ...EnhancedBackendBuildOption) (EnhancedBackend, error) {
+func (b *defaultEnhancedBackendBuilder) Build(ctx context.Context, ing *networking.Ingress, backend networking.IngressBackend, ingressClassParams *elbv2api.IngressClassParams, opts ...EnhancedBackendBuildOption) (EnhancedBackend, error) {
 	buildOpts := EnhancedBackendBuildOptions{
 		LoadBackendServices: true,
 		LoadAuthConfig:      true,
@@ -138,7 +139,7 @@ func (b *defaultEnhancedBackendBuilder) Build(ctx context.Context, ing *networki
 		}
 
 		if buildOpts.LoadAuthConfig {
-			authCfg, err = b.buildAuthConfig(ctx, action, ing.Namespace, ing.Annotations, buildOpts.BackendServices)
+			authCfg, err = b.buildAuthConfig(ctx, action, ing.Namespace, ing.Annotations, buildOpts.BackendServices, ingressClassParams)
 			if err != nil {
 				return EnhancedBackend{}, err
 			}
@@ -268,7 +269,7 @@ func (b *defaultEnhancedBackendBuilder) loadBackendServices(ctx context.Context,
 	return nil
 }
 
-func (b *defaultEnhancedBackendBuilder) buildAuthConfig(ctx context.Context, action Action, namespace string, ingAnnotation map[string]string, backendServices map[types.NamespacedName]*corev1.Service) (AuthConfig, error) {
+func (b *defaultEnhancedBackendBuilder) buildAuthConfig(ctx context.Context, action Action, namespace string, ingAnnotation map[string]string, backendServices map[types.NamespacedName]*corev1.Service, ingressClassParams *elbv2api.IngressClassParams) (AuthConfig, error) {
 	svcAndIngAnnotations := ingAnnotation
 	// when forward to a single Service, the auth annotations on that Service will be merged in.
 	if action.Type == ActionTypeForward &&
@@ -281,7 +282,7 @@ func (b *defaultEnhancedBackendBuilder) buildAuthConfig(ctx context.Context, act
 		svcAndIngAnnotations = algorithm.MergeStringMap(svc.Annotations, svcAndIngAnnotations)
 	}
 
-	return b.authConfigBuilder.Build(ctx, svcAndIngAnnotations)
+	return b.authConfigBuilder.Build(ctx, ingressClassParams, svcAndIngAnnotations)
 }
 
 // build503ResponseAction generates a 503 fixed response action when forward to a single non-existent Kubernetes Service.
