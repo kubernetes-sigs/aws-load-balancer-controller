@@ -4,17 +4,19 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/google/uuid"
 	"math/big"
 	"strings"
 	"testing"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/google/uuid"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -322,6 +324,8 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
+			ctx := context.Background()
+
 			defer ctrl.Finish()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
@@ -330,11 +334,14 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil).AnyTimes()
 			}
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				k8sClient:   k8sClient,
-				elbv2Client: elbv2Client,
-				logger:      logr.New(&log.NullLogSink{}),
+				k8sClient:        k8sClient,
+				elbv2Client:      elbv2Client,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.ValidateCreate(context.Background(), tt.args.obj)
 			if tt.wantErr != nil {
@@ -357,9 +364,10 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 		oldObj *elbv2api.TargetGroupBinding
 	}
 	tests := []struct {
-		name    string
-		args    args
-		wantErr error
+		name       string
+		args       args
+		wantErr    error
+		wantMetric bool
 	}{
 		{
 			name: "tgb updated removes TargetType",
@@ -377,7 +385,8 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding must specify these fields: spec.targetType"),
+			wantErr:    errors.New("TargetGroupBinding must specify these fields: spec.targetType"),
+			wantMetric: true,
 		},
 		{
 			name: "tgb updated mutates TargetGroupARN",
@@ -395,7 +404,8 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetGroupARN"),
+			wantErr:    errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetGroupARN"),
+			wantMetric: true,
 		},
 		{
 			name: "[err] targetType is ip, nodeSelector is set",
@@ -415,7 +425,8 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding cannot set NodeSelector when TargetType is ip"),
+			wantErr:    errors.New("TargetGroupBinding cannot set NodeSelector when TargetType is ip"),
+			wantMetric: true,
 		},
 		{
 			name: "ipAddressType modified",
@@ -435,7 +446,8 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr:    errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
+			wantMetric: true,
 		},
 		{
 			name: "[ok] no update to spec",
@@ -453,13 +465,22 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
+			wantErr:    nil,
+			wantMetric: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			elbv2api.AddToScheme(k8sSchema)
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				logger: logr.New(&log.NullLogSink{}),
+				logger:           logr.New(&log.NullLogSink{}),
+				k8sClient:        k8sClient,
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.ValidateUpdate(context.Background(), tt.args.obj, tt.args.oldObj)
 			if tt.wantErr != nil {
@@ -467,6 +488,10 @@ func Test_targetGroupBindingValidator_ValidateUpdate(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
+
+			mockCollector := v.metricsCollector.(*lbcmetrics.MockCollector)
+			assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricWebhookValidationFailure]) == 1)
+
 		})
 	}
 }
@@ -522,8 +547,10 @@ func Test_targetGroupBindingValidator_checkRequiredFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				logger: logr.New(&log.NullLogSink{}),
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.checkRequiredFields(context.Background(), tt.args.tgb)
 			if tt.wantErr != nil {
@@ -566,7 +593,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetGroupARN"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetGroupARN"),
 		},
 		{
 			name: "targetType is changed",
@@ -584,7 +611,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetType"),
 		},
 		{
 			name: "targetType is changed from unset to set",
@@ -602,7 +629,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetType"),
 		},
 		{
 			name: "targetType is changed from set to unset",
@@ -620,7 +647,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetType"),
 		},
 		{
 			name: "both targetGroupARN and targetType are changed",
@@ -638,7 +665,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.targetGroupARN,spec.targetType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.targetGroupARN,spec.targetType"),
 		},
 		{
 			name: "both targetGroupARN and targetType are not changed",
@@ -676,7 +703,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
 		},
 		{
 			name: "ipAddressType modified, old value nil",
@@ -695,7 +722,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
 		},
 		{
 			name: "ipAddressType modified from nil to ipv4",
@@ -733,7 +760,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
 		},
 		{
 			name: "ipAddressType modified from nil to ipv6",
@@ -752,7 +779,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.ipAddressType"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.ipAddressType"),
 		},
 		{
 			name: "VpcID modified from vpc-0aaaaaaa to vpc-0bbbbbbb",
@@ -772,7 +799,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.vpcID"),
 		},
 		{
 			name: "VpcID modified from vpc-0aaaaaaa to nil",
@@ -791,7 +818,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.vpcID"),
 		},
 		{
 			name: "VpcID modified from nil to vpc-0aaaaaaa",
@@ -810,7 +837,7 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroupBinding update may not change these fields: spec.vpcID"),
+			wantErr: errors.New("TargetGroupBinding update may not change these immutable fields: spec.vpcID"),
 		},
 		{
 			name: "VpcID modified from nil to cluster vpc-id is allowed",
@@ -834,9 +861,11 @@ func Test_targetGroupBindingValidator_checkImmutableFields(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				logger: logr.New(&log.NullLogSink{}),
-				vpcID:  clusterVpcID,
+				logger:           logr.New(&log.NullLogSink{}),
+				vpcID:            clusterVpcID,
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.checkImmutableFields(tt.args.tgb, tt.args.oldTGB)
 			if tt.wantErr != nil {
@@ -913,8 +942,10 @@ func Test_targetGroupBindingValidator_checkNodeSelector(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				logger: logr.New(&log.NullLogSink{}),
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.checkNodeSelector(tt.args.tgb)
 			if tt.wantErr != nil {
@@ -950,6 +981,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb1",
 						Namespace: "ns1",
+						UID:       "tgb1",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-1",
@@ -967,6 +999,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb1",
 							Namespace: "ns1",
+							UID:       "tgb1",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-1",
@@ -980,6 +1013,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb2",
 						Namespace: "ns2",
+						UID:       "tgb2",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-2",
@@ -997,6 +1031,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb1",
 							Namespace: "ns1",
+							UID:       "tgb1",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-1",
@@ -1007,6 +1042,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb2",
 							Namespace: "ns2",
+							UID:       "tgb2",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-2",
@@ -1017,9 +1053,21 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb3",
 							Namespace: "ns3",
+							UID:       "tgb3",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-3",
+							TargetType:     nil,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb22",
+							Namespace: "ns1",
+							UID:       "tgb22",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN: "tg-22",
 							TargetType:     nil,
 						},
 					},
@@ -1030,6 +1078,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb22",
 						Namespace: "ns1",
+						UID:       "tgb22",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-22",
@@ -1047,6 +1096,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb1",
 							Namespace: "ns1",
+							UID:       "tgb1",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-1",
@@ -1060,6 +1110,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb2",
 						Namespace: "ns1",
+						UID:       "tgb2",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-1",
@@ -1067,7 +1118,98 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroup tg-1 is already bound to TargetGroupBinding ns1/tgb1"),
+			wantErr: errors.New("TargetGroup tg-1 is already bound to following TargetGroupBindings [ns1/tgb1]. Please enable MultiCluster mode on all TargetGroupBindings referencing tg-1 or choose a different Target Group ARN."),
+		},
+		{
+			name: "[ok] duplicate target groups with multi cluster support",
+			env: env{
+				existingTGBs: []elbv2api.TargetGroupBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb1",
+							Namespace: "ns1",
+							UID:       "tgb1",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN:          "tg-1",
+							TargetType:              nil,
+							MultiClusterTargetGroup: true,
+						},
+					},
+				},
+			},
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb2",
+						Namespace: "ns1",
+						UID:       "tgb2",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:          "tg-1",
+						TargetType:              nil,
+						MultiClusterTargetGroup: true,
+					},
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "[err] try to add binding without multicluster support while multiple bindings are using the same tg arn",
+			env: env{
+				existingTGBs: []elbv2api.TargetGroupBinding{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb1",
+							Namespace: "ns1",
+							UID:       "tgb1",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN:          "tg-1",
+							TargetType:              nil,
+							MultiClusterTargetGroup: true,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb3",
+							Namespace: "ns1",
+							UID:       "tgb3",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN:          "tg-1",
+							TargetType:              nil,
+							MultiClusterTargetGroup: true,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "tgb4",
+							Namespace: "ns1",
+							UID:       "tgb4",
+						},
+						Spec: elbv2api.TargetGroupBindingSpec{
+							TargetGroupARN:          "tg-1",
+							TargetType:              nil,
+							MultiClusterTargetGroup: true,
+						},
+					},
+				},
+			},
+			args: args{
+				tgb: &elbv2api.TargetGroupBinding{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb2",
+						Namespace: "ns1",
+						UID:       "tgb2",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-1",
+						TargetType:     nil,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroup tg-1 is already bound to following TargetGroupBindings [ns1/tgb1 ns1/tgb3 ns1/tgb4]. Please enable MultiCluster mode on all TargetGroupBindings referencing tg-1 or choose a different Target Group ARN."),
 		},
 		{
 			name: "[err] duplicate target groups - one target group binding",
@@ -1077,6 +1219,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb1",
 							Namespace: "ns1",
+							UID:       "tgb1",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-1",
@@ -1087,6 +1230,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb2",
 							Namespace: "ns2",
+							UID:       "tgb2",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-111",
@@ -1097,6 +1241,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "tgb3",
 							Namespace: "ns3",
+							UID:       "tgb3",
 						},
 						Spec: elbv2api.TargetGroupBindingSpec{
 							TargetGroupARN: "tg-3",
@@ -1110,6 +1255,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb111",
 						Namespace: "ns1",
+						UID:       "tgb111",
 					},
 					Spec: elbv2api.TargetGroupBindingSpec{
 						TargetGroupARN: "tg-111",
@@ -1117,7 +1263,7 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 					},
 				},
 			},
-			wantErr: errors.New("TargetGroup tg-111 is already bound to TargetGroupBinding ns2/tgb2"),
+			wantErr: errors.New("TargetGroup tg-111 is already bound to following TargetGroupBindings [ns2/tgb2]. Please enable MultiCluster mode on all TargetGroupBindings referencing tg-111 or choose a different Target Group ARN."),
 		},
 	}
 	for _, tt := range tests {
@@ -1126,9 +1272,11 @@ func Test_targetGroupBindingValidator_checkExistingTargetGroups(t *testing.T) {
 			clientgoscheme.AddToScheme(k8sSchema)
 			elbv2api.AddToScheme(k8sSchema)
 			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				k8sClient: k8sClient,
-				logger:    logr.New(&log.NullLogSink{}),
+				k8sClient:        k8sClient,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			for _, tgb := range tt.env.existingTGBs {
 				assert.NoError(t, k8sClient.Create(context.Background(), tgb.DeepCopy()))
@@ -1381,6 +1529,8 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
+			ctx := context.Background()
+
 			defer ctrl.Finish()
 			k8sSchema := runtime.NewScheme()
 			clientgoscheme.AddToScheme(k8sSchema)
@@ -1389,17 +1539,83 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetGroupsAsListCalls {
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil).AnyTimes()
 			}
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &targetGroupBindingValidator{
-				k8sClient:   k8sClient,
-				elbv2Client: elbv2Client,
-				logger:      logr.New(&log.NullLogSink{}),
+				k8sClient:        k8sClient,
+				elbv2Client:      elbv2Client,
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
 			}
 			err := v.checkTargetGroupVpcID(context.Background(), tt.args.obj)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestCheckAssumeRoleConfig(t *testing.T) {
+	instance := elbv2api.TargetTypeInstance
+	ip := elbv2api.TargetTypeIP
+	testCases := []struct {
+		name string
+		tgb  *elbv2api.TargetGroupBinding
+		err  error
+	}{
+		{
+			name: "ip no assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType: &ip,
+				},
+			},
+		},
+		{
+			name: "instance no assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType: &instance,
+				},
+			},
+		},
+		{
+			name: "ip with assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType:         &ip,
+					IamRoleArnToAssume: "foo",
+				},
+			},
+		},
+		{
+			name: "instance with assume role",
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetType:         &instance,
+					IamRoleArnToAssume: "foo",
+				},
+			},
+			err: errors.New("Unable to use instance target type while using assume role"),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
+			v := &targetGroupBindingValidator{
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: mockMetricsCollector,
+			}
+
+			err := v.checkAssumeRoleConfig(tc.tgb)
+			if tc.err == nil {
+				assert.Nil(t, err)
+			} else {
+				assert.EqualError(t, err, tc.err.Error())
 			}
 		})
 	}

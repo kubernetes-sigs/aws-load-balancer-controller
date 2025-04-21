@@ -2,12 +2,14 @@ package networking
 
 import (
 	"context"
+	"reflect"
+	"testing"
+
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"testing"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -55,6 +57,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 		backendSG                  string
 		ingResources               []*networking.Ingress
 		svcResource                *corev1.Service
+		enableGatewayCheck         bool
 		defaultTags                map[string]string
 		describeSGCalls            []describeSecurityGroupsAsListCall
 		createSGCalls              []createSecurityGroupWithContexCall
@@ -446,7 +449,7 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			}
 			k8sClient := mock_client.NewMockClient(ctrl)
 			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.backendSG,
-				defaultVPCID, ec2Client, k8sClient, tt.fields.defaultTags, logr.New(&log.NullLogSink{}))
+				defaultVPCID, ec2Client, k8sClient, tt.fields.defaultTags, tt.fields.enableGatewayCheck, logr.New(&log.NullLogSink{}))
 
 			resourceType := ResourceTypeIngress
 			var activeResources []types.NamespacedName
@@ -478,6 +481,11 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		services []*corev1.Service
 		err      error
 	}
+	type listGatewaysCall struct {
+		gateways []*gwv1.Gateway
+		err      error
+	}
+
 	type deleteSecurityGroupWithContextCall struct {
 		req  *ec2sdk.DeleteSecurityGroupInput
 		resp *ec2sdk.DeleteSecurityGroupOutput
@@ -494,11 +502,13 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 		listIngressCalls           []listIngressCall
 		deleteSGCalls              []deleteSecurityGroupWithContextCall
 		listServicesCalls          []listServicesCall
+		listGatewaysCall           []listGatewaysCall
 		activeIngresses            []*networking.Ingress
 		inactiveIngresses          []*networking.Ingress
 		svcResource                *corev1.Service
 		resourceMapItems           []mapItem
 		backendSGRequiredForActive bool
+		enableGatewayCheck         bool
 	}
 	ing := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -707,6 +717,94 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 			},
 		},
 		{
+			name: "backend sg required for gw - nlb",
+			fields: fields{
+				autogenSG: "sg-autogen",
+				listIngressCalls: []listIngressCall{
+					{},
+				},
+				listServicesCalls: []listServicesCall{
+					{},
+				},
+				listGatewaysCall: []listGatewaysCall{
+					{
+						gateways: []*gwv1.Gateway{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:  "awesome-ns",
+									Name:       "gw-1",
+									Finalizers: []string{"gateway.k8s.aws/nlb"},
+								},
+							},
+						},
+					},
+				},
+				enableGatewayCheck: true,
+				inactiveIngresses:  []*networking.Ingress{ing},
+			},
+		},
+		{
+			name: "backend sg required for gw - alb",
+			fields: fields{
+				autogenSG: "sg-autogen",
+				listIngressCalls: []listIngressCall{
+					{},
+				},
+				listServicesCalls: []listServicesCall{
+					{},
+				},
+				listGatewaysCall: []listGatewaysCall{
+					{
+						gateways: []*gwv1.Gateway{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:  "awesome-ns",
+									Name:       "gw-1",
+									Finalizers: []string{"gateway.k8s.aws/alb"},
+								},
+							},
+						},
+					},
+				},
+				enableGatewayCheck: true,
+				inactiveIngresses:  []*networking.Ingress{ing},
+			},
+		},
+		{
+			name: "backend sg required for gw - alb but gw not enabled.",
+			fields: fields{
+				autogenSG: "sg-autogen",
+				listIngressCalls: []listIngressCall{
+					{},
+				},
+				listServicesCalls: []listServicesCall{
+					{},
+				},
+				listGatewaysCall: []listGatewaysCall{
+					{
+						gateways: []*gwv1.Gateway{
+							{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:  "awesome-ns",
+									Name:       "gw-1",
+									Finalizers: []string{"gateway.k8s.aws/alb"},
+								},
+							},
+						},
+					},
+				},
+				inactiveIngresses: []*networking.Ingress{ing},
+				deleteSGCalls: []deleteSecurityGroupWithContextCall{
+					{
+						req: &ec2sdk.DeleteSecurityGroupInput{
+							GroupId: awssdk.String("sg-autogen"),
+						},
+						resp: &ec2sdk.DeleteSecurityGroupOutput{},
+					},
+				},
+			},
+		},
+		{
 			name: "backend sg requirement for service already known",
 			fields: fields{
 				autogenSG:         "sg-autogen",
@@ -893,7 +991,7 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 			ec2Client := services.NewMockEC2(ctrl)
 			k8sClient := mock_client.NewMockClient(ctrl)
 			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.backendSG,
-				defaultVPCID, ec2Client, k8sClient, tt.fields.defaultTags, logr.New(&log.NullLogSink{}))
+				defaultVPCID, ec2Client, k8sClient, tt.fields.defaultTags, tt.fields.enableGatewayCheck, logr.New(&log.NullLogSink{}))
 			if len(tt.fields.autogenSG) > 0 {
 				sgProvider.backendSG = ""
 				sgProvider.autoGeneratedSG = tt.fields.autogenSG
@@ -932,6 +1030,21 @@ func Test_defaultBackendSGProvider_Release(t *testing.T) {
 					},
 				).AnyTimes()
 			}
+
+			for _, call := range tt.fields.listGatewaysCall {
+				if !tt.fields.enableGatewayCheck {
+					break
+				}
+				k8sClient.EXPECT().List(gomock.Any(), &gwv1.GatewayList{}, gomock.Any()).DoAndReturn(
+					func(ctx context.Context, gatewayList *gwv1.GatewayList, opts ...client.ListOption) error {
+						for _, gw := range call.gateways {
+							gatewayList.Items = append(gatewayList.Items, *(gw.DeepCopy()))
+						}
+						return call.err
+					},
+				).AnyTimes()
+			}
+
 			for _, ing := range tt.env.ingresses {
 				assert.NoError(t, k8sClient.Create(context.Background(), ing.DeepCopy()))
 			}

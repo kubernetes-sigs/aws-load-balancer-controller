@@ -2,12 +2,12 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.11.0
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.12.0
 # Image URL to use for builder stage in Docker build
 GOLANG_VERSION ?= $(shell cat .go-version)
 BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:$(GOLANG_VERSION)
 # Image URL to use for base layer in Docker build
-BASE_IMAGE ?= public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2024-08-13-1723575672.2
+BASE_IMAGE ?= public.ecr.aws/eks-distro-build-tooling/eks-distro-minimal-base-nonroot:2025-01-01-1735689705.2023
 IMG_PLATFORM ?= linux/amd64,linux/arm64
 # ECR doesn't appear to support SPDX SBOM
 IMG_SBOM ?= none
@@ -17,6 +17,9 @@ CRD_OPTIONS ?= "crd:crdVersions=v1"
 
 # Whether to override AWS SDK models. set to 'y' when we need to build against custom AWS SDK models.
 AWS_SDK_MODEL_OVERRIDE ?= "n"
+
+# Move Gateway API CRDs from bases directory to gateway directory
+MOVE_GATEWAY_CRDS = mv config/crd/bases/gateway.k8s.aws_* config/crd/gateway/
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -61,8 +64,9 @@ manifests: controller-gen kustomize
 	yq eval '.metadata.name = "webhook"' -i config/webhook/manifests.yaml
 
 crds: manifests
+	$(MOVE_GATEWAY_CRDS)
 	$(KUSTOMIZE) build config/crd > helm/aws-load-balancer-controller/crds/crds.yaml
-
+	$(KUSTOMIZE) build config/crd/gateway > config/crd/gateway/gateway-crds.yaml
 
 # Run go fmt against code
 fmt:
@@ -169,7 +173,7 @@ docs-preview: docs-dependencies
 
 # publish the versioned docs using mkdocs mike util
 docs-publish: docs-dependencies
-	pipenv run mike deploy v2.11 latest -p --update-aliases
+	pipenv run mike deploy v2.12 latest -p --update-aliases
 
 # install dependencies needed to preview and publish docs
 docs-dependencies:

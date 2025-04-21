@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.11.0
+  tag: v2.12.0
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -353,3 +353,7 @@ serviceMutatorWebhookConfig:
   operations:
   - CREATE
   # - UPDATE
+
+podMutatorWebhookConfig:
+  # whether or not to fail the pod creation if the webhook fails
+  failurePolicy: Ignore

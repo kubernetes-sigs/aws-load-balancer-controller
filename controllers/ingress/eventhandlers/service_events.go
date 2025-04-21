@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +19,7 @@ import (
 
 // NewEnqueueRequestsForServiceEvent constructs new enqueueRequestsForServiceEvent.
 func NewEnqueueRequestsForServiceEvent(ingEventChan chan<- event.TypedGenericEvent[*networking.Ingress],
-	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*corev1.Service] {
+	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*corev1.Service, reconcile.Request] {
 	return &enqueueRequestsForServiceEvent{
 		ingEventChan:  ingEventChan,
 		k8sClient:     k8sClient,
@@ -27,7 +28,7 @@ func NewEnqueueRequestsForServiceEvent(ingEventChan chan<- event.TypedGenericEve
 	}
 }
 
-var _ handler.TypedEventHandler[*corev1.Service] = (*enqueueRequestsForServiceEvent)(nil)
+var _ handler.TypedEventHandler[*corev1.Service, reconcile.Request] = (*enqueueRequestsForServiceEvent)(nil)
 
 type enqueueRequestsForServiceEvent struct {
 	ingEventChan  chan<- event.TypedGenericEvent[*networking.Ingress]
@@ -36,12 +37,12 @@ type enqueueRequestsForServiceEvent struct {
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForServiceEvent) Create(ctx context.Context, e event.TypedCreateEvent[*corev1.Service], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForServiceEvent) Create(ctx context.Context, e event.TypedCreateEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	svcNew := e.Object
 	h.enqueueImpactedIngresses(ctx, svcNew)
 }
 
-func (h *enqueueRequestsForServiceEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*corev1.Service], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForServiceEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	svcOld := e.ObjectOld
 	svcNew := e.ObjectNew
 
@@ -58,12 +59,12 @@ func (h *enqueueRequestsForServiceEvent) Update(ctx context.Context, e event.Typ
 	h.enqueueImpactedIngresses(ctx, svcNew)
 }
 
-func (h *enqueueRequestsForServiceEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*corev1.Service], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForServiceEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	svcOld := e.Object
 	h.enqueueImpactedIngresses(ctx, svcOld)
 }
 
-func (h *enqueueRequestsForServiceEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*corev1.Service], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForServiceEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*corev1.Service], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	svc := e.Object
 	h.enqueueImpactedIngresses(ctx, svc)
 }

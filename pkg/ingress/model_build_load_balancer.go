@@ -5,16 +5,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"regexp"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -24,8 +24,7 @@ import (
 )
 
 const (
-	resourceIDLoadBalancer         = "LoadBalancer"
-	minimalAvailableIPAddressCount = int32(8)
+	resourceIDLoadBalancer = "LoadBalancer"
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig) (*elbv2model.LoadBalancer, error) {
@@ -75,6 +74,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+	ipv4IPAM, err := t.buildIPv4IPAMPoolID()
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+
 	return elbv2model.LoadBalancerSpec{
 		Name:                        name,
 		Type:                        elbv2model.LoadBalancerTypeApplication,
@@ -86,6 +90,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, liste
 		LoadBalancerAttributes:      loadBalancerAttributes,
 		MinimumLoadBalancerCapacity: lbMinimumCapacity,
 		Tags:                        tags,
+		IPv4IPAMPool:                ipv4IPAM,
 	}, nil
 }
 
@@ -193,11 +198,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
-	var explicitSubnetSelectorList []*v1beta1.SubnetSelector
+	var explicitSubnetSelectorList []v1beta1.SubnetSelector
 	var explicitSubnetNameOrIDsList [][]string
 	for _, member := range t.ingGroup.Members {
 		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.Subnets != nil {
-			explicitSubnetSelectorList = append(explicitSubnetSelectorList, member.IngClassConfig.IngClassParams.Spec.Subnets)
+			explicitSubnetSelectorList = append(explicitSubnetSelectorList, *member.IngClassConfig.IngClassParams.Spec.Subnets)
 			continue
 		}
 		var rawSubnetNameOrIDs []string
@@ -213,15 +218,13 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		}
 		chosenSubnetSelector := explicitSubnetSelectorList[0]
 		for _, subnetSelector := range explicitSubnetSelectorList[1:] {
-			if !cmp.Equal(*chosenSubnetSelector, *subnetSelector) {
+			if !cmp.Equal(chosenSubnetSelector, subnetSelector) {
 				return nil, errors.Errorf("conflicting IngressClassParams subnet specifications")
 			}
 		}
 		chosenSubnets, err := t.subnetsResolver.ResolveViaSelector(ctx, chosenSubnetSelector,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
-			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
-			networking.WithALBSingleSubnet(t.featureGates.Enabled(config.ALBSingleSubnet)),
 		)
 		if err != nil {
 			return nil, err
@@ -240,7 +243,6 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
-			networking.WithALBSingleSubnet(t.featureGates.Enabled(config.ALBSingleSubnet)),
 		)
 		if err != nil {
 			return nil, err
@@ -258,8 +260,6 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(ctx context.Cont
 		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeApplication),
 			networking.WithSubnetsResolveLBScheme(scheme),
-			networking.WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),
-			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "couldn't auto-discover subnets")

@@ -7,10 +7,10 @@ The LBC is supported by AWS. Some clusters may be using the legacy "in-tree" fun
 !!!question "Existing AWS ALB Ingress Controller users"
     The AWS ALB Ingress controller must be uninstalled before installing the AWS Load Balancer Controller.
     Please follow our [migration guide](upgrade/migrate_v1_v2.md) to do a migration.
-    
+
 !!!warning "When using AWS Load Balancer Controller v2.5+"
-    The AWS LBC provides a mutating webhook for service resources to set the `spec.loadBalancerClass` field for service of type LoadBalancer on create. 
-    This makes the AWS LBC the **default controller for service** of type LoadBalancer. You can disable this feature and revert to set Cloud Controller Manager (in-tree controller) as the default by setting the helm chart value **enableServiceMutatorWebhook to false** with `--set enableServiceMutatorWebhook=false` . 
+    The AWS LBC provides a mutating webhook for service resources to set the `spec.loadBalancerClass` field for service of type LoadBalancer on create.
+    This makes the AWS LBC the **default controller for service** of type LoadBalancer. You can disable this feature and revert to set Cloud Controller Manager (in-tree controller) as the default by setting the helm chart value **enableServiceMutatorWebhook to false** with `--set enableServiceMutatorWebhook=false` .
     You will no longer be able to provision new Classic Load Balancer (CLB) from your kubernetes service unless you disable this feature. Existing CLB will continue to work fine.
 
 ## Supported Kubernetes versions
@@ -30,7 +30,7 @@ The LBC is supported by AWS. Some clusters may be using the legacy "in-tree" fun
 Isolated clusters are clusters without internet access, and instead reply on VPC endpoints for all required connects.
 When installing the AWS LBC in isolated clusters, you need to disable shield, waf and wafv2 via controller flags `--enable-shield=false, --enable-waf=false, --enable-wafv2=false`
 ### Using the Amazon EC2 instance metadata server version 2 (IMDSv2)
-We recommend blocking the access to instance metadata by requiring the instance to use [IMDSv2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html) only. For more information, please refer to the AWS guidance [here](https://aws.github.io/aws-eks-best-practices/security/docs/iam/#restrict-access-to-the-instance-profile-assigned-to-the-worker-node). If you are using the IMDSv2, set the hop limit to 2 or higher in order to allow the LBC to perform the metadata introspection. 
+We recommend blocking the access to instance metadata by requiring the instance to use [IMDSv2](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html) only. For more information, please refer to the AWS guidance [here](https://aws.github.io/aws-eks-best-practices/security/docs/iam/#restrict-access-to-the-instance-profile-assigned-to-the-worker-node). If you are using the IMDSv2, set the hop limit to 2 or higher in order to allow the LBC to perform the metadata introspection.
 
 You can set the IMDSv2 as follows:
 ```
@@ -90,15 +90,15 @@ Example condition for cluster name resource tag:
 2. Download an IAM policy for the LBC using one of the following commands:<p>
     If your cluster is in a US Gov Cloud region:
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.11.0/docs/install/iam_policy_us-gov.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.12.0/docs/install/iam_policy_us-gov.json
     ```
     If your cluster is in a China region:
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.11.0/docs/install/iam_policy_cn.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.12.0/docs/install/iam_policy_cn.json
     ```
     If your cluster is in any other region:
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.11.0/docs/install/iam_policy.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.12.0/docs/install/iam_policy.json
     ```
 
 3. Create an IAM policy named `AWSLoadBalancerControllerIAMPolicy`. If you downloaded a different policy, replace `iam-policy` with the name of the policy that you downloaded.
@@ -124,8 +124,12 @@ Example condition for cluster name resource tag:
 ### Option B: Attach IAM policies to nodes
 If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum. Please be aware of the possibility that the controller permissions may be assumed by other users in a pod after retrieving the node role credentials, so the best practice would be using IRSA instead of attaching IAM policy directly.
 ```
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.11.0/docs/install/iam_policy.json
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.12.0/docs/install/iam_policy.json
 ```
+
+## Special IAM cases
+
+### You only want the LBC to add and remove IPs to already existing target groups:
 
 The following IAM permissions subset is for those using `TargetGroupBinding` only and don't plan to use the LBC to manage security group rules:
 
@@ -149,6 +153,57 @@ The following IAM permissions subset is for those using `TargetGroupBinding` onl
         }
     ],
     "Version": "2012-10-17"
+}
+```
+
+### You only want the LBC to add and remove IPs to already existing target groups, also in other accounts, assuming roles
+
+On the other hand, if you plan to use the LBC to manage also target groups in different accounts, you will need to add `"sts:AssumeRole"` to your list of permissions, in other words:
+
+```
+{
+    "Statement": [
+        {
+            "Action": [
+                "ec2:DescribeVpcs",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeInstances",
+                "elasticloadbalancing:DescribeTargetGroups",
+                "elasticloadbalancing:DescribeTargetHealth",
+                "elasticloadbalancing:ModifyTargetGroup",
+                "elasticloadbalancing:ModifyTargetGroupAttributes",
+                "elasticloadbalancing:RegisterTargets",
+                "elasticloadbalancing:DeregisterTargets",
+                "sts:AssumeRole"
+            ],
+            "Effect": "Allow",
+            "Resource": "*"
+        }
+    ],
+    "Version": "2012-10-17"
+}
+```
+
+The assumed roles will need the exactly the same permissions, without `"sts:AssumeRole"`. The assumed role will need a to allow to be assumed by the main role, something like this:
+
+```
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "",
+            "Effect": "Allow",
+            "Principal": {
+                "AWS": "arn:aws:iam::999999999999999:user/test-alb-controller"
+            },
+            "Action": "sts:AssumeRole",
+            "Condition": {
+                "StringEquals": {
+                    "sts:ExternalId": "very-secret-string"
+                }
+            }
+        }
+    ]
 }
 ```
 
@@ -209,7 +264,7 @@ We recommend using the Helm chart to install the controller. The chart supports 
     ### Apply YAML
     1. Download the spec for the LBC.
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.11.0/v2_11_0_full.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.12.0/v2_12_0_full.yaml
     ```
     2. Edit the saved yaml file, go to the Deployment spec, and set the controller `--cluster-name` arg value to your EKS cluster name
     ```
@@ -233,15 +288,15 @@ We recommend using the Helm chart to install the controller. The chart supports 
     ```
     4. Apply the yaml file
     ```
-    kubectl apply -f v2_11_0_full.yaml
+    kubectl apply -f v2_12_0_full.yaml
     ```
     5. Optionally download the default ingressclass and ingressclass params
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.11.0/v2_11_0_ingclass.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.12.0/v2_12_0_ingclass.yaml
     ```
     6. Apply the ingressclass and params
     ```
-    kubectl apply -f v2_11_0_ingclass.yaml
+    kubectl apply -f v2_12_0_ingclass.yaml
     ```
 
 ## Create Update Strategy

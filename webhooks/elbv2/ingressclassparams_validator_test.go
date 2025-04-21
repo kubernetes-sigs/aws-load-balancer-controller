@@ -6,13 +6,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 )
 
 func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 	tests := []struct {
-		name    string
-		obj     *elbv2api.IngressClassParams
-		wantErr string
+		name       string
+		obj        *elbv2api.IngressClassParams
+		wantErr    string
+		wantMetric bool
 	}{
 		{
 			name: "empty",
@@ -38,7 +40,8 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "spec.inboundCIDRs[0]: Invalid value: \"192.168.0.1\": Could not be parsed as a CIDR (did you mean \"192.168.0.1/32\")",
+			wantErr:    "spec.inboundCIDRs[0]: Invalid value: \"192.168.0.1\": Could not be parsed as a CIDR (did you mean \"192.168.0.1/32\")",
+			wantMetric: true,
 		},
 		{
 			name: "inboundCIDRs IPv6 no length",
@@ -49,7 +52,8 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "spec.inboundCIDRs[0]: Invalid value: \"2001:DB8::\": Could not be parsed as a CIDR (did you mean \"2001:DB8::/64\")",
+			wantErr:    "spec.inboundCIDRs[0]: Invalid value: \"2001:DB8::\": Could not be parsed as a CIDR (did you mean \"2001:DB8::/64\")",
+			wantMetric: true,
 		},
 		{
 			name: "inboundCIDRs bits outside prefix",
@@ -60,7 +64,8 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "spec.inboundCIDRs[0]: Invalid value: \"10.128.0.0/8\": Network contains bits outside prefix (did you mean \"10.0.0.0/8\")",
+			wantErr:    "spec.inboundCIDRs[0]: Invalid value: \"10.128.0.0/8\": Network contains bits outside prefix (did you mean \"10.0.0.0/8\")",
+			wantMetric: true,
 		},
 		{
 			name: "inboundCIDRs empty string",
@@ -71,7 +76,8 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "spec.inboundCIDRs[0]: Invalid value: \"\": Could not be parsed as a CIDR",
+			wantErr:    "spec.inboundCIDRs[0]: Invalid value: \"\": Could not be parsed as a CIDR",
+			wantMetric: true,
 		},
 		{
 			name: "inboundCIDRs domain",
@@ -82,7 +88,8 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "spec.inboundCIDRs[0]: Invalid value: \"invalid.example.com\": Could not be parsed as a CIDR",
+			wantErr:    "spec.inboundCIDRs[0]: Invalid value: \"invalid.example.com\": Could not be parsed as a CIDR",
+			wantMetric: true,
 		},
 		{
 			name: "subnet is valid ID list",
@@ -113,7 +120,8 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					Subnets: &elbv2api.SubnetSelector{},
 				},
 			},
-			wantErr: "spec.subnets: Required value: must have either `ids` or `tags`",
+			wantErr:    "spec.subnets: Required value: must have either `ids` or `tags`",
+			wantMetric: true,
 		},
 		{
 			name: "subnet selector with both id and tag",
@@ -127,7 +135,8 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "spec.subnets.tags: Forbidden: may not have both `ids` and `tags` set",
+			wantErr:    "spec.subnets.tags: Forbidden: may not have both `ids` and `tags` set",
+			wantMetric: true,
 		},
 		{
 			name: "subnet duplicate id",
@@ -138,7 +147,8 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "spec.subnets.ids[2]: Duplicate value: \"subnet-1\"",
+			wantErr:    "spec.subnets.ids[2]: Duplicate value: \"subnet-1\"",
+			wantMetric: true,
 		},
 		{
 			name: "subnet duplicate tag value",
@@ -152,7 +162,8 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "spec.subnets.tags[Other][2]: Duplicate value: \"other1\"",
+			wantErr:    "spec.subnets.tags[Other][2]: Duplicate value: \"other1\"",
+			wantMetric: true,
 		},
 		{
 			name: "subnet empty tags map",
@@ -163,12 +174,15 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "spec.subnets.tags: Required value: must have at least one tag key",
+			wantErr:    "spec.subnets.tags: Required value: must have at least one tag key",
+			wantMetric: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := &ingressClassParamsValidator{}
+
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
+			v := &ingressClassParamsValidator{metricsCollector: mockMetricsCollector}
 			t.Run("create", func(t *testing.T) {
 				err := v.ValidateCreate(context.Background(), tt.obj)
 				if tt.wantErr != "" {
@@ -185,6 +199,9 @@ func Test_ingressClassParamsValidator_ValidateCreate(t *testing.T) {
 					assert.NoError(t, err)
 				}
 			})
+
+			mockCollector := v.metricsCollector.(*lbcmetrics.MockCollector)
+			assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricWebhookValidationFailure]) == 2)
 		})
 	}
 }

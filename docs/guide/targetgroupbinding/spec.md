@@ -52,10 +52,20 @@ Kubernetes meta/v1.ObjectMeta
 </em>
 </td>
 <td>
-Refer to the Kubernetes API documentation for the fields of the
+<table>
+<tr><td><code>annotations</code></td><td>
+
+<tr><td colspan=2>
+Refer to the Kubernetes API documentation for the other fields of the
 <code>metadata</code> field.
+</td></tr>
+</table></td></tr>
+
+
+
 </td>
 </tr>
+
 <tr>
 <td>
 <code>spec</code></br>

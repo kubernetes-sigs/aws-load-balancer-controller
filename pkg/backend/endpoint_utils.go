@@ -13,7 +13,8 @@ const (
 	labelAlphaNodeRoleExcludeBalancer = "alpha.service-controller.kubernetes.io/exclude-balancer"
 	labelEKSComputeType               = "eks.amazonaws.com/compute-type"
 
-	toBeDeletedByCATaint = "ToBeDeletedByClusterAutoscaler"
+	toBeDeletedByCATaint        = "ToBeDeletedByClusterAutoscaler"
+	toBeDeletedByKarpenterTaint = "karpenter.sh/disrupted"
 )
 
 var (
@@ -61,10 +62,15 @@ func GetTrafficProxyNodeSelector(tgb *elbv2api.TargetGroupBinding) (labels.Selec
 // IsNodeSuitableAsTrafficProxy check whether node is suitable as a traffic proxy.
 // This should be checked in additional to the nodeSelector defined in TargetGroupBinding.
 func IsNodeSuitableAsTrafficProxy(node *corev1.Node) bool {
-	// ToBeDeletedByClusterAutoscaler taint is added by cluster autoscaler before removing node from cluster
-	// Marking the node as unsuitable for traffic once the taint is observed on the node
 	for _, taint := range node.Spec.Taints {
+		// ToBeDeletedByClusterAutoscaler taint is added by cluster autoscaler before removing node from cluster
+		// Marking the node as unsuitable for traffic once the taint is observed on the node
 		if taint.Key == toBeDeletedByCATaint {
+			return false
+		}
+		// karpenter.sh/disrupted:NoSchedule taint is added by karpenter before removing node from cluster
+		// Marking the node as unsuitable for traffic once the taint is observed on the node
+		if taint.Key == toBeDeletedByKarpenterTaint && taint.Effect == corev1.TaintEffectNoSchedule {
 			return false
 		}
 	}

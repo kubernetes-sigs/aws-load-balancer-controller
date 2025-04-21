@@ -10,7 +10,9 @@ metadata:
   labels:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 spec:
+  {{ if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{ end }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   selector:
     matchLabels:
@@ -68,7 +70,7 @@ spec:
         {{- end }}
         {{- $region := tpl (default "" .Values.region) . }}
         {{- if $region }}
-        - --aws-region={{ .Values.region }}
+        - --aws-region={{ $region }}
         {{- end }}
         {{- $vpcID := tpl (default "" .Values.vpcId) . }}
         {{- if $vpcID }}
@@ -152,6 +154,9 @@ spec:
         {{- if kindIs "bool" .Values.enableBackendSecurityGroup }}
         - --enable-backend-security-group={{ .Values.enableBackendSecurityGroup }}
         {{- end }}
+        {{- if kindIs "bool" .Values.enableManageBackendSecurityGroupRules }}
+        - --enable-manage-backend-security-group-rules={{ .Values.enableManageBackendSecurityGroupRules }}
+        {{- end }}
         {{- if .Values.backendSecurityGroup }}
         - --backend-security-group={{ .Values.backendSecurityGroup }}
         {{- end }}
@@ -172,6 +177,9 @@ spec:
         {{- end }}
         {{- if .Values.loadBalancerClass }}
         - --load-balancer-class={{ .Values.loadBalancerClass }}
+        {{- end }}
+        {{- if .Values.vpcTags }}
+        - --aws-vpc-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.vpcTags | trimSuffix "," }}
         {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:

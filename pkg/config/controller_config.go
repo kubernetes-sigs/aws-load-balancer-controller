@@ -1,6 +1,7 @@
 package config
 
 import (
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 	"time"
 
@@ -22,10 +23,13 @@ const (
 	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
 	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
+	flagALBGatewayMaxConcurrentReconciles            = "alb-gateway-max-concurrent-reconciles"
+	flagNLBGatewayMaxConcurrentReconciles            = "nlb-gateway-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagLbStabilizationMonitorInterval               = "lb-stabilization-monitor-interval"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
 	flagEnableBackendSG                              = "enable-backend-security-group"
+	flagEnableManageBackendSGRules                   = "enable-manage-backend-security-group-rules"
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
@@ -34,6 +38,7 @@ const (
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
 	defaultEnableBackendSG                           = true
+	defaultEnableManageBackendSGRules                = false
 	defaultEnableEndpointSlices                      = false
 	defaultDisableRestrictedSGRules                  = false
 	defaultLbStabilizationMonitorInterval            = time.Second * 120
@@ -41,12 +46,16 @@ const (
 
 var (
 	trackingTagKeys = sets.NewString(
-		"elbv2.k8s.aws/cluster",
-		"elbv2.k8s.aws/resource",
+		shared_constants.TagKeyK8sCluster,
+		shared_constants.TagKeyResource,
 		"ingress.k8s.aws/stack",
 		"ingress.k8s.aws/resource",
 		"service.k8s.aws/stack",
 		"service.k8s.aws/resource",
+		"gateway.k8s.aws.nlb/resource",
+		"gateway.k8s.aws.alb/resource",
+		"gateway.k8s.aws.nlb/stack",
+		"gateway.k8s.aws.alb/stack",
 	)
 )
 
@@ -98,8 +107,17 @@ type ControllerConfig struct {
 	// Max exponential backoff delay for reconcile failures of TargetGroupBinding
 	TargetGroupBindingMaxExponentialBackoffDelay time.Duration
 
+	// ALBGatewayMaxConcurrentReconciles Max concurrent reconcile loops for ALB Gateway objects
+	ALBGatewayMaxConcurrentReconciles int
+
+	// NLBGatewayMaxConcurrentReconciles Max concurrent reconcile loops for NLB Gateway objects
+	NLBGatewayMaxConcurrentReconciles int
+
 	// EnableBackendSecurityGroup specifies whether to use optimized security group rules
 	EnableBackendSecurityGroup bool
+
+	// EnableManageBackendSecurityGroupRules specifies whether to have controller manages security group rules
+	EnableManageBackendSecurityGroupRules bool
 
 	// BackendSecurityGroups specifies the configured backend security group to use
 	// for optimized security group rules
@@ -131,6 +149,10 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrently running reconcile loops for service")
 	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for targetGroupBinding")
+	fs.IntVar(&cfg.ALBGatewayMaxConcurrentReconciles, flagALBGatewayMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
+		"Maximum number of concurrently running reconcile loops for alb gateway")
+	fs.IntVar(&cfg.NLBGatewayMaxConcurrentReconciles, flagNLBGatewayMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
+		"Maximum number of concurrently running reconcile loops for nlb gateway")
 	fs.DurationVar(&cfg.TargetGroupBindingMaxExponentialBackoffDelay, flagTargetGroupBindingMaxExponentialBackoffDelay, defaultMaxExponentialBackoffDelay,
 		"Maximum duration of exponential backoff for targetGroupBinding reconcile failures")
 	fs.DurationVar(&cfg.LBStabilizationMonitorInterval, flagLbStabilizationMonitorInterval, defaultLbStabilizationMonitorInterval,
@@ -139,6 +161,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Default SSL policy for load balancers listeners")
 	fs.BoolVar(&cfg.EnableBackendSecurityGroup, flagEnableBackendSG, defaultEnableBackendSG,
 		"Enable sharing of security groups for backend traffic")
+	fs.BoolVar(&cfg.EnableManageBackendSecurityGroupRules, flagEnableManageBackendSGRules, defaultEnableManageBackendSGRules,
+		"Enable managing of backend security group rules by controller")
 	fs.StringVar(&cfg.BackendSecurityGroup, flagBackendSecurityGroup, "",
 		"Backend security group id to use for the ingress rules on the worker node SG")
 	fs.BoolVar(&cfg.EnableEndpointSlices, flagEnableEndpointSlices, defaultEnableEndpointSlices,
@@ -179,6 +203,9 @@ func (cfg *ControllerConfig) Validate() error {
 		return err
 	}
 	if err := cfg.validateBackendSecurityGroupConfiguration(); err != nil {
+		return err
+	}
+	if err := cfg.validateManageBackendSecurityGroupRulesConfiguration(); err != nil {
 		return err
 	}
 	return nil
@@ -236,6 +263,13 @@ func (cfg *ControllerConfig) validateBackendSecurityGroupConfiguration() error {
 	}
 	if !strings.HasPrefix(cfg.BackendSecurityGroup, "sg-") {
 		return errors.Errorf("invalid value %v for backend security group id", cfg.BackendSecurityGroup)
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) validateManageBackendSecurityGroupRulesConfiguration() error {
+	if cfg.EnableManageBackendSecurityGroupRules && !cfg.EnableBackendSecurityGroup {
+		return errors.Errorf("backend security group must be enabled when manage backend security group rule is enabled")
 	}
 	return nil
 }

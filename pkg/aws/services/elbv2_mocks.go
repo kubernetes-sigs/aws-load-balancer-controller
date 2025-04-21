@@ -66,6 +66,21 @@ func (mr *MockELBV2MockRecorder) AddTagsWithContext(arg0, arg1 interface{}) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddTagsWithContext", reflect.TypeOf((*MockELBV2)(nil).AddTagsWithContext), arg0, arg1)
 }
 
+// AssumeRole mocks base method.
+func (m *MockELBV2) AssumeRole(arg0 context.Context, arg1, arg2 string) (ELBV2, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AssumeRole", arg0, arg1, arg2)
+	ret0, _ := ret[0].(ELBV2)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AssumeRole indicates an expected call of AssumeRole.
+func (mr *MockELBV2MockRecorder) AssumeRole(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssumeRole", reflect.TypeOf((*MockELBV2)(nil).AssumeRole), arg0, arg1, arg2)
+}
+
 // CreateListenerWithContext mocks base method.
 func (m *MockELBV2) CreateListenerWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.CreateListenerInput) (*elasticloadbalancingv2.CreateListenerOutput, error) {
 	m.ctrl.T.Helper()
@@ -456,6 +471,21 @@ func (mr *MockELBV2MockRecorder) ModifyCapacityReservationWithContext(arg0, arg1
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyCapacityReservationWithContext", reflect.TypeOf((*MockELBV2)(nil).ModifyCapacityReservationWithContext), arg0, arg1)
 }
 
+// ModifyIPPoolsWithContext mocks base method.
+func (m *MockELBV2) ModifyIPPoolsWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.ModifyIpPoolsInput) (*elasticloadbalancingv2.ModifyIpPoolsOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModifyIPPoolsWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*elasticloadbalancingv2.ModifyIpPoolsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ModifyIPPoolsWithContext indicates an expected call of ModifyIPPoolsWithContext.
+func (mr *MockELBV2MockRecorder) ModifyIPPoolsWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModifyIPPoolsWithContext", reflect.TypeOf((*MockELBV2)(nil).ModifyIPPoolsWithContext), arg0, arg1)
+}
+
 // ModifyListenerAttributesWithContext mocks base method.
 func (m *MockELBV2) ModifyListenerAttributesWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.ModifyListenerAttributesInput) (*elasticloadbalancingv2.ModifyListenerAttributesOutput, error) {
 	m.ctrl.T.Helper()
@@ -604,6 +634,21 @@ func (m *MockELBV2) SetIpAddressTypeWithContext(arg0 context.Context, arg1 *elas
 func (mr *MockELBV2MockRecorder) SetIpAddressTypeWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetIpAddressTypeWithContext", reflect.TypeOf((*MockELBV2)(nil).SetIpAddressTypeWithContext), arg0, arg1)
+}
+
+// SetRulePrioritiesWithContext mocks base method.
+func (m *MockELBV2) SetRulePrioritiesWithContext(arg0 context.Context, arg1 *elasticloadbalancingv2.SetRulePrioritiesInput) (*elasticloadbalancingv2.SetRulePrioritiesOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetRulePrioritiesWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*elasticloadbalancingv2.SetRulePrioritiesOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetRulePrioritiesWithContext indicates an expected call of SetRulePrioritiesWithContext.
+func (mr *MockELBV2MockRecorder) SetRulePrioritiesWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRulePrioritiesWithContext", reflect.TypeOf((*MockELBV2)(nil).SetRulePrioritiesWithContext), arg0, arg1)
 }
 
 // SetSecurityGroupsWithContext mocks base method.

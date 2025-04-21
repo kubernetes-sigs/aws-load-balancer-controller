@@ -31,32 +31,32 @@ type enqueueRequestsForNodeEvent struct {
 }
 
 // Create is called in response to an create event - e.g. Pod Creation.
-func (h *enqueueRequestsForNodeEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForNodeEvent) Create(ctx context.Context, e event.CreateEvent, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	nodeNew := e.Object.(*corev1.Node)
 	h.enqueueImpactedTargetGroupBindings(ctx, queue, nil, nodeNew)
 }
 
 // Update is called in response to an update event -  e.g. Pod Updated.
-func (h *enqueueRequestsForNodeEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForNodeEvent) Update(ctx context.Context, e event.UpdateEvent, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	nodeOld := e.ObjectOld.(*corev1.Node)
 	nodeNew := e.ObjectNew.(*corev1.Node)
 	h.enqueueImpactedTargetGroupBindings(ctx, queue, nodeOld, nodeNew)
 }
 
 // Delete is called in response to a delete event - e.g. Pod Deleted.
-func (h *enqueueRequestsForNodeEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForNodeEvent) Delete(ctx context.Context, e event.DeleteEvent, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	nodeOld := e.Object.(*corev1.Node)
 	h.enqueueImpactedTargetGroupBindings(ctx, queue, nodeOld, nil)
 }
 
 // Generic is called in response to an event of an unknown type or a synthetic event triggered as a cron or
 // external trigger request - e.g. reconcile AutoScaling, or a WebHook.
-func (h *enqueueRequestsForNodeEvent) Generic(context.Context, event.GenericEvent, workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForNodeEvent) Generic(context.Context, event.GenericEvent, workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	// nothing to do here
 }
 
 // enqueueImpactedTargetGroupBindings will enqueue all impacted TargetGroupBindings for node events.
-func (h *enqueueRequestsForNodeEvent) enqueueImpactedTargetGroupBindings(ctx context.Context, queue workqueue.RateLimitingInterface, nodeOld *corev1.Node, nodeNew *corev1.Node) {
+func (h *enqueueRequestsForNodeEvent) enqueueImpactedTargetGroupBindings(ctx context.Context, queue workqueue.TypedRateLimitingInterface[reconcile.Request], nodeOld *corev1.Node, nodeNew *corev1.Node) {
 	var nodeKey types.NamespacedName
 	nodeOldSuitableAsTrafficProxy := false
 	nodeNewSuitableAsTrafficProxy := false
