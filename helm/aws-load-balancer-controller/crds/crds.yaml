@@ -54,6 +54,12 @@ spec:
           spec:
             description: IngressClassParamsSpec defines the desired state of IngressClassParams
             properties:
+              PrefixListsIDs:
+                description: PrefixListsIDs defines the security group prefix lists
+                  for all Ingresses that belong to IngressClass with this IngressClassParams.
+                items:
+                  type: string
+                type: array
               certificateArn:
                 description: CertificateArn specifies the ARN of the certificates
                   for all Ingresses that belong to IngressClass with this IngressClassParams.
@@ -84,6 +90,15 @@ spec:
                 - dualstack
                 - dualstack-without-public-ipv4
                 type: string
+              ipamConfiguration:
+                description: IPAMConfiguration defines the IPAM settings for a Load
+                  Balancer.
+                properties:
+                  ipv4IPAMPoolId:
+                    description: IPv4IPAMPoolId defines the IPAM pool ID used for
+                      IPv4 Addresses on the ALB.
+                    type: string
+                type: object
               listeners:
                 description: Listeners define a list of listeners with their protocol,
                   port and attributes.
@@ -317,6 +332,15 @@ spec:
           spec:
             description: TargetGroupBindingSpec defines the desired state of TargetGroupBinding
             properties:
+              assumeRoleExternalId:
+                description: IAM Role ARN to assume when calling AWS APIs. Needed
+                  to assume a role in another account and prevent the confused deputy
+                  problem. https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html
+                type: string
+              iamRoleArnToAssume:
+                description: IAM Role ARN to assume when calling AWS APIs. Useful
+                  if the target group is in a different AWS account
+                type: string
               multiClusterTargetGroup:
                 description: MultiClusterTargetGroup Denotes if the TargetGroup is
                   shared among multiple clusters
@@ -494,6 +518,15 @@ spec:
           spec:
             description: TargetGroupBindingSpec defines the desired state of TargetGroupBinding
             properties:
+              assumeRoleExternalId:
+                description: IAM Role ARN to assume when calling AWS APIs. Needed
+                  to assume a role in another account and prevent the confused deputy
+                  problem. https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html
+                type: string
+              iamRoleArnToAssume:
+                description: IAM Role ARN to assume when calling AWS APIs. Useful
+                  if the target group is in a different AWS account
+                type: string
               ipAddressType:
                 description: ipAddressType specifies whether the target group is of
                   type IPv4 or IPv6. If unspecified, it will be automatically inferred.

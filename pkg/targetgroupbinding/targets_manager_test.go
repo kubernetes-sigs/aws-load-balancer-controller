@@ -2,18 +2,33 @@ package targetgroupbinding
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/util/cache"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sync"
 	"testing"
 	"time"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/golang/mock/gomock"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/cache"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+func makeTargetGroupBinding(tgARN string) *elbv2api.TargetGroupBinding {
+	return &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: tgARN,
+		},
+	}
+}
 
 func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 	type registerTargetsWithContextCall struct {
@@ -262,8 +277,10 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
+			ctx := context.Background()
 			for _, call := range tt.fields.registerTargetsWithContextCalls {
 				elbv2Client.EXPECT().RegisterTargetsWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil)
 			}
 
 			targetsCache := cache.NewExpiring()
@@ -282,8 +299,7 @@ func Test_cachedTargetsManager_RegisterTargets(t *testing.T) {
 				logger:                   log.Log,
 			}
 
-			ctx := context.Background()
-			err := m.RegisterTargets(ctx, tt.args.tgARN, tt.args.targets)
+			err := m.RegisterTargets(ctx, makeTargetGroupBinding(tt.args.tgARN), tt.args.targets)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -507,8 +523,10 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 			elbv2Client := services.NewMockELBV2(ctrl)
+			ctx := context.Background()
 			for _, call := range tt.fields.deregisterTargetsWithContextCalls {
 				elbv2Client.EXPECT().DeregisterTargetsWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil)
 			}
 
 			targetsCache := cache.NewExpiring()
@@ -527,8 +545,7 @@ func Test_cachedTargetsManager_DeregisterTargets(t *testing.T) {
 				logger:                     log.Log,
 			}
 
-			ctx := context.Background()
-			err := m.DeregisterTargets(ctx, tt.args.tgARN, tt.args.targets)
+			err := m.DeregisterTargets(ctx, makeTargetGroupBinding(tt.args.tgARN), tt.args.targets)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -770,10 +787,12 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+			ctx := context.Background()
 
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetHealthWithContextCalls {
 				elbv2Client.EXPECT().DescribeTargetHealthWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil)
 			}
 			targetsCache := cache.NewExpiring()
 			targetsCacheTTL := 1 * time.Minute
@@ -790,8 +809,7 @@ func Test_cachedTargetsManager_ListTargets(t *testing.T) {
 				targetsCacheTTL:   targetsCacheTTL,
 			}
 
-			ctx := context.Background()
-			got, err := m.ListTargets(ctx, tt.args.tgARN)
+			got, err := m.ListTargets(ctx, makeTargetGroupBinding(tt.args.tgARN))
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1180,16 +1198,17 @@ func Test_cachedTargetsManager_refreshUnhealthyTargets(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
+			ctx := context.Background()
 
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetHealthWithContextCalls {
 				elbv2Client.EXPECT().DescribeTargetHealthWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil)
 			}
 			m := &cachedTargetsManager{
 				elbv2Client: elbv2Client,
 			}
-			ctx := context.Background()
-			got, err := m.refreshUnhealthyTargets(ctx, tt.args.tgARN, tt.args.cachedTargets)
+			got, err := m.refreshUnhealthyTargets(ctx, makeTargetGroupBinding(tt.args.tgARN), tt.args.cachedTargets)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1341,18 +1360,20 @@ func Test_cachedTargetsManager_listTargetsFromAWS(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
+			ctx := context.Background()
+
 			defer ctrl.Finish()
 
 			elbv2Client := services.NewMockELBV2(ctrl)
 			for _, call := range tt.fields.describeTargetHealthWithContextCalls {
 				elbv2Client.EXPECT().DescribeTargetHealthWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
+				elbv2Client.EXPECT().AssumeRole(ctx, gomock.Any(), gomock.Any()).Return(elbv2Client, nil)
 			}
 
 			m := &cachedTargetsManager{
 				elbv2Client: elbv2Client,
 			}
-			ctx := context.Background()
-			got, err := m.listTargetsFromAWS(ctx, tt.args.tgARN, tt.args.targets)
+			got, err := m.listTargetsFromAWS(ctx, makeTargetGroupBinding(tt.args.tgARN), tt.args.targets)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

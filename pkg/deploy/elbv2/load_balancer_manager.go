@@ -90,6 +90,10 @@ func (m *defaultLoadBalancerManager) Create(ctx context.Context, resLB *elbv2mod
 }
 
 func (m *defaultLoadBalancerManager) Update(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) (elbv2model.LoadBalancerStatus, error) {
+	// It's important to remove ipam pools first, because we need to remove any ipam pools before changing the IP Address type.
+	if err := m.removeIPAMPools(ctx, resLB, sdkLB); err != nil {
+		return elbv2model.LoadBalancerStatus{}, err
+	}
 	if err := m.updateSDKLoadBalancerWithTags(ctx, resLB, sdkLB); err != nil {
 		return elbv2model.LoadBalancerStatus{}, err
 	}
@@ -108,6 +112,11 @@ func (m *defaultLoadBalancerManager) Update(ctx context.Context, resLB *elbv2mod
 	if err := m.checkSDKLoadBalancerWithCOIPv4Pool(ctx, resLB, sdkLB); err != nil {
 		return elbv2model.LoadBalancerStatus{}, err
 	}
+	// We can safely change the IPAM pool here after all other modifications are done.
+	if err := m.addIPAMPools(ctx, resLB, sdkLB); err != nil {
+		return elbv2model.LoadBalancerStatus{}, err
+	}
+
 	return buildResLoadBalancerStatus(sdkLB), nil
 }
 
@@ -158,6 +167,7 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithIPAddressType(ctx 
 
 func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
 	desiredSubnets := sets.NewString()
+	desiredIPv6Addresses := sets.NewString()
 	desiredSubnetsSourceNATPrefixes := sets.NewString()
 	currentSubnetsSourceNATPrefixes := sets.NewString()
 	for _, mapping := range resLB.Spec.SubnetMappings {
@@ -165,12 +175,19 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 		if mapping.SourceNatIpv6Prefix != nil {
 			desiredSubnetsSourceNATPrefixes.Insert(awssdk.ToString(mapping.SourceNatIpv6Prefix))
 		}
+		if mapping.IPv6Address != nil {
+			desiredIPv6Addresses.Insert(awssdk.ToString(mapping.IPv6Address))
+		}
 	}
 	currentSubnets := sets.NewString()
+	currentIPv6Addresses := sets.NewString()
 	for _, az := range sdkLB.LoadBalancer.AvailabilityZones {
 		currentSubnets.Insert(awssdk.ToString(az.SubnetId))
 		if len(az.SourceNatIpv6Prefixes) != 0 {
 			currentSubnetsSourceNATPrefixes.Insert(az.SourceNatIpv6Prefixes[0])
+		}
+		if len(az.LoadBalancerAddresses) > 0 && az.LoadBalancerAddresses[0].IPv6Address != nil {
+			currentIPv6Addresses.Insert(awssdk.ToString(az.LoadBalancerAddresses[0].IPv6Address))
 		}
 	}
 	sdkLBEnablePrefixForIpv6SourceNatValue := string(elbv2model.EnablePrefixForIpv6SourceNatOff)
@@ -180,7 +197,9 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithSubnetMappings(ctx
 
 	resLBEnablePrefixForIpv6SourceNatValue = string(resLB.Spec.EnablePrefixForIpv6SourceNat)
 
-	if desiredSubnets.Equal(currentSubnets) && desiredSubnetsSourceNATPrefixes.Equal(currentSubnetsSourceNATPrefixes) && ((sdkLBEnablePrefixForIpv6SourceNatValue == resLBEnablePrefixForIpv6SourceNatValue) || (resLBEnablePrefixForIpv6SourceNatValue == "")) {
+	isFirstTimeIPv6Setup := currentIPv6Addresses.Len() == 0 && desiredIPv6Addresses.Len() > 0
+	needsDualstackIPv6Update := isIPv4ToDualstackUpdate(resLB, sdkLB) && isFirstTimeIPv6Setup
+	if !needsDualstackIPv6Update && desiredSubnets.Equal(currentSubnets) && desiredSubnetsSourceNATPrefixes.Equal(currentSubnetsSourceNATPrefixes) && ((sdkLBEnablePrefixForIpv6SourceNatValue == resLBEnablePrefixForIpv6SourceNatValue) || (resLBEnablePrefixForIpv6SourceNatValue == "")) {
 		return nil
 	}
 	req := &elbv2sdk.SetSubnetsInput{
@@ -268,6 +287,43 @@ func (m *defaultLoadBalancerManager) updateSDKLoadBalancerWithTags(ctx context.C
 		WithIgnoredTagKeys(m.externalManagedTags))
 }
 
+func (m *defaultLoadBalancerManager) removeIPAMPools(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
+	// No IPAM pool to remove or the request is to actually add / change IPAM pool.
+	if sdkLB.LoadBalancer.IpamPools == nil || resLB.Spec.IPv4IPAMPool != nil {
+		return nil
+	}
+
+	req := &elbv2sdk.ModifyIpPoolsInput{
+		RemoveIpamPools: []elbv2types.RemoveIpamPoolEnum{elbv2types.RemoveIpamPoolEnumIpv4},
+		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
+	}
+
+	_, err := m.elbv2Client.ModifyIPPoolsWithContext(ctx, req)
+	return err
+}
+
+func (m *defaultLoadBalancerManager) addIPAMPools(ctx context.Context, resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) error {
+	// No IPAM pool to set, this case should be handled by removeIPAMPools
+	if resLB.Spec.IPv4IPAMPool == nil {
+		return nil
+	}
+
+	// IPAM pool is already correctly set
+	if sdkLB.LoadBalancer.IpamPools != nil && awssdk.ToString(sdkLB.LoadBalancer.IpamPools.Ipv4IpamPoolId) == awssdk.ToString(resLB.Spec.IPv4IPAMPool) {
+		return nil
+	}
+
+	req := &elbv2sdk.ModifyIpPoolsInput{
+		LoadBalancerArn: sdkLB.LoadBalancer.LoadBalancerArn,
+		IpamPools: &elbv2types.IpamPools{
+			Ipv4IpamPoolId: resLB.Spec.IPv4IPAMPool,
+		},
+	}
+
+	_, err := m.elbv2Client.ModifyIPPoolsWithContext(ctx, req)
+	return err
+}
+
 func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2sdk.CreateLoadBalancerInput, error) {
 	sdkObj := &elbv2sdk.CreateLoadBalancerInput{}
 	sdkObj.Name = awssdk.String(lbSpec.Name)
@@ -284,6 +340,12 @@ func buildSDKCreateLoadBalancerInput(lbSpec elbv2model.LoadBalancerSpec) (*elbv2
 
 	if lbSpec.EnablePrefixForIpv6SourceNat != "" {
 		sdkObj.EnablePrefixForIpv6SourceNat = elbv2types.EnablePrefixForIpv6SourceNatEnum(lbSpec.EnablePrefixForIpv6SourceNat)
+	}
+
+	if lbSpec.IPv4IPAMPool != nil && awssdk.ToString(lbSpec.IPv4IPAMPool) != "" {
+		sdkObj.IpamPools = &elbv2types.IpamPools{
+			Ipv4IpamPoolId: lbSpec.IPv4IPAMPool,
+		}
 	}
 
 	sdkObj.CustomerOwnedIpv4Pool = lbSpec.CustomerOwnedIPv4Pool
@@ -354,4 +416,16 @@ func isEnforceSGInboundRulesOnPrivateLinkUpdated(resLB *elbv2model.LoadBalancer,
 
 	return true, currentEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic, desiredEnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
 
+}
+
+func isIPv4ToDualstackUpdate(resLB *elbv2model.LoadBalancer, sdkLB LoadBalancerWithTags) bool {
+	if &resLB.Spec.IPAddressType == nil {
+		return false
+	}
+	desiredIPAddressType := string(resLB.Spec.IPAddressType)
+	currentIPAddressType := sdkLB.LoadBalancer.IpAddressType
+	isIPAddressTypeUpdated := desiredIPAddressType != string(currentIPAddressType)
+	return isIPAddressTypeUpdated &&
+		resLB.Spec.Type == elbv2model.LoadBalancerTypeNetwork &&
+		desiredIPAddressType == string(elbv2model.IPAddressTypeDualStack)
 }

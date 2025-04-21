@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/rest"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/controller"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/helm"
@@ -23,7 +24,7 @@ type Framework struct {
 	Options   Options
 	RestCfg   *rest.Config
 	K8sClient client.Client
-	Cloud     aws.Cloud
+	Cloud     services.Cloud
 
 	CTRLInstallationManager controller.InstallationManager
 	NSManager               k8sresources.NamespaceManager
@@ -62,7 +63,7 @@ func InitFramework() (*Framework, error) {
 		VpcID:          globalOptions.AWSVPCID,
 		MaxRetries:     3,
 		ThrottleConfig: throttle.NewDefaultServiceOperationsThrottleConfig(),
-	}, nil, logger, nil)
+	}, "clusterName", nil, logger, nil)
 	if err != nil {
 		return nil, err
 	}

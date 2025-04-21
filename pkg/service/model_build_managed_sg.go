@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -65,7 +66,11 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupName(_ context.Context)
 func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx context.Context, ipAddressType elbv2model.IPAddressType) ([]ec2model.IPPermission, error) {
 	var permissions []ec2model.IPPermission
 	var prefixListIDs []string
+	var icmpForPathMtuConfiguredFlag string
+
+	icmpForPathMtuConfigured := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEnableIcmpForPathMtuDiscovery, &icmpForPathMtuConfiguredFlag, t.service.Annotations)
 	prefixListsConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSecurityGroupPrefixLists, &prefixListIDs, t.service.Annotations)
+
 	cidrs, err := t.buildCIDRsFromSourceRanges(ctx, ipAddressType, prefixListsConfigured)
 	if err != nil {
 		return nil, err
@@ -84,6 +89,18 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 						},
 					},
 				})
+				if icmpForPathMtuConfigured && icmpForPathMtuConfiguredFlag == "on" {
+					permissions = append(permissions, ec2model.IPPermission{
+						IPProtocol: shared_constants.ICMPV4Protocol,
+						FromPort:   awssdk.Int32(shared_constants.ICMPV4TypeForPathMtu),
+						ToPort:     awssdk.Int32(shared_constants.ICMPV4CodeForPathMtu),
+						IPRanges: []ec2model.IPRange{
+							{
+								CIDRIP: cidr,
+							},
+						},
+					})
+				}
 			} else {
 				permissions = append(permissions, ec2model.IPPermission{
 					IPProtocol: strings.ToLower(string(port.Protocol)),
@@ -95,6 +112,18 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 						},
 					},
 				})
+				if icmpForPathMtuConfigured && icmpForPathMtuConfiguredFlag == "on" {
+					permissions = append(permissions, ec2model.IPPermission{
+						IPProtocol: shared_constants.ICMPV6Protocol,
+						FromPort:   awssdk.Int32(shared_constants.ICMPV6TypeForPathMtu),
+						ToPort:     awssdk.Int32(shared_constants.ICMPV6CodeForPathMtu),
+						IPv6Range: []ec2model.IPv6Range{
+							{
+								CIDRIPv6: cidr,
+							},
+						},
+					})
+				}
 			}
 		}
 		if prefixListsConfigured {
@@ -112,6 +141,7 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 			}
 		}
 	}
+
 	return permissions, nil
 }
 

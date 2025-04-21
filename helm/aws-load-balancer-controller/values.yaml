@@ -8,7 +8,7 @@ revisionHistoryLimit: 10
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.11.0
+  tag: v2.12.0
   pullPolicy: IfNotPresent
 
 runtimeClassName: ""
@@ -91,7 +91,7 @@ configureDefaultAffinity: true
 # nodes, and other user-defined topology domains.
 #
 # more details here: https://kubernetes.io/docs/concepts/workloads/pods/pod-topology-spread-constraints/
-topologySpreadConstraints: {}
+topologySpreadConstraints: []
 
 updateStrategy: {}
   # type: RollingUpdate
@@ -114,6 +114,11 @@ additionalLabels: {}
 
 # Enable cert-manager
 enableCertManager: false
+
+# Overrideable variables when enableCertManager is set to true
+certManager:
+  duration:
+  renewBefore:
 
 # The name of the Kubernetes cluster. A non-empty value is required
 clusterName:
@@ -160,6 +165,10 @@ region:
 
 # The VPC ID for the Kubernetes cluster. Set this manually when your pods are unable to use the metadata service to determine this automatically
 vpcId:
+
+# This is alternative to vpcId. Set this when your pods are unable to use the metadata service to determine VPC automatically.
+vpcTags: {}
+# Name: tagValue
 
 # Custom AWS API Endpoints (serviceID1=URL1,serviceID2=URL2)
 awsApiEndpoints:
@@ -342,6 +351,9 @@ enableEndpointSlices:
 # enableBackendSecurityGroup enables shared security group for backend traffic (default true)
 enableBackendSecurityGroup:
 
+# enableManageBackendSecurityGroupRules enables controller manages security group rules (default false)
+enableManageBackendSecurityGroupRules:
+
 # backendSecurityGroup specifies backend security group id (default controller auto create backend security group)
 backendSecurityGroup:
 
@@ -429,6 +441,11 @@ serviceMutatorWebhookConfig:
   operations:
   - CREATE
     # - UPDATE
+
+# podMutatorWebhookConfig contains configurations specific to the service mutator webhook
+podMutatorWebhookConfig:
+  # whether or not to fail the pod creation if the webhook fails
+  failurePolicy: Ignore
 
 # serviceTargetENISGTags specifies AWS tags, in addition to the cluster tags, for finding the target ENI SG to which to add inbound rules from NLBs.
 serviceTargetENISGTags:

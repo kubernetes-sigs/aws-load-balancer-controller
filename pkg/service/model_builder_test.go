@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"testing"
 	"time"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -21,6 +22,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -116,12 +118,14 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		resolveSGViaNameOrIDCall     []resolveSGViaNameOrIDCall
 		backendSecurityGroup         string
 		enableBackendSG              bool
+		enableManageBackendSGRules   bool
 		disableRestrictedSGRules     bool
 		svc                          *corev1.Service
 		wantError                    bool
 		wantValue                    string
 		wantNumResources             int
 		featureGates                 map[config.Feature]bool
+		wantMetric                   bool
 	}{
 		{
 			testName: "Simple service",
@@ -154,6 +158,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			featureGates: map[config.Feature]bool{
 				config.NLBSecurityGroup: false,
 			},
+			wantMetric: false,
 			wantValue: `
 {
  "id":"default/nlb-ip-svc-tls",
@@ -302,6 +307,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                false,
+			wantMetric:               false,
 			featureGates: map[config.Feature]bool{
 				config.NLBSecurityGroup: false,
 			},
@@ -1433,7 +1439,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					},
 				},
 			},
-			wantError: false,
+			wantError:  false,
+			wantMetric: false,
 			wantValue: `
 {
  "id":"app/traffic-local",
@@ -2249,6 +2256,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                true,
+			wantMetric:               true,
 		},
 		{
 			testName: "list load balancers error",
@@ -2277,7 +2285,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					err:    errors.New("error listing load balancer"),
 				},
 			},
-			wantError: true,
+			wantError:  true,
+			wantMetric: true,
 		},
 		{
 			testName: "resolve VPC CIDRs error",
@@ -2313,7 +2322,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			featureGates: map[config.Feature]bool{
 				config.NLBSecurityGroup: false,
 			},
-			wantError: true,
+			wantError:  true,
+			wantMetric: true,
 		},
 		{
 			testName: "deletion protection enabled error",
@@ -2346,6 +2356,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			},
 			enableBackendSG: true,
 			wantError:       true,
+			wantMetric:      false,
 		},
 		{
 			testName: "ipv6 service without dualstask",
@@ -2375,6 +2386,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                true,
+			wantMetric:               true,
 		},
 		{
 			testName: "ipv6 for NLB",
@@ -6031,7 +6043,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			featureGates: map[config.Feature]bool{
 				config.NLBSecurityGroup: false,
 			},
-			wantError: true,
+			wantError:  true,
+			wantMetric: true,
 		},
 		{
 			testName: "With security groups annotation",
@@ -6364,7 +6377,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					want: []string{"sg-id1", "sg-id2"},
 				},
 			},
-			wantError: true,
+			wantError:  true,
+			wantMetric: true,
 		},
 		{
 			testName: "Manage backend rules with manual security groups, resolve SG error",
@@ -6400,7 +6414,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					err:  errors.New("unable to resolve security group"),
 				},
 			},
-			wantError: true,
+			wantError:  true,
+			wantMetric: true,
 		},
 		{
 			testName: "ipv6 source ranges, but lb not dual stack",
@@ -6432,6 +6447,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                true,
+			wantMetric:               true,
 		},
 		{
 			testName: "Simple service with default load balancer scheme internet-facing",
@@ -6460,6 +6476,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForOneSubnet},
 			listLoadBalancerCalls:    []listLoadBalancerCall{listLoadBalancerCallForEmptyLB},
 			wantError:                false,
+			wantMetric:               false,
 			wantNumResources:         4,
 			featureGates: map[config.Feature]bool{
 				config.NLBSecurityGroup: false,
@@ -6503,6 +6520,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              "securityGroupsInboundRulesOnPrivateLink":"on",
              "enablePrefixForIpv6SourceNat": "off",
              "ipAddressType":"ipv4",
+             "enablePrefixForIpv6SourceNat": "off",
              "subnetMapping":[
                 {
                    "subnetID":"subnet-1"
@@ -6643,11 +6661,12 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			} else {
 				enableIPTargetType = *tt.enableIPTargetType
 			}
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
 				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
-				backendSGProvider, sgResolver, tt.enableBackendSG, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}))
+				backendSGProvider, sgResolver, tt.enableBackendSG, tt.enableManageBackendSGRules, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}), mockMetricsCollector)
 			ctx := context.Background()
-			stack, _, _, err := builder.Build(ctx, tt.svc)
+			stack, _, _, err := builder.Build(ctx, tt.svc, mockMetricsCollector)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -6660,6 +6679,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				stack.TopologicalTraversal(visitor)
 				assert.Equal(t, tt.wantNumResources, len(visitor.resources))
 			}
+
+			mockCollector := builder.metricsCollector.(*lbcmetrics.MockCollector)
+			assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricControllerReconcileErrors]) == 1)
+
 		})
 	}
 }

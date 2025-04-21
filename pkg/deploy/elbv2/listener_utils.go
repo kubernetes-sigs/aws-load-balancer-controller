@@ -16,6 +16,18 @@ const (
 	defaultWaitLSExistenceTimeout      = 20 * time.Second
 )
 
+func buildResLRDesiredActionsAndConditionsPair(resLR *elbv2model.ListenerRule, featureGates config.FeatureGates) (*resLRDesiredActionsAndConditionsPair, error) {
+	desiredActions, err := buildSDKActions(resLR.Spec.Actions, featureGates)
+	if err != nil {
+		return nil, err
+	}
+	desiredConditions := buildSDKRuleConditions(resLR.Spec.Conditions)
+	return &resLRDesiredActionsAndConditionsPair{
+		desiredActions:    desiredActions,
+		desiredConditions: desiredConditions,
+	}, err
+}
+
 func buildSDKActions(modelActions []elbv2model.Action, featureGates config.FeatureGates) ([]elbv2types.Action, error) {
 	var sdkActions []elbv2types.Action
 	if len(modelActions) != 0 {

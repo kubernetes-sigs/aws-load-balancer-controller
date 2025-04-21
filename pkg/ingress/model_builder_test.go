@@ -3,10 +3,12 @@ package ingress
 import (
 	"context"
 	"encoding/json"
-	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
 	"time"
+
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	jsonpatch "github.com/evanphx/json-patch"
@@ -29,6 +31,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	networkingpkg "sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -614,6 +617,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 		fields                    fields
 		wantStackPatch            string
 		wantErr                   string
+		wantMetric                bool
 	}{
 		{
 			name: "Ingress - vanilla internal",
@@ -2166,8 +2170,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 									Scheme: elbv2types.LoadBalancerSchemeEnumInternal,
 								},
 								Tags: map[string]string{
-									"elbv2.k8s.aws/cluster": "cluster-name",
-									"ingress.k8s.aws/stack": "ns-1/ing-1",
+									shared_constants.TagKeyK8sCluster: "cluster-name",
+									"ingress.k8s.aws/stack":           "ns-1/ing-1",
 								},
 							},
 							{
@@ -2328,7 +2332,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "deletion_protection is enabled, cannot delete the ingress: hello-ingress",
+			wantErr:    "deletion_protection is enabled, cannot delete the ingress: hello-ingress",
+			wantMetric: false,
 		},
 		{
 			name: "Ingress - with SG annotation",
@@ -2534,7 +2539,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "backendSG feature is required to manage worker node SG rules when frontendSG manually specified",
+			wantErr:    "backendSG feature is required to manage worker node SG rules when frontendSG manually specified",
+			wantMetric: true,
 		},
 		{
 			name: "Ingress with IPv6 service",
@@ -2784,7 +2790,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "ingress: ns-1/ing-1: unsupported IPv6 configuration, lb not dual-stack",
+			wantErr:    "ingress: ns-1/ing-1: unsupported IPv6 configuration, lb not dual-stack",
+			wantMetric: true,
 		},
 		{
 			name: "target type IP with enableIPTargetType set to false",
@@ -2837,7 +2844,8 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					},
 				},
 			},
-			wantErr: "ingress: ns-1/ing-1: unsupported targetType: ip when EnableIPTargetType is false",
+			wantErr:    "ingress: ns-1/ing-1: unsupported targetType: ip when EnableIPTargetType is false",
+			wantMetric: true,
 		},
 		{
 			name: "target type IP with named target port",
@@ -3399,6 +3407,132 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 }`,
 		},
 		{
+			name: "Ingress - ingress with managed prefix list in IngressClassParam",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										PrefixListsIDs: []string{
+											"pl-11111111",
+											"pl-22222222",
+										},
+									},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::EC2::SecurityGroup": {
+			"ManagedLBSecurityGroup": {
+				"spec": {
+					"ingress": [
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"prefixLists": [
+								{
+									"listID": "pl-11111111"
+								}
+							],
+							"toPort": 80
+						},
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"prefixLists": [
+								{
+									"listID": "pl-22222222"
+								}
+							],
+							"toPort": 80
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
+		},
+		{
 			name: "Ingress - ingress with managed prefix list",
 			env: env{
 				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
@@ -3813,6 +3947,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				defaultSSLPolicy:          "ELBSecurityPolicy-2016-08",
 				defaultTargetType:         elbv2model.TargetType(defaultTargetType),
 				defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
+				metricsCollector:          lbcmetrics.NewMockCollector(),
 			}
 
 			if tt.enableIPTargetType == nil {
@@ -3821,7 +3956,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				b.enableIPTargetType = *tt.enableIPTargetType
 			}
 
-			gotStack, _, _, _, err := b.Build(context.Background(), tt.args.ingGroup)
+			gotStack, _, _, _, _, _, err := b.Build(context.Background(), tt.args.ingGroup, b.metricsCollector)
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
@@ -3867,6 +4002,9 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 					t.Log(string(patch))
 				}
 			}
+			mockCollector := b.metricsCollector.(*lbcmetrics.MockCollector)
+			assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricControllerReconcileErrors]) == 1)
+
 		})
 	}
 }
@@ -4483,4 +4621,108 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_defaultModelBuildTask_buildManageSecurityGroupRulesFlag(t *testing.T) {
+	type fields struct {
+		ingGroup                   Group
+		enableManageBackendSGRules bool
+		enableBackendSGRules       bool
+	}
+
+	tests := []struct {
+		name      string
+		fields    fields
+		want      bool
+		wantError string
+	}{
+		{
+			name: "with enableManageBackendSGRules and manage-backend-security-group-rules annotation",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+						},
+					},
+				},
+				enableManageBackendSGRules: true,
+			},
+			want:      true,
+			wantError: "",
+		},
+		{
+			name: "with no annotation - should take value from cli flag",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{},
+								},
+							},
+						},
+					},
+				},
+				enableManageBackendSGRules: true,
+			},
+			want:      true,
+			wantError: "",
+		},
+		{
+			name: "with multiple ingress group have conflict value",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "false",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/manage-backend-security-group-rules": "true",
+									},
+								},
+							},
+						},
+					},
+				},
+				enableManageBackendSGRules: true,
+			},
+			wantError: "conflicting manage backend security group rules settings",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+			task := &defaultModelBuildTask{
+				annotationParser:           annotationParser,
+				ingGroup:                   tt.fields.ingGroup,
+				enableManageBackendSGRules: tt.fields.enableManageBackendSGRules,
+			}
+			got, err := task.buildManageSecurityGroupRulesFlag(context.Background())
+			if tt.wantError != "" {
+				assert.EqualError(t, err, tt.wantError)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+
 }

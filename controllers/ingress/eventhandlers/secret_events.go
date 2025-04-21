@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -18,7 +19,7 @@ import (
 
 // NewEnqueueRequestsForSecretEvent constructs new enqueueRequestsForSecretEvent.
 func NewEnqueueRequestsForSecretEvent(ingEventChan chan<- event.TypedGenericEvent[*networking.Ingress], svcEventChan chan<- event.TypedGenericEvent[*corev1.Service],
-	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*corev1.Secret] {
+	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*corev1.Secret, reconcile.Request] {
 	return &enqueueRequestsForSecretEvent{
 		ingEventChan:  ingEventChan,
 		svcEventChan:  svcEventChan,
@@ -28,7 +29,7 @@ func NewEnqueueRequestsForSecretEvent(ingEventChan chan<- event.TypedGenericEven
 	}
 }
 
-var _ handler.TypedEventHandler[*corev1.Secret] = (*enqueueRequestsForSecretEvent)(nil)
+var _ handler.TypedEventHandler[*corev1.Secret, reconcile.Request] = (*enqueueRequestsForSecretEvent)(nil)
 
 type enqueueRequestsForSecretEvent struct {
 	ingEventChan  chan<- event.TypedGenericEvent[*networking.Ingress]
@@ -38,12 +39,12 @@ type enqueueRequestsForSecretEvent struct {
 	logger        logr.Logger
 }
 
-func (h *enqueueRequestsForSecretEvent) Create(ctx context.Context, e event.TypedCreateEvent[*corev1.Secret], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForSecretEvent) Create(ctx context.Context, e event.TypedCreateEvent[*corev1.Secret], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	secretNew := e.Object
 	h.enqueueImpactedObjects(ctx, secretNew)
 }
 
-func (h *enqueueRequestsForSecretEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*corev1.Secret], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForSecretEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*corev1.Secret], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	secretOld := e.ObjectOld
 	secretNew := e.ObjectNew
 
@@ -58,12 +59,12 @@ func (h *enqueueRequestsForSecretEvent) Update(ctx context.Context, e event.Type
 	h.enqueueImpactedObjects(ctx, secretNew)
 }
 
-func (h *enqueueRequestsForSecretEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*corev1.Secret], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForSecretEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*corev1.Secret], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	secretOld := e.Object
 	h.enqueueImpactedObjects(ctx, secretOld)
 }
 
-func (h *enqueueRequestsForSecretEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*corev1.Secret], _ workqueue.RateLimitingInterface) {
+func (h *enqueueRequestsForSecretEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*corev1.Secret], _ workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	secretObj := e.Object
 	h.enqueueImpactedObjects(ctx, secretObj)
 }

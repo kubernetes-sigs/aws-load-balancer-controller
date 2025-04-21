@@ -17,6 +17,7 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -243,11 +244,13 @@ func Test_ingressValidator_checkIngressClass(t *testing.T) {
 				assert.NoError(t, k8sClient.Create(ctx, ingClass.DeepCopy()))
 			}
 			classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(tt.configuredIngressClass)
+			mockMetricsCollector := lbcmetrics.NewMockCollector()
 			v := &ingressValidator{
 				classLoader:                        ingress.NewDefaultClassLoader(k8sClient, false),
 				classAnnotationMatcher:             classAnnotationMatcher,
 				manageIngressesWithoutIngressClass: tt.configuredIngressClass == "",
 				logger:                             logr.New(&log.NullLogSink{}),
+				metricsCollector:                   mockMetricsCollector,
 			}
 			skip, err := v.checkIngressClass(ctx, tt.ing)
 			if tt.expectedErr == "" {

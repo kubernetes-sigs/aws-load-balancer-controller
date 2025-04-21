@@ -35,7 +35,6 @@ const (
 	partialAvailabilityZoneAffinity            = "partial_availability_zone_affinity"
 	anyAvailabilityZone                        = "any_availability_zone"
 	resourceIDLoadBalancer                     = "LoadBalancer"
-	minimalAvailableIPAddressCount             = int32(8)
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
@@ -170,15 +169,20 @@ func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Cont
 }
 
 func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(ctx context.Context) (bool, error) {
+	manageSGRules := t.enableManageBackendSGRules
+
 	var rawEnabled bool
 	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixManageSGRules, &rawEnabled, t.service.Annotations)
 	if err != nil {
 		return false, err
 	}
 	if exists {
-		return rawEnabled, nil
+		if rawEnabled != manageSGRules {
+			manageSGRules = rawEnabled
+			t.logger.V(1).Info("Override enable manage backend security group rules flag with annotation", "value: ", rawEnabled, "for service", k8s.NamespacedName(t.service).String(), "in service yaml file")
+		}
 	}
-	return false, nil
+	return manageSGRules, nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context) (elbv2model.IPAddressType, error) {
@@ -199,7 +203,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerIPAddressType(_ context.Context
 
 func (t *defaultModelBuildTask) buildLoadBalancerEnablePrefixForIpv6SourceNat(_ context.Context, ipAddressType elbv2model.IPAddressType, ec2Subnets []ec2types.Subnet) (elbv2model.EnablePrefixForIpv6SourceNat, error) {
 	rawEnablePrefixForIpv6SourceNat := ""
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.ScvLBSuffixEnablePrefixForIpv6SourceNat, &rawEnablePrefixForIpv6SourceNat, t.service.Annotations); !exists {
+	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixEnablePrefixForIpv6SourceNat, &rawEnablePrefixForIpv6SourceNat, t.service.Annotations); !exists {
 		return elbv2model.EnablePrefixForIpv6SourceNatOff, nil
 	}
 
@@ -382,7 +386,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 	var isPrefixForIpv6SourceNatEnabled = enablePrefixForIpv6SourceNat == elbv2model.EnablePrefixForIpv6SourceNatOn
 
 	var sourceNatIpv6Prefixes []string
-	sourceNatIpv6PrefixesConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.ScvLBSuffixSourceNatIpv6Prefixes, &sourceNatIpv6Prefixes, t.service.Annotations)
+	sourceNatIpv6PrefixesConfigured := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSourceNatIpv6Prefixes, &sourceNatIpv6Prefixes, t.service.Annotations)
 	if sourceNatIpv6PrefixesConfigured {
 		sourceNatIpv6PrefixesError := networking.ValidateSourceNatPrefixes(sourceNatIpv6Prefixes, ipAddressType, isPrefixForIpv6SourceNatEnabled, ec2Subnets)
 		if sourceNatIpv6PrefixesError != nil {
@@ -465,14 +469,11 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnets(ctx context.Context, sc
 		return t.subnetsResolver.ResolveViaDiscovery(ctx,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
-			networking.WithSubnetsResolveAvailableIPAddressCount(minimalAvailableIPAddressCount),
-			networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
 		)
 	}
 	return t.subnetsResolver.ResolveViaDiscovery(ctx,
 		networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 		networking.WithSubnetsResolveLBScheme(scheme),
-		networking.WithSubnetsClusterTagCheck(t.featureGates.Enabled(config.SubnetsClusterTagCheck)),
 	)
 }
 

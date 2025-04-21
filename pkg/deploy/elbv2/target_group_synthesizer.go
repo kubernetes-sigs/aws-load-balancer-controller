@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -166,6 +167,7 @@ func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2
 	if string(resTG.Spec.TargetType) != string(sdkTG.TargetGroup.TargetType) {
 		return true
 	}
+
 	if string(resTG.Spec.Protocol) != string(sdkTG.TargetGroup.Protocol) {
 		return true
 	}

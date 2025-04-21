@@ -127,8 +127,7 @@ type listenPortConfig struct {
 func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int32]listenPortConfig, error) {
 	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing)
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
-	var prefixListIDs []string
-	t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroupPrefixLists, &prefixListIDs, ing.Ing.Annotations)
+	prefixListIDs := t.computeIngressExplicitPrefixListIDs(ctx, ing)
 	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
 	if err != nil {
 		return nil, err
@@ -277,6 +276,16 @@ func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Contex
 		return nil
 	}
 	return &rawSSLPolicy
+}
+
+func (t *defaultModelBuildTask) computeIngressExplicitPrefixListIDs(_ context.Context, ing *ClassifiedIngress) []string {
+	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.PrefixListsIDs) != 0 {
+		return ing.IngClassConfig.IngClassParams.Spec.PrefixListsIDs
+	}
+	var prefixListIDs []string
+	t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroupPrefixLists, &prefixListIDs, ing.Ing.Annotations)
+
+	return prefixListIDs
 }
 
 type MutualAuthenticationConfig struct {

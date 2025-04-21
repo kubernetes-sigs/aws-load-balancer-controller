@@ -6,6 +6,7 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -23,8 +24,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
-
-const lbAttrsDeletionProtectionEnabled = "deletion_protection.enabled"
 
 func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 	tests := []struct {
@@ -78,7 +77,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsDeletionProtectionEnabled,
+					Key:   shared_constants.LBAttributeDeletionProtection,
 					Value: "true",
 				},
 			},
@@ -112,7 +111,7 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsDeletionProtectionEnabled,
+					Key:   shared_constants.LBAttributeDeletionProtection,
 					Value: "true",
 				},
 				{
@@ -1265,8 +1264,8 @@ func Test_defaultModelBuilderTask_buildLoadBalancerSubnets(t *testing.T) {
 								Scheme: elbv2types.LoadBalancerSchemeEnumInternal,
 							},
 							Tags: map[string]string{
-								"elbv2.k8s.aws/cluster": "cluster-name",
-								"service.k8s.aws/stack": "namespace/serviceName",
+								shared_constants.TagKeyK8sCluster: "cluster-name",
+								"service.k8s.aws/stack":           "namespace/serviceName",
 							},
 						},
 					},
@@ -1875,6 +1874,86 @@ func Test_defaultModelBuilderTask_buildLbCapacity(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.Equal(t, tt.wantValue, lbMinimumCapacity)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildManageSecurityGroupRulesFlag(t *testing.T) {
+	tests := []struct {
+		name                       string
+		enableManageBackendSGRules bool
+		annotations                map[string]string
+		wantManageSGRules          bool
+		wantErr                    bool
+	}{
+		{
+			name:                       "with no annotation and enableManageBackendSGRules=false - expect enable manage security group rules to be false",
+			enableManageBackendSGRules: false,
+			annotations:                map[string]string{},
+			wantManageSGRules:          false,
+			wantErr:                    false,
+		},
+		{
+			name:                       "with no annotation and enableManageBackendSGRules=true - expect enable manage security group rules to be true",
+			enableManageBackendSGRules: true,
+			annotations:                map[string]string{},
+			wantManageSGRules:          true,
+			wantErr:                    false,
+		},
+		{
+			name:                       "with annotation true and enableManageBackendSGRules=false - expect override and enable manage security group rules to be true",
+			enableManageBackendSGRules: false,
+			annotations: map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules": "true",
+			},
+			wantManageSGRules: true,
+			wantErr:           false,
+		},
+		{
+			name:                       "with annotation false and enableManageBackendSGRules=true - expect override and enable manage security group rules to be false",
+			enableManageBackendSGRules: true,
+			annotations: map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules": "false",
+			},
+			wantManageSGRules: false,
+			wantErr:           false,
+		},
+		{
+			name:                       "with invalid annotation - expect error",
+			enableManageBackendSGRules: false,
+			annotations: map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules": "invalid",
+			},
+			wantManageSGRules: false,
+			wantErr:           true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+
+			task := &defaultModelBuildTask{
+				enableManageBackendSGRules: tt.enableManageBackendSGRules,
+				service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: tt.annotations,
+					},
+				},
+				annotationParser: annotationParser,
+			}
+
+			got, err := task.buildManageSecurityGroupRulesFlag(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("buildManageSecurityGroupRulesFlag() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.wantManageSGRules {
+				t.Errorf("buildManageSecurityGroupRulesFlag() got = %v, want %v", got, tt.wantManageSGRules)
 			}
 		})
 	}

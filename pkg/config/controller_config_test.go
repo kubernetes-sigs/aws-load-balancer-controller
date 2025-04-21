@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
 )
 
@@ -28,7 +29,7 @@ func TestControllerConfig_validateDefaultTagsCollisionWithTrackingTags(t *testin
 			name: "default tags and tracking tags have collision",
 			fields: fields{
 				DefaultTags: map[string]string{
-					"elbv2.k8s.aws/cluster": "value-a",
+					shared_constants.TagKeyK8sCluster: "value-a",
 				},
 			},
 			wantErr: errors.New("tag key elbv2.k8s.aws/cluster cannot be specified in default-tags flag"),
@@ -75,7 +76,7 @@ func TestControllerConfig_validateExternalManagedTagsCollisionWithTrackingTags(t
 		{
 			name: "external managed tags and tracking tags have collision",
 			fields: fields{
-				ExternalManagedTags: []string{"elbv2.k8s.aws/cluster"},
+				ExternalManagedTags: []string{shared_constants.TagKeyK8sCluster},
 			},
 			wantErr: errors.New("tag key elbv2.k8s.aws/cluster cannot be specified in external-managed-tags flag"),
 		},
@@ -158,6 +159,60 @@ func TestControllerConfig_validateExternalManagedTagsCollisionWithDefaultTags(t 
 			err := cfg.validateExternalManagedTagsCollisionWithDefaultTags()
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestControllerConfig_validateManageBackendSecurityGroupRulesConfiguration(t *testing.T) {
+	tests := []struct {
+		name                                  string
+		enableManageBackendSecurityGroupRules bool
+		enableBackendSecurityGroup            bool
+		wantErr                               bool
+		errMsg                                string
+	}{
+		{
+			name:                                  "with enableManageBackendSecurityGroupRules=false and enableBackendSecurityGroup=false - should succeed",
+			enableManageBackendSecurityGroupRules: false,
+			enableBackendSecurityGroup:            false,
+			wantErr:                               false,
+		},
+		{
+			name:                                  "with enableManageBackendSecurityGroupRules=true and enableBackendSecurityGroup=true - should succeed",
+			enableManageBackendSecurityGroupRules: true,
+			enableBackendSecurityGroup:            true,
+			wantErr:                               false,
+		},
+		{
+			name:                                  "with enableBackendSecurityGroup=true - should succeed",
+			enableManageBackendSecurityGroupRules: false,
+			enableBackendSecurityGroup:            true,
+			wantErr:                               false,
+		},
+		{
+			name:                                  "with enableManageBackendSecurityGroupRules=true and enableBackendSecurityGroup=false - expect error",
+			enableManageBackendSecurityGroupRules: true,
+			enableBackendSecurityGroup:            false,
+			wantErr:                               true,
+			errMsg:                                "backend security group must be enabled when manage backend security group rule is enabled",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &ControllerConfig{
+				EnableManageBackendSecurityGroupRules: tt.enableManageBackendSecurityGroupRules,
+				EnableBackendSecurityGroup:            tt.enableBackendSecurityGroup,
+			}
+
+			err := cfg.validateManageBackendSecurityGroupRulesConfiguration()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
 			} else {
 				assert.NoError(t, err)
 			}

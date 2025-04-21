@@ -23,6 +23,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-internal](#lb-internal)                            | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-scheme](#lb-scheme)                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-scheme](#lb-scheme)                                | string                  | internal                  |                                                                                                                                                                                                                                     |
 | [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                | string                  |                           | Set to `"*"` to enable                                                                                                                                                                                                              |
+| [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group](#proxy-protocol-v2)                | string                  |                           | If specified,configures proxy protocol for the target groups corresponding to the ports mentioned and disables for the rest. For example, if you have services deployed on ports `"80, 443 and 22"`, the annotation value `"80, 443"` will enable proxy protocol for ports 80 and 443 only, and disable for port 22. This annotation is overriden by `"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"`                                                                                                                                                                                                            |
 | [service.beta.kubernetes.io/aws-load-balancer-ip-address-type](#ip-address-type)                 | string                  | ipv4                      | ipv4 \| dualstack                                                                                                                                                                                                                   |
 | [service.beta.kubernetes.io/aws-load-balancer-access-log-enabled](#deprecated-attributes)        | boolean                 | false                     | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                   |
 | [service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name](#deprecated-attributes) | string                  |                           | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                   |
@@ -57,6 +58,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat](#enable-prefix-for-ipv6-source-nat)         | string                  | off                       | Optional annotation. dualstack lb only. Allowed values - on and off                                                                                                                                                                 |
 | [service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes](#source-nat-ipv6-prefixes)        | stringList                  |                           | Optional annotation. dualstack lb only. This annotation is only applicable when user has to set the service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat to "on". Length must match the number of subnets |
 | [service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity](#load-balancer-capacity-reservation)                 | stringMap                  |                           |
+| [service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery](#icmp-path-mtu-discovery)        | string                  |                           | If specified, a security group rule is added to the managed security group to allow explicit ICMP traffic for [Path MTU discovery](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html#path_mtu_discovery) for IPv4 and dual-stack VPCs. Creates a rule for each source range if `service.beta.kubernetes.io/load-balancer-source-ranges` is present.  |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -124,7 +126,7 @@ the NLB will route traffic to. See [Network Load Balancers](https://docs.aws.ama
 
     !!!warning "limitations"
         - Each subnets must be from a different Availability Zone
-        - AWS has restrictions on disabling existing subnets for NLB. As a result, you might not be able to edit this annotation once the NLB gets provisioned.
+        - Similar to any delete operation, removing an Availability Zone can be a potentially disruptive operation. We recommend you evaluate for any potential impact on existing connections, traffic flows, or production workloads. Refer to [product documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/availability-zones.html) for prescriptive guidance on how to use this capability in a safe manner.
 
     !!!example
         ```
@@ -190,6 +192,13 @@ on the load balancer.
     !!!example
         ```
         service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses: 2600:1f13:837:8501::1, 2600:1f13:837:8504::1
+        ```
+
+- <a name="icmp-path-mtu-discovery">`service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery`</a> enables the creation of security group rules to the managed security group to allow explicit ICMP traffic for [Path MTU discovery](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html#path_mtu_discovery) for IPv4 and dual-stack VPCs. Creates a rule for each source range if `service.beta.kubernetes.io/load-balancer-source-ranges` is present.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery: "on"
         ```
 
 ## Traffic Listening
@@ -448,9 +457,16 @@ You can configure TLS support via the following annotations:
         See [Server Certificates](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#tls-listener-certificates) for further details.
 
     !!!example
-        ```
-        service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
-        ```
+        - single certificate
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
+            ```
+        - multiple certificates
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3
+            ```
+
+
 
 - <a name="ssl-ports">`service.beta.kubernetes.io/aws-load-balancer-ssl-ports`</a> specifies the frontend ports with TLS listeners.
 
@@ -490,12 +506,12 @@ Load balancer access can be controlled via following annotations:
 - <a name="lb-source-ranges">`service.beta.kubernetes.io/load-balancer-source-ranges`</a> specifies the CIDRs that are allowed to access the NLB.
 
     !!!tip
-        we recommend specifying CIDRs in the service `spec.loadBalancerSourceRanges` instead
+        - We recommend specifying CIDRs in the service `spec.loadBalancerSourceRanges` instead
+        - For enhanced security with `internal` network load balancers, we recommend limiting access by specifying allowed source IP ranges.  This can be done using either the `service.beta.kubernetes.io/load-balancer-source-ranges` annotation or the `spec.loadBalancerSourceRanges` field.
 
     !!!note "Default"
         - `0.0.0.0/0` will be used if the IPAddressType is "ipv4"
         - `0.0.0.0/0` and `::/0` will be used if the IPAddressType is "dualstack"
-        - The VPC CIDR will be used if `service.beta.kubernetes.io/aws-load-balancer-scheme` is `internal`
 
     !!!warning ""
         This annotation will be ignored in case preserve client IP is not enabled.
