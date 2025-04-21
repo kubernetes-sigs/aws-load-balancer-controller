@@ -56,11 +56,6 @@ spec:
                   enables the creation of security group rules to the managed security group
                   to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs
                 type: boolean
-              enableMultiCluster:
-                description: |-
-                  EnableMultiCluster [Application / Network LoadBalancer]
-                  All TargetGroupBindings attached to this Load Balancer will have multi cluster support enabled.
-                type: boolean
               enforceSecurityGroupInboundRulesOnPrivateLinkTraffic:
                 description: enforceSecurityGroupInboundRulesOnPrivateLinkTraffic
                   Indicates whether to evaluate inbound security group rules for traffic
