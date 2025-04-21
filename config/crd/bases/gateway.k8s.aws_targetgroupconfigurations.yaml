@@ -53,6 +53,11 @@ spec:
                 description: defaultRouteConfiguration fallback configuration applied
                   to all routes, unless overridden by route-specific configurations.
                 properties:
+                  enableMultiCluster:
+                    description: |-
+                      EnableMultiCluster [Application / Network LoadBalancer]
+                      Allows for multiple Clusters / Services to use the generated TargetGroup ARN
+                    type: boolean
                   enableProxyProtocolV2:
                     description: |-
                       enableProxyProtocolV2 [Network LoadBalancers] Indicates whether proxy protocol version 2 is enabled.
@@ -253,6 +258,11 @@ spec:
                     targetGroupProps:
                       description: targetGroupProps the target group specific properties
                       properties:
+                        enableMultiCluster:
+                          description: |-
+                            EnableMultiCluster [Application / Network LoadBalancer]
+                            Allows for multiple Clusters / Services to use the generated TargetGroup ARN
+                          type: boolean
                         enableProxyProtocolV2:
                           description: |-
                             enableProxyProtocolV2 [Network LoadBalancers] Indicates whether proxy protocol version 2 is enabled.
