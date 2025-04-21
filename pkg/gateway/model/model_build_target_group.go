@@ -352,7 +352,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupProtocol(targetGroupProps
 
 func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor) (elbv2model.Protocol, error) {
 	if targetGroupProps == nil || targetGroupProps.Protocol == nil {
-		return elbv2model.ProtocolHTTP, nil
+		return builder.inferTargetGroupProtocolFromRoute(route), nil
 	}
 	switch string(*targetGroupProps.Protocol) {
 	case string(elbv2model.ProtocolHTTP):
@@ -369,7 +369,7 @@ func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupPro
 	if targetGroupProps == nil || targetGroupProps.Protocol == nil {
 		// infer this somehow!?
 		// use the backend config to get the protocol type.
-		return elbv2model.ProtocolTCP, nil
+		return builder.inferTargetGroupProtocolFromRoute(route), nil
 	}
 
 	switch string(*targetGroupProps.Protocol) {

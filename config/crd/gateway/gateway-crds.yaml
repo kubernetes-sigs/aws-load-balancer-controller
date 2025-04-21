@@ -355,11 +355,6 @@ spec:
                       EnableMultiCluster [Application / Network LoadBalancer]
                       Allows for multiple Clusters / Services to use the generated TargetGroup ARN
                     type: boolean
-                  enableProxyProtocolV2:
-                    description: |-
-                      enableProxyProtocolV2 [Network LoadBalancers] Indicates whether proxy protocol version 2 is enabled.
-                      By default, proxy protocol is disabled.
-                    type: boolean
                   healthCheckConfig:
                     description: healthCheckConfig The Health Check configuration
                       for this backend.
@@ -559,11 +554,6 @@ spec:
                           description: |-
                             EnableMultiCluster [Application / Network LoadBalancer]
                             Allows for multiple Clusters / Services to use the generated TargetGroup ARN
-                          type: boolean
-                        enableProxyProtocolV2:
-                          description: |-
-                            enableProxyProtocolV2 [Network LoadBalancers] Indicates whether proxy protocol version 2 is enabled.
-                            By default, proxy protocol is disabled.
                           type: boolean
                         healthCheckConfig:
                           description: healthCheckConfig The Health Check configuration
