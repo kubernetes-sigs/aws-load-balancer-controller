@@ -696,11 +696,6 @@ func (in *TargetGroupProps) DeepCopyInto(out *TargetGroupProps) {
 		*out = new(ProtocolVersion)
 		**out = **in
 	}
-	if in.EnableProxyProtocolV2 != nil {
-		in, out := &in.EnableProxyProtocolV2, &out.EnableProxyProtocolV2
-		*out = new(bool)
-		**out = **in
-	}
 	if in.VpcID != nil {
 		in, out := &in.VpcID, &out.VpcID
 		*out = new(string)

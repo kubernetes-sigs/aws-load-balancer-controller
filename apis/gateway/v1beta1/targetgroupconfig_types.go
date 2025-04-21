@@ -216,11 +216,6 @@ type TargetGroupProps struct {
 	// +optional
 	EnableMultiCluster bool `json:"enableMultiCluster,omitempty"`
 
-	// EnableMultiCluster [Application / Network LoadBalancer]
-	// Allows for multiple Clusters / Services to use the generated TargetGroup ARN
-	// +optional
-	EnableMultiCluster bool `json:"enableMultiCluster,omitempty"`
-
 	// vpcID is the VPC of the TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
 	VpcID *string `json:"vpcID,omitempty"`
