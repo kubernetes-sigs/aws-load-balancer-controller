@@ -11,15 +11,15 @@ import (
 
 // LoadRouteFilter is an interface that consumers can use to tell the loader which routes to load.
 type LoadRouteFilter interface {
-	IsApplicable(kind string) bool
+	IsApplicable(kind RouteKind) bool
 }
 
 // routeFilterImpl implements LoadRouteFilter
 type routeFilterImpl struct {
-	acceptedKinds sets.Set[string]
+	acceptedKinds sets.Set[RouteKind]
 }
 
-func (r *routeFilterImpl) IsApplicable(kind string) bool {
+func (r *routeFilterImpl) IsApplicable(kind RouteKind) bool {
 	return r.acceptedKinds.Has(kind)
 }
 
@@ -56,7 +56,7 @@ type loaderImpl struct {
 	mapper          listenerToRouteMapper
 	k8sClient       client.Client
 	logger          logr.Logger
-	allRouteLoaders map[string]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
+	allRouteLoaders map[RouteKind]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
 }
 
 func NewLoader(k8sClient client.Client, logger logr.Logger) Loader {

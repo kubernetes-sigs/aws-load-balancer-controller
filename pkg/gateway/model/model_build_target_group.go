@@ -43,11 +43,6 @@ type targetGroupBuilderImpl struct {
 
 	defaultTargetType elbv2model.TargetType
 
-	defaultProxyProtocolV2Enabled bool
-
-	defaultL7BackendProtocol        elbv2model.Protocol
-	defaultL7BackendProtocolVersion elbv2model.ProtocolVersion
-
 	defaultHealthCheckMatcherHTTPCode string
 	defaultHealthCheckMatcherGRPCCode string
 
@@ -68,8 +63,6 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 		tagHelper:                                 tagHelper,
 		disableRestrictedSGRules:                  disableRestrictedSGRules,
 		defaultTargetType:                         elbv2model.TargetType(defaultTargetType),
-		defaultL7BackendProtocol:                  elbv2model.ProtocolHTTP,
-		defaultL7BackendProtocolVersion:           elbv2model.ProtocolVersionHTTP1,
 		defaultHealthCheckMatcherHTTPCode:         "200-399",
 		defaultHealthCheckMatcherGRPCCode:         "12",
 		defaultHealthCheckPathHTTP:                "/",
@@ -84,7 +77,7 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 func (builder *targetGroupBuilderImpl) buildTargetGroup(tgByResID *map[string]buildTargetGroupOutput,
 	gw *gwv1.Gateway, lbConfig *elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (buildTargetGroupOutput, error) {
 
-	targetGroupProps := builder.getTargetProps(routeDescriptor, backend)
+	targetGroupProps := builder.getTargetGroupProps(routeDescriptor, backend)
 
 	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.Service), routeDescriptor.GetRouteNamespacedName(), backend.ServicePort.TargetPort)
 	if tg, exists := (*tgByResID)[tgResID]; exists {
@@ -107,11 +100,11 @@ func (builder *targetGroupBuilderImpl) buildTargetGroup(tgByResID *map[string]bu
 	return output, nil
 }
 
-func (builder *targetGroupBuilderImpl) getTargetProps(routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) *elbv2gw.TargetGroupProps {
+func (builder *targetGroupBuilderImpl) getTargetGroupProps(routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) *elbv2gw.TargetGroupProps {
 	var targetGroupProps *elbv2gw.TargetGroupProps
 	if backend.ELBv2TargetGroupConfig != nil {
 		routeNamespacedName := routeDescriptor.GetRouteNamespacedName()
-		targetGroupProps = backend.ELBv2TargetGroupConfig.GetTargetGroupConfigForRoute(routeNamespacedName.Name, routeNamespacedName.Namespace, routeDescriptor.GetRouteKind())
+		targetGroupProps = backend.ELBv2TargetGroupConfig.GetTargetGroupConfigForRoute(routeNamespacedName.Name, routeNamespacedName.Namespace, string(routeDescriptor.GetRouteKind()))
 	}
 	return targetGroupProps
 }
@@ -235,7 +228,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetP
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, lbConfig *elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, backend routeutils.Backend, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error) {
 	targetType := builder.buildTargetGroupTargetType(targetGroupProps)
-	tgProtocol, err := builder.buildTargetGroupProtocol(targetGroupProps)
+	tgProtocol, err := builder.buildTargetGroupProtocol(targetGroupProps, route)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
@@ -348,18 +341,18 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupPort(targetType elbv2mode
 	return 1
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.Protocol, error) {
+func (builder *targetGroupBuilderImpl) buildTargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor) (elbv2model.Protocol, error) {
 	// TODO - Not convinced that this is good, maybe auto detect certs == HTTPS / TLS.
 	if builder.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
-		return builder.buildL7TargetGroupProtocol(targetGroupProps)
+		return builder.buildL7TargetGroupProtocol(targetGroupProps, route)
 	}
 
-	return builder.buildL4TargetGroupProtocol(targetGroupProps)
+	return builder.buildL4TargetGroupProtocol(targetGroupProps, route)
 }
 
-func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.Protocol, error) {
+func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor) (elbv2model.Protocol, error) {
 	if targetGroupProps == nil || targetGroupProps.Protocol == nil {
-		return builder.defaultL7BackendProtocol, nil
+		return elbv2model.ProtocolHTTP, nil
 	}
 	switch string(*targetGroupProps.Protocol) {
 	case string(elbv2model.ProtocolHTTP):
@@ -371,7 +364,7 @@ func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupPro
 	}
 }
 
-func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.Protocol, error) {
+func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor) (elbv2model.Protocol, error) {
 	// TODO, auto infer?
 	if targetGroupProps == nil || targetGroupProps.Protocol == nil {
 		// infer this somehow!?
@@ -393,16 +386,38 @@ func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupPro
 	}
 }
 
+func (builder *targetGroupBuilderImpl) inferTargetGroupProtocolFromRoute(route routeutils.RouteDescriptor) elbv2model.Protocol {
+	switch route.GetRouteKind() {
+	case routeutils.TCPRouteKind:
+		return elbv2model.ProtocolTCP
+	case routeutils.UDPRouteKind:
+		return elbv2model.ProtocolUDP
+	case routeutils.HTTPRouteKind:
+		return elbv2model.ProtocolHTTP
+	case routeutils.GRPCRouteKind:
+		return elbv2model.ProtocolHTTP
+	case routeutils.TLSRouteKind:
+		if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
+			return elbv2model.ProtocolTLS
+		}
+		return elbv2model.ProtocolHTTPS
+	}
+	// This should never happen.
+	return elbv2model.ProtocolTCP
+}
+
 func (builder *targetGroupBuilderImpl) buildTargetGroupProtocolVersion(targetGroupProps *elbv2gw.TargetGroupProps) *elbv2model.ProtocolVersion {
 	// NLB doesn't support protocol version
 	if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
 		return nil
 	}
 	if targetGroupProps != nil && targetGroupProps.ProtocolVersion != nil {
+		// TODO - We can infer GRPC here from route
 		pv := elbv2model.ProtocolVersion(*targetGroupProps.ProtocolVersion)
 		return &pv
 	}
-	return &builder.defaultL7BackendProtocolVersion
+	http1 := elbv2model.ProtocolVersionHTTP1
+	return &http1
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion, targetType elbv2model.TargetType, backend routeutils.Backend) (elbv2model.TargetGroupHealthCheckConfig, error) {
@@ -577,15 +592,6 @@ func (builder *targetGroupBuilderImpl) buildL4TargetGroupAttributes(attributeMap
 	if targetGroupProps == nil {
 		return
 	}
-
-	if _, ok := (*attributeMap)[shared_constants.TGAttributeProxyProtocolV2Enabled]; !ok {
-		(*attributeMap)[shared_constants.TGAttributeProxyProtocolV2Enabled] = strconv.FormatBool(builder.defaultProxyProtocolV2Enabled)
-	}
-
-	if targetGroupProps.EnableProxyProtocolV2 != nil {
-		(*attributeMap)[shared_constants.TGAttributeProxyProtocolV2Enabled] = strconv.FormatBool(*targetGroupProps.EnableProxyProtocolV2)
-	}
-
 	// TODO -- buildPreserveClientIPFlag
 }
 

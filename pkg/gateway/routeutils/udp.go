@@ -48,7 +48,7 @@ func (t *convertedUDPRouteRule) GetBackends() []Backend {
 type udpRouteDescription struct {
 	route         *gwalpha2.UDPRoute
 	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error)
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error)
 }
 
 func (udpRoute *udpRouteDescription) GetAttachedRules() []RouteRule {
@@ -85,7 +85,7 @@ func (udpRoute *udpRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return udpRoute.route.Spec.ParentRefs
 }
 
-func (udpRoute *udpRouteDescription) GetRouteKind() string {
+func (udpRoute *udpRouteDescription) GetRouteKind() RouteKind {
 	return UDPRouteKind
 }
 

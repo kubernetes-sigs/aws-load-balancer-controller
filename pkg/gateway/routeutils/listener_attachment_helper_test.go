@@ -341,7 +341,7 @@ func Test_kindCheck(t *testing.T) {
 			listener: gwv1.Listener{
 				Protocol: gwv1.UDPProtocolType,
 				AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{
-					{Kind: HTTPRouteKind},
+					{Kind: gwv1.Kind(HTTPRouteKind)},
 				}},
 			},
 			expectedResult: true,

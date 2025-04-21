@@ -26,7 +26,7 @@ var _ RouteDescriptor = &mockRoute{}
 
 type mockRoute struct {
 	namespacedName types.NamespacedName
-	routeKind      string
+	routeKind      RouteKind
 }
 
 func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error) {
@@ -37,7 +37,7 @@ func (m *mockRoute) GetRouteNamespacedName() types.NamespacedName {
 	return m.namespacedName
 }
 
-func (m *mockRoute) GetRouteKind() string {
+func (m *mockRoute) GetRouteKind() RouteKind {
 	return m.routeKind
 }
 
@@ -127,7 +127,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 		loadedTCPRoutes = append(loadedTCPRoutes, r)
 	}
 
-	allRouteLoaders := map[string]func(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error){
+	allRouteLoaders := map[RouteKind]func(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error){
 		HTTPRouteKind: func(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
 			return preLoadHTTPRoutes, nil
 		},
@@ -138,7 +138,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 
 	testCases := []struct {
 		name                    string
-		acceptedKinds           sets.Set[string]
+		acceptedKinds           sets.Set[RouteKind]
 		expectedMap             map[int][]RouteDescriptor
 		expectedPreloadMap      map[int][]preLoadRouteDescriptor
 		expectedPreMappedRoutes []preLoadRouteDescriptor
@@ -146,13 +146,13 @@ func TestLoadRoutesForGateway(t *testing.T) {
 	}{
 		{
 			name:                    "filter allows no routes",
-			acceptedKinds:           make(sets.Set[string]),
+			acceptedKinds:           make(sets.Set[RouteKind]),
 			expectedPreMappedRoutes: make([]preLoadRouteDescriptor, 0),
 			expectedMap:             make(map[int][]RouteDescriptor),
 		},
 		{
 			name:                    "filter only allows http route",
-			acceptedKinds:           sets.New[string](HTTPRouteKind),
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
 			expectedPreMappedRoutes: preLoadHTTPRoutes,
 			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
 				80: preLoadHTTPRoutes,
@@ -163,7 +163,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 		},
 		{
 			name:                    "filter only allows http route, multiple ports",
-			acceptedKinds:           sets.New[string](HTTPRouteKind),
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
 			expectedPreMappedRoutes: preLoadHTTPRoutes,
 			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
 				80:  preLoadHTTPRoutes,
@@ -176,7 +176,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 		},
 		{
 			name:                    "filter only allows tcp route",
-			acceptedKinds:           sets.New[string](TCPRouteKind),
+			acceptedKinds:           sets.New[RouteKind](TCPRouteKind),
 			expectedPreMappedRoutes: preLoadTCPRoutes,
 			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
 				80: preLoadTCPRoutes,
@@ -187,7 +187,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 		},
 		{
 			name:                    "filter allows both route kinds",
-			acceptedKinds:           sets.New[string](TCPRouteKind, HTTPRouteKind),
+			acceptedKinds:           sets.New[RouteKind](TCPRouteKind, HTTPRouteKind),
 			expectedPreMappedRoutes: append(preLoadHTTPRoutes, preLoadTCPRoutes...),
 			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
 				80:  preLoadTCPRoutes,

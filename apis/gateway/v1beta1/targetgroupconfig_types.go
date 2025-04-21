@@ -211,11 +211,6 @@ type TargetGroupProps struct {
 	// +optional
 	ProtocolVersion *ProtocolVersion `json:"protocolVersion,omitempty"`
 
-	// enableProxyProtocolV2 [Network LoadBalancers] Indicates whether proxy protocol version 2 is enabled.
-	// By default, proxy protocol is disabled.
-	// +optional
-	EnableProxyProtocolV2 *bool `json:"enableProxyProtocolV2,omitempty"`
-
 	// EnableMultiCluster [Application / Network LoadBalancer]
 	// Allows for multiple Clusters / Services to use the generated TargetGroup ARN
 	// +optional

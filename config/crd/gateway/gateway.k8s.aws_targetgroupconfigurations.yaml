@@ -53,6 +53,16 @@ spec:
                 description: defaultRouteConfiguration fallback configuration applied
                   to all routes, unless overridden by route-specific configurations.
                 properties:
+                  enableMultiCluster:
+                    description: |-
+                      EnableMultiCluster [Application / Network LoadBalancer]
+                      Allows for multiple Clusters / Services to use the generated TargetGroup ARN
+                    type: boolean
+                  enableProxyProtocolV2:
+                    description: |-
+                      enableProxyProtocolV2 [Network LoadBalancers] Indicates whether proxy protocol version 2 is enabled.
+                      By default, proxy protocol is disabled.
+                    type: boolean
                   healthCheckConfig:
                     description: healthCheckConfig The Health Check configuration
                       for this backend.
@@ -68,10 +78,10 @@ spec:
                           on the targets.
                         type: string
                       healthCheckPort:
-                        description: healthCheckPort The port to use to connect with
-                          the target.
-                        format: int32
-                        type: integer
+                        description: |-
+                          healthCheckPort The port the load balancer uses when performing health checks on targets.
+                          The default is to use the port on which each target receives traffic from the load balancer.
+                        type: string
                       healthCheckProtocol:
                         description: healthCheckProtocol The protocol to use to connect
                           with the target. The GENEVE, TLS, UDP, and TCP_UDP protocols
@@ -165,6 +175,18 @@ spec:
                         type: object
                     type: object
                     x-kubernetes-map-type: atomic
+                  protocol:
+                    description: |-
+                      Protocol [Application / Network Load Balancer] the protocol for the target group.
+                      If unspecified, it will be automatically inferred.
+                    enum:
+                    - HTTP
+                    - HTTPS
+                    - TCP
+                    - TLS
+                    - UDP
+                    - TCP_UDP
+                    type: string
                   protocolVersion:
                     description: protocolVersion [HTTP/HTTPS protocol] The protocol
                       version. The possible values are GRPC , HTTP1 and HTTP2
@@ -206,6 +228,10 @@ spec:
                       - value
                       type: object
                     type: array
+                  targetGroupName:
+                    description: targetGroupName specifies the name to assign to the
+                      Target Group. If not defined, then one is generated.
+                    type: string
                   targetType:
                     description: targetType is the TargetType of TargetGroup. If unspecified,
                       it will be automatically inferred as instance.
@@ -224,14 +250,24 @@ spec:
                 items:
                   description: RouteConfiguration defines the per route configuration
                   properties:
-                    name:
-                      description: name the name of the route, it should be in the
-                        form of ROUTE:NAMESPACE:NAME
+                    identifier:
+                      description: name the identifier of the route, it should be
+                        in the form of ROUTE:NAMESPACE:NAME
                       pattern: ^(HTTPRoute|TLSRoute|TCPRoute|UDPRoute|GRPCRoute)?:([^:]+)?:([^:]+)?$
                       type: string
                     targetGroupProps:
                       description: targetGroupProps the target group specific properties
                       properties:
+                        enableMultiCluster:
+                          description: |-
+                            EnableMultiCluster [Application / Network LoadBalancer]
+                            Allows for multiple Clusters / Services to use the generated TargetGroup ARN
+                          type: boolean
+                        enableProxyProtocolV2:
+                          description: |-
+                            enableProxyProtocolV2 [Network LoadBalancers] Indicates whether proxy protocol version 2 is enabled.
+                            By default, proxy protocol is disabled.
+                          type: boolean
                         healthCheckConfig:
                           description: healthCheckConfig The Health Check configuration
                             for this backend.
@@ -247,10 +283,10 @@ spec:
                                 checks on the targets.
                               type: string
                             healthCheckPort:
-                              description: healthCheckPort The port to use to connect
-                                with the target.
-                              format: int32
-                              type: integer
+                              description: |-
+                                healthCheckPort The port the load balancer uses when performing health checks on targets.
+                                The default is to use the port on which each target receives traffic from the load balancer.
+                              type: string
                             healthCheckProtocol:
                               description: healthCheckProtocol The protocol to use
                                 to connect with the target. The GENEVE, TLS, UDP,
@@ -347,6 +383,18 @@ spec:
                               type: object
                           type: object
                           x-kubernetes-map-type: atomic
+                        protocol:
+                          description: |-
+                            Protocol [Application / Network Load Balancer] the protocol for the target group.
+                            If unspecified, it will be automatically inferred.
+                          enum:
+                          - HTTP
+                          - HTTPS
+                          - TCP
+                          - TLS
+                          - UDP
+                          - TCP_UDP
+                          type: string
                         protocolVersion:
                           description: protocolVersion [HTTP/HTTPS protocol] The protocol
                             version. The possible values are GRPC , HTTP1 and HTTP2
@@ -389,6 +437,10 @@ spec:
                             - value
                             type: object
                           type: array
+                        targetGroupName:
+                          description: targetGroupName specifies the name to assign
+                            to the Target Group. If not defined, then one is generated.
+                          type: string
                         targetType:
                           description: targetType is the TargetType of TargetGroup.
                             If unspecified, it will be automatically inferred as instance.
@@ -402,7 +454,7 @@ spec:
                           type: string
                       type: object
                   required:
-                  - name
+                  - identifier
                   - targetGroupProps
                   type: object
                 type: array

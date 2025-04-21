@@ -12,7 +12,7 @@ import (
 // however, consumers can use `GetRawRoute()` to inspect the actual route fields if needed.
 type routeMetadataDescriptor interface {
 	GetRouteNamespacedName() types.NamespacedName
-	GetRouteKind() string
+	GetRouteKind() RouteKind
 	GetHostnames() []gwv1.Hostname
 	GetParentRefs() []gwv1.ParentReference
 	GetRawRoute() interface{}

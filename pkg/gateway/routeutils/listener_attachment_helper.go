@@ -84,7 +84,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context
 // and route to determine compatibility.
 func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Listener, route preLoadRouteDescriptor) bool {
 
-	var allowedRoutes sets.Set[string]
+	var allowedRoutes sets.Set[RouteKind]
 
 	/*
 		...
@@ -93,13 +93,13 @@ func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Li
 		...
 	*/
 	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Kinds == nil || len(listener.AllowedRoutes.Kinds) == 0 {
-		allowedRoutes = sets.New[string](defaultProtocolToRouteKindMap[listener.Protocol])
+		allowedRoutes = sets.New[RouteKind](defaultProtocolToRouteKindMap[listener.Protocol])
 	} else {
 		// TODO - Not sure how to handle versioning (correctly) here.
 		// So going to ignore the group checks for now :x
-		allowedRoutes = sets.New[string]()
+		allowedRoutes = sets.New[RouteKind]()
 		for _, v := range listener.AllowedRoutes.Kinds {
-			allowedRoutes.Insert(string(v.Kind))
+			allowedRoutes.Insert(RouteKind(v.Kind))
 		}
 	}
 	return allowedRoutes.Has(route.GetRouteKind())

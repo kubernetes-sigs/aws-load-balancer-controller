@@ -6,7 +6,7 @@ import (
 )
 
 type MockRoute struct {
-	Kind      string
+	Kind      RouteKind
 	Name      string
 	Namespace string
 }
@@ -23,7 +23,7 @@ func (m *MockRoute) GetRouteNamespacedName() types.NamespacedName {
 	}
 }
 
-func (m *MockRoute) GetRouteKind() string {
+func (m *MockRoute) GetRouteKind() RouteKind {
 	return m.Kind
 }
 

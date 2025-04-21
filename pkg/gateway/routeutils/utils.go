@@ -11,7 +11,7 @@ import (
 // ListL4Routes retrieves all Layer 4 routes (TCP, UDP, TLS) from the cluster.
 func ListL4Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
 	l4Routes := make([]preLoadRouteDescriptor, 0)
-	routekinds := []string{}
+	var routekinds []RouteKind
 	tcpRoutes, err := ListTCPRoutes(ctx, k8sClient)
 	if err != nil {
 		routekinds = append(routekinds, TCPRouteKind)
@@ -36,7 +36,7 @@ func ListL4Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteD
 // ListL7Routes retrieves all Layer 7 routes (HTTP, gRPC) from the cluster.
 func ListL7Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
 	l7Routes := make([]preLoadRouteDescriptor, 0)
-	routekinds := []string{}
+	var routekinds []RouteKind
 	httpRoutes, err := ListHTTPRoutes(ctx, k8sClient)
 	if err != nil {
 		routekinds = append(routekinds, HTTPRouteKind)
