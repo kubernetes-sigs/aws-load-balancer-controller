@@ -344,8 +344,8 @@ func (p *defaultBackendSGProvider) buildBackendSGTagsMap() map[string]string {
 	for key, val := range p.defaultTags {
 		defaultTags[key] = val
 	}
-	defaultTags[tagKeyK8sCluster] = p.clusterName
-	defaultTags[tagKeyResource] = tagValueBackend
+	defaultTags[shared_constants.TagKeyK8sCluster] = p.clusterName
+	defaultTags[shared_constants.TagKeyResource] = tagValueBackend
 	return defaultTags
 }
 
