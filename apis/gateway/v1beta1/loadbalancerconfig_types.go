@@ -243,11 +243,6 @@ type LoadBalancerConfigurationSpec struct {
 	// when you specify securityGroups
 	// +optional
 	ManageBackendSecurityGroupRules bool `json:"manageBackendSecurityGroupRules,omitempty"`
-
-	// EnableMultiCluster [Application / Network LoadBalancer]
-	// All TargetGroupBindings attached to this Load Balancer will have multi cluster support enabled.
-	// +optional
-	EnableMultiCluster bool `json:"enableMultiCluster,omitempty"`
 }
 
 // TODO -- these can be used to set what generation the gateway is currently on to track progress on reconcile.

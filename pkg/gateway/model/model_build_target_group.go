@@ -96,7 +96,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroup(tgByResID *map[string]bu
 		return buildTargetGroupOutput{}, err
 	}
 	nodeSelector := builder.buildTargetGroupBindingNodeSelector(targetGroupProps, tgSpec.TargetType)
-	bindingSpec := builder.buildTargetGroupBindingSpec(lbConfig, tgSpec, nodeSelector, backend, backendSGIDToken)
+	bindingSpec := builder.buildTargetGroupBindingSpec(lbConfig, targetGroupProps, tgSpec, nodeSelector, backend, backendSGIDToken)
 
 	output := buildTargetGroupOutput{
 		targetGroupSpec: tgSpec,
@@ -116,7 +116,7 @@ func (builder *targetGroupBuilderImpl) getTargetProps(routeDescriptor routeutils
 	return targetGroupProps
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(lbConfig *elbv2gw.LoadBalancerConfiguration, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
+func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(lbConfig *elbv2gw.LoadBalancerConfiguration, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
 	targetType := elbv2api.TargetType(tgSpec.TargetType)
 	targetPort := backend.ServicePort.TargetPort
 	if targetType == elbv2api.TargetTypeInstance {
@@ -124,7 +124,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(lbConfig *elb
 	}
 	tgbNetworking := builder.buildTargetGroupBindingNetworking(targetPort, *tgSpec.HealthCheckConfig.Port, *backend.ServicePort, backendSGIDToken)
 
-	multiClusterEnabled := builder.buildTargetGroupBindingMultiClusterFlag(lbConfig)
+	multiClusterEnabled := builder.buildTargetGroupBindingMultiClusterFlag(tgProps)
 
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
@@ -603,9 +603,9 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNodeSelector(tgPro
 	return tgProps.NodeSelector
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupBindingMultiClusterFlag(lbConfig *elbv2gw.LoadBalancerConfiguration) bool {
-	if lbConfig == nil {
+func (builder *targetGroupBuilderImpl) buildTargetGroupBindingMultiClusterFlag(tgProps *elbv2gw.TargetGroupProps) bool {
+	if tgProps == nil {
 		return false
 	}
-	return lbConfig.Spec.EnableMultiCluster
+	return tgProps.EnableMultiCluster
 }
