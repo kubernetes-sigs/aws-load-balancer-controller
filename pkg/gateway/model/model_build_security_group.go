@@ -21,7 +21,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strings"
 )
 
 var (
@@ -294,18 +293,4 @@ func generateProtocolListFromRoutes(routes []routeutils.RouteDescriptor) []strin
 		}
 	}
 	return protocolSet.UnsortedList()
-}
-
-func isIPv6Supported(ipAddressType elbv2model.IPAddressType) bool {
-	switch ipAddressType {
-	case elbv2model.IPAddressTypeDualStack, elbv2model.IPAddressTypeDualStackWithoutPublicIPV4:
-		return true
-	default:
-		return false
-	}
-}
-
-// TODO - Refactor?
-func isIPv6CIDR(cidr string) bool {
-	return strings.Contains(cidr, ":")
 }

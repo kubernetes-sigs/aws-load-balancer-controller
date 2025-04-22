@@ -47,7 +47,7 @@ func (t *convertedGRPCRouteRule) GetBackends() []Backend {
 type grpcRouteDescription struct {
 	route         *gwv1.GRPCRoute
 	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error)
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error)
 }
 
 func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, error) {
@@ -83,7 +83,7 @@ func (grpcRoute *grpcRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return grpcRoute.route.Spec.ParentRefs
 }
 
-func (grpcRoute *grpcRouteDescription) GetRouteKind() string {
+func (grpcRoute *grpcRouteDescription) GetRouteKind() RouteKind {
 	return GRPCRouteKind
 }
 

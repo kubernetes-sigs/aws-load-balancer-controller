@@ -34,7 +34,7 @@ func (m mockPreLoadRouteDescriptor) GetRouteNamespacedName() types.NamespacedNam
 	return m.namespacedName
 }
 
-func (m mockPreLoadRouteDescriptor) GetRouteKind() string {
+func (m mockPreLoadRouteDescriptor) GetRouteKind() RouteKind {
 	//TODO implement me
 	panic("implement me")
 }

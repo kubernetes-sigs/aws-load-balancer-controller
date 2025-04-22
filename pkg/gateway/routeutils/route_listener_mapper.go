@@ -2,6 +2,7 @@ package routeutils
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -17,12 +18,14 @@ var _ listenerToRouteMapper = &listenerToRouteMapperImpl{}
 type listenerToRouteMapperImpl struct {
 	listenerAttachmentHelper listenerAttachmentHelper
 	routeAttachmentHelper    routeAttachmentHelper
+	logger                   logr.Logger
 }
 
-func newListenerToRouteMapper(k8sClient client.Client) listenerToRouteMapper {
+func newListenerToRouteMapper(k8sClient client.Client, logger logr.Logger) listenerToRouteMapper {
 	return &listenerToRouteMapperImpl{
-		listenerAttachmentHelper: newListenerAttachmentHelper(k8sClient),
-		routeAttachmentHelper:    newRouteAttachmentHelper(),
+		listenerAttachmentHelper: newListenerAttachmentHelper(k8sClient, logger.WithName("listener-attachment-helper")),
+		routeAttachmentHelper:    newRouteAttachmentHelper(logger.WithName("route-attachment-helper")),
+		logger:                   logger,
 	}
 }
 
@@ -33,7 +36,9 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 	// First filter out any routes that are not intended for this Gateway.
 	routesForGateway := make([]preLoadRouteDescriptor, 0)
 	for _, route := range routes {
-		if ltr.routeAttachmentHelper.doesRouteAttachToGateway(gw, route) {
+		allowsAttachment := ltr.routeAttachmentHelper.doesRouteAttachToGateway(gw, route)
+		ltr.logger.V(1).Info("Route is eligible for attachment", "route", route.GetRouteNamespacedName(), "allowed attachment", allowsAttachment)
+		if allowsAttachment {
 			routesForGateway = append(routesForGateway, route)
 		}
 	}
@@ -45,6 +50,7 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 			// We need to check both paths (route -> listener) and (listener -> route)
 			// for connection viability.
 			if !ltr.routeAttachmentHelper.routeAllowsAttachmentToListener(listener, route) {
+				ltr.logger.V(1).Info("Route doesnt allow attachment")
 				continue
 			}
 
@@ -53,10 +59,12 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 				return nil, err
 			}
 
+			ltr.logger.V(1).Info("lister allows attachment", "route", route.GetRouteNamespacedName(), "allowedAttachment", allowedAttachment)
 			if allowedAttachment {
 				result[int(listener.Port)] = append(result[int(listener.Port)], route)
 			}
 		}
 	}
+	ltr.logger.Info("Final result is this", "result", result)
 	return result, nil
 }

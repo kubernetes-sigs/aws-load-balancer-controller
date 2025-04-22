@@ -2,6 +2,7 @@ package routeutils
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -18,11 +19,13 @@ var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
 // listenerAttachmentHelperImpl implements the listenerAttachmentHelper interface.
 type listenerAttachmentHelperImpl struct {
 	namespaceSelector namespaceSelector
+	logger            logr.Logger
 }
 
-func newListenerAttachmentHelper(k8sClient client.Client) listenerAttachmentHelper {
+func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) listenerAttachmentHelper {
 	return &listenerAttachmentHelperImpl{
 		namespaceSelector: newNamespaceSelector(k8sClient),
+		logger:            logger,
 	}
 }
 
@@ -33,15 +36,10 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 	if err != nil {
 		return false, err
 	}
-
 	if !namespaceOK {
 		return false, nil
 	}
-
-	if !attachmentHelper.kindCheck(listener, route) {
-		return false, nil
-	}
-	return true, nil
+	return attachmentHelper.kindCheck(listener, route), nil
 }
 
 // namespaceCheck namespace check implements the Gateway API spec for namespace matching between listener
@@ -86,7 +84,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) namespaceCheck(ctx context
 // and route to determine compatibility.
 func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Listener, route preLoadRouteDescriptor) bool {
 
-	var allowedRoutes sets.Set[string]
+	var allowedRoutes sets.Set[RouteKind]
 
 	/*
 		...
@@ -95,13 +93,13 @@ func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Li
 		...
 	*/
 	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Kinds == nil || len(listener.AllowedRoutes.Kinds) == 0 {
-		allowedRoutes = sets.New[string](defaultProtocolToRouteKindMap[listener.Protocol])
+		allowedRoutes = sets.New[RouteKind](defaultProtocolToRouteKindMap[listener.Protocol])
 	} else {
 		// TODO - Not sure how to handle versioning (correctly) here.
 		// So going to ignore the group checks for now :x
-		allowedRoutes = sets.New[string]()
+		allowedRoutes = sets.New[RouteKind]()
 		for _, v := range listener.AllowedRoutes.Kinds {
-			allowedRoutes.Insert(string(v.Kind))
+			allowedRoutes.Insert(RouteKind(v.Kind))
 		}
 	}
 	return allowedRoutes.Has(route.GetRouteKind())

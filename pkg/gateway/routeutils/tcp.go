@@ -48,7 +48,7 @@ func (t *convertedTCPRouteRule) GetBackends() []Backend {
 type tcpRouteDescription struct {
 	route         *gwalpha2.TCPRoute
 	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error)
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error)
 }
 
 func (tcpRoute *tcpRouteDescription) GetAttachedRules() []RouteRule {
@@ -82,7 +82,7 @@ func (tcpRoute *tcpRouteDescription) GetHostnames() []gwv1.Hostname {
 	return []gwv1.Hostname{}
 }
 
-func (tcpRoute *tcpRouteDescription) GetRouteKind() string {
+func (tcpRoute *tcpRouteDescription) GetRouteKind() RouteKind {
 	return TCPRouteKind
 }
 
@@ -128,6 +128,5 @@ func ListTCPRoutes(context context.Context, k8sClient client.Client) ([]preLoadR
 	for _, item := range routeList.Items {
 		result = append(result, convertTCPRoute(item))
 	}
-
 	return result, err
 }

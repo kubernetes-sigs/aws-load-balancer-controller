@@ -125,7 +125,7 @@ func Test_ListHTTPRoutes(t *testing.T) {
 
 func Test_HTTP_LoadAttachedRules(t *testing.T) {
 	weight := 0
-	mockLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error) {
+	mockLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error) {
 		weight++
 		return &Backend{
 			Weight: weight,

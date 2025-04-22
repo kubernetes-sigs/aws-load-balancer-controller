@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -601,10 +602,10 @@ func (t *defaultModelBuildTask) buildFrontendNlbTargetGroupHealthCheckPort(_ con
 	rawHealthCheckPort := ""
 	exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixFrontendNlbHealthCheckPort, &rawHealthCheckPort, svcAndIngAnnotations)
 	if !exists {
-		return intstr.FromString(healthCheckPortTrafficPort), false, nil
+		return intstr.FromString(shared_constants.HealthCheckPortTrafficPort), false, nil
 	}
-	if rawHealthCheckPort == healthCheckPortTrafficPort {
-		return intstr.FromString(healthCheckPortTrafficPort), true, nil
+	if rawHealthCheckPort == shared_constants.HealthCheckPortTrafficPort {
+		return intstr.FromString(shared_constants.HealthCheckPortTrafficPort), true, nil
 	}
 	healthCheckPort := intstr.Parse(rawHealthCheckPort)
 	if healthCheckPort.Type == intstr.Int {
