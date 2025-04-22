@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -10,15 +11,15 @@ import (
 
 // LoadRouteFilter is an interface that consumers can use to tell the loader which routes to load.
 type LoadRouteFilter interface {
-	IsApplicable(kind string) bool
+	IsApplicable(kind RouteKind) bool
 }
 
 // routeFilterImpl implements LoadRouteFilter
 type routeFilterImpl struct {
-	acceptedKinds sets.Set[string]
+	acceptedKinds sets.Set[RouteKind]
 }
 
-func (r *routeFilterImpl) IsApplicable(kind string) bool {
+func (r *routeFilterImpl) IsApplicable(kind RouteKind) bool {
 	return r.acceptedKinds.Has(kind)
 }
 
@@ -54,14 +55,16 @@ var _ Loader = &loaderImpl{}
 type loaderImpl struct {
 	mapper          listenerToRouteMapper
 	k8sClient       client.Client
-	allRouteLoaders map[string]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
+	logger          logr.Logger
+	allRouteLoaders map[RouteKind]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
 }
 
-func NewLoader(k8sClient client.Client) Loader {
+func NewLoader(k8sClient client.Client, logger logr.Logger) Loader {
 	return &loaderImpl{
-		mapper:          newListenerToRouteMapper(k8sClient),
+		mapper:          newListenerToRouteMapper(k8sClient, logger.WithName("route-mapper")),
 		k8sClient:       k8sClient,
 		allRouteLoaders: allRoutes,
+		logger:          logger,
 	}
 }
 
@@ -70,7 +73,10 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	// 1. Load all relevant routes according to the filter
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
 	for route, loader := range l.allRouteLoaders {
-		if filter.IsApplicable(route) {
+
+		applicable := filter.IsApplicable(route)
+		l.logger.V(1).Info("Processing route", "route", route, "is applicable", applicable)
+		if applicable {
 			data, err := loader(ctx, l.k8sClient)
 			if err != nil {
 				return nil, err

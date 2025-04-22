@@ -48,7 +48,7 @@ func (t *convertedTLSRouteRule) GetBackends() []Backend {
 type tlsRouteDescription struct {
 	route         *gwalpha2.TLSRoute
 	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error)
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error)
 }
 
 func (tlsRoute *tlsRouteDescription) GetAttachedRules() []RouteRule {
@@ -86,7 +86,7 @@ func (tlsRoute *tlsRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return tlsRoute.route.Spec.ParentRefs
 }
 
-func (tlsRoute *tlsRouteDescription) GetRouteKind() string {
+func (tlsRoute *tlsRouteDescription) GetRouteKind() RouteKind {
 	return TLSRouteKind
 }
 

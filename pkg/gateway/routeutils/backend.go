@@ -27,7 +27,7 @@ type Backend struct {
 }
 
 // commonBackendLoader this function will load the services and target group configurations associated with this gateway backend.
-func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error) {
+func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error) {
 
 	// We only support references of type service.
 	if backendRef.Kind != nil && *backendRef.Kind != "Service" {
@@ -144,7 +144,7 @@ func lookUpTargetGroupConfiguration(ctx context.Context, k8sClient client.Client
 
 // Implements the reference grant API
 // https://gateway-api.sigs.k8s.io/api-types/referencegrant/
-func referenceGrantCheck(ctx context.Context, k8sClient client.Client, svcIdentifier types.NamespacedName, routeIdentifier types.NamespacedName, routeKind string) (bool, error) {
+func referenceGrantCheck(ctx context.Context, k8sClient client.Client, svcIdentifier types.NamespacedName, routeIdentifier types.NamespacedName, routeKind RouteKind) (bool, error) {
 	referenceGrantList := &gwbeta1.ReferenceGrantList{}
 	if err := k8sClient.List(ctx, referenceGrantList, client.InNamespace(svcIdentifier.Namespace)); err != nil {
 		return false, err
@@ -155,7 +155,7 @@ func referenceGrantCheck(ctx context.Context, k8sClient client.Client, svcIdenti
 
 		for _, from := range grant.Spec.From {
 			// Kind check maybe?
-			if string(from.Kind) == routeKind && string(from.Namespace) == routeIdentifier.Namespace {
+			if string(from.Kind) == string(routeKind) && string(from.Namespace) == routeIdentifier.Namespace {
 				routeAllowed = true
 				break
 			}

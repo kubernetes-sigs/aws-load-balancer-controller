@@ -47,7 +47,7 @@ func (t *convertedHTTPRouteRule) GetBackends() []Backend {
 type httpRouteDescription struct {
 	route         *gwv1.HTTPRoute
 	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind string) (*Backend, error)
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error)
 }
 
 func (httpRoute *httpRouteDescription) GetAttachedRules() []RouteRule {
@@ -84,7 +84,7 @@ func (httpRoute *httpRouteDescription) GetParentRefs() []gwv1.ParentReference {
 	return httpRoute.route.Spec.ParentRefs
 }
 
-func (httpRoute *httpRouteDescription) GetRouteKind() string {
+func (httpRoute *httpRouteDescription) GetRouteKind() RouteKind {
 	return HTTPRouteKind
 }
 

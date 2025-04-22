@@ -2,6 +2,7 @@ package routeutils
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,7 +66,9 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 					Namespace: tc.routeNamespace,
 				},
 			}}
-			attachmentHelper := listenerAttachmentHelperImpl{}
+			attachmentHelper := listenerAttachmentHelperImpl{
+				logger: logr.Discard(),
+			}
 			result, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
 			}, route)
@@ -262,6 +265,7 @@ func Test_namespaceCheck(t *testing.T) {
 						err: tc.namespaceSelectorError,
 						nss: tc.namespaceSelectorResult,
 					},
+					logger: logr.Discard(),
 				}
 
 				gw := gwv1.Gateway{
@@ -337,7 +341,7 @@ func Test_kindCheck(t *testing.T) {
 			listener: gwv1.Listener{
 				Protocol: gwv1.UDPProtocolType,
 				AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{
-					{Kind: HTTPRouteKind},
+					{Kind: gwv1.Kind(HTTPRouteKind)},
 				}},
 			},
 			expectedResult: true,
@@ -346,7 +350,9 @@ func Test_kindCheck(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			attachmentHelper := listenerAttachmentHelperImpl{}
+			attachmentHelper := listenerAttachmentHelperImpl{
+				logger: logr.Discard(),
+			}
 			assert.Equal(t, tc.expectedResult, attachmentHelper.kindCheck(tc.listener, tc.route))
 		})
 	}
