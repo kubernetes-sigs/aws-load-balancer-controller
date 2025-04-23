@@ -8,7 +8,7 @@ import (
 )
 
 type tagHelper interface {
-	getGatewayTags(lbConf *elbv2gw.LoadBalancerConfiguration) (map[string]string, error)
+	getGatewayTags(lbConf elbv2gw.LoadBalancerConfiguration) (map[string]string, error)
 }
 
 type tagHelperImpl struct {
@@ -23,12 +23,8 @@ func newTagHelper(externalManagedTags sets.Set[string], defaultTags map[string]s
 	}
 }
 
-func (t *tagHelperImpl) getGatewayTags(lbConf *elbv2gw.LoadBalancerConfiguration) (map[string]string, error) {
-	var annotationTags map[string]string
-
-	if lbConf != nil {
-		annotationTags = t.convertTagsToMap(lbConf.Spec.Tags)
-	}
+func (t *tagHelperImpl) getGatewayTags(lbConf elbv2gw.LoadBalancerConfiguration) (map[string]string, error) {
+	annotationTags := t.convertTagsToMap(lbConf.Spec.Tags)
 
 	if err := t.validateTagCollisionWithExternalManagedTags(annotationTags); err != nil {
 		return nil, err

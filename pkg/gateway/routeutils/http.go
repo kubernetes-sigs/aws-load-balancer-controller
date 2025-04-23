@@ -71,7 +71,6 @@ func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8
 
 		convertedRules = append(convertedRules, convertHTTPRouteRule(&rule, convertedBackends))
 	}
-
 	httpRoute.rules = convertedRules
 	return httpRoute, nil
 }

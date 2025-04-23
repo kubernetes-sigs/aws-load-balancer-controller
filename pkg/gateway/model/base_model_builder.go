@@ -107,7 +107,7 @@ type baseModelBuilder struct {
 	defaultIPType             elbv2model.IPAddressType
 }
 
-func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
+func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, baseBuilder.disableRestrictedSGRules, baseBuilder.defaultTargetType)
 	listenerBuilder := newListenerBuilder(ctx, baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.acmClient, baseBuilder.allowedCAARNs, baseBuilder.logger)

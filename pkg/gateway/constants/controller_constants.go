@@ -41,3 +41,8 @@ const (
 	// ALBRouteResourceGroupVersion the groupVersion used by HTTPRoute and GRPCRoute
 	ALBRouteResourceGroupVersion = "gateway.networking.k8s.io/v1"
 )
+
+const (
+	// GatewayClassController the controller that reconciles gateway class changes
+	GatewayClassController = "aws-lbc-gateway-class-controller"
+)

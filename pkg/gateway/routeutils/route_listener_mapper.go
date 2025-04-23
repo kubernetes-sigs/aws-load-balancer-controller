@@ -65,6 +65,5 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 			}
 		}
 	}
-	ltr.logger.Info("Final result is this", "result", result)
 	return result, nil
 }
