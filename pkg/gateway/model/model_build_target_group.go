@@ -53,6 +53,14 @@ type targetGroupBuilderImpl struct {
 	defaultHealthyThresholdCount              int32
 	defaultHealthCheckTimeout                 int32
 	defaultHealthCheckInterval                int32
+
+	// Default health check settings for NLB instance mode with spec.ExternalTrafficPolicy set to Local
+	defaultHealthCheckProtocolForInstanceModeLocal           elbv2model.Protocol
+	defaultHealthCheckPathForInstanceModeLocal               string
+	defaultHealthCheckIntervalForInstanceModeLocal           int32
+	defaultHealthCheckTimeoutForInstanceModeLocal            int32
+	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int32
+	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int32
 }
 
 func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper, loadBalancerType elbv2model.LoadBalancerType, disableRestrictedSGRules bool, defaultTargetType string) targetGroupBuilder {
@@ -71,6 +79,13 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 		defaultHealthyThresholdCount:              3,
 		defaultHealthCheckTimeout:                 5,
 		defaultHealthCheckInterval:                15,
+
+		defaultHealthCheckProtocolForInstanceModeLocal:           elbv2model.ProtocolHTTP,
+		defaultHealthCheckPathForInstanceModeLocal:               "/healthz",
+		defaultHealthCheckIntervalForInstanceModeLocal:           10,
+		defaultHealthCheckTimeoutForInstanceModeLocal:            6,
+		defaultHealthCheckHealthyThresholdForInstanceModeLocal:   2,
+		defaultHealthCheckUnhealthyThresholdForInstanceModeLocal: 2,
 	}
 }
 
@@ -425,21 +440,25 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupProtocolVersion(targetGro
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion, targetType elbv2model.TargetType, backend routeutils.Backend) (elbv2model.TargetGroupHealthCheckConfig, error) {
-	// For my notes, when translating from svc to gateway:
-	// https://github.com/kubernetes-sigs/gateway-api/issues/451
-	// Gateway API doesn't have the same ServiceExternalTrafficPolicyLocal support.
-	// TODO - Maybe a TargetGroupConfig attribute to support the same behavior?
-	healthCheckPort, err := builder.buildTargetGroupHealthCheckPort(targetGroupProps, targetType, backend.Service)
+	// add ServiceExternalTrafficPolicyLocal support
+	var isServiceExternalTrafficPolicyTypeLocal = false
+	if targetType == elbv2model.TargetTypeInstance &&
+		backend.Service.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal &&
+		builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
+		isServiceExternalTrafficPolicyTypeLocal = true
+	}
+	healthCheckPort, err := builder.buildTargetGroupHealthCheckPort(targetGroupProps, targetType, backend.Service, isServiceExternalTrafficPolicyTypeLocal)
 	if err != nil {
 		return elbv2model.TargetGroupHealthCheckConfig{}, err
 	}
-	healthCheckProtocol := builder.buildTargetGroupHealthCheckProtocol(targetGroupProps, tgProtocol)
-	healthCheckPath := builder.buildTargetGroupHealthCheckPath(targetGroupProps, tgProtocolVersion, healthCheckProtocol)
-	healthCheckMatcher := builder.buildTargetGroupHealthCheckMatcher(targetGroupProps, tgProtocolVersion, healthCheckProtocol)
-	healthCheckIntervalSeconds := builder.buildTargetGroupHealthCheckIntervalSeconds(targetGroupProps)
-	healthCheckTimeoutSeconds := builder.buildTargetGroupHealthCheckTimeoutSeconds(targetGroupProps)
-	healthCheckHealthyThresholdCount := builder.buildTargetGroupHealthCheckHealthyThresholdCount(targetGroupProps)
-	healthCheckUnhealthyThresholdCount := builder.buildTargetGroupHealthCheckUnhealthyThresholdCount(targetGroupProps)
+	healthCheckProtocol := builder.buildTargetGroupHealthCheckProtocol(targetGroupProps, tgProtocol, isServiceExternalTrafficPolicyTypeLocal)                     //
+	healthCheckPath := builder.buildTargetGroupHealthCheckPath(targetGroupProps, tgProtocolVersion, healthCheckProtocol, isServiceExternalTrafficPolicyTypeLocal) //
+
+	healthCheckMatcher := builder.buildTargetGroupHealthCheckMatcher(targetGroupProps, tgProtocolVersion, healthCheckProtocol)                                  //
+	healthCheckIntervalSeconds := builder.buildTargetGroupHealthCheckIntervalSeconds(targetGroupProps, isServiceExternalTrafficPolicyTypeLocal)                 //
+	healthCheckTimeoutSeconds := builder.buildTargetGroupHealthCheckTimeoutSeconds(targetGroupProps, isServiceExternalTrafficPolicyTypeLocal)                   //
+	healthCheckHealthyThresholdCount := builder.buildTargetGroupHealthCheckHealthyThresholdCount(targetGroupProps, isServiceExternalTrafficPolicyTypeLocal)     //
+	healthCheckUnhealthyThresholdCount := builder.buildTargetGroupHealthCheckUnhealthyThresholdCount(targetGroupProps, isServiceExternalTrafficPolicyTypeLocal) //
 	hcConfig := elbv2model.TargetGroupHealthCheckConfig{
 		Port:                    &healthCheckPort,
 		Protocol:                healthCheckProtocol,
@@ -454,9 +473,14 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetG
 	return hcConfig, nil
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPort(targetGroupProps *elbv2gw.TargetGroupProps, targetType elbv2model.TargetType, svc *corev1.Service) (intstr.IntOrString, error) {
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPort(targetGroupProps *elbv2gw.TargetGroupProps, targetType elbv2model.TargetType, svc *corev1.Service, isServiceExternalTrafficPolicyTypeLocal bool) (intstr.IntOrString, error) {
 
 	portConfigNotExist := targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckPort == nil
+
+	if portConfigNotExist && isServiceExternalTrafficPolicyTypeLocal {
+		return intstr.FromInt32(svc.Spec.HealthCheckNodePort), nil
+	}
+
 	if portConfigNotExist || *targetGroupProps.HealthCheckConfig.HealthCheckPort == shared_constants.HealthCheckPortTrafficPort {
 		return intstr.FromString(shared_constants.HealthCheckPortTrafficPort), nil
 	}
@@ -480,10 +504,13 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPort(targetGro
 	return intstr.IntOrString{}, errors.New("cannot use named healthCheckPort for IP TargetType when service's targetPort is a named port")
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckProtocol(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocol elbv2model.Protocol) elbv2model.Protocol {
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckProtocol(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocol elbv2model.Protocol, isServiceExternalTrafficPolicyTypeLocal bool) elbv2model.Protocol {
 
 	if targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckProtocol == nil {
 		if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
+			if isServiceExternalTrafficPolicyTypeLocal {
+				return builder.defaultHealthCheckProtocolForInstanceModeLocal
+			}
 			return elbv2model.ProtocolTCP
 		}
 		return tgProtocol
@@ -502,7 +529,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckProtocol(targe
 	}
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPath(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocolVersion *elbv2model.ProtocolVersion, hcProtocol elbv2model.Protocol) *string {
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPath(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocolVersion *elbv2model.ProtocolVersion, hcProtocol elbv2model.Protocol, isServiceExternalTrafficPolicyTypeLocal bool) *string {
 	if hcProtocol == elbv2model.ProtocolTCP {
 		return nil
 	}
@@ -513,6 +540,12 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPath(targetGro
 
 	if tgProtocolVersion != nil && *tgProtocolVersion == elbv2model.ProtocolVersionGRPC {
 		return &builder.defaultHealthCheckPathGRPC
+	}
+
+	if targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckPath == nil {
+		if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork && isServiceExternalTrafficPolicyTypeLocal {
+			return &builder.defaultHealthCheckPathForInstanceModeLocal
+		}
 	}
 
 	return &builder.defaultHealthCheckPathHTTP
@@ -544,30 +577,42 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckMatcher(target
 	}
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckIntervalSeconds(targetGroupProps *elbv2gw.TargetGroupProps) int32 {
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckIntervalSeconds(targetGroupProps *elbv2gw.TargetGroupProps, isServiceExternalTrafficPolicyTypeLocal bool) int32 {
 	if targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckInterval == nil {
-		return builder.defaultHealthCheckInterval
+		return map[bool]int32{
+			true:  builder.defaultHealthCheckIntervalForInstanceModeLocal,
+			false: builder.defaultHealthCheckInterval,
+		}[isServiceExternalTrafficPolicyTypeLocal]
 	}
 	return *targetGroupProps.HealthCheckConfig.HealthCheckInterval
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckTimeoutSeconds(targetGroupProps *elbv2gw.TargetGroupProps) int32 {
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckTimeoutSeconds(targetGroupProps *elbv2gw.TargetGroupProps, isServiceExternalTrafficPolicyTypeLocal bool) int32 {
 	if targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckTimeout == nil {
-		return builder.defaultHealthCheckTimeout
+		return map[bool]int32{
+			true:  builder.defaultHealthCheckTimeoutForInstanceModeLocal,
+			false: builder.defaultHealthCheckTimeout,
+		}[isServiceExternalTrafficPolicyTypeLocal]
 	}
 	return *targetGroupProps.HealthCheckConfig.HealthCheckTimeout
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckHealthyThresholdCount(targetGroupProps *elbv2gw.TargetGroupProps) int32 {
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckHealthyThresholdCount(targetGroupProps *elbv2gw.TargetGroupProps, isServiceExternalTrafficPolicyTypeLocal bool) int32 {
 	if targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthyThresholdCount == nil {
-		return builder.defaultHealthyThresholdCount
+		return map[bool]int32{
+			true:  builder.defaultHealthCheckHealthyThresholdForInstanceModeLocal,
+			false: builder.defaultHealthyThresholdCount,
+		}[isServiceExternalTrafficPolicyTypeLocal]
 	}
 	return *targetGroupProps.HealthCheckConfig.HealthyThresholdCount
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckUnhealthyThresholdCount(targetGroupProps *elbv2gw.TargetGroupProps) int32 {
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckUnhealthyThresholdCount(targetGroupProps *elbv2gw.TargetGroupProps, isServiceExternalTrafficPolicyTypeLocal bool) int32 {
 	if targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.UnhealthyThresholdCount == nil {
-		return builder.defaultHealthCheckUnhealthyThresholdCount
+		return map[bool]int32{
+			true:  builder.defaultHealthCheckUnhealthyThresholdForInstanceModeLocal,
+			false: builder.defaultHealthCheckUnhealthyThresholdCount,
+		}[isServiceExternalTrafficPolicyTypeLocal]
 	}
 	return *targetGroupProps.HealthCheckConfig.UnhealthyThresholdCount
 }
