@@ -1201,31 +1201,36 @@ func Test_buildTargetGroupProtocolVersion(t *testing.T) {
 
 func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
 	testCases := []struct {
-		name             string
-		targetGroupProps *elbv2gw.TargetGroupProps
-		targetType       elbv2model.TargetType
-		svc              *corev1.Service
-		expected         intstr.IntOrString
-		expectErr        bool
+		name                                    string
+		isServiceExternalTrafficPolicyTypeLocal bool
+		targetGroupProps                        *elbv2gw.TargetGroupProps
+		targetType                              elbv2model.TargetType
+		svc                                     *corev1.Service
+		expected                                intstr.IntOrString
+		expectErr                               bool
 	}{
 		{
-			name:     "nil props",
-			expected: intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
+			name:                                    "nil props",
+			isServiceExternalTrafficPolicyTypeLocal: false,
+			expected:                                intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
 		},
 		{
-			name:             "nil hc props",
-			targetGroupProps: &elbv2gw.TargetGroupProps{},
-			expected:         intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
+			name:                                    "nil hc props",
+			isServiceExternalTrafficPolicyTypeLocal: false,
+			targetGroupProps:                        &elbv2gw.TargetGroupProps{},
+			expected:                                intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
 		},
 		{
-			name: "nil hc port",
+			name:                                    "nil hc port",
+			isServiceExternalTrafficPolicyTypeLocal: false,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{},
 			},
 			expected: intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
 		},
 		{
-			name: "explicit is use traffic port hc port",
+			name:                                    "explicit is use traffic port hc port",
+			isServiceExternalTrafficPolicyTypeLocal: false,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
 					HealthCheckPort: awssdk.String(shared_constants.HealthCheckPortTrafficPort),
@@ -1234,7 +1239,8 @@ func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
 			expected: intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
 		},
 		{
-			name: "explicit port",
+			name:                                    "explicit port",
+			isServiceExternalTrafficPolicyTypeLocal: false,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
 					HealthCheckPort: awssdk.String("80"),
@@ -1243,7 +1249,8 @@ func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
 			expected: intstr.FromInt32(80),
 		},
 		{
-			name: "resolve str port",
+			name:                                    "resolve str port",
+			isServiceExternalTrafficPolicyTypeLocal: false,
 			svc: &corev1.Service{
 				Spec: corev1.ServiceSpec{
 					Ports: []corev1.ServicePort{
@@ -1262,8 +1269,9 @@ func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
 			expected: intstr.FromInt32(80),
 		},
 		{
-			name:       "resolve str port - instance",
-			targetType: elbv2model.TargetTypeInstance,
+			name:                                    "resolve str port - instance",
+			isServiceExternalTrafficPolicyTypeLocal: false,
+			targetType:                              elbv2model.TargetTypeInstance,
 			svc: &corev1.Service{
 				Spec: corev1.ServiceSpec{
 					Ports: []corev1.ServicePort{
@@ -1283,7 +1291,8 @@ func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
 			expected: intstr.FromInt32(1000),
 		},
 		{
-			name: "resolve str port - resolves to other str port (error)",
+			name:                                    "resolve str port - resolves to other str port (error)",
+			isServiceExternalTrafficPolicyTypeLocal: false,
 			svc: &corev1.Service{
 				Spec: corev1.ServiceSpec{
 					Ports: []corev1.ServicePort{
@@ -1303,8 +1312,9 @@ func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name:       "resolve str port - resolves to other str port but instance mode",
-			targetType: elbv2model.TargetTypeInstance,
+			name:                                    "resolve str port - resolves to other str port but instance mode",
+			isServiceExternalTrafficPolicyTypeLocal: false,
+			targetType:                              elbv2model.TargetTypeInstance,
 			svc: &corev1.Service{
 				Spec: corev1.ServiceSpec{
 					Ports: []corev1.ServicePort{
@@ -1324,8 +1334,9 @@ func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
 			expected: intstr.FromInt32(1000),
 		},
 		{
-			name:       "resolve str port - cant find configured port",
-			targetType: elbv2model.TargetTypeInstance,
+			name:                                    "resolve str port - cant find configured port",
+			isServiceExternalTrafficPolicyTypeLocal: false,
+			targetType:                              elbv2model.TargetTypeInstance,
 			svc: &corev1.Service{
 				Spec: corev1.ServiceSpec{
 					Ports: []corev1.ServicePort{
@@ -1344,12 +1355,23 @@ func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
 			},
 			expectErr: true,
 		},
+		{
+			name:                                    "with ExternalTrafficPolicyTypeLocal and HealthCheckNodePort specified",
+			isServiceExternalTrafficPolicyTypeLocal: true,
+			svc: &corev1.Service{
+				Spec: corev1.ServiceSpec{
+					HealthCheckNodePort:   32000,
+					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+				},
+			},
+			expected: intstr.FromInt32(32000),
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := targetGroupBuilderImpl{}
-			res, err := builder.buildTargetGroupHealthCheckPort(tc.targetGroupProps, tc.targetType, tc.svc)
+			res, err := builder.buildTargetGroupHealthCheckPort(tc.targetGroupProps, tc.targetType, tc.svc, tc.isServiceExternalTrafficPolicyTypeLocal)
 			if tc.expectErr {
 				assert.Error(t, err, res)
 				return
@@ -1421,7 +1443,7 @@ func Test_buildTargetGroupHealthCheckProtocol(t *testing.T) {
 				loadBalancerType: tc.lbType,
 			}
 
-			res := builder.buildTargetGroupHealthCheckProtocol(tc.targetGroupProps, tc.tgProtocol)
+			res := builder.buildTargetGroupHealthCheckProtocol(tc.targetGroupProps, tc.tgProtocol, false)
 			assert.Equal(t, tc.expected, res)
 		})
 	}
@@ -1470,7 +1492,7 @@ func Test_buildTargetGroupHealthCheckPath(t *testing.T) {
 				defaultHealthCheckPathGRPC: grpcDefaultPath,
 			}
 
-			res := builder.buildTargetGroupHealthCheckPath(tc.targetGroupProps, tc.tgProtocolVersion, tc.hcProtocol)
+			res := builder.buildTargetGroupHealthCheckPath(tc.targetGroupProps, tc.tgProtocolVersion, tc.hcProtocol, false)
 			assert.Equal(t, tc.expected, res)
 		})
 	}
@@ -1575,10 +1597,10 @@ func Test_basicHealthCheckParams(t *testing.T) {
 	}
 
 	for _, prop := range defaultProps {
-		assert.Equal(t, int32(1), builder.buildTargetGroupHealthCheckIntervalSeconds(prop))
-		assert.Equal(t, int32(2), builder.buildTargetGroupHealthCheckTimeoutSeconds(prop))
-		assert.Equal(t, int32(3), builder.buildTargetGroupHealthCheckHealthyThresholdCount(prop))
-		assert.Equal(t, int32(4), builder.buildTargetGroupHealthCheckUnhealthyThresholdCount(prop))
+		assert.Equal(t, int32(1), builder.buildTargetGroupHealthCheckIntervalSeconds(prop, false))
+		assert.Equal(t, int32(2), builder.buildTargetGroupHealthCheckTimeoutSeconds(prop, false))
+		assert.Equal(t, int32(3), builder.buildTargetGroupHealthCheckHealthyThresholdCount(prop, false))
+		assert.Equal(t, int32(4), builder.buildTargetGroupHealthCheckUnhealthyThresholdCount(prop, false))
 	}
 
 	filledInProps := &elbv2gw.TargetGroupProps{
@@ -1593,10 +1615,10 @@ func Test_basicHealthCheckParams(t *testing.T) {
 			Matcher:                 nil,
 		}}
 
-	assert.Equal(t, int32(10), builder.buildTargetGroupHealthCheckIntervalSeconds(filledInProps))
-	assert.Equal(t, int32(20), builder.buildTargetGroupHealthCheckTimeoutSeconds(filledInProps))
-	assert.Equal(t, int32(30), builder.buildTargetGroupHealthCheckHealthyThresholdCount(filledInProps))
-	assert.Equal(t, int32(40), builder.buildTargetGroupHealthCheckUnhealthyThresholdCount(filledInProps))
+	assert.Equal(t, int32(10), builder.buildTargetGroupHealthCheckIntervalSeconds(filledInProps, false))
+	assert.Equal(t, int32(20), builder.buildTargetGroupHealthCheckTimeoutSeconds(filledInProps, false))
+	assert.Equal(t, int32(30), builder.buildTargetGroupHealthCheckHealthyThresholdCount(filledInProps, false))
+	assert.Equal(t, int32(40), builder.buildTargetGroupHealthCheckUnhealthyThresholdCount(filledInProps, false))
 }
 
 func Test_targetGroupAttributes(t *testing.T) {
