@@ -75,7 +75,7 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 			enableBackendSg: true,
 			lbConf: &elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 					SecurityGroups: &[]string{
 						"sg1",
 						"sg2",
@@ -103,7 +103,7 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 			name: "sg specified - with backend sg - error - backendsg not enabled",
 			lbConf: &elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 					SecurityGroups: &[]string{
 						"sg1",
 						"sg2",
@@ -123,7 +123,7 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 			enableBackendSg: true,
 			lbConf: &elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 					SecurityGroups: &[]string{
 						"sg1",
 						"sg2",
@@ -140,7 +140,7 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 			enableBackendSg: true,
 			lbConf: &elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 					SecurityGroups: &[]string{
 						"sg1",
 						"sg2",
@@ -237,7 +237,7 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 			enableBackendSg: true,
 			lbConf: &elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 				},
 			},
 			providerCall: &backendSgProviderCall{
@@ -251,7 +251,7 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 			enableBackendSg: true,
 			lbConf: &elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 				},
 			},
 			providerCall: &backendSgProviderCall{
@@ -459,7 +459,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					SourceRanges: &[]string{
 						"127.0.0.1/24",
 					},
-					EnableICMP: true,
+					EnableICMP: awssdk.Bool(true),
 				},
 			},
 			routes: map[int32][]routeutils.RouteDescriptor{

@@ -4,6 +4,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// +kubebuilder:validation:Enum=prefer-gateway;prefer-gateway-class
+// LoadBalancerConfigMergeMode is the merging behavior defined when both Gateway and GatewayClass have lb configurations. See the individual
+// configuration fields for the exact merge behavior applied.
+type LoadBalancerConfigMergeMode string
+
+const (
+	// MergeModePreferGatewayClass when both lb configurations have a field specified, this mode gives precedence to the configuration in the GatewayClass
+	MergeModePreferGatewayClass LoadBalancerConfigMergeMode = "prefer-gateway-class"
+	// MergeModePreferGatewayClass when both lb configurations have a field specified, this mode gives precedence to the configuration in the Gateway
+	MergeModePreferGateway LoadBalancerConfigMergeMode = "prefer-gateway"
+)
+
 // +kubebuilder:validation:Enum=internal;internet-facing
 // LoadBalancerScheme is the scheme of your LB
 //
@@ -41,15 +53,6 @@ type ListenerAttribute struct {
 	Key string `json:"key"`
 
 	// The value of the attribute.
-	Value string `json:"value"`
-}
-
-// AWSTag defines a AWS Tag on resources.
-type AWSTag struct {
-	// The key of the tag.
-	Key string `json:"key"`
-
-	// The value of the tag.
 	Value string `json:"value"`
 }
 
@@ -125,7 +128,7 @@ type MutualAuthenticationAttributes struct {
 	// +optional
 	IgnoreClientCertificateExpiry *bool `json:"ignoreClientCertificateExpiry,omitempty"`
 
-	// The client certificate handling method. Options are off , passthrough or verify
+	// The client certificate handling method. Options are off, passthrough or verify
 	Mode MutualAuthenticationMode `json:"mode"`
 
 	// The Name or ARN of the trust store.
@@ -165,6 +168,12 @@ type ListenerConfiguration struct {
 
 // LoadBalancerConfigurationSpec defines the desired state of LoadBalancerConfiguration
 type LoadBalancerConfigurationSpec struct {
+
+	// mergingMode defines the merge behavior when both the Gateway and GatewayClass have a defined LoadBalancerConfiguration.
+	// This field is only honored for the configuration attached to the GatewayClass.
+	// +optional
+	MergingMode *LoadBalancerConfigMergeMode `json:"mergingMode,omitempty"`
+
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:validation:MaxLength=32
 	// loadBalancerName defines the name of the LB to provision. If unspecified, it will be automatically generated.
@@ -228,15 +237,15 @@ type LoadBalancerConfigurationSpec struct {
 	// +optional
 	LoadBalancerAttributes []LoadBalancerAttribute `json:"loadBalancerAttributes,omitempty"`
 
-	// Tags defines list of Tags on LB.
+	// Tags the AWS Tags on all related resources to the gateway.
 	// +optional
-	Tags []AWSTag `json:"tags,omitempty"`
+	Tags *map[string]string `json:"tags,omitempty"`
 
 	// EnableICMP [Network LoadBalancer]
 	// enables the creation of security group rules to the managed security group
 	// to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs
 	// +optional
-	EnableICMP bool `json:"enableICMP,omitempty"`
+	EnableICMP *bool `json:"enableICMP,omitempty"`
 
 	// ManageBackendSecurityGroupRules [Application / Network LoadBalancer]
 	// specifies whether you want the controller to configure security group rules on Node/Pod for traffic access

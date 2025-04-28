@@ -3,6 +3,7 @@ package eventhandlers
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
@@ -22,6 +23,7 @@ func NewEnqueueRequestsForLoadBalancerConfigurationEvent(gwClassEventChan chan<-
 		k8sClient:        k8sClient,
 		eventRecorder:    eventRecorder,
 		gwController:     gwController,
+		gwControllerSet:  sets.New(gwController),
 		logger:           logger,
 	}
 }
@@ -34,6 +36,7 @@ type enqueueRequestsForLoadBalancerConfigurationEvent struct {
 	k8sClient        client.Client
 	eventRecorder    record.EventRecorder
 	gwController     string
+	gwControllerSet  sets.Set[string]
 	logger           logr.Logger
 }
 
@@ -62,7 +65,7 @@ func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Generic(ctx context.C
 }
 
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) enqueueImpactedService(ctx context.Context, lbconfig *elbv2gw.LoadBalancerConfiguration, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gwClasses := GetImpactedGatewayClassesFromLbConfig(ctx, h.k8sClient, lbconfig, h.gwController)
+	gwClasses := GetImpactedGatewayClassesFromLbConfig(ctx, h.k8sClient, lbconfig, h.gwControllerSet)
 	for _, gwClass := range gwClasses {
 		h.logger.V(1).Info("enqueue gatewayClass for loadbalancerconfiguration event",
 			"loadbalancerconfiguration", k8s.NamespacedName(lbconfig),
