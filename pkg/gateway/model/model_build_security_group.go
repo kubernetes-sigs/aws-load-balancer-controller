@@ -40,7 +40,7 @@ type securityGroupOutput struct {
 }
 
 type securityGroupBuilder interface {
-	buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error)
+	buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error)
 }
 
 type securityGroupBuilderImpl struct {
@@ -64,7 +64,7 @@ func newSecurityGroupBuilder(tagHelper tagHelper, clusterName string, enableBack
 	}
 }
 
-func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
+func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
 	var sgNameOrIds []string
 	if lbConf != nil && lbConf.Spec.SecurityGroups != nil {
 		sgNameOrIds = *lbConf.Spec.SecurityGroups
@@ -77,7 +77,7 @@ func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context
 	return builder.handleExplicitSecurityGroups(ctx, lbConf, gw, sgNameOrIds)
 }
 
-func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.Context, stack core.Stack, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
+func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.Context, stack core.Stack, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
 	var lbSGTokens []core.StringToken
 	managedSG, err := builder.buildManagedSecurityGroup(stack, lbConf, gw, routes, ipAddressType)
 	if err != nil {
@@ -144,7 +144,7 @@ func (builder *securityGroupBuilderImpl) getBackendSecurityGroup(ctx context.Con
 	return core.LiteralStringToken(backendSGID), nil
 }
 
-func (builder *securityGroupBuilderImpl) buildManagedSecurityGroup(stack core.Stack, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
+func (builder *securityGroupBuilderImpl) buildManagedSecurityGroup(stack core.Stack, lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
 	name := builder.buildManagedSecurityGroupName(gw)
 	tags, err := builder.tagHelper.getGatewayTags(lbConf)
 	if err != nil {
@@ -173,7 +173,7 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupName(gw *gwv1.
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermissions(lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
+func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermissions(lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
 	var permissions []ec2model.IPPermission
 
 	// Default to 0.0.0.0/0 and ::/0

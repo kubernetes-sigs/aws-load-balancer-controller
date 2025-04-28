@@ -37,7 +37,22 @@ func (s *listenerSynthesizer) Synthesize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
+	// This never happens for Ingress and Service controller as their managed LBs have
+	// atleast one default listener unlike Gateway controller's managed LBs
+	if len(resLSsByLBARN) == 0 {
+		var resLBs []*elbv2model.LoadBalancer
+		s.stack.ListResources(&resLBs)
+		for _, resLB := range resLBs {
+			lbARN, err := resLB.LoadBalancerARN().Resolve(ctx)
+			if err != nil {
+				return err
+			}
+			if err := s.synthesizeListenersOnLB(ctx, lbARN, nil); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	for lbARN, resLSs := range resLSsByLBARN {
 		if err := s.synthesizeListenersOnLB(ctx, lbARN, resLSs); err != nil {
 			return err

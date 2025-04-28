@@ -188,7 +188,7 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 			stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 			builder := newSecurityGroupBuilder(mockTagger, clusterName, tc.enableBackendSg, mockSgResolver, mockSgProvider, logr.Discard())
 
-			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, make(map[int][]routeutils.RouteDescriptor), tc.ipAddressType)
+			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, make(map[int32][]routeutils.RouteDescriptor), tc.ipAddressType)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -293,7 +293,7 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 			stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
 			builder := newSecurityGroupBuilder(mockTagger, clusterName, tc.enableBackendSg, mockSgResolver, mockSgProvider, logr.Discard())
 
-			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, make(map[int][]routeutils.RouteDescriptor), tc.ipAddressType)
+			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, make(map[int32][]routeutils.RouteDescriptor), tc.ipAddressType)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -317,7 +317,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		name          string
 		lbConf        *elbv2gw.LoadBalancerConfiguration
 		ipAddressType elbv2model.IPAddressType
-		routes        map[int][]routeutils.RouteDescriptor
+		routes        map[int32][]routeutils.RouteDescriptor
 		expected      []ec2model.IPPermission
 	}{
 		{
@@ -330,7 +330,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 			lbConf: &elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.TCPRouteKind,
@@ -361,7 +361,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.TCPRouteKind,
@@ -412,7 +412,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.UDPRouteKind,
@@ -462,7 +462,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					EnableICMP: true,
 				},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.UDPRouteKind,
@@ -503,7 +503,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.TCPRouteKind,
@@ -557,7 +557,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.TCPRouteKind,
@@ -682,7 +682,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 			lbConf: &elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.TCPRouteKind,
@@ -725,7 +725,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.TCPRouteKind,
@@ -795,7 +795,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.TCPRouteKind,
@@ -836,7 +836,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.TCPRouteKind,
@@ -866,7 +866,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					SecurityGroupPrefixes: &[]string{"pl1", "pl2"},
 				},
 			},
-			routes: map[int][]routeutils.RouteDescriptor{
+			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
 						Kind: routeutils.TCPRouteKind,

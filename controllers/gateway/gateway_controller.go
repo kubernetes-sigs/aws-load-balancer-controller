@@ -205,7 +205,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	return r.reconcileUpdate(ctx, gw, stack, lb, backendSGRequired)
 }
 
-func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, routes map[int][]routeutils.RouteDescriptor) error {
+func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor) error {
 	for _, routeList := range routes {
 		if len(routeList) != 0 {
 			// TODO - Better error messaging (e.g. tell user the routes that are still attached)
@@ -259,7 +259,7 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 	return nil
 }
 
-func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, listenerToRoute map[int][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
+func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, listenerToRoute map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
 	stack, lb, backendSGRequired, err := r.modelBuilder.Build(ctx, gw, &elbv2gw.LoadBalancerConfiguration{}, listenerToRoute)
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
