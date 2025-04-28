@@ -53,7 +53,7 @@ function cleanUp(){
   if [[ $ADC_REGIONS == *"$REGION"* ]]; then
     kubectl delete -k "$SCRIPT_DIR"/../helm/aws-load-balancer-controller/crds --timeout=30s || true
   else
-    kubectl delete -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master" --timeout=30s || true
+    kubectl delete -k "github.com/aws/eks-charts//stable/aws-load-balancer-controller/crds?ref=master" --timeout=30s || true
   fi
 }
 
