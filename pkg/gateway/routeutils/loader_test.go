@@ -139,7 +139,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 	testCases := []struct {
 		name                    string
 		acceptedKinds           sets.Set[RouteKind]
-		expectedMap             map[int][]RouteDescriptor
+		expectedMap             map[int32][]RouteDescriptor
 		expectedPreloadMap      map[int][]preLoadRouteDescriptor
 		expectedPreMappedRoutes []preLoadRouteDescriptor
 		expectError             bool
@@ -148,7 +148,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 			name:                    "filter allows no routes",
 			acceptedKinds:           make(sets.Set[RouteKind]),
 			expectedPreMappedRoutes: make([]preLoadRouteDescriptor, 0),
-			expectedMap:             make(map[int][]RouteDescriptor),
+			expectedMap:             make(map[int32][]RouteDescriptor),
 		},
 		{
 			name:                    "filter only allows http route",
@@ -157,7 +157,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
 				80: preLoadHTTPRoutes,
 			},
-			expectedMap: map[int][]RouteDescriptor{
+			expectedMap: map[int32][]RouteDescriptor{
 				80: loadedHTTPRoutes,
 			},
 		},
@@ -169,7 +169,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 				80:  preLoadHTTPRoutes,
 				443: preLoadHTTPRoutes,
 			},
-			expectedMap: map[int][]RouteDescriptor{
+			expectedMap: map[int32][]RouteDescriptor{
 				80:  loadedHTTPRoutes,
 				443: loadedHTTPRoutes,
 			},
@@ -181,7 +181,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
 				80: preLoadTCPRoutes,
 			},
-			expectedMap: map[int][]RouteDescriptor{
+			expectedMap: map[int32][]RouteDescriptor{
 				80: loadedTCPRoutes,
 			},
 		},
@@ -193,7 +193,7 @@ func TestLoadRoutesForGateway(t *testing.T) {
 				80:  preLoadTCPRoutes,
 				443: preLoadHTTPRoutes,
 			},
-			expectedMap: map[int][]RouteDescriptor{
+			expectedMap: map[int32][]RouteDescriptor{
 				80:  loadedTCPRoutes,
 				443: loadedHTTPRoutes,
 			},

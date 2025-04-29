@@ -6,12 +6,14 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -23,7 +25,7 @@ import (
 // Builder builds the model stack for a Gateway resource.
 type Builder interface {
 	// Build model stack for a gateway
-	Build(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error)
+	Build(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error)
 }
 
 // NewModelBuilder construct a new baseModelBuilder
@@ -38,14 +40,28 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
 	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, enableBackendSG, sgResolver, backendSGProvider, logger)
 	lbBuilder := newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName)
-	tgBuilder := newTargetGroupBuilder(clusterName, vpcID, gwTagHelper, loadBalancerType, disableRestrictedSGRules, defaultTargetType)
 
 	return &baseModelBuilder{
-		subnetBuilder:        subnetBuilder,
-		securityGroupBuilder: sgBuilder,
-		lbBuilder:            lbBuilder,
-		tgBuilder:            tgBuilder,
-		logger:               logger,
+		clusterName:              clusterName,
+		vpcID:                    vpcID,
+		subnetsResolver:          subnetsResolver,
+		backendSGProvider:        backendSGProvider,
+		sgResolver:               sgResolver,
+		vpcInfoProvider:          vpcInfoProvider,
+		elbv2TaggingManager:      elbv2TaggingManager,
+		featureGates:             featureGates,
+		ec2Client:                ec2Client,
+		subnetBuilder:            subnetBuilder,
+		securityGroupBuilder:     sgBuilder,
+		loadBalancerType:         loadBalancerType,
+		lbBuilder:                lbBuilder,
+		gwTagHelper:              gwTagHelper,
+		logger:                   logger,
+		defaultTargetType:        defaultTargetType,
+		externalManagedTags:      externalManagedTags,
+		defaultSSLPolicy:         defaultSSLPolicy,
+		defaultTags:              defaultTags,
+		disableRestrictedSGRules: disableRestrictedSGRules,
 
 		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
 		defaultIPType:             elbv2model.IPAddressTypeIPV4,
@@ -55,19 +71,41 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 var _ Builder = &baseModelBuilder{}
 
 type baseModelBuilder struct {
-	lbBuilder loadBalancerBuilder
-	logger    logr.Logger
+	clusterName                string
+	vpcID                      string
+	loadBalancerType           elbv2model.LoadBalancerType
+	annotationParser           annotations.Parser
+	subnetsResolver            networking.SubnetsResolver
+	vpcInfoProvider            networking.VPCInfoProvider
+	backendSGProvider          networking.BackendSGProvider
+	sgResolver                 networking.SecurityGroupResolver
+	elbv2TaggingManager        elbv2deploy.TaggingManager
+	featureGates               config.FeatureGates
+	enableIPTargetType         bool
+	enableManageBackendSGRules bool
+	defaultTags                map[string]string
+	externalManagedTags        sets.Set[string]
+	defaultSSLPolicy           string
+	defaultTargetType          string
+	disableRestrictedSGRules   bool
+	ec2Client                  services.EC2
+	metricsCollector           lbcmetrics.MetricCollector
+	lbBuilder                  loadBalancerBuilder
+	gwTagHelper                tagHelper
+	listenerBuilder            listenerBuilder
+	logger                     logr.Logger
 
 	subnetBuilder        subnetModelBuilder
 	securityGroupBuilder securityGroupBuilder
-	tgBuilder            targetGroupBuilder
 
 	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
 	defaultIPType             elbv2model.IPAddressType
 }
 
-func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
+func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
+	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, baseBuilder.disableRestrictedSGRules, baseBuilder.defaultTargetType)
+	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.logger)
 	if gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero() {
 		if baseBuilder.isDeleteProtected(lbConf) {
 			return nil, nil, false, errors.Errorf("Unable to delete gateway %+v because deletion protection is enabled.", k8s.NamespacedName(gw))
@@ -113,29 +151,8 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	lb := elbv2model.NewLoadBalancer(stack, resourceIDLoadBalancer, spec)
 
-	baseBuilder.logger.Info("Got this route details", "routes", routes)
-	/* Target Groups */
-	// TODO - Figure out how to map this back to a listener?
-	tgByResID := make(map[string]buildTargetGroupOutput)
-	for _, descriptors := range routes {
-		for _, descriptor := range descriptors {
-			for _, rule := range descriptor.GetAttachedRules() {
-				for _, backend := range rule.GetBackends() {
-					// TODO -- Figure out what to do with the return value (it's also inserted into the tgByResID map)
-					// TODO -- I'm not in love with this API.
-					_, tgErr := baseBuilder.tgBuilder.buildTargetGroup(&tgByResID, gw, lbConf, lb.Spec.IPAddressType, descriptor, backend, securityGroups.backendSecurityGroupToken)
-					if tgErr != nil {
-						return nil, nil, false, err
-					}
-				}
-			}
-		}
-	}
-
-	for tgResID, tgOut := range tgByResID {
-		tg := elbv2model.NewTargetGroup(stack, tgResID, tgOut.targetGroupSpec)
-		tgOut.bindingSpec.Template.Spec.TargetGroupARN = tg.TargetGroupARN()
-		elbv2model.NewTargetGroupBindingResource(stack, tg.ID(), tgOut.bindingSpec)
+	if err := listenerBuilder.buildListeners(stack, lb, securityGroups, gw, routes, lbConf); err != nil {
+		return nil, nil, false, err
 	}
 
 	return stack, lb, securityGroups.backendSecurityGroupAllocated, nil
