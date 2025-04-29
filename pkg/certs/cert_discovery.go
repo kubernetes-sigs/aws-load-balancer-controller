@@ -1,7 +1,11 @@
-package ingress
+package certs
 
 import (
 	"context"
+	"strings"
+	"sync"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	acmTypes "github.com/aws/aws-sdk-go-v2/service/acm/types"
@@ -13,9 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/strings/slices"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
