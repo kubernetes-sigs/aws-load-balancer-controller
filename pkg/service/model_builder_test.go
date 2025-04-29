@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -126,6 +127,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		wantNumResources             int
 		featureGates                 map[config.Feature]bool
 		wantMetric                   bool
+		skipTCPUDPDisabled           bool
 	}{
 		{
 			testName: "Simple service",
@@ -2259,7 +2261,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 			wantMetric:               true,
 		},
 		{
-			testName: "Instance mode, TCP/UDP same port test",
+			testName:           "Instance mode, TCP/UDP same port test",
+			skipTCPUDPDisabled: true,
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tcpudp-protocol",
@@ -6917,84 +6920,90 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.testName, func(t *testing.T) {
-			ctrl := gomock.NewController(t)
-			defer ctrl.Finish()
-
-			ec2Client := services.NewMockEC2(ctrl)
-
-			subnetsResolver := networking.NewMockSubnetsResolver(ctrl)
-			for _, call := range tt.resolveViaDiscoveryCalls {
-				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
+		for _, tcpUdpEnabled := range []bool{true, false} {
+			if tt.skipTCPUDPDisabled && !tcpUdpEnabled {
+				continue
 			}
-			for _, call := range tt.resolveViaNameOrIDSliceCalls {
-				subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
-			}
-			featureGates := config.NewFeatureGates()
-			for key, value := range tt.featureGates {
-				if value {
-					featureGates.Enable(key)
-				} else {
-					featureGates.Disable(key)
+			testName := fmt.Sprintf("%s-tcpudp enabled %t", tt.testName, tcpUdpEnabled)
+			t.Run(testName, func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				defer ctrl.Finish()
+
+				ec2Client := services.NewMockEC2(ctrl)
+
+				subnetsResolver := networking.NewMockSubnetsResolver(ctrl)
+				for _, call := range tt.resolveViaDiscoveryCalls {
+					subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 				}
-			}
-			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
-			trackingProvider := tracking.NewDefaultProvider("service.k8s.aws", "my-cluster")
+				for _, call := range tt.resolveViaNameOrIDSliceCalls {
+					subnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
+				}
+				featureGates := config.NewFeatureGates()
+				for key, value := range tt.featureGates {
+					if value {
+						featureGates.Enable(key)
+					} else {
+						featureGates.Disable(key)
+					}
+				}
+				annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+				trackingProvider := tracking.NewDefaultProvider("service.k8s.aws", "my-cluster")
 
-			elbv2TaggingManager := elbv2.NewMockTaggingManager(ctrl)
-			for _, call := range tt.listLoadBalancerCalls {
-				elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
-			}
-			vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
-			for _, call := range tt.fetchVPCInfoCalls {
-				vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
-			}
-			serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates)
-			defaultTargetType := tt.defaultTargetType
-			if defaultTargetType == "" {
-				defaultTargetType = "instance"
-			}
-			defaultLoadBalancerScheme := tt.defaultLoadBalancerScheme
-			if defaultLoadBalancerScheme == "" {
-				defaultLoadBalancerScheme = string(elbv2model.LoadBalancerSchemeInternal)
-			}
-			backendSGProvider := networking.NewMockBackendSGProvider(ctrl)
-			if tt.enableBackendSG {
-				backendSGProvider.EXPECT().Get(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
-				backendSGProvider.EXPECT().Release(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(nil).AnyTimes()
-			}
-			sgResolver := networking.NewMockSecurityGroupResolver(ctrl)
-			for _, call := range tt.resolveSGViaNameOrIDCall {
-				sgResolver.EXPECT().ResolveViaNameOrID(gomock.Any(), call.args).Return(call.want, call.err)
-			}
-			var enableIPTargetType bool
-			if tt.enableIPTargetType == nil {
-				enableIPTargetType = true
-			} else {
-				enableIPTargetType = *tt.enableIPTargetType
-			}
-			mockMetricsCollector := lbcmetrics.NewMockCollector()
-			builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
-				"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
-				backendSGProvider, sgResolver, tt.enableBackendSG, tt.enableManageBackendSGRules, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}), mockMetricsCollector)
-			ctx := context.Background()
-			stack, _, _, err := builder.Build(ctx, tt.svc, mockMetricsCollector)
-			if tt.wantError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				d := deploy.NewDefaultStackMarshaller()
-				jsonString, err := d.Marshal(stack)
-				assert.Equal(t, nil, err)
-				assert.JSONEq(t, tt.wantValue, jsonString)
-				visitor := &resourceVisitor{}
-				stack.TopologicalTraversal(visitor)
-				assert.Equal(t, tt.wantNumResources, len(visitor.resources))
-			}
+				elbv2TaggingManager := elbv2.NewMockTaggingManager(ctrl)
+				for _, call := range tt.listLoadBalancerCalls {
+					elbv2TaggingManager.EXPECT().ListLoadBalancers(gomock.Any(), gomock.Any()).Return(call.sdkLBs, call.err)
+				}
+				vpcInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+				for _, call := range tt.fetchVPCInfoCalls {
+					vpcInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any(), gomock.Any()).Return(call.wantVPCInfo, call.err).AnyTimes()
+				}
+				serviceUtils := NewServiceUtils(annotationParser, "service.k8s.aws/resources", "service.k8s.aws/nlb", featureGates)
+				defaultTargetType := tt.defaultTargetType
+				if defaultTargetType == "" {
+					defaultTargetType = "instance"
+				}
+				defaultLoadBalancerScheme := tt.defaultLoadBalancerScheme
+				if defaultLoadBalancerScheme == "" {
+					defaultLoadBalancerScheme = string(elbv2model.LoadBalancerSchemeInternal)
+				}
+				backendSGProvider := networking.NewMockBackendSGProvider(ctrl)
+				if tt.enableBackendSG {
+					backendSGProvider.EXPECT().Get(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(tt.backendSecurityGroup, nil).AnyTimes()
+					backendSGProvider.EXPECT().Release(gomock.Any(), networking.ResourceType(networking.ResourceTypeService), gomock.Any()).Return(nil).AnyTimes()
+				}
+				sgResolver := networking.NewMockSecurityGroupResolver(ctrl)
+				for _, call := range tt.resolveSGViaNameOrIDCall {
+					sgResolver.EXPECT().ResolveViaNameOrID(gomock.Any(), call.args).Return(call.want, call.err)
+				}
+				var enableIPTargetType bool
+				if tt.enableIPTargetType == nil {
+					enableIPTargetType = true
+				} else {
+					enableIPTargetType = *tt.enableIPTargetType
+				}
+				mockMetricsCollector := lbcmetrics.NewMockCollector()
+				builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
+					"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
+					backendSGProvider, sgResolver, tt.enableBackendSG, tt.enableManageBackendSGRules, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}), mockMetricsCollector, tcpUdpEnabled)
+				ctx := context.Background()
+				stack, _, _, err := builder.Build(ctx, tt.svc, mockMetricsCollector)
+				if tt.wantError {
+					assert.Error(t, err)
+				} else {
+					assert.NoError(t, err)
+					d := deploy.NewDefaultStackMarshaller()
+					jsonString, err := d.Marshal(stack)
+					assert.Equal(t, nil, err)
+					assert.JSONEq(t, tt.wantValue, jsonString)
+					visitor := &resourceVisitor{}
+					stack.TopologicalTraversal(visitor)
+					assert.Equal(t, tt.wantNumResources, len(visitor.resources))
+				}
 
-			mockCollector := builder.metricsCollector.(*lbcmetrics.MockCollector)
-			assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricControllerReconcileErrors]) == 1)
+				mockCollector := builder.metricsCollector.(*lbcmetrics.MockCollector)
+				assert.Equal(t, tt.wantMetric, len(mockCollector.Invocations[lbcmetrics.MetricControllerReconcileErrors]) == 1)
 
-		})
+			})
+		}
 	}
 }

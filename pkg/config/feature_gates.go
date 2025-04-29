@@ -17,6 +17,7 @@ const (
 	EndpointsFailOpen             Feature = "EndpointsFailOpen"
 	EnableServiceController       Feature = "EnableServiceController"
 	EnableIPTargetType            Feature = "EnableIPTargetType"
+	EnableTCPUDPListenerType      Feature = "EnableTCPUDPListener"
 	EnableRGTAPI                  Feature = "EnableRGTAPI"
 	SubnetsClusterTagCheck        Feature = "SubnetsClusterTagCheck"
 	NLBHealthCheckAdvancedConfig  Feature = "NLBHealthCheckAdvancedConfig"
@@ -68,6 +69,7 @@ func NewFeatureGates() FeatureGates {
 			LBCapacityReservation:         true,
 			NLBGatewayAPI:                 false,
 			ALBGatewayAPI:                 false,
+			EnableTCPUDPListenerType:      false,
 		},
 	}
 }

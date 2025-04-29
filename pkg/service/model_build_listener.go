@@ -18,6 +18,29 @@ var (
 )
 
 func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
+
+	if t.shouldUseTCPUDP() {
+		return t.buildListenersWithTCPUDPSupport(ctx, scheme)
+	}
+	return t.buildListenersLegacy(ctx, scheme)
+}
+
+func (t *defaultModelBuildTask) buildListenersLegacy(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
+	cfg, err := t.buildListenerConfig(ctx, sets.New[int32]())
+	if err != nil {
+		return err
+	}
+
+	for _, port := range t.service.Spec.Ports {
+		_, err = t.buildListener(ctx, port, cfg, scheme)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (t *defaultModelBuildTask) buildListenersWithTCPUDPSupport(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
 	// group by listener port number
 	portMap := make(map[int32][]corev1.ServicePort)
 	for _, port := range t.service.Spec.Ports {
@@ -290,4 +313,22 @@ func validateMultiProtocolUsage(ports []corev1.ServicePort) error {
 		return fmt.Errorf("protocols can't match for merging: %s", ports[0].Protocol)
 	}
 	return nil
+}
+
+func (t *defaultModelBuildTask) shouldUseTCPUDP() bool {
+	annotationValue := t.isTCPUDPEnabledForService(t.service.Annotations)
+
+	if annotationValue != nil {
+		return *annotationValue
+	}
+	return t.enableTCPUDPSupport
+}
+
+func (t *defaultModelBuildTask) isTCPUDPEnabledForService(svcAnnotations map[string]string) *bool {
+	var rawEnabled bool
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixEnableTCPUDPListener, &rawEnabled, svcAnnotations)
+	if !exists || err != nil {
+		return nil
+	}
+	return &rawEnabled
 }

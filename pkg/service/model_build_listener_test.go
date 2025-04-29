@@ -465,3 +465,73 @@ func Test_validateMultiProtocolUsage(t *testing.T) {
 		})
 	}
 }
+
+func Test_shouldUseTCPUDP(t *testing.T) {
+	testCases := []struct {
+		name         string
+		svc          *corev1.Service
+		defaultValue bool
+		expected     bool
+	}{
+		{
+			name:         "no annotation, use default true",
+			svc:          &corev1.Service{},
+			defaultValue: true,
+			expected:     true,
+		},
+		{
+			name:         "no annotation, use default false",
+			svc:          &corev1.Service{},
+			defaultValue: false,
+			expected:     false,
+		},
+		{
+			name: "other annotation, use default false",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-alpn-policy": "HTTP2Only",
+					},
+				},
+			},
+			defaultValue: false,
+			expected:     false,
+		},
+		{
+			name: "annotation present - true",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener": "true",
+					},
+				},
+			},
+			defaultValue: false,
+			expected:     true,
+		},
+		{
+			name: "annotation present - false",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener": "false",
+					},
+				},
+			},
+			defaultValue: false,
+			expected:     false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			task := defaultModelBuildTask{
+				service:             tc.svc,
+				enableTCPUDPSupport: tc.defaultValue,
+				annotationParser:    annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
+			}
+			assert.Equal(t, tc.expected, task.shouldUseTCPUDP())
+
+		})
+	}
+}
