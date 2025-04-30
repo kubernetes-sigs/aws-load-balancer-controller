@@ -3,8 +3,9 @@ package ingress
 import (
 	"context"
 	"reflect"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
@@ -18,6 +19,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	certs "sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
@@ -49,7 +51,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
 	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *defaultModelBuilder {
-	certDiscovery := NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
+	certDiscovery := certs.NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
 	ruleOptimizer := NewDefaultRuleOptimizer(logger)
 	return &defaultModelBuilder{
 		k8sClient:                  k8sClient,
@@ -99,7 +101,7 @@ type defaultModelBuilder struct {
 	subnetsResolver            networkingpkg.SubnetsResolver
 	backendSGProvider          networkingpkg.BackendSGProvider
 	sgResolver                 networkingpkg.SecurityGroupResolver
-	certDiscovery              CertDiscovery
+	certDiscovery              certs.CertDiscovery
 	authConfigBuilder          AuthConfigBuilder
 	enhancedBackendBuilder     EnhancedBackendBuilder
 	ruleOptimizer              RuleOptimizer
@@ -194,7 +196,7 @@ type defaultModelBuildTask struct {
 	subnetsResolver        networkingpkg.SubnetsResolver
 	backendSGProvider      networkingpkg.BackendSGProvider
 	sgResolver             networkingpkg.SecurityGroupResolver
-	certDiscovery          CertDiscovery
+	certDiscovery          certs.CertDiscovery
 	authConfigBuilder      AuthConfigBuilder
 	enhancedBackendBuilder EnhancedBackendBuilder
 	ruleOptimizer          RuleOptimizer

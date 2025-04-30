@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"strconv"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -19,7 +21,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strconv"
 )
 
 // Builder builds the model stack for a Gateway resource.
@@ -31,10 +32,10 @@ type Builder interface {
 // NewModelBuilder construct a new baseModelBuilder
 func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, loadBalancerType elbv2model.LoadBalancerType, trackingProvider tracking.Provider,
-	elbv2TaggingManager elbv2deploy.TaggingManager, lbcConfig config.ControllerConfig, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
+	elbv2TaggingManager elbv2deploy.TaggingManager, lbcConfig config.ControllerConfig, ec2Client services.EC2, acmClient services.ACM, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags sets.Set[string], defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
-	disableRestrictedSGRules bool, logger logr.Logger) Builder {
+	disableRestrictedSGRules bool, allowedCAARNs []string, logger logr.Logger) Builder {
 
 	gwTagHelper := newTagHelper(sets.New(lbcConfig.ExternalManagedTags...), lbcConfig.DefaultTags)
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
@@ -51,6 +52,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 		elbv2TaggingManager:      elbv2TaggingManager,
 		featureGates:             featureGates,
 		ec2Client:                ec2Client,
+		acmClient:                acmClient,
 		subnetBuilder:            subnetBuilder,
 		securityGroupBuilder:     sgBuilder,
 		loadBalancerType:         loadBalancerType,
@@ -65,6 +67,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 
 		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
 		defaultIPType:             elbv2model.IPAddressTypeIPV4,
+		allowedCAARNs:             allowedCAARNs,
 	}
 }
 
@@ -89,6 +92,8 @@ type baseModelBuilder struct {
 	defaultTargetType          string
 	disableRestrictedSGRules   bool
 	ec2Client                  services.EC2
+	acmClient                  services.ACM
+	allowedCAARNs              []string
 	metricsCollector           lbcmetrics.MetricCollector
 	lbBuilder                  loadBalancerBuilder
 	gwTagHelper                tagHelper
@@ -105,7 +110,7 @@ type baseModelBuilder struct {
 func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, baseBuilder.disableRestrictedSGRules, baseBuilder.defaultTargetType)
-	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.logger)
+	listenerBuilder := newListenerBuilder(ctx, baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.acmClient, baseBuilder.allowedCAARNs, baseBuilder.logger)
 	if gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero() {
 		if baseBuilder.isDeleteProtected(lbConf) {
 			return nil, nil, false, errors.Errorf("Unable to delete gateway %+v because deletion protection is enabled.", k8s.NamespacedName(gw))
@@ -151,7 +156,7 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	lb := elbv2model.NewLoadBalancer(stack, resourceIDLoadBalancer, spec)
 
-	if err := listenerBuilder.buildListeners(stack, lb, securityGroups, gw, routes, lbConf); err != nil {
+	if err := listenerBuilder.buildListeners(ctx, stack, lb, securityGroups, gw, routes, lbConf); err != nil {
 		return nil, nil, false, err
 	}
 

@@ -3,9 +3,11 @@ package ingress
 import (
 	"context"
 	"encoding/json"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
 	"time"
+
+	certs "sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -4186,7 +4188,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				subnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).Return(call.subnets, call.err)
 			}
 
-			certDiscovery := NewMockCertDiscovery(ctrl)
+			certDiscovery := certs.NewMockCertDiscovery(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			authConfigBuilder := NewDefaultAuthConfigBuilder(annotationParser)
 			enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, authConfigBuilder, true, true)

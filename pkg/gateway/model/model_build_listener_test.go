@@ -1,12 +1,18 @@
 package model
 
 import (
+	"context"
+	"reflect"
+	"testing"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	certs "sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
@@ -344,6 +350,174 @@ func Test_buildListenerALPNPolicy(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestBuildCertificates(t *testing.T) {
+	tests := []struct {
+		name       string
+		gwLsCfg    *gwListenerConfig
+		lbLsCfg    *elbv2gw.ListenerConfiguration
+		setupMocks func(mockCertDiscovery *certs.MockCertDiscovery)
+		want       []elbv2model.Certificate
+		wantErr    bool
+	}{
+		{
+			name: "default certificate only - explicit config",
+			gwLsCfg: &gwListenerConfig{
+				hostnames: []string{"my-host-1", "my-host-2"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				DefaultCertificate: aws.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+			},
+			want: []elbv2model.Certificate{
+				{
+					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+				},
+			},
+		},
+		{
+			name: "multiple certificates without default - explicit config",
+			gwLsCfg: &gwListenerConfig{
+				hostnames: []string{"my-host-1", "my-host-2"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				Certificates: []*string{
+					aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+					aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+				},
+			},
+			want: []elbv2model.Certificate{
+				{
+					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+				},
+				{
+					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+				},
+			},
+		},
+		{
+			name: "multiple certificates with default - explicit config",
+			gwLsCfg: &gwListenerConfig{
+				hostnames: []string{"my-host-1", "my-host-2"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				DefaultCertificate: aws.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+				Certificates: []*string{
+					aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+					aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+				},
+			},
+			want: []elbv2model.Certificate{
+				{
+					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+				},
+				{
+					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+				},
+				{
+					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+				},
+			},
+		},
+		{
+			name: "auto-discover certificates for one hosts",
+			gwLsCfg: &gwListenerConfig{
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				ProtocolPort: "TLS:443",
+			},
+			setupMocks: func(mockCertDiscovery *certs.MockCertDiscovery) {
+				mockCertDiscovery.EXPECT().
+					Discover(gomock.Any(), []string{"example.com"}).
+					Return([]string{
+						"arn:aws:acm:region:123456789012:certificate/cert-1",
+					}, nil)
+			},
+			want: []elbv2model.Certificate{
+				{
+					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/cert-1"),
+				},
+			},
+		},
+		{
+			name: "auto-discover certificates for hosts",
+			gwLsCfg: &gwListenerConfig{
+				hostnames: []string{"example.com", "*.example.org"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				ProtocolPort: "TLS:443",
+			},
+			setupMocks: func(mockCertDiscovery *certs.MockCertDiscovery) {
+				// The hostnames will be sorted alphabetically by sets.NewString().List()
+				mockCertDiscovery.EXPECT().
+					Discover(gomock.Any(), []string{"*.example.org", "example.com"}).
+					Return([]string{
+						"arn:aws:acm:region:123456789012:certificate/cert-1",
+						"arn:aws:acm:region:123456789012:certificate/cert-2",
+					}, nil)
+			},
+			want: []elbv2model.Certificate{
+				{
+					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/cert-1"),
+				},
+				{
+					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/cert-2"),
+				},
+			},
+		},
+		{
+			name: "certificate discovery fails",
+			gwLsCfg: &gwListenerConfig{
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				ProtocolPort: "HTTPS:443",
+			},
+			setupMocks: func(mockCertDiscovery *certs.MockCertDiscovery) {
+				mockCertDiscovery.EXPECT().
+					Discover(gomock.Any(), []string{"example.com"}).
+					Return(nil, errors.New("certificate discovery failed"))
+			},
+			want:    []elbv2model.Certificate{},
+			wantErr: true,
+		},
+		{
+			name: "no hostname for discovery",
+			gwLsCfg: &gwListenerConfig{
+				hostnames: []string{},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				ProtocolPort: "HTTPS:443",
+			},
+			want: []elbv2model.Certificate{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockCertDiscovery := certs.NewMockCertDiscovery(ctrl)
+			if tt.setupMocks != nil {
+				tt.setupMocks(mockCertDiscovery)
+			}
+
+			builder := &listenerBuilderImpl{
+				certDiscovery: mockCertDiscovery,
+			}
+
+			got, err := builder.buildCertificates(context.Background(), tt.gwLsCfg, tt.lbLsCfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("buildCertificates() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("buildCertificates() = %v, want %v", got, tt.want)
 			}
 		})
 	}

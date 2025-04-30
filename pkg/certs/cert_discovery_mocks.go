@@ -2,7 +2,7 @@
 // Source: sigs.k8s.io/aws-load-balancer-controller/pkg/ingress (interfaces: CertDiscovery)
 
 // Package ingress is a generated GoMock package.
-package ingress
+package certs
 
 import (
 	context "context"
