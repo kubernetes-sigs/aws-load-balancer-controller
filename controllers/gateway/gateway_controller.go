@@ -188,7 +188,12 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		return err
 	}
 
-	stack, lb, backendSGRequired, err := r.buildModel(ctx, gw, gwClass, allRoutes)
+	lbConfig, err := r.getLoadBalancerConfigForGateway(ctx, r.k8sClient, gw, gwClass)
+	if err != nil {
+		return err
+	}
+
+	stack, lb, backendSGRequired, err := r.buildModel(ctx, gw, lbConfig, allRoutes)
 
 	if err != nil {
 		return err
@@ -203,6 +208,43 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	}
 
 	return r.reconcileUpdate(ctx, gw, stack, lb, backendSGRequired)
+}
+
+func (r *gatewayReconciler) getLoadBalancerConfigForGateway(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass) (*elbv2gw.LoadBalancerConfiguration, error) {
+	var gwParametersRef *gwv1.ParametersReference
+	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.ParametersRef != nil {
+		// Convert local param ref -> namespaced param ref
+		ns := gwv1.Namespace(gw.Namespace)
+		gwParametersRef = &gwv1.ParametersReference{
+			Group:     gw.Spec.Infrastructure.ParametersRef.Group,
+			Kind:      gw.Spec.Infrastructure.ParametersRef.Kind,
+			Name:      gw.Spec.Infrastructure.ParametersRef.Name,
+			Namespace: &ns,
+		}
+	}
+
+	gatewayLBConfig, err := r.resolveLoadBalancerConfig(ctx, k8sClient, gwParametersRef)
+	if err != nil {
+		return &elbv2gw.LoadBalancerConfiguration{}, err
+	}
+	return gatewayLBConfig, nil
+}
+
+func (r *gatewayReconciler) resolveLoadBalancerConfig(ctx context.Context, k8sClient client.Client, reference *gwv1.ParametersReference) (*elbv2gw.LoadBalancerConfiguration, error) {
+	var lbConf *elbv2gw.LoadBalancerConfiguration
+	var err error
+	if reference != nil {
+		lbConf = &elbv2gw.LoadBalancerConfiguration{}
+		if reference.Namespace != nil {
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Namespace: string(*reference.Namespace),
+				Name:      reference.Name,
+			}, lbConf)
+		} else {
+			err = errors.New("Namespace must be specified in ParametersRef")
+		}
+	}
+	return lbConf, err
 }
 
 func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor) error {
@@ -259,8 +301,8 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 	return nil
 }
 
-func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, listenerToRoute map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
-	stack, lb, backendSGRequired, err := r.modelBuilder.Build(ctx, gw, &elbv2gw.LoadBalancerConfiguration{}, listenerToRoute)
+func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
+	stack, lb, backendSGRequired, err := r.modelBuilder.Build(ctx, gw, lbConf, listenerToRoute)
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, false, err
