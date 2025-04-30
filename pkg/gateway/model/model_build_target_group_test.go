@@ -274,7 +274,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 
 			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, tc.disableRestrictedSGRules, tc.defaultTargetType)
 
-			out, err := builder.buildTargetGroupSpec(tc.gateway, tc.route, nil, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
+			out, err := builder.buildTargetGroupSpec(tc.gateway, tc.route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return

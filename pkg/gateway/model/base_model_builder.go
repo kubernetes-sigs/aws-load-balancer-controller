@@ -26,7 +26,7 @@ import (
 // Builder builds the model stack for a Gateway resource.
 type Builder interface {
 	// Build model stack for a gateway
-	Build(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error)
+	Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error)
 }
 
 // NewModelBuilder construct a new baseModelBuilder
@@ -163,11 +163,7 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 	return stack, lb, securityGroups.backendSecurityGroupAllocated, nil
 }
 
-func (baseBuilder *baseModelBuilder) isDeleteProtected(lbConf *elbv2gw.LoadBalancerConfiguration) bool {
-	if lbConf == nil {
-		return false
-	}
-
+func (baseBuilder *baseModelBuilder) isDeleteProtected(lbConf elbv2gw.LoadBalancerConfiguration) bool {
 	for _, attr := range lbConf.Spec.LoadBalancerAttributes {
 		if attr.Key == shared_constants.LBAttributeDeletionProtection {
 			deletionProtectionEnabled, err := strconv.ParseBool(attr.Value)
@@ -184,7 +180,7 @@ func (baseBuilder *baseModelBuilder) isDeleteProtected(lbConf *elbv2gw.LoadBalan
 	return false
 }
 
-func (baseBuilder *baseModelBuilder) buildLoadBalancerScheme(lbConf *elbv2gw.LoadBalancerConfiguration) (elbv2model.LoadBalancerScheme, error) {
+func (baseBuilder *baseModelBuilder) buildLoadBalancerScheme(lbConf elbv2gw.LoadBalancerConfiguration) (elbv2model.LoadBalancerScheme, error) {
 	scheme := lbConf.Spec.Scheme
 
 	if scheme == nil {
@@ -201,7 +197,7 @@ func (baseBuilder *baseModelBuilder) buildLoadBalancerScheme(lbConf *elbv2gw.Loa
 }
 
 // buildLoadBalancerIPAddressType builds the LoadBalancer IPAddressType.
-func (baseBuilder *baseModelBuilder) buildLoadBalancerIPAddressType(lbConf *elbv2gw.LoadBalancerConfiguration) (elbv2model.IPAddressType, error) {
+func (baseBuilder *baseModelBuilder) buildLoadBalancerIPAddressType(lbConf elbv2gw.LoadBalancerConfiguration) (elbv2model.IPAddressType, error) {
 
 	if lbConf.Spec.IpAddressType == nil {
 		return baseBuilder.defaultIPType, nil

@@ -216,17 +216,16 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 	// Test cases
 	tests := []struct {
 		name  string
-		lbCfg *elbv2gw.LoadBalancerConfiguration
+		lbCfg elbv2gw.LoadBalancerConfiguration
 		want  map[int32]*elbv2gw.ListenerConfiguration
 	}{
 		{
-			name:  "nil configuration",
-			lbCfg: nil,
-			want:  map[int32]*elbv2gw.ListenerConfiguration{},
+			name: "nil configuration",
+			want: map[int32]*elbv2gw.ListenerConfiguration{},
 		},
 		{
 			name: "nil listener configurations",
-			lbCfg: &elbv2gw.LoadBalancerConfiguration{
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: nil,
 				},
@@ -235,7 +234,7 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 		},
 		{
 			name: "empty listener configurations",
-			lbCfg: &elbv2gw.LoadBalancerConfiguration{
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: createListenerConfigs(),
 				},
@@ -244,7 +243,7 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 		},
 		{
 			name: "single HTTP listener",
-			lbCfg: &elbv2gw.LoadBalancerConfiguration{
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: createListenerConfigs("HTTP:80"),
 				},
@@ -257,7 +256,7 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 		},
 		{
 			name: "multiple valid listeners",
-			lbCfg: &elbv2gw.LoadBalancerConfiguration{
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: createListenerConfigs(
 						"HTTP:80",
