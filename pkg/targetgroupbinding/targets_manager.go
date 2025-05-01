@@ -100,7 +100,8 @@ func (m *cachedTargetsManager) RegisterTargets(ctx context.Context, tgb *elbv2ap
 			return err
 		}
 		m.logger.Info("registered targets",
-			"arn", tgARN)
+			"arn", tgARN,
+			"targets", targetsChunk)
 		m.recordSuccessfulRegisterTargetsOperation(tgARN, targetsChunk)
 	}
 	return nil
@@ -126,7 +127,8 @@ func (m *cachedTargetsManager) DeregisterTargets(ctx context.Context, tgb *elbv2
 			return err
 		}
 		m.logger.Info("deRegistered targets",
-			"arn", tgARN)
+			"arn", tgARN,
+			"targets", targetsChunk)
 		m.recordSuccessfulDeregisterTargetsOperation(tgARN, targetsChunk)
 	}
 	return nil
