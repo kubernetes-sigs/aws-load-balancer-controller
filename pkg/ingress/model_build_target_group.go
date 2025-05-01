@@ -5,10 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -92,7 +93,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(ctx context.Context, targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString) *elbv2model.TargetGroupBindingNetworking {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString) *elbv2model.TargetGroupBindingNetworking {
 	if t.backendSGIDToken == nil {
 		return nil
 	}

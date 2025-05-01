@@ -45,7 +45,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool, defaultEnableManageBackendSGRules bool,
-	disableRestrictedSGRules bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *defaultModelBuilder {
+	disableRestrictedSGRules bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, tcpUdpEnabled bool) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:           annotationParser,
 		subnetsResolver:            subnetsResolver,
@@ -70,6 +70,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		disableRestrictedSGRules:   disableRestrictedSGRules,
 		logger:                     logger,
 		metricsCollector:           metricsCollector,
+		enableTCPUDPSupport:        tcpUdpEnabled,
 	}
 }
 
@@ -100,6 +101,7 @@ type defaultModelBuilder struct {
 	enableIPTargetType        bool
 	logger                    logr.Logger
 	metricsCollector          lbcmetrics.MetricCollector
+	enableTCPUDPSupport       bool
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
@@ -157,6 +159,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckTimeoutForInstanceModeLocal:            6,
 		defaultHealthCheckHealthyThresholdForInstanceModeLocal:   2,
 		defaultHealthCheckUnhealthyThresholdForInstanceModeLocal: 2,
+		enableTCPUDPSupport:                                      b.enableTCPUDPSupport,
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -229,6 +232,8 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckTimeoutForInstanceModeLocal            int32
 	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int32
 	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int32
+
+	enableTCPUDPSupport bool
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {

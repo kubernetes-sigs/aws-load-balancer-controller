@@ -119,4 +119,5 @@ const (
 	SvcLBSuffixSourceNatIpv6Prefixes                     = "aws-load-balancer-source-nat-ipv6-prefixes"
 	SvcLBSuffixLoadBalancerCapacityReservation           = "aws-load-balancer-minimum-load-balancer-capacity"
 	SvcLBSuffixEnableIcmpForPathMtuDiscovery             = "aws-load-balancer-enable-icmp-for-path-mtu-discovery"
+	SvcLBSuffixEnableTCPUDPListener                      = "aws-load-balancer-enable-tcp-udp-listener"
 )

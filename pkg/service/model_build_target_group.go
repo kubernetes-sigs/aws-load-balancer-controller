@@ -441,9 +441,9 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}
 	var tgbNetworking *elbv2model.TargetGroupBindingNetworking
 	if len(t.loadBalancer.Spec.SecurityGroups) == 0 {
-		tgbNetworking, err = t.buildTargetGroupBindingNetworkingLegacy(ctx, targetPort, *hc.Port, port, scheme, targetGroup.Spec.IPAddressType)
+		tgbNetworking, err = t.buildTargetGroupBindingNetworkingLegacy(ctx, targetPort, targetGroup.Spec.Protocol, *hc.Port, scheme, targetGroup.Spec.IPAddressType)
 	} else {
-		tgbNetworking, err = t.buildTargetGroupBindingNetworking(ctx, targetPort, *hc.Port, port)
+		tgbNetworking, err = t.buildTargetGroupBindingNetworking(ctx, targetPort, *hc.Port, targetGroup.Spec.Protocol)
 	}
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceSpec{}, err
@@ -478,7 +478,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, tgPort intstr.IntOrString,
-	hcPort intstr.IntOrString, port corev1.ServicePort) (*elbv2model.TargetGroupBindingNetworking, error) {
+	hcPort intstr.IntOrString, tgProtocol elbv2model.Protocol) (*elbv2model.TargetGroupBindingNetworking, error) {
 	if t.backendSGIDToken == nil {
 		return nil, nil
 	}
@@ -491,25 +491,27 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 			Protocol: &protocolTCP,
 			Port:     nil,
 		})
-		if port.Protocol == corev1.ProtocolUDP {
+		if tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolTCP_UDP {
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolUDP,
 				Port:     nil,
 			})
 		}
 	} else {
-		switch port.Protocol {
-		case corev1.ProtocolTCP:
+		switch tgProtocol {
+		case elbv2model.ProtocolTCP:
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolTCP,
 				Port:     &tgPort,
 			})
-		case corev1.ProtocolUDP:
+		case elbv2model.ProtocolTCP_UDP:
+			fallthrough
+		case elbv2model.ProtocolUDP:
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolUDP,
 				Port:     &tgPort,
 			})
-			if hcPort.String() == shared_constants.HealthCheckPortTrafficPort || (hcPort.Type == intstr.Int && hcPort.IntValue() == tgPort.IntValue()) {
+			if tgProtocol == elbv2model.ProtocolTCP_UDP || hcPort.String() == shared_constants.HealthCheckPortTrafficPort || (hcPort.Type == intstr.Int && hcPort.IntValue() == tgPort.IntValue()) {
 				ports = append(ports, elbv2api.NetworkingPort{
 					Protocol: &protocolTCP,
 					Port:     &tgPort,
@@ -563,8 +565,8 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRangeCIDRs(_ context.Context
 	return peers
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx context.Context, tgPort intstr.IntOrString,
-	hcPort intstr.IntOrString, port corev1.ServicePort, scheme elbv2model.LoadBalancerScheme, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) (*elbv2model.TargetGroupBindingNetworking, error) {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx context.Context, tgPort intstr.IntOrString, tgProtocol elbv2model.Protocol,
+	hcPort intstr.IntOrString, scheme elbv2model.LoadBalancerScheme, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) (*elbv2model.TargetGroupBindingNetworking, error) {
 	manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlagLegacy(ctx)
 	if err != nil {
 		return nil, err
@@ -572,35 +574,54 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 	if !manageBackendSGRules {
 		return nil, nil
 	}
-	tgProtocol := port.Protocol
-	networkingProtocol := elbv2api.NetworkingProtocolTCP
 	healthCheckProtocol := elbv2api.NetworkingProtocolTCP
-	if tgProtocol == corev1.ProtocolUDP {
-		networkingProtocol = elbv2api.NetworkingProtocolUDP
-	}
+
 	loadBalancerSubnetCIDRs := t.getLoadBalancerSubnetsSourceRanges(targetGroupIPAddressType)
 	trafficSource := loadBalancerSubnetCIDRs
 	defaultRangeUsed := false
-	if networkingProtocol == elbv2api.NetworkingProtocolUDP || t.preserveClientIP {
+	var trafficPorts []elbv2api.NetworkingPort
+	if tgProtocol == elbv2model.ProtocolUDP || t.preserveClientIP {
 		trafficSource = t.getLoadBalancerSourceRanges(ctx)
 		if len(trafficSource) == 0 {
-			trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, port.Protocol, scheme)
+			trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, tgProtocol, scheme)
 			if err != nil {
 				return nil, err
 			}
 			defaultRangeUsed = true
 		}
 	}
+
+	if tgProtocol == elbv2model.ProtocolTCP_UDP {
+		tcpProtocol := elbv2api.NetworkingProtocolTCP
+		udpProtocol := elbv2api.NetworkingProtocolUDP
+		trafficPorts = []elbv2api.NetworkingPort{
+			{
+				Port:     &tgPort,
+				Protocol: &tcpProtocol,
+			},
+			{
+				Port:     &tgPort,
+				Protocol: &udpProtocol,
+			},
+		}
+	} else {
+		networkingProtocol := elbv2api.NetworkingProtocolTCP
+		if tgProtocol == elbv2model.ProtocolUDP {
+			networkingProtocol = elbv2api.NetworkingProtocolUDP
+		}
+
+		trafficPorts = []elbv2api.NetworkingPort{
+			{
+				Port:     &tgPort,
+				Protocol: &networkingProtocol,
+			},
+		}
+	}
 	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
 		Ingress: []elbv2model.NetworkingIngressRule{
 			{
-				From: t.buildPeersFromSourceRangeCIDRs(ctx, trafficSource),
-				Ports: []elbv2api.NetworkingPort{
-					{
-						Port:     &tgPort,
-						Protocol: &networkingProtocol,
-					},
-				},
+				From:  t.buildPeersFromSourceRangeCIDRs(ctx, trafficSource),
+				Ports: trafficPorts,
 			},
 		},
 	}
@@ -624,12 +645,12 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 }
 
 func (t *defaultModelBuildTask) getDefaultIPSourceRanges(ctx context.Context, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType,
-	protocol corev1.Protocol, scheme elbv2model.LoadBalancerScheme) ([]string, error) {
+	tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) ([]string, error) {
 	defaultSourceRanges := t.defaultIPv4SourceRanges
 	if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
 		defaultSourceRanges = t.defaultIPv6SourceRanges
 	}
-	if (protocol == corev1.ProtocolUDP || t.preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
+	if (tgProtocol == elbv2model.ProtocolTCP_UDP || tgProtocol == elbv2model.ProtocolUDP || t.preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
 		vpcInfo, err := t.vpcInfoProvider.FetchVPCInfo(ctx, t.vpcID, networking.FetchVPCInfoWithoutCache())
 		if err != nil {
 			return nil, err
@@ -691,8 +712,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNodeSelector(_ context.Co
 }
 
 func (t *defaultModelBuildTask) buildHealthCheckSourceCIDRs(trafficSource, subnetCIDRs []string, tgPort, hcPort intstr.IntOrString,
-	tgProtocol corev1.Protocol, defaultRangeUsed bool) []string {
-	if tgProtocol != corev1.ProtocolUDP &&
+	tgProtocol elbv2model.Protocol, defaultRangeUsed bool) []string {
+	if tgProtocol != elbv2model.ProtocolUDP &&
 		(hcPort.String() == shared_constants.HealthCheckPortTrafficPort || hcPort.IntValue() == tgPort.IntValue()) {
 		if !t.preserveClientIP {
 			return nil

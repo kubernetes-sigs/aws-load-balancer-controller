@@ -13,14 +13,26 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
+var (
+	validMultiProtocolSet = sets.New(string(elbv2model.ProtocolTCP), string(elbv2model.ProtocolUDP))
+)
+
 func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
-	cfg, err := t.buildListenerConfig(ctx)
+
+	if t.shouldUseTCPUDP() {
+		return t.buildListenersWithTCPUDPSupport(ctx, scheme)
+	}
+	return t.buildListenersLegacy(ctx, scheme)
+}
+
+func (t *defaultModelBuildTask) buildListenersLegacy(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
+	cfg, err := t.buildListenerConfig(ctx, sets.New[int32]())
 	if err != nil {
 		return err
 	}
 
 	for _, port := range t.service.Spec.Ports {
-		_, err := t.buildListener(ctx, port, *cfg, scheme)
+		_, err = t.buildListener(ctx, port, cfg, scheme)
 		if err != nil {
 			return err
 		}
@@ -28,7 +40,48 @@ func (t *defaultModelBuildTask) buildListeners(ctx context.Context, scheme elbv2
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg listenerConfig,
+func (t *defaultModelBuildTask) buildListenersWithTCPUDPSupport(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
+	// group by listener port number
+	portMap := make(map[int32][]corev1.ServicePort)
+	for _, port := range t.service.Spec.Ports {
+		key := port.Port
+		if vals, exists := portMap[key]; exists {
+			portMap[key] = append(vals, port)
+		} else {
+			portMap[key] = []corev1.ServicePort{port}
+		}
+	}
+
+	// Now calculate any multi-protocol usage.
+	tcpUdpPortSet := sets.New[int32]()
+	for _, servicePorts := range portMap {
+		if len(servicePorts) > 1 {
+			err := validateMultiProtocolUsage(servicePorts)
+			if err != nil {
+				return err
+			}
+			tcpUdpPortSet.Insert(servicePorts[0].Port)
+		}
+	}
+
+	cfg, err := t.buildListenerConfig(ctx, tcpUdpPortSet)
+	if err != nil {
+		return err
+	}
+
+	// Finally, build the listeners.
+	// This code loops over port map 3 times! But the port map should be relatively small.
+	for _, servicePorts := range portMap {
+		_, err = t.buildListener(ctx, servicePorts[0], cfg, scheme)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
 	scheme elbv2model.LoadBalancerScheme) (*elbv2model.Listener, error) {
 	lsSpec, err := t.buildListenerSpec(ctx, port, cfg, scheme)
 	if err != nil {
@@ -39,11 +92,21 @@ func (t *defaultModelBuildTask) buildListener(ctx context.Context, port corev1.S
 	return ls, nil
 }
 
-func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg listenerConfig,
+func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port corev1.ServicePort, cfg *listenerConfig,
 	scheme elbv2model.LoadBalancerScheme) (elbv2model.ListenerSpec, error) {
-	tgProtocol := elbv2model.Protocol(port.Protocol)
-	listenerProtocol := elbv2model.Protocol(port.Protocol)
-	if tgProtocol != elbv2model.ProtocolUDP && len(cfg.certificates) != 0 && (cfg.tlsPortsSet.Len() == 0 ||
+
+	var tgProtocol elbv2model.Protocol
+	var listenerProtocol elbv2model.Protocol
+
+	if cfg != nil && cfg.tcpUdpPortsSet.Has(port.Port) {
+		tgProtocol = elbv2model.ProtocolTCP_UDP
+		listenerProtocol = elbv2model.ProtocolTCP_UDP
+	} else {
+		tgProtocol = elbv2model.Protocol(port.Protocol)
+		listenerProtocol = elbv2model.Protocol(port.Protocol)
+	}
+
+	if (tgProtocol != elbv2model.ProtocolUDP && tgProtocol != elbv2model.ProtocolTCP_UDP) && len(cfg.certificates) != 0 && (cfg.tlsPortsSet.Len() == 0 ||
 		cfg.tlsPortsSet.Has(port.Name) || cfg.tlsPortsSet.Has(strconv.Itoa(int(port.Port)))) {
 		if cfg.backendProtocol == "ssl" {
 			tgProtocol = elbv2model.ProtocolTLS
@@ -149,7 +212,7 @@ func validateTLSPortsSet(rawTLSPorts []string, ports []corev1.ServicePort) error
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.String, error) {
+func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.Set[string], error) {
 	var rawTLSPorts []string
 
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLPorts, &rawTLSPorts, t.service.Annotations)
@@ -160,7 +223,7 @@ func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.String
 		return nil, err
 	}
 
-	return sets.NewString(rawTLSPorts...), nil
+	return sets.New[string](rawTLSPorts...), nil
 }
 
 func (t *defaultModelBuildTask) buildBackendProtocol(_ context.Context) string {
@@ -191,12 +254,13 @@ func (t *defaultModelBuildTask) buildListenerALPNPolicy(ctx context.Context, lis
 
 type listenerConfig struct {
 	certificates    []elbv2model.Certificate
-	tlsPortsSet     sets.String
+	tlsPortsSet     sets.Set[string]
+	tcpUdpPortsSet  sets.Set[int32]
 	sslPolicy       *string
 	backendProtocol string
 }
 
-func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context) (*listenerConfig, error) {
+func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context, tcpUdpPortsSet sets.Set[int32]) (*listenerConfig, error) {
 	certificates := t.buildListenerCertificates(ctx)
 	tlsPortsSet, err := t.buildTLSPortsSet(ctx)
 	if err != nil {
@@ -209,6 +273,7 @@ func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context) (*liste
 	return &listenerConfig{
 		certificates:    certificates,
 		tlsPortsSet:     tlsPortsSet,
+		tcpUdpPortsSet:  tcpUdpPortsSet,
 		sslPolicy:       sslPolicy,
 		backendProtocol: backendProtocol,
 	}, nil
@@ -233,4 +298,37 @@ func (t *defaultModelBuildTask) buildListenerAttributes(ctx context.Context, svc
 		})
 	}
 	return attributes, nil
+}
+
+func validateMultiProtocolUsage(ports []corev1.ServicePort) error {
+	if len(ports) != 2 {
+		return fmt.Errorf("can only merge two ports, not %d (%+v)", len(ports), ports)
+	}
+	for _, port := range ports {
+		if !validMultiProtocolSet.Has(string(port.Protocol)) {
+			return fmt.Errorf("unsupported protocol for merging: %s", port.Protocol)
+		}
+	}
+	if ports[0].Protocol == ports[1].Protocol {
+		return fmt.Errorf("protocols can't match for merging: %s", ports[0].Protocol)
+	}
+	return nil
+}
+
+func (t *defaultModelBuildTask) shouldUseTCPUDP() bool {
+	annotationValue := t.isTCPUDPEnabledForService(t.service.Annotations)
+
+	if annotationValue != nil {
+		return *annotationValue
+	}
+	return t.enableTCPUDPSupport
+}
+
+func (t *defaultModelBuildTask) isTCPUDPEnabledForService(svcAnnotations map[string]string) *bool {
+	var rawEnabled bool
+	exists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixEnableTCPUDPListener, &rawEnabled, svcAnnotations)
+	if !exists || err != nil {
+		return nil
+	}
+	return &rawEnabled
 }
