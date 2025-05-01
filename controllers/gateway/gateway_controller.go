@@ -507,7 +507,7 @@ func (r *gatewayReconciler) getLoadBalancerConfigForGateway(ctx context.Context,
 	derivedStatus, _ := r.deriveGatewayClassStatusFn(gwClass)
 
 	if derivedStatus != metav1.ConditionTrue {
-		return elbv2gw.LoadBalancerConfiguration{}, errors.Errorf("Unable to materialize gateway when gateway class is not accepted. GatewayClass status is %s", derivedStatus)
+		return elbv2gw.LoadBalancerConfiguration{}, errors.Errorf("Unable to materialize gateway when gateway class [%s] is not accepted. GatewayClass status is %s", gwClass.Name, derivedStatus)
 	}
 
 	gatewayClassLBConfig, err := r.configResolverFn(ctx, k8sClient, gwClass.Spec.ParametersRef)
@@ -523,7 +523,7 @@ func (r *gatewayReconciler) getLoadBalancerConfigForGateway(ctx context.Context,
 			if storedVersion != nil {
 				safeVersion = *storedVersion
 			}
-			return elbv2gw.LoadBalancerConfiguration{}, errors.Errorf("GatewayClass hasn't processed latest loadbalancer config. Processed version %s, Latest version %s", safeVersion, gatewayClassLBConfig.ResourceVersion)
+			return elbv2gw.LoadBalancerConfiguration{}, errors.Errorf("GatewayClass [%s] hasn't processed latest loadbalancer config. Processed version %s, Latest version %s", gwClass.Name, safeVersion, gatewayClassLBConfig.ResourceVersion)
 		}
 	}
 

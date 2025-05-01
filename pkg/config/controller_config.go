@@ -153,7 +153,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrently running reconcile loops for service")
 	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for targetGroupBinding")
-	fs.IntVar(&cfg.GatewayClassMaxConcurrentReconciles, flagGatewayClassMaxConcurrentReconciles, 1,
+	fs.IntVar(&cfg.GatewayClassMaxConcurrentReconciles, flagGatewayClassMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for gateway class changes")
 	fs.IntVar(&cfg.ALBGatewayMaxConcurrentReconciles, flagALBGatewayMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for alb gateway")

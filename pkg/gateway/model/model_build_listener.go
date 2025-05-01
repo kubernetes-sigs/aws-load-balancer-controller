@@ -240,11 +240,12 @@ func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gwLsCfg *gwL
 	certs := make([]elbv2model.Certificate, 0)
 
 	// Build explict certs
-	explicitCerts := l.buildExplicitTLSCertARNs(ctx, *lbLsCfg)
-	certs = append(certs, explicitCerts...)
+	if lbLsCfg != nil {
+		certs = append(certs, l.buildExplicitTLSCertARNs(ctx, *lbLsCfg)...)
+	}
 
 	// Build inferred certs
-	if len(certs) == 0 {
+	if len(certs) == 0 && lbLsCfg != nil {
 		discoveredCerts, err := l.buildInferredTLSCertARNs(ctx, lbLsCfg.ProtocolPort, gwLsCfg.hostnames)
 		if err != nil {
 			l.logger.Error(err, "Unable to discover certs for listener")
