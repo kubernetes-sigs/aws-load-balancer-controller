@@ -117,7 +117,11 @@ func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerAttributes(lbCon
 	return attributes
 }
 
-// TODO -- Fill this in at a later time.
 func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerMinimumCapacity(lbConf *elbv2gw.LoadBalancerConfiguration) *elbv2model.MinimumLoadBalancerCapacity {
-	return nil
+	if lbConf == nil || lbConf.Spec.MinimumLoadBalancerCapacity == nil {
+		return nil
+	}
+	return &elbv2model.MinimumLoadBalancerCapacity{
+		CapacityUnits: lbConf.Spec.MinimumLoadBalancerCapacity.CapacityUnits,
+	}
 }

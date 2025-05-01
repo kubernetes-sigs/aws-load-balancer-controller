@@ -243,6 +243,10 @@ type LoadBalancerConfigurationSpec struct {
 	// when you specify securityGroups
 	// +optional
 	ManageBackendSecurityGroupRules bool `json:"manageBackendSecurityGroupRules,omitempty"`
+
+	// MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers
+	// +optional
+	MinimumLoadBalancerCapacity *MinimumLoadBalancerCapacity `json:"minimumLoadBalancerCapacity,omitempty"`
 }
 
 // TODO -- these can be used to set what generation the gateway is currently on to track progress on reconcile.
@@ -277,6 +281,12 @@ type LoadBalancerConfigurationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LoadBalancerConfiguration `json:"items"`
+}
+
+// MinimumLoadBalancerCapacity Information about a load balancer capacity reservation.
+type MinimumLoadBalancerCapacity struct {
+	// The Capacity Units Value.
+	CapacityUnits int32 `json:"capacityUnits"`
 }
 
 func init() {
