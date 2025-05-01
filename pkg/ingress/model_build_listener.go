@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"net"
 	"strings"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"k8s.io/utils/strings/slices"
@@ -89,12 +90,13 @@ func (t *defaultModelBuildTask) buildListenerDefaultActions(ctx context.Context,
 	}
 	ing := ingsWithDefaultBackend[0]
 	enhancedBackend, err := t.enhancedBackendBuilder.Build(ctx, ing.Ing, *ing.Ing.Spec.DefaultBackend,
+		ing.IngClassConfig.IngClassParams,
 		WithLoadBackendServices(true, t.backendServices),
 		WithLoadAuthConfig(true))
 	if err != nil {
 		return nil, err
 	}
-	return t.buildActions(ctx, protocol, ing, enhancedBackend)
+	return t.buildActions(ctx, protocol, ing, enhancedBackend, ing.IngClassConfig.IngClassParams)
 }
 
 func (t *defaultModelBuildTask) buildListenerTags(_ context.Context, ingList []ClassifiedIngress) (map[string]string, error) {
