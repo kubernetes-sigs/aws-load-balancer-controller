@@ -3,6 +3,7 @@ package gateway
 import (
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sort"
 )
 
 type ConfigMerger interface {
@@ -76,6 +77,11 @@ func (merger *configMergerImpl) mergeLoadBalancerAttributes(merged *elbv2gw.Load
 				Value: v,
 			})
 		}
+
+		sort.Slice(mergedAttributes, func(i, j int) bool {
+			return mergedAttributes[i].Key < mergedAttributes[j].Key
+		})
+
 		merged.LoadBalancerAttributes = mergedAttributes
 
 	}
@@ -105,6 +111,10 @@ func (merger *configMergerImpl) mergeListenerConfig(merged *elbv2gw.LoadBalancer
 		for _, cfg := range listenerConfigurationMap {
 			listenerConfig = append(listenerConfig, cfg)
 		}
+
+		sort.Slice(listenerConfig, func(i, j int) bool {
+			return listenerConfig[i].ProtocolPort < listenerConfig[j].ProtocolPort
+		})
 
 		merged.ListenerConfigurations = &listenerConfig
 	}
