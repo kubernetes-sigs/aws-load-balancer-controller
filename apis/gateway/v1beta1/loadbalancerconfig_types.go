@@ -251,7 +251,7 @@ type LoadBalancerConfigurationSpec struct {
 	// specifies whether you want the controller to configure security group rules on Node/Pod for traffic access
 	// when you specify securityGroups
 	// +optional
-	ManageBackendSecurityGroupRules bool `json:"manageBackendSecurityGroupRules,omitempty"`
+	ManageBackendSecurityGroupRules *bool `json:"manageBackendSecurityGroupRules,omitempty"`
 
 	// MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers
 	// +optional

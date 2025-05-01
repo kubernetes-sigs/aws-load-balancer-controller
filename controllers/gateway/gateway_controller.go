@@ -214,26 +214,6 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	return r.reconcileUpdate(ctx, gw, stack, lb, backendSGRequired)
 }
 
-func (r *gatewayReconciler) getLoadBalancerConfigForGateway(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass) (*elbv2gw.LoadBalancerConfiguration, error) {
-	var gwParametersRef *gwv1.ParametersReference
-	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.ParametersRef != nil {
-		// Convert local param ref -> namespaced param ref
-		ns := gwv1.Namespace(gw.Namespace)
-		gwParametersRef = &gwv1.ParametersReference{
-			Group:     gw.Spec.Infrastructure.ParametersRef.Group,
-			Kind:      gw.Spec.Infrastructure.ParametersRef.Kind,
-			Name:      gw.Spec.Infrastructure.ParametersRef.Name,
-			Namespace: &ns,
-		}
-	}
-
-	gatewayLBConfig, err := r.resolveLoadBalancerConfig(ctx, k8sClient, gwParametersRef)
-	if err != nil {
-		return &elbv2gw.LoadBalancerConfiguration{}, err
-	}
-	return gatewayLBConfig, nil
-}
-
 func (r *gatewayReconciler) resolveLoadBalancerConfig(ctx context.Context, k8sClient client.Client, reference *gwv1.ParametersReference) (*elbv2gw.LoadBalancerConfiguration, error) {
 	var lbConf *elbv2gw.LoadBalancerConfiguration
 	var err error
