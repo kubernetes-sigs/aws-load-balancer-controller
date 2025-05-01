@@ -150,6 +150,15 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
       minimumLoadBalancerCapacity:
         capacityUnits: 1000
     ```
+    - with targetType
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      targetType: ip
+    ```
 
 ### IngressClassParams specification
 
