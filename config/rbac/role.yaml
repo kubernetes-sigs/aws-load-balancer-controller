@@ -179,6 +179,7 @@ rules:
   verbs:
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - gateway.networking.k8s.io
@@ -201,6 +202,7 @@ rules:
   verbs:
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - gateway.networking.k8s.io
