@@ -23,6 +23,7 @@ const (
 	flagServiceTargetENISGTags                       = "service-target-eni-security-group-tags"
 	flagServiceMaxConcurrentReconciles               = "service-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxConcurrentReconciles    = "targetgroupbinding-max-concurrent-reconciles"
+	flagGatewayClassMaxConcurrentReconciles          = "gateway-class-max-concurrent-reconciles"
 	flagALBGatewayMaxConcurrentReconciles            = "alb-gateway-max-concurrent-reconciles"
 	flagNLBGatewayMaxConcurrentReconciles            = "nlb-gateway-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
@@ -107,6 +108,9 @@ type ControllerConfig struct {
 	// Max exponential backoff delay for reconcile failures of TargetGroupBinding
 	TargetGroupBindingMaxExponentialBackoffDelay time.Duration
 
+	// GatewayClassMaxConcurrentReconciles for concurrent reconcile loops for GatewayClass objects
+	GatewayClassMaxConcurrentReconciles int
+
 	// ALBGatewayMaxConcurrentReconciles Max concurrent reconcile loops for ALB Gateway objects
 	ALBGatewayMaxConcurrentReconciles int
 
@@ -149,6 +153,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrently running reconcile loops for service")
 	fs.IntVar(&cfg.TargetGroupBindingMaxConcurrentReconciles, flagTargetGroupBindingMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for targetGroupBinding")
+	fs.IntVar(&cfg.GatewayClassMaxConcurrentReconciles, flagGatewayClassMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
+		"Maximum number of concurrently running reconcile loops for gateway class changes")
 	fs.IntVar(&cfg.ALBGatewayMaxConcurrentReconciles, flagALBGatewayMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for alb gateway")
 	fs.IntVar(&cfg.NLBGatewayMaxConcurrentReconciles, flagNLBGatewayMaxConcurrentReconciles, defaultMaxConcurrentReconciles,

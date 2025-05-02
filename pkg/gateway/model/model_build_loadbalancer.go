@@ -18,7 +18,7 @@ const (
 )
 
 type loadBalancerBuilder interface {
-	buildLoadBalancerSpec(scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput, securityGroupTokens []core.StringToken) (elbv2model.LoadBalancerSpec, error)
+	buildLoadBalancerSpec(scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput, securityGroupTokens []core.StringToken) (elbv2model.LoadBalancerSpec, error)
 }
 
 type loadBalancerBuilderImpl struct {
@@ -35,7 +35,7 @@ func newLoadBalancerBuilder(loadBalancerType elbv2model.LoadBalancerType, tagHel
 	}
 }
 
-func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerSpec(scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput, securityGroupTokens []core.StringToken) (elbv2model.LoadBalancerSpec, error) {
+func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerSpec(scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput, securityGroupTokens []core.StringToken) (elbv2model.LoadBalancerSpec, error) {
 
 	name, err := lbModelBuilder.buildLoadBalancerName(lbConf, gw, scheme)
 	if err != nil {
@@ -70,7 +70,7 @@ func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerSpec(scheme elbv
 	return spec, nil
 }
 
-func (lbModelBuilder *loadBalancerBuilderImpl) addL4Fields(spec *elbv2model.LoadBalancerSpec, lbConf *elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput) {
+func (lbModelBuilder *loadBalancerBuilderImpl) addL4Fields(spec *elbv2model.LoadBalancerSpec, lbConf elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput) {
 	spec.EnablePrefixForIpv6SourceNat = lbModelBuilder.translateSourcePrefixEnabled(subnets.sourceIPv6NatEnabled)
 
 	if lbConf.Spec.EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic != nil {
@@ -78,7 +78,7 @@ func (lbModelBuilder *loadBalancerBuilderImpl) addL4Fields(spec *elbv2model.Load
 	}
 }
 
-func (lbModelBuilder *loadBalancerBuilderImpl) addL7Fields(spec *elbv2model.LoadBalancerSpec, lbConf *elbv2gw.LoadBalancerConfiguration) {
+func (lbModelBuilder *loadBalancerBuilderImpl) addL7Fields(spec *elbv2model.LoadBalancerSpec, lbConf elbv2gw.LoadBalancerConfiguration) {
 	spec.CustomerOwnedIPv4Pool = lbConf.Spec.CustomerOwnedIpv4Pool
 	spec.IPv4IPAMPool = lbConf.Spec.IPv4IPAMPoolId
 }
@@ -90,7 +90,7 @@ func (lbModelBuilder *loadBalancerBuilderImpl) translateSourcePrefixEnabled(sour
 	return elbv2model.EnablePrefixForIpv6SourceNatOff
 }
 
-func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerName(lbConf *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, scheme elbv2model.LoadBalancerScheme) (string, error) {
+func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerName(lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, scheme elbv2model.LoadBalancerScheme) (string, error) {
 	if lbConf.Spec.LoadBalancerName != nil {
 		name := *lbConf.Spec.LoadBalancerName
 		return name, nil
@@ -106,7 +106,7 @@ func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerName(lbConf *elb
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid), nil
 }
 
-func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerAttributes(lbConf *elbv2gw.LoadBalancerConfiguration) []elbv2model.LoadBalancerAttribute {
+func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerAttributes(lbConf elbv2gw.LoadBalancerConfiguration) []elbv2model.LoadBalancerAttribute {
 	var attributes []elbv2model.LoadBalancerAttribute
 	for _, attr := range lbConf.Spec.LoadBalancerAttributes {
 		attributes = append(attributes, elbv2model.LoadBalancerAttribute{
@@ -117,8 +117,8 @@ func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerAttributes(lbCon
 	return attributes
 }
 
-func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerMinimumCapacity(lbConf *elbv2gw.LoadBalancerConfiguration) *elbv2model.MinimumLoadBalancerCapacity {
-	if lbConf == nil || lbConf.Spec.MinimumLoadBalancerCapacity == nil {
+func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerMinimumCapacity(lbConf elbv2gw.LoadBalancerConfiguration) *elbv2model.MinimumLoadBalancerCapacity {
+	if lbConf.Spec.MinimumLoadBalancerCapacity == nil {
 		return nil
 	}
 	return &elbv2model.MinimumLoadBalancerCapacity{

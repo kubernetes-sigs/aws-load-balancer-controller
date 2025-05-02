@@ -35,7 +35,7 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 
 	testCases := []struct {
 		name            string
-		lbConf          *elbv2gw.LoadBalancerConfiguration
+		lbConf          elbv2gw.LoadBalancerConfiguration
 		ipAddressType   elbv2model.IPAddressType
 		expectedTags    map[string]string
 		tagErr          error
@@ -51,7 +51,7 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 	}{
 		{
 			name: "sg specified - no backend sg",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SecurityGroups: &[]string{
 						"sg1",
@@ -73,9 +73,9 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 		{
 			name:            "sg specified - with backend sg",
 			enableBackendSg: true,
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 					SecurityGroups: &[]string{
 						"sg1",
 						"sg2",
@@ -101,9 +101,9 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 		},
 		{
 			name: "sg specified - with backend sg - error - backendsg not enabled",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 					SecurityGroups: &[]string{
 						"sg1",
 						"sg2",
@@ -121,9 +121,9 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 		{
 			name:            "sg specified - with backend sg - error - resolve sg error",
 			enableBackendSg: true,
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 					SecurityGroups: &[]string{
 						"sg1",
 						"sg2",
@@ -138,9 +138,9 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 		{
 			name:            "sg specified - with backend sg - error - resolve sg error",
 			enableBackendSg: true,
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 					SecurityGroups: &[]string{
 						"sg1",
 						"sg2",
@@ -212,7 +212,7 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 
 	testCases := []struct {
 		name            string
-		lbConf          *elbv2gw.LoadBalancerConfiguration
+		lbConf          elbv2gw.LoadBalancerConfiguration
 		ipAddressType   elbv2model.IPAddressType
 		expectedTags    map[string]string
 		tagErr          error
@@ -227,7 +227,7 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 	}{
 		{
 			name: "sg allocate - no backend sg",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
 			expectedStackResources: 1,
@@ -235,9 +235,9 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 		{
 			name:            "sg allocate - with backend sg",
 			enableBackendSg: true,
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 				},
 			},
 			providerCall: &backendSgProviderCall{
@@ -249,9 +249,9 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 		{
 			name:            "sg allocate - provider error",
 			enableBackendSg: true,
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
-					ManageBackendSecurityGroupRules: true,
+					ManageBackendSecurityGroupRules: awssdk.Bool(true),
 				},
 			},
 			providerCall: &backendSgProviderCall{
@@ -261,7 +261,7 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 		},
 		{
 			name: "sg allocate - tag error",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
 			expectErr: true,
@@ -315,19 +315,19 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *testing.T) {
 	testCases := []struct {
 		name          string
-		lbConf        *elbv2gw.LoadBalancerConfiguration
+		lbConf        elbv2gw.LoadBalancerConfiguration
 		ipAddressType elbv2model.IPAddressType
 		routes        map[int32][]routeutils.RouteDescriptor
 		expected      []ec2model.IPPermission
 	}{
 		{
 			name:     "no routes",
-			lbConf:   &elbv2gw.LoadBalancerConfiguration{},
+			lbConf:   elbv2gw.LoadBalancerConfiguration{},
 			expected: make([]ec2model.IPPermission, 0),
 		},
 		{
 			name: "ipv4 - tcp - with default source ranges",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
 			routes: map[int32][]routeutils.RouteDescriptor{
@@ -352,7 +352,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		},
 		{
 			name: "ipv4 - tcp - with source range",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
 						"127.0.0.1/24",
@@ -403,7 +403,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		},
 		{
 			name: "ipv4 - udp - with source range",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
 						"127.0.0.1/24",
@@ -454,12 +454,12 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		},
 		{
 			name: "ipv4 - udp - with source range - icmp enabled",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
 						"127.0.0.1/24",
 					},
-					EnableICMP: true,
+					EnableICMP: awssdk.Bool(true),
 				},
 			},
 			routes: map[int32][]routeutils.RouteDescriptor{
@@ -494,7 +494,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		},
 		{
 			name: "ipv4 - with duplicated route type - with source range",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
 						"127.0.0.1/24",
@@ -548,7 +548,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		},
 		{
 			name: "ipv4 - with duplicated route type - with source range - multiple ports",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
 						"127.0.0.1/24",
@@ -679,7 +679,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		{
 			name:          "ipv6 - with default source ranges",
 			ipAddressType: elbv2model.IPAddressTypeDualStack,
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
 			routes: map[int32][]routeutils.RouteDescriptor{
@@ -718,7 +718,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		{
 			name:          "ipv6 - with source range",
 			ipAddressType: elbv2model.IPAddressTypeDualStack,
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
 						"2001:db8::/32",
@@ -787,7 +787,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		{
 			name:          "ipv6 + ipv4 - with source range",
 			ipAddressType: elbv2model.IPAddressTypeDualStack,
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
 						"2001:db8::/32",
@@ -828,7 +828,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		{
 			name:          "ipv6 + ipv4 - with source range - but lb type doesnt support ipv6",
 			ipAddressType: elbv2model.IPAddressTypeIPV4,
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
 						"2001:db8::/32",
@@ -858,7 +858,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		},
 		{
 			name: "prefix list",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
 						"127.0.0.1/24",

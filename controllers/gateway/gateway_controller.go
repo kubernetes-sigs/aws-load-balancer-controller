@@ -3,7 +3,6 @@ package gateway
 import (
 	"context"
 	"fmt"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -38,12 +37,6 @@ import (
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-type Reconciler interface {
-	Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error)
-	SetupWithManager(ctx context.Context, mgr ctrl.Manager) (controller.Controller, error)
-	SetupWatches(ctx context.Context, controller controller.Controller, mgr ctrl.Manager) error
-}
-
 var _ Reconciler = &gatewayReconciler{}
 
 // NewNLBGatewayReconciler constructs a gateway reconciler to handle specifically for NLB gateways
@@ -65,6 +58,8 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, gatewayTagPrefix, logger, metricsCollector, controllerName)
 
+	cfgResolver := newGatewayConfigResolver()
+
 	return &gatewayReconciler{
 		controllerName:          controllerName,
 		lbType:                  lbType,
@@ -82,6 +77,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 		logger:                  logger,
 		metricsCollector:        metricsCollector,
 		reconcileTracker:        reconcileTracker,
+		cfgResolver:             cfgResolver,
 	}
 }
 
@@ -101,12 +97,11 @@ type gatewayReconciler struct {
 	finalizerManager        k8s.FinalizerManager
 	eventRecorder           record.EventRecorder
 	logger                  logr.Logger
+	metricsCollector        lbcmetrics.MetricCollector
+	reconcileTracker        func(namespaceName types.NamespacedName)
 
-	metricsCollector lbcmetrics.MetricCollector
-	reconcileTracker func(namespaceName types.NamespacedName)
+	cfgResolver gatewayConfigResolver
 }
-
-// TODO - Add Gateway and TG configuration permissions
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways,verbs=get;list;watch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/status,verbs=get;update;patch
@@ -182,18 +177,19 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		return nil
 	}
 
+	mergedLbConfig, err := r.cfgResolver.getLoadBalancerConfigForGateway(ctx, r.k8sClient, gw, gwClass)
+
+	if err != nil {
+		return err
+	}
+
 	allRoutes, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter)
 
 	if err != nil {
 		return err
 	}
 
-	lbConfig, err := r.getLoadBalancerConfigForGateway(ctx, r.k8sClient, gw, gwClass)
-	if err != nil {
-		return err
-	}
-
-	stack, lb, backendSGRequired, err := r.buildModel(ctx, gw, lbConfig, allRoutes)
+	stack, lb, backendSGRequired, err := r.buildModel(ctx, gw, mergedLbConfig, allRoutes)
 
 	if err != nil {
 		return err
@@ -208,26 +204,6 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	}
 
 	return r.reconcileUpdate(ctx, gw, stack, lb, backendSGRequired)
-}
-
-func (r *gatewayReconciler) getLoadBalancerConfigForGateway(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass) (*elbv2gw.LoadBalancerConfiguration, error) {
-	var gwParametersRef *gwv1.ParametersReference
-	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.ParametersRef != nil {
-		// Convert local param ref -> namespaced param ref
-		ns := gwv1.Namespace(gw.Namespace)
-		gwParametersRef = &gwv1.ParametersReference{
-			Group:     gw.Spec.Infrastructure.ParametersRef.Group,
-			Kind:      gw.Spec.Infrastructure.ParametersRef.Kind,
-			Name:      gw.Spec.Infrastructure.ParametersRef.Name,
-			Namespace: &ns,
-		}
-	}
-
-	gatewayLBConfig, err := r.resolveLoadBalancerConfig(ctx, k8sClient, gwParametersRef)
-	if err != nil {
-		return &elbv2gw.LoadBalancerConfiguration{}, err
-	}
-	return gatewayLBConfig, nil
 }
 
 func (r *gatewayReconciler) resolveLoadBalancerConfig(ctx context.Context, k8sClient client.Client, reference *gwv1.ParametersReference) (*elbv2gw.LoadBalancerConfiguration, error) {
@@ -301,8 +277,8 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 	return nil
 }
 
-func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, lbConf *elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
-	stack, lb, backendSGRequired, err := r.modelBuilder.Build(ctx, gw, lbConf, listenerToRoute)
+func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
+	stack, lb, backendSGRequired, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute)
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, false, err

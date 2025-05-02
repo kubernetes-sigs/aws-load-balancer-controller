@@ -16,7 +16,7 @@ import (
 func TestLoadBalancerBuilderImpl_BuildLoadBalancerName(t *testing.T) {
 	tests := []struct {
 		name        string
-		lbConf      *elbv2gw.LoadBalancerConfiguration
+		lbConf      elbv2gw.LoadBalancerConfiguration
 		gw          *gwv1.Gateway
 		scheme      elbv2model.LoadBalancerScheme
 		clusterName string
@@ -25,7 +25,7 @@ func TestLoadBalancerBuilderImpl_BuildLoadBalancerName(t *testing.T) {
 	}{
 		{
 			name: "specify load balancer name in load balancer configuration",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					LoadBalancerName: aws.String("my-example-lb"),
 				},
@@ -37,7 +37,7 @@ func TestLoadBalancerBuilderImpl_BuildLoadBalancerName(t *testing.T) {
 		},
 		{
 			name: "generated name with valid characters",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
 			gw: &gwv1.Gateway{
@@ -54,7 +54,7 @@ func TestLoadBalancerBuilderImpl_BuildLoadBalancerName(t *testing.T) {
 		},
 		{
 			name: "generated name with invalid characters",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
 			gw: &gwv1.Gateway{
@@ -71,7 +71,7 @@ func TestLoadBalancerBuilderImpl_BuildLoadBalancerName(t *testing.T) {
 		},
 		{
 			name: "provide long namespace and name",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
 			gw: &gwv1.Gateway{
@@ -121,12 +121,12 @@ func TestLoadBalancerBuilderImpl_BuildLoadBalancerName(t *testing.T) {
 func TestLoadBalancerBuilderImpl_BuildLoadBalancerAttributes(t *testing.T) {
 	tests := []struct {
 		name   string
-		lbConf *elbv2gw.LoadBalancerConfiguration
+		lbConf elbv2gw.LoadBalancerConfiguration
 		want   []elbv2model.LoadBalancerAttribute
 	}{
 		{
 			name: "provide single attribute",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					LoadBalancerAttributes: []elbv2gw.LoadBalancerAttribute{
 						{
@@ -145,7 +145,7 @@ func TestLoadBalancerBuilderImpl_BuildLoadBalancerAttributes(t *testing.T) {
 		},
 		{
 			name: "provide multiple attributes",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					LoadBalancerAttributes: []elbv2gw.LoadBalancerAttribute{
 						{
@@ -184,12 +184,12 @@ func TestLoadBalancerBuilderImpl_BuildLoadBalancerAttributes(t *testing.T) {
 func TestLoadBalancerBuilderImpl_BuildLoadBalancerMinimumCapacity(t *testing.T) {
 	tests := []struct {
 		name   string
-		lbConf *elbv2gw.LoadBalancerConfiguration
+		lbConf elbv2gw.LoadBalancerConfiguration
 		want   *elbv2model.MinimumLoadBalancerCapacity
 	}{
 		{
 			name: "MinimumLoadBalancerCapacity is nil",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					MinimumLoadBalancerCapacity: nil,
 				},
@@ -198,7 +198,7 @@ func TestLoadBalancerBuilderImpl_BuildLoadBalancerMinimumCapacity(t *testing.T) 
 		},
 		{
 			name: "MinimumLoadBalancerCapacity with a valid value",
-			lbConf: &elbv2gw.LoadBalancerConfiguration{
+			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					MinimumLoadBalancerCapacity: &elbv2gw.MinimumLoadBalancerCapacity{
 						CapacityUnits: 100,

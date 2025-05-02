@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/ptr"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
@@ -109,8 +110,8 @@ func Test_IsGatewayManagedByLBController(t *testing.T) {
 
 func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 	type args struct {
-		gwClasses    []*gwv1.GatewayClass
-		gwController string
+		gwClasses     []*gwv1.GatewayClass
+		gwControllers sets.Set[string]
 	}
 	tests := []struct {
 		name string
@@ -154,7 +155,7 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 						},
 					},
 				},
-				gwController: constants.NLBGatewayController,
+				gwControllers: sets.New(constants.NLBGatewayController),
 			},
 			want: 2,
 		},
@@ -195,7 +196,7 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 						},
 					},
 				},
-				gwController: constants.ALBGatewayController,
+				gwControllers: sets.New(constants.ALBGatewayController),
 			},
 			want: 2,
 		},
@@ -209,7 +210,7 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 				k8sClient.Create(context.Background(), gwClass)
 			}
 
-			got := GetGatewayClassesManagedByLBController(context.Background(), k8sClient, tt.args.gwController)
+			got := GetGatewayClassesManagedByLBController(context.Background(), k8sClient, tt.args.gwControllers)
 			assert.Equal(t, tt.want, len(got))
 		})
 	}
@@ -465,9 +466,9 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 	defaultNamespace := gwv1.Namespace("default")
 	anotherNamespace := gwv1.Namespace("another-namespace")
 	type args struct {
-		lbConfig     *elbv2gw.LoadBalancerConfiguration
-		gwClasses    []*gwv1.GatewayClass
-		gwController string
+		lbConfig      *elbv2gw.LoadBalancerConfiguration
+		gwClasses     []*gwv1.GatewayClass
+		gwControllers sets.Set[string]
 	}
 	tests := []struct {
 		name string
@@ -524,7 +525,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 						},
 					},
 				},
-				gwController: constants.ALBGatewayController,
+				gwControllers: sets.New(constants.ALBGatewayController),
 			},
 			want: 1,
 		},
@@ -578,7 +579,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 						},
 					},
 				},
-				gwController: constants.NLBGatewayController,
+				gwControllers: sets.New(constants.NLBGatewayController),
 			},
 			want: 1,
 		},
@@ -591,7 +592,7 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 				k8sClient.Create(context.Background(), gwClass)
 			}
 
-			got := GetImpactedGatewayClassesFromLbConfig(context.Background(), k8sClient, tt.args.lbConfig, tt.args.gwController)
+			got := GetImpactedGatewayClassesFromLbConfig(context.Background(), k8sClient, tt.args.lbConfig, tt.args.gwControllers)
 			assert.Equal(t, tt.want, len(got))
 		})
 	}

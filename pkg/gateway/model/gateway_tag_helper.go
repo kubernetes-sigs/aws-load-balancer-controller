@@ -8,7 +8,7 @@ import (
 )
 
 type tagHelper interface {
-	getGatewayTags(lbConf *elbv2gw.LoadBalancerConfiguration) (map[string]string, error)
+	getGatewayTags(lbConf elbv2gw.LoadBalancerConfiguration) (map[string]string, error)
 }
 
 type tagHelperImpl struct {
@@ -23,11 +23,13 @@ func newTagHelper(externalManagedTags sets.Set[string], defaultTags map[string]s
 	}
 }
 
-func (t *tagHelperImpl) getGatewayTags(lbConf *elbv2gw.LoadBalancerConfiguration) (map[string]string, error) {
-	var annotationTags map[string]string
+func (t *tagHelperImpl) getGatewayTags(lbConf elbv2gw.LoadBalancerConfiguration) (map[string]string, error) {
+	annotationTags := make(map[string]string)
 
-	if lbConf != nil {
-		annotationTags = t.convertTagsToMap(lbConf.Spec.Tags)
+	if lbConf.Spec.Tags != nil {
+		for k, v := range *lbConf.Spec.Tags {
+			annotationTags[k] = v
+		}
 	}
 
 	if err := t.validateTagCollisionWithExternalManagedTags(annotationTags); err != nil {
@@ -44,13 +46,4 @@ func (t *tagHelperImpl) validateTagCollisionWithExternalManagedTags(tags map[str
 		}
 	}
 	return nil
-}
-
-func (t *tagHelperImpl) convertTagsToMap(tags []elbv2gw.AWSTag) map[string]string {
-	m := make(map[string]string)
-
-	for _, tag := range tags {
-		m[tag.Key] = tag.Value
-	}
-	return m
 }

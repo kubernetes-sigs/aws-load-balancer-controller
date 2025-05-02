@@ -133,7 +133,7 @@ spec:
                           type: boolean
                         mode:
                           description: The client certificate handling method. Options
-                            are off , passthrough or verify
+                            are off, passthrough or verify
                           enum:
                           - "off"
                           - passthrough
@@ -230,6 +230,25 @@ spec:
                   specifies whether you want the controller to configure security group rules on Node/Pod for traffic access
                   when you specify securityGroups
                 type: boolean
+              mergingMode:
+                description: |-
+                  mergingMode defines the merge behavior when both the Gateway and GatewayClass have a defined LoadBalancerConfiguration.
+                  This field is only honored for the configuration attached to the GatewayClass.
+                enum:
+                - prefer-gateway
+                - prefer-gateway-class
+                type: string
+              minimumLoadBalancerCapacity:
+                description: MinimumLoadBalancerCapacity define the capacity reservation
+                  for LoadBalancers
+                properties:
+                  capacityUnits:
+                    description: The Capacity Units Value.
+                    format: int32
+                    type: integer
+                required:
+                - capacityUnits
+                type: object
               scheme:
                 description: scheme defines the type of LB to provision. If unspecified,
                   it will be automatically inferred.
@@ -256,21 +275,10 @@ spec:
                   type: string
                 type: array
               tags:
-                description: Tags defines list of Tags on LB.
-                items:
-                  description: AWSTag defines a AWS Tag on resources.
-                  properties:
-                    key:
-                      description: The key of the tag.
-                      type: string
-                    value:
-                      description: The value of the tag.
-                      type: string
-                  required:
-                  - key
-                  - value
-                  type: object
-                type: array
+                additionalProperties:
+                  type: string
+                description: Tags the AWS Tags on all related resources to the gateway.
+                type: object
               vpcId:
                 description: vpcId is the ID of the VPC for the load balancer.
                 type: string

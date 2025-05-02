@@ -139,12 +139,12 @@ const (
 )
 
 // +kubebuilder:validation:Enum=none;prefer-route-specific;prefer-default
-type MergeMode string
+type TargetGroupConfigMergeMode string
 
 const (
-	MergeModeNone                MergeMode = "none"
-	MergeModePreferRouteSpecific MergeMode = "prefer-route-specific"
-	MergeModePreferDefault       MergeMode = "prefer-default"
+	MergeModeNone                TargetGroupConfigMergeMode = "none"
+	MergeModePreferRouteSpecific TargetGroupConfigMergeMode = "prefer-route-specific"
+	MergeModePreferDefault       TargetGroupConfigMergeMode = "prefer-default"
 )
 
 // TargetGroupConfigurationSpec defines the TargetGroup properties for a route.

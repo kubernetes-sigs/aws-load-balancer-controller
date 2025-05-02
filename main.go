@@ -19,15 +19,17 @@ package main
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"sync"
 
 	"k8s.io/client-go/util/workqueue"
 
@@ -222,25 +224,54 @@ func main() {
 			reconcileCounters:   reconcileCounters,
 		}
 
+		enabledControllers := sets.Set[string]{}
+
+		routeLoaderCreator := sync.OnceValue(func() routeutils.Loader {
+			return routeutils.NewLoader(mgr.GetClient(), mgr.GetLogger().WithName("gateway-route-loader"))
+		})
+
 		// Setup NLB Gateway controller if enabled
 		if nlbGatewayEnabled {
-			gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient(), mgr.GetLogger().WithName("gateway-route-loader"))
-			if err := setupGatewayController(ctx, mgr, gwControllerConfig, constants.NLBGatewayController); err != nil {
+			gwControllerConfig.routeLoader = routeLoaderCreator()
+			if err := setupGatewayController(ctx, mgr, gwControllerConfig, gateway_constants.NLBGatewayController); err != nil {
 				setupLog.Error(err, "failed to setup NLB Gateway controller")
 				os.Exit(1)
 			}
+			enabledControllers.Insert(gateway_constants.NLBGatewayController)
 		}
 
 		// Setup ALB Gateway controller if enabled
 		if albGatewayEnabled {
 			if gwControllerConfig.routeLoader == nil {
-				gwControllerConfig.routeLoader = routeutils.NewLoader(mgr.GetClient(), mgr.GetLogger().WithName("gateway-route-loader"))
+				gwControllerConfig.routeLoader = routeLoaderCreator()
 			}
-			if err := setupGatewayController(ctx, mgr, gwControllerConfig, constants.ALBGatewayController); err != nil {
+			if err := setupGatewayController(ctx, mgr, gwControllerConfig, gateway_constants.ALBGatewayController); err != nil {
 				setupLog.Error(err, "failed to setup ALB Gateway controller")
 				os.Exit(1)
 			}
+			enabledControllers.Insert(gateway_constants.ALBGatewayController)
 		}
+
+		gatewayClassReconciler := gateway.NewGatewayClassReconciler(
+			mgr.GetClient(),
+			mgr.GetEventRecorderFor(gateway_constants.GatewayClassController),
+			controllerCFG,
+			enabledControllers,
+			mgr.GetLogger().WithName("gatewayclass-controller"),
+		)
+
+		controller, err := gatewayClassReconciler.SetupWithManager(ctx, mgr)
+		if err != nil {
+			setupLog.Error(err, "Unable to set up Gateway Class Manager")
+			os.Exit(1)
+		}
+
+		err = gatewayClassReconciler.SetupWatches(ctx, controller, mgr)
+		if err != nil {
+			setupLog.Error(err, "Unable to set up Gateway Class Watches")
+			os.Exit(1)
+		}
+
 	}
 	// Add liveness probe
 	err = mgr.AddHealthzCheck("health-ping", healthz.Ping)
@@ -308,7 +339,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 
 	var reconciler gateway.Reconciler
 	switch controllerType {
-	case constants.NLBGatewayController:
+	case gateway_constants.NLBGatewayController:
 		reconciler = gateway.NewNLBGatewayReconciler(
 			cfg.routeLoader,
 			cfg.cloud,
@@ -327,7 +358,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.metricsCollector,
 			cfg.reconcileCounters,
 		)
-	case constants.ALBGatewayController:
+	case gateway_constants.ALBGatewayController:
 		reconciler = gateway.NewALBGatewayReconciler(
 			cfg.routeLoader,
 			cfg.cloud,

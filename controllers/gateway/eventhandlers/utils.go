@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,7 +26,7 @@ func IsGatewayManagedByLBController(ctx context.Context, k8sClient client.Client
 }
 
 // GetGatewayClassesManagedByLBController retrieves all GatewayClasses managed by the ALB/NLB Gateway Controller.
-func GetGatewayClassesManagedByLBController(ctx context.Context, k8sClient client.Client, gwController string) []*gwv1.GatewayClass {
+func GetGatewayClassesManagedByLBController(ctx context.Context, k8sClient client.Client, gwControllers sets.Set[string]) []*gwv1.GatewayClass {
 	managedGatewayClasses := make([]*gwv1.GatewayClass, 0)
 	gwClassList := &gwv1.GatewayClassList{}
 	if err := k8sClient.List(ctx, gwClassList); err != nil {
@@ -34,7 +35,7 @@ func GetGatewayClassesManagedByLBController(ctx context.Context, k8sClient clien
 	managedGatewayClasses = make([]*gwv1.GatewayClass, 0, len(gwClassList.Items))
 
 	for i := range gwClassList.Items {
-		if string(gwClassList.Items[i].Spec.ControllerName) == gwController {
+		if gwControllers.Has(string(gwClassList.Items[i].Spec.ControllerName)) {
 			managedGatewayClasses = append(managedGatewayClasses, &gwClassList.Items[i])
 		}
 	}
@@ -99,11 +100,11 @@ func GetImpactedGatewaysFromParentRefs(ctx context.Context, k8sClient client.Cli
 
 // GetImpactedGatewayClassesFromLbConfig identifies GatewayClasses affected by LoadBalancer configuration changes.
 // Returns GatewayClasses that reference the specified LoadBalancer configuration.
-func GetImpactedGatewayClassesFromLbConfig(ctx context.Context, k8sClient client.Client, lbconfig *elbv2gw.LoadBalancerConfiguration, gwController string) map[string]*gwv1.GatewayClass {
+func GetImpactedGatewayClassesFromLbConfig(ctx context.Context, k8sClient client.Client, lbconfig *elbv2gw.LoadBalancerConfiguration, gwControllers sets.Set[string]) map[string]*gwv1.GatewayClass {
 	if lbconfig == nil {
 		return nil
 	}
-	managedGwClasses := GetGatewayClassesManagedByLBController(ctx, k8sClient, gwController)
+	managedGwClasses := GetGatewayClassesManagedByLBController(ctx, k8sClient, gwControllers)
 	impactedGatewayClasses := make(map[string]*gwv1.GatewayClass, len(managedGwClasses))
 	for _, gwClass := range managedGwClasses {
 		if gwClass.Spec.ParametersRef != nil && string(gwClass.Spec.ParametersRef.Kind) == constants.LoadBalancerConfiguration && string(*gwClass.Spec.ParametersRef.Namespace) == lbconfig.Namespace && gwClass.Spec.ParametersRef.Name == lbconfig.Name {
