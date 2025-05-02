@@ -3,9 +3,6 @@ package gateway
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
-
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -61,26 +58,26 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, gatewayTagPrefix, logger, metricsCollector, controllerName)
 
+	cfgResolver := newGatewayConfigResolver()
+
 	return &gatewayReconciler{
-		controllerName:             controllerName,
-		lbType:                     lbType,
-		maxConcurrentReconciles:    maxConcurrentReconciles,
-		finalizer:                  finalizer,
-		gatewayLoader:              routeLoader,
-		routeFilter:                routeFilter,
-		k8sClient:                  k8sClient,
-		modelBuilder:               modelBuilder,
-		backendSGProvider:          backendSGProvider,
-		stackMarshaller:            stackMarshaller,
-		stackDeployer:              stackDeployer,
-		finalizerManager:           finalizerManager,
-		eventRecorder:              eventRecorder,
-		logger:                     logger,
-		metricsCollector:           metricsCollector,
-		reconcileTracker:           reconcileTracker,
-		lbConfigMerger:             gateway.NewConfigMerger(),
-		deriveGatewayClassStatusFn: deriveGatewayClassAcceptedStatus,
-		configResolverFn:           resolveLoadBalancerConfig,
+		controllerName:          controllerName,
+		lbType:                  lbType,
+		maxConcurrentReconciles: maxConcurrentReconciles,
+		finalizer:               finalizer,
+		gatewayLoader:           routeLoader,
+		routeFilter:             routeFilter,
+		k8sClient:               k8sClient,
+		modelBuilder:            modelBuilder,
+		backendSGProvider:       backendSGProvider,
+		stackMarshaller:         stackMarshaller,
+		stackDeployer:           stackDeployer,
+		finalizerManager:        finalizerManager,
+		eventRecorder:           eventRecorder,
+		logger:                  logger,
+		metricsCollector:        metricsCollector,
+		reconcileTracker:        reconcileTracker,
+		cfgResolver:             cfgResolver,
 	}
 }
 
@@ -100,16 +97,11 @@ type gatewayReconciler struct {
 	finalizerManager        k8s.FinalizerManager
 	eventRecorder           record.EventRecorder
 	logger                  logr.Logger
+	metricsCollector        lbcmetrics.MetricCollector
+	reconcileTracker        func(namespaceName types.NamespacedName)
 
-	lbConfigMerger             gateway.ConfigMerger
-	deriveGatewayClassStatusFn func(gwClass *gwv1.GatewayClass) (metav1.ConditionStatus, int)
-	configResolverFn           func(ctx context.Context, k8sClient client.Client, reference *gwv1.ParametersReference) (*elbv2gw.LoadBalancerConfiguration, error)
-
-	metricsCollector lbcmetrics.MetricCollector
-	reconcileTracker func(namespaceName types.NamespacedName)
+	cfgResolver gatewayConfigResolver
 }
-
-// TODO - Add Gateway and TG configuration permissions
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways,verbs=get;list;watch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/status,verbs=get;update;patch
@@ -185,7 +177,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		return nil
 	}
 
-	mergedLbConfig, err := r.getLoadBalancerConfigForGateway(ctx, r.k8sClient, gw, gwClass)
+	mergedLbConfig, err := r.cfgResolver.getLoadBalancerConfigForGateway(ctx, r.k8sClient, gw, gwClass)
 
 	if err != nil {
 		return err
@@ -479,64 +471,4 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 	}
 	return nil
 
-}
-
-func (r *gatewayReconciler) getLoadBalancerConfigForGateway(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass) (elbv2gw.LoadBalancerConfiguration, error) {
-
-	// If the Gateway Class isn't accepted, we shouldn't try to reconcile this Gateway.
-	derivedStatus, _ := r.deriveGatewayClassStatusFn(gwClass)
-
-	if derivedStatus != metav1.ConditionTrue {
-		return elbv2gw.LoadBalancerConfiguration{}, errors.Errorf("Unable to materialize gateway when gateway class [%s] is not accepted. GatewayClass status is %s", gwClass.Name, derivedStatus)
-	}
-
-	gatewayClassLBConfig, err := r.configResolverFn(ctx, k8sClient, gwClass.Spec.ParametersRef)
-
-	if err != nil {
-		return elbv2gw.LoadBalancerConfiguration{}, err
-	}
-
-	if gatewayClassLBConfig != nil {
-		storedVersion := getStoredProcessedConfig(gwClass)
-		if storedVersion == nil || *storedVersion != gatewayClassLBConfig.ResourceVersion {
-			var safeVersion string
-			if storedVersion != nil {
-				safeVersion = *storedVersion
-			}
-			return elbv2gw.LoadBalancerConfiguration{}, errors.Errorf("GatewayClass [%s] hasn't processed latest loadbalancer config. Processed version %s, Latest version %s", gwClass.Name, safeVersion, gatewayClassLBConfig.ResourceVersion)
-		}
-	}
-
-	var gwParametersRef *gwv1.ParametersReference
-	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.ParametersRef != nil {
-		// Convert local param ref -> namespaced param ref
-		ns := gwv1.Namespace(gw.Namespace)
-		gwParametersRef = &gwv1.ParametersReference{
-			Group:     gw.Spec.Infrastructure.ParametersRef.Group,
-			Kind:      gw.Spec.Infrastructure.ParametersRef.Kind,
-			Name:      gw.Spec.Infrastructure.ParametersRef.Name,
-			Namespace: &ns,
-		}
-	}
-
-	gatewayLBConfig, err := r.configResolverFn(ctx, k8sClient, gwParametersRef)
-
-	if err != nil {
-		return elbv2gw.LoadBalancerConfiguration{}, err
-	}
-
-	if gatewayClassLBConfig == nil && gatewayLBConfig == nil {
-		return elbv2gw.LoadBalancerConfiguration{}, nil
-	}
-
-	if gatewayClassLBConfig == nil {
-		return *gatewayLBConfig, nil
-	}
-
-	if gatewayLBConfig == nil {
-		return *gatewayClassLBConfig, nil
-	}
-
-	// merge here
-	return r.lbConfigMerger.Merge(*gatewayClassLBConfig, *gatewayLBConfig), nil
 }

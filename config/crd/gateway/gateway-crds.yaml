@@ -238,6 +238,17 @@ spec:
                 - prefer-gateway
                 - prefer-gateway-class
                 type: string
+              minimumLoadBalancerCapacity:
+                description: MinimumLoadBalancerCapacity define the capacity reservation
+                  for LoadBalancers
+                properties:
+                  capacityUnits:
+                    description: The Capacity Units Value.
+                    format: int32
+                    type: integer
+                required:
+                - capacityUnits
+                type: object
               scheme:
                 description: scheme defines the type of LB to provision. If unspecified,
                   it will be automatically inferred.

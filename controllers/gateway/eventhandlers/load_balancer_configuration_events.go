@@ -65,22 +65,13 @@ func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Generic(ctx context.C
 }
 
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) enqueueImpactedService(ctx context.Context, lbconfig *elbv2gw.LoadBalancerConfiguration, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gwClasses := GetImpactedGatewayClassesFromLbConfig(ctx, h.k8sClient, lbconfig, h.gwControllerSet)
-	for _, gwClass := range gwClasses {
-		h.logger.V(1).Info("enqueue gatewayClass for loadbalancerconfiguration event",
-			"loadbalancerconfiguration", k8s.NamespacedName(lbconfig),
-			"gatewayclass", k8s.NamespacedName(gwClass))
-		h.gwClassEventChan <- event.TypedGenericEvent[*gatewayv1.GatewayClass]{
-			Object: gwClass,
-		}
-	}
+	// NOTE: That LB Config changes for GatewayClass are done a little differently.
+	// LB config change -> gateway class reconciler -> patch status for new version of LB config on Gateway Class -> Trigger the Gateway Class event handler.
 	gateways := GetImpactedGatewaysFromLbConfig(ctx, h.k8sClient, lbconfig, h.gwController)
 	for _, gw := range gateways {
-		if _, isAlreadyEnqueued := gwClasses[string(gw.Spec.GatewayClassName)]; !isAlreadyEnqueued {
-			h.logger.V(1).Info("enqueue gateway for loadbalancerconfiguration event",
-				"loadbalancerconfiguration", k8s.NamespacedName(lbconfig),
-				"gateway", k8s.NamespacedName(gw))
-			queue.Add(reconcile.Request{NamespacedName: k8s.NamespacedName(gw)})
-		}
+		h.logger.V(1).Info("enqueue gateway for loadbalancerconfiguration event",
+			"loadbalancerconfiguration", k8s.NamespacedName(lbconfig),
+			"gateway", k8s.NamespacedName(gw))
+		queue.Add(reconcile.Request{NamespacedName: k8s.NamespacedName(gw)})
 	}
 }

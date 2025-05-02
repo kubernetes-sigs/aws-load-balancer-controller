@@ -231,7 +231,14 @@ spec:
                   specifies whether you want the controller to configure security group rules on Node/Pod for traffic access
                   when you specify securityGroups
                 type: boolean
-<<<<<<< HEAD
+              mergingMode:
+                description: |-
+                  mergingMode defines the merge behavior when both the Gateway and GatewayClass have a defined LoadBalancerConfiguration.
+                  This field is only honored for the configuration attached to the GatewayClass.
+                enum:
+                - prefer-gateway
+                - prefer-gateway-class
+                type: string
               minimumLoadBalancerCapacity:
                 description: MinimumLoadBalancerCapacity define the capacity reservation
                   for LoadBalancers
@@ -243,16 +250,6 @@ spec:
                 required:
                 - capacityUnits
                 type: object
-=======
-              mergingMode:
-                description: |-
-                  mergingMode defines the merge behavior when both the Gateway and GatewayClass have a defined LoadBalancerConfiguration.
-                  This field is only honored for the configuration attached to the GatewayClass.
-                enum:
-                - prefer-gateway
-                - prefer-gateway-class
-                type: string
->>>>>>> c7778d0c ([gw api] gateway class reconciler, config generation)
               scheme:
                 description: scheme defines the type of LB to provision. If unspecified,
                   it will be automatically inferred.
