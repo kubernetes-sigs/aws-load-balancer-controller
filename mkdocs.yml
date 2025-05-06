@@ -37,6 +37,9 @@ nav:
         - Frontend Security Groups: guide/use_cases/frontend_sg/index.md
         - Blue/Green: guide/use_cases/blue_green/index.md
         - MultiCluster Target Groups: guide/use_cases/multi_cluster/index.md
+      - Gateway:
+          - Gateway: guide/gateway/gateway.md
+          - LoadBalancerConfig: guide/gateway/loadbalancerconfig.md
       - Metrics:
         - Prometheus: guide/metrics/prometheus/index.md
   - Examples:
