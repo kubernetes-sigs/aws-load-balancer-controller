@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -43,7 +44,8 @@ func NewServiceReconciler(cloud services.Cloud, k8sClient client.Client, eventRe
 	finalizerManager k8s.FinalizerManager, networkingManager networking.NetworkingManager, networkingSGManager networking.SecurityGroupManager,
 	networkingSGReconciler networking.SecurityGroupReconciler, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig,
-	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) *serviceReconciler {
+	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters,
+	targetGroupCollector awsmetrics.TargetGroupCollector) *serviceReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(serviceAnnotationPrefix)
 	trackingProvider := tracking.NewDefaultProvider(serviceTagPrefix, controllerConfig.ClusterName)
@@ -53,7 +55,7 @@ func NewServiceReconciler(cloud services.Cloud, k8sClient client.Client, eventRe
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), serviceUtils,
 		backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, logger, metricsCollector, controllerConfig.FeatureGates.Enabled(config.EnableTCPUDPListenerType))
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, serviceTagPrefix, logger, metricsCollector, controllerName)
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, serviceTagPrefix, logger, metricsCollector, controllerName, targetGroupCollector)
 	return &serviceReconciler{
 		k8sClient:         k8sClient,
 		eventRecorder:     eventRecorder,
