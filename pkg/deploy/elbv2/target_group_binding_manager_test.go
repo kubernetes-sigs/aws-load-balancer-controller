@@ -10,6 +10,7 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
@@ -496,9 +497,10 @@ func Test_defaultTargetGroupBindingManager_Delete(t *testing.T) {
 func createTestDefaultTargetGroupBindingManager() (defaultTargetGroupBindingManager, client.Client) {
 	k8sClient := testutils.GenerateTestClient()
 	manager := defaultTargetGroupBindingManager{
-		k8sClient:        k8sClient,
-		trackingProvider: tracking.NewDefaultProvider("ingress.k8s.aws", "foo"),
-		logger:           logr.Discard(),
+		k8sClient:            k8sClient,
+		trackingProvider:     tracking.NewDefaultProvider("ingress.k8s.aws", "foo"),
+		logger:               logr.Discard(),
+		targetGroupCollector: awsmetrics.NewTargetGroupCollector(nil),
 
 		waitTGBObservedPollInterval: 10 * time.Millisecond,
 		waitTGBObservedTimout:       100 * time.Millisecond,
