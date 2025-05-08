@@ -71,9 +71,9 @@ func NewLoader(k8sClient client.Client, logger logr.Logger) Loader {
 // LoadRoutesForGateway loads all relevant data for a single Gateway.
 func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter) (map[int32][]RouteDescriptor, error) {
 	// 1. Load all relevant routes according to the filter
+
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
 	for route, loader := range l.allRouteLoaders {
-
 		applicable := filter.IsApplicable(route)
 		l.logger.V(1).Info("Processing route", "route", route, "is applicable", applicable)
 		if applicable {

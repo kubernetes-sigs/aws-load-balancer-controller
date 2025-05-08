@@ -32,6 +32,7 @@ func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) li
 // listenerAllowsAttachment utility method to determine if a listener will allow a route to connect using
 // Gateway API rules to determine compatibility between lister and route.
 func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
+	// check namespace
 	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, gw, listener, route)
 	if err != nil {
 		return false, err
@@ -39,7 +40,25 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 	if !namespaceOK {
 		return false, nil
 	}
-	return attachmentHelper.kindCheck(listener, route), nil
+
+	// check kind
+	kindOK := attachmentHelper.kindCheck(listener, route)
+	if !kindOK {
+		return false, nil
+	}
+
+	// check hostname
+	if (route.GetRouteKind() == HTTPRouteKind || route.GetRouteKind() == GRPCRouteKind || route.GetRouteKind() == TLSRouteKind) && route.GetHostnames() != nil {
+		hostnameOK, err := attachmentHelper.hostnameCheck(listener, route)
+		if err != nil {
+			return false, err
+		}
+		if !hostnameOK {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // namespaceCheck namespace check implements the Gateway API spec for namespace matching between listener
@@ -103,4 +122,36 @@ func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Li
 		}
 	}
 	return allowedRoutes.Has(route.GetRouteKind())
+}
+
+func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
+	// A route can attach to listener if it does not have hostname or listener does not have hostname
+	if listener.Hostname == nil || len(route.GetHostnames()) == 0 {
+		return true, nil
+	}
+
+	// validate listener hostname, return if listener hostname is not valid
+	isListenerHostnameValid, err := IsHostNameInValidFormat(string(*listener.Hostname))
+	if err != nil {
+		attachmentHelper.logger.Error(err, "listener hostname is not valid", "listener", listener.Name, "hostname", *listener.Hostname)
+		return false, err
+	}
+	if !isListenerHostnameValid {
+		return false, nil
+	}
+
+	for _, hostname := range route.GetHostnames() {
+		// validate route hostname, skip invalid hostname
+		isHostnameValid, err := IsHostNameInValidFormat(string(hostname))
+		if err != nil || !isHostnameValid {
+			attachmentHelper.logger.V(1).Info("route hostname is not valid, continue...", "route", route.GetRouteNamespacedName(), "hostname", hostname)
+			continue
+		}
+
+		// check if two hostnames have overlap (compatible)
+		if isHostnameCompatible(string(hostname), string(*listener.Hostname)) {
+			return true, nil
+		}
+	}
+	return false, nil
 }

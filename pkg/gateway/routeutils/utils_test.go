@@ -6,6 +6,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -431,6 +432,257 @@ func Test_IsServiceReferredByRoute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := isServiceReferredByRoute(tt.route, tt.svcID)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// Test isHostNameInValidFormat
+func TestIsHostNameInValidFormat(t *testing.T) {
+	tests := []struct {
+		name     string
+		hostname string
+		want     bool
+		wantErr  string
+	}{
+		{
+			name:     "IPv4 address",
+			hostname: "192.168.1.1",
+			want:     false,
+			wantErr:  "hostname can not be IP address",
+		},
+		{
+			name:     "Label too short",
+			hostname: "test..com",
+			want:     false,
+			wantErr:  "invalid hostname label length",
+		},
+		{
+			name:     "Label too long",
+			hostname: strings.Repeat("a", 64) + ".com",
+			want:     false,
+			wantErr:  "invalid hostname label length",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := IsHostNameInValidFormat(tt.hostname)
+			if got != tt.want {
+				t.Errorf("IsHostNameInValidFormat() got = %v, want %v", got, tt.want)
+			}
+
+			if tt.wantErr == "" && err != nil {
+				t.Errorf("IsHostNameInValidFormat() unexpected error = %v", err)
+			}
+			if tt.wantErr != "" && err == nil {
+				t.Errorf("IsHostNameInValidFormat() expected error containing %q but got nil", tt.wantErr)
+			}
+			if tt.wantErr != "" && err != nil && !strings.Contains(err.Error(), tt.wantErr) {
+				t.Errorf("IsHostNameInValidFormat() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// Test isHostnameCompatible
+func Test_isHostnameCompatible(t *testing.T) {
+	tests := []struct {
+		name        string
+		hostnameOne string
+		hostnameTwo string
+		want        bool
+	}{
+		{
+			name:        "exact match",
+			hostnameOne: "example.com",
+			hostnameTwo: "example.com",
+			want:        true,
+		},
+		{
+			name:        "first hostname is wildcard - matching",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "test.example.com",
+			want:        true,
+		},
+		{
+			name:        "second hostname is wildcard - matching",
+			hostnameOne: "test.example.com",
+			hostnameTwo: "*.example.com",
+			want:        true,
+		},
+		{
+			name:        "both hostnames are wildcards - matching",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "*.test.example.com",
+			want:        true,
+		},
+		{
+			name:        "first hostname is wildcard - not matching",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "test.different.com",
+			want:        false,
+		},
+		{
+			name:        "second hostname is wildcard - not matching",
+			hostnameOne: "test.different.com",
+			hostnameTwo: "*.example.com",
+			want:        false,
+		},
+		{
+			name:        "wildcard with subdomain - matching",
+			hostnameOne: "*.sub.example.com",
+			hostnameTwo: "test.sub.example.com",
+			want:        true,
+		},
+		{
+			name:        "empty hostnames",
+			hostnameOne: "",
+			hostnameTwo: "",
+			want:        true,
+		},
+		{
+			name:        "one empty hostname",
+			hostnameOne: "example.com",
+			hostnameTwo: "",
+			want:        false,
+		},
+		{
+			name:        "wildcard with root domain",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "example.com",
+			want:        false,
+		},
+		{
+			name:        "multiple subdomains - matching",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "a.b.example.com",
+			want:        true,
+		},
+		{
+			name:        "partial wildcard match - not matching",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "testexample.com",
+			want:        false,
+		},
+		{
+			name:        "invalid wildcard format",
+			hostnameOne: "*example.com",
+			hostnameTwo: "test.example.com",
+			want:        false,
+		},
+		{
+			name:        "case sensitivity test",
+			hostnameOne: "*.Example.com",
+			hostnameTwo: "test.example.com",
+			want:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isHostnameCompatible(tt.hostnameOne, tt.hostnameTwo)
+			if got != tt.want {
+				t.Errorf("isHostnameCompatible() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// Test GetHostnamePrecedenceOrder
+func TestGetHostnamePrecedenceOrder(t *testing.T) {
+	tests := []struct {
+		name        string
+		hostnameOne string
+		hostnameTwo string
+		want        int
+		description string
+	}{
+		{
+			name:        "non-wildcard vs wildcard",
+			hostnameOne: "example.com",
+			hostnameTwo: "*.example.com",
+			want:        -1,
+			description: "non-wildcard should have higher precedence than wildcard",
+		},
+		{
+			name:        "wildcard vs non-wildcard",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "example.com",
+			want:        1,
+			description: "wildcard should have lower precedence than non-wildcard",
+		},
+		{
+			name:        "both non-wildcard - first longer",
+			hostnameOne: "test.example.com",
+			hostnameTwo: "example.com",
+			want:        -1,
+			description: "longer hostname should have higher precedence",
+		},
+		{
+			name:        "both non-wildcard - second longer",
+			hostnameOne: "example.com",
+			hostnameTwo: "test.example.com",
+			want:        1,
+			description: "shorter hostname should have lower precedence",
+		},
+		{
+			name:        "both wildcard - first longer",
+			hostnameOne: "*.test.example.com",
+			hostnameTwo: "*.example.com",
+			want:        -1,
+			description: "longer wildcard hostname should have higher precedence",
+		},
+		{
+			name:        "both wildcard - second longer",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "*.test.example.com",
+			want:        1,
+			description: "shorter wildcard hostname should have lower precedence",
+		},
+		{
+			name:        "equal length non-wildcard",
+			hostnameOne: "test1.com",
+			hostnameTwo: "test2.com",
+			want:        0,
+			description: "equal length hostnames should have equal precedence",
+		},
+		{
+			name:        "equal length wildcard",
+			hostnameOne: "*.test1.com",
+			hostnameTwo: "*.test2.com",
+			want:        0,
+			description: "equal length wildcard hostnames should have equal precedence",
+		},
+		{
+			name:        "empty strings",
+			hostnameOne: "",
+			hostnameTwo: "",
+			want:        0,
+			description: "empty strings should have equal precedence",
+		},
+		{
+			name:        "one empty string - first",
+			hostnameOne: "",
+			hostnameTwo: "example.com",
+			want:        1,
+			description: "empty string should have lower precedence",
+		},
+		{
+			name:        "one empty string - second",
+			hostnameOne: "example.com",
+			hostnameTwo: "",
+			want:        -1,
+			description: "non-empty string should have higher precedence than empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetHostnamePrecedenceOrder(tt.hostnameOne, tt.hostnameTwo)
+			if got != tt.want {
+				t.Errorf("GetHostnamePrecedenceOrder() = %v, want %v\nDescription: %s\nHostname1: %q\nHostname2: %q",
+					got, tt.want, tt.description, tt.hostnameOne, tt.hostnameTwo)
+			}
 		})
 	}
 }
