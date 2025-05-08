@@ -165,6 +165,10 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 }
 
 func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model.Listener, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) error {
+
+	// add hostname handling (sort by precedence order)
+	sortRoutesByHostnamePrecedence(routes[port])
+
 	// TODO for L7 Gateway Implementation
 	// This is throw away code
 	// This is temporary implementation for supporting basic multiple HTTPRoute for simple backend refs. We will create default forward action for all the backend refs for all HTTPRoutes for this listener
@@ -185,6 +189,21 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 						},
 					},
 					}
+
+					// add host header condition
+					if hostnames := descriptor.GetHostnames(); len(hostnames) > 0 {
+						hostnamesStringList := make([]string, len(descriptor.GetHostnames()))
+						for i, j := range descriptor.GetHostnames() {
+							hostnamesStringList[i] = string(j)
+						}
+						conditions = append(conditions, elbv2model.RuleCondition{
+							Field: elbv2model.RuleConditionFieldHostHeader,
+							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+								Values: hostnamesStringList,
+							},
+						})
+					}
+
 					actions := buildL4ListenerDefaultActions(targetGroup)
 					tags, tagsErr := l.tagHelper.getGatewayTags(lbCfg)
 					if tagsErr != nil {
