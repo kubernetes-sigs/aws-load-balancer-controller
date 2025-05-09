@@ -5,7 +5,9 @@ import (
 	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 // ListL4Routes retrieves all Layer 4 routes (TCP, UDP, TLS) from the cluster.
@@ -86,4 +88,75 @@ func isServiceReferredByRoute(route preLoadRouteDescriptor, svcID types.Namespac
 		}
 	}
 	return false
+}
+
+// IsHostNameInValidFormat follows RFC1123 requirement except
+// 1. no IP allowed
+// 2. wildcard is only allowed as leftmost character
+// Allowed Characters: Hostname labels must only contain lowercase ASCII letters (a-z), digits (0-9), and hyphens (-).
+// Starting with a Digit: RFC 1123 allows labels to begin with a digit, which is a departure from the previous RFC 952 restriction.
+// Length: Each label in a hostname can be between 1 and 63 characters long.
+// Overall Hostname Length: The entire hostname, including the periods separating labels, cannot exceed 253 characters.
+// Case: Hostnames are case-insensitive.
+// Underscore: Underscores are not permitted in hostnames.
+// Other Symbols: No other symbols, punctuation, or whitespace is allowed in hostnames
+// Most of the requirements above is already checked by CRD pattern: Pattern=`^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+// Thus this function only checks for 1. if it is IP 2. label length is between 1 and 63
+func IsHostNameInValidFormat(hostName string) (bool, error) {
+	if net.ParseIP(hostName) != nil {
+
+		return false, fmt.Errorf("hostname can not be IP address")
+	}
+	labels := strings.Split(hostName, ".")
+	if strings.HasPrefix(hostName, "*.") {
+		labels = labels[1:]
+	}
+	for _, label := range labels {
+		if len(label) < 1 || len(label) > 63 {
+			return false, fmt.Errorf("invalid hostname label length, length must between 1 and 63")
+		}
+	}
+	return true, nil
+}
+
+// isHostnameCompatible checks if given two hostnames are compatible with each other
+// this function is used to check if listener hostname and Route hostname match
+func isHostnameCompatible(hostnameOne, hostnameTwo string) bool {
+	// exact match
+	if hostnameOne == hostnameTwo {
+		return true
+	}
+
+	// suffix match - hostnameOne is a wildcard
+	if strings.HasPrefix(hostnameOne, "*.") && strings.HasSuffix(hostnameTwo, hostnameOne[1:]) {
+		return true
+	}
+	// suffix match - hostnameTwo is a wildcard
+	if strings.HasPrefix(hostnameTwo, "*.") && strings.HasSuffix(hostnameOne, hostnameTwo[1:]) {
+		return true
+	}
+	return false
+}
+
+// GetHostnamePrecedenceOrder Hostname precedence ordering rule:
+// 1. non-wildcard has higher precedence than wildcard
+// 2. hostname with longer characters have higher precedence than those with shorter ones
+// -1 means hostnameOne has higher precedence, 1 means hostnameTwo has higher precedence, 0 means equal
+func GetHostnamePrecedenceOrder(hostnameOne, hostnameTwo string) int {
+	isHostnameOneWildcard := strings.HasPrefix(hostnameOne, "*.")
+	isHostnameTwoWildcard := strings.HasPrefix(hostnameTwo, "*.")
+
+	if !isHostnameOneWildcard && isHostnameTwoWildcard {
+		return -1
+	} else if isHostnameOneWildcard && !isHostnameTwoWildcard {
+		return 1
+	} else {
+		if len(hostnameOne) > len(hostnameTwo) {
+			return -1
+		} else if len(hostnameOne) < len(hostnameTwo) {
+			return 1
+		} else {
+			return 0
+		}
+	}
 }
