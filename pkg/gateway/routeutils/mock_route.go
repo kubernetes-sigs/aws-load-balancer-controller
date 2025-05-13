@@ -9,7 +9,6 @@ type MockRoute struct {
 	Kind      RouteKind
 	Name      string
 	Namespace string
-	Hostnames []string
 }
 
 func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
@@ -29,11 +28,8 @@ func (m *MockRoute) GetRouteKind() RouteKind {
 }
 
 func (m *MockRoute) GetHostnames() []gwv1.Hostname {
-	hostnames := make([]gwv1.Hostname, len(m.Hostnames))
-	for i, h := range m.Hostnames {
-		hostnames[i] = gwv1.Hostname(h)
-	}
-	return hostnames
+	//TODO implement me
+	panic("implement me")
 }
 
 func (m *MockRoute) GetParentRefs() []gwv1.ParentReference {
