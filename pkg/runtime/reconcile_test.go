@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"testing"
 	"time"
 
@@ -15,6 +16,12 @@ func TestHandleReconcileError(t *testing.T) {
 	type args struct {
 		err error
 	}
+
+	otherErrType := errors.New("some error")
+	wrappedOtherErrorType := &errmetrics.ErrorWithMetrics{
+		Err:          otherErrType,
+		ResourceType: "foo",
+	}
 	tests := []struct {
 		name    string
 		args    args
@@ -25,6 +32,14 @@ func TestHandleReconcileError(t *testing.T) {
 			name: "input err is nil",
 			args: args{
 				err: nil,
+			},
+			want:    ctrl.Result{},
+			wantErr: nil,
+		},
+		{
+			name: "input err is nil",
+			args: args{
+				err: &errmetrics.ErrorWithMetrics{},
 			},
 			want:    ctrl.Result{},
 			wantErr: nil,
@@ -50,12 +65,44 @@ func TestHandleReconcileError(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "input err is ErrorWithMetrics and is RequeueNeededAfter",
+			args: args{
+				err: &errmetrics.ErrorWithMetrics{
+					Err: NewRequeueNeededAfter("some error", 3*time.Second),
+				},
+			},
+			want: ctrl.Result{
+				RequeueAfter: 3 * time.Second,
+			},
+			wantErr: nil,
+		},
+		{
+			name: "input err is ErrorWithMetrics and is RequeueNeeded",
+			args: args{
+				err: &errmetrics.ErrorWithMetrics{
+					Err: NewRequeueNeeded("some error"),
+				},
+			},
+			want: ctrl.Result{
+				Requeue: true,
+			},
+			wantErr: nil,
+		},
+		{
 			name: "input err is other error type",
 			args: args{
-				err: errors.New("some error"),
+				err: otherErrType,
 			},
 			want:    ctrl.Result{},
-			wantErr: errors.New("some error"),
+			wantErr: otherErrType,
+		},
+		{
+			name: "input err is ErrorWithMetrics with other error type",
+			args: args{
+				err: wrappedOtherErrorType,
+			},
+			want:    ctrl.Result{},
+			wantErr: wrappedOtherErrorType,
 		},
 	}
 	for _, tt := range tests {
@@ -63,6 +110,7 @@ func TestHandleReconcileError(t *testing.T) {
 			got, err := HandleReconcileError(tt.args.err, logr.New(&log.NullLogSink{}))
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
+				assert.Equal(t, err, tt.wantErr)
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
