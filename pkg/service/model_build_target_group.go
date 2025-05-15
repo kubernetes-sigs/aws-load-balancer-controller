@@ -479,6 +479,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, tgPort intstr.IntOrString,
 	hcPort intstr.IntOrString, tgProtocol elbv2model.Protocol) (*elbv2model.TargetGroupBindingNetworking, error) {
+
 	if t.backendSGIDToken == nil {
 		return nil, nil
 	}
@@ -499,6 +500,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 		}
 	} else {
 		switch tgProtocol {
+		case elbv2model.ProtocolTLS:
+			fallthrough
 		case elbv2model.ProtocolTCP:
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolTCP,

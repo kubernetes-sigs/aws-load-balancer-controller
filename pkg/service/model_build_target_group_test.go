@@ -1433,6 +1433,30 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			},
 		},
 		{
+			name:             "tls with port restricted rules",
+			tgPort:           port80,
+			hcPort:           trafficPort,
+			tgProtocol:       elbv2.ProtocolTLS,
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			want: &elbv2.TargetGroupBindingNetworking{
+				Ingress: []elbv2.NetworkingIngressRule{
+					{
+						From: []elbv2.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:             "udp with port restricted rules",
 			tgPort:           port80,
 			hcPort:           trafficPort,
