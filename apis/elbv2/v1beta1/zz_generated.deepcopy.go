@@ -199,8 +199,8 @@ func (in *IngressClassParamsSpec) DeepCopyInto(out *IngressClassParamsSpec) {
 		*out = new(IPAMConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.PrefixListsIDs != nil {
-		in, out := &in.PrefixListsIDs, &out.PrefixListsIDs
+	if in.PrefixListIDs != nil {
+		in, out := &in.PrefixListIDs, &out.PrefixListIDs
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
