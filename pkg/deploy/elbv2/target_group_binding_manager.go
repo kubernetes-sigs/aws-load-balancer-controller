@@ -2,6 +2,9 @@ package elbv2
 
 import (
 	"context"
+	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -15,7 +18,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 const (
@@ -35,11 +37,12 @@ type TargetGroupBindingManager interface {
 }
 
 // NewDefaultTargetGroupBindingManager constructs new defaultTargetGroupBindingManager
-func NewDefaultTargetGroupBindingManager(k8sClient client.Client, trackingProvider tracking.Provider, logger logr.Logger) *defaultTargetGroupBindingManager {
+func NewDefaultTargetGroupBindingManager(k8sClient client.Client, trackingProvider tracking.Provider, logger logr.Logger, targetGroupCollector awsmetrics.TargetGroupCollector) *defaultTargetGroupBindingManager {
 	return &defaultTargetGroupBindingManager{
-		k8sClient:        k8sClient,
-		trackingProvider: trackingProvider,
-		logger:           logger,
+		k8sClient:            k8sClient,
+		trackingProvider:     trackingProvider,
+		logger:               logger,
+		targetGroupCollector: targetGroupCollector,
 
 		waitTGBObservedPollInterval: defaultWaitTGBObservedPollInterval,
 		waitTGBObservedTimout:       defaultWaitTGBObservedTimeout,
@@ -52,9 +55,10 @@ var _ TargetGroupBindingManager = &defaultTargetGroupBindingManager{}
 
 // default implementation for TargetGroupBindingManager.
 type defaultTargetGroupBindingManager struct {
-	k8sClient        client.Client
-	trackingProvider tracking.Provider
-	logger           logr.Logger
+	k8sClient            client.Client
+	trackingProvider     tracking.Provider
+	logger               logr.Logger
+	targetGroupCollector awsmetrics.TargetGroupCollector
 
 	waitTGBObservedPollInterval time.Duration
 	waitTGBObservedTimout       time.Duration
@@ -88,6 +92,7 @@ func (m *defaultTargetGroupBindingManager) Create(ctx context.Context, resTGB *e
 		"stackID", resTGB.Stack().StackID(),
 		"resourceID", resTGB.ID(),
 		"targetGroupBinding", k8s.NamespacedName(k8sTGB))
+	m.targetGroupCollector.RegisterTargetGroupBinding(k8sTGB)
 	return buildResTargetGroupBindingStatus(k8sTGB), nil
 }
 
@@ -96,6 +101,7 @@ func (m *defaultTargetGroupBindingManager) Update(ctx context.Context, resTGB *e
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceStatus{}, err
 	}
+	m.targetGroupCollector.RegisterTargetGroupBinding(k8sTGB)
 	if equality.Semantic.DeepEqual(k8sTGB.Spec, k8sTGBSpec) {
 		return buildResTargetGroupBindingStatus(k8sTGB), nil
 	}
@@ -130,6 +136,7 @@ func (m *defaultTargetGroupBindingManager) Delete(ctx context.Context, tgb *elbv
 	}
 	m.logger.Info("deleted targetGroupBinding",
 		"targetGroupBinding", k8s.NamespacedName(tgb))
+	m.targetGroupCollector.DeRegisterTargetGroupBinding(tgb)
 	return nil
 }
 
