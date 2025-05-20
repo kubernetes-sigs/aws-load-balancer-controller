@@ -54,8 +54,8 @@ spec:
           spec:
             description: IngressClassParamsSpec defines the desired state of IngressClassParams
             properties:
-              prefixListIDs:
-                description: PrefixListIDs defines the security group prefix lists
+              PrefixListsIDs:
+                description: PrefixListsIDs defines the security group prefix lists
                   for all Ingresses that belong to IngressClass with this IngressClassParams.
                 items:
                   type: string

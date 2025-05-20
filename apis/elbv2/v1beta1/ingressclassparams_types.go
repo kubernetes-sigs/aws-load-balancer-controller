@@ -172,8 +172,8 @@ type IngressClassParamsSpec struct {
 	// +optional
 	IPAMConfiguration *IPAMConfiguration `json:"ipamConfiguration,omitempty"`
 
-	// PrefixListIDs defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
-	PrefixListIDs []string `json:"PrefixListIDs,omitempty"`
+	// PrefixListsIDs defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
+	PrefixListsIDs []string `json:"PrefixListsIDs,omitempty"`
 }
 
 // +kubebuilder:object:root=true

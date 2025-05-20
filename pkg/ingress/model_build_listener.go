@@ -279,8 +279,8 @@ func (t *defaultModelBuildTask) computeIngressExplicitSSLPolicy(_ context.Contex
 }
 
 func (t *defaultModelBuildTask) computeIngressExplicitPrefixListIDs(_ context.Context, ing *ClassifiedIngress) []string {
-	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.PrefixListIDs) != 0 {
-		return ing.IngClassConfig.IngClassParams.Spec.PrefixListIDs
+	if ing.IngClassConfig.IngClassParams != nil && len(ing.IngClassConfig.IngClassParams.Spec.PrefixListsIDs) != 0 {
+		return ing.IngClassConfig.IngClassParams.Spec.PrefixListsIDs
 	}
 	var prefixListIDs []string
 	t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixSecurityGroupPrefixLists, &prefixListIDs, ing.Ing.Annotations)
