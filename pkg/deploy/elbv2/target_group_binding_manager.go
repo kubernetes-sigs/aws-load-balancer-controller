@@ -11,6 +11,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -68,12 +70,18 @@ func (m *defaultTargetGroupBindingManager) Create(ctx context.Context, resTGB *e
 		return elbv2model.TargetGroupBindingResourceStatus{}, err
 	}
 
-	stackLabels := m.trackingProvider.StackLabels(resTGB.Stack())
+	labels := m.trackingProvider.StackLabels(resTGB.Stack())
+
+	if resTGB.Spec.Template.Labels != nil {
+		labels = algorithm.MergeStringMap(labels, resTGB.Spec.Template.Labels)
+	}
+
 	k8sTGB := &elbv2api.TargetGroupBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: resTGB.Spec.Template.Namespace,
-			Name:      resTGB.Spec.Template.Name,
-			Labels:    stackLabels,
+			Namespace:   resTGB.Spec.Template.Namespace,
+			Name:        resTGB.Spec.Template.Name,
+			Annotations: resTGB.Spec.Template.Annotations,
+			Labels:      labels,
 		},
 		Spec: k8sTGBSpec,
 	}
@@ -96,16 +104,30 @@ func (m *defaultTargetGroupBindingManager) Update(ctx context.Context, resTGB *e
 	if err != nil {
 		return elbv2model.TargetGroupBindingResourceStatus{}, err
 	}
-	if equality.Semantic.DeepEqual(k8sTGB.Spec, k8sTGBSpec) {
+
+	calculatedLabels := m.trackingProvider.StackLabels(resTGB.Stack())
+
+	if resTGB.Spec.Template.Labels != nil {
+		calculatedLabels = algorithm.MergeStringMap(calculatedLabels, resTGB.Spec.Template.Labels)
+	}
+
+	specSame := equality.Semantic.DeepEqual(k8sTGB.Spec, k8sTGBSpec)
+	labelsSame := equality.Semantic.DeepEqual(k8sTGB.Labels, calculatedLabels)
+	annotationsSame := tgbAnnotationsSame(resTGB, k8sTGB)
+
+	if specSame && labelsSame && annotationsSame {
 		return buildResTargetGroupBindingStatus(k8sTGB), nil
 	}
 
 	oldK8sTGB := k8sTGB.DeepCopy()
 	k8sTGB.Spec = k8sTGBSpec
+	k8sTGB.Annotations = resTGB.Spec.Template.Annotations
+	k8sTGB.Labels = calculatedLabels
 	m.logger.Info("modifying targetGroupBinding",
 		"stackID", resTGB.Stack().StackID(),
 		"resourceID", resTGB.ID(),
 		"targetGroupBinding", k8s.NamespacedName(k8sTGB))
+
 	if err := m.k8sClient.Patch(ctx, k8sTGB, client.MergeFrom(oldK8sTGB)); err != nil {
 		return elbv2model.TargetGroupBindingResourceStatus{}, err
 	}
@@ -116,6 +138,7 @@ func (m *defaultTargetGroupBindingManager) Update(ctx context.Context, resTGB *e
 		"stackID", resTGB.Stack().StackID(),
 		"resourceID", resTGB.ID(),
 		"targetGroupBinding", k8s.NamespacedName(k8sTGB))
+
 	return buildResTargetGroupBindingStatus(k8sTGB), nil
 }
 
@@ -241,4 +264,18 @@ func buildResTargetGroupBindingStatus(k8sTGB *elbv2api.TargetGroupBinding) elbv2
 			UID:       k8sTGB.UID,
 		},
 	}
+}
+
+// tgbAnnotationsSame performs map equality with the two sets of annotations. Will ignore the check point annotations inserted by the TGB reconciler.
+func tgbAnnotationsSame(resTGB *elbv2model.TargetGroupBindingResource, k8sTGB *elbv2api.TargetGroupBinding) bool {
+	annotationsNoCheckpoint := make(map[string]string)
+
+	if k8sTGB.Annotations != nil {
+		for k, v := range k8sTGB.Annotations {
+			if k != annotations.AnnotationCheckPointTimestamp && k != annotations.AnnotationCheckPoint {
+				annotationsNoCheckpoint[k] = v
+			}
+		}
+	}
+	return equality.Semantic.DeepEqual(annotationsNoCheckpoint, resTGB.Spec.Template.Annotations)
 }
