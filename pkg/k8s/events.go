@@ -28,4 +28,13 @@ const (
 	TargetGroupBindingEventReasonFailedNetworkReconcile = "FailedNetworkReconcile"
 	TargetGroupBindingEventReasonBackendNotFound        = "BackendNotFound"
 	TargetGroupBindingEventReasonSuccessfullyReconciled = "SuccessfullyReconciled"
+
+	// Gateway events
+	GatewayEventReasonFailedAddFinalizer             = "FailedAddFinalizer"
+	GatewayEventReasonFailedRemoveFinalizer          = "FailedRemoveFinalizer"
+	GatewayEventReasonFailedDeleteWithRoutesAttached = "FailedDeleteRoutesAttached"
+	GatewayEventReasonFailedUpdateStatus             = "FailedUpdateStatus"
+	GatewayEventReasonSuccessfullyReconciled         = "SuccessfullyReconciled"
+	GatewayEventReasonFailedDeployModel              = "FailedDeployModel"
+	GatewayEventReasonFailedBuildModel               = "FailedBuildModel"
 )
