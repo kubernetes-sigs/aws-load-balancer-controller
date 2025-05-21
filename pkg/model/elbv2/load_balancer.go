@@ -2,7 +2,6 @@ package elbv2
 
 import (
 	"context"
-
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
