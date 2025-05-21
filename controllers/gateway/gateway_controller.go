@@ -145,9 +145,6 @@ type gatewayReconciler struct {
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
 	err := r.reconcileHelper(ctx, req)
-	if err != nil {
-		r.logger.Error(err, "Got this error!")
-	}
 	return runtime.HandleReconcileError(err, r.logger)
 }
 
@@ -196,7 +193,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	}
 
 	if lb == nil {
-		err = r.reconcileDelete(ctx, gw, allRoutes)
+		err = r.reconcileDelete(ctx, gw, stack, allRoutes)
 		if err != nil {
 			r.logger.Error(err, "Failed to process gateway delete")
 		}
@@ -206,39 +203,36 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	return r.reconcileUpdate(ctx, gw, stack, lb, backendSGRequired)
 }
 
-func (r *gatewayReconciler) resolveLoadBalancerConfig(ctx context.Context, k8sClient client.Client, reference *gwv1.ParametersReference) (*elbv2gw.LoadBalancerConfiguration, error) {
-	var lbConf *elbv2gw.LoadBalancerConfiguration
-	var err error
-	if reference != nil {
-		lbConf = &elbv2gw.LoadBalancerConfiguration{}
-		if reference.Namespace != nil {
-			err = k8sClient.Get(ctx, types.NamespacedName{
-				Namespace: string(*reference.Namespace),
-				Name:      reference.Name,
-			}, lbConf)
-		} else {
-			err = errors.New("Namespace must be specified in ParametersRef")
-		}
-	}
-	return lbConf, err
-}
-
-func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor) error {
+func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, stack core.Stack, routes map[int32][]routeutils.RouteDescriptor) error {
 	for _, routeList := range routes {
 		if len(routeList) != 0 {
-			// TODO - Better error messaging (e.g. tell user the routes that are still attached)
-			return errors.New("Gateway still has routes attached")
+			err := errors.Errorf("Gateway deletion invoked with routes attached [%s]", generateRouteList(routes))
+			r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedDeleteWithRoutesAttached, err.Error())
+			return err
 		}
 	}
 
-	return r.finalizerManager.RemoveFinalizers(ctx, gw, r.finalizer)
+	if k8s.HasFinalizer(gw, r.finalizer) {
+		err := r.deployModel(ctx, gw, stack)
+		if err != nil {
+			return err
+		}
+		if err := r.backendSGProvider.Release(ctx, networking.ResourceTypeGateway, []types.NamespacedName{k8s.NamespacedName(gw)}); err != nil {
+			return err
+		}
+		if err := r.finalizerManager.RemoveFinalizers(ctx, gw, r.finalizer); err != nil {
+			r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gateway, stack core.Stack,
 	lb *elbv2model.LoadBalancer, backendSGRequired bool) error {
 
 	if err := r.finalizerManager.AddFinalizers(ctx, gw, r.finalizer); err != nil {
-		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
+		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
 		return err
 	}
 	err := r.deployModel(ctx, gw, stack)
@@ -251,16 +245,16 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 	}
 
 	if !backendSGRequired {
-		if err := r.backendSGProvider.Release(ctx, networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(gw)}); err != nil {
+		if err := r.backendSGProvider.Release(ctx, networking.ResourceTypeGateway, []types.NamespacedName{k8s.NamespacedName(gw)}); err != nil {
 			return err
 		}
 	}
 
 	if err = r.updateGatewayStatus(ctx, lbDNS, gw); err != nil {
-		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
+		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return err
 	}
-	r.eventRecorder.Event(gw, corev1.EventTypeNormal, k8s.ServiceEventReasonSuccessfullyReconciled, "Successfully reconciled")
+	r.eventRecorder.Event(gw, corev1.EventTypeNormal, k8s.GatewayEventReasonSuccessfullyReconciled, "Successfully reconciled")
 	return nil
 }
 
@@ -270,7 +264,7 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 		if errors.As(err, &requeueNeededAfter) {
 			return err
 		}
-		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
+		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
 		return err
 	}
 	r.logger.Info("successfully deployed model", "gateway", k8s.NamespacedName(gw))
@@ -280,12 +274,12 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
 	stack, lb, backendSGRequired, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute)
 	if err != nil {
-		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
+		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, false, err
 	}
 	stackJSON, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
-		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
+		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, false, err
 	}
 	r.logger.Info("successfully built model", "model", stackJSON)
