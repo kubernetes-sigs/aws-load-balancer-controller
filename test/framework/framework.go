@@ -7,6 +7,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
@@ -18,6 +19,9 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type Framework struct {
@@ -50,6 +54,10 @@ func InitFramework() (*Framework, error) {
 	k8sSchema := runtime.NewScheme()
 	clientgoscheme.AddToScheme(k8sSchema)
 	elbv2api.AddToScheme(k8sSchema)
+	gwv1.AddToScheme(k8sSchema)
+	gwalpha2.AddToScheme(k8sSchema)
+	elbv2gw.AddToScheme(k8sSchema)
+	gwbeta1.AddToScheme(k8sSchema)
 
 	k8sClient, err := client.New(restCfg, client.Options{Scheme: k8sSchema})
 	if err != nil {

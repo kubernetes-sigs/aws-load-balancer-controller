@@ -25,10 +25,11 @@ type Options struct {
 	ControllerImage string
 
 	// Additional parameters for e2e tests
-	S3BucketName      string
-	CertificateARNs   string
-	IPFamily          string
-	TestImageRegistry string
+	S3BucketName       string
+	CertificateARNs    string
+	IPFamily           string
+	TestImageRegistry  string
+	EnableGatewayTests bool
 }
 
 func (options *Options) BindFlags() {
@@ -43,6 +44,8 @@ func (options *Options) BindFlags() {
 	flag.StringVar(&options.CertificateARNs, "certificate-arns", "", `Certificate ARNs to use for TLS listeners`)
 	flag.StringVar(&options.IPFamily, "ip-family", "IPv4", "the ip family used for the cluster, can be IPv4 or IPv6")
 	flag.StringVar(&options.TestImageRegistry, "test-image-registry", "617930562442.dkr.ecr.us-west-2.amazonaws.com", "the aws registry in test-infra-* accounts where e2e test images are stored")
+
+	flag.BoolVar(&options.EnableGatewayTests, "enable-gateway-tests", false, "enables gateway tests")
 }
 
 func (options *Options) Validate() error {

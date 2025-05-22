@@ -1,7 +1,8 @@
-package service
+package verifier
 
 import (
 	"context"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sort"
 	"strconv"
 
@@ -10,7 +11,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
 
 type TargetGroupHC struct {
@@ -34,34 +34,34 @@ type LoadBalancerExpectation struct {
 	TargetGroupHC *TargetGroupHC
 }
 
-func verifyAWSLoadBalancerResources(ctx context.Context, f *framework.Framework, lbARN string, expected LoadBalancerExpectation) error {
+func VerifyAWSLoadBalancerResources(ctx context.Context, f *framework.Framework, lbARN string, expected LoadBalancerExpectation) error {
 	lb, err := f.LBManager.GetLoadBalancerFromARN(ctx, lbARN)
 	Expect(err).NotTo(HaveOccurred())
-	err = verifyLoadBalancerName(ctx, f, lb, expected.Name)
+	err = VerifyLoadBalancerName(ctx, f, lb, expected.Name)
 	Expect(err).NotTo(HaveOccurred())
-	err = verifyLoadBalancerType(ctx, f, lb, expected.Type, expected.Scheme)
+	err = VerifyLoadBalancerType(ctx, f, lb, expected.Type, expected.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = verifyLoadBalancerListeners(ctx, f, lbARN, expected.Listeners)
+	err = VerifyLoadBalancerListeners(ctx, f, lbARN, expected.Listeners)
 	Expect(err).NotTo(HaveOccurred())
-	err = verifyLoadBalancerTargetGroups(ctx, f, lbARN, expected)
+	err = VerifyLoadBalancerTargetGroups(ctx, f, lbARN, expected)
 	Expect(err).NotTo(HaveOccurred())
 	return nil
 }
 
-func verifyLoadBalancerName(_ context.Context, f *framework.Framework, lb *elbv2types.LoadBalancer, lbName string) error {
+func VerifyLoadBalancerName(_ context.Context, f *framework.Framework, lb *elbv2types.LoadBalancer, lbName string) error {
 	if len(lbName) > 0 {
 		Expect(awssdk.ToString(lb.LoadBalancerName)).To(Equal(lbName))
 	}
 	return nil
 }
 
-func verifyLoadBalancerType(_ context.Context, f *framework.Framework, lb *elbv2types.LoadBalancer, lbType, lbScheme string) error {
+func VerifyLoadBalancerType(_ context.Context, f *framework.Framework, lb *elbv2types.LoadBalancer, lbType, lbScheme string) error {
 	Expect(string(lb.Type)).To(Equal(lbType))
 	Expect(string(lb.Scheme)).To(Equal(lbScheme))
 	return nil
 }
 
-func verifyLoadBalancerAttributes(ctx context.Context, f *framework.Framework, lbARN string, expectedAttrs map[string]string) error {
+func VerifyLoadBalancerAttributes(ctx context.Context, f *framework.Framework, lbARN string, expectedAttrs map[string]string) error {
 	lbAttrs, err := f.LBManager.GetLoadBalancerAttributes(ctx, lbARN)
 	Expect(err).NotTo(HaveOccurred())
 	for _, attr := range lbAttrs {
@@ -72,7 +72,7 @@ func verifyLoadBalancerAttributes(ctx context.Context, f *framework.Framework, l
 	return nil
 }
 
-func verifyLoadBalancerResourceTags(ctx context.Context, f *framework.Framework, lbARN string, expectedTags map[string]string,
+func VerifyLoadBalancerResourceTags(ctx context.Context, f *framework.Framework, lbARN string, expectedTags map[string]string,
 	unexpectedTags map[string]string) bool {
 	resARNs := []string{lbARN}
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
@@ -96,14 +96,14 @@ func verifyLoadBalancerResourceTags(ctx context.Context, f *framework.Framework,
 		}
 	}
 	for _, resARN := range resARNs {
-		if !matchResourceTags(ctx, f, resARN, expectedTags, unexpectedTags) {
+		if !MatchResourceTags(ctx, f, resARN, expectedTags, unexpectedTags) {
 			return false
 		}
 	}
 	return true
 }
 
-func matchResourceTags(ctx context.Context, f *framework.Framework, resARN string, expectedTags map[string]string, unexpectedTags map[string]string) bool {
+func MatchResourceTags(ctx context.Context, f *framework.Framework, resARN string, expectedTags map[string]string, unexpectedTags map[string]string) bool {
 	lbTags, err := f.LBManager.GetLoadBalancerResourceTags(ctx, resARN)
 	Expect(err).NotTo(HaveOccurred())
 	matchedTags := 0
@@ -120,7 +120,7 @@ func matchResourceTags(ctx context.Context, f *framework.Framework, resARN strin
 	return matchedTags == len(expectedTags)
 }
 
-func getLoadBalancerListenerProtocol(ctx context.Context, f *framework.Framework, lbARN string, port string) string {
+func GetLoadBalancerListenerProtocol(ctx context.Context, f *framework.Framework, lbARN string, port string) string {
 	protocol := ""
 	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
@@ -132,7 +132,7 @@ func getLoadBalancerListenerProtocol(ctx context.Context, f *framework.Framework
 	return protocol
 }
 
-func verifyLoadBalancerListeners(ctx context.Context, f *framework.Framework, lbARN string, listenersMap map[string]string) error {
+func VerifyLoadBalancerListeners(ctx context.Context, f *framework.Framework, lbARN string, listenersMap map[string]string) error {
 	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(listeners)).To(Equal(len(listenersMap)))
@@ -145,7 +145,7 @@ func verifyLoadBalancerListeners(ctx context.Context, f *framework.Framework, lb
 	return nil
 }
 
-func verifyLoadBalancerListenerCertificates(ctx context.Context, f *framework.Framework, lbARN string, expectedCertARNS []string) error {
+func VerifyLoadBalancerListenerCertificates(ctx context.Context, f *framework.Framework, lbARN string, expectedCertARNS []string) error {
 	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(listeners)).Should(BeNumerically(">", 0))
@@ -173,22 +173,22 @@ func verifyLoadBalancerListenerCertificates(ctx context.Context, f *framework.Fr
 	return nil
 }
 
-func verifyLoadBalancerTargetGroups(ctx context.Context, f *framework.Framework, lbARN string, expected LoadBalancerExpectation) error {
+func VerifyLoadBalancerTargetGroups(ctx context.Context, f *framework.Framework, lbARN string, expected LoadBalancerExpectation) error {
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(targetGroups)).To(Equal(len(expected.TargetGroups)))
 	for _, tg := range targetGroups {
 		Expect(string(tg.TargetType)).To(Equal(expected.TargetType))
 		Expect(string(tg.Protocol)).To(Equal(expected.TargetGroups[strconv.Itoa(int(awssdk.ToInt32(tg.Port)))]))
-		err = verifyTargetGroupHealthCheckConfig(tg, expected.TargetGroupHC)
+		err = VerifyTargetGroupHealthCheckConfig(tg, expected.TargetGroupHC)
 		Expect(err).NotTo(HaveOccurred())
-		err = verifyTargetGroupNumRegistered(ctx, f, awssdk.ToString(tg.TargetGroupArn), expected.NumTargets)
+		err = VerifyTargetGroupNumRegistered(ctx, f, awssdk.ToString(tg.TargetGroupArn), expected.NumTargets)
 		Expect(err).NotTo(HaveOccurred())
 	}
 	return nil
 }
 
-func verifyTargetGroupHealthCheckConfig(tg elbv2types.TargetGroup, hc *TargetGroupHC) error {
+func VerifyTargetGroupHealthCheckConfig(tg elbv2types.TargetGroup, hc *TargetGroupHC) error {
 	if hc != nil {
 		Expect(string(tg.HealthCheckProtocol)).To(Equal(hc.Protocol))
 		Expect(awssdk.ToString(tg.HealthCheckPath)).To(Equal(hc.Path))
@@ -201,7 +201,7 @@ func verifyTargetGroupHealthCheckConfig(tg elbv2types.TargetGroup, hc *TargetGro
 	return nil
 }
 
-func verifyTargetGroupNumRegistered(ctx context.Context, f *framework.Framework, tgARN string, expectedTargets int) error {
+func VerifyTargetGroupNumRegistered(ctx context.Context, f *framework.Framework, tgARN string, expectedTargets int) error {
 	if expectedTargets == 0 {
 		return nil
 	}
@@ -213,7 +213,7 @@ func verifyTargetGroupNumRegistered(ctx context.Context, f *framework.Framework,
 	return nil
 }
 
-func waitUntilTargetsAreHealthy(ctx context.Context, f *framework.Framework, lbARN string, expectedTargetCount int) error {
+func WaitUntilTargetsAreHealthy(ctx context.Context, f *framework.Framework, lbARN string, expectedTargetCount int) error {
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(targetGroups)).To(Not(BeZero()))
@@ -226,13 +226,13 @@ func waitUntilTargetsAreHealthy(ctx context.Context, f *framework.Framework, lbA
 	return nil
 }
 
-func getTargetGroupHealthCheckProtocol(ctx context.Context, f *framework.Framework, lbARN string) string {
+func GetTargetGroupHealthCheckProtocol(ctx context.Context, f *framework.Framework, lbARN string) string {
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 	return string(targetGroups[0].HealthCheckProtocol)
 }
 
-func verifyTargetGroupAttributes(ctx context.Context, f *framework.Framework, lbARN string, expectedAttributes map[string]string) bool {
+func VerifyTargetGroupAttributes(ctx context.Context, f *framework.Framework, lbARN string, expectedAttributes map[string]string) bool {
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(len(targetGroups)).To(Not(BeZero()))
@@ -249,7 +249,7 @@ func verifyTargetGroupAttributes(ctx context.Context, f *framework.Framework, lb
 	return matchedAttrs == len(expectedAttributes)
 }
 
-func verifyListenerAttributes(ctx context.Context, f *framework.Framework, lsARN string, expectedAttrs map[string]string) error {
+func VerifyListenerAttributes(ctx context.Context, f *framework.Framework, lsARN string, expectedAttrs map[string]string) error {
 	lsAttrs, err := f.LBManager.GetListenerAttributes(ctx, lsARN)
 	Expect(err).NotTo(HaveOccurred())
 	for _, attr := range lsAttrs {
@@ -260,7 +260,7 @@ func verifyListenerAttributes(ctx context.Context, f *framework.Framework, lsARN
 	return nil
 }
 
-func getLoadBalancerListenerARN(ctx context.Context, f *framework.Framework, lbARN string, port string) string {
+func GetLoadBalancerListenerARN(ctx context.Context, f *framework.Framework, lbARN string, port string) string {
 	lsARN := ""
 	listeners, err := f.LBManager.GetLoadBalancerListeners(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
