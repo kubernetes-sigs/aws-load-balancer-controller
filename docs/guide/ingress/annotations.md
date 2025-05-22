@@ -630,7 +630,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
 
 - <a name="auth-idp-cognito">`alb.ingress.kubernetes.io/auth-idp-cognito`</a> specifies the cognito idp configuration.
 
-    !!!tip ""
+    !!!warning "For Amazon Cognito Domain only"
         If you are using Amazon Cognito Domain, the `userPoolDomain` should be set to the domain prefix(my-domain) instead of full domain(https://my-domain.auth.us-west-2.amazoncognito.com)
 
     !!!example
