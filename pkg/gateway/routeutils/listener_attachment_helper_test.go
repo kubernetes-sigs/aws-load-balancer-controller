@@ -69,9 +69,10 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			attachmentHelper := listenerAttachmentHelperImpl{
 				logger: logr.Discard(),
 			}
+			mockReconciler := NewMockRouteReconciler()
 			result, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
-			}, route)
+			}, route, mockReconciler)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, result)
 		})

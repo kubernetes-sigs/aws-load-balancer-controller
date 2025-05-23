@@ -19,7 +19,7 @@ func makeListenerAttachmentMapKey(listener gwv1.Listener, route preLoadRouteDesc
 	return fmt.Sprintf("%s-%d-%s-%s", listener.Name, listener.Port, nsn.Name, nsn.Namespace)
 }
 
-func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
+func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, routeReconciler RouteReconciler) (bool, error) {
 	k := makeListenerAttachmentMapKey(listener, route)
 	return m.attachmentMap[k], nil
 }
@@ -313,7 +313,8 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 				logger: logr.Discard(),
 			}
 
-			result, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)
+			mockReconciler := NewMockRouteReconciler()
+			result, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes, mockReconciler)
 
 			if tc.expectErr {
 				assert.Error(t, err)

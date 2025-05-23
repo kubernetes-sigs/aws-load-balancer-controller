@@ -47,7 +47,7 @@ var L7RouteFilter LoadRouteFilter = &routeFilterImpl{
 // Loader will load all data Kubernetes that are pertinent to a gateway (Routes, Services, Target Group Configurations).
 // It will output the data using a map which maps listener port to the various routing rules for that port.
 type Loader interface {
-	LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter) (map[int32][]RouteDescriptor, error)
+	LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, reconciler RouteReconciler) (map[int32][]RouteDescriptor, error)
 }
 
 var _ Loader = &loaderImpl{}
@@ -69,7 +69,7 @@ func NewLoader(k8sClient client.Client, logger logr.Logger) Loader {
 }
 
 // LoadRoutesForGateway loads all relevant data for a single Gateway.
-func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter) (map[int32][]RouteDescriptor, error) {
+func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, filter LoadRouteFilter, deferredRouteReconciler RouteReconciler) (map[int32][]RouteDescriptor, error) {
 	// 1. Load all relevant routes according to the filter
 
 	loadedRoutes := make([]preLoadRouteDescriptor, 0)
@@ -87,9 +87,18 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	// 2. Remove routes that aren't granted attachment by the listener.
 	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, err := l.mapper.mapGatewayAndRoutes(ctx, gw, loadedRoutes)
+	mappedRoutes, err := l.mapper.mapGatewayAndRoutes(ctx, gw, loadedRoutes, deferredRouteReconciler)
 	if err != nil {
 		return nil, err
+	}
+
+	// update status for accepted routes
+	for _, routeList := range mappedRoutes {
+		for _, route := range routeList {
+			deferredRouteReconciler.Enqueue(
+				GenerateRouteData(true, true, string(gwv1.RouteConditionAccepted), RouteStatusInfoAcceptedMessage, route, gw),
+			)
+		}
 	}
 
 	// 3. Load the underlying resource(s) for each route that is configured.
