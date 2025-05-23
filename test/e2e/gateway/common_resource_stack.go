@@ -13,33 +13,30 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"strconv"
 	"time"
 )
 
-func NewResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tcpr *gwalpha2.TCPRoute, baseName string, enablePodReadinessGate bool) *resourceStack {
-	return &resourceStack{
+func newCommonResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, baseName string, enablePodReadinessGate bool) *commonResourceStack {
+	return &commonResourceStack{
 		dp:                     dp,
 		svc:                    svc,
 		gwc:                    gwc,
 		gw:                     gw,
 		lbc:                    lbc,
-		tcpr:                   tcpr,
 		baseName:               baseName,
 		enablePodReadinessGate: enablePodReadinessGate,
 	}
 }
 
-// resourceStack containing the deployment and service resources
-type resourceStack struct {
+// commonResourceStack contains resources that are common between nlb / alb gateways
+type commonResourceStack struct {
 	// configurations
 	svc                    *corev1.Service
 	dp                     *appsv1.Deployment
 	gwc                    *gwv1.GatewayClass
 	gw                     *gwv1.Gateway
 	lbc                    *elbv2gw.LoadBalancerConfiguration
-	tcpr                   *gwalpha2.TCPRoute
 	ns                     *corev1.Namespace
 	baseName               string
 	enablePodReadinessGate bool
@@ -50,7 +47,7 @@ type resourceStack struct {
 	createdGW  *gwv1.Gateway
 }
 
-func (s *resourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) Deploy(ctx context.Context, f *framework.Framework, resourceSpecificCreation func(ctx context.Context, f *framework.Framework, namespace string) error) error {
 	if err := s.allocateNamespace(ctx, f); err != nil {
 		return err
 	}
@@ -58,7 +55,6 @@ func (s *resourceStack) Deploy(ctx context.Context, f *framework.Framework) erro
 	s.svc.Namespace = s.ns.Name
 	s.gw.Namespace = s.ns.Name
 	s.lbc.Namespace = s.ns.Name
-	s.tcpr.Namespace = s.ns.Name
 
 	if err := s.createGatewayClass(ctx, f); err != nil {
 		return err
@@ -75,51 +71,27 @@ func (s *resourceStack) Deploy(ctx context.Context, f *framework.Framework) erro
 	if err := s.createGateway(ctx, f); err != nil {
 		return err
 	}
-	if err := s.createTCPRoute(ctx, f); err != nil {
+
+	if err := resourceSpecificCreation(ctx, f, s.ns.Name); err != nil {
 		return err
 	}
+	// TODO -- Fix
 	time.Sleep(7 * time.Minute)
 	if err := s.waitUntilDeploymentReady(ctx, f); err != nil {
 		return err
 	}
 
-	//if err := s.waitUntilServiceReady(ctx, f); err != nil {
-	//	return err
-	//}
-	return nil
-}
-
-func (s *resourceStack) UpdateServiceAnnotations(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string) error {
-	if err := s.updateServiceAnnotations(ctx, f, svcAnnotations); err != nil {
-		return err
-	}
 	if err := s.waitUntilServiceReady(ctx, f); err != nil {
 		return err
 	}
-	return nil
-}
 
-func (s *resourceStack) DeleteServiceAnnotations(ctx context.Context, f *framework.Framework, annotationKeys []string) error {
-	if err := s.removeServiceAnnotations(ctx, f, annotationKeys); err != nil {
-		return err
-	}
-	if err := s.waitUntilServiceReady(ctx, f); err != nil {
+	if err := s.waitUntilGatewayReady(ctx, f); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *resourceStack) UpdateServiceTrafficPolicy(ctx context.Context, f *framework.Framework, trafficPolicy corev1.ServiceExternalTrafficPolicyType) error {
-	if err := s.updateServiceTrafficPolicy(ctx, f, trafficPolicy); err != nil {
-		return err
-	}
-	if err := s.waitUntilServiceReady(ctx, f); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *resourceStack) ScaleDeployment(ctx context.Context, f *framework.Framework, numReplicas int32) error {
+func (s *commonResourceStack) ScaleDeployment(ctx context.Context, f *framework.Framework, numReplicas int32) error {
 	f.Logger.Info("scaling deployment", "dp", k8s.NamespacedName(s.dp), "currentReplicas", s.dp.Spec.Replicas, "desiredReplicas", numReplicas)
 	oldDP := s.dp.DeepCopy()
 	s.dp.Spec.Replicas = &numReplicas
@@ -133,36 +105,31 @@ func (s *resourceStack) ScaleDeployment(ctx context.Context, f *framework.Framew
 	return nil
 }
 
-func (s *resourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
-	if err := s.deleteDeployment(ctx, f); err != nil {
-		return err
-	}
-	if err := s.deleteService(ctx, f); err != nil {
-		return err
-	}
-	if err := s.deleteNamespace(ctx, f); err != nil {
-		return err
-	}
-	return nil
+func (s *commonResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {
+	_ = s.deleteGateway(ctx, f)
+	// todo - fix
+	time.Sleep(5 * time.Minute)
+	_ = s.deleteNamespace(ctx, f)
+	_ = s.deleteGatewayClass(ctx, f)
 }
 
-func (s *resourceStack) GetLoadBalancerIngressHostname() string {
-	return s.createdSVC.Status.LoadBalancer.Ingress[0].Hostname
+func (s *commonResourceStack) GetLoadBalancerIngressHostname() string {
+	return s.createdGW.Status.Addresses[0].Value
 }
 
-func (s *resourceStack) GetStackName() string {
+func (s *commonResourceStack) GetStackName() string {
 	return fmt.Sprintf("%v/%v", s.ns.Name, s.svc.Name)
 }
 
-func (s *resourceStack) getListenersPortMap() map[string]string {
+func (s *commonResourceStack) getListenersPortMap() map[string]string {
 	listenersMap := map[string]string{}
-	for _, port := range s.createdSVC.Spec.Ports {
-		listenersMap[strconv.Itoa(int(port.Port))] = string(port.Protocol)
+	for _, l := range s.createdGW.Spec.Listeners {
+		listenersMap[strconv.Itoa(int(l.Port))] = string(l.Protocol)
 	}
 	return listenersMap
 }
 
-func (s *resourceStack) getTargetGroupNodePortMap() map[string]string {
+func (s *commonResourceStack) getTargetGroupNodePortMap() map[string]string {
 	tgPortProtocolMap := map[string]string{}
 	for _, port := range s.createdSVC.Spec.Ports {
 		tgPortProtocolMap[strconv.Itoa(int(port.NodePort))] = string(port.Protocol)
@@ -170,45 +137,11 @@ func (s *resourceStack) getTargetGroupNodePortMap() map[string]string {
 	return tgPortProtocolMap
 }
 
-func (s *resourceStack) getHealthCheckNodePort() string {
+func (s *commonResourceStack) getHealthCheckNodePort() string {
 	return strconv.Itoa(int(s.svc.Spec.HealthCheckNodePort))
 }
 
-func (s *resourceStack) updateServiceTrafficPolicy(ctx context.Context, f *framework.Framework, trafficPolicy corev1.ServiceExternalTrafficPolicyType) error {
-	f.Logger.Info("updating service annotations", "svc", k8s.NamespacedName(s.svc))
-	oldSvc := s.svc.DeepCopy()
-	s.svc.Spec.ExternalTrafficPolicy = trafficPolicy
-	return s.updateService(ctx, f, oldSvc)
-}
-
-func (s *resourceStack) updateServiceAnnotations(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string) error {
-	f.Logger.Info("updating service annotations", "svc", k8s.NamespacedName(s.svc))
-	oldSvc := s.svc.DeepCopy()
-	for key, value := range svcAnnotations {
-		s.svc.Annotations[key] = value
-	}
-	return s.updateService(ctx, f, oldSvc)
-}
-
-func (s *resourceStack) removeServiceAnnotations(ctx context.Context, f *framework.Framework, annotationKeys []string) error {
-	f.Logger.Info("removing service annotations", "svc", k8s.NamespacedName(s.svc))
-	oldSvc := s.svc.DeepCopy()
-	for _, key := range annotationKeys {
-		delete(s.svc.Annotations, key)
-	}
-	return s.updateService(ctx, f, oldSvc)
-}
-
-func (s *resourceStack) updateService(ctx context.Context, f *framework.Framework, oldSvc *corev1.Service) error {
-	f.Logger.Info("updating service", "svc", k8s.NamespacedName(s.svc))
-	if err := f.K8sClient.Patch(ctx, s.svc, client.MergeFrom(oldSvc)); err != nil {
-		f.Logger.Info("failed to update service", "svc", k8s.NamespacedName(s.svc))
-		return err
-	}
-	return nil
-}
-
-func (s *resourceStack) createDeployment(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) createDeployment(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("creating deployment", "dp", k8s.NamespacedName(s.dp))
 	if err := f.K8sClient.Create(ctx, s.dp); err != nil {
 		f.Logger.Info("failed to create deployment")
@@ -218,7 +151,7 @@ func (s *resourceStack) createDeployment(ctx context.Context, f *framework.Frame
 	return nil
 }
 
-func (s *resourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("waiting until deployment becomes ready", "dp", k8s.NamespacedName(s.dp))
 	observedDP, err := f.DPManager.WaitUntilDeploymentReady(ctx, s.dp)
 	if err != nil {
@@ -230,42 +163,37 @@ func (s *resourceStack) waitUntilDeploymentReady(ctx context.Context, f *framewo
 	return nil
 }
 
-func (s *resourceStack) createService(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) createService(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("creating service", "svc", k8s.NamespacedName(s.svc))
 	return f.K8sClient.Create(ctx, s.svc)
 }
 
-func (s *resourceStack) createGatewayClass(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) createGatewayClass(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("creating gateway class", "gwc", k8s.NamespacedName(s.gwc))
 	return f.K8sClient.Create(ctx, s.gwc)
 }
 
-func (s *resourceStack) createLoadBalancerConfig(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) createLoadBalancerConfig(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("creating loadbalancer config", "lbc", k8s.NamespacedName(s.lbc))
 	return f.K8sClient.Create(ctx, s.lbc)
 }
 
-func (s *resourceStack) createGateway(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) createGateway(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("creating gateway", "gw", k8s.NamespacedName(s.gw))
 	return f.K8sClient.Create(ctx, s.gw)
 }
 
-func (s *resourceStack) createTCPRoute(ctx context.Context, f *framework.Framework) error {
-	f.Logger.Info("creating tcp route", "tcpr", k8s.NamespacedName(s.tcpr))
-	return f.K8sClient.Create(ctx, s.tcpr)
-}
-
-func (s *resourceStack) waitUntilServiceReady(ctx context.Context, f *framework.Framework) error {
-	f.Logger.Info("waiting until service becomes ready", "svc", k8s.NamespacedName(s.svc))
-	observedSVC, err := f.SVCManager.WaitUntilServiceActive(ctx, s.svc)
+func (s *commonResourceStack) waitUntilServiceReady(ctx context.Context, f *framework.Framework) error {
+	observedSvc := &corev1.Service{}
+	err := f.K8sClient.Get(ctx, k8s.NamespacedName(s.svc), observedSvc)
 	if err != nil {
-		f.Logger.Info("failed waiting for service")
+		return err
 	}
-	s.createdSVC = observedSVC
+	s.createdSVC = observedSvc
 	return nil
 }
 
-func (s *resourceStack) waitUntilGatewayReady(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) waitUntilGatewayReady(ctx context.Context, f *framework.Framework) error {
 	observedGw := &gwv1.Gateway{}
 	err := wait.PollImmediateUntil(utils.PollIntervalShort, func() (bool, error) {
 		if err := f.K8sClient.Get(ctx, k8s.NamespacedName(s.gw), observedGw); err != nil {
@@ -283,7 +211,7 @@ func (s *resourceStack) waitUntilGatewayReady(ctx context.Context, f *framework.
 	return nil
 }
 
-func (s *resourceStack) deleteDeployment(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) deleteDeployment(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("deleting deployment", "dp", k8s.NamespacedName(s.dp))
 	if err := f.K8sClient.Delete(ctx, s.dp); err != nil {
 		f.Logger.Info("failed to delete deployment", "dp", k8s.NamespacedName(s.dp))
@@ -297,7 +225,7 @@ func (s *resourceStack) deleteDeployment(ctx context.Context, f *framework.Frame
 	return nil
 }
 
-func (s *resourceStack) deleteService(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) deleteService(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("deleting service", "svc", k8s.NamespacedName(s.svc))
 	if err := f.K8sClient.Delete(ctx, s.svc); err != nil {
 		f.Logger.Info("failed to delete service", "svc", k8s.NamespacedName(s.svc))
@@ -311,7 +239,19 @@ func (s *resourceStack) deleteService(ctx context.Context, f *framework.Framewor
 	return nil
 }
 
-func (s *resourceStack) allocateNamespace(ctx context.Context, f *framework.Framework) error {
+func (s *commonResourceStack) deleteGateway(ctx context.Context, f *framework.Framework) error {
+	return f.K8sClient.Delete(ctx, s.gw)
+}
+
+func (s *commonResourceStack) deleteGatewayClass(ctx context.Context, f *framework.Framework) error {
+	return f.K8sClient.Delete(ctx, s.gwc)
+}
+
+func (s *commonResourceStack) deleteLoadbalancerConfig(ctx context.Context, f *framework.Framework) error {
+	return f.K8sClient.Delete(ctx, s.lbc)
+}
+
+func (s *commonResourceStack) allocateNamespace(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("allocating namespace")
 	ns, err := f.NSManager.AllocateNamespace(ctx, s.baseName)
 	if err != nil {
@@ -334,7 +274,7 @@ func (s *resourceStack) allocateNamespace(ctx context.Context, f *framework.Fram
 	return nil
 }
 
-func (s *resourceStack) deleteNamespace(ctx context.Context, tf *framework.Framework) error {
+func (s *commonResourceStack) deleteNamespace(ctx context.Context, tf *framework.Framework) error {
 	tf.Logger.Info("deleting namespace", "ns", k8s.NamespacedName(s.ns))
 	if err := tf.K8sClient.Delete(ctx, s.ns); err != nil {
 		tf.Logger.Info("failed to delete namespace", "ns", k8s.NamespacedName(s.ns))

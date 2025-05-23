@@ -9,35 +9,35 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type NLBInstanceTestStack struct {
-	nlbResourceStack *nlbResourceStack
+type ALBInstanceTestStack struct {
+	albResourceStack *albResourceStack
 }
 
-func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framework, spec elbv2gw.LoadBalancerConfigurationSpec) error {
+func (s *ALBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framework, spec elbv2gw.LoadBalancerConfigurationSpec) error {
 	dp := buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := buildServiceSpec()
-	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/alb")
 	gw := buildGatewaySpec(gwc)
 	lbc := buildLoadBalancerConfig(spec)
-	tcpr := buildTCPRoute()
-	s.nlbResourceStack = newNLBResourceStack(dp, svc, gwc, gw, lbc, tcpr, "service-instance-e2e", false)
+	httpr := buildHTTPRoute()
+	s.albResourceStack = newALBResourceStack(dp, svc, gwc, gw, lbc, httpr, "service-instance-e2e", false)
 
-	return s.nlbResourceStack.Deploy(ctx, f)
+	return s.albResourceStack.Deploy(ctx, f)
 }
 
-func (s *NLBInstanceTestStack) ScaleDeployment(ctx context.Context, f *framework.Framework, numReplicas int32) error {
-	return s.nlbResourceStack.ScaleDeployment(ctx, f, numReplicas)
+func (s *ALBInstanceTestStack) ScaleDeployment(ctx context.Context, f *framework.Framework, numReplicas int32) error {
+	return s.albResourceStack.ScaleDeployment(ctx, f, numReplicas)
 }
 
-func (s *NLBInstanceTestStack) Cleanup(ctx context.Context, f *framework.Framework) {
-	s.nlbResourceStack.Cleanup(ctx, f)
+func (s *ALBInstanceTestStack) Cleanup(ctx context.Context, f *framework.Framework) {
+	s.albResourceStack.Cleanup(ctx, f)
 }
 
-func (s *NLBInstanceTestStack) GetLoadBalancerIngressHostName() string {
-	return s.nlbResourceStack.GetLoadBalancerIngressHostname()
+func (s *ALBInstanceTestStack) GetLoadBalancerIngressHostName() string {
+	return s.albResourceStack.GetLoadBalancerIngressHostname()
 }
 
-func (s *NLBInstanceTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framework) ([]corev1.Node, error) {
+func (s *ALBInstanceTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framework) ([]corev1.Node, error) {
 	allNodes := &corev1.NodeList{}
 	err := f.K8sClient.List(ctx, allNodes)
 	if err != nil {
@@ -52,7 +52,7 @@ func (s *NLBInstanceTestStack) GetWorkerNodes(ctx context.Context, f *framework.
 	return nodeList, nil
 }
 
-func (s *NLBInstanceTestStack) ApplyNodeLabels(ctx context.Context, f *framework.Framework, node *corev1.Node, labels map[string]string) error {
+func (s *ALBInstanceTestStack) ApplyNodeLabels(ctx context.Context, f *framework.Framework, node *corev1.Node, labels map[string]string) error {
 	f.Logger.Info("applying node labels", "node", k8s.NamespacedName(node))
 	oldNode := node.DeepCopy()
 	for key, value := range labels {

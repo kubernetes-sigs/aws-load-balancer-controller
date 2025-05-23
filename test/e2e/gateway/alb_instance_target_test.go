@@ -11,21 +11,21 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 )
 
-var _ = Describe("test nlb gateway reconciled by the aws load balancer controller", func() {
+var _ = Describe("test k8s alb gateway reconciled by the aws load balancer controller", func() {
 	var (
 		ctx     context.Context
-		stack   NLBInstanceTestStack
+		stack   ALBInstanceTestStack
 		dnsName string
 		lbARN   string
 	)
 	BeforeEach(func() {
 		ctx = context.Background()
-		stack = NLBInstanceTestStack{}
+		stack = ALBInstanceTestStack{}
 	})
 	AfterEach(func() {
 		stack.Cleanup(ctx, tf)
 	})
-	Context("with NLB instance target configuration", func() {
+	Context("with ALB instance target configuration", func() {
 		BeforeEach(func() {})
 		It("should provision internet-facing load balancer resources", func() {
 			interf := elbv2gw.LoadBalancerSchemeInternetFacing
@@ -53,14 +53,14 @@ var _ = Describe("test nlb gateway reconciled by the aws load balancer controlle
 				nodeList, err := stack.GetWorkerNodes(ctx, tf)
 				Expect(err).ToNot(HaveOccurred())
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:         "network",
+					Type:         "application",
 					Scheme:       "internet-facing",
 					TargetType:   "instance",
-					Listeners:    stack.nlbResourceStack.getListenersPortMap(),
-					TargetGroups: stack.nlbResourceStack.getTargetGroupNodePortMap(),
+					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					TargetGroups: stack.albResourceStack.getTargetGroupNodePortMap(),
 					NumTargets:   len(nodeList),
 					TargetGroupHC: &verifier.TargetGroupHC{
-						Protocol:           "TCP",
+						Protocol:           "HTTP",
 						Port:               "traffic-port",
 						Interval:           15,
 						Timeout:            5,

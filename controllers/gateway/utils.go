@@ -35,6 +35,10 @@ func updateGatewayClassLastProcessedConfig(ctx context.Context, k8sClient client
 		return nil
 	}
 
+	if gwClass.Annotations == nil {
+		gwClass.Annotations = make(map[string]string)
+	}
+
 	gwClassOld := gwClass.DeepCopy()
 	gwClass.Annotations[gatewayClassAnnotationLastProcessedConfig] = calculatedVersion
 	gwClass.Annotations[gatewayClassAnnotationLastProcessedConfigTimestamp] = strconv.FormatInt(time.Now().Unix(), 10)
