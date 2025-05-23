@@ -10,7 +10,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"regexp"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
@@ -79,7 +78,7 @@ func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context
 
 func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
 	var lbSGTokens []core.StringToken
-	managedSG, err := builder.buildManagedSecurityGroup(stack, lbConf, gw, routes, ipAddressType)
+	managedSG, err := builder.buildManagedSecurityGroup(stack, lbConf, gw, ipAddressType)
 	if err != nil {
 		return securityGroupOutput{}, err
 	}
@@ -144,14 +143,14 @@ func (builder *securityGroupBuilderImpl) getBackendSecurityGroup(ctx context.Con
 	return core.LiteralStringToken(backendSGID), nil
 }
 
-func (builder *securityGroupBuilderImpl) buildManagedSecurityGroup(stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
+func (builder *securityGroupBuilderImpl) buildManagedSecurityGroup(stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
 	name := builder.buildManagedSecurityGroupName(gw)
 	tags, err := builder.tagHelper.getGatewayTags(lbConf)
 	if err != nil {
 		return nil, err
 	}
 
-	ingressPermissions := builder.buildManagedSecurityGroupIngressPermissions(lbConf, routes, ipAddressType)
+	ingressPermissions := builder.buildManagedSecurityGroupIngressPermissions(lbConf, gw, ipAddressType)
 	return ec2model.NewSecurityGroup(stack, resourceIDManagedSecurityGroup, ec2model.SecurityGroupSpec{
 		GroupName:   name,
 		Description: managedSGDescription,
@@ -173,7 +172,7 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupName(gw *gwv1.
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
 }
 
-func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermissions(lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
+func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermissions(lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) []ec2model.IPPermission {
 	var permissions []ec2model.IPPermission
 
 	// Default to 0.0.0.0/0 and ::/0
@@ -200,97 +199,85 @@ func (builder *securityGroupBuilderImpl) buildManagedSecurityGroupIngressPermiss
 
 	includeIPv6 := isIPv6Supported(ipAddressType)
 
-	// Port Loop
-	for port, cfg := range routes {
-		// Protocol Loop
-		for _, protocol := range generateProtocolListFromRoutes(cfg) {
-			// CIDR Loop
-			for _, cidr := range sourceRanges {
-				isIPv6 := isIPv6CIDR(cidr)
+	//listener loop
+	for _, listener := range gw.Spec.Listeners {
+		port := int32(listener.Port)
+		protocol := getSgRuleProtocol(listener.Protocol)
+		// CIDR Loop
+		for _, cidr := range sourceRanges {
+			isIPv6 := isIPv6CIDR(cidr)
 
-				if !isIPv6 {
+			if !isIPv6 {
+				permissions = append(permissions, ec2model.IPPermission{
+					IPProtocol: string(protocol),
+					FromPort:   awssdk.Int32(int32(port)),
+					ToPort:     awssdk.Int32(int32(port)),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: cidr,
+						},
+					},
+				})
+
+				if enableICMP {
 					permissions = append(permissions, ec2model.IPPermission{
-						IPProtocol: protocol,
-						FromPort:   awssdk.Int32(int32(port)),
-						ToPort:     awssdk.Int32(int32(port)),
+						IPProtocol: shared_constants.ICMPV4Protocol,
+						FromPort:   awssdk.Int32(shared_constants.ICMPV4TypeForPathMtu),
+						ToPort:     awssdk.Int32(shared_constants.ICMPV4CodeForPathMtu),
 						IPRanges: []ec2model.IPRange{
 							{
 								CIDRIP: cidr,
 							},
 						},
 					})
+				}
 
-					if enableICMP {
-						permissions = append(permissions, ec2model.IPPermission{
-							IPProtocol: shared_constants.ICMPV4Protocol,
-							FromPort:   awssdk.Int32(shared_constants.ICMPV4TypeForPathMtu),
-							ToPort:     awssdk.Int32(shared_constants.ICMPV4CodeForPathMtu),
-							IPRanges: []ec2model.IPRange{
-								{
-									CIDRIP: cidr,
-								},
-							},
-						})
-					}
+			} else if includeIPv6 {
+				permissions = append(permissions, ec2model.IPPermission{
+					IPProtocol: string(protocol),
+					FromPort:   awssdk.Int32(int32(port)),
+					ToPort:     awssdk.Int32(int32(port)),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: cidr,
+						},
+					},
+				})
 
-				} else if includeIPv6 {
+				if enableICMP {
 					permissions = append(permissions, ec2model.IPPermission{
-						IPProtocol: protocol,
-						FromPort:   awssdk.Int32(int32(port)),
-						ToPort:     awssdk.Int32(int32(port)),
+						IPProtocol: shared_constants.ICMPV6Protocol,
+						FromPort:   awssdk.Int32(shared_constants.ICMPV6TypeForPathMtu),
+						ToPort:     awssdk.Int32(shared_constants.ICMPV6CodeForPathMtu),
 						IPv6Range: []ec2model.IPv6Range{
 							{
 								CIDRIPv6: cidr,
 							},
 						},
 					})
-
-					if enableICMP {
-						permissions = append(permissions, ec2model.IPPermission{
-							IPProtocol: shared_constants.ICMPV6Protocol,
-							FromPort:   awssdk.Int32(shared_constants.ICMPV6TypeForPathMtu),
-							ToPort:     awssdk.Int32(shared_constants.ICMPV6CodeForPathMtu),
-							IPv6Range: []ec2model.IPv6Range{
-								{
-									CIDRIPv6: cidr,
-								},
-							},
-						})
-					}
 				}
-			} // CIDR Loop
-			// PL loop
-			for _, prefixID := range prefixes {
-				permissions = append(permissions, ec2model.IPPermission{
-					IPProtocol: protocol,
-					FromPort:   awssdk.Int32(int32(port)),
-					ToPort:     awssdk.Int32(int32(port)),
-					PrefixLists: []ec2model.PrefixList{
-						{
-							ListID: prefixID,
-						},
+			}
+		} // CIDR Loop
+		// PL loop
+		for _, prefixID := range prefixes {
+			permissions = append(permissions, ec2model.IPPermission{
+				IPProtocol: string(protocol),
+				FromPort:   awssdk.Int32(int32(port)),
+				ToPort:     awssdk.Int32(int32(port)),
+				PrefixLists: []ec2model.PrefixList{
+					{
+						ListID: prefixID,
 					},
-				})
-			} // PL Loop
-		} // Protocol Loop
-	} // Port Loop
+				},
+			})
+		} // PL loop
+	} // listener loop
 	return permissions
 }
 
-func generateProtocolListFromRoutes(routes []routeutils.RouteDescriptor) []string {
-	protocolSet := sets.New[string]()
-
-	for _, route := range routes {
-		switch route.GetRouteKind() {
-		case routeutils.HTTPRouteKind, routeutils.GRPCRouteKind, routeutils.TCPRouteKind, routeutils.TLSRouteKind:
-			protocolSet.Insert(string(ec2types.ProtocolTcp))
-			break
-		case routeutils.UDPRouteKind:
-			protocolSet = protocolSet.Insert(string(ec2types.ProtocolUdp))
-			break
-		default:
-			// Ignore? Throw error?
-		}
+func getSgRuleProtocol(protocol gwv1.ProtocolType) ec2types.Protocol {
+	if protocol == gwv1.UDPProtocolType {
+		return ec2types.ProtocolUdp
 	}
-	return protocolSet.UnsortedList()
+	return ec2types.ProtocolTcp
 }
