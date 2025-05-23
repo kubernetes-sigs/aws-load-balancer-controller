@@ -9,6 +9,10 @@ This will allow you to provision the load balancer infrastructure completely out
 
     You can view all TargetGroupBindings in a namespace by `kubectl get targetgroupbindings -n <your-namespace> -o wide`
 
+!!!question "EKS Auto Mode users"
+    If you are using EKS Auto Mode, please see the
+    [EKS Auto Mode documentation](https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-alb.html#_considerations)
+    for key differences between the load balancing capability of EKS Auto Mode and the open source load balancer controller.
 
 ## TargetType
 TargetGroupBinding CR supports TargetGroups of either `instance` or `ip` TargetType.

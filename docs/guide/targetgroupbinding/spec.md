@@ -1,3 +1,8 @@
+!!!question "EKS Auto Mode users"
+    If you are using EKS Auto Mode, please see the
+    [EKS Auto Mode documentation](https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-alb.html#_considerations)
+    for key differences between the load balancing capability of EKS Auto Mode and the open source load balancer controller.
+
 <p>Packages:</p>
 <ul>
 <li>
