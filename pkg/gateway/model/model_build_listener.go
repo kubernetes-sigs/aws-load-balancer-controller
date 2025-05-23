@@ -146,7 +146,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 
 	// For L4 Gateways we will assume that each L4 gateway Listener will have a single L4 route and each route will only have a single backendRef as weighted tgs are not supported for NLBs.
 	if len(routes) > 1 {
-		return &elbv2model.ListenerSpec{}, errors.Errorf("multiple routes %v are not supported for listener on port:protocol %v:%v for gateway %v", routes, port, listenerSpec.Protocol, k8s.NamespacedName(gw))
+		return &elbv2model.ListenerSpec{}, errors.Errorf("multiple routes %+v are not supported for listener %v:%v for gateway %v", routes, listenerSpec.Protocol, port, k8s.NamespacedName(gw))
 	}
 	routeDescriptor := routes[0]
 	if routeDescriptor.GetAttachedRules()[0].GetBackends() == nil || len(routeDescriptor.GetAttachedRules()[0].GetBackends()) == 0 {

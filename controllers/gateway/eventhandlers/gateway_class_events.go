@@ -3,7 +3,6 @@ package eventhandlers
 import (
 	"context"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -42,16 +41,7 @@ func (h *enqueueRequestsForGatewayClassEvent) Create(ctx context.Context, e even
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*gatewayv1.GatewayClass], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gwClassOld := e.ObjectOld
 	gwClassNew := e.ObjectNew
-
-	// we only care below update event:
-	//  1. GatewayClass spec updates
-	//  3. GatewayClass deletions
-	if equality.Semantic.DeepEqual(gwClassOld.Spec, gwClassNew.Spec) &&
-		equality.Semantic.DeepEqual(gwClassOld.DeletionTimestamp.IsZero(), gwClassNew.DeletionTimestamp.IsZero()) {
-		return
-	}
 
 	h.logger.V(1).Info("enqueue gatewayclass update event", "gatewayclass", gwClassNew.Name)
 	h.enqueueImpactedGateways(ctx, gwClassNew, queue)
