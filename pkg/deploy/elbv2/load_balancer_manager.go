@@ -391,8 +391,9 @@ func buildSDKSubnetMapping(modelSubnetMapping elbv2model.SubnetMapping) elbv2typ
 
 func buildResLoadBalancerStatus(sdkLB LoadBalancerWithTags) elbv2model.LoadBalancerStatus {
 	return elbv2model.LoadBalancerStatus{
-		LoadBalancerARN: awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn),
-		DNSName:         awssdk.ToString(sdkLB.LoadBalancer.DNSName),
+		LoadBalancerARN:   awssdk.ToString(sdkLB.LoadBalancer.LoadBalancerArn),
+		DNSName:           awssdk.ToString(sdkLB.LoadBalancer.DNSName),
+		ProvisioningState: sdkLB.LoadBalancer.State,
 	}
 }
 

@@ -2,10 +2,12 @@ package routeutils
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // namespaceSelector is an internal utility
@@ -33,7 +35,7 @@ func (n *namespaceSelectorImpl) getNamespacesFromSelector(context context.Contex
 
 	convertedSelector, err := metav1.LabelSelectorAsSelector(selector)
 	if err != nil {
-		return nil, err
+		return nil, wrapError(errors.Wrapf(err, "Unable to parse selector %s", selector), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue)
 	}
 
 	err = n.k8sClient.List(context, &namespaceList, client.MatchingLabelsSelector{Selector: convertedSelector})

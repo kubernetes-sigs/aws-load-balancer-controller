@@ -8,7 +8,7 @@ import (
 )
 
 // listenerToRouteMapper is an internal utility that will map a list of routes to the listeners of a gateway
-// if the gateway and/or route are incompatible, then route is discarded.
+// if the gateway and/or route are incompatible, then the route is discarded.
 type listenerToRouteMapper interface {
 	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler) (map[int][]preLoadRouteDescriptor, error)
 }

@@ -360,8 +360,10 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 			expectedTgBindingSpec: elbv2model.TargetGroupBindingResourceSpec{
 				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "my-svc-ns",
-						Name:      "k8s-myrouten-myroute-d02da2803b",
+						Namespace:   "my-svc-ns",
+						Name:        "k8s-myrouten-myroute-d02da2803b",
+						Annotations: make(map[string]string),
+						Labels:      make(map[string]string),
 					},
 					Spec: elbv2model.TargetGroupBindingSpec{
 						TargetType: &instanceType,
@@ -437,8 +439,10 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 			expectedTgBindingSpec: elbv2model.TargetGroupBindingResourceSpec{
 				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "my-svc-ns",
-						Name:      "k8s-myrouten-myroute-d146029dfb",
+						Namespace:   "my-svc-ns",
+						Name:        "k8s-myrouten-myroute-d146029dfb",
+						Annotations: make(map[string]string),
+						Labels:      make(map[string]string),
 					},
 					Spec: elbv2model.TargetGroupBindingSpec{
 						TargetType: &instanceType,
@@ -509,8 +513,10 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 			expectedTgBindingSpec: elbv2model.TargetGroupBindingResourceSpec{
 				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
-						Namespace: "my-svc-ns",
-						Name:      "k8s-myrouten-myroute-d9d6c4e6eb",
+						Namespace:   "my-svc-ns",
+						Name:        "k8s-myrouten-myroute-d9d6c4e6eb",
+						Annotations: make(map[string]string),
+						Labels:      make(map[string]string),
 					},
 					Spec: elbv2model.TargetGroupBindingSpec{
 						TargetType: &ipType,
@@ -586,8 +592,103 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 			expectedTgBindingSpec: elbv2model.TargetGroupBindingResourceSpec{
 				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
+						Namespace:   "my-svc-ns",
+						Name:        "k8s-myrouten-myroute-400113e816",
+						Annotations: make(map[string]string),
+						Labels:      make(map[string]string),
+					},
+					Spec: elbv2model.TargetGroupBindingSpec{
+						TargetType: &ipType,
+						ServiceRef: elbv2api.ServiceReference{
+							Name: "my-svc",
+							Port: intstr.FromInt32(80), // TODO - Figure out why this port is added and not the node port.
+						},
+						IPAddressType: elbv2api.TargetGroupIPAddressType(elbv2model.IPAddressTypeIPV4),
+						VpcID:         "vpc-xxx",
+					},
+				},
+			},
+		},
+		{
+			name:                     "no tg config - ip - alb - add infra annotations / labels",
+			tags:                     make(map[string]string),
+			lbType:                   elbv2model.LoadBalancerTypeApplication,
+			disableRestrictedSGRules: false,
+			defaultTargetType:        string(elbv2model.TargetTypeIP),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-gw-ns",
+					Name:      "my-gw",
+				},
+				Spec: gwv1.GatewaySpec{
+					Infrastructure: &gwv1.GatewayInfrastructure{
+						Annotations: map[gwv1.AnnotationKey]gwv1.AnnotationValue{
+							"foo": "bar",
+						},
+						Labels: map[gwv1.LabelKey]gwv1.LabelValue{
+							"labelfoo": "labelbar",
+						},
+					},
+				},
+			},
+			route: &routeutils.MockRoute{
+				Kind:      routeutils.HTTPRouteKind,
+				Name:      "my-route",
+				Namespace: "my-route-ns",
+			},
+			backend: routeutils.Backend{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
+					},
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
+					},
+					NodePort: 8080,
+				},
+			},
+			expectedTgSpec: elbv2model.TargetGroupSpec{
+				Name:            "k8s-myrouten-myroute-400113e816",
+				TargetType:      elbv2model.TargetTypeIP,
+				Port:            awssdk.Int32(80),
+				Protocol:        elbv2model.ProtocolHTTP,
+				ProtocolVersion: &http1,
+				IPAddressType:   elbv2model.TargetGroupIPAddressTypeIPv4,
+				HealthCheckConfig: &elbv2model.TargetGroupHealthCheckConfig{
+					Port: &intstr.IntOrString{
+						StrVal: shared_constants.HealthCheckPortTrafficPort,
+						Type:   intstr.String,
+					},
+					Path: awssdk.String("/"),
+					Matcher: &elbv2model.HealthCheckMatcher{
+						HTTPCode: awssdk.String("200-399"),
+					},
+					Protocol:                elbv2model.ProtocolHTTP,
+					IntervalSeconds:         awssdk.Int32(15),
+					TimeoutSeconds:          awssdk.Int32(5),
+					HealthyThresholdCount:   awssdk.Int32(3),
+					UnhealthyThresholdCount: awssdk.Int32(3),
+				},
+				TargetGroupAttributes: make([]elbv2model.TargetGroupAttribute, 0),
+				Tags:                  make(map[string]string),
+			},
+			expectedTgBindingSpec: elbv2model.TargetGroupBindingResourceSpec{
+				Template: elbv2model.TargetGroupBindingTemplate{
+					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "k8s-myrouten-myroute-400113e816",
+						Annotations: map[string]string{
+							"foo": "bar",
+						},
+						Labels: map[string]string{
+							"labelfoo": "labelbar",
+						},
 					},
 					Spec: elbv2model.TargetGroupBindingSpec{
 						TargetType: &ipType,
@@ -613,7 +714,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 
 			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, tc.disableRestrictedSGRules, tc.defaultTargetType)
 
-			out := builder.buildTargetGroupBindingSpec(nil, tc.expectedTgSpec, nil, tc.backend, nil)
+			out := builder.buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, tc.backend, nil)
 
 			assert.Equal(t, tc.expectedTgBindingSpec, out)
 		})

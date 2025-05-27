@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"net"
@@ -13,24 +14,24 @@ import (
 // ListL4Routes retrieves all Layer 4 routes (TCP, UDP, TLS) from the cluster.
 func ListL4Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
 	l4Routes := make([]preLoadRouteDescriptor, 0)
-	var routekinds []RouteKind
+	var failedRoutes []RouteKind
 	tcpRoutes, err := ListTCPRoutes(ctx, k8sClient)
 	if err != nil {
-		routekinds = append(routekinds, TCPRouteKind)
+		failedRoutes = append(failedRoutes, TCPRouteKind)
 	}
 	l4Routes = append(l4Routes, tcpRoutes...)
 	udpRoutes, err := ListUDPRoutes(ctx, k8sClient)
 	if err != nil {
-		routekinds = append(routekinds, UDPRouteKind)
+		failedRoutes = append(failedRoutes, UDPRouteKind)
 	}
 	l4Routes = append(l4Routes, udpRoutes...)
 	tlsRoutes, err := ListTLSRoutes(ctx, k8sClient)
 	if err != nil {
-		routekinds = append(routekinds, TLSRouteKind)
+		failedRoutes = append(failedRoutes, TLSRouteKind)
 	}
 	l4Routes = append(l4Routes, tlsRoutes...)
-	if len(routekinds) > 0 {
-		err = fmt.Errorf("failed to list L4 routes, %s", routekinds)
+	if len(failedRoutes) > 0 {
+		err = errors.Errorf("failed to list L4 routes, %s", failedRoutes)
 	}
 	return l4Routes, err
 }
@@ -38,19 +39,19 @@ func ListL4Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteD
 // ListL7Routes retrieves all Layer 7 routes (HTTP, gRPC) from the cluster.
 func ListL7Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
 	l7Routes := make([]preLoadRouteDescriptor, 0)
-	var routekinds []RouteKind
+	var failedRoutes []RouteKind
 	httpRoutes, err := ListHTTPRoutes(ctx, k8sClient)
 	if err != nil {
-		routekinds = append(routekinds, HTTPRouteKind)
+		failedRoutes = append(failedRoutes, HTTPRouteKind)
 	}
 	l7Routes = append(l7Routes, httpRoutes...)
 	grpcRoutes, err := ListGRPCRoutes(ctx, k8sClient)
 	if err != nil {
-		routekinds = append(routekinds, GRPCRouteKind)
+		failedRoutes = append(failedRoutes, GRPCRouteKind)
 	}
 	l7Routes = append(l7Routes, grpcRoutes...)
-	if len(routekinds) > 0 {
-		err = fmt.Errorf("failed to list L7 routes, %s", routekinds)
+	if len(failedRoutes) > 0 {
+		err = errors.Errorf("failed to list L7 routes, %s", failedRoutes)
 	}
 	return l7Routes, err
 }
@@ -159,4 +160,8 @@ func GetHostnamePrecedenceOrder(hostnameOne, hostnameTwo string) int {
 			return 0
 		}
 	}
+}
+
+func generateInvalidMessageWithRouteDetails(initialMessage string, routeKind RouteKind, routeIdentifier types.NamespacedName) string {
+	return fmt.Sprintf("%s. Invalid data can be found in route (%s, %s:%s)", initialMessage, routeKind, routeIdentifier.Namespace, routeIdentifier.Name)
 }

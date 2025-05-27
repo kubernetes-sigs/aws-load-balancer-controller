@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
@@ -212,4 +213,7 @@ type LoadBalancerStatus struct {
 
 	// The public DNS name of the load balancer.
 	DNSName string `json:"dnsName"`
+
+	// The current state of the load balancer (active, provisioning, etc)
+	ProvisioningState *elbv2types.LoadBalancerState `json:"provisioningState"`
 }

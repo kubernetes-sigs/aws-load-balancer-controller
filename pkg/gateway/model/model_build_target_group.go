@@ -31,7 +31,7 @@ type targetGroupBuilder interface {
 	buildTargetGroup(stack core.Stack,
 		gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (*elbv2model.TargetGroup, error)
 	buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, backend routeutils.Backend, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error)
-	buildTargetGroupBindingSpec(tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec
+	buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec
 }
 
 type targetGroupBuilderImpl struct {
@@ -108,7 +108,7 @@ func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 		return nil, err
 	}
 	nodeSelector := t.buildTargetGroupBindingNodeSelector(targetGroupProps, tgSpec.TargetType)
-	bindingSpec := t.buildTargetGroupBindingSpec(targetGroupProps, tgSpec, nodeSelector, backend, backendSGIDToken)
+	bindingSpec := t.buildTargetGroupBindingSpec(gw, targetGroupProps, tgSpec, nodeSelector, backend, backendSGIDToken)
 
 	tgOut := buildTargetGroupOutput{
 		targetGroupSpec: tgSpec,
@@ -130,7 +130,7 @@ func (builder *targetGroupBuilderImpl) getTargetGroupProps(routeDescriptor route
 	return targetGroupProps
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
+func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
 	targetType := elbv2api.TargetType(tgSpec.TargetType)
 	targetPort := backend.ServicePort.TargetPort
 	if targetType == elbv2api.TargetTypeInstance {
@@ -140,11 +140,30 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(tgProps *elbv
 
 	multiClusterEnabled := builder.buildTargetGroupBindingMultiClusterFlag(tgProps)
 
+	annotations := make(map[string]string)
+	labels := make(map[string]string)
+
+	if gw != nil && gw.Spec.Infrastructure != nil {
+		if gw.Spec.Infrastructure.Annotations != nil {
+			for k, v := range gw.Spec.Infrastructure.Annotations {
+				annotations[string(k)] = string(v)
+			}
+		}
+
+		if gw.Spec.Infrastructure.Labels != nil {
+			for k, v := range gw.Spec.Infrastructure.Labels {
+				labels[string(k)] = string(v)
+			}
+		}
+	}
+
 	return elbv2model.TargetGroupBindingResourceSpec{
 		Template: elbv2model.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace: backend.Service.Namespace,
-				Name:      tgSpec.Name,
+				Namespace:   backend.Service.Namespace,
+				Name:        tgSpec.Name,
+				Annotations: annotations,
+				Labels:      labels,
 			},
 			Spec: elbv2model.TargetGroupBindingSpec{
 				TargetGroupARN: nil, // This should get filled in later!

@@ -128,5 +128,5 @@ func ListGRPCRoutes(context context.Context, k8sClient client.Client) ([]preLoad
 		result = append(result, convertGRPCRoute(item))
 	}
 
-	return result, err
+	return result, nil
 }

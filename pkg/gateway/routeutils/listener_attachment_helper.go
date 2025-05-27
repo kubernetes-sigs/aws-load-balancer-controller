@@ -2,7 +2,9 @@ package routeutils
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -145,8 +147,10 @@ func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv
 	isListenerHostnameValid, err := IsHostNameInValidFormat(string(*listener.Hostname))
 	if err != nil {
 		attachmentHelper.logger.Error(err, "listener hostname is not valid", "listener", listener.Name, "hostname", *listener.Hostname)
-		return false, err
+		initialErrorMessage := fmt.Sprintf("listener hostname %s is not valid (listener name %s)", listener.Name, *listener.Hostname)
+		return false, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue)
 	}
+
 	if !isListenerHostnameValid {
 		return false, nil
 	}

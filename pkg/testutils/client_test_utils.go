@@ -52,5 +52,5 @@ func GenerateTestClient() client.Client {
 	elbv2gw.AddToScheme(k8sSchema)
 	gwbeta1.AddToScheme(k8sSchema)
 
-	return testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+	return testclient.NewClientBuilder().WithStatusSubresource(&gwv1.GatewayClass{}).WithStatusSubresource(&gwv1.Gateway{}).WithScheme(k8sSchema).Build()
 }

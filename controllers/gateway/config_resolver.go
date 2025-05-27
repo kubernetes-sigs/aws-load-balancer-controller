@@ -29,10 +29,10 @@ func newGatewayConfigResolver() gatewayConfigResolver {
 func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx context.Context, k8sClient client.Client, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass) (elbv2gw.LoadBalancerConfiguration, error) {
 
 	// If the Gateway Class isn't accepted, we shouldn't try to reconcile this Gateway.
-	derivedStatus, _ := deriveGatewayClassAcceptedStatus(gwClass)
+	derivedStatusIndx, ok := deriveAcceptedConditionIndex(gwClass)
 
-	if derivedStatus != metav1.ConditionTrue {
-		return elbv2gw.LoadBalancerConfiguration{}, errors.Errorf("Unable to materialize gateway when gateway class [%s] is not accepted. GatewayClass status is %s", gwClass.Name, derivedStatus)
+	if !ok || gwClass.Status.Conditions[derivedStatusIndx].Status != metav1.ConditionTrue {
+		return elbv2gw.LoadBalancerConfiguration{}, errors.Errorf("Unable to materialize gateway when gateway class [%s] is not accepted", gwClass.Name)
 	}
 
 	gatewayClassLBConfig, err := resolver.configResolverFn(ctx, k8sClient, gwClass.Spec.ParametersRef)
