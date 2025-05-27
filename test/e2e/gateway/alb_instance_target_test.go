@@ -19,6 +19,9 @@ var _ = Describe("test k8s alb gateway reconciled by the aws load balancer contr
 		lbARN   string
 	)
 	BeforeEach(func() {
+		if !tf.Options.EnableGatewayTests {
+			Skip("Skipping gateway tests")
+		}
 		ctx = context.Background()
 		stack = ALBInstanceTestStack{}
 	})
@@ -62,6 +65,7 @@ var _ = Describe("test k8s alb gateway reconciled by the aws load balancer contr
 					TargetGroupHC: &verifier.TargetGroupHC{
 						Protocol:           "HTTP",
 						Port:               "traffic-port",
+						Path:               "/",
 						Interval:           15,
 						Timeout:            5,
 						HealthyThreshold:   3,

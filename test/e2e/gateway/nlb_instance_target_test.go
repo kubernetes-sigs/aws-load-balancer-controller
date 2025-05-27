@@ -19,6 +19,9 @@ var _ = Describe("test nlb gateway reconciled by the aws load balancer controlle
 		lbARN   string
 	)
 	BeforeEach(func() {
+		if !tf.Options.EnableGatewayTests {
+			Skip("Skipping gateway tests")
+		}
 		ctx = context.Background()
 		stack = NLBInstanceTestStack{}
 	})

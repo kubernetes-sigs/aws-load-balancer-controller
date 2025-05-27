@@ -98,7 +98,7 @@ func buildLoadBalancerConfig(spec elbv2gw.LoadBalancerConfigurationSpec) *elbv2g
 	return lbc
 }
 
-func buildGatewaySpec(gwc *gwv1.GatewayClass) *gwv1.Gateway {
+func buildBasicGatewaySpec(gwc *gwv1.GatewayClass, protocol gwv1.ProtocolType) *gwv1.Gateway {
 	gw := &gwv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: defaultName,
@@ -109,7 +109,7 @@ func buildGatewaySpec(gwc *gwv1.GatewayClass) *gwv1.Gateway {
 				{
 					Name:     "test-listener",
 					Port:     80,
-					Protocol: gwv1.TCPProtocolType,
+					Protocol: protocol,
 				},
 			},
 			Infrastructure: &gwv1.GatewayInfrastructure{

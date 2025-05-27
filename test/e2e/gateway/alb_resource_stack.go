@@ -53,7 +53,16 @@ func (s *albResourceStack) getListenersPortMap() map[string]string {
 }
 
 func (s *albResourceStack) getTargetGroupNodePortMap() map[string]string {
-	return s.commonStack.getTargetGroupNodePortMap()
+	res := s.commonStack.getTargetGroupNodePortMap()
+
+	for p := range res {
+		// TODO - kinda a hack to get HTTP to work.
+		if res[p] == string(corev1.ProtocolTCP) {
+			res[p] = "HTTP"
+		}
+	}
+
+	return res
 }
 
 func (s *albResourceStack) getHealthCheckNodePort() string {

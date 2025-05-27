@@ -5,6 +5,7 @@ import (
 	"fmt"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
@@ -107,8 +108,6 @@ func (s *commonResourceStack) ScaleDeployment(ctx context.Context, f *framework.
 
 func (s *commonResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {
 	_ = s.deleteGateway(ctx, f)
-	// todo - fix
-	time.Sleep(5 * time.Minute)
 	_ = s.deleteNamespace(ctx, f)
 	_ = s.deleteGatewayClass(ctx, f)
 }
@@ -240,7 +239,20 @@ func (s *commonResourceStack) deleteService(ctx context.Context, f *framework.Fr
 }
 
 func (s *commonResourceStack) deleteGateway(ctx context.Context, f *framework.Framework) error {
-	return f.K8sClient.Delete(ctx, s.gw)
+	err := f.K8sClient.Delete(ctx, s.gw)
+	if err != nil {
+		return err
+	}
+	observedGW := &gwv1.Gateway{}
+	return wait.PollImmediateUntil(utils.PollIntervalShort, func() (bool, error) {
+		if err := f.K8sClient.Get(ctx, k8s.NamespacedName(s.gw), observedGW); err != nil {
+			if apierrs.IsNotFound(err) {
+				return true, nil
+			}
+			return false, err
+		}
+		return false, nil
+	}, ctx.Done())
 }
 
 func (s *commonResourceStack) deleteGatewayClass(ctx context.Context, f *framework.Framework) error {

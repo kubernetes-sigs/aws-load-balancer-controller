@@ -7,6 +7,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type NLBInstanceTestStack struct {
@@ -17,7 +18,7 @@ func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framewor
 	dp := buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := buildServiceSpec()
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
-	gw := buildGatewaySpec(gwc)
+	gw := buildBasicGatewaySpec(gwc, gwv1.TCPProtocolType)
 	lbc := buildLoadBalancerConfig(spec)
 	tcpr := buildTCPRoute()
 	s.nlbResourceStack = newNLBResourceStack(dp, svc, gwc, gw, lbc, tcpr, "service-instance-e2e", false)
@@ -30,6 +31,7 @@ func (s *NLBInstanceTestStack) ScaleDeployment(ctx context.Context, f *framework
 }
 
 func (s *NLBInstanceTestStack) Cleanup(ctx context.Context, f *framework.Framework) {
+	_ = f.K8sClient.Delete(ctx, s.nlbResourceStack.tcpr)
 	s.nlbResourceStack.Cleanup(ctx, f)
 }
 

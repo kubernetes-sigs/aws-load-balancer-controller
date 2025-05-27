@@ -7,6 +7,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type ALBInstanceTestStack struct {
@@ -17,7 +18,7 @@ func (s *ALBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framewor
 	dp := buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := buildServiceSpec()
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/alb")
-	gw := buildGatewaySpec(gwc)
+	gw := buildBasicGatewaySpec(gwc, gwv1.HTTPProtocolType)
 	lbc := buildLoadBalancerConfig(spec)
 	httpr := buildHTTPRoute()
 	s.albResourceStack = newALBResourceStack(dp, svc, gwc, gw, lbc, httpr, "service-instance-e2e", false)
@@ -30,6 +31,7 @@ func (s *ALBInstanceTestStack) ScaleDeployment(ctx context.Context, f *framework
 }
 
 func (s *ALBInstanceTestStack) Cleanup(ctx context.Context, f *framework.Framework) {
+	_ = f.K8sClient.Delete(ctx, s.albResourceStack.httpr)
 	s.albResourceStack.Cleanup(ctx, f)
 }
 
