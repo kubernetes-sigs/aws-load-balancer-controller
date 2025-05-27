@@ -255,7 +255,7 @@ func TestUpdateTrackedIPTargets(t *testing.T) {
 		},
 	}
 
-	endpoints := []backend.PodEndpoint{
+	endpoints := []backend.IpEndpoint{
 		{
 			IP:   "127.0.0.1",
 			Port: 80,
