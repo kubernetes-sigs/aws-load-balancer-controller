@@ -58,7 +58,7 @@ func (h *enqueueRequestsForHTTPRouteEvent) Generic(ctx context.Context, e event.
 }
 
 func (h *enqueueRequestsForHTTPRouteEvent) enqueueImpactedGateways(ctx context.Context, route *gatewayv1.HTTPRoute, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gateways, err := GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Namespace, constants.ALBGatewayController)
+	gateways, err := GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Status.Parents, route.Namespace, constants.ALBGatewayController)
 	if err != nil {
 		h.logger.V(1).Info("ignoring unknown gateways referred by", "httproute", route.Name, "error", err)
 	}

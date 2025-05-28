@@ -58,7 +58,7 @@ func (h *enqueueRequestsForGRPCRouteEvent) Generic(ctx context.Context, e event.
 }
 
 func (h *enqueueRequestsForGRPCRouteEvent) enqueueImpactedGateways(ctx context.Context, route *gatewayv1.GRPCRoute, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gateways, err := GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Namespace, constants.ALBGatewayController)
+	gateways, err := GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Status.Parents, route.Namespace, constants.ALBGatewayController)
 	if err != nil {
 		h.logger.V(1).Info("ignoring unknown gateways referred by", "grpcroute", route.Name, "error", err)
 	}

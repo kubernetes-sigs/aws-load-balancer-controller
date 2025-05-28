@@ -87,6 +87,10 @@ func (httpRoute *httpRouteDescription) GetRouteKind() RouteKind {
 	return HTTPRouteKind
 }
 
+func (httpRoute *httpRouteDescription) GetRouteGeneration() int64 {
+	return httpRoute.route.Generation
+}
+
 func (httpRoute *httpRouteDescription) GetRouteNamespacedName() types.NamespacedName {
 	return k8s.NamespacedName(httpRoute.route)
 }

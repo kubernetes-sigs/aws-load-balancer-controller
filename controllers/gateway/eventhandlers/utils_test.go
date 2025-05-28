@@ -218,11 +218,12 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 
 func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 	type args struct {
-		parentRefs     []gwv1.ParentReference
-		resourceNS     string
-		gateways       []*gwv1.Gateway
-		gatewayClasses []*gwv1.GatewayClass
-		gwController   string
+		parentRefs                        []gwv1.ParentReference
+		originalParentRefsFromRouteStatus []gwv1.RouteParentStatus
+		resourceNS                        string
+		gateways                          []*gwv1.Gateway
+		gatewayClasses                    []*gwv1.GatewayClass
+		gwController                      string
 	}
 	tests := []struct {
 		name    string
@@ -267,6 +268,68 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 				{
 					Namespace: "test-ns",
 					Name:      "test-gw",
+				},
+			},
+			wantErr: nil,
+		},
+		{
+			name: "valid parent refs with managed gateways and originalParentRefsFromRouteStatus",
+			args: args{
+				parentRefs: []gwv1.ParentReference{
+					{
+						Name:      "test-gw",
+						Namespace: (*gwv1.Namespace)(ptr.To("test-ns")),
+					},
+				},
+				resourceNS: "test-ns",
+				originalParentRefsFromRouteStatus: []gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      "test-gw-1",
+							Namespace: (*gwv1.Namespace)(ptr.To("test-ns")),
+						},
+					},
+				},
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw-1",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+				},
+				gatewayClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "nlb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+						},
+					},
+				},
+				gwController: constants.NLBGatewayController,
+			},
+			want: []types.NamespacedName{
+				{
+					Namespace: "test-ns",
+					Name:      "test-gw",
+				},
+				{
+					Namespace: "test-ns",
+					Name:      "test-gw-1",
 				},
 			},
 			wantErr: nil,
@@ -454,7 +517,7 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 				k8sClient.Create(context.Background(), gwClass)
 			}
 
-			got, err := GetImpactedGatewaysFromParentRefs(context.Background(), k8sClient, tt.args.parentRefs, tt.args.resourceNS, tt.args.gwController)
+			got, err := GetImpactedGatewaysFromParentRefs(context.Background(), k8sClient, tt.args.parentRefs, tt.args.originalParentRefsFromRouteStatus, tt.args.resourceNS, tt.args.gwController)
 
 			assert.Equal(t, err, tt.wantErr)
 			assert.Equal(t, tt.want, got)
@@ -765,6 +828,79 @@ func Test_GetImpactedGatewaysFromLbConfig(t *testing.T) {
 			}
 			got := GetImpactedGatewaysFromLbConfig(context.Background(), k8sClient, tt.args.lbConfig, tt.args.gwController)
 			assert.Equal(t, tt.want, len(got))
+		})
+	}
+}
+
+func TestRemoveDuplicateParentRefs(t *testing.T) {
+	namespace := "test-namespace"
+	tests := []struct {
+		name              string
+		parentRefs        []gwv1.ParentReference
+		resourceNamespace string
+		want              []gwv1.ParentReference
+	}{
+		{
+			name: "no duplicates",
+			parentRefs: []gwv1.ParentReference{
+				{Name: "gateway1"},
+				{Name: "gateway2"},
+			},
+			resourceNamespace: namespace,
+			want: []gwv1.ParentReference{
+				{Name: "gateway1"},
+				{Name: "gateway2"},
+			},
+		},
+		{
+			name: "one duplicate",
+			parentRefs: []gwv1.ParentReference{
+				{Name: "gateway1"},
+				{Name: "gateway1"},
+				{Name: "gateway2"},
+			},
+			resourceNamespace: namespace,
+			want: []gwv1.ParentReference{
+				{Name: "gateway1"},
+				{Name: "gateway2"},
+			},
+		},
+		{
+			name: "multiple duplicates",
+			parentRefs: []gwv1.ParentReference{
+				{Name: "gateway1"},
+				{Name: "gateway2"},
+				{Name: "gateway1"},
+				{Name: "gateway2"},
+				{Name: "gateway3"},
+				{Name: "gateway1"},
+			},
+			resourceNamespace: namespace,
+			want: []gwv1.ParentReference{
+				{Name: "gateway1"},
+				{Name: "gateway2"},
+				{Name: "gateway3"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := removeDuplicateParentRefs(tt.parentRefs, tt.resourceNamespace)
+
+			assert.Equal(t, len(tt.want), len(got))
+
+			actual := make(map[string]bool)
+			for _, ref := range got {
+				actual[string(ref.Name)] = true
+			}
+
+			expected := make(map[string]bool)
+			for _, ref := range tt.want {
+				expected[string(ref.Name)] = true
+			}
+
+			assert.Equal(t, expected, actual)
 		})
 	}
 }

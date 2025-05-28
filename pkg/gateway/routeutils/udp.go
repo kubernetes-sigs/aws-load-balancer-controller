@@ -89,6 +89,10 @@ func (udpRoute *udpRouteDescription) GetRouteKind() RouteKind {
 	return UDPRouteKind
 }
 
+func (udpRoute *udpRouteDescription) GetRouteGeneration() int64 {
+	return udpRoute.route.Generation
+}
+
 func convertUDPRoute(r gwalpha2.UDPRoute) *udpRouteDescription {
 	return &udpRouteDescription{route: &r, backendLoader: commonBackendLoader}
 }

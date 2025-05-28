@@ -92,22 +92,27 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 		return nil, err
 	}
 
+	// 3. Load the underlying resource(s) for each route that is configured.
+	loadedRoute, err := l.loadChildResources(ctx, mappedRoutes)
+	if err != nil {
+		// TODO: add route status update for those with error
+		return nil, err
+	}
+
 	// update status for accepted routes
-	for _, routeList := range mappedRoutes {
+	for _, routeList := range loadedRoute {
 		for _, route := range routeList {
 			deferredRouteReconciler.Enqueue(
-				GenerateRouteData(true, true, string(gwv1.RouteConditionAccepted), RouteStatusInfoAcceptedMessage, route, gw),
+				GenerateRouteData(true, true, string(gwv1.RouteConditionAccepted), RouteStatusInfoAcceptedMessage, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw),
 			)
 		}
 	}
-
-	// 3. Load the underlying resource(s) for each route that is configured.
-	return l.loadChildResources(ctx, mappedRoutes)
+	return loadedRoute, nil
 }
 
 // loadChildResources responsible for loading all resources that a route descriptor references.
 func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor) (map[int32][]RouteDescriptor, error) {
-	// Cache to reduce duplicate route look ups.
+	// Cache to reduce duplicate route lookups.
 	// Kind -> [NamespacedName:Previously Loaded Descriptor]
 	resourceCache := make(map[string]RouteDescriptor)
 

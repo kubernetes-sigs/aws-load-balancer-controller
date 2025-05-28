@@ -63,7 +63,12 @@ func GetGatewaysManagedByLBController(ctx context.Context, k8sClient client.Clie
 
 // GetImpactedGatewaysFromParentRefs identifies Gateways affected by changes in parent references.
 // Returns Gateways that are impacted and managed by the LB controller.
-func GetImpactedGatewaysFromParentRefs(ctx context.Context, k8sClient client.Client, parentRefs []gwv1.ParentReference, resourceNamespace string, gwController string) ([]types.NamespacedName, error) {
+func GetImpactedGatewaysFromParentRefs(ctx context.Context, k8sClient client.Client, parentRefs []gwv1.ParentReference, originalParentRefsFromStatus []gwv1.RouteParentStatus, resourceNamespace string, gwController string) ([]types.NamespacedName, error) {
+	for _, originalParentRef := range originalParentRefsFromStatus {
+		parentRefs = append(parentRefs, originalParentRef.ParentRef)
+	}
+	parentRefs = removeDuplicateParentRefs(parentRefs, resourceNamespace)
+
 	if len(parentRefs) == 0 {
 		return nil, nil
 	}
@@ -128,4 +133,24 @@ func GetImpactedGatewaysFromLbConfig(ctx context.Context, k8sClient client.Clien
 		}
 	}
 	return impactedGateways
+}
+
+// removeDuplicateParentRefs make sure parentRefs in list is unique
+func removeDuplicateParentRefs(parentRefs []gwv1.ParentReference, resourceNamespace string) []gwv1.ParentReference {
+	result := make([]gwv1.ParentReference, 0, len(parentRefs))
+	exist := sets.Set[types.NamespacedName]{}
+	for _, parentRef := range parentRefs {
+		if parentRef.Namespace != nil {
+			resourceNamespace = string(*parentRef.Namespace)
+		}
+		namespacedName := types.NamespacedName{
+			Namespace: resourceNamespace,
+			Name:      string(parentRef.Name),
+		}
+		if !exist.Has(namespacedName) {
+			exist.Insert(namespacedName)
+			result = append(result, parentRef)
+		}
+	}
+	return result
 }

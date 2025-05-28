@@ -59,6 +59,11 @@ func (m mockPreLoadRouteDescriptor) GetBackendRefs() []gwv1.BackendRef {
 	return m.backendRefs
 }
 
+func (m mockPreLoadRouteDescriptor) GetRouteGeneration() int64 {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error) {
 	//TODO implement me
 	panic("implement me")

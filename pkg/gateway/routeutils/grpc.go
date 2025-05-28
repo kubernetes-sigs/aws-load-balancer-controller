@@ -111,6 +111,10 @@ func (grpcRoute *grpcRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 	return backendRefs
 }
 
+func (grpcRoute *grpcRouteDescription) GetRouteGeneration() int64 {
+	return grpcRoute.route.Generation
+}
+
 var _ RouteDescriptor = &grpcRouteDescription{}
 
 // Can we use an indexer here to query more efficiently?

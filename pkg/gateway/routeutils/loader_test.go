@@ -27,6 +27,7 @@ var _ RouteDescriptor = &mockRoute{}
 type mockRoute struct {
 	namespacedName types.NamespacedName
 	routeKind      RouteKind
+	generation     int64
 }
 
 func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error) {
@@ -54,6 +55,10 @@ func (m *mockRoute) GetParentRefs() []gwv1.ParentReference {
 func (m *mockRoute) GetBackendRefs() []gwv1.BackendRef {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (m *mockRoute) GetRouteGeneration() int64 {
+	return m.generation
 }
 
 func (m *mockRoute) GetRawRoute() interface{} {
