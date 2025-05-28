@@ -73,7 +73,6 @@ func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sC
 
 		convertedRules = append(convertedRules, convertTCPRouteRule(&rule, convertedBackends))
 	}
-
 	tcpRoute.rules = convertedRules
 	return tcpRoute, nil
 }

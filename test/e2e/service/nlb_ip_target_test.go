@@ -4,6 +4,7 @@ import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -120,7 +121,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 			By("Verify Service with AWS", func() {
-				err := verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -131,7 +132,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 						"80": "TCP",
 					},
 					NumTargets: int(numReplicas),
-					TargetGroupHC: &TargetGroupHC{
+					TargetGroupHC: &verifier.TargetGroupHC{
 						Protocol:           "TCP",
 						Port:               "traffic-port",
 						Interval:           10,
@@ -143,7 +144,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			By("waiting for target group targets to be healthy", func() {
-				err := waitUntilTargetsAreHealthy(ctx, tf, lbARN, int(numReplicas))
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(numReplicas))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("Send traffic to LB", func() {
@@ -163,10 +164,10 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Eventually(func() bool {
-					return getTargetGroupHealthCheckProtocol(ctx, tf, lbARN) == "HTTP"
+					return verifier.GetTargetGroupHealthCheckProtocol(ctx, tf, lbARN) == "HTTP"
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 
-				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -177,7 +178,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 						"80": "TCP",
 					},
 					NumTargets: int(numReplicas),
-					TargetGroupHC: &TargetGroupHC{
+					TargetGroupHC: &verifier.TargetGroupHC{
 						Protocol:           "HTTP",
 						Port:               "80",
 						Path:               "/healthz",
@@ -231,7 +232,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				time.Sleep(120 * time.Second)
 
 				// We should the targets registered from in cluster and the extra IP registered under a different port.
-				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -242,7 +243,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 						"80": "TCP",
 					},
 					NumTargets: int(numReplicas) + 1,
-					TargetGroupHC: &TargetGroupHC{
+					TargetGroupHC: &verifier.TargetGroupHC{
 						Protocol:           "HTTP",
 						Port:               "80",
 						Path:               "/healthz",
@@ -264,7 +265,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				time.Sleep(120 * time.Second)
 
 				// Only the replicas in the cluster should exist in the target group again.
-				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -275,7 +276,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 						"80": "TCP",
 					},
 					NumTargets: int(numReplicas),
-					TargetGroupHC: &TargetGroupHC{
+					TargetGroupHC: &verifier.TargetGroupHC{
 						Protocol:           "HTTP",
 						Port:               "80",
 						Path:               "/healthz",
@@ -353,7 +354,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 			By("Verifying AWS configuration", func() {
-				err := verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -381,10 +382,10 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					return getLoadBalancerListenerProtocol(ctx, tf, lbARN, "80") == "TCP"
+					return verifier.GetLoadBalancerListenerProtocol(ctx, tf, lbARN, "80") == "TCP"
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 
-				err = verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:       "network",
 					Scheme:     "internet-facing",
 					TargetType: "ip",
@@ -408,7 +409,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					return getLoadBalancerListenerProtocol(ctx, tf, lbARN, "80") == "TLS"
+					return verifier.GetLoadBalancerListenerProtocol(ctx, tf, lbARN, "80") == "TLS"
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 			})
 			By("Specifying logging annotations", func() {
@@ -423,7 +424,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(func() bool {
-					return verifyLoadBalancerAttributes(ctx, tf, lbARN, map[string]string{
+					return verifier.VerifyLoadBalancerAttributes(ctx, tf, lbARN, map[string]string{
 						"access_logs.s3.enabled": "true",
 						"access_logs.s3.bucket":  tf.Options.S3BucketName,
 						"access_logs.s3.prefix":  "nlb-pfx",
@@ -483,7 +484,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 			By("Verify Service with AWS", func() {
-				err := verifyAWSLoadBalancerResources(ctx, tf, lbARN, LoadBalancerExpectation{
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Name:       lbName,
 					Type:       "network",
 					Scheme:     "internet-facing",
@@ -495,7 +496,7 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 						"80": "TCP",
 					},
 					NumTargets: int(numReplicas),
-					TargetGroupHC: &TargetGroupHC{
+					TargetGroupHC: &verifier.TargetGroupHC{
 						Protocol:           "TCP",
 						Port:               "traffic-port",
 						Interval:           10,
