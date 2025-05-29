@@ -90,6 +90,10 @@ func (tlsRoute *tlsRouteDescription) GetRouteKind() RouteKind {
 	return TLSRouteKind
 }
 
+func (tlsRoute *tlsRouteDescription) GetRouteGeneration() int64 {
+	return tlsRoute.route.Generation
+}
+
 func convertTLSRoute(r gwalpha2.TLSRoute) *tlsRouteDescription {
 	return &tlsRouteDescription{route: &r, backendLoader: commonBackendLoader}
 }

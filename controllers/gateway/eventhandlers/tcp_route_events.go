@@ -58,7 +58,7 @@ func (h *enqueueRequestsForTCPRouteEvent) Generic(ctx context.Context, e event.T
 }
 
 func (h *enqueueRequestsForTCPRouteEvent) enqueueImpactedGateways(ctx context.Context, route *gwalpha2.TCPRoute, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gateways, err := GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Namespace, constants.NLBGatewayController)
+	gateways, err := GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Status.Parents, route.Namespace, constants.NLBGatewayController)
 	if err != nil {
 		h.logger.V(1).Info("ignoring unknown gateways referred by", "tcproute", route.Name, "error", err)
 	}

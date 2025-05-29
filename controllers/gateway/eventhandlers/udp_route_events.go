@@ -58,7 +58,7 @@ func (h *enqueueRequestsForUDPRouteEvent) Generic(ctx context.Context, e event.T
 }
 
 func (h *enqueueRequestsForUDPRouteEvent) enqueueImpactedGateways(ctx context.Context, route *gwalpha2.UDPRoute, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gateways, err := GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Namespace, constants.NLBGatewayController)
+	gateways, err := GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Status.Parents, route.Namespace, constants.NLBGatewayController)
 	if err != nil {
 		h.logger.V(1).Info("ignoring unknown gateways referred by", "udproute", route.Name, "error", err)
 	}

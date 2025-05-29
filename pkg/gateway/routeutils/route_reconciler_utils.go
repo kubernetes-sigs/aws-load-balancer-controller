@@ -1,12 +1,15 @@
 package routeutils
 
-import gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+import (
+	"k8s.io/apimachinery/pkg/types"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+)
 
 // This file contains utils used for gateway api route reconciler
 
 // RouteData
 // RouteStatusInfo: contains status condition info
-// RouteMetadata: contains route metadata: name, namespace and kind
+// RouteMetadata: contains route metadata: name, namespace, kind and generation
 // ParentRefGateway: contains gateway information, each routeStatusInfo should have a correlated parentRefGateway
 type RouteData struct {
 	RouteStatusInfo  RouteStatusInfo
@@ -22,9 +25,10 @@ type RouteStatusInfo struct {
 }
 
 type RouteMetadata struct {
-	RouteName      string
-	RouteNamespace string
-	RouteKind      string
+	RouteName       string
+	RouteNamespace  string
+	RouteKind       string
+	RouteGeneration int64
 }
 
 type ParentRefGateway struct {
@@ -47,7 +51,7 @@ const (
 	RouteStatusInfoRejectedParentRefNotExist         = "ParentRefDoesNotExist"
 )
 
-func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message string, route preLoadRouteDescriptor, gw gwv1.Gateway) RouteData {
+func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message string, routeNamespaceName types.NamespacedName, routeKind RouteKind, routeGeneration int64, gw gwv1.Gateway) RouteData {
 	return RouteData{
 		RouteStatusInfo: RouteStatusInfo{
 			Accepted:     accepted,
@@ -56,9 +60,10 @@ func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message 
 			Message:      message,
 		},
 		RouteMetadata: RouteMetadata{
-			RouteName:      route.GetRouteNamespacedName().Name,
-			RouteNamespace: route.GetRouteNamespacedName().Namespace,
-			RouteKind:      string(route.GetRouteKind()),
+			RouteName:       routeNamespaceName.Name,
+			RouteNamespace:  routeNamespaceName.Namespace,
+			RouteKind:       string(routeKind),
+			RouteGeneration: routeGeneration,
 		},
 		ParentRefGateway: ParentRefGateway{
 			Name:      gw.Name,

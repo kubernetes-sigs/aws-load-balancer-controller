@@ -98,10 +98,12 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 		return client.IgnoreNotFound(err)
 	}
 	routeOld := route.DeepCopyObject().(client.Object)
+
 	// update route with current status
 	if err := d.updateRouteStatus(route, routeData); err != nil {
 		return err
 	}
+
 	// compare it with original status, patch if different
 	if !d.isRouteStatusIdentical(routeOld, route) {
 		if err := d.k8sClient.Status().Patch(context.Background(), route, client.MergeFrom(routeOld)); err != nil {
@@ -173,19 +175,20 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		if parentRef.Namespace != nil {
 			namespace = string(*parentRef.Namespace)
 		}
-		// for a given parentRef, if it has a statusInfo, this means condition is updated, override route condition based on route status info
-		if namespace == routeData.ParentRefGateway.Namespace {
-			if string(parentRef.Name) == routeData.ParentRefGateway.Name {
+
+		// do not allow backward generation update, Accepted and ResolvedRef always have same generation based on our implementation
+		if (len(newRouteParentStatus.Conditions) != 0 && newRouteParentStatus.Conditions[0].ObservedGeneration <= routeData.RouteMetadata.RouteGeneration) || len(newRouteParentStatus.Conditions) == 0 {
+			// for a given parentRef, if it has a statusInfo, this means condition is updated, override route condition based on route status info
+			if namespace == routeData.ParentRefGateway.Namespace && string(parentRef.Name) == routeData.ParentRefGateway.Name {
 				d.setConditionsWithRouteStatusInfo(route, &newRouteParentStatus, routeData.RouteStatusInfo)
 			}
-		}
 
-		// resolve ref Gateway, if parentRef does not have namespace, getting it from Route
-		if _, err := d.resolveRefGateway(parentRef, route.GetNamespace()); err != nil {
-			// set conditions if resolvedRef = false
-			d.setConditionsBasedOnResolveRefGateway(route, &newRouteParentStatus, err)
+			// resolve ref Gateway, if parentRef does not have namespace, getting it from Route
+			if _, err := d.resolveRefGateway(parentRef, route.GetNamespace()); err != nil {
+				// set conditions if resolvedRef = false
+				d.setConditionsBasedOnResolveRefGateway(route, &newRouteParentStatus, err)
+			}
 		}
-
 		newRouteStatus = append(newRouteStatus, newRouteParentStatus)
 	}
 

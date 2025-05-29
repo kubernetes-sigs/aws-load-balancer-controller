@@ -51,4 +51,8 @@ func (m *MockRoute) GetAttachedRules() []RouteRule {
 	panic("implement me")
 }
 
+func (m *MockRoute) GetRouteGeneration() int64 {
+	panic("implement me")
+}
+
 var _ RouteDescriptor = &MockRoute{}
