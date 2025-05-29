@@ -283,7 +283,7 @@ func TestCommonBackendLoader(t *testing.T) {
 					Port:      portConverter(80),
 				},
 			},
-			expectNoResult: true,
+			expectErr: true,
 		},
 		{
 			name: "missing port in backend ref should result in an error",

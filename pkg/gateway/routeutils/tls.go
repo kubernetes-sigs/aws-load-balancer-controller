@@ -127,5 +127,5 @@ func ListTLSRoutes(context context.Context, k8sClient client.Client) ([]preLoadR
 		result = append(result, convertTLSRoute(item))
 	}
 
-	return result, err
+	return result, nil
 }

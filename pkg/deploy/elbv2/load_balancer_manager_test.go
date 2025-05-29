@@ -429,12 +429,20 @@ func Test_buildResLoadBalancerStatus(t *testing.T) {
 					LoadBalancer: &elbv2types.LoadBalancer{
 						LoadBalancerArn: awssdk.String("my-arn"),
 						DNSName:         awssdk.String("www.example.com"),
+						State: &elbv2types.LoadBalancerState{
+							Code:   elbv2types.LoadBalancerStateEnumProvisioning,
+							Reason: awssdk.String("foo"),
+						},
 					},
 				},
 			},
 			want: elbv2model.LoadBalancerStatus{
 				LoadBalancerARN: "my-arn",
 				DNSName:         "www.example.com",
+				ProvisioningState: &elbv2types.LoadBalancerState{
+					Code:   elbv2types.LoadBalancerStateEnumProvisioning,
+					Reason: awssdk.String("foo"),
+				},
 			},
 		},
 	}

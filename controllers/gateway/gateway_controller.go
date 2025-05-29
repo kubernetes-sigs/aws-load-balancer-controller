@@ -3,9 +3,11 @@ package gateway
 import (
 	"context"
 	"fmt"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
@@ -35,6 +37,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"time"
+)
+
+const (
+	requeueMessage          = "Monitoring provisioning state"
+	statusUpdateRequeueTime = 2 * time.Minute
 )
 
 var _ Reconciler = &gatewayReconciler{}
@@ -86,6 +94,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 		reconcileTracker:        reconcileTracker,
 		cfgResolver:             cfgResolver,
 		routeReconciler:         routeReconciler,
+		gatewayConditionUpdater: prepareGatewayConditionUpdate,
 	}
 }
 
@@ -107,6 +116,7 @@ type gatewayReconciler struct {
 	logger                  logr.Logger
 	metricsCollector        lbcmetrics.MetricCollector
 	reconcileTracker        func(namespaceName types.NamespacedName)
+	gatewayConditionUpdater func(gw *gwv1.Gateway, targetConditionType string, newStatus metav1.ConditionStatus, reason string, message string) bool
 
 	cfgResolver     gatewayConfigResolver
 	routeReconciler routeutils.RouteReconciler
@@ -186,12 +196,23 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	mergedLbConfig, err := r.cfgResolver.getLoadBalancerConfigForGateway(ctx, r.k8sClient, gw, gwClass)
 
 	if err != nil {
+		statusErr := r.updateGatewayStatusFailure(ctx, gw, gwv1.GatewayReasonInvalid, err)
+		if statusErr != nil {
+			r.logger.Error(statusErr, "Unable to update gateway status on failure to retrieve attached config")
+		}
 		return err
 	}
 
 	allRoutes, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter, r.routeReconciler)
 
 	if err != nil {
+		var loaderErr routeutils.LoaderError
+		if errors.As(err, &loaderErr) {
+			statusErr := r.updateGatewayStatusFailure(ctx, gw, loaderErr.GetGatewayReason(), loaderErr)
+			if statusErr != nil {
+				r.logger.Error(statusErr, "Unable to update gateway status on failure to build routes")
+			}
+		}
 		return err
 	}
 
@@ -248,10 +269,6 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 	if err != nil {
 		return err
 	}
-	lbDNS, err := lb.DNSName().Resolve(ctx)
-	if err != nil {
-		return err
-	}
 
 	if !backendSGRequired {
 		if err := r.backendSGProvider.Release(ctx, networking.ResourceTypeGateway, []types.NamespacedName{k8s.NamespacedName(gw)}); err != nil {
@@ -259,7 +276,7 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 		}
 	}
 
-	if err = r.updateGatewayStatus(ctx, lbDNS, gw); err != nil {
+	if err = r.updateGatewayStatusSuccess(ctx, lb.Status, gw); err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return err
 	}
@@ -295,28 +312,58 @@ func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cf
 	return stack, lb, backendSGRequired, nil
 }
 
-func (r *gatewayReconciler) updateGatewayStatus(ctx context.Context, lbDNS string, gw *gwv1.Gateway) error {
-	// TODO Consider LB ARN.
+func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbStatus *elbv2model.LoadBalancerStatus, gw *gwv1.Gateway) error {
+	// LB Status should always be set, if it's not, we need to prevent NPE
+	if lbStatus == nil {
+		r.logger.Info("Unable to update Gateway Status due to null LB status")
+		return nil
+	}
+	gwOld := gw.DeepCopy()
 
-	// Gateway Address Status
+	var needPatch bool
+	var requeueNeeded bool
+	if isGatewayProgrammed(*lbStatus) {
+		needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionProgrammed), metav1.ConditionTrue, string(gwv1.GatewayConditionProgrammed), lbStatus.LoadBalancerARN)
+	} else {
+		requeueNeeded = true
+	}
+
+	needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), metav1.ConditionTrue, string(gwv1.GatewayConditionAccepted), "") || needPatch
 	if len(gw.Status.Addresses) != 1 ||
-		gw.Status.Addresses[0].Value != "" ||
-		gw.Status.Addresses[0].Value != lbDNS {
-		gwOld := gw.DeepCopy()
+		gw.Status.Addresses[0].Value != lbStatus.DNSName {
 		ipAddressType := gwv1.HostnameAddressType
 		gw.Status.Addresses = []gwv1.GatewayStatusAddress{
 			{
 				Type:  &ipAddressType,
-				Value: lbDNS,
+				Value: lbStatus.DNSName,
 			},
 		}
+		needPatch = true
+	}
+
+	if needPatch {
 		if err := r.k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 			return errors.Wrapf(err, "failed to update gw status: %v", k8s.NamespacedName(gw))
 		}
 	}
 
-	// TODO: Listener status ListenerStatus
-	// https://github.com/aws/aws-application-networking-k8s/blob/main/pkg/controllers/gateway_controller.go#L350
+	if requeueNeeded {
+		return runtime.NewRequeueNeededAfter(requeueMessage, statusUpdateRequeueTime)
+	}
+
+	return nil
+}
+
+func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *gwv1.Gateway, reason gwv1.GatewayConditionReason, err error) error {
+	gwOld := gw.DeepCopy()
+
+	needPatch := r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), metav1.ConditionFalse, string(reason), err.Error())
+
+	if needPatch {
+		if err := r.k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
+			return errors.Wrapf(err, "failed to update gw status: %v", k8s.NamespacedName(gw))
+		}
+	}
 
 	return nil
 }
@@ -473,5 +520,14 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 		return err
 	}
 	return nil
+
+}
+
+func isGatewayProgrammed(lbStatus elbv2model.LoadBalancerStatus) bool {
+	if lbStatus.ProvisioningState == nil {
+		return false
+	}
+
+	return lbStatus.ProvisioningState.Code == elbv2types.LoadBalancerStateEnumActive || lbStatus.ProvisioningState.Code == elbv2types.LoadBalancerStateEnumActiveImpaired
 
 }

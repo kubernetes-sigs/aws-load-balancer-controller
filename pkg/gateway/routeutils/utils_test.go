@@ -163,7 +163,6 @@ func Test_ListL4Routes(t *testing.T) {
 				return k8sClient
 			},
 			expectedRoutes: 3,
-			expectedErr:    nil,
 		},
 		{
 			name: "Handles error in TCP routes",
@@ -188,7 +187,11 @@ func Test_ListL4Routes(t *testing.T) {
 			client := tt.mockSetup(ctrl)
 			routes, err := ListL4Routes(context.Background(), client)
 
-			assert.Equal(t, err, tt.expectedErr)
+			if tt.expectedErr == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.Equal(t, tt.expectedErr.Error(), err.Error())
+			}
 			assert.Len(t, routes, tt.expectedRoutes)
 
 		})
@@ -293,7 +296,11 @@ func Test_ListL7Routes(t *testing.T) {
 			client := tt.mockSetup(ctrl)
 			routes, err := ListL7Routes(context.Background(), client)
 
-			assert.Equal(t, err, tt.expectedErr)
+			if tt.expectedErr == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.Equal(t, tt.expectedErr.Error(), err.Error())
+			}
 			assert.Len(t, routes, tt.expectedRoutes)
 
 		})

@@ -126,5 +126,5 @@ func ListUDPRoutes(context context.Context, k8sClient client.Client) ([]preLoadR
 		result = append(result, convertUDPRoute(item))
 	}
 
-	return result, err
+	return result, nil
 }
