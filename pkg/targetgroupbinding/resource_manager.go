@@ -58,7 +58,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	podENIResolver := networking.NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, vpcID, logger)
 	nodeENIResolver := networking.NewDefaultNodeENIInfoResolver(nodeInfoProvider, logger)
 
-	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, endpointSGTags, logger, disabledRestrictedSGRulesFlag)
+	networkingManager := networking.NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, endpointSGTags, logger, disabledRestrictedSGRulesFlag)
 	return &defaultResourceManager{
 		k8sClient:           k8sClient,
 		targetsManager:      targetsManager,
@@ -86,7 +86,7 @@ type defaultResourceManager struct {
 	k8sClient           client.Client
 	targetsManager      TargetsManager
 	endpointResolver    backend.EndpointResolver
-	networkingManager   NetworkingManager
+	networkingManager   networking.NetworkingManager
 	eventRecorder       record.EventRecorder
 	logger              logr.Logger
 	vpcInfoProvider     networking.VPCInfoProvider

@@ -1,4 +1,4 @@
-package targetgroupbinding
+package networking
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
 func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *testing.T) {
@@ -27,7 +26,7 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 	tests := []struct {
 		name    string
 		args    args
-		want    []networking.IPPermissionInfo
+		want    []IPPermissionInfo
 		wantErr error
 	}{
 		{
@@ -52,7 +51,7 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 					},
 				},
 			},
-			want: []networking.IPPermissionInfo{
+			want: []IPPermissionInfo{
 				{
 					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
@@ -99,7 +98,7 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 					},
 				},
 			},
-			want: []networking.IPPermissionInfo{
+			want: []IPPermissionInfo{
 				{
 					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
@@ -194,7 +193,7 @@ func Test_defaultNetworkingManager_computeIngressPermissionsForTGBNetworking(t *
 					},
 				},
 			},
-			want: []networking.IPPermissionInfo{
+			want: []IPPermissionInfo{
 				{
 					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
@@ -252,7 +251,7 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    []networking.IPPermissionInfo
+		want    []IPPermissionInfo
 		wantErr error
 	}{
 		{
@@ -269,7 +268,7 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 				},
 				pods: nil,
 			},
-			want: []networking.IPPermissionInfo{
+			want: []IPPermissionInfo{
 				{
 					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
@@ -300,7 +299,7 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 				},
 				pods: nil,
 			},
-			want: []networking.IPPermissionInfo{
+			want: []IPPermissionInfo{
 				{
 					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
@@ -331,7 +330,7 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 				},
 				pods: nil,
 			},
-			want: []networking.IPPermissionInfo{
+			want: []IPPermissionInfo{
 				{
 					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
@@ -381,7 +380,7 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 					},
 				},
 			},
-			want: []networking.IPPermissionInfo{
+			want: []IPPermissionInfo{
 				{
 					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
@@ -426,7 +425,7 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 				},
 				pods: nil,
 			},
-			want: []networking.IPPermissionInfo{
+			want: []IPPermissionInfo{
 				{
 					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("tcp"),
@@ -456,7 +455,7 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 				},
 				pods: nil,
 			},
-			want: []networking.IPPermissionInfo{
+			want: []IPPermissionInfo{
 				{
 					Permission: ec2types.IpPermission{
 						IpProtocol: awssdk.String("udp"),
@@ -586,17 +585,17 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 
 func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t *testing.T) {
 	type fields struct {
-		ingressPermissionsPerSGByTGB map[types.NamespacedName]map[string][]networking.IPPermissionInfo
+		ingressPermissionsPerSGByTGB map[types.NamespacedName]map[string][]IPPermissionInfo
 	}
 	tests := []struct {
 		name   string
 		fields fields
-		want   map[string][]networking.IPPermissionInfo
+		want   map[string][]IPPermissionInfo
 	}{
 		{
 			name: "single tgb",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -641,7 +640,7 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -687,7 +686,7 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 		{
 			name: "multiple tgb",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -774,7 +773,7 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -848,7 +847,7 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 			fields: fields{
 				ingressPermissionsPerSGByTGB: nil,
 			},
-			want: map[string][]networking.IPPermissionInfo{},
+			want: map[string][]IPPermissionInfo{},
 		},
 	}
 	for _, tt := range tests {
@@ -864,17 +863,17 @@ func Test_defaultNetworkingManager_computeUnrestrictedIngressPermissionsPerSG(t 
 
 func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *testing.T) {
 	type fields struct {
-		ingressPermissionsPerSGByTGB map[types.NamespacedName]map[string][]networking.IPPermissionInfo
+		ingressPermissionsPerSGByTGB map[types.NamespacedName]map[string][]IPPermissionInfo
 	}
 	var tests = []struct {
 		name   string
 		fields fields
-		want   map[string][]networking.IPPermissionInfo
+		want   map[string][]IPPermissionInfo
 	}{
 		{
 			name: "single sg, port not assigned",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -891,7 +890,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -910,7 +909,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 		{
 			name: "multiple sgs, port not assigned",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -941,7 +940,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -973,7 +972,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 		{
 			name: "single sg, port range 0 - 65535",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -990,7 +989,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -1009,7 +1008,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 		{
 			name: "multiple sgs, port range 0 - 65535",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -1040,7 +1039,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -1072,7 +1071,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 		{
 			name: "single sg, single protocol",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -1099,7 +1098,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -1118,7 +1117,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 		{
 			name: "multiple sg,  multiple protocols",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -1167,7 +1166,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -1198,7 +1197,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 		{
 			name: "test for CIDRs",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -1241,7 +1240,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -1285,7 +1284,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 		{
 			name: "test for both sg and CIDRs",
 			fields: fields{
-				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]networking.IPPermissionInfo{
+				ingressPermissionsPerSGByTGB: map[types.NamespacedName]map[string][]IPPermissionInfo{
 					types.NamespacedName{Namespace: "ns-1", Name: "tgb-1"}: {
 						"sg-a": {
 							{
@@ -1350,7 +1349,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 					},
 				},
 			},
-			want: map[string][]networking.IPPermissionInfo{
+			want: map[string][]IPPermissionInfo{
 				"sg-a": {
 					{
 						Permission: ec2types.IpPermission{
@@ -1418,7 +1417,7 @@ func Test_defaultNetworkingManager_computeRestrictedIngressPermissionsPerSG(t *t
 func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 	type fetchSGInfosByIDCall struct {
 		req  []string
-		resp map[string]networking.SecurityGroupInfo
+		resp map[string]SecurityGroupInfo
 		err  error
 	}
 
@@ -1428,7 +1427,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 	}
 	type args struct {
 		ctx     context.Context
-		eniInfo networking.ENIInfo
+		eniInfo ENIInfo
 	}
 	tests := []struct {
 		name    string
@@ -1444,7 +1443,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				eniInfo: networking.ENIInfo{
+				eniInfo: ENIInfo{
 					NetworkInterfaceID: "eni-a",
 					SecurityGroups:     []string{"sg-a"},
 				},
@@ -1458,13 +1457,13 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
 					{
 						req:  []string{},
-						resp: map[string]networking.SecurityGroupInfo{},
+						resp: map[string]SecurityGroupInfo{},
 					},
 				},
 			},
 			args: args{
 				ctx: context.Background(),
-				eniInfo: networking.ENIInfo{
+				eniInfo: ENIInfo{
 					NetworkInterfaceID: "eni-a",
 					SecurityGroups:     []string{},
 				},
@@ -1479,7 +1478,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
 					{
 						req: []string{"sg-a", "sg-b"},
-						resp: map[string]networking.SecurityGroupInfo{
+						resp: map[string]SecurityGroupInfo{
 							"sg-a": {
 								SecurityGroupID: "sg-a",
 								Tags: map[string]string{
@@ -1501,7 +1500,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				eniInfo: networking.ENIInfo{
+				eniInfo: ENIInfo{
 					NetworkInterfaceID: "eni-a",
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
@@ -1517,7 +1516,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
 					{
 						req: []string{"sg-a", "sg-b"},
-						resp: map[string]networking.SecurityGroupInfo{
+						resp: map[string]SecurityGroupInfo{
 							"sg-a": {
 								SecurityGroupID: "sg-a",
 								Tags: map[string]string{
@@ -1540,7 +1539,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				eniInfo: networking.ENIInfo{
+				eniInfo: ENIInfo{
 					NetworkInterfaceID: "eni-a",
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
@@ -1556,7 +1555,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
 					{
 						req: []string{"sg-a", "sg-b"},
-						resp: map[string]networking.SecurityGroupInfo{
+						resp: map[string]SecurityGroupInfo{
 							"sg-a": {
 								SecurityGroupID: "sg-a",
 								Tags: map[string]string{
@@ -1579,7 +1578,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				eniInfo: networking.ENIInfo{
+				eniInfo: ENIInfo{
 					NetworkInterfaceID: "eni-a",
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
@@ -1597,7 +1596,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
 					{
 						req: []string{"sg-a", "sg-b"},
-						resp: map[string]networking.SecurityGroupInfo{
+						resp: map[string]SecurityGroupInfo{
 							"sg-a": {
 								SecurityGroupID: "sg-a",
 								Tags: map[string]string{
@@ -1620,7 +1619,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				eniInfo: networking.ENIInfo{
+				eniInfo: ENIInfo{
 					NetworkInterfaceID: "eni-a",
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
@@ -1637,7 +1636,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
 					{
 						req: []string{"sg-a", "sg-b"},
-						resp: map[string]networking.SecurityGroupInfo{
+						resp: map[string]SecurityGroupInfo{
 							"sg-a": {
 								SecurityGroupID: "sg-a",
 								Tags: map[string]string{
@@ -1660,7 +1659,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				eniInfo: networking.ENIInfo{
+				eniInfo: ENIInfo{
 					NetworkInterfaceID: "eni-a",
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
@@ -1677,7 +1676,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
 					{
 						req: []string{"sg-a", "sg-b"},
-						resp: map[string]networking.SecurityGroupInfo{
+						resp: map[string]SecurityGroupInfo{
 							"sg-a": {
 								SecurityGroupID: "sg-a",
 								Tags: map[string]string{
@@ -1700,7 +1699,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				eniInfo: networking.ENIInfo{
+				eniInfo: ENIInfo{
 					NetworkInterfaceID: "eni-a",
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
@@ -1716,7 +1715,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 				fetchSGInfosByRequestCalls: []fetchSGInfosByIDCall{
 					{
 						req: []string{"sg-a", "sg-b"},
-						resp: map[string]networking.SecurityGroupInfo{
+						resp: map[string]SecurityGroupInfo{
 							"sg-a": {
 								SecurityGroupID: "sg-a",
 								Tags: map[string]string{
@@ -1739,7 +1738,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 			},
 			args: args{
 				ctx: context.Background(),
-				eniInfo: networking.ENIInfo{
+				eniInfo: ENIInfo{
 					NetworkInterfaceID: "eni-a",
 					SecurityGroups:     []string{"sg-a", "sg-b"},
 				},
@@ -1752,7 +1751,7 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 
-		sgManager := networking.NewMockSecurityGroupManager(ctrl)
+		sgManager := NewMockSecurityGroupManager(ctrl)
 		for _, call := range tt.fields.fetchSGInfosByRequestCalls {
 			sgManager.EXPECT().FetchSGInfosByID(gomock.Any(), call.req).Return(call.resp, call.err)
 		}
