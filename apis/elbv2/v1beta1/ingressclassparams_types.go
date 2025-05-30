@@ -174,6 +174,10 @@ type IngressClassParamsSpec struct {
 
 	// PrefixListsIDs defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
 	PrefixListsIDs []string `json:"PrefixListsIDs,omitempty"`
+
+	// WAFv2ACLArn specifies ARN for the Amazon WAFv2 web ACL.
+	// +optional
+	WAFv2ACLArn string `json:"wafv2AclArn"`
 }
 
 // +kubebuilder:object:root=true
