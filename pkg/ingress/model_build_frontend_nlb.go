@@ -5,8 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -690,7 +691,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbTargetGroupSpec(ctx context.Cont
 		TargetType:        elbv2model.TargetTypeALB,
 		Port:              awssdk.Int32(port),
 		Protocol:          tgProtocol,
-		IPAddressType:     elbv2model.TargetGroupIPAddressType(t.loadBalancer.Spec.IPAddressType),
+		IPAddressType:     elbv2model.TargetGroupIPAddressTypeIPv4,
 		HealthCheckConfig: healthCheckConfig,
 	}, nil
 }

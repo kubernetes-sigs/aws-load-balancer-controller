@@ -851,6 +851,11 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/frontend-nlb-scheme":           "internet-facing",
 			}
 
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
+			}
+
 			ing := ingBuilder.
 				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
 				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
