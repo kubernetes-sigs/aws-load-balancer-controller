@@ -165,10 +165,17 @@ func main() {
 		controllerCFG.FeatureGates.Enabled(config.SubnetDiscoveryByReachability),
 		ctrl.Log.WithName("subnets-resolver"))
 	multiClusterManager := targetgroupbinding.NewMultiClusterManager(mgr.GetClient(), mgr.GetAPIReader(), ctrl.Log)
-	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(), cloud.EC2(),
-		podInfoRepo, sgManager, sgReconciler, vpcInfoProvider, multiClusterManager, lbcMetricsCollector,
-		cloud.VpcID(), controllerCFG.ClusterName, controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices, controllerCFG.DisableRestrictedSGRules,
-		controllerCFG.ServiceTargetENISGTags, mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
+
+	nodeInfoProvider := networking.NewDefaultNodeInfoProvider(cloud.EC2(), ctrl.Log)
+	podENIResolver := networking.NewDefaultPodENIInfoResolver(mgr.GetClient(), cloud.EC2(), nodeInfoProvider, cloud.VpcID(), ctrl.Log)
+	nodeENIResolver := networking.NewDefaultNodeENIInfoResolver(nodeInfoProvider, ctrl.Log)
+
+	networkingManager := networking.NewDefaultNetworkingManager(mgr.GetClient(), podENIResolver, nodeENIResolver, sgManager, sgReconciler, cloud.VpcID(), controllerCFG.ClusterName, controllerCFG.ServiceTargetENISGTags, ctrl.Log, controllerCFG.DisableRestrictedSGRules)
+
+	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(),
+		podInfoRepo, networkingManager, vpcInfoProvider, multiClusterManager, lbcMetricsCollector,
+		cloud.VpcID(), controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices,
+		mgr.GetEventRecorderFor("targetGroupBinding"), ctrl.Log)
 	backendSGProvider := networking.NewBackendSGProvider(controllerCFG.ClusterName, controllerCFG.BackendSecurityGroup,
 		cloud.VpcID(), cloud.EC2(), mgr.GetClient(), controllerCFG.DefaultTags, nlbGatewayEnabled || albGatewayEnabled, ctrl.Log.WithName("backend-sg-provider"))
 	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
