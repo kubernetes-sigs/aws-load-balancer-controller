@@ -111,6 +111,36 @@ func Test_SortRoutesByHostnamePrecedence(t *testing.T) {
 				&routeutils.MockRoute{Hostnames: []string{}},
 			},
 		},
+		{
+			name: "complex mixed hostnames with multiple hostnames in each port",
+			input: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{Hostnames: []string{"*.example.com", "test.details.example.com"}},
+				&routeutils.MockRoute{Hostnames: []string{}},
+				&routeutils.MockRoute{Hostnames: []string{"test.example.com"}},
+				&routeutils.MockRoute{Hostnames: []string{"another.example.com"}},
+			},
+			expected: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{Hostnames: []string{"*.example.com", "test.details.example.com"}}, // since test.details.example.com has the highest precedence order here
+				&routeutils.MockRoute{Hostnames: []string{"another.example.com"}},
+				&routeutils.MockRoute{Hostnames: []string{"test.example.com"}},
+				&routeutils.MockRoute{Hostnames: []string{}},
+			},
+		},
+		{
+			name: "shorter hostname with more dots should have higher precedence ",
+			input: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{Hostnames: []string{"another.example.com"}},
+				&routeutils.MockRoute{Hostnames: []string{"a.b.example.com"}},
+				&routeutils.MockRoute{Hostnames: []string{}},
+				&routeutils.MockRoute{Hostnames: []string{"*.example.com"}},
+			},
+			expected: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{Hostnames: []string{"a.b.example.com"}},
+				&routeutils.MockRoute{Hostnames: []string{"another.example.com"}},
+				&routeutils.MockRoute{Hostnames: []string{"*.example.com"}},
+				&routeutils.MockRoute{Hostnames: []string{}},
+			},
+		},
 	}
 
 	for _, tt := range tests {

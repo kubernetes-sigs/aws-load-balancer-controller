@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -93,9 +94,8 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	}
 
 	// 3. Load the underlying resource(s) for each route that is configured.
-	loadedRoute, err := l.loadChildResources(ctx, mappedRoutes)
+	loadedRoute, err := l.loadChildResources(ctx, mappedRoutes, deferredRouteReconciler, gw)
 	if err != nil {
-		// TODO: add route status update for those with error
 		return nil, err
 	}
 
@@ -111,7 +111,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 }
 
 // loadChildResources responsible for loading all resources that a route descriptor references.
-func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor) (map[int32][]RouteDescriptor, error) {
+func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler, gw gwv1.Gateway) (map[int32][]RouteDescriptor, error) {
 	// Cache to reduce duplicate route lookups.
 	// Kind -> [NamespacedName:Previously Loaded Descriptor]
 	resourceCache := make(map[string]RouteDescriptor)
@@ -132,6 +132,12 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 
 			generatedRoute, err := preloadedRoute.loadAttachedRules(ctx, l.k8sClient)
 			if err != nil {
+				var loaderErr LoaderError
+				if errors.As(err, &loaderErr) {
+					deferredRouteReconciler.Enqueue(
+						GenerateRouteData(false, false, string(loaderErr.GetRouteReason()), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), gw),
+					)
+				}
 				return nil, err
 			}
 			loadedRouteData[int32(port)] = append(loadedRouteData[int32(port)], generatedRoute)

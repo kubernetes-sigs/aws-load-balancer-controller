@@ -35,7 +35,7 @@ func (n *namespaceSelectorImpl) getNamespacesFromSelector(context context.Contex
 
 	convertedSelector, err := metav1.LabelSelectorAsSelector(selector)
 	if err != nil {
-		return nil, wrapError(errors.Wrapf(err, "Unable to parse selector %s", selector), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue)
+		return nil, wrapError(errors.Wrapf(err, "Unable to parse selector %s", selector), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue, nil, nil)
 	}
 
 	err = n.k8sClient.List(context, &namespaceList, client.MatchingLabelsSelector{Selector: convertedSelector})

@@ -186,6 +186,7 @@ func TestCommonBackendLoader(t *testing.T) {
 				},
 			},
 			expectNoResult: true,
+			expectErr:      true,
 			storedService: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespaceToUse,
