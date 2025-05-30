@@ -66,15 +66,15 @@ If `--backend-security-group` is left empty, a security group with the following
 
 - If using custom frontend security groups, the LBC can be configured to automatically manage backend security group rules.
 - To enable managing backend security group rules, apply an additional annotation to Ingress and Service resources.
-  - For Ingress resources, set the `alb.ingress.kubernetes.io/manage-backend-security-group-rules` annotation to `true`.
-  - For Service resources, set the `service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules` annotation to `true`.
+    - For Ingress resources, set the `alb.ingress.kubernetes.io/manage-backend-security-group-rules` annotation to `true`.
+    - For Service resources, set the `service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules` annotation to `true`.
 - If management of backend security group rules is enabled with an annotation on a Service or Ingress, then `--enable-backend-security-group` must be set to true.
 - These annotations are ignored when using auto-generated frontend security groups. 
 - To enable managing backend security group rules for all resources, using cli flag `--enable-manage-backend-security-group-rules`
-  - when set to `true`, the controller will automatically manage backend security group rules for all resources
-  - individual annotation takes precedence over cli flag, meaning it can be overridden with annotation `alb.ingress.kubernetes.io/manage-backend-security-group-rules: "false"` for ALB or `service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: "false"` for NLB
-  - for this to take effect, `--enable-backend-security-group` needs to be true and user explicitly specify security group using annotation: `alb.ingress.kubernetes.io/security-groups` or `service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules`
-  - when set to `false` (default value) or not set, the controller takes the individual annotations
+    - when set to `true`, the controller will automatically manage backend security group rules for all resources
+    - individual annotation takes precedence over cli flag, meaning it can be overridden with annotation `alb.ingress.kubernetes.io/manage-backend-security-group-rules: "false"` for ALB or `service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: "false"` for NLB
+    - for this to take effect, `--enable-backend-security-group` needs to be true and user explicitly specify security group using annotation: `alb.ingress.kubernetes.io/security-groups` or `service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules`
+    - when set to `false` (default value) or not set, the controller takes the individual annotations
   
 ### Port Range Restrictions
 
