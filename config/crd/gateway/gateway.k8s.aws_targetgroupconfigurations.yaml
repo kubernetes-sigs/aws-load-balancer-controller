@@ -186,9 +186,9 @@ spec:
                     description: protocolVersion [HTTP/HTTPS protocol] The protocol
                       version. The possible values are GRPC , HTTP1 and HTTP2
                     enum:
-                    - http1
-                    - http2
-                    - grpc
+                    - HTTP1
+                    - HTTP2
+                    - GRPC
                     type: string
                   tags:
                     description: Tags defines list of Tags on target group.
@@ -389,9 +389,9 @@ spec:
                           description: protocolVersion [HTTP/HTTPS protocol] The protocol
                             version. The possible values are GRPC , HTTP1 and HTTP2
                           enum:
-                          - http1
-                          - http2
-                          - grpc
+                          - HTTP1
+                          - HTTP2
+                          - GRPC
                           type: string
                         tags:
                           description: Tags defines list of Tags on target group.

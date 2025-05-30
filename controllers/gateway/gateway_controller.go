@@ -196,7 +196,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	mergedLbConfig, err := r.cfgResolver.getLoadBalancerConfigForGateway(ctx, r.k8sClient, gw, gwClass)
 
 	if err != nil {
-		statusErr := r.updateGatewayStatusFailure(ctx, gw, gwv1.GatewayReasonInvalid, err)
+		statusErr := r.updateGatewayStatusFailure(ctx, gw, gwv1.GatewayReasonInvalid, err.Error())
 		if statusErr != nil {
 			r.logger.Error(statusErr, "Unable to update gateway status on failure to retrieve attached config")
 		}
@@ -208,7 +208,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	if err != nil {
 		var loaderErr routeutils.LoaderError
 		if errors.As(err, &loaderErr) {
-			statusErr := r.updateGatewayStatusFailure(ctx, gw, loaderErr.GetGatewayReason(), loaderErr)
+			statusErr := r.updateGatewayStatusFailure(ctx, gw, loaderErr.GetGatewayReason(), loaderErr.GetGatewayMessage())
 			if statusErr != nil {
 				r.logger.Error(statusErr, "Unable to update gateway status on failure to build routes")
 			}
@@ -354,10 +354,10 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	return nil
 }
 
-func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *gwv1.Gateway, reason gwv1.GatewayConditionReason, err error) error {
+func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *gwv1.Gateway, reason gwv1.GatewayConditionReason, errMessage string) error {
 	gwOld := gw.DeepCopy()
 
-	needPatch := r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), metav1.ConditionFalse, string(reason), err.Error())
+	needPatch := r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), metav1.ConditionFalse, string(reason), errMessage)
 
 	if needPatch {
 		if err := r.k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {

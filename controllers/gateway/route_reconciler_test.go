@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
+	"time"
 )
 
 func TestDeferredReconcilerConstructor(t *testing.T) {
@@ -420,4 +421,297 @@ func TestEnqueue(t *testing.T) {
 			tt.validateEnqueued(t, mock.Enqueued)
 		})
 	}
+}
+
+func Test_updateRouteStatus(t *testing.T) {
+	tests := []struct {
+		name           string
+		route          client.Object
+		routeData      routeutils.RouteData
+		validateResult func(t *testing.T, route client.Object)
+	}{
+		{
+			name: "update HTTPRoute status - condition accepted",
+			route: &gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-route",
+					Namespace: "test-namespace",
+				},
+				Spec: gwv1.HTTPRouteSpec{
+					Hostnames: []gwv1.Hostname{"example.com"},
+				},
+			},
+			routeData: routeutils.RouteData{
+				RouteStatusInfo: routeutils.RouteStatusInfo{
+					Accepted:     true,
+					ResolvedRefs: true,
+					Reason:       string(gwv1.RouteConditionAccepted),
+					Message:      "route accepted",
+				},
+				ParentRefGateway: routeutils.ParentRefGateway{
+					Name:      "test-gateway",
+					Namespace: "test-namespace",
+				},
+			},
+			validateResult: func(t *testing.T, route client.Object) {
+				httpRoute := route.(*gwv1.HTTPRoute)
+				if httpRoute.Status.Parents == nil {
+					assert.Len(t, httpRoute.Status.Parents, 0)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := logr.New(&log.NullLogSink{})
+			reconciler := &routeReconcilerImpl{
+				logger: logger,
+			}
+			err := reconciler.updateRouteStatus(tt.route, tt.routeData)
+			assert.NoError(t, err)
+			if tt.validateResult != nil {
+				tt.validateResult(t, tt.route)
+			}
+		})
+	}
+}
+
+func Test_setConditionsWithRouteStatusInfo(t *testing.T) {
+	route := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Generation: 1,
+		},
+	}
+
+	tests := []struct {
+		name           string
+		info           routeutils.RouteStatusInfo
+		validateResult func(t *testing.T, conditions []metav1.Condition)
+	}{
+		{
+			name: "accepted true and resolvedRef true",
+			info: routeutils.RouteStatusInfo{
+				Accepted:     true,
+				ResolvedRefs: true,
+				Reason:       string(gwv1.RouteConditionAccepted),
+				Message:      "route accepted",
+			},
+			validateResult: func(t *testing.T, conditions []metav1.Condition) {
+				assert.Len(t, conditions, 2)
+				acceptedCondition := findCondition(conditions, string(gwv1.RouteConditionAccepted))
+				assert.NotNil(t, acceptedCondition)
+				assert.Equal(t, metav1.ConditionTrue, acceptedCondition.Status)
+
+				resolvedRefCondition := findCondition(conditions, string(gwv1.RouteConditionResolvedRefs))
+				assert.NotNil(t, resolvedRefCondition)
+				assert.Equal(t, metav1.ConditionTrue, resolvedRefCondition.Status)
+			},
+		},
+		{
+			name: "accepted false and resolvedRef true",
+			info: routeutils.RouteStatusInfo{
+				Accepted:     false,
+				ResolvedRefs: true,
+				Reason:       string(gwv1.RouteReasonNotAllowedByListeners),
+				Message:      "route not allowed by listeners",
+			},
+			validateResult: func(t *testing.T, conditions []metav1.Condition) {
+				assert.Len(t, conditions, 2)
+				acceptedCondition := findCondition(conditions, string(gwv1.RouteConditionAccepted))
+				assert.NotNil(t, acceptedCondition)
+				assert.Equal(t, metav1.ConditionFalse, acceptedCondition.Status)
+
+				resolvedRefCondition := findCondition(conditions, string(gwv1.RouteConditionResolvedRefs))
+				assert.NotNil(t, resolvedRefCondition)
+				assert.Equal(t, metav1.ConditionTrue, resolvedRefCondition.Status)
+			},
+		},
+		{
+			name: "accepted false and resolvedRef false",
+			info: routeutils.RouteStatusInfo{
+				Accepted:     false,
+				ResolvedRefs: false,
+				Reason:       string(gwv1.RouteReasonBackendNotFound),
+				Message:      "backend not found",
+			},
+			validateResult: func(t *testing.T, conditions []metav1.Condition) {
+				assert.Len(t, conditions, 2)
+				acceptedCondition := findCondition(conditions, string(gwv1.RouteConditionAccepted))
+				assert.NotNil(t, acceptedCondition)
+				assert.Equal(t, metav1.ConditionFalse, acceptedCondition.Status)
+
+				resolvedRefCondition := findCondition(conditions, string(gwv1.RouteConditionResolvedRefs))
+				assert.NotNil(t, resolvedRefCondition)
+				assert.Equal(t, metav1.ConditionFalse, resolvedRefCondition.Status)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := logr.New(&log.NullLogSink{})
+			reconciler := &routeReconcilerImpl{
+				logger: logger,
+			}
+			parentStatus := &gwv1.RouteParentStatus{}
+			reconciler.setConditionsWithRouteStatusInfo(route, parentStatus, tt.info)
+			if tt.validateResult != nil {
+				tt.validateResult(t, parentStatus.Conditions)
+			}
+		})
+	}
+}
+
+func Test_areConditionsEqual(t *testing.T) {
+	tests := []struct {
+		name     string
+		oldCon   []metav1.Condition
+		newCon   []metav1.Condition
+		expected bool
+	}{
+		{
+			name: "same conditions - true",
+			oldCon: []metav1.Condition{
+				{
+					Type:   string(gwv1.RouteConditionAccepted),
+					Status: metav1.ConditionTrue,
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			newCon: []metav1.Condition{
+				{
+					Type:   string(gwv1.RouteConditionAccepted),
+					Status: metav1.ConditionTrue,
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "different conditions - false",
+			oldCon: []metav1.Condition{
+				{
+					Type:   string(gwv1.RouteConditionAccepted),
+					Status: metav1.ConditionTrue,
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			newCon: []metav1.Condition{
+				{
+					Type:   string(gwv1.RouteConditionAccepted),
+					Status: metav1.ConditionFalse,
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "different conditions on Reason - false",
+			oldCon: []metav1.Condition{
+				{
+					Type:   string(gwv1.RouteConditionAccepted),
+					Status: metav1.ConditionTrue,
+					Reason: "good",
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			newCon: []metav1.Condition{
+				{
+					Type:   string(gwv1.RouteConditionAccepted),
+					Status: metav1.ConditionTrue,
+					Reason: "test-good",
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "different conditions on LastTransitionTime - true",
+			oldCon: []metav1.Condition{
+				{
+					Type:               string(gwv1.RouteConditionAccepted),
+					Status:             metav1.ConditionTrue,
+					LastTransitionTime: metav1.NewTime(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)),
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			newCon: []metav1.Condition{
+				{
+					Type:               string(gwv1.RouteConditionAccepted),
+					Status:             metav1.ConditionTrue,
+					LastTransitionTime: metav1.NewTime(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)),
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "different conditions on ObservedGeneration - true",
+			oldCon: []metav1.Condition{
+				{
+					Type:               string(gwv1.RouteConditionAccepted),
+					Status:             metav1.ConditionTrue,
+					ObservedGeneration: 1,
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			newCon: []metav1.Condition{
+				{
+					Type:               string(gwv1.RouteConditionAccepted),
+					Status:             metav1.ConditionTrue,
+					ObservedGeneration: 2,
+				},
+				{
+					Type:   string(gwv1.RouteConditionResolvedRefs),
+					Status: metav1.ConditionTrue,
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := areConditionsEqual(tt.oldCon, tt.newCon)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// helper function
+func findCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+	for _, condition := range conditions {
+		if condition.Type == conditionType {
+			return &condition
+		}
+	}
+	return nil
 }

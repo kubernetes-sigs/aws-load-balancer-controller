@@ -152,6 +152,13 @@ func GetHostnamePrecedenceOrder(hostnameOne, hostnameTwo string) int {
 	} else if isHostnameOneWildcard && !isHostnameTwoWildcard {
 		return 1
 	} else {
+		dotsInHostnameOne := strings.Count(hostnameOne, ".")
+		dotsInHostnameTwo := strings.Count(hostnameTwo, ".")
+		if dotsInHostnameOne > dotsInHostnameTwo {
+			return -1
+		} else if dotsInHostnameOne < dotsInHostnameTwo {
+			return 1
+		}
 		if len(hostnameOne) > len(hostnameTwo) {
 			return -1
 		} else if len(hostnameOne) < len(hostnameTwo) {

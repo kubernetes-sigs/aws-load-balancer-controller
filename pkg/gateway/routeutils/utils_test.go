@@ -686,6 +686,20 @@ func TestGetHostnamePrecedenceOrder(t *testing.T) {
 			want:        -1,
 			description: "non-empty string should have higher precedence than empty",
 		},
+		{
+			name:        "one hostname has more dots",
+			hostnameOne: "*.example.com",
+			hostnameTwo: "*.t.exa.com",
+			want:        1,
+			description: "hostname with more dots should have higher precedence even if it has less character",
+		},
+		{
+			name:        "two hostnames have same number of dots, one has more characters",
+			hostnameOne: "*.t.example.com",
+			hostnameTwo: "*.t.exa.com",
+			want:        -1,
+			description: "hostname with more characters should have higher precedence order if they have same number of dots",
+		},
 	}
 
 	for _, tt := range tests {

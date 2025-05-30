@@ -129,7 +129,7 @@ const (
 	ProtocolTCP_UDP Protocol = "TCP_UDP"
 )
 
-// +kubebuilder:validation:Enum=http1;http2;grpc
+// +kubebuilder:validation:Enum=HTTP1;HTTP2;GRPC
 type ProtocolVersion string
 
 const (

@@ -148,7 +148,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv
 	if err != nil {
 		attachmentHelper.logger.Error(err, "listener hostname is not valid", "listener", listener.Name, "hostname", *listener.Hostname)
 		initialErrorMessage := fmt.Sprintf("listener hostname %s is not valid (listener name %s)", listener.Name, *listener.Hostname)
-		return false, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue)
+		return false, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue, nil, nil)
 	}
 
 	if !isListenerHostnameValid {
