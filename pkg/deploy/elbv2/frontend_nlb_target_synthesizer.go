@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider tracking.Provider, taggingManager TaggingManager, frontendNlbTargetsManager FrontendNlbTargetsManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState) *frontendNlbTargetSynthesizer {
+func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider tracking.Provider, taggingManager TaggingManager, frontendNlbTargetsManager FrontendNlbTargetsManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState, targetGroupCache *TargetGroupCache) *frontendNlbTargetSynthesizer {
 	return &frontendNlbTargetSynthesizer{
 		k8sClient:                          k8sClient,
 		trackingProvider:                   trackingProvider,
@@ -26,6 +26,7 @@ func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider t
 		logger:                             logger,
 		stack:                              stack,
 		frontendNlbTargetGroupDesiredState: frontendNlbTargetGroupDesiredState,
+		targetGroupCache:                   targetGroupCache,
 	}
 }
 
@@ -38,6 +39,7 @@ type frontendNlbTargetSynthesizer struct {
 	logger                             logr.Logger
 	stack                              core.Stack
 	frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
+	targetGroupCache                   *TargetGroupCache
 }
 
 // Synthesize processes AWS target groups and deregisters ALB targets based on the desired state.
@@ -161,6 +163,13 @@ func filterALBTargetGroups(targetGroups []*elbv2model.TargetGroup) []*elbv2model
 
 func (s *frontendNlbTargetSynthesizer) findSDKTargetGroups(ctx context.Context) ([]TargetGroupWithTags, error) {
 	stackTags := s.trackingProvider.StackTags(s.stack)
-	return s.taggingManager.ListTargetGroups(ctx,
+	targetGroups, err := s.taggingManager.ListTargetGroups(ctx,
 		tracking.TagsAsTagFilter(stackTags))
+
+	// Store in cache for the target group synthesizer to use
+	if err == nil {
+		s.targetGroupCache.SetSDKTargetGroups(targetGroups)
+	}
+
+	return targetGroups, err
 }

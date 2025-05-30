@@ -1,15 +1,21 @@
 package elbv2
 
 import (
+	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/go-logr/logr"
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_matchResAndSDKTargetGroups(t *testing.T) {
@@ -989,6 +995,102 @@ func Test_isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(t *testing.T) {
 			}
 			got := isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(tt.args.sdkTG, tt.args.resTG, featureGates)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+func Test_targetGroupSynthesizer_findSDKTargetGroups(t *testing.T) {
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
+	logger := logr.New(log.NullLogSink{})
+
+	tests := []struct {
+		name                 string
+		cacheHasTargetGroups bool
+		cachedTargetGroups   []TargetGroupWithTags
+		setupMocks           func(mockTagging *MockTaggingManager)
+		wantTargetGroups     []TargetGroupWithTags
+		wantError            error
+	}{
+		{
+			name:                 "should use cached target groups when available",
+			cacheHasTargetGroups: true,
+			cachedTargetGroups: []TargetGroupWithTags{
+				{
+					TargetGroup: &elbv2types.TargetGroup{
+						TargetGroupArn: awssdk.String("cached-arn"),
+					},
+				},
+			},
+			wantTargetGroups: []TargetGroupWithTags{
+				{
+					TargetGroup: &elbv2types.TargetGroup{
+						TargetGroupArn: awssdk.String("cached-arn"),
+					},
+				},
+			},
+		},
+		{
+			name:                 "should fetch from AWS when cache is empty",
+			cacheHasTargetGroups: false,
+			setupMocks: func(mockTagging *MockTaggingManager) {
+				mockTagging.EXPECT().ListTargetGroups(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					[]TargetGroupWithTags{
+						{
+							TargetGroup: &elbv2types.TargetGroup{
+								TargetGroupArn: awssdk.String("aws-arn"),
+							},
+						},
+					}, nil)
+			},
+			wantTargetGroups: []TargetGroupWithTags{
+				{
+					TargetGroup: &elbv2types.TargetGroup{
+						TargetGroupArn: awssdk.String("aws-arn"),
+					},
+				},
+			},
+		},
+		{
+			name:                 "should return error from AWS",
+			cacheHasTargetGroups: false,
+			setupMocks: func(mockTagging *MockTaggingManager) {
+				mockTagging.EXPECT().ListTargetGroups(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+					nil, errors.New("aws error"))
+			},
+			wantError: errors.New("aws error"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			cache := NewTargetGroupCache()
+			if tt.cacheHasTargetGroups {
+				cache.SetSDKTargetGroups(tt.cachedTargetGroups)
+			}
+
+			mockTaggingManager := NewMockTaggingManager(ctrl)
+			if tt.setupMocks != nil {
+				tt.setupMocks(mockTaggingManager)
+			}
+
+			synthesizer := &targetGroupSynthesizer{
+				trackingProvider: tracking.NewDefaultProvider("ingress.k8s.aws", "my-cluster"),
+				taggingManager:   mockTaggingManager,
+				logger:           logger,
+				stack:            stack,
+				targetGroupCache: cache,
+			}
+
+			gotTargetGroups, gotErr := synthesizer.findSDKTargetGroups(context.Background())
+
+			if tt.wantError != nil {
+				assert.EqualError(t, gotErr, tt.wantError.Error())
+			} else {
+				assert.NoError(t, gotErr)
+				assert.Equal(t, tt.wantTargetGroups, gotTargetGroups)
+			}
 		})
 	}
 }

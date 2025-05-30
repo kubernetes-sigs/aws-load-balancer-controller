@@ -16,7 +16,7 @@ import (
 
 // NewTargetGroupSynthesizer constructs targetGroupSynthesizer
 func NewTargetGroupSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
-	tgManager TargetGroupManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack) *targetGroupSynthesizer {
+	tgManager TargetGroupManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, targetGroupCache *TargetGroupCache) *targetGroupSynthesizer {
 	return &targetGroupSynthesizer{
 		elbv2Client:      elbv2Client,
 		trackingProvider: trackingProvider,
@@ -26,6 +26,7 @@ func NewTargetGroupSynthesizer(elbv2Client services.ELBV2, trackingProvider trac
 		logger:           logger,
 		stack:            stack,
 		unmatchedSDKTGs:  nil,
+		targetGroupCache: targetGroupCache,
 	}
 }
 
@@ -38,8 +39,9 @@ type targetGroupSynthesizer struct {
 	featureGates     config.FeatureGates
 	logger           logr.Logger
 
-	stack           core.Stack
-	unmatchedSDKTGs []TargetGroupWithTags
+	stack            core.Stack
+	unmatchedSDKTGs  []TargetGroupWithTags
+	targetGroupCache *TargetGroupCache
 }
 
 func (s *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
@@ -87,11 +89,21 @@ func (s *targetGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 
 // findSDKTargetGroups will find all AWS TargetGroups created for stack.
 func (s *targetGroupSynthesizer) findSDKTargetGroups(ctx context.Context) ([]TargetGroupWithTags, error) {
+	// Check if target groups are already cached from FrontendNlbTargetSynthesizer
+	if targetGroups, exists := s.targetGroupCache.GetSDKTargetGroups(); exists {
+		s.logger.Info("Using cached target groups from FrontendNlbTargetSynthesizer")
+		return targetGroups, nil
+	}
+
+	// If not in cache, fetch from AWS
+	s.logger.Info("No cached target groups found, fetching from AWS")
 	stackTags := s.trackingProvider.StackTags(s.stack)
 	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
-	return s.taggingManager.ListTargetGroups(ctx,
+	targetGroups, err := s.taggingManager.ListTargetGroups(ctx,
 		tracking.TagsAsTagFilter(stackTags),
 		tracking.TagsAsTagFilter(stackTagsLegacy))
+
+	return targetGroups, err
 }
 
 type resAndSDKTargetGroupPair struct {
