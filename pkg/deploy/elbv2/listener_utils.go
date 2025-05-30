@@ -16,15 +16,17 @@ const (
 	defaultWaitLSExistenceTimeout      = 20 * time.Second
 )
 
-func buildResLRDesiredActionsAndConditionsPair(resLR *elbv2model.ListenerRule, featureGates config.FeatureGates) (*resLRDesiredActionsAndConditionsPair, error) {
+func buildResLRDesiredRuleConfig(resLR *elbv2model.ListenerRule, featureGates config.FeatureGates) (*resLRDesiredRuleConfig, error) {
 	desiredActions, err := buildSDKActions(resLR.Spec.Actions, featureGates)
 	if err != nil {
 		return nil, err
 	}
 	desiredConditions := buildSDKRuleConditions(resLR.Spec.Conditions)
-	return &resLRDesiredActionsAndConditionsPair{
+	desiredTransforms := buildSDKTransforms(resLR.Spec.Transforms)
+	return &resLRDesiredRuleConfig{
 		desiredActions:    desiredActions,
 		desiredConditions: desiredConditions,
+		desiredTransforms: desiredTransforms,
 	}, err
 }
 
@@ -188,13 +190,15 @@ func buildSDKRuleCondition(modelCondition elbv2model.RuleCondition) elbv2types.R
 
 func buildSDKHostHeaderConditionConfig(modelCfg elbv2model.HostHeaderConditionConfig) *elbv2types.HostHeaderConditionConfig {
 	return &elbv2types.HostHeaderConditionConfig{
-		Values: modelCfg.Values,
+		RegexValues: modelCfg.RegexValues,
+		Values:      modelCfg.Values,
 	}
 }
 
 func buildSDKHTTPHeaderConditionConfig(modelCfg elbv2model.HTTPHeaderConditionConfig) *elbv2types.HttpHeaderConditionConfig {
 	return &elbv2types.HttpHeaderConditionConfig{
 		HttpHeaderName: awssdk.String(modelCfg.HTTPHeaderName),
+		RegexValues:    modelCfg.RegexValues,
 		Values:         modelCfg.Values,
 	}
 }
@@ -207,7 +211,8 @@ func buildSDKHTTPRequestMethodConditionConfig(modelCfg elbv2model.HTTPRequestMet
 
 func buildSDKPathPatternConditionConfig(modelCfg elbv2model.PathPatternConditionConfig) *elbv2types.PathPatternConditionConfig {
 	return &elbv2types.PathPatternConditionConfig{
-		Values: modelCfg.Values,
+		RegexValues: modelCfg.RegexValues,
+		Values:      modelCfg.Values,
 	}
 }
 
@@ -227,6 +232,56 @@ func buildSDKQueryStringConditionConfig(modelCfg elbv2model.QueryStringCondition
 func buildSDKSourceIpConditionConfig(modelCfg elbv2model.SourceIPConditionConfig) *elbv2types.SourceIpConditionConfig {
 	return &elbv2types.SourceIpConditionConfig{
 		Values: modelCfg.Values,
+	}
+}
+
+func buildSDKTransforms(modelTransforms []elbv2model.Transform) []elbv2types.RuleTransform {
+	var sdkTransforms []elbv2types.RuleTransform
+	if len(modelTransforms) != 0 {
+		sdkTransforms = make([]elbv2types.RuleTransform, 0, len(modelTransforms))
+		for _, modelTransform := range modelTransforms {
+			sdkTransform := buildSDKTransform(modelTransform)
+			sdkTransforms = append(sdkTransforms, sdkTransform)
+		}
+	}
+	return sdkTransforms
+}
+
+func buildSDKTransform(modelTransform elbv2model.Transform) elbv2types.RuleTransform {
+	sdkObj := elbv2types.RuleTransform{}
+	sdkObj.Type = elbv2types.TransformTypeEnum(string(modelTransform.Type))
+	if modelTransform.HostHeaderRewriteConfig != nil {
+		sdkObj.HostHeaderRewriteConfig = buildSDKHostHeaderRewriteConfig(*modelTransform.HostHeaderRewriteConfig)
+	}
+	if modelTransform.UrlRewriteConfig != nil {
+		sdkObj.UrlRewriteConfig = buildSDKUrlRewriteConfig(*modelTransform.UrlRewriteConfig)
+	}
+	return sdkObj
+}
+
+func buildSDKHostHeaderRewriteConfig(modelCfg elbv2model.RewriteConfigObject) *elbv2types.HostHeaderRewriteConfig {
+	rewrites := make([]elbv2types.RewriteConfig, 0, len(modelCfg.Rewrites))
+	for _, rewrite := range modelCfg.Rewrites {
+		rewrites = append(rewrites, elbv2types.RewriteConfig{
+			Regex:   awssdk.String(rewrite.Regex),
+			Replace: awssdk.String(rewrite.Replace),
+		})
+	}
+	return &elbv2types.HostHeaderRewriteConfig{
+		Rewrites: rewrites,
+	}
+}
+
+func buildSDKUrlRewriteConfig(modelCfg elbv2model.RewriteConfigObject) *elbv2types.UrlRewriteConfig {
+	rewrites := make([]elbv2types.RewriteConfig, 0, len(modelCfg.Rewrites))
+	for _, rewrite := range modelCfg.Rewrites {
+		rewrites = append(rewrites, elbv2types.RewriteConfig{
+			Regex:   awssdk.String(rewrite.Regex),
+			Replace: awssdk.String(rewrite.Replace),
+		})
+	}
+	return &elbv2types.UrlRewriteConfig{
+		Rewrites: rewrites,
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 type Rule struct {
 	Conditions []elbv2model.RuleCondition
 	Actions    []elbv2model.Action
+	Transforms []elbv2model.Transform
 	Tags       map[string]string
 }
 

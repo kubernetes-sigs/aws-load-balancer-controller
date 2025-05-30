@@ -72,20 +72,20 @@ func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.
 	if err != nil {
 		return err
 	}
-	// Build desired actions and conditions pairs for resource listener rules.
-	resLRDesiredActionsAndConditionsPairs := make(map[*elbv2model.ListenerRule]*resLRDesiredActionsAndConditionsPair, len(resLRs))
+	// Build desired rule configs for resource listener rules.
+	resLRDesiredRuleConfigs := make(map[*elbv2model.ListenerRule]*resLRDesiredRuleConfig, len(resLRs))
 	for _, resLR := range resLRs {
-		resLRDesiredActionsAndConditionsPair, err := buildResLRDesiredActionsAndConditionsPair(resLR, s.featureGates)
+		resLRDesiredRuleConfig, err := buildResLRDesiredRuleConfig(resLR, s.featureGates)
 		if err != nil {
 			return err
 		}
-		resLRDesiredActionsAndConditionsPairs[resLR] = resLRDesiredActionsAndConditionsPair
+		resLRDesiredRuleConfigs[resLR] = resLRDesiredRuleConfig
 	}
 	// matchedResAndSDKLRsBySettings : A slice of matched resLR and SDKLR rule pairs that have matching settings like actions and conditions. These needs to be only reprioratized to their corresponding priorities
 	// matchedResAndSDKLRsByPriority :  A slice of matched resLR and SDKLR rule pairs that have matching priorities but not settings like actions and conditions. These needs to be modified in place to avoid any 503 errors
 	// unmatchedResLRs : A slice of resLR that do not have a corresponding match in the sdkLRs. These rules need to be created on the load balancer.
 	// unmatchedSDKLRs : A slice of sdkLRs that do not have a corresponding match in the resLRs. These rules need to be first pushed down in the priority so that the new rules are created/modified at higher priority first and then deleted from the load balancer to avoid any 503 errors.
-	matchedResAndSDKLRsBySettings, matchedResAndSDKLRsByPriority, unmatchedResLRs, unmatchedSDKLRs, err := s.matchResAndSDKListenerRules(resLRs, sdkLRs, resLRDesiredActionsAndConditionsPairs)
+	matchedResAndSDKLRsBySettings, matchedResAndSDKLRsByPriority, unmatchedResLRs, unmatchedSDKLRs, err := s.matchResAndSDKListenerRules(resLRs, sdkLRs, resLRDesiredRuleConfigs)
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.
 	}
 	// Modify rules in place which are matching priorities
 	for _, resAndSDKLR := range matchedResAndSDKLRsByPriority {
-		lsStatus, err := s.lrManager.UpdateRules(ctx, resAndSDKLR.resLR, resAndSDKLR.sdkLR, resLRDesiredActionsAndConditionsPairs[resAndSDKLR.resLR])
+		lsStatus, err := s.lrManager.UpdateRules(ctx, resAndSDKLR.resLR, resAndSDKLR.sdkLR, resLRDesiredRuleConfigs[resAndSDKLR.resLR])
 		if err != nil {
 			return err
 		}
@@ -106,7 +106,7 @@ func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.
 	}
 	// Create all the new rules on the LB
 	for _, resLR := range unmatchedResLRs {
-		lrStatus, err := s.lrManager.Create(ctx, resLR, resLRDesiredActionsAndConditionsPairs[resLR])
+		lrStatus, err := s.lrManager.Create(ctx, resLR, resLRDesiredRuleConfigs[resLR])
 		if err != nil {
 			return err
 		}
@@ -150,12 +150,13 @@ type resAndSDKListenerRulePair struct {
 	sdkLR ListenerRuleWithTags
 }
 
-type resLRDesiredActionsAndConditionsPair struct {
+type resLRDesiredRuleConfig struct {
 	desiredActions    []types.Action
 	desiredConditions []types.RuleCondition
+	desiredTransforms []types.RuleTransform
 }
 
-func (s *listenerRuleSynthesizer) matchResAndSDKListenerRules(resLRs []*elbv2model.ListenerRule, unmatchedSDKLRs []ListenerRuleWithTags, resLRDesiredActionsAndConditionsPairs map[*elbv2model.ListenerRule]*resLRDesiredActionsAndConditionsPair) ([]resAndSDKListenerRulePair, []resAndSDKListenerRulePair, []*elbv2model.ListenerRule, []ListenerRuleWithTags, error) {
+func (s *listenerRuleSynthesizer) matchResAndSDKListenerRules(resLRs []*elbv2model.ListenerRule, unmatchedSDKLRs []ListenerRuleWithTags, resLRDesiredRuleConfigs map[*elbv2model.ListenerRule]*resLRDesiredRuleConfig) ([]resAndSDKListenerRulePair, []resAndSDKListenerRulePair, []*elbv2model.ListenerRule, []ListenerRuleWithTags, error) {
 	var matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair
 	var matchedResAndSDKLRsByPriority []resAndSDKListenerRulePair
 	var unmatchedResLRs []*elbv2model.ListenerRule
@@ -163,14 +164,15 @@ func (s *listenerRuleSynthesizer) matchResAndSDKListenerRules(resLRs []*elbv2mod
 	var sdkLRsToDelete []ListenerRuleWithTags
 
 	for _, resLR := range resLRs {
-		resLRDesiredActionsAndConditionsPair := resLRDesiredActionsAndConditionsPairs[resLR]
+		resLRDesiredRuleConfig := resLRDesiredRuleConfigs[resLR]
 		found := false
 		for i := 0; i < len(unmatchedSDKLRs); i++ {
 			sdkLR := unmatchedSDKLRs[i]
 
-			actionsEqual := cmp.Equal(resLRDesiredActionsAndConditionsPair.desiredActions, sdkLR.ListenerRule.Actions, elbv2equality.CompareOptionForActions(resLRDesiredActionsAndConditionsPair.desiredActions, sdkLR.ListenerRule.Actions))
-			conditionsEqual := cmp.Equal(resLRDesiredActionsAndConditionsPair.desiredConditions, sdkLR.ListenerRule.Conditions, elbv2equality.CompareOptionForRuleConditions(resLRDesiredActionsAndConditionsPair.desiredConditions, sdkLR.ListenerRule.Conditions))
-			if actionsEqual && conditionsEqual {
+			actionsEqual := cmp.Equal(resLRDesiredRuleConfig.desiredActions, sdkLR.ListenerRule.Actions, elbv2equality.CompareOptionForActions(resLRDesiredRuleConfig.desiredActions, sdkLR.ListenerRule.Actions))
+			conditionsEqual := cmp.Equal(resLRDesiredRuleConfig.desiredConditions, sdkLR.ListenerRule.Conditions, elbv2equality.CompareOptionForRuleConditions(resLRDesiredRuleConfig.desiredConditions, sdkLR.ListenerRule.Conditions))
+			transformsEqual := cmp.Equal(resLRDesiredRuleConfig.desiredTransforms, sdkLR.ListenerRule.Transforms, elbv2equality.CompareOptionForTransforms(resLRDesiredRuleConfig.desiredTransforms, sdkLR.ListenerRule.Transforms))
+			if actionsEqual && conditionsEqual && transformsEqual {
 				sdkLRPriority, _ := strconv.ParseInt(awssdk.ToString(sdkLR.ListenerRule.Priority), 10, 64)
 				if resLR.Spec.Priority != int32(sdkLRPriority) {
 					matchedResAndSDKLRsBySettings = append(matchedResAndSDKLRsBySettings, resAndSDKListenerRulePair{

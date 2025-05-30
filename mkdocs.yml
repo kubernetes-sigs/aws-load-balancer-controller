@@ -44,6 +44,7 @@ nav:
       - Tasks:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
           - SSL Redirect: guide/tasks/ssl_redirect.md
+          - URL Rewrite: guide/tasks/url_rewrite.md
       - Use Cases:
         - NLB TLS Termination: guide/use_cases/nlb_tls_termination/index.md
         - Externally Managed Load Balancer: guide/use_cases/self_managed_lb/index.md
