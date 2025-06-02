@@ -357,6 +357,8 @@ func Test_buildListenerALPNPolicy(t *testing.T) {
 func TestBuildCertificates(t *testing.T) {
 	tests := []struct {
 		name       string
+		gateway    *gwv1.Gateway
+		port       int32
 		gwLsCfg    *gwListenerConfig
 		lbLsCfg    *elbv2gw.ListenerConfiguration
 		setupMocks func(mockCertDiscovery *certs.MockCertDiscovery)
@@ -365,7 +367,20 @@ func TestBuildCertificates(t *testing.T) {
 	}{
 		{
 			name: "default certificate only - explicit config",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "https",
+							Port:     443,
+							Protocol: gwv1.HTTPSProtocolType,
+						},
+					},
+				},
+			},
+			port: 443,
 			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: []string{"my-host-1", "my-host-2"},
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
@@ -379,7 +394,20 @@ func TestBuildCertificates(t *testing.T) {
 		},
 		{
 			name: "multiple certificates without default - explicit config",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "tls",
+							Port:     443,
+							Protocol: gwv1.TLSProtocolType,
+						},
+					},
+				},
+			},
+			port: 443,
 			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolTLS,
 				hostnames: []string{"my-host-1", "my-host-2"},
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
@@ -399,7 +427,20 @@ func TestBuildCertificates(t *testing.T) {
 		},
 		{
 			name: "multiple certificates with default - explicit config",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "https",
+							Port:     443,
+							Protocol: gwv1.HTTPSProtocolType,
+						},
+					},
+				},
+			},
+			port: 443,
 			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: []string{"my-host-1", "my-host-2"},
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
@@ -423,7 +464,20 @@ func TestBuildCertificates(t *testing.T) {
 		},
 		{
 			name: "auto-discover certificates for one hosts",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "tls",
+							Port:     443,
+							Protocol: gwv1.TLSProtocolType,
+						},
+					},
+				},
+			},
+			port: 443,
 			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolTLS,
 				hostnames: []string{"example.com"},
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
@@ -444,12 +498,23 @@ func TestBuildCertificates(t *testing.T) {
 		},
 		{
 			name: "auto-discover certificates for hosts",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "tls",
+							Port:     443,
+							Protocol: gwv1.TLSProtocolType,
+						},
+					},
+				},
+			},
+			port: 443,
 			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolTLS,
 				hostnames: []string{"example.com", "*.example.org"},
 			},
-			lbLsCfg: &elbv2gw.ListenerConfiguration{
-				ProtocolPort: "TLS:443",
-			},
+			lbLsCfg: nil,
 			setupMocks: func(mockCertDiscovery *certs.MockCertDiscovery) {
 				// The hostnames will be sorted alphabetically by sets.NewString().List()
 				mockCertDiscovery.EXPECT().
@@ -470,7 +535,20 @@ func TestBuildCertificates(t *testing.T) {
 		},
 		{
 			name: "certificate discovery fails",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "https",
+							Port:     443,
+							Protocol: gwv1.HTTPSProtocolType,
+						},
+					},
+				},
+			},
+			port: 443,
 			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: []string{"example.com"},
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
@@ -485,14 +563,49 @@ func TestBuildCertificates(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "no hostname for discovery",
+			name: "no hostname for discovery : no secure listeners",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
+					},
+				},
+			},
+			port: 443,
 			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTP,
 				hostnames: []string{},
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
-				ProtocolPort: "HTTPS:443",
+				ProtocolPort: "HTTP:80",
 			},
 			want: []elbv2model.Certificate{},
+		},
+		{
+			name: "no hostname for discovery : secure listeners",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "https",
+							Port:     443,
+							Protocol: gwv1.HTTPSProtocolType,
+						},
+					},
+				},
+			},
+			port: 443,
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{},
+			},
+			lbLsCfg: nil,
+			want:    []elbv2model.Certificate{},
+			wantErr: true,
 		},
 	}
 
@@ -510,7 +623,7 @@ func TestBuildCertificates(t *testing.T) {
 				certDiscovery: mockCertDiscovery,
 			}
 
-			got, err := builder.buildCertificates(context.Background(), tt.gwLsCfg, tt.lbLsCfg)
+			got, err := builder.buildCertificates(context.Background(), tt.gateway, tt.port, tt.gwLsCfg, tt.lbLsCfg)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("buildCertificates() error = %v, wantErr %v", err, tt.wantErr)
 				return
