@@ -101,6 +101,7 @@ type gatewayControllerConfig struct {
 	metricsCollector    lbcmetrics.MetricCollector
 	reconcileCounters   *metricsutil.ReconcileCounters
 	routeReconciler     routeutils.RouteReconciler
+	networkingManager   networking.NetworkingManager
 }
 
 func main() {
@@ -181,10 +182,10 @@ func main() {
 	sgResolver := networking.NewDefaultSecurityGroupResolver(cloud.EC2(), cloud.VpcID())
 	elbv2TaggingManager := elbv2deploy.NewDefaultTaggingManager(cloud.ELBV2(), cloud.VpcID(), controllerCFG.FeatureGates, cloud.RGT(), ctrl.Log)
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
-		finalizerManager, sgManager, sgReconciler, subnetResolver, elbv2TaggingManager,
+		finalizerManager, sgManager, networkingManager, sgReconciler, subnetResolver, elbv2TaggingManager,
 		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"), lbcMetricsCollector, reconcileCounters)
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
-		finalizerManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager,
+		finalizerManager, networkingManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager,
 		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"), lbcMetricsCollector, reconcileCounters)
 
 	delayingQueue := workqueue.NewDelayingQueueWithConfig(workqueue.DelayingQueueConfig{
@@ -238,6 +239,7 @@ func main() {
 			metricsCollector:    lbcMetricsCollector,
 			reconcileCounters:   reconcileCounters,
 			routeReconciler:     routeReconciler,
+			networkingManager:   networkingManager,
 		}
 
 		enabledControllers := sets.Set[string]{}
@@ -368,6 +370,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
 			cfg.finalizerManager,
+			cfg.networkingManager,
 			cfg.sgReconciler,
 			cfg.sgManager,
 			cfg.elbv2TaggingManager,
@@ -388,6 +391,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
 			cfg.finalizerManager,
+			cfg.networkingManager,
 			cfg.sgReconciler,
 			cfg.sgManager,
 			cfg.elbv2TaggingManager,

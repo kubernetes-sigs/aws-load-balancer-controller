@@ -41,11 +41,14 @@ type NetworkingManager interface {
 
 	// Cleanup reconcile network settings for TargetGroupBindings with zero endpoints.
 	Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error
+
+	// AttemptGarbageCollection triggers a garbage collection of unused security groups.
+	AttemptGarbageCollection(ctx context.Context) error
 }
 
 // NewDefaultNetworkingManager constructs defaultNetworkingManager.
 func NewDefaultNetworkingManager(k8sClient client.Client, podENIResolver PodENIInfoResolver, nodeENIResolver NodeENIInfoResolver,
-	sgManager SecurityGroupManager, sgReconciler SecurityGroupReconciler, vpcID string, clusterName string, serviceTargetENISGTags map[string]string, logger logr.Logger, disabledRestrictedSGRulesFlag bool) *defaultNetworkingManager {
+	sgManager SecurityGroupManager, sgReconciler SecurityGroupReconciler, vpcID string, clusterName string, serviceTargetENISGTags map[string]string, logger logr.Logger, disabledRestrictedSGRulesFlag bool) NetworkingManager {
 
 	return &defaultNetworkingManager{
 		k8sClient:              k8sClient,
@@ -120,6 +123,28 @@ func (m *defaultNetworkingManager) ReconcileForNodePortEndpoints(ctx context.Con
 
 func (m *defaultNetworkingManager) Cleanup(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
 	return m.reconcileWithIngressPermissionsPerSG(ctx, tgb, nil)
+}
+
+func (m *defaultNetworkingManager) AttemptGarbageCollection(ctx context.Context) error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	tgbsWithNetworking, err := m.fetchTGBsWithNetworking(ctx)
+	if err != nil {
+		m.logger.Error(err, "Unable to fetch TGBs with networking during gc attempt")
+		return err
+	}
+
+	computedForAllTGBs := m.consolidateIngressPermissionsPerSGByTGB(ctx, tgbsWithNetworking)
+	if !computedForAllTGBs {
+		return nil
+	}
+
+	aggregatedIngressPermissionsPerSG := m.computeAggregatedIngressPermissionsPerSG(ctx)
+	err = m.gcIngressPermissionsFromUnusedEndpointSGs(ctx, aggregatedIngressPermissionsPerSG)
+	if err != nil {
+		m.logger.Error(err, "Unable to perform SG garbage collection")
+	}
+	return err
 }
 
 func (m *defaultNetworkingManager) computeIngressPermissionsPerSGWithPodEndpoints(ctx context.Context, tgbNetworking elbv2api.TargetGroupBindingNetworking, endpoints []backend.PodEndpoint) (map[string][]IPPermissionInfo, error) {

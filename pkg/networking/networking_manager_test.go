@@ -3,7 +3,12 @@ package networking
 import (
 	"context"
 	"errors"
+	"fmt"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	"sync"
 	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -1420,7 +1425,6 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 		resp map[string]SecurityGroupInfo
 		err  error
 	}
-
 	type fields struct {
 		fetchSGInfosByRequestCalls []fetchSGInfosByIDCall
 		serviceTargetENISGTags     map[string]string
@@ -1771,4 +1775,323 @@ func Test_defaultNetworkingManager_resolveEndpointSGForENI(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_AttemptGarbageCollection(t *testing.T) {
+	type fetchSGInfosByRequestCall struct {
+		resp map[string]SecurityGroupInfo
+		err  error
+	}
+	vpcId := "vpc-1234"
+	clusterName := "cName"
+	tcpProtocol := elbv2api.NetworkingProtocolTCP
+	tests := []struct {
+		name                      string
+		tgbsInCluster             []*elbv2api.TargetGroupBinding
+		cachedTgbs                []types.NamespacedName
+		fetchSGInfosByRequestCall []fetchSGInfosByRequestCall
+		expectedSgReconciles      sets.Set[string]
+		wantErr                   bool
+	}{
+		{
+			name: "empty cache, no tgb in cluster, empty sg return call",
+			fetchSGInfosByRequestCall: []fetchSGInfosByRequestCall{
+				{},
+			},
+		},
+		{
+			name: "empty cache, no tgb in cluster, sg return call has data",
+			fetchSGInfosByRequestCall: []fetchSGInfosByRequestCall{
+				{
+					resp: map[string]SecurityGroupInfo{
+						"sg-a": {
+							SecurityGroupID: "sg-a",
+							Tags: map[string]string{
+								"kubernetes.io/cluster/cluster-a": "owned",
+							},
+						},
+						"sg-b": {
+							SecurityGroupID: "sg-b",
+							Tags: map[string]string{
+								"kubernetes.io/cluster/cluster-a": "owned",
+								"keyA":                            "",
+								"keyB":                            "valueB2",
+								"keyC":                            "valueC",
+								"keyD":                            "valueD",
+							},
+						},
+					},
+				},
+			},
+			expectedSgReconciles: sets.Set[string](sets.NewString("sg-a", "sg-b")),
+		},
+		{
+			name: "empty cache, tgb in cluster have no networking config, sg return call has data",
+			fetchSGInfosByRequestCall: []fetchSGInfosByRequestCall{
+				{
+					resp: map[string]SecurityGroupInfo{
+						"sg-a": {
+							SecurityGroupID: "sg-a",
+							Tags: map[string]string{
+								"kubernetes.io/cluster/cluster-a": "owned",
+							},
+						},
+						"sg-b": {
+							SecurityGroupID: "sg-b",
+							Tags: map[string]string{
+								"kubernetes.io/cluster/cluster-a": "owned",
+								"keyA":                            "",
+								"keyB":                            "valueB2",
+								"keyC":                            "valueC",
+								"keyD":                            "valueD",
+							},
+						},
+					},
+				},
+			},
+			tgbsInCluster: []*elbv2api.TargetGroupBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb-a",
+						Namespace: "ns-a",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-servicei-gatewaye-fbb5eb7cdd/de68ffdc8cbd5f76",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb-b",
+						Namespace: "ns-b",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-servicei-gatewaye2-fbb5eb7cdd/de68ffdc8cbd5f76",
+					},
+				},
+			},
+			expectedSgReconciles: sets.Set[string](sets.NewString("sg-a", "sg-b")),
+		},
+		{
+			name: "empty cache, tgbs present in cluster, sg return call has data",
+			tgbsInCluster: []*elbv2api.TargetGroupBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb-a",
+						Namespace: "ns-a",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-servicei-gatewaye-fbb5eb7cdd/de68ffdc8cbd5f76",
+						Networking: &elbv2api.TargetGroupBindingNetworking{
+							Ingress: []elbv2api.NetworkingIngressRule{
+								{
+									From: []elbv2api.NetworkingPeer{
+										{
+											SecurityGroup: &elbv2api.SecurityGroup{
+												GroupID: "sg-foo",
+											},
+										},
+									},
+									Ports: []elbv2api.NetworkingPort{
+										{
+											Protocol: &tcpProtocol,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb-b",
+						Namespace: "ns-b",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-servicei-gatewaye2-fbb5eb7cdd/de68ffdc8cbd5f76",
+					},
+				},
+			},
+		},
+		{
+			name: "cache has other tgb, tgbs present in cluster, sg return call has data",
+			tgbsInCluster: []*elbv2api.TargetGroupBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb-a",
+						Namespace: "ns-a",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-servicei-gatewaye-fbb5eb7cdd/de68ffdc8cbd5f76",
+						Networking: &elbv2api.TargetGroupBindingNetworking{
+							Ingress: []elbv2api.NetworkingIngressRule{
+								{
+									From: []elbv2api.NetworkingPeer{
+										{
+											SecurityGroup: &elbv2api.SecurityGroup{
+												GroupID: "sg-foo",
+											},
+										},
+									},
+									Ports: []elbv2api.NetworkingPort{
+										{
+											Protocol: &tcpProtocol,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb-b",
+						Namespace: "ns-b",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-servicei-gatewaye2-fbb5eb7cdd/de68ffdc8cbd5f76",
+					},
+				},
+			},
+			cachedTgbs: []types.NamespacedName{
+				{
+					Namespace: "ns-foo",
+					Name:      "tgb-foo",
+				},
+			},
+		},
+		{
+			name: "cache correct, tgbs present in cluster, sg return call has data",
+			fetchSGInfosByRequestCall: []fetchSGInfosByRequestCall{
+				{
+					resp: map[string]SecurityGroupInfo{
+						"sg-a": {
+							SecurityGroupID: "sg-a",
+							Tags: map[string]string{
+								"kubernetes.io/cluster/cluster-a": "owned",
+							},
+						},
+						"sg-b": {
+							SecurityGroupID: "sg-b",
+							Tags: map[string]string{
+								"kubernetes.io/cluster/cluster-a": "owned",
+								"keyA":                            "",
+								"keyB":                            "valueB2",
+								"keyC":                            "valueC",
+								"keyD":                            "valueD",
+							},
+						},
+					},
+				},
+			},
+			tgbsInCluster: []*elbv2api.TargetGroupBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb-a",
+						Namespace: "ns-a",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-servicei-gatewaye-fbb5eb7cdd/de68ffdc8cbd5f76",
+						Networking: &elbv2api.TargetGroupBindingNetworking{
+							Ingress: []elbv2api.NetworkingIngressRule{
+								{
+									From: []elbv2api.NetworkingPeer{
+										{
+											SecurityGroup: &elbv2api.SecurityGroup{
+												GroupID: "sg-foo",
+											},
+										},
+									},
+									Ports: []elbv2api.NetworkingPort{
+										{
+											Protocol: &tcpProtocol,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb-b",
+						Namespace: "ns-b",
+					},
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-servicei-gatewaye2-fbb5eb7cdd/de68ffdc8cbd5f76",
+					},
+				},
+			},
+			cachedTgbs: []types.NamespacedName{
+				{
+					Namespace: "ns-a",
+					Name:      "tgb-a",
+				},
+			},
+			expectedSgReconciles: sets.Set[string](sets.NewString("sg-a", "sg-b")),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			k8sClient := testutils.GenerateTestClient()
+
+			sgManager := NewMockSecurityGroupManager(ctrl)
+
+			for _, call := range tt.fetchSGInfosByRequestCall {
+				sgManager.EXPECT().FetchSGInfosByRequest(gomock.Any(), gomock.Any()).Return(call.resp, call.err)
+			}
+
+			for _, tgb := range tt.tgbsInCluster {
+				err := k8sClient.Create(context.Background(), tgb)
+				assert.NoError(t, err)
+			}
+
+			mockReconciler := &mockSGReconciler{}
+
+			m := &defaultNetworkingManager{
+				sgManager:                    sgManager,
+				k8sClient:                    k8sClient,
+				clusterName:                  clusterName,
+				vpcID:                        vpcId,
+				mutex:                        sync.Mutex{},
+				ingressPermissionsPerSGByTGB: make(map[types.NamespacedName]map[string][]IPPermissionInfo),
+				trackedEndpointSGs:           sets.NewString(),
+				sgReconciler:                 mockReconciler,
+			}
+
+			for _, nsn := range tt.cachedTgbs {
+				m.ingressPermissionsPerSGByTGB[nsn] = make(map[string][]IPPermissionInfo)
+			}
+			err := m.AttemptGarbageCollection(context.Background())
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, len(tt.expectedSgReconciles), len(mockReconciler.calls))
+				for _, call := range mockReconciler.calls {
+					assert.True(t, tt.expectedSgReconciles.Has(call.sgID), fmt.Sprintf("expected sgID: %s to be in calls", call.sgID))
+				}
+			}
+		})
+	}
+}
+
+type reconcileIngressCall struct {
+	sgID               string
+	desiredPermissions []IPPermissionInfo
+	opts               []SecurityGroupReconcileOption
+}
+type mockSGReconciler struct {
+	calls []reconcileIngressCall
+}
+
+func (m *mockSGReconciler) ReconcileIngress(ctx context.Context, sgID string, desiredPermissions []IPPermissionInfo, opts ...SecurityGroupReconcileOption) error {
+	m.calls = append(m.calls, reconcileIngressCall{
+		sgID:               sgID,
+		desiredPermissions: desiredPermissions,
+		opts:               opts,
+	})
+	return nil
 }

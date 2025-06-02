@@ -13,12 +13,13 @@ import (
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	"sync"
 	"time"
 )
 
 const (
 	defaultWaitSGDeletionPollInterval = 2 * time.Second
-	defaultWaitSGDeletionTimeout      = 2 * time.Minute
+	defaultWaitSGDeletionTimeout      = 10 * time.Second
 )
 
 // SecurityGroupManager is responsible for create/update/delete SecurityGroup resources.
@@ -31,10 +32,11 @@ type SecurityGroupManager interface {
 }
 
 // NewDefaultSecurityGroupManager constructs new defaultSecurityGroupManager.
-func NewDefaultSecurityGroupManager(ec2Client services.EC2, trackingProvider tracking.Provider, taggingManager TaggingManager,
+func NewDefaultSecurityGroupManager(ec2Client services.EC2, networkingManager networking.NetworkingManager, trackingProvider tracking.Provider, taggingManager TaggingManager,
 	networkingSGReconciler networking.SecurityGroupReconciler, vpcID string, externalManagedTags []string, logger logr.Logger) *defaultSecurityGroupManager {
 	return &defaultSecurityGroupManager{
 		ec2Client:              ec2Client,
+		networkingManager:      networkingManager,
 		trackingProvider:       trackingProvider,
 		taggingManager:         taggingManager,
 		networkingSGReconciler: networkingSGReconciler,
@@ -50,6 +52,7 @@ func NewDefaultSecurityGroupManager(ec2Client services.EC2, trackingProvider tra
 // default implementation for SecurityGroupManager.
 type defaultSecurityGroupManager struct {
 	ec2Client              services.EC2
+	networkingManager      networking.NetworkingManager
 	trackingProvider       tracking.Provider
 	taggingManager         TaggingManager
 	networkingSGReconciler networking.SecurityGroupReconciler
@@ -123,8 +126,17 @@ func (m *defaultSecurityGroupManager) Delete(ctx context.Context, sdkSG networki
 
 	m.logger.Info("deleting securityGroup",
 		"securityGroupID", sdkSG.SecurityGroupID)
+
+	var once sync.Once
+	cleanUpFunction := func() {
+		m.networkingManager.AttemptGarbageCollection(ctx)
+	}
+
 	if err := runtime.RetryImmediateOnError(m.waitSGDeletionPollInterval, m.waitSGDeletionTimeout, isSecurityGroupDependencyViolationError, func() error {
 		_, err := m.ec2Client.DeleteSecurityGroupWithContext(ctx, req)
+		if err != nil && isSecurityGroupDependencyViolationError(err) {
+			once.Do(cleanUpFunction)
+		}
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "failed to delete securityGroup")
