@@ -45,20 +45,13 @@ type ResourceManager interface {
 }
 
 // NewDefaultResourceManager constructs new defaultResourceManager.
-func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2, ec2Client services.EC2,
-	podInfoRepo k8s.PodInfoRepo, sgManager networking.SecurityGroupManager, sgReconciler networking.SecurityGroupReconciler,
+func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELBV2,
+	podInfoRepo k8s.PodInfoRepo, networkingManager networking.NetworkingManager,
 	vpcInfoProvider networking.VPCInfoProvider, multiClusterManager MultiClusterManager, metricsCollector lbcmetrics.MetricCollector,
-	vpcID string, clusterName string, failOpenEnabled bool, endpointSliceEnabled bool, disabledRestrictedSGRulesFlag bool,
-	endpointSGTags map[string]string,
+	vpcID string, failOpenEnabled bool, endpointSliceEnabled bool,
 	eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, failOpenEnabled, endpointSliceEnabled, logger)
-
-	nodeInfoProvider := networking.NewDefaultNodeInfoProvider(ec2Client, logger)
-	podENIResolver := networking.NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, vpcID, logger)
-	nodeENIResolver := networking.NewDefaultNodeENIInfoResolver(nodeInfoProvider, logger)
-
-	networkingManager := NewDefaultNetworkingManager(k8sClient, podENIResolver, nodeENIResolver, sgManager, sgReconciler, vpcID, clusterName, endpointSGTags, logger, disabledRestrictedSGRulesFlag)
 	return &defaultResourceManager{
 		k8sClient:           k8sClient,
 		targetsManager:      targetsManager,
@@ -86,7 +79,7 @@ type defaultResourceManager struct {
 	k8sClient           client.Client
 	targetsManager      TargetsManager
 	endpointResolver    backend.EndpointResolver
-	networkingManager   NetworkingManager
+	networkingManager   networking.NetworkingManager
 	eventRecorder       record.EventRecorder
 	logger              logr.Logger
 	vpcInfoProvider     networking.VPCInfoProvider
