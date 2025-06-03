@@ -6,20 +6,20 @@ import (
 	"sort"
 )
 
-type ConfigMerger interface {
+type LoadBalancerConfigMerger interface {
 	Merge(gwClassLbConfig elbv2gw.LoadBalancerConfiguration, gwLbConfig elbv2gw.LoadBalancerConfiguration) elbv2gw.LoadBalancerConfiguration
 }
 
-var _ ConfigMerger = &configMergerImpl{}
+var _ LoadBalancerConfigMerger = &loadBalancerConfigMergerImpl{}
 
-type configMergerImpl struct {
+type loadBalancerConfigMergerImpl struct {
 }
 
-func NewConfigMerger() ConfigMerger {
-	return &configMergerImpl{}
+func NewLoadBalancerConfigMerger() LoadBalancerConfigMerger {
+	return &loadBalancerConfigMergerImpl{}
 }
 
-func (merger *configMergerImpl) Merge(gwClassLbConfig elbv2gw.LoadBalancerConfiguration, gwLbConfig elbv2gw.LoadBalancerConfiguration) elbv2gw.LoadBalancerConfiguration {
+func (merger *loadBalancerConfigMergerImpl) Merge(gwClassLbConfig elbv2gw.LoadBalancerConfiguration, gwLbConfig elbv2gw.LoadBalancerConfiguration) elbv2gw.LoadBalancerConfiguration {
 	mergeMode := elbv2gw.MergeModePreferGatewayClass
 
 	if gwClassLbConfig.Spec.MergingMode != nil {
@@ -43,7 +43,7 @@ func (merger *configMergerImpl) Merge(gwClassLbConfig elbv2gw.LoadBalancerConfig
 	}
 }
 
-func (merger *configMergerImpl) generateMergedSpec(highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) elbv2gw.LoadBalancerConfigurationSpec {
+func (merger *loadBalancerConfigMergerImpl) generateMergedSpec(highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) elbv2gw.LoadBalancerConfigurationSpec {
 	res := elbv2gw.LoadBalancerConfigurationSpec{}
 
 	merger.performTakeOneMerges(&res, highPriority, lowPriority)
@@ -54,7 +54,7 @@ func (merger *configMergerImpl) generateMergedSpec(highPriority elbv2gw.LoadBala
 	return res
 }
 
-func (merger *configMergerImpl) mergeLoadBalancerAttributes(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
+func (merger *loadBalancerConfigMergerImpl) mergeLoadBalancerAttributes(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
 	baseAttributesMap := make(map[string]string)
 
 	for _, attr := range highPriority.Spec.LoadBalancerAttributes {
@@ -87,7 +87,7 @@ func (merger *configMergerImpl) mergeLoadBalancerAttributes(merged *elbv2gw.Load
 	}
 }
 
-func (merger *configMergerImpl) mergeListenerConfig(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
+func (merger *loadBalancerConfigMergerImpl) mergeListenerConfig(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
 	listenerConfigurationMap := make(map[elbv2gw.ProtocolPort]elbv2gw.ListenerConfiguration)
 
 	if highPriority.Spec.ListenerConfigurations != nil {
@@ -121,7 +121,7 @@ func (merger *configMergerImpl) mergeListenerConfig(merged *elbv2gw.LoadBalancer
 
 }
 
-func (merger *configMergerImpl) mergeTags(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
+func (merger *loadBalancerConfigMergerImpl) mergeTags(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
 	baseTags := make(map[string]string)
 
 	if highPriority.Spec.Tags != nil {
@@ -137,7 +137,7 @@ func (merger *configMergerImpl) mergeTags(merged *elbv2gw.LoadBalancerConfigurat
 	}
 }
 
-func (merger *configMergerImpl) performTakeOneMerges(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
+func (merger *loadBalancerConfigMergerImpl) performTakeOneMerges(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
 	if highPriority.Spec.LoadBalancerName != nil {
 		merged.LoadBalancerName = highPriority.Spec.LoadBalancerName
 	} else {

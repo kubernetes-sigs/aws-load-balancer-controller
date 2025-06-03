@@ -519,7 +519,7 @@ func Test_Merge(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			merger := NewConfigMerger()
+			merger := NewLoadBalancerConfigMerger()
 			result := merger.Merge(tc.gwClassLbConfig, tc.gwLbConfig)
 			assert.Equal(t, tc.expected, result)
 		})
