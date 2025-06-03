@@ -146,6 +146,8 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 	if deferred {
 		r.deferredTargetGroupBindingReconciler.Enqueue(tgb)
 		return nil
+	} else {
+		r.deferredTargetGroupBindingReconciler.MarkProcessed(tgb)
 	}
 
 	updateTargetGroupBindingStatusFn := func() {

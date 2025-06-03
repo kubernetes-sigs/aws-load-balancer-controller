@@ -2,7 +2,9 @@ package controllers
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/cache"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -28,14 +30,18 @@ const (
 
 type DeferredTargetGroupBindingReconciler interface {
 	Enqueue(tgb *elbv2api.TargetGroupBinding)
+	MarkProcessed(tgb *elbv2api.TargetGroupBinding)
 	Run()
 }
 
 type deferredTargetGroupBindingReconcilerImpl struct {
 	delayQueue workqueue.DelayingInterface
-	syncPeriod time.Duration
 	k8sClient  client.Client
 	logger     logr.Logger
+
+	processedTGBCache      *cache.Expiring
+	processedTGBCacheTTL   time.Duration
+	processedTGBCacheMutex sync.RWMutex
 
 	delayedReconcileTime time.Duration
 	maxJitter            time.Duration
@@ -43,24 +49,35 @@ type deferredTargetGroupBindingReconcilerImpl struct {
 
 func NewDeferredTargetGroupBindingReconciler(delayQueue workqueue.DelayingInterface, syncPeriod time.Duration, k8sClient client.Client, logger logr.Logger) DeferredTargetGroupBindingReconciler {
 	return &deferredTargetGroupBindingReconcilerImpl{
-		syncPeriod: syncPeriod,
-		logger:     logger,
-		delayQueue: delayQueue,
-		k8sClient:  k8sClient,
+		logger:               logger,
+		delayQueue:           delayQueue,
+		k8sClient:            k8sClient,
+		processedTGBCache:    cache.NewExpiring(),
+		processedTGBCacheTTL: syncPeriod,
 
 		delayedReconcileTime: defaultDelayedReconcileTime,
 		maxJitter:            defaultMaxJitter,
 	}
 }
 
+// Enqueue enqueues a TGB iff it's not been processed recently.
 func (d *deferredTargetGroupBindingReconcilerImpl) Enqueue(tgb *elbv2api.TargetGroupBinding) {
 	nsn := k8s.NamespacedName(tgb)
-	if d.isEligibleForDefer(tgb) {
+	if !d.tgbInCache(tgb) {
 		d.enqueue(nsn)
 		d.logger.Info("enqueued new deferred TGB", "tgb", nsn.Name)
 	}
 }
 
+// MarkProcessed updates the local cache to signify that the TGB has been processed recently and is not eligible to be deferred.
+func (d *deferredTargetGroupBindingReconcilerImpl) MarkProcessed(tgb *elbv2api.TargetGroupBinding) {
+	if d.tgbInCache(tgb) {
+		return
+	}
+	d.updateCache(k8s.NamespacedName(tgb))
+}
+
+// Run starts a loop to process deferred items off the delaying queue.
 func (d *deferredTargetGroupBindingReconcilerImpl) Run() {
 	var item interface{}
 	shutDown := false
@@ -87,12 +104,6 @@ func (d *deferredTargetGroupBindingReconcilerImpl) handleDeferredItem(nsn types.
 		return
 	}
 
-	// Re-check that this tgb hasn't been updated since it was enqueued
-	if !d.isEligibleForDefer(tgb) {
-		d.logger.Info("TGB not eligible for deferral", "tgb", nsn)
-		return
-	}
-
 	tgbOld := tgb.DeepCopy()
 	targetgroupbinding.SaveTGBReconcileCheckpoint(tgb, resetHash)
 
@@ -111,12 +122,16 @@ func (d *deferredTargetGroupBindingReconcilerImpl) handleDeferredItemError(nsn t
 	}
 }
 
-func (d *deferredTargetGroupBindingReconcilerImpl) isEligibleForDefer(tgb *elbv2api.TargetGroupBinding) bool {
-	then := time.Unix(targetgroupbinding.GetTGBReconcileCheckpointTimestamp(tgb), 0)
-	return time.Now().Sub(then) > d.syncPeriod
+func (d *deferredTargetGroupBindingReconcilerImpl) tgbInCache(tgb *elbv2api.TargetGroupBinding) bool {
+	d.processedTGBCacheMutex.RLock()
+	defer d.processedTGBCacheMutex.RUnlock()
+
+	_, exists := d.processedTGBCache.Get(k8s.NamespacedName(tgb))
+	return exists
 }
 
 func (d *deferredTargetGroupBindingReconcilerImpl) enqueue(nsn types.NamespacedName) {
+	d.updateCache(nsn)
 	delayedTime := d.jitterReconcileTime()
 	d.delayQueue.AddAfter(nsn, delayedTime)
 }
@@ -128,4 +143,10 @@ func (d *deferredTargetGroupBindingReconcilerImpl) jitterReconcileTime() time.Du
 	}
 
 	return d.delayedReconcileTime + time.Duration(rand.Int63n(int64(d.maxJitter)))
+}
+
+func (d *deferredTargetGroupBindingReconcilerImpl) updateCache(nsn types.NamespacedName) {
+	d.processedTGBCacheMutex.Lock()
+	defer d.processedTGBCacheMutex.Unlock()
+	d.processedTGBCache.Set(nsn, true, d.processedTGBCacheTTL)
 }
