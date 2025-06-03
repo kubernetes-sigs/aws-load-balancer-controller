@@ -103,7 +103,7 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, stack core.S
 	if sslPolicyErr != nil {
 		return &elbv2model.ListenerSpec{}, sslPolicyErr
 	}
-	certificates, certsErr := l.buildCertificates(ctx, gwLsCfg, lbLsCfg)
+	certificates, certsErr := l.buildCertificates(ctx, gw, port, gwLsCfg, lbLsCfg)
 	if certsErr != nil {
 		return &elbv2model.ListenerSpec{}, certsErr
 	}
@@ -253,21 +253,23 @@ func buildListenerAttributes(lsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model
 	return attributes, nil
 }
 
-func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model.Certificate, error) {
-	// TODO for cert discovery and secure listeners during L7 and L4 gateways implementations
-
+func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gw *gwv1.Gateway, port int32, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model.Certificate, error) {
+	if !isHTTPSOrTLSProtocol(gwLsCfg.protocol) {
+		return []elbv2model.Certificate{}, nil
+	}
 	certs := make([]elbv2model.Certificate, 0)
-
 	// Build explict certs
 	if lbLsCfg != nil {
 		certs = append(certs, l.buildExplicitTLSCertARNs(ctx, *lbLsCfg)...)
 	}
-
-	// Build inferred certs
-	if len(certs) == 0 && lbLsCfg != nil {
-		discoveredCerts, err := l.buildInferredTLSCertARNs(ctx, lbLsCfg.ProtocolPort, gwLsCfg.hostnames)
+	// If any explicit certs are not found then build inferred certs using cert discovery
+	if len(certs) == 0 {
+		if len(gwLsCfg.hostnames) == 0 {
+			return []elbv2model.Certificate{}, errors.Errorf("No hostnames found for TLS cert discovery for listener on gateway %s with protocol:port %s:%v", k8s.NamespacedName(gw), gwLsCfg.protocol, port)
+		}
+		discoveredCerts, err := l.buildInferredTLSCertARNs(ctx, gwLsCfg.hostnames)
 		if err != nil {
-			l.logger.Error(err, "Unable to discover certs for listener")
+			l.logger.Error(err, "Unable to discover certs for listener on gateway %s with protocol:port %s:%v\", k8s.NamespacedName(gw), gwLsCfg.protocol, port")
 			return []elbv2model.Certificate{}, err
 		}
 		for _, cert := range discoveredCerts {
@@ -298,12 +300,7 @@ func (l listenerBuilderImpl) buildExplicitTLSCertARNs(ctx context.Context, liste
 	return certs
 }
 
-func (l listenerBuilderImpl) buildInferredTLSCertARNs(ctx context.Context, protocolPort elbv2gw.ProtocolPort, hostnames []string) ([]string, error) {
-	if len(hostnames) == 0 {
-		l.logger.Info("No hostnames found for TLS cert discovery", "protocolPort", protocolPort)
-		return nil, nil
-	}
-
+func (l listenerBuilderImpl) buildInferredTLSCertARNs(ctx context.Context, hostnames []string) ([]string, error) {
 	hosts := sets.NewString()
 	for _, hostname := range hostnames {
 		hosts.Insert(hostname)
