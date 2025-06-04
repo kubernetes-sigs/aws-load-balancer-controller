@@ -16,16 +16,17 @@ import (
 
 // NewTargetGroupSynthesizer constructs targetGroupSynthesizer
 func NewTargetGroupSynthesizer(elbv2Client services.ELBV2, trackingProvider tracking.Provider, taggingManager TaggingManager,
-	tgManager TargetGroupManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack) *targetGroupSynthesizer {
+	tgManager TargetGroupManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, findSDKTargetGroups func() TargetGroupsResult) *targetGroupSynthesizer {
 	return &targetGroupSynthesizer{
-		elbv2Client:      elbv2Client,
-		trackingProvider: trackingProvider,
-		taggingManager:   taggingManager,
-		tgManager:        tgManager,
-		featureGates:     featureGates,
-		logger:           logger,
-		stack:            stack,
-		unmatchedSDKTGs:  nil,
+		elbv2Client:         elbv2Client,
+		trackingProvider:    trackingProvider,
+		taggingManager:      taggingManager,
+		tgManager:           tgManager,
+		featureGates:        featureGates,
+		logger:              logger,
+		stack:               stack,
+		unmatchedSDKTGs:     nil,
+		findSDKTargetGroups: findSDKTargetGroups,
 	}
 }
 
@@ -38,17 +39,19 @@ type targetGroupSynthesizer struct {
 	featureGates     config.FeatureGates
 	logger           logr.Logger
 
-	stack           core.Stack
-	unmatchedSDKTGs []TargetGroupWithTags
+	stack               core.Stack
+	unmatchedSDKTGs     []TargetGroupWithTags
+	findSDKTargetGroups func() TargetGroupsResult
 }
 
 func (s *targetGroupSynthesizer) Synthesize(ctx context.Context) error {
 	var resTGs []*elbv2model.TargetGroup
 	s.stack.ListResources(&resTGs)
-	sdkTGs, err := s.findSDKTargetGroups(ctx)
-	if err != nil {
-		return err
+	res := s.findSDKTargetGroups()
+	if res.Err != nil {
+		return res.Err
 	}
+	sdkTGs := res.TargetGroups
 	matchedResAndSDKTGs, unmatchedResTGs, unmatchedSDKTGs, err := matchResAndSDKTargetGroups(resTGs, sdkTGs,
 		s.trackingProvider.ResourceIDTagKey(), s.featureGates)
 	if err != nil {
@@ -83,15 +86,6 @@ func (s *targetGroupSynthesizer) PostSynthesize(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-// findSDKTargetGroups will find all AWS TargetGroups created for stack.
-func (s *targetGroupSynthesizer) findSDKTargetGroups(ctx context.Context) ([]TargetGroupWithTags, error) {
-	stackTags := s.trackingProvider.StackTags(s.stack)
-	stackTagsLegacy := s.trackingProvider.StackTagsLegacy(s.stack)
-	return s.taggingManager.ListTargetGroups(ctx,
-		tracking.TagsAsTagFilter(stackTags),
-		tracking.TagsAsTagFilter(stackTagsLegacy))
 }
 
 type resAndSDKTargetGroupPair struct {

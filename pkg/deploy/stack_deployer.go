@@ -3,6 +3,7 @@ package deploy
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -23,6 +24,8 @@ import (
 const (
 	ingressController = "ingress"
 )
+
+// Using elbv2.TargetGroupsResult instead of defining our own
 
 // StackDeployer will deploy a resource stack into AWS and K8S.
 type StackDeployer interface {
@@ -105,12 +108,24 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.logger, stack),
 	}
 
+	// Create a cached function that will only execute once to fetch target groups
+	// This is to avoid duplicate ListTargetGroups API call
+	findSDKTargetGroups := sync.OnceValue(func() elbv2.TargetGroupsResult {
+		stackTags := d.trackingProvider.StackTags(stack)
+		stackTagsLegacy := d.trackingProvider.StackTagsLegacy(stack)
+		tgs, err := d.elbv2TaggingManager.ListTargetGroups(ctx,
+			tracking.TagsAsTagFilter(stackTags),
+			tracking.TagsAsTagFilter(stackTagsLegacy))
+		return elbv2.TargetGroupsResult{TargetGroups: tgs, Err: err}
+	})
+
 	if controllerName == ingressController {
-		synthesizers = append(synthesizers, elbv2.NewFrontendNlbTargetSynthesizer(d.k8sClient, d.trackingProvider, d.elbv2TaggingManager, d.elbv2FrontendNlbTargetsManager, d.logger, d.featureGates, stack, frontendNlbTargetGroupDesiredState))
+		synthesizers = append(synthesizers, elbv2.NewFrontendNlbTargetSynthesizer(
+			d.k8sClient, d.trackingProvider, d.elbv2TaggingManager, d.elbv2FrontendNlbTargetsManager, d.logger, d.featureGates, stack, frontendNlbTargetGroupDesiredState, findSDKTargetGroups))
 	}
 
 	synthesizers = append(synthesizers,
-		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, d.featureGates, stack),
+		elbv2.NewTargetGroupSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2TGManager, d.logger, d.featureGates, stack, findSDKTargetGroups),
 		elbv2.NewLoadBalancerSynthesizer(d.cloud.ELBV2(), d.trackingProvider, d.elbv2TaggingManager, d.elbv2LBManager, d.logger, d.featureGates, d.controllerConfig, stack),
 		elbv2.NewListenerSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LSManager, d.logger, stack),
 		elbv2.NewListenerRuleSynthesizer(d.cloud.ELBV2(), d.elbv2TaggingManager, d.elbv2LRManager, d.logger, d.featureGates, stack),
