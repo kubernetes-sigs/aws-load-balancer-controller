@@ -317,23 +317,22 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 		name          string
 		lbConf        elbv2gw.LoadBalancerConfiguration
 		ipAddressType elbv2model.IPAddressType
-		routes        map[int32][]routeutils.RouteDescriptor
+		gateway       *gwv1.Gateway
 		expected      []ec2model.IPPermission
 	}{
-		{
-			name:     "no routes",
-			lbConf:   elbv2gw.LoadBalancerConfiguration{},
-			expected: make([]ec2model.IPPermission, 0),
-		},
 		{
 			name: "ipv4 - tcp - with default source ranges",
 			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
 					},
 				},
 			},
@@ -361,10 +360,14 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "tcp",
+							Port:     80,
+							Protocol: gwv1.TCPProtocolType,
+						},
 					},
 				},
 			},
@@ -412,10 +415,14 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.UDPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "udp",
+							Port:     80,
+							Protocol: gwv1.UDPProtocolType,
+						},
 					},
 				},
 			},
@@ -462,10 +469,14 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					EnableICMP: awssdk.Bool(true),
 				},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.UDPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "udp",
+							Port:     80,
+							Protocol: gwv1.UDPProtocolType,
+						},
 					},
 				},
 			},
@@ -493,7 +504,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 			},
 		},
 		{
-			name: "ipv4 - with duplicated route type - with source range",
+			name: "ipv4 - with multiple l7 listeners - with source range - multiple ports",
 			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
@@ -503,13 +514,19 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
-					},
-					&routeutils.MockRoute{
-						Kind: routeutils.HTTPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http-1",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
+						{
+							Name:     "http-2",
+							Port:     8080,
+							Protocol: gwv1.HTTPSProtocolType,
+						},
 					},
 				},
 			},
@@ -538,6 +555,36 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					IPProtocol: "tcp",
 					FromPort:   awssdk.Int32(80),
 					ToPort:     awssdk.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.200.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(8080),
+					ToPort:     awssdk.Int32(8080),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.0.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(8080),
+					ToPort:     awssdk.Int32(8080),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "127.100.0.1/24",
+						},
+					},
+				},
+				{
+					IPProtocol: "tcp",
+					FromPort:   awssdk.Int32(8080),
+					ToPort:     awssdk.Int32(8080),
 					IPRanges: []ec2model.IPRange{
 						{
 							CIDRIP: "127.200.0.1/24",
@@ -547,7 +594,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 			},
 		},
 		{
-			name: "ipv4 - with duplicated route type - with source range - multiple ports",
+			name: "ipv4 - with multiple l4 listeners type - with source range - multiple ports",
 			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					SourceRanges: &[]string{
@@ -557,29 +604,24 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
-					},
-					&routeutils.MockRoute{
-						Kind: routeutils.HTTPRouteKind,
-					},
-				},
-				85: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
-					},
-					&routeutils.MockRoute{
-						Kind: routeutils.HTTPRouteKind,
-					},
-				},
-				90: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
-					},
-					&routeutils.MockRoute{
-						Kind: routeutils.HTTPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "tcp-1",
+							Port:     80,
+							Protocol: gwv1.TCPProtocolType,
+						},
+						{
+							Name:     "udp-1",
+							Port:     85,
+							Protocol: gwv1.UDPProtocolType,
+						},
+						{
+							Name:     "tls-1",
+							Port:     90,
+							Protocol: gwv1.TLSProtocolType,
+						},
 					},
 				},
 			},
@@ -615,7 +657,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 				{
-					IPProtocol: "tcp",
+					IPProtocol: "udp",
 					FromPort:   awssdk.Int32(85),
 					ToPort:     awssdk.Int32(85),
 					IPRanges: []ec2model.IPRange{
@@ -625,7 +667,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 				{
-					IPProtocol: "tcp",
+					IPProtocol: "udp",
 					FromPort:   awssdk.Int32(85),
 					ToPort:     awssdk.Int32(85),
 					IPRanges: []ec2model.IPRange{
@@ -635,7 +677,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 				{
-					IPProtocol: "tcp",
+					IPProtocol: "udp",
 					FromPort:   awssdk.Int32(85),
 					ToPort:     awssdk.Int32(85),
 					IPRanges: []ec2model.IPRange{
@@ -682,13 +724,14 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 			lbConf: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
-					},
-					&routeutils.MockRoute{
-						Kind: routeutils.HTTPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
 					},
 				},
 			},
@@ -725,29 +768,24 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
-					},
-					&routeutils.MockRoute{
-						Kind: routeutils.HTTPRouteKind,
-					},
-				},
-				85: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
-					},
-					&routeutils.MockRoute{
-						Kind: routeutils.HTTPRouteKind,
-					},
-				},
-				90: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
-					},
-					&routeutils.MockRoute{
-						Kind: routeutils.HTTPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "tcp",
+							Port:     80,
+							Protocol: gwv1.TCPProtocolType,
+						},
+						{
+							Name:     "udp",
+							Port:     85,
+							Protocol: gwv1.UDPProtocolType,
+						},
+						{
+							Name:     "tls",
+							Port:     90,
+							Protocol: gwv1.TLSProtocolType,
+						},
 					},
 				},
 			},
@@ -763,7 +801,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 				{
-					IPProtocol: "tcp",
+					IPProtocol: "udp",
 					FromPort:   awssdk.Int32(85),
 					ToPort:     awssdk.Int32(85),
 					IPv6Range: []ec2model.IPv6Range{
@@ -795,10 +833,14 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
 					},
 				},
 			},
@@ -836,10 +878,14 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					},
 				},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
 					},
 				},
 			},
@@ -866,10 +912,14 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 					SecurityGroupPrefixes: &[]string{"pl1", "pl2"},
 				},
 			},
-			routes: map[int32][]routeutils.RouteDescriptor{
-				80: {
-					&routeutils.MockRoute{
-						Kind: routeutils.TCPRouteKind,
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+						},
 					},
 				},
 			},
@@ -911,7 +961,7 @@ func Test_BuildSecurityGroups_BuildManagedSecurityGroupIngressPermissions(t *tes
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := &securityGroupBuilderImpl{}
-			permissions := builder.buildManagedSecurityGroupIngressPermissions(tc.lbConf, tc.routes, tc.ipAddressType)
+			permissions := builder.buildManagedSecurityGroupIngressPermissions(tc.lbConf, tc.gateway, tc.ipAddressType)
 			assert.ElementsMatch(t, tc.expected, permissions, fmt.Sprintf("%+v", permissions))
 		})
 	}
