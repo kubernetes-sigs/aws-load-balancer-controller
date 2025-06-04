@@ -13,6 +13,7 @@ import (
 	"regexp"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -42,6 +43,7 @@ type targetGroupBuilderImpl struct {
 
 	tagHelper                tagHelper
 	tgByResID                map[string]*elbv2model.TargetGroup
+	tgPropertiesConstructor  gateway.TargetGroupConfigConstructor
 	disableRestrictedSGRules bool
 
 	defaultTargetType elbv2model.TargetType
@@ -66,19 +68,20 @@ type targetGroupBuilderImpl struct {
 	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int32
 }
 
-func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper, loadBalancerType elbv2model.LoadBalancerType, disableRestrictedSGRules bool, defaultTargetType string) targetGroupBuilder {
+func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper, loadBalancerType elbv2model.LoadBalancerType, tgPropertiesConstructor gateway.TargetGroupConfigConstructor, disableRestrictedSGRules bool, defaultTargetType string) targetGroupBuilder {
 	return &targetGroupBuilderImpl{
-		loadBalancerType:                  loadBalancerType,
-		clusterName:                       clusterName,
-		vpcID:                             vpcId,
-		tgByResID:                         make(map[string]*elbv2model.TargetGroup),
-		tagHelper:                         tagHelper,
-		disableRestrictedSGRules:          disableRestrictedSGRules,
-		defaultTargetType:                 elbv2model.TargetType(defaultTargetType),
-		defaultHealthCheckMatcherHTTPCode: "200-399",
-		defaultHealthCheckMatcherGRPCCode: "12",
-		defaultHealthCheckPathHTTP:        "/",
-		defaultHealthCheckPathGRPC:        "/AWS.ALB/healthcheck",
+		loadBalancerType:                          loadBalancerType,
+		clusterName:                               clusterName,
+		vpcID:                                     vpcId,
+		tgPropertiesConstructor:                   tgPropertiesConstructor,
+		tgByResID:                                 make(map[string]*elbv2model.TargetGroup),
+		tagHelper:                                 tagHelper,
+		disableRestrictedSGRules:                  disableRestrictedSGRules,
+		defaultTargetType:                         elbv2model.TargetType(defaultTargetType),
+		defaultHealthCheckMatcherHTTPCode:         "200-399",
+		defaultHealthCheckMatcherGRPCCode:         "12",
+		defaultHealthCheckPathHTTP:                "/",
+		defaultHealthCheckPathGRPC:                "/AWS.ALB/healthcheck",
 		defaultHealthCheckUnhealthyThresholdCount: 3,
 		defaultHealthyThresholdCount:              3,
 		defaultHealthCheckTimeout:                 5,
@@ -125,7 +128,7 @@ func (builder *targetGroupBuilderImpl) getTargetGroupProps(routeDescriptor route
 	var targetGroupProps *elbv2gw.TargetGroupProps
 	if backend.ELBv2TargetGroupConfig != nil {
 		routeNamespacedName := routeDescriptor.GetRouteNamespacedName()
-		targetGroupProps = backend.ELBv2TargetGroupConfig.GetTargetGroupConfigForRoute(routeNamespacedName.Name, routeNamespacedName.Namespace, string(routeDescriptor.GetRouteKind()))
+		targetGroupProps = builder.tgPropertiesConstructor.ConstructTargetGroupConfigForRoute(backend.ELBv2TargetGroupConfig, routeNamespacedName.Name, routeNamespacedName.Namespace, string(routeDescriptor.GetRouteKind()))
 	}
 	return targetGroupProps
 }

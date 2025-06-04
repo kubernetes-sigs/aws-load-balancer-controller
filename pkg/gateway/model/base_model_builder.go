@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -41,12 +42,14 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
 	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, enableBackendSG, sgResolver, backendSGProvider, logger)
 	lbBuilder := newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName)
+	tgConfigConstructor := gateway.NewTargetGroupConfigConstructor()
 
 	return &baseModelBuilder{
 		clusterName:              clusterName,
 		vpcID:                    vpcID,
 		subnetsResolver:          subnetsResolver,
 		backendSGProvider:        backendSGProvider,
+		tgPropertiesConstructor:  tgConfigConstructor,
 		sgResolver:               sgResolver,
 		vpcInfoProvider:          vpcInfoProvider,
 		elbv2TaggingManager:      elbv2TaggingManager,
@@ -100,8 +103,9 @@ type baseModelBuilder struct {
 	listenerBuilder            listenerBuilder
 	logger                     logr.Logger
 
-	subnetBuilder        subnetModelBuilder
-	securityGroupBuilder securityGroupBuilder
+	subnetBuilder           subnetModelBuilder
+	securityGroupBuilder    securityGroupBuilder
+	tgPropertiesConstructor gateway.TargetGroupConfigConstructor
 
 	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
 	defaultIPType             elbv2model.IPAddressType
@@ -109,7 +113,7 @@ type baseModelBuilder struct {
 
 func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
-	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, baseBuilder.disableRestrictedSGRules, baseBuilder.defaultTargetType)
+	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, baseBuilder.tgPropertiesConstructor, baseBuilder.disableRestrictedSGRules, baseBuilder.defaultTargetType)
 	listenerBuilder := newListenerBuilder(ctx, baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.acmClient, baseBuilder.allowedCAARNs, baseBuilder.logger)
 	if gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero() {
 		if baseBuilder.isDeleteProtected(lbConf) {

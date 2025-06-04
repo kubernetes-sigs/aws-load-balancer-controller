@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -272,7 +273,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, tc.disableRestrictedSGRules, tc.defaultTargetType)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType)
 
 			out, err := builder.buildTargetGroupSpec(tc.gateway, tc.route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
 			if tc.expectErr {
@@ -712,7 +713,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, tc.disableRestrictedSGRules, tc.defaultTargetType)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType)
 
 			out := builder.buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, tc.backend, nil)
 
@@ -746,7 +747,9 @@ func Test_getTargetGroupProps(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			builder := &targetGroupBuilderImpl{}
+			builder := &targetGroupBuilderImpl{
+				tgPropertiesConstructor: gateway.NewTargetGroupConfigConstructor(),
+			}
 			mockRoute := &routeutils.MockRoute{
 				Kind:      routeutils.HTTPRouteKind,
 				Name:      "my-route",

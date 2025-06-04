@@ -269,10 +269,6 @@ type TargetGroupConfiguration struct {
 	Status TargetGroupConfigurationStatus `json:"status,omitempty"`
 }
 
-func (tgConfig *TargetGroupConfiguration) GetTargetGroupConfigForRoute(name, namespace, kind string) *TargetGroupProps {
-	return &tgConfig.Spec.DefaultConfiguration
-}
-
 // +kubebuilder:object:root=true
 
 // TargetGroupConfigurationList contains a list of TargetGroupConfiguration
