@@ -16,7 +16,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider tracking.Provider, taggingManager TaggingManager, frontendNlbTargetsManager FrontendNlbTargetsManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState) *frontendNlbTargetSynthesizer {
+type TargetGroupsResult struct {
+	TargetGroups []TargetGroupWithTags
+	Err          error
+}
+
+func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider tracking.Provider, taggingManager TaggingManager, frontendNlbTargetsManager FrontendNlbTargetsManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState, findSDKTargetGroups func() TargetGroupsResult) *frontendNlbTargetSynthesizer {
 	return &frontendNlbTargetSynthesizer{
 		k8sClient:                          k8sClient,
 		trackingProvider:                   trackingProvider,
@@ -26,6 +31,7 @@ func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider t
 		logger:                             logger,
 		stack:                              stack,
 		frontendNlbTargetGroupDesiredState: frontendNlbTargetGroupDesiredState,
+		findSDKTargetGroups:                findSDKTargetGroups,
 	}
 }
 
@@ -38,16 +44,18 @@ type frontendNlbTargetSynthesizer struct {
 	logger                             logr.Logger
 	stack                              core.Stack
 	frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
+	findSDKTargetGroups                func() TargetGroupsResult
 }
 
 // Synthesize processes AWS target groups and deregisters ALB targets based on the desired state.
 func (s *frontendNlbTargetSynthesizer) Synthesize(ctx context.Context) error {
 	var resTGs []*elbv2model.TargetGroup
 	s.stack.ListResources(&resTGs)
-	sdkTGs, err := s.findSDKTargetGroups(ctx)
-	if err != nil {
-		return err
+	res := s.findSDKTargetGroups()
+	if res.Err != nil {
+		return res.Err
 	}
+	sdkTGs := res.TargetGroups
 	_, _, unmatchedSDKTGs, err := matchResAndSDKTargetGroups(resTGs, sdkTGs,
 		s.trackingProvider.ResourceIDTagKey(), s.featureGates)
 	if err != nil {
@@ -157,10 +165,4 @@ func filterALBTargetGroups(targetGroups []*elbv2model.TargetGroup) []*elbv2model
 		}
 	}
 	return filteredTargetGroups
-}
-
-func (s *frontendNlbTargetSynthesizer) findSDKTargetGroups(ctx context.Context) ([]TargetGroupWithTags, error) {
-	stackTags := s.trackingProvider.StackTags(s.stack)
-	return s.taggingManager.ListTargetGroups(ctx,
-		tracking.TagsAsTagFilter(stackTags))
 }
