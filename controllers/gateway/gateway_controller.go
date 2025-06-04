@@ -223,17 +223,17 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	}
 
 	if lb == nil {
-		err = r.reconcileDelete(ctx, gw, stack, allRoutes)
+		err = r.reconcileDelete(ctx, gw, gwClass, stack, allRoutes)
 		if err != nil {
 			r.logger.Error(err, "Failed to process gateway delete")
 		}
 		return err
 	}
 
-	return r.reconcileUpdate(ctx, gw, stack, lb, backendSGRequired)
+	return r.reconcileUpdate(ctx, gw, gwClass, stack, lb, backendSGRequired)
 }
 
-func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, stack core.Stack, routes map[int32][]routeutils.RouteDescriptor) error {
+func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, stack core.Stack, routes map[int32][]routeutils.RouteDescriptor) error {
 	for _, routeList := range routes {
 		if len(routeList) != 0 {
 			err := errors.Errorf("Gateway deletion invoked with routes attached [%s]", generateRouteList(routes))
@@ -250,21 +250,34 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 		if err := r.backendSGProvider.Release(ctx, networking.ResourceTypeGateway, []types.NamespacedName{k8s.NamespacedName(gw)}); err != nil {
 			return err
 		}
+		// remove load balancer configuration finalizer
+		if err := RemoveLoadBalancerConfigurationFinalizers(ctx, gw, gwClass, r.k8sClient, r.finalizerManager, r.controllerName); err != nil {
+			r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.LoadBalancerConfigurationEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove load balancer configuration finalizer due to %v", err))
+			return err
+		}
+		// remove gateway finalizer
 		if err := r.finalizerManager.RemoveFinalizers(ctx, gw, r.finalizer); err != nil {
-			r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
+			r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove gateway finalizer due to %v", err))
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gateway, stack core.Stack,
+func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, stack core.Stack,
 	lb *elbv2model.LoadBalancer, backendSGRequired bool) error {
-
+	// add gateway finalizer
 	if err := r.finalizerManager.AddFinalizers(ctx, gw, r.finalizer); err != nil {
-		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
+		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add gateway finalizer due to %v", err))
 		return err
 	}
+
+	// add load balancer configuration finalizer
+	if err := AddLoadBalancerConfigurationFinalizers(ctx, gw, gwClass, r.k8sClient, r.finalizerManager, r.controllerName); err != nil {
+		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.LoadBalancerConfigurationEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add load balancer configuration finalizer due to %v", err))
+		return err
+	}
+
 	err := r.deployModel(ctx, gw, stack)
 	if err != nil {
 		return err

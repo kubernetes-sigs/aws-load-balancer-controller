@@ -37,4 +37,12 @@ const (
 	GatewayEventReasonSuccessfullyReconciled         = "SuccessfullyReconciled"
 	GatewayEventReasonFailedDeployModel              = "FailedDeployModel"
 	GatewayEventReasonFailedBuildModel               = "FailedBuildModel"
+
+	// Target Group Configuration events
+	TargetGroupConfigurationEventReasonFailedAddFinalizer    = "FailedAddFinalizer"
+	TargetGroupConfigurationEventReasonFailedRemoveFinalizer = "FailedRemoveFinalizer"
+
+	// Load Balancer Configuration events
+	LoadBalancerConfigurationEventReasonFailedAddFinalizer    = "FailedAddFinalizer"
+	LoadBalancerConfigurationEventReasonFailedRemoveFinalizer = "FailedRemoveFinalizer"
 )
