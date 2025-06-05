@@ -2,6 +2,7 @@ package model
 
 import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -273,7 +274,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(logr.Discard()), tc.disableRestrictedSGRules, tc.defaultTargetType)
 
 			out, err := builder.buildTargetGroupSpec(tc.gateway, tc.route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
 			if tc.expectErr {
@@ -713,7 +714,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(logr.Discard()), tc.disableRestrictedSGRules, tc.defaultTargetType)
 
 			out := builder.buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, tc.backend, nil)
 
@@ -748,7 +749,7 @@ func Test_getTargetGroupProps(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := &targetGroupBuilderImpl{
-				tgPropertiesConstructor: gateway.NewTargetGroupConfigConstructor(),
+				tgPropertiesConstructor: gateway.NewTargetGroupConfigConstructor(logr.Discard()),
 			}
 			mockRoute := &routeutils.MockRoute{
 				Kind:      routeutils.HTTPRouteKind,
@@ -1100,7 +1101,7 @@ func Test_buildTargetGroupName(t *testing.T) {
 	}{
 		{
 			name:             "name override",
-			targetGroupProps: &elbv2gw.TargetGroupProps{TargetGroupName: "foobaz"},
+			targetGroupProps: &elbv2gw.TargetGroupProps{TargetGroupName: awssdk.String("foobaz")},
 			expected:         "foobaz",
 		},
 		{
@@ -2063,11 +2064,11 @@ func Test_buildTargetGroupBindingMultiClusterFlag(t *testing.T) {
 	assert.False(t, builder.buildTargetGroupBindingMultiClusterFlag(nil))
 
 	props := &elbv2gw.TargetGroupProps{
-		EnableMultiCluster: false,
+		EnableMultiCluster: awssdk.Bool(false),
 	}
 
 	assert.False(t, builder.buildTargetGroupBindingMultiClusterFlag(props))
-	props.EnableMultiCluster = true
+	props.EnableMultiCluster = awssdk.Bool(true)
 	assert.True(t, builder.buildTargetGroupBindingMultiClusterFlag(props))
 }
 

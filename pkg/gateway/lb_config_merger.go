@@ -2,7 +2,6 @@ package gateway
 
 import (
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sort"
 )
 
@@ -47,44 +46,11 @@ func (merger *loadBalancerConfigMergerImpl) generateMergedSpec(highPriority elbv
 	res := elbv2gw.LoadBalancerConfigurationSpec{}
 
 	merger.performTakeOneMerges(&res, highPriority, lowPriority)
-	merger.mergeTags(&res, highPriority, lowPriority)
-	merger.mergeLoadBalancerAttributes(&res, highPriority, lowPriority)
+	res.Tags = mergeTags(highPriority.Spec.Tags, lowPriority.Spec.Tags)
+	res.LoadBalancerAttributes = mergeAttributes(highPriority.Spec.LoadBalancerAttributes, lowPriority.Spec.LoadBalancerAttributes, loadBalancerAttributeKeyFn, loadBalancerAttributeValueFn, loadBalancerAttributeConstructor)
 	merger.mergeListenerConfig(&res, highPriority, lowPriority)
 
 	return res
-}
-
-func (merger *loadBalancerConfigMergerImpl) mergeLoadBalancerAttributes(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
-	baseAttributesMap := make(map[string]string)
-
-	for _, attr := range highPriority.Spec.LoadBalancerAttributes {
-		baseAttributesMap[attr.Key] = attr.Value
-	}
-
-	for _, attr := range lowPriority.Spec.LoadBalancerAttributes {
-		_, found := baseAttributesMap[attr.Key]
-		if !found {
-			baseAttributesMap[attr.Key] = attr.Value
-		}
-	}
-
-	if len(baseAttributesMap) > 0 {
-		mergedAttributes := make([]elbv2gw.LoadBalancerAttribute, 0, len(baseAttributesMap))
-
-		for k, v := range baseAttributesMap {
-			mergedAttributes = append(mergedAttributes, elbv2gw.LoadBalancerAttribute{
-				Key:   k,
-				Value: v,
-			})
-		}
-
-		sort.Slice(mergedAttributes, func(i, j int) bool {
-			return mergedAttributes[i].Key < mergedAttributes[j].Key
-		})
-
-		merged.LoadBalancerAttributes = mergedAttributes
-
-	}
 }
 
 func (merger *loadBalancerConfigMergerImpl) mergeListenerConfig(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
@@ -119,22 +85,6 @@ func (merger *loadBalancerConfigMergerImpl) mergeListenerConfig(merged *elbv2gw.
 		merged.ListenerConfigurations = &listenerConfig
 	}
 
-}
-
-func (merger *loadBalancerConfigMergerImpl) mergeTags(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {
-	baseTags := make(map[string]string)
-
-	if highPriority.Spec.Tags != nil {
-		baseTags = algorithm.MergeStringMap(baseTags, *highPriority.Spec.Tags)
-	}
-
-	if lowPriority.Spec.Tags != nil {
-		baseTags = algorithm.MergeStringMap(baseTags, *lowPriority.Spec.Tags)
-	}
-
-	if len(baseTags) > 0 {
-		merged.Tags = &baseTags
-	}
 }
 
 func (merger *loadBalancerConfigMergerImpl) performTakeOneMerges(merged *elbv2gw.LoadBalancerConfigurationSpec, highPriority elbv2gw.LoadBalancerConfiguration, lowPriority elbv2gw.LoadBalancerConfiguration) {

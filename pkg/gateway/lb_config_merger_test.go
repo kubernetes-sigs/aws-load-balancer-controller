@@ -22,7 +22,12 @@ func Test_Merge(t *testing.T) {
 			name:            "both blank",
 			gwClassLbConfig: elbv2gw.LoadBalancerConfiguration{},
 			gwLbConfig:      elbv2gw.LoadBalancerConfiguration{},
-			expected:        elbv2gw.LoadBalancerConfiguration{},
+			expected: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					LoadBalancerAttributes: []elbv2gw.LoadBalancerAttribute{},
+					Tags:                   &map[string]string{},
+				},
+			},
 		},
 		{
 			name: "full config in gw class. empty gw config",

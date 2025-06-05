@@ -191,21 +191,10 @@ spec:
                     - GRPC
                     type: string
                   tags:
-                    description: Tags defines list of Tags on target group.
-                    items:
-                      description: Tag defines a AWS Tag on resources.
-                      properties:
-                        key:
-                          description: The key of the tag.
-                          type: string
-                        value:
-                          description: The value of the tag.
-                          type: string
-                      required:
-                      - key
-                      - value
-                      type: object
-                    type: array
+                    additionalProperties:
+                      type: string
+                    description: Tags the Tags to add on the target group.
+                    type: object
                   targetGroupAttributes:
                     description: targetGroupAttributes defines the attribute of target
                       group
@@ -234,22 +223,25 @@ spec:
                     - instance
                     - ip
                     type: string
-                  vpcID:
-                    description: vpcID is the VPC of the TargetGroup. If unspecified,
-                      it will be automatically inferred.
-                    type: string
                 type: object
               routeConfigurations:
                 description: routeConfigurations the route configuration for specific
-                  routes
+                  routes. the longest prefix match (kind:namespace:name) is taken
+                  to combine with the default properties.
                 items:
                   description: RouteConfiguration defines the per route configuration
                   properties:
-                    identifier:
+                    routeIdentifier:
                       description: name the identifier of the route, it should be
                         in the form of ROUTE:NAMESPACE:NAME
-                      pattern: ^(HTTPRoute|TLSRoute|TCPRoute|UDPRoute|GRPCRoute)?:([^:]+)?:([^:]+)?$
-                      type: string
+                      properties:
+                        kind:
+                          type: string
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      type: object
                     targetGroupProps:
                       description: targetGroupProps the target group specific properties
                       properties:
@@ -394,21 +386,10 @@ spec:
                           - GRPC
                           type: string
                         tags:
-                          description: Tags defines list of Tags on target group.
-                          items:
-                            description: Tag defines a AWS Tag on resources.
-                            properties:
-                              key:
-                                description: The key of the tag.
-                                type: string
-                              value:
-                                description: The value of the tag.
-                                type: string
-                            required:
-                            - key
-                            - value
-                            type: object
-                          type: array
+                          additionalProperties:
+                            type: string
+                          description: Tags the Tags to add on the target group.
+                          type: object
                         targetGroupAttributes:
                           description: targetGroupAttributes defines the attribute
                             of target group
@@ -438,13 +419,9 @@ spec:
                           - instance
                           - ip
                           type: string
-                        vpcID:
-                          description: vpcID is the VPC of the TargetGroup. If unspecified,
-                            it will be automatically inferred.
-                          type: string
                       type: object
                   required:
-                  - identifier
+                  - routeIdentifier
                   - targetGroupProps
                   type: object
                 type: array

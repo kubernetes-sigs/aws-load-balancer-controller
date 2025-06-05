@@ -42,7 +42,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
 	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, enableBackendSG, sgResolver, backendSGProvider, logger)
 	lbBuilder := newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName)
-	tgConfigConstructor := gateway.NewTargetGroupConfigConstructor()
+	tgConfigConstructor := gateway.NewTargetGroupConfigConstructor(logger)
 
 	return &baseModelBuilder{
 		clusterName:              clusterName,

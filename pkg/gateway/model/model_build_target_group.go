@@ -313,8 +313,8 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *el
 	gwKey types.NamespacedName, routeKey types.NamespacedName, svcKey types.NamespacedName, tgPort int32,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion) string {
 
-	if targetGroupProps != nil && targetGroupProps.TargetGroupName != "" {
-		return targetGroupProps.TargetGroupName
+	if targetGroupProps != nil && targetGroupProps.TargetGroupName != nil {
+		return *targetGroupProps.TargetGroupName
 	}
 
 	uuidHash := sha256.New()
@@ -648,15 +648,13 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckUnhealthyThres
 func (builder *targetGroupBuilderImpl) buildTargetGroupAttributes(targetGroupProps *elbv2gw.TargetGroupProps) map[string]string {
 	attributeMap := make(map[string]string)
 
-	if targetGroupProps == nil {
+	if targetGroupProps == nil || targetGroupProps.TargetGroupAttributes == nil {
 		return attributeMap
 	}
 
 	for _, attr := range targetGroupProps.TargetGroupAttributes {
 		attributeMap[attr.Key] = attr.Value
 	}
-
-	// TODO -- buildPreserveClientIPFlag Might need special logic
 
 	return attributeMap
 }
@@ -684,8 +682,8 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNodeSelector(tgPro
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupBindingMultiClusterFlag(tgProps *elbv2gw.TargetGroupProps) bool {
-	if tgProps == nil {
+	if tgProps == nil || tgProps.EnableMultiCluster == nil {
 		return false
 	}
-	return tgProps.EnableMultiCluster
+	return *tgProps.EnableMultiCluster
 }

@@ -153,24 +153,26 @@ type TargetGroupConfigurationSpec struct {
 	// targetReference the kubernetes object to attach the Target Group settings to.
 	TargetReference Reference `json:"targetReference"`
 
-	// mergeMode the mode to use for merging the identified per-route configuration and default configuration.
-
 	// defaultRouteConfiguration fallback configuration applied to all routes, unless overridden by route-specific configurations.
 	// +optional
 	DefaultConfiguration TargetGroupProps `json:"defaultConfiguration,omitempty"`
 
-	// routeConfigurations the route configuration for specific routes
+	// routeConfigurations the route configuration for specific routes. the longest prefix match (kind:namespace:name) is taken to combine with the default properties.
 	// +optional
 	RouteConfigurations []RouteConfiguration `json:"routeConfigurations,omitempty"`
 }
 
-// +kubebuilder:validation:Pattern="^(HTTPRoute|TLSRoute|TCPRoute|UDPRoute|GRPCRoute)?:([^:]+)?:([^:]+)?$"
-type RouteIdentifier string
+// RouteIdentifier the complete set of route attributes that identify a route.
+type RouteIdentifier struct {
+	RouteKind      string `json:"kind,omitempty"`
+	RouteNamespace string `json:"namespace,omitempty"`
+	RouteName      string `json:"name,omitempty"`
+}
 
 // RouteConfiguration defines the per route configuration
 type RouteConfiguration struct {
 	// name the identifier of the route, it should be in the form of ROUTE:NAMESPACE:NAME
-	Identifier RouteIdentifier `json:"identifier"`
+	RouteIdentifier RouteIdentifier `json:"routeIdentifier"`
 
 	// targetGroupProps the target group specific properties
 	TargetGroupProps TargetGroupProps `json:"targetGroupProps"`
@@ -180,7 +182,7 @@ type RouteConfiguration struct {
 type TargetGroupProps struct {
 	// targetGroupName specifies the name to assign to the Target Group. If not defined, then one is generated.
 	// +optional
-	TargetGroupName string `json:"targetGroupName,omitempty"`
+	TargetGroupName *string `json:"targetGroupName,omitempty"`
 
 	// ipAddressType specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.
 	// +optional
@@ -214,15 +216,11 @@ type TargetGroupProps struct {
 	// EnableMultiCluster [Application / Network LoadBalancer]
 	// Allows for multiple Clusters / Services to use the generated TargetGroup ARN
 	// +optional
-	EnableMultiCluster bool `json:"enableMultiCluster,omitempty"`
+	EnableMultiCluster *bool `json:"enableMultiCluster,omitempty"`
 
-	// vpcID is the VPC of the TargetGroup. If unspecified, it will be automatically inferred.
+	// Tags the Tags to add on the target group.
 	// +optional
-	VpcID *string `json:"vpcID,omitempty"`
-
-	// Tags defines list of Tags on target group.
-	// +optional
-	Tags []Tag `json:"tags,omitempty"`
+	Tags *map[string]string `json:"tags,omitempty"`
 }
 
 // TargetGroupAttribute defines target group attribute.
@@ -231,15 +229,6 @@ type TargetGroupAttribute struct {
 	Key string `json:"key"`
 
 	// The value of the attribute.
-	Value string `json:"value"`
-}
-
-// Tag defines a AWS Tag on resources.
-type Tag struct {
-	// The key of the tag.
-	Key string `json:"key"`
-
-	// The value of the tag.
 	Value string `json:"value"`
 }
 
