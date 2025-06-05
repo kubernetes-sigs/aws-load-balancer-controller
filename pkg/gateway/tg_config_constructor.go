@@ -40,17 +40,23 @@ func (t *targetGroupConfigConstructorImpl) mergeWithLongestMatch(initialCfg *elb
 			break
 		}
 
-		if kindEquals && nsEquals && kindNsRank > longestMatch {
+		idHasName := routeConfig.RouteIdentifier.RouteName != ""
+		idHasNamespace := routeConfig.RouteIdentifier.RouteNamespace != ""
+
+		if idHasName {
+			continue
+		}
+
+		if (kindEquals && nsEquals) && kindNsRank > longestMatch {
 			// Partial match kind:ns
 			matched = &routeConfig.TargetGroupProps
 			longestMatch = kindNsRank
-		} else if kindEquals && kindRank > longestMatch {
+		} else if (kindEquals && !idHasNamespace) && kindRank > longestMatch {
 			// Partial match kind
 			matched = &routeConfig.TargetGroupProps
 			longestMatch = kindRank
 		}
 	}
-
 	return t.merge(matched, initialCfg)
 }
 
