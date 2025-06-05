@@ -99,8 +99,7 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (*elbv2model.TargetGroup, error) {
 
-	targetGroupProps := t.getTargetGroupProps(routeDescriptor, backend)
-
+	targetGroupProps := backend.ELBV2TargetGroupProps
 	tgResID := t.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.Service), routeDescriptor.GetRouteNamespacedName(), backend.ServicePort.TargetPort)
 	if tg, exists := t.tgByResID[tgResID]; exists {
 		return tg, nil
@@ -122,15 +121,6 @@ func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 	elbv2model.NewTargetGroupBindingResource(stack, tg.ID(), tgOut.bindingSpec)
 	t.tgByResID[tgResID] = tg
 	return tg, nil
-}
-
-func (builder *targetGroupBuilderImpl) getTargetGroupProps(routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) *elbv2gw.TargetGroupProps {
-	var targetGroupProps *elbv2gw.TargetGroupProps
-	if backend.ELBv2TargetGroupConfig != nil {
-		routeNamespacedName := routeDescriptor.GetRouteNamespacedName()
-		targetGroupProps = builder.tgPropertiesConstructor.ConstructTargetGroupConfigForRoute(backend.ELBv2TargetGroupConfig, routeNamespacedName.Name, routeNamespacedName.Namespace, string(routeDescriptor.GetRouteKind()))
-	}
-	return targetGroupProps
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {

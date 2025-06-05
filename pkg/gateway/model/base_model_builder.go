@@ -2,7 +2,7 @@ package model
 
 import (
 	"context"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
+	config2 "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -42,7 +42,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
 	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, enableBackendSG, sgResolver, backendSGProvider, logger)
 	lbBuilder := newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName)
-	tgConfigConstructor := gateway.NewTargetGroupConfigConstructor(logger)
+	tgConfigConstructor := config2.NewTargetGroupConfigConstructor()
 
 	return &baseModelBuilder{
 		clusterName:              clusterName,
@@ -105,7 +105,7 @@ type baseModelBuilder struct {
 
 	subnetBuilder           subnetModelBuilder
 	securityGroupBuilder    securityGroupBuilder
-	tgPropertiesConstructor gateway.TargetGroupConfigConstructor
+	tgPropertiesConstructor config2.TargetGroupConfigConstructor
 
 	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
 	defaultIPType             elbv2model.IPAddressType

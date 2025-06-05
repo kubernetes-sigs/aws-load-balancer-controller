@@ -2,11 +2,9 @@ package gateway
 
 import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"testing"
 )
 
@@ -22,7 +20,7 @@ func Test_ConstructTargetGroupConfigForRoute(t *testing.T) {
 	}{
 		{
 			name:           "null config",
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 		},
@@ -35,7 +33,7 @@ func Test_ConstructTargetGroupConfigForRoute(t *testing.T) {
 					},
 				},
 			},
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 			expected: &elbv2gw.TargetGroupProps{
@@ -44,7 +42,7 @@ func Test_ConstructTargetGroupConfigForRoute(t *testing.T) {
 		},
 		{
 			name:           "basic merge",
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 			tgConfig: &elbv2gw.TargetGroupConfiguration{
@@ -55,7 +53,7 @@ func Test_ConstructTargetGroupConfigForRoute(t *testing.T) {
 					RouteConfigurations: []elbv2gw.RouteConfiguration{
 						{
 							RouteIdentifier: elbv2gw.RouteIdentifier{
-								RouteKind: string(routeutils.HTTPRouteKind),
+								RouteKind: "HTTPRoute",
 							},
 							TargetGroupProps: elbv2gw.TargetGroupProps{
 								TargetGroupName: awssdk.String("my-tg-name"),
@@ -75,7 +73,7 @@ func Test_ConstructTargetGroupConfigForRoute(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			constructor := NewTargetGroupConfigConstructor(logr.Discard())
+			constructor := NewTargetGroupConfigConstructor()
 			res := constructor.ConstructTargetGroupConfigForRoute(tc.tgConfig, tc.routeName, tc.routeNamespace, tc.routeKind)
 			assert.Equal(t, tc.expected, res)
 		})
@@ -125,7 +123,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 					"t3": "t4",
 				},
 			},
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 			expected: &elbv2gw.TargetGroupProps{
@@ -193,7 +191,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 					"t3": "t4",
 				},
 			},
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 			expected: &elbv2gw.TargetGroupProps{
@@ -230,7 +228,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 			routeConfigs: []elbv2gw.RouteConfiguration{
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind: string(routeutils.UDPRouteKind),
+						RouteKind: "UDPRoute",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
 						TargetGroupName: awssdk.String("my-udp-tg-name"),
@@ -238,7 +236,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 				},
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind: string(routeutils.TLSRouteKind),
+						RouteKind: "TLSRoute",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
 						TargetGroupName: awssdk.String("my-tls-tg-name"),
@@ -279,7 +277,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 					"t3": "t4",
 				},
 			},
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 			expected: &elbv2gw.TargetGroupProps{
@@ -316,7 +314,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 			routeConfigs: []elbv2gw.RouteConfiguration{
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind: string(routeutils.HTTPRouteKind),
+						RouteKind: "HTTPRoute",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
 						TargetGroupName: awssdk.String("other http route that shouldnt considered"),
@@ -324,7 +322,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 				},
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind:      string(routeutils.HTTPRouteKind),
+						RouteKind:      "HTTPRoute",
 						RouteName:      "httproute",
 						RouteNamespace: "routens",
 					},
@@ -362,7 +360,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 				},
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind: string(routeutils.TLSRouteKind),
+						RouteKind: "TLSRoute",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
 						TargetGroupName: awssdk.String("my-tls-tg-name"),
@@ -403,7 +401,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 					"t3": "t4",
 				},
 			},
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 			expected: &elbv2gw.TargetGroupProps{
@@ -440,7 +438,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 			routeConfigs: []elbv2gw.RouteConfiguration{
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind:      string(routeutils.HTTPRouteKind),
+						RouteKind:      "HTTPRoute",
 						RouteNamespace: "routens",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
@@ -449,7 +447,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 				},
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind: string(routeutils.HTTPRouteKind),
+						RouteKind: "HTTPRoute",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
 						TargetGroupName: awssdk.String("not expected tg name"),
@@ -490,7 +488,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 					"t3": "t4",
 				},
 			},
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 			expected: &elbv2gw.TargetGroupProps{
@@ -527,7 +525,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 			routeConfigs: []elbv2gw.RouteConfiguration{
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind:      string(routeutils.HTTPRouteKind),
+						RouteKind:      "HTTPRoute",
 						RouteNamespace: "routens",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
@@ -536,7 +534,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 				},
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind: string(routeutils.HTTPRouteKind),
+						RouteKind: "HTTPRoute",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
 						TargetGroupName: awssdk.String("not expected tg name"),
@@ -549,13 +547,13 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 			defaultConfig: &elbv2gw.TargetGroupProps{
 				TargetGroupName: awssdk.String("tg name"),
 			},
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 			routeConfigs: []elbv2gw.RouteConfiguration{
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind:      string(routeutils.HTTPRouteKind),
+						RouteKind:      "HTTPRoute",
 						RouteNamespace: "namespace",
 						RouteName:      "name",
 					},
@@ -565,7 +563,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 				},
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind:      string(routeutils.HTTPRouteKind),
+						RouteKind:      "HTTPRoute",
 						RouteNamespace: "namespace",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
@@ -595,13 +593,13 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 					"shared-tag":         "shared-tag-default-value",
 				},
 			},
-			routeKind:      string(routeutils.HTTPRouteKind),
+			routeKind:      "HTTPRoute",
 			routeName:      "httproute",
 			routeNamespace: "routens",
 			routeConfigs: []elbv2gw.RouteConfiguration{
 				{
 					RouteIdentifier: elbv2gw.RouteIdentifier{
-						RouteKind: string(routeutils.HTTPRouteKind),
+						RouteKind: "HTTPRoute",
 					},
 					TargetGroupProps: elbv2gw.TargetGroupProps{
 						TargetGroupAttributes: []elbv2gw.TargetGroupAttribute{
@@ -647,9 +645,7 @@ func Test_mergeWithLongestMatch(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			constructor := &targetGroupConfigConstructorImpl{
-				logger: logr.Discard(),
-			}
+			constructor := &targetGroupConfigConstructorImpl{}
 			res := constructor.mergeWithLongestMatch(tc.defaultConfig, tc.routeConfigs, tc.routeName, tc.routeNamespace, tc.routeKind)
 			assert.Equal(t, tc.expected, res)
 		})

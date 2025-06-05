@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"github.com/go-logr/logr"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 )
 
@@ -15,7 +14,6 @@ type TargetGroupConfigConstructor interface {
 }
 
 type targetGroupConfigConstructorImpl struct {
-	logger logr.Logger
 }
 
 func (t *targetGroupConfigConstructorImpl) ConstructTargetGroupConfigForRoute(tgConfig *elbv2gw.TargetGroupConfiguration, routeName, routeNamespace, routeKind string) *elbv2gw.TargetGroupProps {
@@ -128,8 +126,6 @@ func (t *targetGroupConfigConstructorImpl) performTakeOneMerges(merged, highPrio
 	}
 }
 
-func NewTargetGroupConfigConstructor(logger logr.Logger) TargetGroupConfigConstructor {
-	return &targetGroupConfigConstructorImpl{
-		logger: logger,
-	}
+func NewTargetGroupConfigConstructor() TargetGroupConfigConstructor {
+	return &targetGroupConfigConstructorImpl{}
 }
