@@ -8,11 +8,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/cache"
 	"k8s.io/apimachinery/pkg/util/sets"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/workqueue"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"strconv"
@@ -31,15 +33,14 @@ func TestDeferredReconcilerConstructor(t *testing.T) {
 
 	deferredReconciler := d.(*deferredTargetGroupBindingReconcilerImpl)
 	assert.Equal(t, dq, deferredReconciler.delayQueue)
-	assert.Equal(t, syncPeriod, deferredReconciler.syncPeriod)
 	assert.Equal(t, k8sClient, deferredReconciler.k8sClient)
 	assert.Equal(t, logger, deferredReconciler.logger)
 }
 
 func TestDeferredReconcilerEnqueue(t *testing.T) {
-	syncPeriod := 5 * time.Minute
 	testCases := []struct {
 		name                 string
+		tgbInCache           []*elbv2api.TargetGroupBinding
 		tgbToEnqueue         []*elbv2api.TargetGroupBinding
 		expectedQueueEntries sets.Set[types.NamespacedName]
 	}{
@@ -59,7 +60,18 @@ func TestDeferredReconcilerEnqueue(t *testing.T) {
 			}),
 		},
 		{
-			name: "sync period too short, do not enqueue",
+			name: "item in cache, no enqueue",
+			tgbInCache: []*elbv2api.TargetGroupBinding{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tgb1",
+						Namespace: "ns",
+						Annotations: map[string]string{
+							annotations.AnnotationCheckPointTimestamp: strconv.FormatInt(time.Now().Unix(), 10),
+						},
+					},
+				},
+			},
 			tgbToEnqueue: []*elbv2api.TargetGroupBinding{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -72,24 +84,6 @@ func TestDeferredReconcilerEnqueue(t *testing.T) {
 				},
 			},
 			expectedQueueEntries: make(sets.Set[types.NamespacedName]),
-		},
-		{
-			name: "sync period too long, do enqueue",
-			tgbToEnqueue: []*elbv2api.TargetGroupBinding{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "tgb1",
-						Namespace: "ns",
-						Annotations: map[string]string{
-							annotations.AnnotationCheckPointTimestamp: strconv.FormatInt(time.Now().Add(-2*syncPeriod).Unix(), 10),
-						},
-					},
-				},
-			},
-			expectedQueueEntries: sets.New(types.NamespacedName{
-				Name:      "tgb1",
-				Namespace: "ns",
-			}),
 		},
 		{
 			name: "multiple tgb",
@@ -196,13 +190,18 @@ func TestDeferredReconcilerEnqueue(t *testing.T) {
 				Build()
 
 			impl := deferredTargetGroupBindingReconcilerImpl{
-				delayQueue: dq,
-				syncPeriod: syncPeriod,
-				k8sClient:  k8sClient,
-				logger:     logr.New(&log.NullLogSink{}),
+				delayQueue:           dq,
+				k8sClient:            k8sClient,
+				logger:               logr.New(&log.NullLogSink{}),
+				processedTGBCache:    cache.NewExpiring(),
+				processedTGBCacheTTL: 1 * time.Minute,
 
 				delayedReconcileTime: 0 * time.Millisecond,
 				maxJitter:            0 * time.Millisecond,
+			}
+
+			for _, tgb := range tc.tgbInCache {
+				impl.processedTGBCache.Set(k8s.NamespacedName(tgb), true, time.Minute*1)
 			}
 
 			for _, tgb := range tc.tgbToEnqueue {
@@ -261,9 +260,11 @@ func TestDeferredReconcilerRun(t *testing.T) {
 
 			impl := deferredTargetGroupBindingReconcilerImpl{
 				delayQueue: dq,
-				syncPeriod: 5 * time.Minute,
 				k8sClient:  k8sClient,
 				logger:     logr.New(&log.NullLogSink{}),
+
+				processedTGBCache:    cache.NewExpiring(),
+				processedTGBCacheTTL: 1 * time.Minute,
 
 				delayedReconcileTime: 0 * time.Millisecond,
 				maxJitter:            0 * time.Millisecond,
@@ -291,24 +292,6 @@ func TestHandleDeferredItem(t *testing.T) {
 				Name:      "name",
 				Namespace: "ns",
 			},
-		},
-		{
-			name: "not eligible",
-			nsn: types.NamespacedName{
-				Name:      "name",
-				Namespace: "ns",
-			},
-			storedTGB: &elbv2api.TargetGroupBinding{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "name",
-					Namespace: "ns",
-					Annotations: map[string]string{
-						annotations.AnnotationCheckPoint:          "foo",
-						annotations.AnnotationCheckPointTimestamp: strconv.FormatInt(time.Now().Unix(), 10),
-					},
-				},
-			},
-			expectedCheckPoint: aws.String("foo"),
 		},
 		{
 			name: "eligible",
@@ -355,9 +338,11 @@ func TestHandleDeferredItem(t *testing.T) {
 
 			impl := deferredTargetGroupBindingReconcilerImpl{
 				delayQueue: dq,
-				syncPeriod: syncPeriod,
 				k8sClient:  k8sClient,
 				logger:     logr.New(&log.NullLogSink{}),
+
+				processedTGBCache:    cache.NewExpiring(),
+				processedTGBCacheTTL: 1 * time.Minute,
 
 				delayedReconcileTime: 0 * time.Millisecond,
 				maxJitter:            0 * time.Millisecond,
