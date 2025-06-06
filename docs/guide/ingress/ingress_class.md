@@ -165,6 +165,41 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
     spec:
       targetType: ip
     ```
+    - with IPv4IPAMPoolId
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      ipamConfiguration: 
+        ipv4IPAMPoolId: ipam-pool-000000000
+    ```
+    - with PrefixListsIDs
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      prefixListsIDs:
+        - pl-00000000
+        - pl-11111111
+    ```
+    - with listeners
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      listeners:
+        - protocol: HTTPS
+          port: 443
+          listenerAttributes:
+           - key: routing.http.response.server.enabled
+             value: "false"
+    ```
 
 ### IngressClassParams specification
 
@@ -275,11 +310,14 @@ They may specify `capacityUnits`. If the field is specified, LBC will ignore the
 
 If `capacityUnits` is specified, it must be to valid positive value greater than 0. If set to 0, the LBC will reset the capacity reservation for the load balancer.
 
-#### spec.ipv4IPAMPoolId
+#### spec.ipamConfiguration
 
-The IPAM pool you choose will be the preferred source of public IPv4 addresses.
-If the pool is depleted, IPv4 addresses will be assigned by AWS.
-To remove the IPAM pool from your ALB, remove `spec.ipv4IPAMPoolId` from the IngressClass definition.
+`ipamConfiguration` is an optional setting.
+
+Cluster administrators can use `ipamConfiguration` field to specify the IPv4 IPAM Pool ID which will be used by your load balancer to assign IP addresses.
+
+1. If `ipamConfiguration` is set. The `ipv4IPAMPoolId` you choose will be the preferred source of public IPv4 addresses. If the pool is depleted, IPv4 addresses will be assigned by AWS. To remove the IPAM pool from your ALB, remove `spec.ipamConfiguration` from the IngressClass definition.
+2. If `ipamConfiguration` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/ipam-ipv4-pool-id` annotation specify the IPv4 IPAM Pool ID.
 
 #### spec.PrefixListsIDs
 
@@ -289,3 +327,15 @@ Cluster administrators can use `PrefixListsIDs` field to specify the managed pre
 
 1. If `PrefixListsIDs` is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.
 2. If `PrefixListsIDs` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/security-group-prefix-lists` annotation to specify the load balancer prefix lists.
+
+#### spec.listeners
+
+`listeners` is an optional setting.
+
+!!!note 
+    Adding listeners in the classparam specification does not automatically create listeners on your load balancers. To create listeners, you must explicitly define the listen ports in your ingress configurations. The classparam `spec.listeners` are only used to set attributes for the listeners that you define in your ingresses.
+
+Cluster administrators can use `Listeners` field to specify the [Listener Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#listener-attributes) for multiple load balancer listeners associated with this IngressClass. For each listener entry in the list, the desired attributes and their values are specified in the `listenerAttributes` field. Each listener is uniquely identified by its `port` and `protocol` fields, which determine which listener the attributes should be applied to.
+
+1. If `listeners` is set, the defined attributes will be applied to the corresponding load balancer listeners based on port and protocol matching. Note that using invalid keys or values will cause the controller to fail when reconciling ingresses in this IngressClass.
+2. If `Listeners` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/listener-attributes.${Protocol}-{Port}` annotation to specify the listener attributes.
