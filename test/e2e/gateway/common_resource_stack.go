@@ -6,6 +6,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
@@ -15,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"strconv"
-	"time"
 )
 
 func newCommonResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, baseName string, enablePodReadinessGate bool) *commonResourceStack {
@@ -76,8 +76,7 @@ func (s *commonResourceStack) Deploy(ctx context.Context, f *framework.Framework
 	if err := resourceSpecificCreation(ctx, f, s.ns.Name); err != nil {
 		return err
 	}
-	// TODO -- Fix
-	time.Sleep(7 * time.Minute)
+
 	if err := s.waitUntilDeploymentReady(ctx, f); err != nil {
 		return err
 	}
@@ -198,9 +197,15 @@ func (s *commonResourceStack) waitUntilGatewayReady(ctx context.Context, f *fram
 		if err := f.K8sClient.Get(ctx, k8s.NamespacedName(s.gw), observedGw); err != nil {
 			return false, err
 		}
-		if observedGw.Status.Addresses != nil && len(observedGw.Status.Addresses) > 0 {
-			return true, nil
+
+		if observedGw.Status.Conditions != nil {
+			for _, cond := range observedGw.Status.Conditions {
+				if cond.Type == string(gwv1.GatewayConditionProgrammed) && cond.Status == metav1.ConditionTrue {
+					return true, nil
+				}
+			}
 		}
+
 		return false, nil
 	}, ctx.Done())
 	if err != nil {
