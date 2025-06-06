@@ -1,4 +1,4 @@
-package eventhandlers
+package gatewayutils
 
 import (
 	"context"
@@ -827,6 +827,224 @@ func Test_GetImpactedGatewaysFromLbConfig(t *testing.T) {
 				k8sClient.Create(context.Background(), gw)
 			}
 			got := GetImpactedGatewaysFromLbConfig(context.Background(), k8sClient, tt.args.lbConfig, tt.args.gwController)
+			assert.Equal(t, tt.want, len(got))
+		})
+	}
+}
+
+func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
+	type args struct {
+		gateways     []*gwv1.Gateway
+		gwClasses    []*gwv1.GatewayClass
+		gwController string
+	}
+	tests := []struct {
+		name string
+		args args
+		want int
+	}{
+		{
+			name: "multiple gateways for nlb gw classes",
+			args: args{
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw-1",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-alb-gw-1",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "alb-class",
+						},
+					},
+				},
+				gwClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "nlb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "alb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.ALBGatewayController,
+						},
+					},
+				},
+				gwController: constants.NLBGatewayController,
+			},
+			want: 2,
+		},
+		{
+			name: "multiple gateways for alb gw classes",
+			args: args{
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw-1",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-alb-gw-1",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "alb-class",
+						},
+					},
+				},
+				gwClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "alb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.ALBGatewayController,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "nlb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+						},
+					},
+				},
+				gwController: constants.ALBGatewayController,
+			},
+			want: 1,
+		},
+		{
+			name: "no valid gateways for nlb gw classes",
+			args: args{
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-alb-gw-1",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "alb-class",
+						},
+					},
+				},
+				gwClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "nlb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "alb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.ALBGatewayController,
+						},
+					},
+				},
+				gwController: constants.NLBGatewayController,
+			},
+			want: 0,
+		},
+		{
+			name: "no valid gateways for alb gw classes",
+			args: args{
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw-1",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+				},
+				gwClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "alb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.ALBGatewayController,
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "nlb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+						},
+					},
+				},
+				gwController: constants.ALBGatewayController,
+			},
+			want: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k8sClient := testutils.GenerateTestClient()
+			for _, gwClass := range tt.args.gwClasses {
+				k8sClient.Create(context.Background(), gwClass)
+			}
+			for _, gw := range tt.args.gateways {
+				k8sClient.Create(context.Background(), gw)
+			}
+
+			got := GetGatewaysManagedByGatewayClass(context.Background(), k8sClient, tt.args.gwClasses[0], tt.args.gwController)
 			assert.Equal(t, tt.want, len(got))
 		})
 	}

@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -22,7 +23,7 @@ type gatewayConfigResolverImpl struct {
 func newGatewayConfigResolver() gatewayConfigResolver {
 	return &gatewayConfigResolverImpl{
 		configMergeFn:    gateway.NewLoadBalancerConfigMerger().Merge,
-		configResolverFn: resolveLoadBalancerConfig,
+		configResolverFn: gatewayutils.ResolveLoadBalancerConfig,
 	}
 }
 
@@ -52,17 +53,7 @@ func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx c
 		}
 	}
 
-	var gwParametersRef *gwv1.ParametersReference
-	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.ParametersRef != nil {
-		// Convert local param ref -> namespaced param ref
-		ns := gwv1.Namespace(gw.Namespace)
-		gwParametersRef = &gwv1.ParametersReference{
-			Group:     gw.Spec.Infrastructure.ParametersRef.Group,
-			Kind:      gw.Spec.Infrastructure.ParametersRef.Kind,
-			Name:      gw.Spec.Infrastructure.ParametersRef.Name,
-			Namespace: &ns,
-		}
-	}
+	var gwParametersRef = gatewayutils.GetNamespacedParamRefForGateway(gw)
 
 	gatewayLBConfig, err := resolver.configResolverFn(ctx, k8sClient, gwParametersRef)
 

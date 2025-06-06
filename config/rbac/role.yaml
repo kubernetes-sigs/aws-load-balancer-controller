@@ -135,12 +135,14 @@ rules:
   verbs:
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - gateway.k8s.aws
   resources:
   - loadbalancerconfigurations/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - gateway.k8s.aws
@@ -157,12 +159,14 @@ rules:
   verbs:
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - gateway.k8s.aws
   resources:
   - targetgroupconfigurations/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - gateway.k8s.aws
@@ -186,6 +190,7 @@ rules:
   resources:
   - gatewayclasses/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - gateway.networking.k8s.io
@@ -209,6 +214,7 @@ rules:
   resources:
   - gateways/finalizers
   verbs:
+  - patch
   - update
 - apiGroups:
   - gateway.networking.k8s.io
