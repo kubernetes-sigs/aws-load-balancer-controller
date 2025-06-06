@@ -54,7 +54,7 @@ func (h *enqueueRequestsForGatewayEvent) Delete(ctx context.Context, e event.Typ
 
 func (h *enqueueRequestsForGatewayEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gwv1.Gateway], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	gw := e.Object
-	h.logger.V(1).Info("enqueue gateway delete event", "gateway", k8s.NamespacedName(gw))
+	h.logger.V(1).Info("enqueue gateway generic event", "gateway", k8s.NamespacedName(gw))
 	h.enqueueImpactedGateway(ctx, gw, queue)
 }
 

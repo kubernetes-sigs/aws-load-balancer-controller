@@ -530,7 +530,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			result, err := lookUpTargetGroupConfiguration(context.Background(), k8sClient, tc.serviceMetadata)
+			result, err := LookUpTargetGroupConfiguration(context.Background(), k8sClient, tc.serviceMetadata)
 
 			if tc.expectErr {
 				assert.Error(t, err)

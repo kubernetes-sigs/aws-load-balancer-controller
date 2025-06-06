@@ -15,4 +15,10 @@ const (
 
 	// ALBGatewayFinalizer the finalizer we attach to an ALB Gateway resource
 	ALBGatewayFinalizer = "gateway.k8s.aws/alb"
+
+	// TargetGroupConfigurationFinalizer the finalizer we attach to a target group configuration resource
+	TargetGroupConfigurationFinalizer = "gateway.k8s.aws/targetgroupconfigurations"
+
+	// LoadBalancerConfigurationFinalizer the finalizer we attach to a load balancer configuration resource
+	LoadBalancerConfigurationFinalizer = "gateway.k8s.aws/loadbalancerconfigurations"
 )
