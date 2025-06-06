@@ -38,6 +38,9 @@ func TestCommonBackendLoader(t *testing.T) {
 				Kind: awssdk.String(serviceKind),
 				Name: svcNameToUse,
 			},
+			DefaultConfiguration: elbv2gw.TargetGroupProps{
+				TargetGroupName: awssdk.String("test"),
+			},
 		},
 	}
 
@@ -78,7 +81,7 @@ func TestCommonBackendLoader(t *testing.T) {
 		servicePort         int32
 		expectErr           bool
 		expectNoResult      bool
-		expectedTargetGroup *elbv2gw.TargetGroupConfiguration
+		expectedTargetGroup *elbv2gw.TargetGroupProps
 	}{
 		{
 			name: "backend ref without namespace",
@@ -154,7 +157,7 @@ func TestCommonBackendLoader(t *testing.T) {
 					Port:      portConverter(80),
 				},
 			},
-			expectedTargetGroup: &tgConfigTargetSvcAndNs,
+			expectedTargetGroup: &tgConfigTargetSvcAndNs.Spec.DefaultConfiguration,
 			storedService: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespaceToUse,
@@ -250,7 +253,7 @@ func TestCommonBackendLoader(t *testing.T) {
 					},
 				},
 			},
-			expectedTargetGroup: &tgConfigTargetSvcAndNs,
+			expectedTargetGroup: &tgConfigTargetSvcAndNs.Spec.DefaultConfiguration,
 			weight:              1,
 			servicePort:         80,
 		},
@@ -341,10 +344,9 @@ func TestCommonBackendLoader(t *testing.T) {
 			assert.Equal(t, tc.backendRef, result.TypeSpecificBackend)
 
 			if tc.expectedTargetGroup == nil {
-				assert.Nil(t, result.ELBv2TargetGroupConfig)
+				assert.Nil(t, result.ELBV2TargetGroupProps)
 			} else {
-				assert.Equal(t, tc.expectedTargetGroup.Name, result.ELBv2TargetGroupConfig.Name)
-				assert.Equal(t, tc.expectedTargetGroup.Namespace, result.ELBv2TargetGroupConfig.Namespace)
+				assert.Equal(t, tc.expectedTargetGroup, result.ELBV2TargetGroupProps)
 			}
 		})
 	}

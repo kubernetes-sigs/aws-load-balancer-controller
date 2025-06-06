@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -18,13 +19,17 @@ const (
 	serviceKind = "Service"
 )
 
+var (
+	tgConfigConstructor = gateway.NewTargetGroupConfigConstructor()
+)
+
 // Backend an abstraction on the Gateway Backend, meant to hide the underlying backend type from consumers (unless they really want to see it :))
 type Backend struct {
-	Service                *corev1.Service
-	ELBv2TargetGroupConfig *elbv2gw.TargetGroupConfiguration
-	ServicePort            *corev1.ServicePort
-	TypeSpecificBackend    interface{}
-	Weight                 int
+	Service               *corev1.Service
+	ELBV2TargetGroupProps *elbv2gw.TargetGroupProps
+	ServicePort           *corev1.ServicePort
+	TypeSpecificBackend   interface{}
+	Weight                int
 }
 
 // commonBackendLoader this function will load the services and target group configurations associated with this gateway backend.
@@ -115,11 +120,16 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil)
 	}
 
+	var tgProps *elbv2gw.TargetGroupProps
+
+	if tgConfig != nil {
+		tgProps = tgConfigConstructor.ConstructTargetGroupConfigForRoute(tgConfig, routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
+	}
+
 	// validate if protocol version is compatible with appProtocol
-	if tgConfig != nil && servicePort.AppProtocol != nil {
-		tgProps := tgConfig.GetTargetGroupConfigForRoute(routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
+	if tgProps != nil && servicePort.AppProtocol != nil {
 		appProtocol := strings.ToLower(*servicePort.AppProtocol)
-		if tgProps != nil && tgProps.ProtocolVersion != nil {
+		if tgProps.ProtocolVersion != nil {
 			isCompatible := true
 			switch *tgProps.ProtocolVersion {
 			case elbv2gw.ProtocolVersionGRPC:
@@ -156,11 +166,11 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		weight = int(*backendRef.Weight)
 	}
 	return &Backend{
-		Service:                svc,
-		ServicePort:            servicePort,
-		Weight:                 weight,
-		TypeSpecificBackend:    typeSpecificBackend,
-		ELBv2TargetGroupConfig: tgConfig,
+		Service:               svc,
+		ServicePort:           servicePort,
+		Weight:                weight,
+		TypeSpecificBackend:   typeSpecificBackend,
+		ELBV2TargetGroupProps: tgProps,
 	}, nil
 }
 

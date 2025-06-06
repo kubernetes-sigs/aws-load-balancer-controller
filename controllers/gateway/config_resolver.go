@@ -21,7 +21,7 @@ type gatewayConfigResolverImpl struct {
 
 func newGatewayConfigResolver() gatewayConfigResolver {
 	return &gatewayConfigResolverImpl{
-		configMergeFn:    gateway.NewConfigMerger().Merge,
+		configMergeFn:    gateway.NewLoadBalancerConfigMerger().Merge,
 		configResolverFn: resolveLoadBalancerConfig,
 	}
 }

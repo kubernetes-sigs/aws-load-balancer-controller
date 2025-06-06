@@ -13,6 +13,7 @@ import (
 	"regexp"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -42,6 +43,7 @@ type targetGroupBuilderImpl struct {
 
 	tagHelper                tagHelper
 	tgByResID                map[string]*elbv2model.TargetGroup
+	tgPropertiesConstructor  gateway.TargetGroupConfigConstructor
 	disableRestrictedSGRules bool
 
 	defaultTargetType elbv2model.TargetType
@@ -66,19 +68,20 @@ type targetGroupBuilderImpl struct {
 	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int32
 }
 
-func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper, loadBalancerType elbv2model.LoadBalancerType, disableRestrictedSGRules bool, defaultTargetType string) targetGroupBuilder {
+func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper, loadBalancerType elbv2model.LoadBalancerType, tgPropertiesConstructor gateway.TargetGroupConfigConstructor, disableRestrictedSGRules bool, defaultTargetType string) targetGroupBuilder {
 	return &targetGroupBuilderImpl{
-		loadBalancerType:                  loadBalancerType,
-		clusterName:                       clusterName,
-		vpcID:                             vpcId,
-		tgByResID:                         make(map[string]*elbv2model.TargetGroup),
-		tagHelper:                         tagHelper,
-		disableRestrictedSGRules:          disableRestrictedSGRules,
-		defaultTargetType:                 elbv2model.TargetType(defaultTargetType),
-		defaultHealthCheckMatcherHTTPCode: "200-399",
-		defaultHealthCheckMatcherGRPCCode: "12",
-		defaultHealthCheckPathHTTP:        "/",
-		defaultHealthCheckPathGRPC:        "/AWS.ALB/healthcheck",
+		loadBalancerType:                          loadBalancerType,
+		clusterName:                               clusterName,
+		vpcID:                                     vpcId,
+		tgPropertiesConstructor:                   tgPropertiesConstructor,
+		tgByResID:                                 make(map[string]*elbv2model.TargetGroup),
+		tagHelper:                                 tagHelper,
+		disableRestrictedSGRules:                  disableRestrictedSGRules,
+		defaultTargetType:                         elbv2model.TargetType(defaultTargetType),
+		defaultHealthCheckMatcherHTTPCode:         "200-399",
+		defaultHealthCheckMatcherGRPCCode:         "12",
+		defaultHealthCheckPathHTTP:                "/",
+		defaultHealthCheckPathGRPC:                "/AWS.ALB/healthcheck",
 		defaultHealthCheckUnhealthyThresholdCount: 3,
 		defaultHealthyThresholdCount:              3,
 		defaultHealthCheckTimeout:                 5,
@@ -96,8 +99,7 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (*elbv2model.TargetGroup, error) {
 
-	targetGroupProps := t.getTargetGroupProps(routeDescriptor, backend)
-
+	targetGroupProps := backend.ELBV2TargetGroupProps
 	tgResID := t.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.Service), routeDescriptor.GetRouteNamespacedName(), backend.ServicePort.TargetPort)
 	if tg, exists := t.tgByResID[tgResID]; exists {
 		return tg, nil
@@ -119,15 +121,6 @@ func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 	elbv2model.NewTargetGroupBindingResource(stack, tg.ID(), tgOut.bindingSpec)
 	t.tgByResID[tgResID] = tg
 	return tg, nil
-}
-
-func (builder *targetGroupBuilderImpl) getTargetGroupProps(routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) *elbv2gw.TargetGroupProps {
-	var targetGroupProps *elbv2gw.TargetGroupProps
-	if backend.ELBv2TargetGroupConfig != nil {
-		routeNamespacedName := routeDescriptor.GetRouteNamespacedName()
-		targetGroupProps = backend.ELBv2TargetGroupConfig.GetTargetGroupConfigForRoute(routeNamespacedName.Name, routeNamespacedName.Namespace, string(routeDescriptor.GetRouteKind()))
-	}
-	return targetGroupProps
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
@@ -310,8 +303,8 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *el
 	gwKey types.NamespacedName, routeKey types.NamespacedName, svcKey types.NamespacedName, tgPort int32,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion) string {
 
-	if targetGroupProps != nil && targetGroupProps.TargetGroupName != "" {
-		return targetGroupProps.TargetGroupName
+	if targetGroupProps != nil && targetGroupProps.TargetGroupName != nil {
+		return *targetGroupProps.TargetGroupName
 	}
 
 	uuidHash := sha256.New()
@@ -645,15 +638,13 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckUnhealthyThres
 func (builder *targetGroupBuilderImpl) buildTargetGroupAttributes(targetGroupProps *elbv2gw.TargetGroupProps) map[string]string {
 	attributeMap := make(map[string]string)
 
-	if targetGroupProps == nil {
+	if targetGroupProps == nil || targetGroupProps.TargetGroupAttributes == nil {
 		return attributeMap
 	}
 
 	for _, attr := range targetGroupProps.TargetGroupAttributes {
 		attributeMap[attr.Key] = attr.Value
 	}
-
-	// TODO -- buildPreserveClientIPFlag Might need special logic
 
 	return attributeMap
 }
@@ -681,8 +672,8 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNodeSelector(tgPro
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupBindingMultiClusterFlag(tgProps *elbv2gw.TargetGroupProps) bool {
-	if tgProps == nil {
+	if tgProps == nil || tgProps.EnableMultiCluster == nil {
 		return false
 	}
-	return tgProps.EnableMultiCluster
+	return *tgProps.EnableMultiCluster
 }

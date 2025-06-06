@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -272,7 +273,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, tc.disableRestrictedSGRules, tc.defaultTargetType)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType)
 
 			out, err := builder.buildTargetGroupSpec(tc.gateway, tc.route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
 			if tc.expectErr {
@@ -712,49 +713,11 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, tc.disableRestrictedSGRules, tc.defaultTargetType)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType)
 
 			out := builder.buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, tc.backend, nil)
 
 			assert.Equal(t, tc.expectedTgBindingSpec, out)
-		})
-	}
-}
-
-func Test_getTargetGroupProps(t *testing.T) {
-	props := elbv2gw.TargetGroupProps{}
-	testCases := []struct {
-		name     string
-		expected *elbv2gw.TargetGroupProps
-		backend  routeutils.Backend
-	}{
-		{
-			name: "no tg config",
-		},
-		{
-			name: "with tg config",
-			backend: routeutils.Backend{
-				ELBv2TargetGroupConfig: &elbv2gw.TargetGroupConfiguration{
-					Spec: elbv2gw.TargetGroupConfigurationSpec{
-						DefaultConfiguration: props,
-					},
-				},
-			},
-			expected: &props,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			builder := &targetGroupBuilderImpl{}
-			mockRoute := &routeutils.MockRoute{
-				Kind:      routeutils.HTTPRouteKind,
-				Name:      "my-route",
-				Namespace: "my-ns",
-			}
-
-			result := builder.getTargetGroupProps(mockRoute, tc.backend)
-			assert.Equal(t, tc.expected, result)
 		})
 	}
 }
@@ -1097,7 +1060,7 @@ func Test_buildTargetGroupName(t *testing.T) {
 	}{
 		{
 			name:             "name override",
-			targetGroupProps: &elbv2gw.TargetGroupProps{TargetGroupName: "foobaz"},
+			targetGroupProps: &elbv2gw.TargetGroupProps{TargetGroupName: awssdk.String("foobaz")},
 			expected:         "foobaz",
 		},
 		{
@@ -2060,11 +2023,11 @@ func Test_buildTargetGroupBindingMultiClusterFlag(t *testing.T) {
 	assert.False(t, builder.buildTargetGroupBindingMultiClusterFlag(nil))
 
 	props := &elbv2gw.TargetGroupProps{
-		EnableMultiCluster: false,
+		EnableMultiCluster: awssdk.Bool(false),
 	}
 
 	assert.False(t, builder.buildTargetGroupBindingMultiClusterFlag(props))
-	props.EnableMultiCluster = true
+	props.EnableMultiCluster = awssdk.Bool(true)
 	assert.True(t, builder.buildTargetGroupBindingMultiClusterFlag(props))
 }
 
