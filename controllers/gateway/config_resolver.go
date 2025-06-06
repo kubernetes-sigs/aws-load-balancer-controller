@@ -53,7 +53,7 @@ func (resolver *gatewayConfigResolverImpl) getLoadBalancerConfigForGateway(ctx c
 		}
 	}
 
-	var gwParametersRef = gatewayutils.GetNamespacedParamRefForGateway(gw)
+	gwParametersRef := gatewayutils.GetNamespacedParamRefForGateway(gw)
 
 	gatewayLBConfig, err := resolver.configResolverFn(ctx, k8sClient, gwParametersRef)
 
