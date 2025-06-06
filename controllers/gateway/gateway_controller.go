@@ -19,6 +19,7 @@ import (
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
 	gatewaymodel "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -124,19 +125,19 @@ type gatewayReconciler struct {
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/finalizers,verbs=update
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gateways/finalizers,verbs=update;patch
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses/finalizers,verbs=update
+//+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=gatewayclasses/finalizers,verbs=update;patch
 
-//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations,verbs=get;list;watch
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations/finalizers,verbs=update
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations/finalizers,verbs=update;patch
 
-//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations,verbs=get;list;watch
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations,verbs=get;list;watch;patch
 //+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations/finalizers,verbs=update
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations/finalizers,verbs=update;patch
 
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=udproutes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=udproutes/status,verbs=get;update;patch
@@ -251,7 +252,7 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 			return err
 		}
 		// remove load balancer configuration finalizer
-		if err := RemoveLoadBalancerConfigurationFinalizers(ctx, gw, gwClass, r.k8sClient, r.finalizerManager, r.controllerName); err != nil {
+		if err := gatewayutils.RemoveLoadBalancerConfigurationFinalizers(ctx, gw, gwClass, r.k8sClient, r.finalizerManager, sets.New(r.controllerName)); err != nil {
 			r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.LoadBalancerConfigurationEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove load balancer configuration finalizer due to %v", err))
 			return err
 		}
@@ -273,7 +274,7 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 	}
 
 	// add load balancer configuration finalizer
-	if err := AddLoadBalancerConfigurationFinalizers(ctx, gw, gwClass, r.k8sClient, r.finalizerManager, r.controllerName); err != nil {
+	if err := gatewayutils.AddLoadBalancerConfigurationFinalizers(ctx, gw, gwClass, r.k8sClient, r.finalizerManager, r.controllerName); err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.LoadBalancerConfigurationEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add load balancer configuration finalizer due to %v", err))
 		return err
 	}
@@ -423,7 +424,7 @@ func (r *gatewayReconciler) setupCommonGatewayControllerWatches(ctrl controller.
 	gwClassEventChan := make(chan event.TypedGenericEvent[*gwv1.GatewayClass])
 	lbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration])
 
-	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(r.k8sClient, r.eventRecorder, r.controllerName,
+	gwClassEventHandler := eventhandlers.NewEnqueueRequestsForGatewayClassEvent(r.k8sClient, r.eventRecorder, r.controllerName, r.finalizerManager,
 		loggerPrefix.WithName("GatewayClass"))
 	lbConfigEventHandler := eventhandlers.NewEnqueueRequestsForLoadBalancerConfigurationEvent(gwClassEventChan, r.k8sClient, r.eventRecorder, r.controllerName,
 		loggerPrefix.WithName("LoadBalancerConfiguration"))

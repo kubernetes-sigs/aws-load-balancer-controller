@@ -66,7 +66,7 @@ func (h *enqueueRequestsForServiceEvent) Delete(ctx context.Context, e event.Typ
 	svc := e.Object
 	h.logger.V(1).Info("enqueue service delete event", "service", svc.Name)
 	// remove target group configuration finalizer when service is deleted
-	RemoveTargetGroupConfigurationFinalizer(ctx, svc, h.k8sClient, h.logger, h.eventRecorder)
+	routeutils.RemoveTargetGroupConfigurationFinalizer(ctx, svc, h.k8sClient, h.logger, h.eventRecorder)
 
 	h.enqueueImpactedRoutes(ctx, svc)
 }

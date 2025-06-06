@@ -3,14 +3,12 @@ package routeutils
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -117,7 +115,7 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 	}
 	// add TGConfig finalizer
 	if tgConfig != nil {
-		if err := addTargetGroupConfigurationFinalizer(ctx, k8sClient, tgConfig); err != nil {
+		if err := AddTargetGroupConfigurationFinalizer(ctx, k8sClient, tgConfig); err != nil {
 			return nil, errors.Wrap(err, fmt.Sprintf("Unable to add finalizer to tg config object"))
 		}
 	}
@@ -244,16 +242,4 @@ func referenceGrantCheck(ctx context.Context, k8sClient client.Client, svcIdenti
 	}
 
 	return false, nil
-}
-
-// Implements helper function to add finalizer for target group configuration
-func addTargetGroupConfigurationFinalizer(ctx context.Context, k8sClient client.Client, tgConfig *elbv2gw.TargetGroupConfiguration) error {
-	finalizer := shared_constants.TargetGroupConfigurationFinalizer
-	// check if finalizer already exist
-	if k8s.HasFinalizer(tgConfig, finalizer) {
-		return nil
-	}
-	finalizerManager := k8s.NewDefaultFinalizerManager(k8sClient, logr.Discard())
-
-	return finalizerManager.AddFinalizers(ctx, tgConfig, finalizer)
 }

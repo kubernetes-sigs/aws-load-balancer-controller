@@ -6,6 +6,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -58,7 +59,7 @@ func (h *enqueueRequestsForTLSRouteEvent) Generic(ctx context.Context, e event.T
 }
 
 func (h *enqueueRequestsForTLSRouteEvent) enqueueImpactedGateways(ctx context.Context, route *gwalpha2.TLSRoute, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gateways, err := GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Status.Parents, route.Namespace, constants.NLBGatewayController)
+	gateways, err := gatewayutils.GetImpactedGatewaysFromParentRefs(ctx, h.k8sClient, route.Spec.ParentRefs, route.Status.Parents, route.Namespace, constants.NLBGatewayController)
 	if err != nil {
 		h.logger.V(1).Info("ignoring unknown gateways referred by", "tlsroute", route.Name, "error", err)
 	}

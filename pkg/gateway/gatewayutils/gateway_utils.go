@@ -1,18 +1,12 @@
-package eventhandlers
+package gatewayutils
 
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/client-go/tools/record"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -141,6 +135,19 @@ func GetImpactedGatewaysFromLbConfig(ctx context.Context, k8sClient client.Clien
 	return impactedGateways
 }
 
+// GetGatewaysManagedByGatewayClass identifies Gateways managed by a GatewayClass.
+// Returns Gateways that refer the specified GatewayClass.
+func GetGatewaysManagedByGatewayClass(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass, gwController string) []*gwv1.Gateway {
+	gwList := GetGatewaysManagedByLBController(ctx, k8sClient, gwController)
+	managedGw := make([]*gwv1.Gateway, 0, len(gwList))
+	for _, gw := range gwList {
+		if string(gw.Spec.GatewayClassName) == gwClass.Name {
+			managedGw = append(managedGw, gw)
+		}
+	}
+	return managedGw
+}
+
 // removeDuplicateParentRefs make sure parentRefs in list is unique
 func removeDuplicateParentRefs(parentRefs []gwv1.ParentReference, resourceNamespace string) []gwv1.ParentReference {
 	result := make([]gwv1.ParentReference, 0, len(parentRefs))
@@ -161,24 +168,17 @@ func removeDuplicateParentRefs(parentRefs []gwv1.ParentReference, resourceNamesp
 	return result
 }
 
-// RemoveTargetGroupConfigurationFinalizer removes target group configuration finalizer when service is deleted
-func RemoveTargetGroupConfigurationFinalizer(ctx context.Context, svc *corev1.Service, k8sClient client.Client, logger logr.Logger, recorder record.EventRecorder) {
-	tgConfig, err := routeutils.LookUpTargetGroupConfiguration(ctx, k8sClient, k8s.NamespacedName(svc))
-	if err != nil {
-		logger.Error(err, "failed to look up target group configuration", "service", svc.Name)
-		return
-	}
-	if tgConfig == nil {
-		logger.V(1).Info("TargetGroupConfigurationNotFound, ignoring remove finalizer.", "TargetGroupConfiguration", svc.Name)
-		return
-	}
-
-	tgFinalizer := shared_constants.TargetGroupConfigurationFinalizer
-	if k8s.HasFinalizer(tgConfig, tgFinalizer) {
-		finalizerManager := k8s.NewDefaultFinalizerManager(k8sClient, logr.Discard())
-		if err := finalizerManager.RemoveFinalizers(ctx, tgConfig, tgFinalizer); err != nil {
-			recorder.Event(tgConfig, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed to remove target group configuration finalizer due to %v", err))
+// Convert local param ref -> namespaced param ref
+func GetNamespacedParamRefForGateway(gw *gwv1.Gateway) *gwv1.ParametersReference {
+	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.ParametersRef != nil {
+		ns := gwv1.Namespace(gw.Namespace)
+		return &gwv1.ParametersReference{
+			Group:     gw.Spec.Infrastructure.ParametersRef.Group,
+			Kind:      gw.Spec.Infrastructure.ParametersRef.Kind,
+			Name:      gw.Spec.Infrastructure.ParametersRef.Name,
+			Namespace: &ns,
 		}
-		logger.V(1).Info("Successfully removed target group configuration finalizer.", "TargetGroupConfiguration", tgConfig.Name)
+
 	}
+	return nil
 }

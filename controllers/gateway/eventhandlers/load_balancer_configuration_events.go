@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -67,7 +68,7 @@ func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Generic(ctx context.C
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) enqueueImpactedService(ctx context.Context, lbconfig *elbv2gw.LoadBalancerConfiguration, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	// NOTE: That LB Config changes for GatewayClass are done a little differently.
 	// LB config change -> gateway class reconciler -> patch status for new version of LB config on Gateway Class -> Trigger the Gateway Class event handler.
-	gateways := GetImpactedGatewaysFromLbConfig(ctx, h.k8sClient, lbconfig, h.gwController)
+	gateways := gatewayutils.GetImpactedGatewaysFromLbConfig(ctx, h.k8sClient, lbconfig, h.gwController)
 	for _, gw := range gateways {
 		h.logger.V(1).Info("enqueue gateway for loadbalancerconfiguration event",
 			"loadbalancerconfiguration", k8s.NamespacedName(lbconfig),

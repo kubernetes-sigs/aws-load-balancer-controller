@@ -5,6 +5,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -62,7 +63,7 @@ func (h *enqueueRequestsForGatewayEvent) enqueueImpactedGateway(ctx context.Cont
 	if gw == nil {
 		return
 	}
-	if IsGatewayManagedByLBController(ctx, h.k8sClient, gw, h.gwController) {
+	if gatewayutils.IsGatewayManagedByLBController(ctx, h.k8sClient, gw, h.gwController) {
 		h.logger.V(1).Info("enqueue gateway",
 			"gateway", k8s.NamespacedName(gw))
 		queue.Add(reconcile.Request{NamespacedName: k8s.NamespacedName(gw)})
