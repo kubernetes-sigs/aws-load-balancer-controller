@@ -106,7 +106,6 @@ func (s *commonResourceStack) ScaleDeployment(ctx context.Context, f *framework.
 }
 
 func (s *commonResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {
-	_ = s.deleteGateway(ctx, f)
 	_ = s.deleteNamespace(ctx, f)
 	_ = s.deleteGatewayClass(ctx, f)
 }

@@ -31,7 +31,6 @@ func (s *NLBInstanceTestStack) ScaleDeployment(ctx context.Context, f *framework
 }
 
 func (s *NLBInstanceTestStack) Cleanup(ctx context.Context, f *framework.Framework) {
-	_ = f.K8sClient.Delete(ctx, s.nlbResourceStack.tcpr)
 	s.nlbResourceStack.Cleanup(ctx, f)
 }
 

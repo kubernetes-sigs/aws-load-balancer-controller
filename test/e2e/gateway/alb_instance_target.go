@@ -31,7 +31,6 @@ func (s *ALBInstanceTestStack) ScaleDeployment(ctx context.Context, f *framework
 }
 
 func (s *ALBInstanceTestStack) Cleanup(ctx context.Context, f *framework.Framework) {
-	_ = f.K8sClient.Delete(ctx, s.albResourceStack.httpr)
 	s.albResourceStack.Cleanup(ctx, f)
 }
 
