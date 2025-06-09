@@ -11,10 +11,10 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 )
 
-var _ = Describe("test k8s alb gateway reconciled by the aws load balancer controller", func() {
+var _ = Describe("test k8s alb gateway using instance targets reconciled by the aws load balancer controller", func() {
 	var (
 		ctx     context.Context
-		stack   ALBInstanceTestStack
+		stack   ALBTestStack
 		dnsName string
 		lbARN   string
 	)
@@ -23,7 +23,7 @@ var _ = Describe("test k8s alb gateway reconciled by the aws load balancer contr
 			Skip("Skipping gateway tests")
 		}
 		ctx = context.Background()
-		stack = ALBInstanceTestStack{}
+		stack = ALBTestStack{}
 	})
 	AfterEach(func() {
 		stack.Cleanup(ctx, tf)
@@ -35,12 +35,14 @@ var _ = Describe("test k8s alb gateway reconciled by the aws load balancer contr
 			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
 				Scheme: &interf,
 			}
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{}
+
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, lbcSpec)
+				err := stack.Deploy(ctx, tf, lbcSpec, tgSpec)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
-			By("checking service status for lb dns name", func() {
+			By("checking gateway status for lb dns name", func() {
 				dnsName = stack.GetLoadBalancerIngressHostName()
 				Expect(dnsName).ToNot(BeEmpty())
 			})

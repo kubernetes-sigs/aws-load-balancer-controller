@@ -11,9 +11,9 @@ import (
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-func newNLBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tcpr *gwalpha2.TCPRoute, baseName string, enablePodReadinessGate bool) *nlbResourceStack {
+func newNLBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgc *elbv2gw.TargetGroupConfiguration, tcpr *gwalpha2.TCPRoute, baseName string, enablePodReadinessGate bool) *nlbResourceStack {
 
-	commonStack := newCommonResourceStack(dp, svc, gwc, gw, lbc, baseName, enablePodReadinessGate)
+	commonStack := newCommonResourceStack(dp, svc, gwc, gw, lbc, tgc, baseName, enablePodReadinessGate)
 	return &nlbResourceStack{
 		tcpr:        tcpr,
 		commonStack: commonStack,

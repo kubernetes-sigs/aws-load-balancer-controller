@@ -18,13 +18,14 @@ import (
 	"strconv"
 )
 
-func newCommonResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, baseName string, enablePodReadinessGate bool) *commonResourceStack {
+func newCommonResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgc *elbv2gw.TargetGroupConfiguration, baseName string, enablePodReadinessGate bool) *commonResourceStack {
 	return &commonResourceStack{
 		dp:                     dp,
 		svc:                    svc,
 		gwc:                    gwc,
 		gw:                     gw,
 		lbc:                    lbc,
+		tgc:                    tgc,
 		baseName:               baseName,
 		enablePodReadinessGate: enablePodReadinessGate,
 	}
@@ -38,6 +39,7 @@ type commonResourceStack struct {
 	gwc                    *gwv1.GatewayClass
 	gw                     *gwv1.Gateway
 	lbc                    *elbv2gw.LoadBalancerConfiguration
+	tgc                    *elbv2gw.TargetGroupConfiguration
 	ns                     *corev1.Namespace
 	baseName               string
 	enablePodReadinessGate bool
@@ -56,11 +58,15 @@ func (s *commonResourceStack) Deploy(ctx context.Context, f *framework.Framework
 	s.svc.Namespace = s.ns.Name
 	s.gw.Namespace = s.ns.Name
 	s.lbc.Namespace = s.ns.Name
+	s.tgc.Namespace = s.ns.Name
 
 	if err := s.createGatewayClass(ctx, f); err != nil {
 		return err
 	}
 	if err := s.createLoadBalancerConfig(ctx, f); err != nil {
+		return err
+	}
+	if err := s.createTargetGroupConfig(ctx, f); err != nil {
 		return err
 	}
 	if err := s.createDeployment(ctx, f); err != nil {
@@ -175,6 +181,11 @@ func (s *commonResourceStack) createLoadBalancerConfig(ctx context.Context, f *f
 	return f.K8sClient.Create(ctx, s.lbc)
 }
 
+func (s *commonResourceStack) createTargetGroupConfig(ctx context.Context, f *framework.Framework) error {
+	f.Logger.Info("creating target group config", "tgc", k8s.NamespacedName(s.tgc))
+	return f.K8sClient.Create(ctx, s.tgc)
+}
+
 func (s *commonResourceStack) createGateway(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("creating gateway", "gw", k8s.NamespacedName(s.gw))
 	return f.K8sClient.Create(ctx, s.gw)
@@ -265,6 +276,10 @@ func (s *commonResourceStack) deleteGatewayClass(ctx context.Context, f *framewo
 
 func (s *commonResourceStack) deleteLoadbalancerConfig(ctx context.Context, f *framework.Framework) error {
 	return f.K8sClient.Delete(ctx, s.lbc)
+}
+
+func (s *commonResourceStack) deleteTargetGroupConfig(ctx context.Context, f *framework.Framework) error {
+	return f.K8sClient.Delete(ctx, s.tgc)
 }
 
 func (s *commonResourceStack) allocateNamespace(ctx context.Context, f *framework.Framework) error {

@@ -1793,9 +1793,20 @@ func Test_buildTargetGroupHealthCheckPath(t *testing.T) {
 			hcProtocol: elbv2model.ProtocolTCP,
 		},
 		{
+			name:             "default - tcp - with cfg",
+			hcProtocol:       elbv2model.ProtocolTCP,
+			targetGroupProps: &elbv2gw.TargetGroupProps{},
+		},
+		{
 			name:       "default - http",
 			hcProtocol: elbv2model.ProtocolHTTP,
 			expected:   &httpDefaultPath,
+		},
+		{
+			name:             "default - http - with cfg",
+			hcProtocol:       elbv2model.ProtocolHTTP,
+			expected:         &httpDefaultPath,
+			targetGroupProps: &elbv2gw.TargetGroupProps{},
 		},
 		{
 			name:              "default - grpc",

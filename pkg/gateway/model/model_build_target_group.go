@@ -552,7 +552,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckPath(targetGro
 		return nil
 	}
 
-	if targetGroupProps != nil && targetGroupProps.HealthCheckConfig.HealthCheckPath != nil {
+	if targetGroupProps != nil && targetGroupProps.HealthCheckConfig != nil && targetGroupProps.HealthCheckConfig.HealthCheckPath != nil {
 		return targetGroupProps.HealthCheckConfig.HealthCheckPath
 	}
 
