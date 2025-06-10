@@ -6,44 +6,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
-
-// AddLoadBalancerConfigurationFinalizers add finalizer to load balancer configuration when it is in use by gateway or gatewayClass
-func AddLoadBalancerConfigurationFinalizers(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, k8sClient client.Client, manager k8s.FinalizerManager, controllerName string) error {
-	// add finalizer to lbConfig referred by gatewayClass
-	if gwClass.Spec.ParametersRef != nil && string(gwClass.Spec.ParametersRef.Kind) == constants.LoadBalancerConfiguration {
-		lbConfig := &elbv2gw.LoadBalancerConfiguration{}
-		if err := k8sClient.Get(ctx, types.NamespacedName{
-			Namespace: string(*gwClass.Spec.ParametersRef.Namespace),
-			Name:      gwClass.Spec.ParametersRef.Name,
-		}, lbConfig); err != nil {
-			return client.IgnoreNotFound(err)
-		}
-		if err := manager.AddFinalizers(ctx, lbConfig, shared_constants.LoadBalancerConfigurationFinalizer); err != nil {
-			return err
-		}
-	}
-
-	// add finalizer to lbConfig referred by gateway
-	if gw.Spec.Infrastructure != nil && gw.Spec.Infrastructure.ParametersRef != nil && string(gw.Spec.Infrastructure.ParametersRef.Kind) == constants.LoadBalancerConfiguration {
-		lbConfig := &elbv2gw.LoadBalancerConfiguration{}
-		if err := k8sClient.Get(ctx, types.NamespacedName{
-			Namespace: gw.Namespace,
-			Name:      gw.Spec.Infrastructure.ParametersRef.Name,
-		}, lbConfig); err != nil {
-			return client.IgnoreNotFound(err)
-		}
-		if err := manager.AddFinalizers(ctx, lbConfig, shared_constants.LoadBalancerConfigurationFinalizer); err != nil {
-			return err
-		}
-	}
-	return nil
-}
 
 func RemoveLoadBalancerConfigurationFinalizers(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, k8sClient client.Client, manager k8s.FinalizerManager, controllerNames sets.Set[string]) error {
 	// remove finalizer from lbConfig - gatewayClass
@@ -102,10 +69,10 @@ func ResolveLoadBalancerConfig(ctx context.Context, k8sClient client.Client, ref
 }
 
 func IsLBConfigInUse(ctx context.Context, lbConfig *elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, k8sClient client.Client, controllerNames sets.Set[string]) bool {
-	return IsLBConfigInUseByGatewayClass(ctx, lbConfig, gwClass, k8sClient, controllerNames) ||
+	return IsLBConfigInUseByGatewayClass(ctx, lbConfig, gw, gwClass, k8sClient, controllerNames) ||
 		IsLBConfigInUseByGateway(ctx, lbConfig, gw, k8sClient, controllerNames)
 }
-func IsLBConfigInUseByGatewayClass(ctx context.Context, lbConfig *elbv2gw.LoadBalancerConfiguration, gwClass *gwv1.GatewayClass, k8sClient client.Client, controllerNames sets.Set[string]) bool {
+func IsLBConfigInUseByGatewayClass(ctx context.Context, lbConfig *elbv2gw.LoadBalancerConfiguration, currGw *gwv1.Gateway, gwClass *gwv1.GatewayClass, k8sClient client.Client, controllerNames sets.Set[string]) bool {
 	// fetch all the gateway classes referenced by lb config
 	gwClassesUsingLBConfig := GetImpactedGatewayClassesFromLbConfig(ctx, k8sClient, lbConfig, controllerNames)
 
@@ -129,8 +96,15 @@ func IsLBConfigInUseByGatewayClass(ctx context.Context, lbConfig *elbv2gw.LoadBa
 	// are found to be managing one or more active Gateway resources.
 	for _, controllerName := range controllerNames.UnsortedList() {
 		for _, gwClassUsingLBConfig := range gwClassesUsingLBConfig {
-			if len(GetGatewaysManagedByGatewayClass(ctx, k8sClient, gwClassUsingLBConfig, controllerName)) > 0 {
-				return true
+			gwList := GetGatewaysManagedByGatewayClass(ctx, k8sClient, gwClassUsingLBConfig, controllerName)
+			if currGw == nil {
+				return len(gwList) > 0
+			}
+			//skip the current gw from the list if it is not nil
+			for _, gw := range gwList {
+				if k8s.NamespacedName(currGw) != k8s.NamespacedName(gw) {
+					return true
+				}
 			}
 		}
 	}
@@ -149,7 +123,7 @@ func IsLBConfigInUseByGateway(ctx context.Context, lbConfig *elbv2gw.LoadBalance
 	}
 	// check if lbConfig is referred by any other gateway
 	for _, gwUsingLBConfig := range gwsUsingLBConfig {
-		if gwUsingLBConfig.Name != gw.Name || gwUsingLBConfig.Namespace != gw.Namespace {
+		if k8s.NamespacedName(gwUsingLBConfig) != k8s.NamespacedName(gw) {
 			return true
 		}
 	}

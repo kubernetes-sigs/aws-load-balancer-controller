@@ -165,7 +165,13 @@ type gatewayReconciler struct {
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
 	err := r.reconcileHelper(ctx, req)
-	return runtime.HandleReconcileError(err, r.logger)
+	res, reconcileErr := runtime.HandleReconcileError(err, r.logger)
+	if reconcileErr != nil {
+		return res, reconcileErr
+	}
+	//if reconcile was successful, then clean up residual finalizers on unused resources
+	r.cleanUpResidualFinalizers()
+	return res, nil
 }
 
 func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.Request) error {
@@ -194,7 +200,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		return nil
 	}
 
-	mergedLbConfig, err := r.cfgResolver.getLoadBalancerConfigForGateway(ctx, r.k8sClient, gw, gwClass)
+	mergedLbConfig, err := r.cfgResolver.getLoadBalancerConfigForGateway(ctx, r.k8sClient, r.finalizerManager, gw, gwClass)
 
 	if err != nil {
 		statusErr := r.updateGatewayStatusFailure(ctx, gw, gwv1.GatewayReasonInvalid, err.Error())
@@ -270,12 +276,6 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 	// add gateway finalizer
 	if err := r.finalizerManager.AddFinalizers(ctx, gw, r.finalizer); err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add gateway finalizer due to %v", err))
-		return err
-	}
-
-	// add load balancer configuration finalizer
-	if err := gatewayutils.AddLoadBalancerConfigurationFinalizers(ctx, gw, gwClass, r.k8sClient, r.finalizerManager, r.controllerName); err != nil {
-		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.LoadBalancerConfigurationEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add load balancer configuration finalizer due to %v", err))
 		return err
 	}
 
@@ -544,4 +544,24 @@ func isGatewayProgrammed(lbStatus elbv2model.LoadBalancerStatus) bool {
 
 	return lbStatus.ProvisioningState.Code == elbv2types.LoadBalancerStateEnumActive || lbStatus.ProvisioningState.Code == elbv2types.LoadBalancerStateEnumActiveImpaired
 
+}
+
+// We remove the finalizers on any lb config which is not being used anymore by any gateways so that these lb configs can be deleted safely
+// This is a low priority task and hence we dont want to block reconciler by throwing any errors if the removal of finalizers fails for some reason. It may be retried later.
+func (r *gatewayReconciler) cleanUpResidualFinalizers() {
+	lbConfigList := &elbv2gw.LoadBalancerConfigurationList{}
+	// TODO: Implement cache
+	if err := r.k8sClient.List(context.Background(), lbConfigList); err != nil {
+		r.logger.Error(err, "failed to fetch load balancer configurations for clean up residual finalizersß")
+		return
+	}
+	for i, _ := range lbConfigList.Items {
+		lbConfig := &lbConfigList.Items[i]
+		if k8s.HasFinalizer(lbConfig, shared_constants.LoadBalancerConfigurationFinalizer) && !gatewayutils.IsLBConfigInUse(context.Background(), lbConfig, nil, nil, r.k8sClient, sets.New(r.controllerName)) {
+			if err := r.finalizerManager.RemoveFinalizers(context.Background(), lbConfig, shared_constants.LoadBalancerConfigurationFinalizer); err != nil {
+				r.logger.V(1).Info("failed to remove finalizers on load balancer configuration", "load balancer configuration", k8s.NamespacedName(lbConfig))
+			}
+			return
+		}
+	}
 }

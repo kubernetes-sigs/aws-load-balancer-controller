@@ -43,13 +43,15 @@ type enqueueRequestsForLoadBalancerConfigurationEvent struct {
 }
 
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Create(ctx context.Context, e event.TypedCreateEvent[*elbv2gw.LoadBalancerConfiguration], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	// We don't need to respond to create events.
+	lbconfig := e.Object
+	h.logger.V(1).Info("enqueue loadbalancerconfiguration create event", "loadbalancerconfiguration", k8s.NamespacedName(lbconfig))
+	h.enqueueImpactedGatewayClass(ctx, lbconfig, queue)
 }
 
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*elbv2gw.LoadBalancerConfiguration], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	lbconfigNew := e.ObjectNew
 	h.logger.V(1).Info("enqueue loadbalancerconfiguration update event", "loadbalancerconfiguration", k8s.NamespacedName(lbconfigNew))
-	// to clean up any residual unsed lb configs with finalizers on them
+	// to remove finalizers on this residual unused lb config so that the deletion can be done on these
 	if !lbconfigNew.DeletionTimestamp.IsZero() && k8s.HasFinalizer(lbconfigNew, shared_constants.LoadBalancerConfigurationFinalizer) && !gatewayutils.IsLBConfigInUse(ctx, lbconfigNew, nil, nil, h.k8sClient, h.gwControllers) {
 		if err := h.finalizerManager.RemoveFinalizers(ctx, lbconfigNew, shared_constants.LoadBalancerConfigurationFinalizer); err != nil {
 			h.logger.V(1).Info("failed to remove finalizers on load balancer configuration as its currently in use", "load balancer configuration", lbconfigNew.Name)
