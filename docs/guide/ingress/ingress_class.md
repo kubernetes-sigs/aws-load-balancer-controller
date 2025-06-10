@@ -202,6 +202,7 @@ Cluster administrators can use the optional `inboundCIDRs` field to specify the 
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/inbound-cidrs` annotation.
 
 #### spec.certificateArn
+
 Cluster administrators can use the optional `certificateARN` field to specify the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
 
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/certificate-arn` annotation.
@@ -289,3 +290,9 @@ Cluster administrators can use `PrefixListsIDs` field to specify the managed pre
 
 1. If `PrefixListsIDs` is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.
 2. If `PrefixListsIDs` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/security-group-prefix-lists` annotation to specify the load balancer prefix lists.
+
+#### spec.wafv2AclArn
+
+Cluster administrators can use the optional `wafv2AclArn` field to specify ARN for the Amazon WAFv2 web ACL.
+Only Regional WAFv2 is supported.
+When this annotation is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the annotation value to 'none'.
