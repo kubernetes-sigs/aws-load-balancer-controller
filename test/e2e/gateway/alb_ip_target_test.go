@@ -11,10 +11,10 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 )
 
-var _ = Describe("test nlb gateway using instance targets reconciled by the aws load balancer controller", func() {
+var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws load balancer controller", func() {
 	var (
 		ctx     context.Context
-		stack   NLBTestStack
+		stack   ALBTestStack
 		dnsName string
 		lbARN   string
 	)
@@ -23,19 +23,25 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 			Skip("Skipping gateway tests")
 		}
 		ctx = context.Background()
-		stack = NLBTestStack{}
+		stack = ALBTestStack{}
 	})
 	AfterEach(func() {
 		stack.Cleanup(ctx, tf)
 	})
-	Context("with NLB instance target configuration", func() {
+	Context("with ALB ip target configuration", func() {
 		BeforeEach(func() {})
 		It("should provision internet-facing load balancer resources", func() {
 			interf := elbv2gw.LoadBalancerSchemeInternetFacing
 			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
 				Scheme: &interf,
 			}
-			tgSpec := elbv2gw.TargetGroupConfigurationSpec{}
+			ipTargetType := elbv2gw.TargetTypeIP
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+				},
+			}
+
 			By("deploying stack", func() {
 				err := stack.Deploy(ctx, tf, lbcSpec, tgSpec)
 				Expect(err).NotTo(HaveOccurred())
@@ -53,19 +59,24 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
+			tgMap := map[string]string{
+				"80": "HTTP",
+			}
+
+			targetNumber := int(*stack.albResourceStack.commonStack.dp.Spec.Replicas)
+
 			By("verifying AWS loadbalancer resources", func() {
-				nodeList, err := stack.GetWorkerNodes(ctx, tf)
-				Expect(err).ToNot(HaveOccurred())
-				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:         "network",
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:         "application",
 					Scheme:       "internet-facing",
-					TargetType:   "instance",
-					Listeners:    stack.nlbResourceStack.getListenersPortMap(),
-					TargetGroups: stack.nlbResourceStack.getTargetGroupNodePortMap(),
-					NumTargets:   len(nodeList),
+					TargetType:   "ip",
+					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					TargetGroups: tgMap,
+					NumTargets:   targetNumber,
 					TargetGroupHC: &verifier.TargetGroupHC{
-						Protocol:           "TCP",
+						Protocol:           "HTTP",
 						Port:               "traffic-port",
+						Path:               "/",
 						Interval:           15,
 						Timeout:            5,
 						HealthyThreshold:   3,
@@ -75,9 +86,7 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("waiting for target group targets to be healthy", func() {
-				nodeList, err := stack.GetWorkerNodes(ctx, tf)
-				Expect(err).ToNot(HaveOccurred())
-				err = verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, len(nodeList))
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("waiting until DNS name is available", func() {

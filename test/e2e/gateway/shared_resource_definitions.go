@@ -98,6 +98,17 @@ func buildLoadBalancerConfig(spec elbv2gw.LoadBalancerConfigurationSpec) *elbv2g
 	return lbc
 }
 
+func buildTargetGroupConfig(spec elbv2gw.TargetGroupConfigurationSpec, svc *corev1.Service) *elbv2gw.TargetGroupConfiguration {
+	spec.TargetReference.Name = svc.Name
+	tgc := &elbv2gw.TargetGroupConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultTgConfigName,
+		},
+		Spec: spec,
+	}
+	return tgc
+}
+
 func buildBasicGatewaySpec(gwc *gwv1.GatewayClass, protocol gwv1.ProtocolType) *gwv1.Gateway {
 	gw := &gwv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{

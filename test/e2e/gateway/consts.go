@@ -6,4 +6,5 @@ const (
 	defaultName             = "gateway-e2e"
 	defaultGatewayClassName = "gwclass-e2e"
 	defaultLbConfigName     = "lbconfig-e2e"
+	defaultTgConfigName     = "tgconfig-e2e"
 )
