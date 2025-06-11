@@ -2,10 +2,14 @@ package gateway
 
 import (
 	"context"
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
@@ -15,6 +19,11 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 	mergedConfigName := "mergedConfig"
 	gwClassName := "gwclass"
 	gwName := "gw"
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	k8sClient := mock_client.NewMockClient(ctrl)
+	k8sFinalizerManager := k8s.NewMockFinalizerManager(ctrl)
 
 	testCases := []struct {
 		name             string
@@ -27,12 +36,15 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 		resolvedGatewayClassConfig *elbv2gw.LoadBalancerConfiguration
 		resolvedGatewayConfig      *elbv2gw.LoadBalancerConfiguration
 
+		setupMocks func()
+
 		expectErr bool
 		expected  elbv2gw.LoadBalancerConfiguration
 	}{
 		{
 			name:              "gw class isnt accepted",
 			inputGatewayClass: &gwv1.GatewayClass{},
+			setupMocks:        func() {},
 			expectErr:         true,
 		},
 		{
@@ -47,7 +59,8 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 					},
 				},
 			},
-			expectErr: true,
+			setupMocks: func() {},
+			expectErr:  true,
 		},
 		{
 			name: "gw class isnt accepted -- condition is explicitly false",
@@ -61,7 +74,8 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 					},
 				},
 			},
-			expectErr: true,
+			setupMocks: func() {},
+			expectErr:  true,
 		},
 		{
 			name: "gw class accepted -- fail to get gw class config",
@@ -106,6 +120,11 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 				return &elbv2gw.LoadBalancerConfiguration{
 					ObjectMeta: metav1.ObjectMeta{ResourceVersion: "1"},
 				}, nil
+			},
+			setupMocks: func() {
+				k8sFinalizerManager.EXPECT().
+					AddFinalizers(context.Background(), gomock.Any(), shared_constants.LoadBalancerConfigurationFinalizer).
+					Return(nil)
 			},
 			expectErr: true,
 		},
@@ -156,6 +175,11 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{ResourceVersion: "1"},
 				}, nil
 			},
+			setupMocks: func() {
+				k8sFinalizerManager.EXPECT().
+					AddFinalizers(context.Background(), gomock.Any(), shared_constants.LoadBalancerConfigurationFinalizer).
+					Return(nil)
+			},
 			expectErr: true,
 		},
 		{
@@ -188,7 +212,8 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 				}
 				return nil, errors.New("bad thing")
 			},
-			expected: elbv2gw.LoadBalancerConfiguration{},
+			setupMocks: func() {},
+			expected:   elbv2gw.LoadBalancerConfiguration{},
 		},
 		{
 			name: "gw class accepted -- only gw class configs",
@@ -234,6 +259,11 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 			expected: elbv2gw.LoadBalancerConfiguration{
 				ObjectMeta: metav1.ObjectMeta{Name: "gwclass", ResourceVersion: "1"},
 			},
+			setupMocks: func() {
+				k8sFinalizerManager.EXPECT().
+					AddFinalizers(context.Background(), gomock.Any(), shared_constants.LoadBalancerConfigurationFinalizer).
+					Return(nil)
+			},
 		},
 		{
 			name: "gw class accepted -- only gw config",
@@ -277,6 +307,11 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 			},
 			expected: elbv2gw.LoadBalancerConfiguration{
 				ObjectMeta: metav1.ObjectMeta{Name: "gw", ResourceVersion: "1"},
+			},
+			setupMocks: func() {
+				k8sFinalizerManager.EXPECT().
+					AddFinalizers(context.Background(), gomock.Any(), shared_constants.LoadBalancerConfigurationFinalizer).
+					Return(nil)
 			},
 		},
 		{
@@ -327,6 +362,11 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 			expected: elbv2gw.LoadBalancerConfiguration{
 				ObjectMeta: metav1.ObjectMeta{Name: mergedConfigName},
 			},
+			setupMocks: func() {
+				k8sFinalizerManager.EXPECT().
+					AddFinalizers(context.Background(), gomock.Any(), shared_constants.LoadBalancerConfigurationFinalizer).
+					Return(nil).Times(2)
+			},
 		},
 		{
 			name: "gw class accepted -- but processed config version has a mismatch",
@@ -369,6 +409,11 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{Name: "gwclass", ResourceVersion: "1"},
 				}, nil
 			},
+			setupMocks: func() {
+				k8sFinalizerManager.EXPECT().
+					AddFinalizers(context.Background(), gomock.Any(), shared_constants.LoadBalancerConfigurationFinalizer).
+					Return(nil)
+			},
 			expectErr: true,
 		},
 	}
@@ -384,8 +429,8 @@ func Test_getLoadBalancerConfigForGateway(t *testing.T) {
 				},
 				configResolverFn: tc.configResolverFn,
 			}
-
-			result, err := r.getLoadBalancerConfigForGateway(context.Background(), nil, tc.inputGateway, tc.inputGatewayClass)
+			tc.setupMocks()
+			result, err := r.getLoadBalancerConfigForGateway(context.Background(), k8sClient, k8sFinalizerManager, tc.inputGateway, tc.inputGatewayClass)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return

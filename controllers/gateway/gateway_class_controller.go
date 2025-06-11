@@ -11,6 +11,8 @@ import (
 	gatewayclasseventhandlers "sigs.k8s.io/aws-load-balancer-controller/controllers/gateway/eventhandlers/gatewayclass"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,17 +30,18 @@ const (
 )
 
 // NewGatewayClassReconciler constructs a reconciler that responds to gateway class object changes
-func NewGatewayClassReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, controllerConfig config.ControllerConfig, enabledControllers sets.Set[string], logger logr.Logger) Reconciler {
+func NewGatewayClassReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, controllerConfig config.ControllerConfig, finalizerManager k8s.FinalizerManager, enabledControllers sets.Set[string], logger logr.Logger) Reconciler {
 
 	return &gatewayClassReconciler{
 		k8sClient:                   k8sClient,
 		eventRecorder:               eventRecorder,
 		logger:                      logger,
 		enabledControllers:          enabledControllers,
+		finalizerManager:            finalizerManager,
 		workers:                     controllerConfig.GatewayClassMaxConcurrentReconciles,
 		updateGwClassAcceptedFn:     updateGatewayClassAcceptedCondition,
 		updateLastProcessedConfigFn: updateGatewayClassLastProcessedConfig,
-		configResolverFn:            resolveLoadBalancerConfig,
+		configResolverFn:            gatewayutils.ResolveLoadBalancerConfig,
 	}
 }
 
@@ -48,6 +51,7 @@ type gatewayClassReconciler struct {
 	eventRecorder      record.EventRecorder
 	logger             logr.Logger
 	enabledControllers sets.Set[string]
+	finalizerManager   k8s.FinalizerManager
 	workers            int
 
 	updateGwClassAcceptedFn     func(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass, status metav1.ConditionStatus, reason string, message string) error
@@ -58,7 +62,7 @@ type gatewayClassReconciler struct {
 func (r *gatewayClassReconciler) SetupWatches(_ context.Context, ctrl controller.Controller, mgr ctrl.Manager) error {
 
 	gwClassEventChan := make(chan event.TypedGenericEvent[*gwv1.GatewayClass])
-	lbEventHandler := gatewayclasseventhandlers.NewEnqueueRequestsForLoadBalancerConfigurationEvent(gwClassEventChan, r.k8sClient, r.eventRecorder, r.enabledControllers, r.logger)
+	lbEventHandler := gatewayclasseventhandlers.NewEnqueueRequestsForLoadBalancerConfigurationEvent(gwClassEventChan, r.k8sClient, r.eventRecorder, r.enabledControllers, r.finalizerManager, r.logger)
 
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.GatewayClass{}, &handler.TypedEnqueueRequestForObject[*gwv1.GatewayClass]{})); err != nil {
 		return err

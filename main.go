@@ -274,6 +274,7 @@ func main() {
 			mgr.GetClient(),
 			mgr.GetEventRecorderFor(gateway_constants.GatewayClassController),
 			controllerCFG,
+			finalizerManager,
 			enabledControllers,
 			mgr.GetLogger().WithName("gatewayclass-controller"),
 		)

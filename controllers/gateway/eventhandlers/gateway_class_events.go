@@ -5,6 +5,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -15,12 +16,13 @@ import (
 
 // NewEnqueueRequestsForGatewayClassEvent creates handler for GatewayClass resources
 func NewEnqueueRequestsForGatewayClassEvent(
-	k8sClient client.Client, eventRecorder record.EventRecorder, gwController string, logger logr.Logger) handler.TypedEventHandler[*gatewayv1.GatewayClass, reconcile.Request] {
+	k8sClient client.Client, eventRecorder record.EventRecorder, gwController string, finalizerManager k8s.FinalizerManager, logger logr.Logger) handler.TypedEventHandler[*gatewayv1.GatewayClass, reconcile.Request] {
 	return &enqueueRequestsForGatewayClassEvent{
-		k8sClient:     k8sClient,
-		eventRecorder: eventRecorder,
-		gwController:  gwController,
-		logger:        logger,
+		k8sClient:        k8sClient,
+		finalizerManager: finalizerManager,
+		eventRecorder:    eventRecorder,
+		gwController:     gwController,
+		logger:           logger,
 	}
 }
 
@@ -28,10 +30,11 @@ var _ handler.TypedEventHandler[*gatewayv1.GatewayClass, reconcile.Request] = (*
 
 // enqueueRequestsForGatewayClassEvent handles GatewayClass events
 type enqueueRequestsForGatewayClassEvent struct {
-	k8sClient     client.Client
-	eventRecorder record.EventRecorder
-	gwController  string
-	logger        logr.Logger
+	k8sClient        client.Client
+	eventRecorder    record.EventRecorder
+	gwController     string
+	finalizerManager k8s.FinalizerManager
+	logger           logr.Logger
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gatewayv1.GatewayClass], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
@@ -57,14 +60,13 @@ func (h *enqueueRequestsForGatewayClassEvent) Generic(ctx context.Context, e eve
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) enqueueImpactedGateways(ctx context.Context, gwClass *gatewayv1.GatewayClass, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gwList := GetGatewaysManagedByLBController(ctx, h.k8sClient, h.gwController)
+	gwList := gatewayutils.GetGatewaysManagedByGatewayClass(ctx, h.k8sClient, gwClass, h.gwController)
 
 	for _, gw := range gwList {
-		if string(gw.Spec.GatewayClassName) == gwClass.Name {
-			h.logger.V(1).Info("enqueue gateway for gatewayclass event",
-				"gatewayclass", gwClass.GetName(),
-				"gateway", k8s.NamespacedName(gw))
-			queue.Add(reconcile.Request{NamespacedName: k8s.NamespacedName(gw)})
-		}
+		h.logger.V(1).Info("enqueue gateway for gatewayclass event",
+			"gatewayclass", gwClass.GetName(),
+			"gateway", k8s.NamespacedName(gw))
+		queue.Add(reconcile.Request{NamespacedName: k8s.NamespacedName(gw)})
+
 	}
 }
