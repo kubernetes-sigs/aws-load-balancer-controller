@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	mock_client "sigs.k8s.io/aws-load-balancer-controller/mocks/controller-runtime/client"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
@@ -85,7 +84,6 @@ func Test_RemoveLoadBalancerConfigurationFinalizers(t *testing.T) {
 	k8sClient := mock_client.NewMockClient(ctrl)
 	k8sFinalizerManager := k8s.NewMockFinalizerManager(ctrl)
 	ctx := context.Background()
-	controllerName := "test-controller"
 	testGwName := "test-gw"
 	testNamespace := "test-ns"
 	testLbConfigName := "test-lb-config"
@@ -124,14 +122,15 @@ func Test_RemoveLoadBalancerConfigurationFinalizers(t *testing.T) {
 						obj.Finalizers = []string{shared_constants.LoadBalancerConfigurationFinalizer}
 						return nil
 					})
-
+				k8sClient.EXPECT().
+					List(ctx, &gwv1.GatewayClassList{}, gomock.Any()).
+					Return(nil)
 				k8sClient.EXPECT().
 					List(ctx, &gwv1.GatewayList{}, gomock.Any()).
 					Return(nil)
 				k8sClient.EXPECT().
-					List(ctx, &gwv1.GatewayClassList{}, gomock.Any()).
+					List(ctx, &gwv1.GatewayList{}, gomock.Any()).
 					Return(nil)
-
 				k8sFinalizerManager.EXPECT().
 					RemoveFinalizers(ctx, gomock.Any(), shared_constants.LoadBalancerConfigurationFinalizer).
 					Return(nil)
@@ -162,14 +161,15 @@ func Test_RemoveLoadBalancerConfigurationFinalizers(t *testing.T) {
 						obj.Finalizers = []string{shared_constants.LoadBalancerConfigurationFinalizer}
 						return nil
 					})
-
+				k8sClient.EXPECT().
+					List(ctx, &gwv1.GatewayClassList{}, gomock.Any()).
+					Return(nil)
 				k8sClient.EXPECT().
 					List(ctx, &gwv1.GatewayList{}, gomock.Any()).
 					Return(nil)
 				k8sClient.EXPECT().
-					List(ctx, &gwv1.GatewayClassList{}, gomock.Any()).
+					List(ctx, &gwv1.GatewayList{}, gomock.Any()).
 					Return(nil)
-
 				k8sFinalizerManager.EXPECT().
 					RemoveFinalizers(ctx, gomock.Any(), shared_constants.LoadBalancerConfigurationFinalizer).
 					Return(fmt.Errorf("failed to remove finalizer"))
@@ -181,7 +181,7 @@ func Test_RemoveLoadBalancerConfigurationFinalizers(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMocks()
-			err := RemoveLoadBalancerConfigurationFinalizers(ctx, tt.gateway, tt.gatewayClass, k8sClient, k8sFinalizerManager, sets.New(controllerName))
+			err := RemoveLoadBalancerConfigurationFinalizers(ctx, tt.gateway, tt.gatewayClass, k8sClient, k8sFinalizerManager)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
@@ -198,7 +198,6 @@ func Test_isLBConfigInUse(t *testing.T) {
 
 	k8sClient := mock_client.NewMockClient(ctrl)
 	ctx := context.Background()
-	controllerName := "test-controller"
 	testNamespace := "test-ns"
 
 	tests := []struct {
@@ -267,7 +266,7 @@ func Test_isLBConfigInUse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupMocks()
-			got := IsLBConfigInUse(ctx, tt.lbConfig, tt.gateway, tt.gatewayClass, k8sClient, sets.New(controllerName))
+			got := IsLBConfigInUse(ctx, tt.lbConfig, tt.gateway, tt.gatewayClass, k8sClient)
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -3,7 +3,6 @@ package eventhandlers
 import (
 	"context"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
@@ -53,13 +52,6 @@ func (h *enqueueRequestsForGatewayClassEvent) Update(ctx context.Context, e even
 
 // Delete is not implemented for this handler as GatewayClass deletion should be finalized and is prevented while referenced by Gateways
 func (h *enqueueRequestsForGatewayClassEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*gatewayv1.GatewayClass], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gwClass := e.Object
-	h.logger.V(1).Info("enqueue gatewayclass delete event", "gatewayclass", gwClass.Name)
-	// remove the load balancer configuration finalizer if there are any referred by this gwclass
-	if err := gatewayutils.RemoveLoadBalancerConfigurationFinalizers(ctx, nil, gwClass, h.k8sClient, h.finalizerManager, sets.New(h.gwController)); err != nil {
-		h.logger.V(1).Info("failed to remove finalizers on load balancer configuration for ", "gateway class", gwClass.Name)
-		return
-	}
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gatewayv1.GatewayClass], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {

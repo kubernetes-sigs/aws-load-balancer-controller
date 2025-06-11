@@ -52,7 +52,7 @@ func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Update(ctx context.Co
 	lbconfigNew := e.ObjectNew
 	h.logger.V(1).Info("enqueue loadbalancerconfiguration update event", "loadbalancerconfiguration", k8s.NamespacedName(lbconfigNew))
 	// to remove finalizers on this residual unused lb config so that the deletion can be done on these
-	if !lbconfigNew.DeletionTimestamp.IsZero() && k8s.HasFinalizer(lbconfigNew, shared_constants.LoadBalancerConfigurationFinalizer) && !gatewayutils.IsLBConfigInUse(ctx, lbconfigNew, nil, nil, h.k8sClient, h.gwControllers) {
+	if !lbconfigNew.DeletionTimestamp.IsZero() && k8s.HasFinalizer(lbconfigNew, shared_constants.LoadBalancerConfigurationFinalizer) && !gatewayutils.IsLBConfigInUse(ctx, lbconfigNew, nil, nil, h.k8sClient) {
 		if err := h.finalizerManager.RemoveFinalizers(ctx, lbconfigNew, shared_constants.LoadBalancerConfigurationFinalizer); err != nil {
 			h.logger.V(1).Info("failed to remove finalizers on load balancer configuration as its currently in use", "load balancer configuration", lbconfigNew.Name)
 			return
