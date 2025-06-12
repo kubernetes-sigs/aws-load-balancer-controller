@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/gatewayutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -42,6 +43,7 @@ func NewGatewayClassReconciler(k8sClient client.Client, eventRecorder record.Eve
 		updateGwClassAcceptedFn:     updateGatewayClassAcceptedCondition,
 		updateLastProcessedConfigFn: updateGatewayClassLastProcessedConfig,
 		configResolverFn:            gatewayutils.ResolveLoadBalancerConfig,
+		gatewayResolverFn:           gatewayutils.GetGatewaysManagedByGatewayClass,
 	}
 }
 
@@ -57,12 +59,13 @@ type gatewayClassReconciler struct {
 	updateGwClassAcceptedFn     func(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass, status metav1.ConditionStatus, reason string, message string) error
 	updateLastProcessedConfigFn func(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass, lbConf *elbv2gw.LoadBalancerConfiguration) error
 	configResolverFn            func(ctx context.Context, k8sClient client.Client, reference *gwv1.ParametersReference) (*elbv2gw.LoadBalancerConfiguration, error)
+	gatewayResolverFn           func(ctx context.Context, k8sClient client.Client, gwClass *gwv1.GatewayClass) ([]*gwv1.Gateway, error)
 }
 
 func (r *gatewayClassReconciler) SetupWatches(_ context.Context, ctrl controller.Controller, mgr ctrl.Manager) error {
 
 	gwClassEventChan := make(chan event.TypedGenericEvent[*gwv1.GatewayClass])
-	lbEventHandler := gatewayclasseventhandlers.NewEnqueueRequestsForLoadBalancerConfigurationEvent(gwClassEventChan, r.k8sClient, r.eventRecorder, r.enabledControllers, r.finalizerManager, r.logger)
+	lbEventHandler := gatewayclasseventhandlers.NewEnqueueRequestsForLoadBalancerConfigurationEvent(gwClassEventChan, r.k8sClient, r.eventRecorder, r.enabledControllers, r.logger)
 
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.GatewayClass{}, &handler.TypedEnqueueRequestForObject[*gwv1.GatewayClass]{})); err != nil {
 		return err
@@ -100,6 +103,21 @@ func (r *gatewayClassReconciler) reconcile(ctx context.Context, req reconcile.Re
 		return nil
 	}
 
+	if gwClass.DeletionTimestamp == nil || gwClass.DeletionTimestamp.IsZero() {
+		return r.handleUpdate(ctx, gwClass)
+	}
+
+	return r.handleDelete(ctx, gwClass)
+}
+
+func (r *gatewayClassReconciler) handleUpdate(ctx context.Context, gwClass *gwv1.GatewayClass) error {
+	if !k8s.HasFinalizer(gwClass, shared_constants.GatewayClassFinalizer) {
+		err := r.finalizerManager.AddFinalizers(context.Background(), gwClass, shared_constants.GatewayClassFinalizer)
+		if err != nil {
+			return err
+		}
+	}
+
 	var lbConf *elbv2gw.LoadBalancerConfiguration
 
 	lbConf, err := r.configResolverFn(ctx, r.k8sClient, gwClass.Spec.ParametersRef)
@@ -113,17 +131,30 @@ func (r *gatewayClassReconciler) reconcile(ctx context.Context, req reconcile.Re
 
 	err = r.updateLastProcessedConfigFn(ctx, r.k8sClient, gwClass, lbConf)
 	if err != nil {
-		r.logger.Error(err, "Unable to update last processed annotation")
 		return err
 	}
 
 	err = r.updateGwClassAcceptedFn(ctx, r.k8sClient, gwClass, metav1.ConditionTrue, string(gwv1.GatewayClassReasonAccepted), string(gwv1.GatewayClassReasonAccepted))
 	if err != nil {
-		r.logger.Error(err, "Unable to update condition")
 		return err
 	}
 
 	return nil
+}
+
+func (r *gatewayClassReconciler) handleDelete(ctx context.Context, gwClass *gwv1.GatewayClass) error {
+	if !k8s.HasFinalizer(gwClass, shared_constants.GatewayClassFinalizer) {
+		return nil
+	}
+
+	refCount, err := r.gatewayResolverFn(ctx, r.k8sClient, gwClass)
+	if err != nil {
+		return err
+	}
+	if len(refCount) != 0 {
+		return fmt.Errorf("unable to delete GatewayClass [%+v], as it is still referenced by Gateways", gwClass.Name)
+	}
+	return r.finalizerManager.RemoveFinalizers(ctx, gwClass, shared_constants.GatewayClassFinalizer)
 }
 
 func (r *gatewayClassReconciler) getNotFoundMessage(paramRef *gwv1.ParametersReference) string {

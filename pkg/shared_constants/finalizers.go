@@ -10,6 +10,9 @@ const (
 	// ServiceFinalizer the finalizer used on service resources
 	ServiceFinalizer = "service.k8s.aws/resources"
 
+	// GatewayClassFinalizer the finalizer we attach to an in-use LBC GatewayClass
+	GatewayClassFinalizer = "gateway.k8s.aws/gatewayclass"
+
 	// NLBGatewayFinalizer the finalizer we attach to an NLB Gateway resource
 	NLBGatewayFinalizer = "gateway.k8s.aws/nlb"
 

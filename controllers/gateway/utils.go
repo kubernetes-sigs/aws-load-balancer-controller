@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sort"
@@ -158,4 +161,19 @@ func generateRouteList(listenerRoutes map[int32][]routeutils.RouteDescriptor) st
 	sort.Strings(allRoutes)
 
 	return strings.Join(allRoutes, ",")
+}
+
+func getServicesFromRoutes(listenerRouteMap map[int32][]routeutils.RouteDescriptor) []types.NamespacedName {
+	res := sets.New[types.NamespacedName]()
+
+	for _, routes := range listenerRouteMap {
+		for _, route := range routes {
+			for _, rr := range route.GetAttachedRules() {
+				for _, be := range rr.GetBackends() {
+					res.Insert(k8s.NamespacedName(be.Service))
+				}
+			}
+		}
+	}
+	return res.UnsortedList()
 }

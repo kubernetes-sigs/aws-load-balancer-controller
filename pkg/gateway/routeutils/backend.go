@@ -113,12 +113,6 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		// As of right now, this error can only be thrown because of a k8s api error hence no status update.
 		return nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch tg config object"))
 	}
-	// add TGConfig finalizer
-	if tgConfig != nil {
-		if err := AddTargetGroupConfigurationFinalizer(ctx, k8sClient, tgConfig); err != nil {
-			return nil, errors.Wrap(err, fmt.Sprintf("Unable to add finalizer to tg config object"))
-		}
-	}
 
 	if servicePort == nil {
 		initialErrorMessage := fmt.Sprintf("Unable to find service port for port %d", *backendRef.Port)
