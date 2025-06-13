@@ -17,8 +17,8 @@ Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not 
 
 The LBC Gateway API implementation supports the following Gateway API routes:
 
-* L4 (NLBGatewayApi): UDPRoute, TCPRoute, TLSRoute >=v2.13.3
-* L7 (ALBGatewayApi): HTTPRoute
+* L4 (NLBGatewayAPI): UDPRoute, TCPRoute, TLSRoute >=v2.13.3
+* L7 (ALBGatewayAPI): HTTPRoute (Still work in progress, support matching and filtering is not added yet!)
 
 ## Prerequisites
 * LBC >= v2.13.0

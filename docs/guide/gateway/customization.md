@@ -27,6 +27,9 @@ This configuration can then be applied by attaching the `LoadBalancerConfigurati
 **Attaching to a Gateway:**
 When attached directly to a `Gateway` resource, the specified configuration applies specifically to the Load Balancer provisioned for that individual Gateway.
 
+!!! note
+    Make sure that the `LoadBalancerConfiguration` must be in same namepace as the `Gateway`.
+
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -63,7 +66,7 @@ spec:
 
 #### Conflict Resolution for `LoadBalancerConfiguration`
 
-It is possible for a `LoadBalancerConfiguration` to be attached to both a `Gateway` and its associated `GatewayClass`. In such scenarios, when identical fields are specified in both configurations, the LBC employs a merging algorithm to resolve conflicts. The precedence of values is determined by the `mergingMode` field, which is exclusively read from the `GatewayClass`'s `LoadBalancerConfiguration`. If `mergingMode` is not explicitly set, the `GatewayClass` configuration implicitly takes higher precedence.
+It is possible for a `LoadBalancerConfiguration` to be attached to both a `Gateway` and its associated `GatewayClass`. In such scenarios, when identical fields are specified in both configurations, the LBC employs a merging algorithm to resolve conflicts. The precedence of values is determined by the `mergingMode` field, which is exclusively read from the `GatewayClass`'s `LoadBalancerConfiguration`. If `mergingMode` is not explicitly set, the `GatewayClass` configuration implicitly takes higher precedence. For more info on `mergingMode`, refer this [doc](../loadbalancerconfig/#mergingmode)
 
 The following fields exhibit specific merge behaviors:
 
