@@ -1,8 +1,14 @@
 package constants
 
+import "k8s.io/apimachinery/pkg/util/sets"
+
 /*
 Common constants
 */
+
+var (
+	FullGatewayControllerSet = sets.New(ALBGatewayController, NLBGatewayController)
+)
 
 const (
 	// GatewayResourceGroupVersion the groupVersion used by Gateway & GatewayClass resources.
@@ -45,4 +51,10 @@ const (
 const (
 	// GatewayClassController the controller that reconciles gateway class changes
 	GatewayClassController = "aws-lbc-gateway-class-controller"
+
+	//LoadBalancerConfigurationController the controller that reconciles LoadBalancerConfiguration changes
+	LoadBalancerConfigurationController = "aws-lbc-loadbalancerconfiguration-controller"
+
+	//TargetGroupConfigurationController the controller that reconciles TargetGroupConfiguration changes
+	TargetGroupConfigurationController = "aws-lbc-targetgroupconfiguration-controller"
 )

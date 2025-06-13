@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/referencecounter"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -86,22 +87,23 @@ func init() {
 
 // Define a struct to hold common gateway controller dependencies
 type gatewayControllerConfig struct {
-	routeLoader         routeutils.Loader
-	cloud               services.Cloud
-	k8sClient           client.Client
-	controllerCFG       config.ControllerConfig
-	finalizerManager    k8s.FinalizerManager
-	sgReconciler        networking.SecurityGroupReconciler
-	sgManager           networking.SecurityGroupManager
-	elbv2TaggingManager elbv2deploy.TaggingManager
-	subnetResolver      networking.SubnetsResolver
-	vpcInfoProvider     networking.VPCInfoProvider
-	backendSGProvider   networking.BackendSGProvider
-	sgResolver          networking.SecurityGroupResolver
-	metricsCollector    lbcmetrics.MetricCollector
-	reconcileCounters   *metricsutil.ReconcileCounters
-	routeReconciler     routeutils.RouteReconciler
-	networkingManager   networking.NetworkingManager
+	routeLoader             routeutils.Loader
+	cloud                   services.Cloud
+	k8sClient               client.Client
+	controllerCFG           config.ControllerConfig
+	finalizerManager        k8s.FinalizerManager
+	sgReconciler            networking.SecurityGroupReconciler
+	sgManager               networking.SecurityGroupManager
+	elbv2TaggingManager     elbv2deploy.TaggingManager
+	subnetResolver          networking.SubnetsResolver
+	vpcInfoProvider         networking.VPCInfoProvider
+	backendSGProvider       networking.BackendSGProvider
+	sgResolver              networking.SecurityGroupResolver
+	metricsCollector        lbcmetrics.MetricCollector
+	reconcileCounters       *metricsutil.ReconcileCounters
+	routeReconciler         routeutils.RouteReconciler
+	serviceReferenceCounter referencecounter.ServiceReferenceCounter
+	networkingManager       networking.NetworkingManager
 }
 
 func main() {
@@ -223,23 +225,25 @@ func main() {
 			Name: "gateway-route-status-update-reconciler",
 		})
 		routeReconciler := gateway.NewRouteReconciler(delayingQueue, mgr.GetClient(), ctrl.Log.WithName("routeReconciler"))
+		serviceReferenceCounter := referencecounter.NewServiceReferenceCounter()
 
 		gwControllerConfig := &gatewayControllerConfig{
-			cloud:               cloud,
-			k8sClient:           mgr.GetClient(),
-			controllerCFG:       controllerCFG,
-			finalizerManager:    finalizerManager,
-			sgReconciler:        sgReconciler,
-			sgManager:           sgManager,
-			elbv2TaggingManager: elbv2TaggingManager,
-			subnetResolver:      subnetResolver,
-			vpcInfoProvider:     vpcInfoProvider,
-			backendSGProvider:   backendSGProvider,
-			sgResolver:          sgResolver,
-			metricsCollector:    lbcMetricsCollector,
-			reconcileCounters:   reconcileCounters,
-			routeReconciler:     routeReconciler,
-			networkingManager:   networkingManager,
+			cloud:                   cloud,
+			k8sClient:               mgr.GetClient(),
+			controllerCFG:           controllerCFG,
+			finalizerManager:        finalizerManager,
+			sgReconciler:            sgReconciler,
+			sgManager:               sgManager,
+			elbv2TaggingManager:     elbv2TaggingManager,
+			subnetResolver:          subnetResolver,
+			vpcInfoProvider:         vpcInfoProvider,
+			backendSGProvider:       backendSGProvider,
+			sgResolver:              sgResolver,
+			metricsCollector:        lbcMetricsCollector,
+			reconcileCounters:       reconcileCounters,
+			routeReconciler:         routeReconciler,
+			networkingManager:       networkingManager,
+			serviceReferenceCounter: serviceReferenceCounter,
 		}
 
 		enabledControllers := sets.Set[string]{}
@@ -288,6 +292,47 @@ func main() {
 		err = gatewayClassReconciler.SetupWatches(ctx, controller, mgr)
 		if err != nil {
 			setupLog.Error(err, "Unable to set up Gateway Class Watches")
+			os.Exit(1)
+		}
+
+		loadbalancerConfigurationReconciler := gateway.NewLoadbalancerConfigurationReconciler(
+			mgr.GetClient(),
+			mgr.GetEventRecorderFor(gateway_constants.LoadBalancerConfigurationController),
+			controllerCFG,
+			finalizerManager,
+			mgr.GetLogger().WithName("loadbalancerconfiguration-controller"),
+		)
+
+		lbCfgController, err := loadbalancerConfigurationReconciler.SetupWithManager(ctx, mgr)
+		if err != nil {
+			setupLog.Error(err, "Unable to set up LoadBalancerConfiguration Manager")
+			os.Exit(1)
+		}
+
+		err = loadbalancerConfigurationReconciler.SetupWatches(ctx, lbCfgController, mgr)
+		if err != nil {
+			setupLog.Error(err, "Unable to set up LoadBalancerConfiguration Watches")
+			os.Exit(1)
+		}
+
+		targetGroupConfigurationReconciler := gateway.NewTargetGroupConfigurationReconciler(
+			mgr.GetClient(),
+			mgr.GetEventRecorderFor(gateway_constants.LoadBalancerConfigurationController),
+			controllerCFG,
+			serviceReferenceCounter,
+			finalizerManager,
+			mgr.GetLogger().WithName("targetgroupconfiguration-controller"),
+		)
+
+		tgCfgController, err := targetGroupConfigurationReconciler.SetupWithManager(ctx, mgr)
+		if err != nil {
+			setupLog.Error(err, "Unable to set up TargetGroupConfiguration Manager")
+			os.Exit(1)
+		}
+
+		err = targetGroupConfigurationReconciler.SetupWatches(ctx, tgCfgController, mgr)
+		if err != nil {
+			setupLog.Error(err, "Unable to set up TargetGroupConfiguration Watches")
 			os.Exit(1)
 		}
 
@@ -366,6 +411,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 	case gateway_constants.NLBGatewayController:
 		reconciler = gateway.NewNLBGatewayReconciler(
 			cfg.routeLoader,
+			cfg.serviceReferenceCounter,
 			cfg.cloud,
 			cfg.k8sClient,
 			mgr.GetEventRecorderFor(controllerType),
@@ -389,6 +435,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.routeLoader,
 			cfg.cloud,
 			cfg.k8sClient,
+			cfg.serviceReferenceCounter,
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
 			cfg.finalizerManager,

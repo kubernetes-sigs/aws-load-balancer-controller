@@ -16,13 +16,12 @@ import (
 
 // NewEnqueueRequestsForGatewayClassEvent creates handler for GatewayClass resources
 func NewEnqueueRequestsForGatewayClassEvent(
-	k8sClient client.Client, eventRecorder record.EventRecorder, gwController string, finalizerManager k8s.FinalizerManager, logger logr.Logger) handler.TypedEventHandler[*gatewayv1.GatewayClass, reconcile.Request] {
+	k8sClient client.Client, eventRecorder record.EventRecorder, gwController string, logger logr.Logger) handler.TypedEventHandler[*gatewayv1.GatewayClass, reconcile.Request] {
 	return &enqueueRequestsForGatewayClassEvent{
-		k8sClient:        k8sClient,
-		finalizerManager: finalizerManager,
-		eventRecorder:    eventRecorder,
-		gwController:     gwController,
-		logger:           logger,
+		k8sClient:     k8sClient,
+		eventRecorder: eventRecorder,
+		gwController:  gwController,
+		logger:        logger,
 	}
 }
 
@@ -30,11 +29,10 @@ var _ handler.TypedEventHandler[*gatewayv1.GatewayClass, reconcile.Request] = (*
 
 // enqueueRequestsForGatewayClassEvent handles GatewayClass events
 type enqueueRequestsForGatewayClassEvent struct {
-	k8sClient        client.Client
-	eventRecorder    record.EventRecorder
-	gwController     string
-	finalizerManager k8s.FinalizerManager
-	logger           logr.Logger
+	k8sClient     client.Client
+	eventRecorder record.EventRecorder
+	gwController  string
+	logger        logr.Logger
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) Create(ctx context.Context, e event.TypedCreateEvent[*gatewayv1.GatewayClass], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
@@ -60,7 +58,12 @@ func (h *enqueueRequestsForGatewayClassEvent) Generic(ctx context.Context, e eve
 }
 
 func (h *enqueueRequestsForGatewayClassEvent) enqueueImpactedGateways(ctx context.Context, gwClass *gatewayv1.GatewayClass, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
-	gwList := gatewayutils.GetGatewaysManagedByGatewayClass(ctx, h.k8sClient, gwClass, h.gwController)
+	gwList, err := gatewayutils.GetGatewaysManagedByGatewayClass(ctx, h.k8sClient, gwClass)
+
+	if err != nil {
+		h.logger.Error(err, "failed to get gateways managed by gatewayclass", "gwClass", gwClass.Name)
+		return
+	}
 
 	for _, gw := range gwList {
 		h.logger.V(1).Info("enqueue gateway for gatewayclass event",

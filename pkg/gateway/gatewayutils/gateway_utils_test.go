@@ -210,8 +210,9 @@ func Test_GetGatewayClassesManagedByLBController(t *testing.T) {
 				k8sClient.Create(context.Background(), gwClass)
 			}
 
-			got := GetGatewayClassesManagedByLBController(context.Background(), k8sClient, tt.args.gwControllers)
+			got, err := GetGatewayClassesManagedByLBController(context.Background(), k8sClient, tt.args.gwControllers)
 			assert.Equal(t, tt.want, len(got))
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -655,8 +656,9 @@ func Test_GetImpactedGatewayClassesFromLbConfig(t *testing.T) {
 				k8sClient.Create(context.Background(), gwClass)
 			}
 
-			got := GetImpactedGatewayClassesFromLbConfig(context.Background(), k8sClient, tt.args.lbConfig, tt.args.gwControllers)
+			got, err := GetImpactedGatewayClassesFromLbConfig(context.Background(), k8sClient, tt.args.lbConfig, tt.args.gwControllers)
 			assert.Equal(t, tt.want, len(got))
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -755,6 +757,21 @@ func Test_GetImpactedGatewaysFromLbConfig(t *testing.T) {
 				gateways: []*gwv1.Gateway{
 					{
 						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-managed-gw",
+							Namespace: "other namespace",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "test-managed-class",
+							Infrastructure: &gwv1.GatewayInfrastructure{
+								ParametersRef: &gwv1.LocalParametersReference{
+									Kind: "LoadBalancerConfiguration",
+									Name: "test-config",
+								},
+							},
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-managed-gw",
 						},
 						Spec: gwv1.GatewaySpec{
@@ -826,17 +843,17 @@ func Test_GetImpactedGatewaysFromLbConfig(t *testing.T) {
 			for _, gw := range tt.args.gateways {
 				k8sClient.Create(context.Background(), gw)
 			}
-			got := GetImpactedGatewaysFromLbConfig(context.Background(), k8sClient, tt.args.lbConfig, tt.args.gwController)
+			got, err := GetImpactedGatewaysFromLbConfig(context.Background(), k8sClient, tt.args.lbConfig, tt.args.gwController)
 			assert.Equal(t, tt.want, len(got))
+			assert.NoError(t, err)
 		})
 	}
 }
 
 func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 	type args struct {
-		gateways     []*gwv1.Gateway
-		gwClasses    []*gwv1.GatewayClass
-		gwController string
+		gateways  []*gwv1.Gateway
+		gwClasses []*gwv1.GatewayClass
 	}
 	tests := []struct {
 		name string
@@ -893,7 +910,6 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 						},
 					},
 				},
-				gwController: constants.NLBGatewayController,
 			},
 			want: 2,
 		},
@@ -947,7 +963,6 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 						},
 					},
 				},
-				gwController: constants.ALBGatewayController,
 			},
 			want: 1,
 		},
@@ -983,7 +998,6 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 						},
 					},
 				},
-				gwController: constants.NLBGatewayController,
 			},
 			want: 0,
 		},
@@ -1028,7 +1042,6 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 						},
 					},
 				},
-				gwController: constants.ALBGatewayController,
 			},
 			want: 0,
 		},
@@ -1044,8 +1057,9 @@ func Test_GetGatewaysManagedByGatewayClass(t *testing.T) {
 				k8sClient.Create(context.Background(), gw)
 			}
 
-			got := GetGatewaysManagedByGatewayClass(context.Background(), k8sClient, tt.args.gwClasses[0], tt.args.gwController)
+			got, err := GetGatewaysManagedByGatewayClass(context.Background(), k8sClient, tt.args.gwClasses[0])
 			assert.Equal(t, tt.want, len(got))
+			assert.NoError(t, err)
 		})
 	}
 }

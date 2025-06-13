@@ -68,7 +68,11 @@ func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Generic(ctx context.C
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) enqueueImpactedService(ctx context.Context, lbconfig *elbv2gw.LoadBalancerConfiguration, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	// NOTE: That LB Config changes for GatewayClass are done a little differently.
 	// LB config change -> gateway class reconciler -> patch status for new version of LB config on Gateway Class -> Trigger the Gateway Class event handler.
-	gateways := gatewayutils.GetImpactedGatewaysFromLbConfig(ctx, h.k8sClient, lbconfig, h.gwController)
+	gateways, err := gatewayutils.GetImpactedGatewaysFromLbConfig(ctx, h.k8sClient, lbconfig, h.gwController)
+	if err != nil {
+		h.logger.Error(err, "failed to get impacted gateways from loadbalancerconfiguration", "loadbalancerconfiguration", k8s.NamespacedName(lbconfig))
+		return
+	}
 	for _, gw := range gateways {
 		h.logger.V(1).Info("enqueue gateway for loadbalancerconfiguration event",
 			"loadbalancerconfiguration", k8s.NamespacedName(lbconfig),
