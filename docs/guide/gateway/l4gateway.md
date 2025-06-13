@@ -89,13 +89,13 @@ The LBC implementation of the Gateway API for L4 routes, which provisions NLB, i
 
 #### Single Route Per L4 Gateway Listener:
 
-**Limitation**: Each L4 Gateway Listener (configured via a Gateway resource for TCP, UDP, or TLS protocols) is designed to handle traffic for precisely one L4 Route resource (TCPRoute, UDPRoute, or TLSRoute). The controller does not support scenarios where multiple Route resources attempt to attach to the same L4 Gateway Listener.
+**Limitation**: Each L4 Gateway Listener (configured via a Gateway resource for TCP, UDP, or TLS protocols) is designed to handle traffic for precisely one L4 Route resource (TCPRoute, UDPRoute, or TLSRoute). The controller does not support scenarios where multiple Route resources attempt to attach to the same L4 Gateway Listener and will throw a validation error during reconcile.
 
 **Reasoning**: This constraint simplifies L4 listener rule management on NLBs, which primarily offer a default action for a given port/protocol.
 
 #### Single Backend Reference Per L4 Route:
 
-**Limitation**: Each L4 Route resource (TCPRoute, UDPRoute, or TLSRoute) must specify exactly one backend reference (backendRef). The controller explicitly disallows routes with zero or more than one backendRef.
+**Limitation**: Each L4 Route resource (TCPRoute, UDPRoute, or TLSRoute) must specify exactly one backend reference (backendRef). The controller explicitly disallows routes with zero or more than one backendRef throwing a validation error during reconcile
 
 **Reasoning**: Unlike ALBs which support weighted target groups for traffic splitting across multiple backends, NLBs primarily forward traffic to a single target group for a given listener's default action. This aligns the LBC's L4 route translation with NLB's inherent capabilities, where weighted target groups are not a native feature for directly splitting traffic across multiple services on a single listener.
 
