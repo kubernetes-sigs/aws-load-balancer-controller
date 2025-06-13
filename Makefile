@@ -203,3 +203,12 @@ unit-test:
 
 e2e-test:
 	./scripts/ci_e2e_test.sh
+
+# generate gateway api CRD spec doc
+.PHONY: gw-api-ref-docs
+gw-api-ref-docs:
+	crd-ref-docs \
+		--source-path=${PWD}/apis/gateway/ \
+		--config=crd-ref-docs.yaml \
+		--renderer=markdown \
+		--output-path=${PWD}/docs/guide/gateway/spec.md

@@ -18,11 +18,9 @@ spec:
 
 Defines the merge behavior when both the Gateway and GatewayClass have a defined LoadBalancerConfiguration. This field is only honored for the configuration attached to the GatewayClass.
 
-Options:
-- prefer-gateway-class
-  - When merging configuration from both Gateway and GatewayClass, value conflicts are resolved by using the GatewayClass configuration.
-- prefer-gateway
-  - When merging configuration from both Gateway and GatewayClass, value conflicts are resolved by using the Gateway configuration.
+* **Options**:
+    - prefer-gateway-class: When merging configuration from both Gateway and GatewayClass, value conflicts are resolved by using the GatewayClass configuration.
+    - prefer-gateway: When merging configuration from both Gateway and GatewayClass, value conflicts are resolved by using the Gateway configuration.
 
 **Default** prefer-gateway-class
 
