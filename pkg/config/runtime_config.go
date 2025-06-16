@@ -108,6 +108,7 @@ func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
 		return nil, err
 	}
 
+	restCFG.AcceptContentTypes = "application/vnd.kubernetes.protobuf,application/json"
 	restCFG.QPS = defaultQPS
 	restCFG.Burst = defaultBurst
 	return restCFG, nil
