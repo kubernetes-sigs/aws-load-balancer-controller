@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../../use_cases/multi_cluster/">
+        <link rel="prev" href="../../targetgroupbinding/spec/">
       
       
-        <link rel="next" href="../loadbalancerconfig/">
+        <link rel="next" href="../l4gateway/">
       
       
       <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
@@ -20,7 +20,7 @@
     
     
       
-        <title>Gateway - AWS Load Balancer Controller</title>
+        <title>Overview - AWS Load Balancer Controller</title>
       
     
     
@@ -121,7 +121,7 @@
           <div class="md-header__topic" data-md-component="header-topic">
             <span class="md-ellipsis">
               
-                Gateway
+                Overview
               
             </span>
           </div>
@@ -974,6 +974,188 @@
                 
   
   
+    
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Gateway API (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Gateway API (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#current-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      Current Support
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Configuration
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#subnet-tagging-requirements" class="md-nav__link">
+    <span class="md-ellipsis">
+      Subnet tagging requirements
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#security-group" class="md-nav__link">
+    <span class="md-ellipsis">
+      Security group
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Security group">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#worker-node-security-groups-selection" class="md-nav__link">
+    <span class="md-ellipsis">
+      Worker node security groups selection
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../l4gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L4 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
   
   
     
@@ -987,10 +1169,148 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_3" >
         
           
-          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_4_3" id="__nav_3_4_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customizations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            Customizations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../customization/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How customizations works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../loadbalancerconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LoadBalancerConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../targetgroupconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1001,8 +1321,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_4">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
             <span class="md-nav__icon md-icon"></span>
             Tasks
           </label>
@@ -1075,10 +1395,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
         
           
-          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1089,8 +1409,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Use Cases
           </label>
@@ -1192,244 +1512,6 @@
   
   <span class="md-ellipsis">
     MultiCluster Target Groups
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    
-    
-    
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
-            
-  
-  <span class="md-ellipsis">
-    Gateway
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_3_6">
-            <span class="md-nav__icon md-icon"></span>
-            Gateway
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    Gateway
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  <span class="md-ellipsis">
-    Gateway
-  </span>
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      Prerequisites
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#configuration" class="md-nav__link">
-    <span class="md-ellipsis">
-      Configuration
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Configuration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#customization" class="md-nav__link">
-    <span class="md-ellipsis">
-      Customization
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Customization">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#customizing-the-gateway" class="md-nav__link">
-    <span class="md-ellipsis">
-      Customizing the Gateway
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuration-conflict-resolution" class="md-nav__link">
-    <span class="md-ellipsis">
-      Configuration Conflict Resolution
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#customizing-the-targets" class="md-nav__link">
-    <span class="md-ellipsis">
-      Customizing the Targets
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#protocols" class="md-nav__link">
-    <span class="md-ellipsis">
-      Protocols
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#subnet-tagging-requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      Subnet tagging requirements
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#security-group" class="md-nav__link">
-    <span class="md-ellipsis">
-      Security group
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Security group">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#worker-node-security-groups-selection" class="md-nav__link">
-    <span class="md-ellipsis">
-      Worker node security groups selection
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../loadbalancerconfig/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    LoadBalancerConfig
   </span>
   
 
@@ -1677,6 +1759,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#current-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      Current Support
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#prerequisites" class="md-nav__link">
     <span class="md-ellipsis">
       Prerequisites
@@ -1689,63 +1780,6 @@
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       Configuration
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Configuration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#customization" class="md-nav__link">
-    <span class="md-ellipsis">
-      Customization
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Customization">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#customizing-the-gateway" class="md-nav__link">
-    <span class="md-ellipsis">
-      Customizing the Gateway
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configuration-conflict-resolution" class="md-nav__link">
-    <span class="md-ellipsis">
-      Configuration Conflict Resolution
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#customizing-the-targets" class="md-nav__link">
-    <span class="md-ellipsis">
-      Customizing the Targets
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#protocols" class="md-nav__link">
-    <span class="md-ellipsis">
-      Protocols
     </span>
   </a>
   
@@ -1803,14 +1837,28 @@
 
 
 <h1 id="gateway-api">Gateway API<a class="headerlink" href="#gateway-api" title="Permanent link">&para;</a></h1>
-<div class="codehilite"><pre><span></span><code><span class="o">!!!</span><span class="w"> </span><span class="n">warning</span>
-<span class="w">    </span><span class="o">-</span><span class="w"> </span><span class="n">Only</span><span class="w"> </span><span class="n">very</span><span class="w"> </span><span class="n">basic</span><span class="w"> </span><span class="p">(</span><span class="ow">and</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="n">conforming</span><span class="p">)</span><span class="w"> </span><span class="n">support</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">Gateway</span><span class="w"> </span><span class="n">API</span><span class="w"> </span><span class="n">spec</span><span class="w"> </span><span class="n">currently</span><span class="w"> </span><span class="n">exists</span><span class="o">.</span><span class="w"> </span><span class="n">The</span><span class="w"> </span><span class="n">team</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="n">actively</span><span class="w"> </span><span class="n">trying</span><span class="w"> </span><span class="n">to</span><span class="w"> </span><span class="n">close</span><span class="w"> </span><span class="n">conformance</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">support</span><span class="w"> </span><span class="n">gaps</span><span class="o">.</span>
-<span class="w">    </span><span class="o">-</span><span class="w"> </span><span class="n">Using</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">LBC</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="n">Gateway</span><span class="w"> </span><span class="n">API</span><span class="w"> </span><span class="n">together</span><span class="w"> </span><span class="k">is</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="n">suggested</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">production</span><span class="w"> </span><span class="n">workloads</span><span class="w"> </span><span class="p">(</span><span class="n">yet</span><span class="o">!</span><span class="p">)</span>
-</code></pre></div>
-
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<ul>
+<li>Only very basic (and not conforming) support of the Gateway API spec currently exists. The team is actively trying to close conformance and support gaps.</li>
+<li>Using the LBC and Gateway API together is not suggested for production workloads (yet!)</li>
+</ul>
+</div>
 <p>The AWS Load Balancer Controller (LBC) supports reconciliation for Kubernetes Gateway API objects. It satisfies
 L4 routes (TCPRoute, UDPRoute, TLSRoute) with an AWS NLB. It satisfies L7 routes (HTTPRoute, GRPCRoute) using an AWS ALB.
 Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not supported.</p>
+<h2 id="current-support">Current Support<a class="headerlink" href="#current-support" title="Permanent link">&para;</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<ul>
+<li>GRPCRoute and HTTPS Listeners for L7 gateways do not currently work. And only basic support is added for HTTPRoute.</li>
+</ul>
+</div>
+<p>The LBC Gateway API implementation supports the following Gateway API routes:</p>
+<ul>
+<li>L4 (NLBGatewayAPI): UDPRoute, TCPRoute, TLSRoute &gt;=v2.13.3</li>
+<li>L7 (ALBGatewayAPI): HTTPRoute (Still work in progress, support matching and filtering is not added yet!)</li>
+</ul>
 <h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
 <li>LBC &gt;= v2.13.0</li>
@@ -1818,83 +1866,21 @@ Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not 
 <li>Pods have native AWS VPC networking configured. For more information, see the <a href="https://github.com/aws/amazon-vpc-cni-k8s#readme">Amazon VPC CNI plugin</a> documentation.</li>
 </ul>
 </li>
-<li>Installation of Gateway API CRDs</li>
+<li>Installation of Gateway API CRDs<ul>
 <li>Standard Gateway API CRDs: <code>kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml</code> [REQUIRED]</li>
 <li>Experimental Gateway API CRDs: <code>kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/experimental-install.yaml</code> [OPTIONAL: Used for L4 Routes]</li>
-<li>Installation of LBC Gateway API CRDs:</li>
-<li><code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/config/crd/gateway/gateway-crds.yaml</code></li>
+</ul>
+</li>
+<li>Installation of LBC Gateway API specific CRDs: <code>kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/config/crd/gateway/gateway-crds.yaml</code></li>
 </ul>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <p>By default, the LBC will <em>not</em> listen to Gateway API CRDs. To enable support, specify the following feature flag(s) in the LBC deployment:</p>
+<ul>
+<li><code>NLBGatewayAPI</code>: For enabling L4 Routing</li>
+<li><code>ALBGatewayAPI</code>: For enabling L7 Routing</li>
+</ul>
 <div class="highlight"><pre><span></span><code>- --feature-gates=NLBGatewayAPI=true,ALBGatewayAPI=true
 </code></pre></div>
-<h3 id="customization">Customization<a class="headerlink" href="#customization" title="Permanent link">&para;</a></h3>
-<p><img alt="screen showing all LBC Gateway API components" src="../assets/gateway-full.png" /></p>
-<p>The LBC tries to use sensible defaults. These defaults are not appropriate for each use-case.</p>
-<h4 id="customizing-the-gateway">Customizing the Gateway<a class="headerlink" href="#customizing-the-gateway" title="Permanent link">&para;</a></h4>
-<p>For full details on what you can configure:
-<a href="../loadbalancerconfig/">LoadBalancerConfiguration CRD</a></p>
-<p>For example, to configure your Gateway to provision an <code>internet-facing</code> LoadBalancer you can use this configuration:</p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: internet-facing-config
-  namespace: echoserver
-spec:
-  scheme: internet-facing
-</code></pre></div>
-<p>You can then attach your configuration to either the Gateway or GatewayClass</p>
-<p>Gateway
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: test-gw
-  namespace: echoserver
-spec:
-  gatewayClassName: nlb-gateway
-  infrastructure:
-    parametersRef:
-      group: gateway.k8s.aws
-      kind: LoadBalancerConfiguration
-      name: internet-facing-config # Must be in the same namespace as the Gateway
-  listeners:
-  ...
-</code></pre></div></p>
-<p>GatewayClass
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.networking.k8s.io/v1
-kind: GatewayClass
-metadata:
-  name: nlb-gateway
-spec:
-  controllerName: gateway.k8s.aws/alb
-  parametersRef:
-    group: gateway.k8s.aws
-    kind: LoadBalancerConfiguration
-    name: internet-facing-config
-    namespace: echoserver
-</code></pre></div></p>
-<h4 id="configuration-conflict-resolution">Configuration Conflict Resolution<a class="headerlink" href="#configuration-conflict-resolution" title="Permanent link">&para;</a></h4>
-<p>It is possible to attach a LoadBalancerConfiguration to both the Gateway and GatewayClass resources. When both the 
-GatewayClass and Gateway LoadBalancerConfiguration specify the same field, the LBC uses a merging algorithm to take one value.
-Priority of what value to take is determined by the <code>mergingMode</code> field, this field is used to give priority to either the 
-GatewayClass or Gateway value. When the value is not set, the GatewayClass value takes higher precedence. The <code>mergingMode</code> field
-is only read from the GatewayClass LoadBalancerConfiguration.</p>
-<p>The following fields have differing merge behavior:</p>
-<ul>
-<li><code>tags</code>: The two tags maps will be combined. Any duplicate tag keys will use the tag value from the higher priority config.</li>
-<li><code>loadBalancerAttributes</code>: The two attribute lists will be combined. Any duplicate attribute keys will use the attribute value from the higher priority config.</li>
-<li><code>mergeListenerConfig</code>: The two listener lists will be combined. Any duplicate ProtocolPort keys will use the listener config from the higher priority config.</li>
-</ul>
-<h4 id="customizing-the-targets">Customizing the Targets<a class="headerlink" href="#customizing-the-targets" title="Permanent link">&para;</a></h4>
-<p>[Not currently supported]</p>
-<h2 id="protocols">Protocols<a class="headerlink" href="#protocols" title="Permanent link">&para;</a></h2>
-<div class="codehilite"><pre><span></span><code><span class="o">!!!</span><span class="w"> </span><span class="nv">warning</span>
-<span class="w">    </span><span class="o">-</span><span class="w"> </span><span class="nv">TLSRoute</span>,<span class="w"> </span><span class="nv">GRPCRoute</span><span class="w"> </span><span class="nv">and</span><span class="w"> </span><span class="nv">HTTPS</span><span class="w"> </span><span class="nv">Listeners</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="nv">not</span><span class="w"> </span><span class="nv">currently</span><span class="w"> </span><span class="nv">work</span>.
-</code></pre></div>
-
-<p>The LBC Gateway API implementation supports all Gateway API routes:</p>
-<p>L4 (NLB): UDPRoute, TCPRoute, TLSRoute
-L7 (ALB): HTTPRoute, GRPCRoute </p>
 <h2 id="subnet-tagging-requirements">Subnet tagging requirements<a class="headerlink" href="#subnet-tagging-requirements" title="Permanent link">&para;</a></h2>
 <p>See <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a> for details on configuring Elastic Load Balancing for public or private placement.</p>
 <h2 id="security-group">Security group<a class="headerlink" href="#security-group" title="Permanent link">&para;</a></h2>

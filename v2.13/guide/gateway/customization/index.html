@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../blue_green/">
+        <link rel="prev" href="../l4gateway/">
       
       
-        <link rel="next" href="../../metrics/prometheus/">
+        <link rel="next" href="../loadbalancerconfig/">
       
       
       <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
@@ -20,7 +20,7 @@
     
     
       
-        <title>MultiCluster Target Groups - AWS Load Balancer Controller</title>
+        <title>How customizations works - AWS Load Balancer Controller</title>
       
     
     
@@ -75,7 +75,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#multicluster-target-groups" class="md-skip">
+        <a href="#customizing-your-elb-resources" class="md-skip">
           Skip to content
         </a>
       
@@ -121,7 +121,7 @@
           <div class="md-header__topic" data-md-component="header-topic">
             <span class="md-ellipsis">
               
-                MultiCluster Target Groups
+                How customizations works
               
             </span>
           </div>
@@ -974,6 +974,8 @@
                 
   
   
+    
+  
   
   
     
@@ -983,11 +985,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
         
           
           <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
@@ -1001,7 +1003,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_4">
             <span class="md-nav__icon md-icon"></span>
             Gateway API (New)
@@ -1015,7 +1017,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gateway/gateway/" class="md-nav__link">
+      <a href="../gateway/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1036,7 +1038,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gateway/l4gateway/" class="md-nav__link">
+      <a href="../l4gateway/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1054,6 +1056,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1063,11 +1067,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_3" checked>
         
           
           <label class="md-nav__link" for="__nav_3_4_3" id="__nav_3_4_3_label" tabindex="0">
@@ -1081,7 +1085,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_3_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_3_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_4_3">
             <span class="md-nav__icon md-icon"></span>
             Customizations
@@ -1092,10 +1096,28 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../gateway/customization/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    How customizations works
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1104,6 +1126,87 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#customizing-your-elb-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Customizing your ELB resources
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customizing your ELB resources">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#customizing-the-gateway-load-balancer-using-loadbalancerconfiguration-crd" class="md-nav__link">
+    <span class="md-ellipsis">
+      Customizing the Gateway (Load Balancer) using LoadBalancerConfiguration CRD
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customizing the Gateway (Load Balancer) using LoadBalancerConfiguration CRD">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#conflict-resolution-for-loadbalancerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Conflict Resolution for LoadBalancerConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#customizing-services-target-groups-using-targetgroupconfiguration-crd" class="md-nav__link">
+    <span class="md-ellipsis">
+      Customizing Services (Target Groups) using TargetGroupConfiguration CRD
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customizing Services (Target Groups) using TargetGroupConfiguration CRD">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-default-and-route-specific-configurations-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      How Default and Route-Specific Configurations Merge
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1116,7 +1219,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gateway/loadbalancerconfig/" class="md-nav__link">
+      <a href="../loadbalancerconfig/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1137,7 +1240,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gateway/targetgroupconfig/" class="md-nav__link">
+      <a href="../targetgroupconfig/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1158,7 +1261,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../gateway/spec/" class="md-nav__link">
+      <a href="../spec/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1280,8 +1383,6 @@
                 
   
   
-    
-  
   
   
     
@@ -1291,11 +1392,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
         
           
           <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
@@ -1309,7 +1410,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Use Cases
@@ -1323,7 +1424,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../nlb_tls_termination/" class="md-nav__link">
+      <a href="../../use_cases/nlb_tls_termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1344,7 +1445,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../self_managed_lb/" class="md-nav__link">
+      <a href="../../use_cases/self_managed_lb/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1365,7 +1466,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../frontend_sg/" class="md-nav__link">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1386,7 +1487,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../blue_green/" class="md-nav__link">
+      <a href="../../use_cases/blue_green/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1404,30 +1505,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    MultiCluster Target Groups
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../use_cases/multi_cluster/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1436,50 +1517,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      Overview
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Overview">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
-    <span class="md-ellipsis">
-      Example
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1713,8 +1750,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -1723,21 +1758,60 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#customizing-your-elb-resources" class="md-nav__link">
     <span class="md-ellipsis">
-      Overview
+      Customizing your ELB resources
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Overview">
+    <nav class="md-nav" aria-label="Customizing your ELB resources">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#example" class="md-nav__link">
+  <a href="#customizing-the-gateway-load-balancer-using-loadbalancerconfiguration-crd" class="md-nav__link">
     <span class="md-ellipsis">
-      Example
+      Customizing the Gateway (Load Balancer) using LoadBalancerConfiguration CRD
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Customizing the Gateway (Load Balancer) using LoadBalancerConfiguration CRD">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#conflict-resolution-for-loadbalancerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      Conflict Resolution for LoadBalancerConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#customizing-services-target-groups-using-targetgroupconfiguration-crd" class="md-nav__link">
+    <span class="md-ellipsis">
+      Customizing Services (Target Groups) using TargetGroupConfiguration CRD
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Customizing Services (Target Groups) using TargetGroupConfiguration CRD">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-default-and-route-specific-configurations-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      How Default and Route-Specific Configurations Merge
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -1764,102 +1838,126 @@
   
 
 
-<h1 id="multicluster-target-groups">MultiCluster Target Groups<a class="headerlink" href="#multicluster-target-groups" title="Permanent link">&para;</a></h1>
-<p>The load balancer controller assumes full control over the configured target groups. When a target group is registered with the controller it de registers any targets not currently in the cluster. Target groups that have MultiCluster support enabled can be associated to multiple Kubernetes clusters or support arbitrary targets from other sources.</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>When enabled, MultiCluster mode supports multiple methods, and every cluster associated with a target group has one of these methods. It's recommended to use new resources when configuring MutliCluster mode. There is a period of time when MultiCluster must take a snapshot of the cluster state in order to support the selected mode. This data is stored into ConfigMap, which resides in the same namespace as your load balancer resources. ConfigMap stores snapshots of managed targets at <code>aws-lbc-targets-$TARGET_GROUP_BINDING_NAME</code></p>
-<p>When using an ALB, you must specify this annotation in the ingress or service:</p>
-<p><code>alb.ingress.kubernetes.io/multi-cluster-target-group: "true"</code></p>
-<p>When using an NLB, you specify this annotation in your service:</p>
-<p><code>service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: "true"</code></p>
-<p>When using any out-of-band TargetGroupBindings, you must specify this field in the spec:</p>
-<p><code>multiClusterTargetGroup: true</code></p>
-<h3 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h3>
-<p>We will be setting up an echoserver in two clusters in order to demonstrate MultiCluster mode. See the full echoserver example in the 'Examples' tab.</p>
-<p>The following ingress configures the Target Group Binding as MultiCluster. We will take the created Target Group and share it in a second cluster.</p>
-<div class="highlight"><pre><span></span><code>apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: echoserver
-  namespace: echoserver
-  annotations:
-    alb.ingress.kubernetes.io/multi-cluster-target-group: &quot;true&quot;    
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/tags: Environment=dev,Team=test
-spec:
-  ingressClassName: alb
-  rules:
-    - http:
-        paths:
-          - path: /
-            pathType: Exact
-            backend:
-              service:
-                name: echoserver
-                port:
-                  number: 80
+  <h1>How customizations works</h1>
+
+<h2 id="customizing-your-elb-resources">Customizing your ELB resources<a class="headerlink" href="#customizing-your-elb-resources" title="Permanent link">&para;</a></h2>
+<p>The AWS Load Balancer Controller (LBC) provides sensible defaults for provisioning and managing Elastic Load Balancing (ELB) resources in response to Kubernetes Gateway API objects. However, to accommodate diverse use cases and specific operational requirements, the LBC offers extensive, fine-grained customization capabilities through two Custom Resource Definitions (CRDs): <a href="../spec/#loadbalancerconfiguration">LoadBalancerConfiguration</a> and <a href="../spec/#targetgroupconfiguration">TargetGroupConfiguration</a>.</p>
+<p><img alt="screen showing all LBC Gateway API components" src="../assets/gateway-full.png" /></p>
+<h3 id="customizing-the-gateway-load-balancer-using-loadbalancerconfiguration-crd">Customizing the Gateway (Load Balancer) using <code>LoadBalancerConfiguration</code> CRD<a class="headerlink" href="#customizing-the-gateway-load-balancer-using-loadbalancerconfiguration-crd" title="Permanent link">&para;</a></h3>
+<p>The <code>LoadBalancerConfiguration</code> CRD allows for the detailed customization of the AWS Load Balancer (ALB or NLB) provisioned by the LBC for a given Gateway.</p>
+<p>For a comprehensive list of configurable parameters, please refer to the <a href="../loadbalancerconfig/">LoadBalancerConfiguration CRD documentation</a>.</p>
+<p><strong>Example:</strong> To configure your Gateway to provision an <code>internet-facing</code> Load Balancer, define the following <code>LoadBalancerConfiguration</code> resource:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancerConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing-config</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
 </code></pre></div>
-<p>Verify that MultiCluster is enabled by verifying that the created Target Group Binding is marked as MultiCluster.</p>
-<div class="highlight"><pre><span></span><code>kubectl -n echoserver get targetgroupbinding k8s-echoserv-echoserv-cc0122e143 -o yaml
-apiVersion: elbv2.k8s.aws/v1beta1
-kind: TargetGroupBinding
-metadata:
-  annotations:
-    elbv2.k8s.aws/checkpoint: cKay81gadoTtBSg6uVVginqtmCVG-1ApTvYN4YLD37U/_4kBy3Yg64qrXzjvIb2LlC3O__ex1qjozynsqHXmPgo
-    elbv2.k8s.aws/checkpoint-timestamp: &quot;1729021572&quot;
-  creationTimestamp: &quot;2024-10-15T19:46:06Z&quot;
-  finalizers:
-  - elbv2.k8s.aws/resources
-  generation: 1
-  labels:
-    ingress.k8s.aws/stack-name: echoserver
-    ingress.k8s.aws/stack-namespace: echoserver
-  name: k8s-echoserv-echoserv-cc0122e143
-  namespace: echoserver
-  resourceVersion: &quot;79121011&quot;
-  uid: 9ceaa2ea-14bb-44a5-abb0-69c7d2aac52c
-spec:
-  ipAddressType: ipv4
-  multiClusterTargetGroup: true &lt;&lt;&lt; HERE
-  networking:
-    ingress:
-    - from:
-      - securityGroup:
-          groupID: sg-06a2bd7d790ac1d2e
-      ports:
-      - port: 32197
-        protocol: TCP
-  serviceRef:
-    name: echoserver
-    port: 80
-  targetGroupARN: arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-echoserv-echoserv-cc0122e143/6816b87346280ee7
-  targetType: instance
-  vpcID: vpc-0a7ef5bd8943067a8
+<p>This configuration can then be applied by attaching the <code>LoadBalancerConfiguration</code> resource to either a <code>Gateway</code> or a <code>GatewayClass</code>.</p>
+<p><strong>Attaching to a Gateway:</strong>
+When attached directly to a <code>Gateway</code> resource, the specified configuration applies specifically to the Load Balancer provisioned for that individual Gateway.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Make sure that the <code>LoadBalancerConfiguration</code> must be in same namepace as the <code>Gateway</code>.</p>
+</div>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gateway</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">test-gw</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">gatewayClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nlb-gateway</span>
+<span class="w">  </span><span class="nt">infrastructure</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">parametersRef</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws</span>
+<span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancerConfiguration</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing-config</span><span class="w"> </span><span class="c1"># Must be in the same namespace as the Gateway</span>
+<span class="w">  </span><span class="nt">listeners</span><span class="p">:</span>
+<span class="w">  </span><span class="l l-Scalar l-Scalar-Plain">...</span>
 </code></pre></div>
-<p>In another cluster, you can now register that Target Group ARN in a Target Group Binding.</p>
-<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
-kind: TargetGroupBinding
-metadata:
-  name: MyTargetGroupBinding
-  namespace: echoserver
-spec:
-  serviceRef:
-    name: echoserver
-    port: 80
-  multiClusterTargetGroup: true
-  targetType: instance
-  ipAddressType: ipv4
-  networking:
-    ingress:
-    - from:
-      - securityGroup:
-          groupID: $SG_FROM_ABOVE
-      ports:
-      - port: 32197
-        protocol: TCP
-  targetGroupARN: $TG_FROM_ABOVE
+<p><strong>Attaching to a GatewayClass:</strong>
+When attached to a <code>GatewayClass</code> resource, the configuration becomes a default for all <code>Gateway</code> resources that reference this <code>GatewayClass</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">GatewayClass</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nlb-gateway</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">controllerName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/alb</span>
+<span class="w">  </span><span class="nt">parametersRef</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws</span>
+<span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">LoadBalancerConfiguration</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing-config</span>
+<span class="w">    </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
 </code></pre></div>
-<p>The configured TargetGroup should have targets from both clusters available to service traffic.</p>
+<h4 id="conflict-resolution-for-loadbalancerconfiguration">Conflict Resolution for <code>LoadBalancerConfiguration</code><a class="headerlink" href="#conflict-resolution-for-loadbalancerconfiguration" title="Permanent link">&para;</a></h4>
+<p>It is possible for a <code>LoadBalancerConfiguration</code> to be attached to both a <code>Gateway</code> and its associated <code>GatewayClass</code>. In such scenarios, when identical fields are specified in both configurations, the LBC employs a merging algorithm to resolve conflicts. The precedence of values is determined by the <code>mergingMode</code> field, which is exclusively read from the <code>GatewayClass</code>'s <code>LoadBalancerConfiguration</code>. If <code>mergingMode</code> is not explicitly set, the <code>GatewayClass</code> configuration implicitly takes higher precedence. For more info on <code>mergingMode</code>, refer this <a href="../loadbalancerconfig/#mergingmode">doc</a></p>
+<p>The following fields exhibit specific merge behaviors:</p>
+<ul>
+<li><strong><code>tags</code></strong>: The tag maps from both configurations are combined. In the event of duplicate tag keys, the value from the higher-priority configuration (as determined by <code>mergingMode</code>) will be utilized.</li>
+<li><strong><code>loadBalancerAttributes</code></strong>: The attribute lists are combined. For duplicate attribute keys, the value from the higher-priority configuration will prevail.</li>
+<li><strong><code>mergeListenerConfig</code></strong>: Listener lists are combined. For duplicate <code>ProtocolPort</code> keys, the listener configuration from the higher-priority source will be selected.</li>
+</ul>
+<hr />
+<h3 id="customizing-services-target-groups-using-targetgroupconfiguration-crd">Customizing Services (Target Groups) using <code>TargetGroupConfiguration</code> CRD<a class="headerlink" href="#customizing-services-target-groups-using-targetgroupconfiguration-crd" title="Permanent link">&para;</a></h3>
+<p>The <code>TargetGroupConfiguration</code> CRD enables granular customization of the AWS Target Groups created for Kubernetes Services.</p>
+<p>For a comprehensive overview of configurable parameters, please refer the  <a href="../targetgroupconfig/">TargetGroupConfiguration CRD documentation</a>.</p>
+<p><strong>Example: Default Target Group Configuration for a Service</strong></p>
+<p>To configure the target groups for a specific service (e.g., <code>my-service</code>) to use <code>IP</code> mode and custom health checks across all routes referencing it, employ the following configuration:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">custom-tg-config</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-namespace</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetReference</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service</span>
+<span class="w">  </span><span class="nt">defaultConfiguration</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">targetType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
+<span class="w">    </span><span class="nt">healthCheckConfig</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">healthCheckPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/health</span>
+<span class="w">      </span><span class="nt">healthCheckInterval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+<span class="w">      </span><span class="nt">healthyThresholdCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">3</span>
+</code></pre></div>
+<p>Here, <code>my-service</code> is referenced within the <code>targetReference</code> of <code>custom-tg-config</code>. Any target group subsequently created for <code>my-service</code> via any route will inherit these default settings. Note that only one <code>TargetGroupConfiguration</code> CRD can be declared per service, and it must reside within the same namespace as the service it configures.</p>
+<p><strong>Example: Route-Specific Target Group Configuration</strong></p>
+<p>Alternatively, specific target group settings can be applied based on the individual routes referencing a service. This allows for tailored configurations for different traffic flows.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">route-specific-tg-config</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetReference</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service</span>
+<span class="w">  </span><span class="nt">defaultConfiguration</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">targetType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
+<span class="w">  </span><span class="nt">routeConfigurations</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">routeIdentifier</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCPRoute</span>
+<span class="w">        </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api-route</span>
+<span class="w">      </span><span class="nt">targetGroupProps</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">healthCheckConfig</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">healthCheckPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/health</span>
+<span class="w">          </span><span class="nt">healthCheckProtocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">routeIdentifier</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCPRoute</span>
+<span class="w">        </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns-2</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">admin-route</span>
+<span class="w">      </span><span class="nt">targetGroupProps</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">healthCheckConfig</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">healthCheckPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/admin/health</span>
+<span class="w">          </span><span class="nt">healthCheckInterval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
+</code></pre></div>
+<h4 id="how-default-and-route-specific-configurations-merge">How Default and Route-Specific Configurations Merge<a class="headerlink" href="#how-default-and-route-specific-configurations-merge" title="Permanent link">&para;</a></h4>
+<p>When both <code>defaultConfiguration</code> and <code>routeConfigurations</code> within a <code>TargetGroupConfiguration</code> specify the same field, route-specific configurations take precedence. The controller identifies the most relevant route specification from the list of <code>routeConfigurations</code> and merges its <code>targetGroupProps</code> with the <code>defaultConfiguration</code>'s settings. For detailed information on the route matching logic employed, refer to the <a href="../targetgroupconfig/#route-matching-logic">Route Matching section</a>.</p>
+<p>The following fields exhibit specific merge behaviors:</p>
+<ul>
+<li><strong><code>tags</code></strong>: The two tag maps are combined. Any duplicate tag keys will result in the value from the higher-priority (route-specific) configuration being used.</li>
+<li><strong><code>targetGroupAttributes</code></strong>: The two attribute lists are combined. Any duplicate attribute keys will result in the attribute value from the higher-priority (route-specific) configuration being applied.</li>
+</ul>
 
 
 

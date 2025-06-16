@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../customization/">
+        <link rel="prev" href="../loadbalancerconfig/">
       
       
-        <link rel="next" href="../targetgroupconfig/">
+        <link rel="next" href="../spec/">
       
       
       <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
@@ -20,7 +20,7 @@
     
     
       
-        <title>LoadBalancerConfiguration - AWS Load Balancer Controller</title>
+        <title>TargetGroupConfiguration - AWS Load Balancer Controller</title>
       
     
     
@@ -75,7 +75,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#loadbalancerconfiguration" class="md-skip">
+        <a href="#targetgroupconfiguration" class="md-skip">
           Skip to content
         </a>
       
@@ -121,7 +121,7 @@
           <div class="md-header__topic" data-md-component="header-topic">
             <span class="md-ellipsis">
               
-                LoadBalancerConfiguration
+                TargetGroupConfiguration
               
             </span>
           </div>
@@ -1117,6 +1117,27 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../loadbalancerconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LoadBalancerConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1126,12 +1147,14 @@
       <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
       
       
+        
+      
       
         <label class="md-nav__link md-nav__link--active" for="__toc">
           
   
   <span class="md-ellipsis">
-    LoadBalancerConfiguration
+    TargetGroupConfiguration
   </span>
   
 
@@ -1142,7 +1165,7 @@
         
   
   <span class="md-ellipsis">
-    LoadBalancerConfiguration
+    TargetGroupConfiguration
   </span>
   
 
@@ -1154,6 +1177,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -1162,47 +1187,94 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#loadbalancerconfiguration" class="md-nav__link">
+  <a href="#targetreference" class="md-nav__link">
     <span class="md-ellipsis">
-      LoadBalancerConfiguration
+      TargetReference
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="LoadBalancerConfiguration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#top-level-fields" class="md-nav__link">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defaultconfiguration" class="md-nav__link">
     <span class="md-ellipsis">
-      Top Level Fields
+      DefaultConfiguration
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Top Level Fields">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#routeconfigurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteConfigurations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RouteConfigurations">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#mergingmode" class="md-nav__link">
+  <a href="#route-matching-logic" class="md-nav__link">
     <span class="md-ellipsis">
-      MergingMode
+      Route Matching Logic
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#routeconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteConfiguration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RouteConfiguration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#routeidentifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteIdentifier
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#loadbalancername" class="md-nav__link">
+  <a href="#targetgroupprops" class="md-nav__link">
     <span class="md-ellipsis">
-      LoadBalancerName
+      TargetGroupProps
     </span>
   </a>
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#scheme" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#targetgroupprops_1" class="md-nav__link">
     <span class="md-ellipsis">
-      Scheme
+      TargetGroupProps
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TargetGroupProps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupname" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupName
     </span>
   </a>
   
@@ -1211,106 +1283,70 @@
           <li class="md-nav__item">
   <a href="#ipaddresstype" class="md-nav__link">
     <span class="md-ellipsis">
-      IpAddressType
+      IPAddressType
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#enforcesecuritygroupinboundrulesonprivatelinktraffic" class="md-nav__link">
+  <a href="#healthcheckconfig" class="md-nav__link">
     <span class="md-ellipsis">
-      EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
+      HealthCheckConfig
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#customerownedipv4pool" class="md-nav__link">
+  <a href="#nodeselector" class="md-nav__link">
     <span class="md-ellipsis">
-      CustomerOwnedIpv4Pool
+      NodeSelector
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#ipv4ipampoolid" class="md-nav__link">
+  <a href="#targetgroupattributes" class="md-nav__link">
     <span class="md-ellipsis">
-      IPv4IPAMPoolId
+      TargetGroupAttributes
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#loadbalancersubnets" class="md-nav__link">
+  <a href="#targettype" class="md-nav__link">
     <span class="md-ellipsis">
-      LoadBalancerSubnets
+      TargetType
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#loadbalancersubnetsselector" class="md-nav__link">
+  <a href="#protocol" class="md-nav__link">
     <span class="md-ellipsis">
-      LoadBalancerSubnetsSelector
+      Protocol
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#listenerconfigurations" class="md-nav__link">
+  <a href="#protocolversion" class="md-nav__link">
     <span class="md-ellipsis">
-      ListenerConfigurations
+      ProtocolVersion
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#securitygroups" class="md-nav__link">
+  <a href="#enablemulticluster" class="md-nav__link">
     <span class="md-ellipsis">
-      SecurityGroups
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#securitygroupprefixes" class="md-nav__link">
-    <span class="md-ellipsis">
-      SecurityGroupPrefixes
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sourceranges" class="md-nav__link">
-    <span class="md-ellipsis">
-      SourceRanges
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#vpcid" class="md-nav__link">
-    <span class="md-ellipsis">
-      VpcId
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#loadbalancerattributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      LoadBalancerAttributes
+      EnableMultiCluster
     </span>
   </a>
   
@@ -1325,106 +1361,88 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#enableicmp" class="md-nav__link">
-    <span class="md-ellipsis">
-      EnableICMP
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#managebackendsecuritygrouprules" class="md-nav__link">
-    <span class="md-ellipsis">
-      ManageBackendSecurityGroupRules
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#minimumloadbalancercapacity" class="md-nav__link">
-    <span class="md-ellipsis">
-      MinimumLoadBalancerCapacity
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#listenerconfiguration" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#healthcheckconfiguration" class="md-nav__link">
     <span class="md-ellipsis">
-      ListenerConfiguration
+      HealthCheckConfiguration
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="ListenerConfiguration">
+    <nav class="md-nav" aria-label="HealthCheckConfiguration">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#protocolport" class="md-nav__link">
+  <a href="#healthythresholdcount" class="md-nav__link">
     <span class="md-ellipsis">
-      ProtocolPort
+      HealthyThresholdCount
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#defaultcertificate" class="md-nav__link">
+  <a href="#healthcheckinterval" class="md-nav__link">
     <span class="md-ellipsis">
-      DefaultCertificate
+      HealthCheckInterval
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#certificates" class="md-nav__link">
+  <a href="#healthcheckpath" class="md-nav__link">
     <span class="md-ellipsis">
-      Certificates
+      HealthCheckPath
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#sslpolicy" class="md-nav__link">
+  <a href="#healthcheckport" class="md-nav__link">
     <span class="md-ellipsis">
-      SslPolicy
+      HealthCheckPort
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#alpnpolicy" class="md-nav__link">
+  <a href="#healthcheckprotocol" class="md-nav__link">
     <span class="md-ellipsis">
-      ALPNPolicy
+      HealthCheckProtocol
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#mutualauthentication" class="md-nav__link">
+  <a href="#healthchecktimeout" class="md-nav__link">
     <span class="md-ellipsis">
-      MutualAuthentication
+      HealthCheckTimeout
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#listenerattributes" class="md-nav__link">
+  <a href="#unhealthythresholdcount" class="md-nav__link">
     <span class="md-ellipsis">
-      ListenerAttributes
+      UnhealthyThresholdCount
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#matcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      Matcher
     </span>
   </a>
   
@@ -1434,115 +1452,32 @@
     </nav>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#mutualauthenticationattributes" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#healthcheckmatcher" class="md-nav__link">
     <span class="md-ellipsis">
-      MutualAuthenticationAttributes
+      HealthCheckMatcher
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="MutualAuthenticationAttributes">
+    <nav class="md-nav" aria-label="HealthCheckMatcher">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#advertisetruststorecanames" class="md-nav__link">
+  <a href="#httpcode" class="md-nav__link">
     <span class="md-ellipsis">
-      AdvertiseTrustStoreCaNames
+      HTTPCode
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#ignoreclientcertificateexpiry" class="md-nav__link">
+  <a href="#grpccode" class="md-nav__link">
     <span class="md-ellipsis">
-      IgnoreClientCertificateExpiry
+      GRPCCode
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mutualauthenticationmode" class="md-nav__link">
-    <span class="md-ellipsis">
-      MutualAuthenticationMode
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#truststore" class="md-nav__link">
-    <span class="md-ellipsis">
-      TrustStore
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#subnetconfiguration" class="md-nav__link">
-    <span class="md-ellipsis">
-      SubnetConfiguration
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="SubnetConfiguration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#identifier" class="md-nav__link">
-    <span class="md-ellipsis">
-      Identifier
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#eipallocation" class="md-nav__link">
-    <span class="md-ellipsis">
-      EIPAllocation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#privateipv4allocation" class="md-nav__link">
-    <span class="md-ellipsis">
-      PrivateIPv4Allocation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ipv6allocation" class="md-nav__link">
-    <span class="md-ellipsis">
-      IPv6Allocation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sourcenatipv6prefix" class="md-nav__link">
-    <span class="md-ellipsis">
-      SourceNatIPv6Prefix
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -1555,27 +1490,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../targetgroupconfig/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    TargetGroupConfiguration
-  </span>
-  
-
-      </a>
     </li>
   
 
@@ -2077,6 +1991,8 @@
   
   
   
+    
+  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -2085,47 +2001,94 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#loadbalancerconfiguration" class="md-nav__link">
+  <a href="#targetreference" class="md-nav__link">
     <span class="md-ellipsis">
-      LoadBalancerConfiguration
+      TargetReference
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="LoadBalancerConfiguration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#top-level-fields" class="md-nav__link">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defaultconfiguration" class="md-nav__link">
     <span class="md-ellipsis">
-      Top Level Fields
+      DefaultConfiguration
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Top Level Fields">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#routeconfigurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteConfigurations
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RouteConfigurations">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#mergingmode" class="md-nav__link">
+  <a href="#route-matching-logic" class="md-nav__link">
     <span class="md-ellipsis">
-      MergingMode
+      Route Matching Logic
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#routeconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteConfiguration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RouteConfiguration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#routeidentifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      RouteIdentifier
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#loadbalancername" class="md-nav__link">
+  <a href="#targetgroupprops" class="md-nav__link">
     <span class="md-ellipsis">
-      LoadBalancerName
+      TargetGroupProps
     </span>
   </a>
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#scheme" class="md-nav__link">
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#targetgroupprops_1" class="md-nav__link">
     <span class="md-ellipsis">
-      Scheme
+      TargetGroupProps
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="TargetGroupProps">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#targetgroupname" class="md-nav__link">
+    <span class="md-ellipsis">
+      TargetGroupName
     </span>
   </a>
   
@@ -2134,106 +2097,70 @@
           <li class="md-nav__item">
   <a href="#ipaddresstype" class="md-nav__link">
     <span class="md-ellipsis">
-      IpAddressType
+      IPAddressType
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#enforcesecuritygroupinboundrulesonprivatelinktraffic" class="md-nav__link">
+  <a href="#healthcheckconfig" class="md-nav__link">
     <span class="md-ellipsis">
-      EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
+      HealthCheckConfig
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#customerownedipv4pool" class="md-nav__link">
+  <a href="#nodeselector" class="md-nav__link">
     <span class="md-ellipsis">
-      CustomerOwnedIpv4Pool
+      NodeSelector
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#ipv4ipampoolid" class="md-nav__link">
+  <a href="#targetgroupattributes" class="md-nav__link">
     <span class="md-ellipsis">
-      IPv4IPAMPoolId
+      TargetGroupAttributes
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#loadbalancersubnets" class="md-nav__link">
+  <a href="#targettype" class="md-nav__link">
     <span class="md-ellipsis">
-      LoadBalancerSubnets
+      TargetType
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#loadbalancersubnetsselector" class="md-nav__link">
+  <a href="#protocol" class="md-nav__link">
     <span class="md-ellipsis">
-      LoadBalancerSubnetsSelector
+      Protocol
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#listenerconfigurations" class="md-nav__link">
+  <a href="#protocolversion" class="md-nav__link">
     <span class="md-ellipsis">
-      ListenerConfigurations
+      ProtocolVersion
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#securitygroups" class="md-nav__link">
+  <a href="#enablemulticluster" class="md-nav__link">
     <span class="md-ellipsis">
-      SecurityGroups
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#securitygroupprefixes" class="md-nav__link">
-    <span class="md-ellipsis">
-      SecurityGroupPrefixes
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sourceranges" class="md-nav__link">
-    <span class="md-ellipsis">
-      SourceRanges
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#vpcid" class="md-nav__link">
-    <span class="md-ellipsis">
-      VpcId
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#loadbalancerattributes" class="md-nav__link">
-    <span class="md-ellipsis">
-      LoadBalancerAttributes
+      EnableMultiCluster
     </span>
   </a>
   
@@ -2248,106 +2175,88 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#enableicmp" class="md-nav__link">
-    <span class="md-ellipsis">
-      EnableICMP
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#managebackendsecuritygrouprules" class="md-nav__link">
-    <span class="md-ellipsis">
-      ManageBackendSecurityGroupRules
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#minimumloadbalancercapacity" class="md-nav__link">
-    <span class="md-ellipsis">
-      MinimumLoadBalancerCapacity
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#listenerconfiguration" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#healthcheckconfiguration" class="md-nav__link">
     <span class="md-ellipsis">
-      ListenerConfiguration
+      HealthCheckConfiguration
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="ListenerConfiguration">
+    <nav class="md-nav" aria-label="HealthCheckConfiguration">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#protocolport" class="md-nav__link">
+  <a href="#healthythresholdcount" class="md-nav__link">
     <span class="md-ellipsis">
-      ProtocolPort
+      HealthyThresholdCount
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#defaultcertificate" class="md-nav__link">
+  <a href="#healthcheckinterval" class="md-nav__link">
     <span class="md-ellipsis">
-      DefaultCertificate
+      HealthCheckInterval
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#certificates" class="md-nav__link">
+  <a href="#healthcheckpath" class="md-nav__link">
     <span class="md-ellipsis">
-      Certificates
+      HealthCheckPath
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#sslpolicy" class="md-nav__link">
+  <a href="#healthcheckport" class="md-nav__link">
     <span class="md-ellipsis">
-      SslPolicy
+      HealthCheckPort
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#alpnpolicy" class="md-nav__link">
+  <a href="#healthcheckprotocol" class="md-nav__link">
     <span class="md-ellipsis">
-      ALPNPolicy
+      HealthCheckProtocol
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#mutualauthentication" class="md-nav__link">
+  <a href="#healthchecktimeout" class="md-nav__link">
     <span class="md-ellipsis">
-      MutualAuthentication
+      HealthCheckTimeout
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#listenerattributes" class="md-nav__link">
+  <a href="#unhealthythresholdcount" class="md-nav__link">
     <span class="md-ellipsis">
-      ListenerAttributes
+      UnhealthyThresholdCount
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#matcher" class="md-nav__link">
+    <span class="md-ellipsis">
+      Matcher
     </span>
   </a>
   
@@ -2357,115 +2266,32 @@
     </nav>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#mutualauthenticationattributes" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#healthcheckmatcher" class="md-nav__link">
     <span class="md-ellipsis">
-      MutualAuthenticationAttributes
+      HealthCheckMatcher
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="MutualAuthenticationAttributes">
+    <nav class="md-nav" aria-label="HealthCheckMatcher">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#advertisetruststorecanames" class="md-nav__link">
+  <a href="#httpcode" class="md-nav__link">
     <span class="md-ellipsis">
-      AdvertiseTrustStoreCaNames
+      HTTPCode
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#ignoreclientcertificateexpiry" class="md-nav__link">
+  <a href="#grpccode" class="md-nav__link">
     <span class="md-ellipsis">
-      IgnoreClientCertificateExpiry
+      GRPCCode
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#mutualauthenticationmode" class="md-nav__link">
-    <span class="md-ellipsis">
-      MutualAuthenticationMode
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#truststore" class="md-nav__link">
-    <span class="md-ellipsis">
-      TrustStore
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#subnetconfiguration" class="md-nav__link">
-    <span class="md-ellipsis">
-      SubnetConfiguration
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="SubnetConfiguration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#identifier" class="md-nav__link">
-    <span class="md-ellipsis">
-      Identifier
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#eipallocation" class="md-nav__link">
-    <span class="md-ellipsis">
-      EIPAllocation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#privateipv4allocation" class="md-nav__link">
-    <span class="md-ellipsis">
-      PrivateIPv4Allocation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ipv6allocation" class="md-nav__link">
-    <span class="md-ellipsis">
-      IPv6Allocation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#sourcenatipv6prefix" class="md-nav__link">
-    <span class="md-ellipsis">
-      SourceNatIPv6Prefix
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -2492,467 +2318,267 @@
   
 
 
-  <h1>LoadBalancerConfiguration</h1>
-
-<h2 id="loadbalancerconfiguration">LoadBalancerConfiguration<a class="headerlink" href="#loadbalancerconfiguration" title="Permanent link">&para;</a></h2>
-<h3 id="top-level-fields">Top Level Fields<a class="headerlink" href="#top-level-fields" title="Permanent link">&para;</a></h3>
-<h4 id="mergingmode">MergingMode<a class="headerlink" href="#mergingmode" title="Permanent link">&para;</a></h4>
-<p><code>mergingMode</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  mergingMode: prefer-gateway-class
+<h1 id="targetgroupconfiguration">TargetGroupConfiguration<a class="headerlink" href="#targetgroupconfiguration" title="Permanent link">&para;</a></h1>
+<h3 id="targetreference">TargetReference<a class="headerlink" href="#targetreference" title="Permanent link">&para;</a></h3>
+<p><code>targetReference</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-tg-config</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetReference</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service</span>
 </code></pre></div>
-<p>Defines the merge behavior when both the Gateway and GatewayClass have a defined LoadBalancerConfiguration. This field is only honored for the configuration attached to the GatewayClass.</p>
+<p>Defines the Kubernetes object to attach the Target Group settings to.</p>
 <ul>
-<li><strong>Options</strong>:<ul>
-<li>prefer-gateway-class: When merging configuration from both Gateway and GatewayClass, value conflicts are resolved by using the GatewayClass configuration.</li>
-<li>prefer-gateway: When merging configuration from both Gateway and GatewayClass, value conflicts are resolved by using the Gateway configuration.</li>
+<li><strong>group</strong>: The group of the referent. For example, "gateway.networking.k8s.io". When unspecified or empty string, core API group is inferred.</li>
+<li><strong>kind</strong>: The Kubernetes resource kind of the referent. For example "Service". Defaults to "Service" when not specified.</li>
+<li><strong>name</strong>: The name of the referent.</li>
 </ul>
-</li>
-</ul>
-<p><strong>Default</strong> prefer-gateway-class</p>
-<h4 id="loadbalancername">LoadBalancerName<a class="headerlink" href="#loadbalancername" title="Permanent link">&para;</a></h4>
-<p><code>loadBalancerName</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  loadBalancerName: foo
+<p><strong>Default</strong> No default, required field</p>
+<h3 id="defaultconfiguration">DefaultConfiguration<a class="headerlink" href="#defaultconfiguration" title="Permanent link">&para;</a></h3>
+<p><code>defaultConfiguration</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-tg-config</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetReference</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service</span>
+<span class="w">  </span><span class="nt">defaultConfiguration</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">targetGroupName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-target-group</span>
+<span class="w">    </span><span class="nt">targetType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
 </code></pre></div>
-<p>Defines the name of the LB to provision. If unspecified, it will be automatically generated.</p>
-<p><strong>Default</strong> Autogenerate Name</p>
-<h4 id="scheme">Scheme<a class="headerlink" href="#scheme" title="Permanent link">&para;</a></h4>
-<p><code>scheme</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  scheme: internal
+<p>Defines fallback configuration applied to all routes, unless overridden by route-specific configurations.</p>
+<p>See <a href="#targetgroupprops">TargetGroupProps</a> for more details.</p>
+<p><strong>Default</strong> Empty object</p>
+<h3 id="routeconfigurations">RouteConfigurations<a class="headerlink" href="#routeconfigurations" title="Permanent link">&para;</a></h3>
+<p><code>routeConfigurations</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.k8s.aws/v1beta1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupConfiguration</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">route-specific-config</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">targetReference</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-service</span>
+<span class="w">  </span><span class="nt">defaultConfiguration</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">targetType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
+<span class="w">  </span><span class="nt">routeConfigurations</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">routeIdentifier</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPRoute</span>
+<span class="w">        </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns-1</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api-route</span>
+<span class="w">      </span><span class="nt">targetGroupProps</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">healthCheckConfig</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">healthCheckPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/health</span>
+<span class="w">          </span><span class="nt">healthCheckProtocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">routeIdentifier</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPRoute</span>
+<span class="w">        </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns-2</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">admin-route</span>
+<span class="w">      </span><span class="nt">targetGroupProps</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">healthCheckConfig</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">healthCheckPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/admin/health</span>
+<span class="w">          </span><span class="nt">healthCheckInterval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10</span>
 </code></pre></div>
-<p>Defines the LoadBalancer Scheme.</p>
+<h4 id="route-matching-logic">Route Matching Logic<a class="headerlink" href="#route-matching-logic" title="Permanent link">&para;</a></h4>
+<p>When applying route-specific configurations, the controller uses a specificity-based matching algorithm to find the best configuration for each route:</p>
+<ol>
+<li>Most specific match: Kind + Namespace + Name (exact match)</li>
+<li>Namespace-scoped match: Kind + Namespace (matches all routes of that Kind in the specified Namespace)</li>
+<li>Kind-only match: Kind (matches all routes of that Kind across all Namespaces)</li>
+</ol>
+<p>The matching is strict - if a namespace or name is specified in a routeIdentifier but doesn't exactly match the route, that configuration will not be applied. For example, a routeIdentifier with <code>{kind: "HTTPRoute", namespace: "test"}</code> will not match an HTTPRoute in the "default" namespace.</p>
+<p><strong>Default</strong> Empty list</p>
+<h2 id="routeconfiguration">RouteConfiguration<a class="headerlink" href="#routeconfiguration" title="Permanent link">&para;</a></h2>
+<h3 id="routeidentifier">RouteIdentifier<a class="headerlink" href="#routeidentifier" title="Permanent link">&para;</a></h3>
+<p><code>routeIdentifier</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">routeIdentifier</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTPRoute</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-route</span>
+</code></pre></div>
+<p>The complete set of route attributes that identify a route.</p>
 <ul>
-<li>internal</li>
-<li>the LB is only accessible within the VPC.</li>
-<li>internet-facing</li>
-<li>the LB is accessible via the public internet.</li>
+<li><strong>kind</strong>: The Kubernetes resource kind of the route.</li>
+<li><strong>namespace</strong>: The namespace of the route.</li>
+<li><strong>name</strong>: The name of the route.</li>
 </ul>
-<p><strong>Default</strong> internal</p>
-<h4 id="ipaddresstype">IpAddressType<a class="headerlink" href="#ipaddresstype" title="Permanent link">&para;</a></h4>
+<p><strong>Default</strong> No default, required field</p>
+<h3 id="targetgroupprops">TargetGroupProps<a class="headerlink" href="#targetgroupprops" title="Permanent link">&para;</a></h3>
+<p><code>targetGroupProps</code></p>
+<p>The target group specific properties. See <a href="#targetgroupprops">TargetGroupProps</a>.</p>
+<p><strong>Default</strong> No default, required field</p>
+<h2 id="targetgroupprops_1">TargetGroupProps<a class="headerlink" href="#targetgroupprops_1" title="Permanent link">&para;</a></h2>
+<h3 id="targetgroupname">TargetGroupName<a class="headerlink" href="#targetgroupname" title="Permanent link">&para;</a></h3>
+<p><code>targetGroupName</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">targetGroupName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">my-target-group</span>
+</code></pre></div>
+<p>Specifies the name to assign to the Target Group. If not defined, then one is generated.</p>
+<p><strong>Default</strong> Auto-generate name</p>
+<h3 id="ipaddresstype">IPAddressType<a class="headerlink" href="#ipaddresstype" title="Permanent link">&para;</a></h3>
 <p><code>ipAddressType</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  ipAddressType: dualstack
+<div class="highlight"><pre><span></span><code><span class="nt">ipAddressType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ipv4</span>
 </code></pre></div>
-<p>Define what IP Address Type to use.</p>
-<ul>
-<li>ipv4</li>
-<li>Only publish IPv4 address(es)</li>
-<li>dualstack</li>
-<li>Publish both IPv4 and IPv6 address(es)</li>
-<li>dualstack-without-public-ipv4</li>
-<li>Publish private IPv4 address(es) and public IPv6 address(es)</li>
-<li>Only applicable to ALB Gateways</li>
-</ul>
-<p><strong>Default</strong> ipv4</p>
-<h4 id="enforcesecuritygroupinboundrulesonprivatelinktraffic">EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic<a class="headerlink" href="#enforcesecuritygroupinboundrulesonprivatelinktraffic" title="Permanent link">&para;</a></h4>
-<p><code>enforceSecurityGroupInboundRulesOnPrivateLinkTraffic</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  enforceSecurityGroupInboundRulesOnPrivateLinkTraffic: on
+<p>Specifies whether the target group is of type IPv4 or IPv6. If unspecified, it will be automatically inferred.</p>
+<p>Options:
+- ipv4
+- ipv6</p>
+<p><strong>Default</strong> Auto-inferred</p>
+<h3 id="healthcheckconfig">HealthCheckConfig<a class="headerlink" href="#healthcheckconfig" title="Permanent link">&para;</a></h3>
+<p><code>healthCheckConfig</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">healthCheckConfig</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">healthyThresholdCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">healthCheckInterval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+<span class="w">  </span><span class="nt">healthCheckPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/healthz</span>
+<span class="w">  </span><span class="nt">healthCheckPort</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;8080&quot;</span>
+<span class="w">  </span><span class="nt">healthCheckProtocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
+<span class="w">  </span><span class="nt">healthCheckTimeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">  </span><span class="nt">unhealthyThresholdCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
+<span class="w">  </span><span class="nt">matcher</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">httpCode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200&quot;</span>
 </code></pre></div>
-<p>Indicates whether to evaluate inbound security group rules for traffic sent to a Network Load Balancer through Amazon Web Services PrivateLink.</p>
-<p>Valid options are <code>on</code> and <code>off</code></p>
-<p>Only applicable to NLB Gateways.</p>
-<p><strong>Default</strong> on</p>
-<h4 id="customerownedipv4pool">CustomerOwnedIpv4Pool<a class="headerlink" href="#customerownedipv4pool" title="Permanent link">&para;</a></h4>
-<p><code>customerOwnedIpv4Pool</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  customerOwnedIpv4Pool: coip-1234
+<p>The Health Check configuration for this backend.</p>
+<p>See <a href="#healthcheckconfiguration">HealthCheckConfiguration</a> for more details.</p>
+<p><strong>Default</strong> Default health check configuration from AWS</p>
+<h3 id="nodeselector">NodeSelector<a class="headerlink" href="#nodeselector" title="Permanent link">&para;</a></h3>
+<p><code>nodeSelector</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">nodeSelector</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">matchLabels</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">role</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">backend</span>
 </code></pre></div>
-<p>The ID of the customer-owned address for Application Load Balancers on Outposts pool.</p>
-<p>Only applicable to ALB Gateways.</p>
-<p><strong>Default</strong> no value</p>
-<h4 id="ipv4ipampoolid">IPv4IPAMPoolId<a class="headerlink" href="#ipv4ipampoolid" title="Permanent link">&para;</a></h4>
-<p><code>ipv4IPAMPoolId</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  ipv4IPAMPoolId: ipam-1234
+<p>Node selector for instance type target groups to only register certain nodes.</p>
+<p><strong>Default</strong> No selector</p>
+<h3 id="targetgroupattributes">TargetGroupAttributes<a class="headerlink" href="#targetgroupattributes" title="Permanent link">&para;</a></h3>
+<p><code>targetGroupAttributes</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">targetGroupAttributes</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">deregistration_delay.timeout_seconds</span>
+<span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;30&quot;</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">key</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">stickiness.enabled</span>
+<span class="w">    </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
 </code></pre></div>
-<p>The IPAM pool ID used for IPv4 Addresses on the ALB.</p>
-<p>Only applicable to ALB Gateways.</p>
-<p><strong>Default</strong> no value</p>
-<h4 id="loadbalancersubnets">LoadBalancerSubnets<a class="headerlink" href="#loadbalancersubnets" title="Permanent link">&para;</a></h4>
-<p><code>loadBalancerSubnets</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  loadBalancerSubnets:
-    - identifier: subnet-1234
-</code></pre></div>
-<p>An optional list of subnet configurations to be used in the LB. This value takes precedence over subnet <code>loadBalancerSubnetsSelector</code> if both are selected.</p>
-<p>See <a href="#SubnetConfiguration">SubnetConfiguration</a> for more more details</p>
-<p><strong>Default</strong> Use <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a></p>
-<h4 id="loadbalancersubnetsselector">LoadBalancerSubnetsSelector<a class="headerlink" href="#loadbalancersubnetsselector" title="Permanent link">&para;</a></h4>
-<p><code>loadBalancerSubnetsSelector</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  loadBalancerSubnetsSelector:
-    key1:
-      - k1
-      - k2
-      - k3
-</code></pre></div>
-<p>The subnets in the load balancer's VPC where each tag specified in the map key contains one of the values in the corresponding value list.</p>
-<p><strong>Default</strong> Use <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a></p>
-<h4 id="listenerconfigurations">ListenerConfigurations<a class="headerlink" href="#listenerconfigurations" title="Permanent link">&para;</a></h4>
-<p><code>listenerConfigurations</code></p>
-<p>A list of Listener Configurations. See the <a href="#ListenerConfiguration">ListenerConfiguration</a></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  listenerConfigurations:
-    - protocolPort: TCP:80
-      defaultCertificate: my-cert
-    - protocolPort: TCP:81
-      defaultCertificate: my-cert1
-</code></pre></div>
+<p>Defines the attribute of target group.</p>
 <p><strong>Default</strong> Empty list</p>
-<h4 id="securitygroups">SecurityGroups<a class="headerlink" href="#securitygroups" title="Permanent link">&para;</a></h4>
-<p><code>securityGroups</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  securityGroups:
-    - &quot;sg1&quot;
-    - &quot;sg2&quot;
+<h3 id="targettype">TargetType<a class="headerlink" href="#targettype" title="Permanent link">&para;</a></h3>
+<p><code>targetType</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">targetType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
 </code></pre></div>
-<p>If you specify this annotation, you need to configure the security groups on your Node/Pod to allow inbound traffic from the load balancer. 
-You could also set the <a href="#ManageBackendSecurityGroupRules"><code>manage-backend-security-group-rules</code></a> if you want the controller to manage the access rules.
-Both name or ID of securityGroups are supported. Name matches a <code>Name</code> tag, not the <code>groupName</code> attribute.</p>
-<p><strong>Default</strong></p>
-<p>The controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from <a href="#SourceRanges"><code>SourceRanges</code></a> and <a href="#SecurityGroupPrefixes"><code>SecurityGroupPrefixes</code></a> to each Listener port.
-Also, the securityGroups for Node/Pod will be modified to allow inbound traffic from this securityGroup.</p>
-<h4 id="securitygroupprefixes">SecurityGroupPrefixes<a class="headerlink" href="#securitygroupprefixes" title="Permanent link">&para;</a></h4>
-<p><code>securityGroupPrefixes</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  securityGroupPrefixes:
-    - &quot;pl1&quot;
-    - &quot;pl2&quot;
+<p>The TargetType of TargetGroup.</p>
+<p>Options:
+- instance: Nodes with nodePort for your service will be registered as targets
+- ip: Pods with containerPort for your service will be registered as targets</p>
+<p><strong>Default</strong> Auto-inferred as "instance"</p>
+<h3 id="protocol">Protocol<a class="headerlink" href="#protocol" title="Permanent link">&para;</a></h3>
+<p><code>protocol</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">protocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
 </code></pre></div>
-<p>An optional list of prefixes that are allowed to access the LB.</p>
-<p><strong>Default</strong> Empty list</p>
-<h4 id="sourceranges">SourceRanges<a class="headerlink" href="#sourceranges" title="Permanent link">&para;</a></h4>
-<p><code>sourceRanges</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  sourceRanges:
-    - &quot;2001:db8::/32&quot;
-    - &quot;127.0.0.1/24&quot;
+<p>The protocol for the target group. If unspecified, it will be automatically inferred.</p>
+<p>Options:
+- HTTP
+- HTTPS
+- TCP
+- TLS
+- UDP
+- TCP_UDP</p>
+<p><strong>Default</strong> Auto-inferred</p>
+<h3 id="protocolversion">ProtocolVersion<a class="headerlink" href="#protocolversion" title="Permanent link">&para;</a></h3>
+<p><code>protocolVersion</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">protocolVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP2</span>
 </code></pre></div>
-<p>An optional list of CIDRs that are allowed to access the LB.</p>
-<p><strong>Default</strong> Empty list</p>
-<h4 id="vpcid">VpcId<a class="headerlink" href="#vpcid" title="Permanent link">&para;</a></h4>
-<p><code>vpcId</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  vpcId: vpc-1234
+<p>The protocol version. Only applicable for HTTP/HTTPS protocol.</p>
+<p>Options:
+- HTTP1
+- HTTP2
+- GRPC</p>
+<p><strong>Default</strong> No default</p>
+<h3 id="enablemulticluster">EnableMultiCluster<a class="headerlink" href="#enablemulticluster" title="Permanent link">&para;</a></h3>
+<p><code>enableMultiCluster</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">enableMultiCluster</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
 </code></pre></div>
-<p>The VPC ID of LoadBalancer</p>
-<p><strong>Default</strong> Autodetect VPC from Cluster VPC</p>
-<h4 id="loadbalancerattributes">LoadBalancerAttributes<a class="headerlink" href="#loadbalancerattributes" title="Permanent link">&para;</a></h4>
-<p><code>loadBalancerAttributes</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  loadBalancerAttributes:
-    - key: k1
-      value: v1
-    - key: k2
-      value: v2
-</code></pre></div>
-<p>The attributes to apply to an LB.
-See the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html">ELB documentation</a> for a full list of attributes</p>
-<p><strong>Default</strong> Empty list</p>
-<h4 id="tags">Tags<a class="headerlink" href="#tags" title="Permanent link">&para;</a></h4>
+<p>Allows for multiple Clusters / Services to use the generated TargetGroup ARN.</p>
+<p><strong>Default</strong> false</p>
+<h3 id="tags">Tags<a class="headerlink" href="#tags" title="Permanent link">&para;</a></h3>
 <p><code>tags</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  tags:
-    tag-k1: v1
-    tag-k2: v2
+<div class="highlight"><pre><span></span><code><span class="nt">tags</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">Environment</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Production</span>
+<span class="w">  </span><span class="nt">Project</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MyApp</span>
 </code></pre></div>
-<p>The tags to apply to an LB.</p>
+<p>The Tags to add on the target group.</p>
 <p><strong>Default</strong> No tags</p>
-<h4 id="enableicmp">EnableICMP<a class="headerlink" href="#enableicmp" title="Permanent link">&para;</a></h4>
-<p><code>enableICMP</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  enableICMP: true
+<h2 id="healthcheckconfiguration">HealthCheckConfiguration<a class="headerlink" href="#healthcheckconfiguration" title="Permanent link">&para;</a></h2>
+<h3 id="healthythresholdcount">HealthyThresholdCount<a class="headerlink" href="#healthythresholdcount" title="Permanent link">&para;</a></h3>
+<p><code>healthyThresholdCount</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">healthyThresholdCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 </code></pre></div>
-<p>Enables the creation of security group rules to the managed security group to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs</p>
-<p>Only applies to Network LoadBalancers.</p>
-<p><strong>Default</strong> false</p>
-<h4 id="managebackendsecuritygrouprules">ManageBackendSecurityGroupRules<a class="headerlink" href="#managebackendsecuritygrouprules" title="Permanent link">&para;</a></h4>
-<p><code>manageBackendSecurityGroupRules</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  manageBackendSecurityGroupRules: true
+<p>The number of consecutive health checks successes required before considering an unhealthy target healthy.</p>
+<p><strong>Default</strong> AWS default value</p>
+<h3 id="healthcheckinterval">HealthCheckInterval<a class="headerlink" href="#healthcheckinterval" title="Permanent link">&para;</a></h3>
+<p><code>healthCheckInterval</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">healthCheckInterval</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
 </code></pre></div>
-<p>Specify whether you want the controller to configure security group rules on the Node/Pod for traffic access when you specify securityGroups</p>
-<p><strong>Default</strong> false</p>
-<h4 id="minimumloadbalancercapacity">MinimumLoadBalancerCapacity<a class="headerlink" href="#minimumloadbalancercapacity" title="Permanent link">&para;</a></h4>
-<p><code>minimumLoadBalancerCapacity</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  minimumLoadBalancerCapacity:
-    capacityUnits: 100000
+<p>The approximate amount of time, in seconds, between health checks of an individual target.</p>
+<p><strong>Default</strong> AWS default value</p>
+<h3 id="healthcheckpath">HealthCheckPath<a class="headerlink" href="#healthcheckpath" title="Permanent link">&para;</a></h3>
+<p><code>healthCheckPath</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">healthCheckPath</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/healthz</span>
 </code></pre></div>
-<p>Define the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/capacity-unit-reservation.html">capacity reservation</a> for LoadBalancers</p>
-<p><strong>Default</strong> No capacity reservation</p>
-<h3 id="listenerconfiguration">ListenerConfiguration<a class="headerlink" href="#listenerconfiguration" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  listenerConfigurations:
-    - protocolPort: TCP:80
-      defaultCertificate: my-cert
-      certificates: [arn-1, arn2, arn3]
-      sslPolicy: ELBSecurityPolicy-2016-08
-      alpnPolicy: HTTP1Only
+<p>The destination for health checks on the targets.</p>
+<p><strong>Default</strong> AWS default path</p>
+<h3 id="healthcheckport">HealthCheckPort<a class="headerlink" href="#healthcheckport" title="Permanent link">&para;</a></h3>
+<p><code>healthCheckPort</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">healthCheckPort</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;8080&quot;</span>
 </code></pre></div>
-<h4 id="protocolport">ProtocolPort<a class="headerlink" href="#protocolport" title="Permanent link">&para;</a></h4>
-<p><code>protocolPort</code></p>
-<p>The identifier for the listener on load balancer. It should be of the form PROTOCOL:PORT</p>
-<p><strong>Default</strong> No default, not an optional field.</p>
-<h4 id="defaultcertificate">DefaultCertificate<a class="headerlink" href="#defaultcertificate" title="Permanent link">&para;</a></h4>
-<p><code>defaultCertificate</code></p>
-<p>The default cert ARN.</p>
-<p><strong>Default</strong> No cert</p>
-<h4 id="certificates">Certificates<a class="headerlink" href="#certificates" title="Permanent link">&para;</a></h4>
-<p><code>certificates</code></p>
-<p>A list of cert ARNs to accept on this listener.</p>
-<p><strong>Default</strong> Empty list</p>
-<h4 id="sslpolicy">SslPolicy<a class="headerlink" href="#sslpolicy" title="Permanent link">&para;</a></h4>
-<p><code>sslPolicy</code></p>
-<p>The security policy that defines which protocols and ciphers are supported for secure listeners [HTTPS or TLS listener].</p>
-<p>See the documentation for more information
-<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html">ALB</a>
-<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html">NLB</a></p>
-<p><strong>Default</strong> ELBSecurityPolicy-2016-08</p>
-<h4 id="alpnpolicy">ALPNPolicy<a class="headerlink" href="#alpnpolicy" title="Permanent link">&para;</a></h4>
-<p><code>alpnPolicy</code></p>
-<p>An optional string that allows you to configure ALPN policies on your Load Balancer.</p>
-<p>See the documentation for more details:
-<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-listeners.html#alpn-policies">ALPN</a></p>
-<p>Possible values:
-- HTTP1Only 
-  - Negotiate only HTTP/1.<em>. The ALPN preference list is http/1.1, http/1.0.
-- HTTP2Only
-  - Negotiate only HTTP/2. The ALPN preference list is h2.
-- HTTP2Optional
-  - Prefer HTTP/1.</em> over HTTP/2 (which can be useful for HTTP/2 testing). The ALPN preference list is http/1.1, http/1.0, h2.
-- HTTP2Preferred
-  - Prefer HTTP/2 over HTTP/1.*. The ALPN preference list is h2, http/1.1, http/1.0.
-- None
-  - Do not negotiate ALPN.</p>
-<p>Only applies to Network LoadBalancer Gateways.</p>
-<p><strong>Default</strong> None</p>
-<h4 id="mutualauthentication">MutualAuthentication<a class="headerlink" href="#mutualauthentication" title="Permanent link">&para;</a></h4>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  listenerConfigurations:
-    - protocolPort: TCP:80
-      defaultCertificate: my-cert
-      certificates: [arn-1, arn2, arn3]
-      mutualAuthentication:
-        advertiseTrustStoreCaNames: &quot;off&quot;
-        ignoreClientCertificateExpiry: true
-        mode: verify
-        trustStore: ts-1234
+<p>The port the load balancer uses when performing health checks on targets. The default is to use the port on which each target receives traffic from the load balancer.</p>
+<p><strong>Default</strong> Use target port</p>
+<h3 id="healthcheckprotocol">HealthCheckProtocol<a class="headerlink" href="#healthcheckprotocol" title="Permanent link">&para;</a></h3>
+<p><code>healthCheckProtocol</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">healthCheckProtocol</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">HTTP</span>
 </code></pre></div>
-<p><code>mutualAuthentication</code></p>
-<p>Define the mutual authentication configuration information. Using <a href="#MutualAuthenticationAttributes">MutualAuthenticationAttributes</a> </p>
-<p>See the documentation for more information
-<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html">mTLS</a></p>
-<p>Only applies to Application LoadBalancer Gateways.</p>
-<p><strong>Default</strong> No MTLS</p>
-<h4 id="listenerattributes">ListenerAttributes<a class="headerlink" href="#listenerattributes" title="Permanent link">&para;</a></h4>
-<p><code>listenerAttributes</code></p>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  listenerConfigurations:
-    - protocolPort: TCP:80
-      defaultCertificate: my-cert
-      certificates: [arn-1, arn2, arn3]
-      listenerAttributes:
-        - key: k1
-          value: v1
-        - key: k2
-          value: v2
+<p>The protocol to use to connect with the target. The GENEVE, TLS, UDP, and TCP_UDP protocols are not supported for health checks.</p>
+<p>Options:
+- HTTP
+- HTTPS
+- TCP</p>
+<p><strong>Default</strong> AWS default protocol</p>
+<h3 id="healthchecktimeout">HealthCheckTimeout<a class="headerlink" href="#healthchecktimeout" title="Permanent link">&para;</a></h3>
+<p><code>healthCheckTimeout</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">healthCheckTimeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
 </code></pre></div>
-<p>Define the attributes for the listener.</p>
-<p>See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_ListenerAttribute.html">ListenerAttributes</a>
-for a complete list.</p>
-<p><strong>Default</strong> Empty list</p>
-<h3 id="mutualauthenticationattributes">MutualAuthenticationAttributes<a class="headerlink" href="#mutualauthenticationattributes" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  listenerConfigurations:
-    - protocolPort: TCP:80
-      defaultCertificate: my-cert
-      certificates: [arn-1, arn2, arn3]
-      mutualAuthentication:
-        advertiseTrustStoreCaNames: &quot;off&quot;
-        ignoreClientCertificateExpiry: true
-        mode: verify
-        trustStore: ts-1234
+<p>The amount of time, in seconds, during which no response means a failed health check.</p>
+<p><strong>Default</strong> AWS default timeout</p>
+<h3 id="unhealthythresholdcount">UnhealthyThresholdCount<a class="headerlink" href="#unhealthythresholdcount" title="Permanent link">&para;</a></h3>
+<p><code>unhealthyThresholdCount</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">unhealthyThresholdCount</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">2</span>
 </code></pre></div>
-<h4 id="advertisetruststorecanames">AdvertiseTrustStoreCaNames<a class="headerlink" href="#advertisetruststorecanames" title="Permanent link">&para;</a></h4>
-<p><code>advertiseTrustStoreCaNames</code></p>
-<p>Whether trust store CA certificate names are advertised. Supported values are "on" and "off"</p>
-<p><strong>Default</strong> "off"</p>
-<h4 id="ignoreclientcertificateexpiry">IgnoreClientCertificateExpiry<a class="headerlink" href="#ignoreclientcertificateexpiry" title="Permanent link">&para;</a></h4>
-<p><code>ignoreClientCertificateExpiry</code></p>
-<p>Whether expired client certificates are ignored.</p>
-<p><strong>Default</strong> False</p>
-<h4 id="mutualauthenticationmode">MutualAuthenticationMode<a class="headerlink" href="#mutualauthenticationmode" title="Permanent link">&para;</a></h4>
-<p><code>mode</code></p>
-<p>The client certificate handling method</p>
-<p>Possible values:
-- verify
-  - When you use mutual TLS verify mode, Application Load Balancer performs X.509 client certificate authentication for clients when a load balancer negotiates TLS connections
-- passthrough
-  - When you use mutual TLS passthrough mode, Application Load Balancer sends the whole client certificate chain to the target using HTTP headers. Then, by using the client certificate chain, you can implement corresponding load balancer authentication and target authorization logic in your application.
-- off
-  - mTLS is not enabled.</p>
-<p><strong>Default</strong> Off</p>
-<h4 id="truststore">TrustStore<a class="headerlink" href="#truststore" title="Permanent link">&para;</a></h4>
-<p><code>trustStore</code></p>
-<p>The Name or ARN of the trust store.</p>
-<p><strong>Default</strong> Empty string</p>
-<h3 id="subnetconfiguration">SubnetConfiguration<a class="headerlink" href="#subnetconfiguration" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
-kind: LoadBalancerConfiguration
-metadata:
-  name: example-config
-  namespace: echoserver
-spec:
-  loadBalancerSubnets:
-    - identifier: &quot;my-subnet&quot;
-      eipAllocation: &quot;eip-1234&quot;
-      privateIPv4Allocation: &quot;127.0.0.1&quot;
-      ipv6Allocation: &quot;69e1:9570:c975:1af1:8073:384c:5aae:53c6&quot;
-      sourceNatIPv6Prefix: &quot;2001:db8::/32&quot;
+<p>The number of consecutive health check failures required before considering the target unhealthy.</p>
+<p><strong>Default</strong> AWS default count</p>
+<h3 id="matcher">Matcher<a class="headerlink" href="#matcher" title="Permanent link">&para;</a></h3>
+<p><code>matcher</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">matcher</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">httpCode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200&quot;</span>
 </code></pre></div>
-<h4 id="identifier">Identifier<a class="headerlink" href="#identifier" title="Permanent link">&para;</a></h4>
-<p><code>identifier</code></p>
-<p>The name or ID of the subnet</p>
-<p><strong>Default</strong> Empty string</p>
-<h4 id="eipallocation">EIPAllocation<a class="headerlink" href="#eipallocation" title="Permanent link">&para;</a></h4>
-<p><code>eipAllocation</code></p>
-<p>The EIP name for this subnet.</p>
-<p>Only applies to Network LoadBalancer Gateways.</p>
-<p><strong>Default</strong> Empty string</p>
-<h4 id="privateipv4allocation">PrivateIPv4Allocation<a class="headerlink" href="#privateipv4allocation" title="Permanent link">&para;</a></h4>
-<p><code>privateIPv4Allocation</code></p>
-<p>The private ipv4 address to assign to this subnet.</p>
-<p>Only applies to Network LoadBalancer Gateways.</p>
-<p><strong>Default</strong> Empty string</p>
-<h4 id="ipv6allocation">IPv6Allocation<a class="headerlink" href="#ipv6allocation" title="Permanent link">&para;</a></h4>
-<p><code>ipv6Allocation</code></p>
-<p>The ipv6 address to assign to this subnet.</p>
-<p>Only applies to Network LoadBalancer Gateways.</p>
-<p><strong>Default</strong> Empty string</p>
-<h4 id="sourcenatipv6prefix">SourceNatIPv6Prefix<a class="headerlink" href="#sourcenatipv6prefix" title="Permanent link">&para;</a></h4>
-<p><code>sourceNatIPv6Prefix</code></p>
-<p>The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or auto_assigned to use an IPv6 prefix selected at random from the subnet CIDR block.</p>
-<p>Only applies to Network LoadBalancer Gateways.</p>
-<p><strong>Default</strong> Empty string</p>
+<div class="highlight"><pre><span></span><code><span class="nt">matcher</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">grpcCode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0&quot;</span>
+</code></pre></div>
+<p>The HTTP or gRPC codes to use when checking for a successful response from a target.</p>
+<p>Note: Only one of httpCode or grpcCode should be set.</p>
+<p><strong>Default</strong> AWS default matcher codes</p>
+<h2 id="healthcheckmatcher">HealthCheckMatcher<a class="headerlink" href="#healthcheckmatcher" title="Permanent link">&para;</a></h2>
+<h3 id="httpcode">HTTPCode<a class="headerlink" href="#httpcode" title="Permanent link">&para;</a></h3>
+<p><code>httpCode</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">httpCode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;200&quot;</span>
+</code></pre></div>
+<p>The HTTP codes to consider a successful health check.</p>
+<p><strong>Default</strong> No default if specified</p>
+<h3 id="grpccode">GRPCCode<a class="headerlink" href="#grpccode" title="Permanent link">&para;</a></h3>
+<p><code>grpcCode</code></p>
+<div class="highlight"><pre><span></span><code><span class="nt">grpcCode</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;0&quot;</span>
+</code></pre></div>
+<p>The gRPC codes to consider a successful health check.</p>
+<p><strong>Default</strong> No default if specified</p>
 
 
 
