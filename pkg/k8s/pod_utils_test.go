@@ -1,12 +1,13 @@
 package k8s
 
 import (
+	"testing"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"testing"
 )
 
 func TestIsPodHasReadinessGate(t *testing.T) {
@@ -178,6 +179,7 @@ func TestGetPodCondition(t *testing.T) {
 }
 
 func TestLookupContainerPort(t *testing.T) {
+	initContainerRestartPolicyAlways := corev1.ContainerRestartPolicyAlways
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "ns",
@@ -201,6 +203,28 @@ func TestLookupContainerPort(t *testing.T) {
 						},
 						{
 							ContainerPort: 9999,
+						},
+					},
+				},
+			},
+			InitContainers: []corev1.Container{
+				{
+					RestartPolicy: &initContainerRestartPolicyAlways,
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 53,
+						},
+						{
+							Name:          "ftp",
+							ContainerPort: 21,
+						},
+					},
+				},
+				{
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "smtp",
+							ContainerPort: 25,
 						},
 					},
 				},
@@ -234,6 +258,14 @@ func TestLookupContainerPort(t *testing.T) {
 			want: 80,
 		},
 		{
+			name: "named pod within pod spec (as an initContainer (sidecar)) can be found",
+			args: args{
+				pod:  pod,
+				port: intstr.FromString("ftp"),
+			},
+			want: 21,
+		},
+		{
 			name: "named pod within pod spec cannot be found",
 			args: args{
 				pod:  pod,
@@ -242,12 +274,28 @@ func TestLookupContainerPort(t *testing.T) {
 			wantErr: errors.New("unable to find port https on pod ns/default"),
 		},
 		{
+			name: "named pod within initContainer that is not a sidecar cannot be found",
+			args: args{
+				pod:  pod,
+				port: intstr.FromString("smtp"),
+			},
+			wantErr: errors.New("unable to find port smtp on pod ns/default"),
+		},
+		{
 			name: "numerical pod within pod spec can be found",
 			args: args{
 				pod:  pod,
 				port: intstr.FromInt(9999),
 			},
 			want: 9999,
+		},
+		{
+			name: "numerical pod within pod spec (as an initContainer (sidecar)) can be found",
+			args: args{
+				pod:  pod,
+				port: intstr.FromInt(53),
+			},
+			want: 53,
 		},
 		{
 			name: "numerical pod not within pod spec should still be found",

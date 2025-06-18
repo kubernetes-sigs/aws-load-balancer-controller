@@ -53,6 +53,16 @@ func LookupContainerPort(pod *corev1.Pod, port intstr.IntOrString) (int64, error
 				}
 			}
 		}
+		// also support sidecar container (initContainer with restartPolicy=Always)
+		for _, podContainer := range pod.Spec.InitContainers {
+			if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
+				for _, podPort := range podContainer.Ports {
+					if podPort.Name == port.StrVal {
+						return int64(podPort.ContainerPort), nil
+					}
+				}
+			}
+		}
 	case intstr.Int:
 		return int64(port.IntVal), nil
 	}
