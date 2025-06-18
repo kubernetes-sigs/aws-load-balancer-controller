@@ -2,13 +2,14 @@ package k8s
 
 import (
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"testing"
-	"time"
 )
 
 func TestPodInfo_HasAnyOfReadinessGates(t *testing.T) {
@@ -317,6 +318,8 @@ func Test_buildPodInfo(t *testing.T) {
 
 	timeNow := time.Now()
 
+	initContainerRestartPolicyAlways := corev1.ContainerRestartPolicyAlways
+
 	tests := []struct {
 		name string
 		args args
@@ -354,6 +357,29 @@ func Test_buildPodInfo(t *testing.T) {
 									{
 										Name:          "https",
 										ContainerPort: 8443,
+									},
+								},
+							},
+						},
+						InitContainers: []corev1.Container{
+							{
+								RestartPolicy: &initContainerRestartPolicyAlways,
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "dns",
+										ContainerPort: 53,
+									},
+									{
+										Name:          "ftp",
+										ContainerPort: 21,
+									},
+								},
+							},
+							{
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "smtp",
+										ContainerPort: 25,
 									},
 								},
 							},
@@ -397,6 +423,14 @@ func Test_buildPodInfo(t *testing.T) {
 					{
 						Name:          "https",
 						ContainerPort: 8443,
+					},
+					{
+						Name:          "dns",
+						ContainerPort: 53,
+					},
+					{
+						Name:          "ftp",
+						ContainerPort: 21,
 					},
 				},
 				ReadinessGates: []corev1.PodReadinessGate{
@@ -461,6 +495,29 @@ func Test_buildPodInfo(t *testing.T) {
 								},
 							},
 						},
+						InitContainers: []corev1.Container{
+							{
+								RestartPolicy: &initContainerRestartPolicyAlways,
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "dns",
+										ContainerPort: 53,
+									},
+									{
+										Name:          "ftp",
+										ContainerPort: 21,
+									},
+								},
+							},
+							{
+								Ports: []corev1.ContainerPort{
+									{
+										Name:          "smtp",
+										ContainerPort: 25,
+									},
+								},
+							},
+						},
 						ReadinessGates: []corev1.PodReadinessGate{
 							{
 								ConditionType: "ingress.k8s.aws/cond-1",
@@ -500,6 +557,14 @@ func Test_buildPodInfo(t *testing.T) {
 					{
 						Name:          "https",
 						ContainerPort: 8443,
+					},
+					{
+						Name:          "dns",
+						ContainerPort: 53,
+					},
+					{
+						Name:          "ftp",
+						ContainerPort: 21,
 					},
 				},
 				ReadinessGates: []corev1.PodReadinessGate{

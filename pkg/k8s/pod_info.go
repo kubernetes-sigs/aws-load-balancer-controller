@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"encoding/json"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -96,6 +97,12 @@ func buildPodInfo(pod *corev1.Pod) PodInfo {
 	var containerPorts []corev1.ContainerPort
 	for _, podContainer := range pod.Spec.Containers {
 		containerPorts = append(containerPorts, podContainer.Ports...)
+	}
+	// also support sidecar container (initContainer with restartPolicy=Always)
+	for _, podContainer := range pod.Spec.InitContainers {
+		if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
+			containerPorts = append(containerPorts, podContainer.Ports...)
+		}
 	}
 	return PodInfo{
 		Key: podKey,
