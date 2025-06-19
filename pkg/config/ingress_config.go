@@ -10,12 +10,14 @@ const (
 	flagTolerateNonExistentBackendService    = "tolerate-non-existent-backend-service"
 	flagTolerateNonExistentBackendAction     = "tolerate-non-existent-backend-action"
 	flagAllowedCAArns                        = "allowed-certificate-authority-arns"
+	flagControllerClass                      = "controller-class"
 	defaultIngressClass                      = "alb"
 	defaultDisableIngressClassAnnotation     = false
 	defaultDisableIngressGroupNameAnnotation = false
 	defaultMaxIngressConcurrentReconciles    = 3
 	defaultTolerateNonExistentBackendService = true
 	defaultTolerateNonExistentBackendAction  = true
+	defaultControllerClass                   = "ingress.k8s.aws/alb"
 )
 
 // IngressConfig contains the configurations for the Ingress controller
@@ -46,6 +48,9 @@ type IngressConfig struct {
 
 	// AllowedCertificateAuthoritiyARNs contains a list of all CAs to consider when discovering certificates for ingress resources
 	AllowedCertificateAuthorityARNs []string
+
+	// ControllerClass is the class for the ingress controller
+	ControllerClass string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -63,4 +68,5 @@ func (cfg *IngressConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&cfg.TolerateNonExistentBackendAction, flagTolerateNonExistentBackendAction, defaultTolerateNonExistentBackendAction,
 		"Tolerate rules that specify a non-existent backend action")
 	fs.StringSliceVar(&cfg.AllowedCertificateAuthorityARNs, flagAllowedCAArns, []string{}, "Specify an optional list of CA ARNs to filter on in cert discovery")
+	fs.StringVar(&cfg.ControllerClass, flagControllerClass, defaultControllerClass, "ControllerClass is the class for the ingress controller, the default value is \"ingress.k8s.aws/alb\".")
 }
