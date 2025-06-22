@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +22,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
 
 func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context, port corev1.ServicePort, tgProtocol elbv2model.Protocol, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroup, error) {
@@ -233,12 +233,18 @@ func (t *defaultModelBuildTask) buildTargetGroupAttributes(_ context.Context, po
 		}
 	}
 
-	proxyV2Annotation := ""
-	if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotation, t.service.Annotations); exists {
-		if proxyV2Annotation != "*" {
-			return []elbv2model.TargetGroupAttribute{}, errors.Errorf("invalid value %v for Load Balancer proxy protocol v2 annotation, only value currently supported is *", proxyV2Annotation)
+	var proxyV2Annotations []string
+	if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixProxyProtocol, &proxyV2Annotations, t.service.Annotations); exists {
+		for _, proxySelector := range proxyV2Annotations {
+			if proxySelector == "*" {
+				rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "true"
+				break
+			}
+			if proxySelector == strconv.Itoa(int(port.Port)) {
+				rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "true"
+				break
+			}
 		}
-		rawAttributes[shared_constants.TGAttributeProxyProtocolV2Enabled] = "true"
 	}
 
 	if rawPreserveIPEnabled, ok := rawAttributes[shared_constants.TGAttributePreserveClientIPEnabled]; ok {
