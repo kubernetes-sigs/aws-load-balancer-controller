@@ -6,6 +6,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"time"
 )
 
 /*
@@ -105,6 +106,10 @@ func (httpRoute *httpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 		}
 	}
 	return backendRefs
+}
+
+func (httpRoute *httpRouteDescription) GetRouteCreateTimestamp() time.Time {
+	return httpRoute.route.CreationTimestamp.Time
 }
 
 func convertHTTPRoute(r gwv1.HTTPRoute) *httpRouteDescription {

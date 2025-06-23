@@ -5,6 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"time"
 )
 
 // routeMetadataDescriptor a common set of functions that will describe a route.
@@ -18,6 +19,7 @@ type routeMetadataDescriptor interface {
 	GetRawRoute() interface{}
 	GetBackendRefs() []gwv1.BackendRef
 	GetRouteGeneration() int64
+	GetRouteCreateTimestamp() time.Time
 }
 
 // preLoadRouteDescriptor this object is used to represent a route description that has not loaded its child data (services, tg config)

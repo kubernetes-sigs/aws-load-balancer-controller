@@ -6,6 +6,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"time"
 )
 
 /*
@@ -113,6 +114,10 @@ func (grpcRoute *grpcRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 
 func (grpcRoute *grpcRouteDescription) GetRouteGeneration() int64 {
 	return grpcRoute.route.Generation
+}
+
+func (grpcRoute *grpcRouteDescription) GetRouteCreateTimestamp() time.Time {
+	return grpcRoute.route.CreationTimestamp.Time
 }
 
 var _ RouteDescriptor = &grpcRouteDescription{}

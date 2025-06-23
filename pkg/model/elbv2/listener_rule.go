@@ -145,3 +145,9 @@ type ListenerRuleStatus struct {
 	// The Amazon Resource Name (ARN) of the rule.
 	RuleARN string `json:"ruleARN"`
 }
+
+type Rule struct {
+	Conditions []RuleCondition
+	Actions    []Action
+	Tags       map[string]string
+}

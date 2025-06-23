@@ -14,7 +14,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	certs "sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -164,63 +163,53 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 	return listenerSpec, nil
 }
 
+// this is only for L7 ALB
 func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model.Listener, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) error {
+	// sort all rules based on precedence
+	rulesWithPrecedenceOrder := routeutils.SortAllRulesByPrecedence(routes[port])
 
-	// add hostname handling (sort by precedence order)
-	sortRoutesByHostnamePrecedence(routes[port])
+	var albRules []elbv2model.Rule
+	for _, ruleWithPrecedence := range rulesWithPrecedenceOrder {
+		route := ruleWithPrecedence.RouteDescriptor
+		rule := ruleWithPrecedence.Rule
 
-	// TODO for L7 Gateway Implementation
-	// This is throw away code
-	// This is temporary implementation for supporting basic multiple HTTPRoute for simple backend refs. We will create default forward action for all the backend refs for all HTTPRoutes for this listener
-	var rules []ingress.Rule
-	for _, descriptors := range routes {
-		for _, descriptor := range descriptors {
-			for _, rule := range descriptor.GetAttachedRules() {
-				for _, backend := range rule.GetBackends() {
-					targetGroup, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, lb.Spec.IPAddressType, descriptor, backend, securityGroups.backendSecurityGroupToken)
-					if tgErr != nil {
-						return tgErr
-					}
-					// Basic condition
-					conditions := []elbv2model.RuleCondition{{
-						Field: elbv2model.RuleConditionFieldPathPattern,
-						PathPatternConfig: &elbv2model.PathPatternConditionConfig{
-							Values: []string{"/*"},
-						},
-					},
-					}
-
-					// add host header condition
-					if hostnames := descriptor.GetHostnames(); len(hostnames) > 0 {
-						hostnamesStringList := make([]string, len(descriptor.GetHostnames()))
-						for i, j := range descriptor.GetHostnames() {
-							hostnamesStringList[i] = string(j)
-						}
-						conditions = append(conditions, elbv2model.RuleCondition{
-							Field: elbv2model.RuleConditionFieldHostHeader,
-							HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
-								Values: hostnamesStringList,
-							},
-						})
-					}
-
-					actions := buildL4ListenerDefaultActions(targetGroup)
-					tags, tagsErr := l.tagHelper.getGatewayTags(lbCfg)
-					if tagsErr != nil {
-						return tagsErr
-					}
-					rules = append(rules, ingress.Rule{
-						Conditions: conditions,
-						Actions:    actions,
-						Tags:       tags,
-					})
-				}
+		var conditionsList []elbv2model.RuleCondition
+		var err error
+		switch route.GetRouteKind() {
+		case routeutils.HTTPRouteKind:
+			conditionsList, err = routeutils.BuildHttpRuleConditions(ruleWithPrecedence)
+			if err != nil {
+				return err
 			}
+			// TODO: add case for GRPC
 		}
+		tags, tagsErr := l.tagHelper.getGatewayTags(lbCfg)
+		if tagsErr != nil {
+			return tagsErr
+		}
+		targetGroupTuples := make([]elbv2model.TargetGroupTuple, 0, len(rule.GetBackends()))
+		for _, backend := range rule.GetBackends() {
+			targetGroup, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, lb.Spec.IPAddressType, route, backend, securityGroups.backendSecurityGroupToken)
+			if tgErr != nil {
+				return tgErr
+			}
+			// weighted target group support
+			weight := int32(backend.Weight)
+			targetGroupTuples = append(targetGroupTuples, elbv2model.TargetGroupTuple{
+				TargetGroupARN: targetGroup.TargetGroupARN(),
+				Weight:         &weight,
+			})
+		}
+		actions := buildL7ListenerActions(targetGroupTuples)
+		albRules = append(albRules, elbv2model.Rule{
+			Conditions: conditionsList,
+			Actions:    actions,
+			Tags:       tags,
+		})
 	}
 
 	priority := int32(1)
-	for _, rule := range rules {
+	for _, rule := range albRules {
 		ruleResID := fmt.Sprintf("%v:%v", port, priority)
 		_ = elbv2model.NewListenerRule(stack, ruleResID, elbv2model.ListenerRuleSpec{
 			ListenerARN: ls.ListenerARN(),
@@ -331,6 +320,17 @@ func buildL4ListenerDefaultActions(targetGroup *elbv2model.TargetGroup) []elbv2m
 						TargetGroupARN: targetGroup.TargetGroupARN(),
 					},
 				},
+			},
+		},
+	}
+}
+
+func buildL7ListenerActions(targetGroupTuple []elbv2model.TargetGroupTuple) []elbv2model.Action {
+	return []elbv2model.Action{
+		{
+			Type: elbv2model.ActionTypeForward,
+			ForwardConfig: &elbv2model.ForwardActionConfig{
+				TargetGroups: targetGroupTuple,
 			},
 		},
 	}

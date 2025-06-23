@@ -139,36 +139,6 @@ func isHostnameCompatible(hostnameOne, hostnameTwo string) bool {
 	return false
 }
 
-// GetHostnamePrecedenceOrder Hostname precedence ordering rule:
-// 1. non-wildcard has higher precedence than wildcard
-// 2. hostname with longer characters have higher precedence than those with shorter ones
-// -1 means hostnameOne has higher precedence, 1 means hostnameTwo has higher precedence, 0 means equal
-func GetHostnamePrecedenceOrder(hostnameOne, hostnameTwo string) int {
-	isHostnameOneWildcard := strings.HasPrefix(hostnameOne, "*.")
-	isHostnameTwoWildcard := strings.HasPrefix(hostnameTwo, "*.")
-
-	if !isHostnameOneWildcard && isHostnameTwoWildcard {
-		return -1
-	} else if isHostnameOneWildcard && !isHostnameTwoWildcard {
-		return 1
-	} else {
-		dotsInHostnameOne := strings.Count(hostnameOne, ".")
-		dotsInHostnameTwo := strings.Count(hostnameTwo, ".")
-		if dotsInHostnameOne > dotsInHostnameTwo {
-			return -1
-		} else if dotsInHostnameOne < dotsInHostnameTwo {
-			return 1
-		}
-		if len(hostnameOne) > len(hostnameTwo) {
-			return -1
-		} else if len(hostnameOne) < len(hostnameTwo) {
-			return 1
-		} else {
-			return 0
-		}
-	}
-}
-
 func generateInvalidMessageWithRouteDetails(initialMessage string, routeKind RouteKind, routeIdentifier types.NamespacedName) string {
 	return fmt.Sprintf("%s. Invalid data can be found in route (%s, %s:%s)", initialMessage, routeKind, routeIdentifier.Namespace, routeIdentifier.Name)
 }
