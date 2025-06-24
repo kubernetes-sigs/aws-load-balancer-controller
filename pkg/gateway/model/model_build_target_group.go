@@ -283,6 +283,14 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 	}
 	tgPort := builder.buildTargetGroupPort(targetType, *backend.ServicePort)
 	name := builder.buildTargetGroupName(targetGroupProps, k8s.NamespacedName(gw), route.GetRouteNamespacedName(), k8s.NamespacedName(backend.Service), tgPort, targetType, tgProtocol, tgProtocolVersion)
+
+	if tgPort == 0 {
+		if targetType == elbv2model.TargetTypeIP {
+			return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. Are you using the correct service type?")
+		}
+		return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. When using Instance targets, your service be must of type 'NodePort' or 'LoadBalancer'")
+	}
+
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,
@@ -359,10 +367,6 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupIPAddressType(svc *corev1
 // and we do our best to use the most appropriate port as targetGroup's port to avoid UX confusing.
 func (builder *targetGroupBuilderImpl) buildTargetGroupPort(targetType elbv2model.TargetType, svcPort corev1.ServicePort) int32 {
 	if targetType == elbv2model.TargetTypeInstance {
-		// Maybe an error? Because the service has no node port, instance type targets don't work.
-		if svcPort.NodePort == 0 {
-			return 1
-		}
 		return svcPort.NodePort
 	}
 	if svcPort.TargetPort.Type == intstr.Int {
