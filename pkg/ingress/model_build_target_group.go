@@ -181,6 +181,14 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 	}
 	tgPort := t.buildTargetGroupPort(ctx, targetType, svcPort)
 	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing.Ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion)
+
+	if tgPort == 0 {
+		if targetType == elbv2model.TargetTypeIP {
+			return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. Are you using the correct service type?")
+		}
+		return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. When using Instance targets, your service be must of type 'NodePort' or 'LoadBalancer'")
+	}
+
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,

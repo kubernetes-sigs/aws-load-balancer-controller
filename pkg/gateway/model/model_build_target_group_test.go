@@ -263,6 +263,41 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Tags:                  make(map[string]string),
 			},
 		},
+		{
+			name:                     "wrong svc type for instance should produce an error",
+			tags:                     make(map[string]string),
+			lbType:                   elbv2model.LoadBalancerTypeNetwork,
+			disableRestrictedSGRules: false,
+			defaultTargetType:        string(elbv2model.TargetTypeInstance),
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "my-gw-ns",
+					Name:      "my-gw",
+				},
+			},
+			route: &routeutils.MockRoute{
+				Kind:      routeutils.TCPRouteKind,
+				Name:      "my-route",
+				Namespace: "my-route-ns",
+			},
+			backend: routeutils.Backend{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
+					},
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
+					},
+				},
+			},
+			expectErr: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1207,7 +1242,7 @@ func Test_buildTargetGroupPort(t *testing.T) {
 			name:       "instance - no node port",
 			svcPort:    corev1.ServicePort{},
 			targetType: elbv2model.TargetTypeInstance,
-			expected:   1,
+			expected:   0,
 		},
 		{
 			name: "ip",
