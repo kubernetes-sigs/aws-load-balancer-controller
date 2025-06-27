@@ -7,6 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"time"
 )
 
 /*
@@ -114,6 +115,10 @@ func (tlsRoute *tlsRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 		}
 	}
 	return backendRefs
+}
+
+func (tlsRoute *tlsRouteDescription) GetRouteCreateTimestamp() time.Time {
+	return tlsRoute.route.CreationTimestamp.Time
 }
 
 var _ RouteDescriptor = &tlsRouteDescription{}

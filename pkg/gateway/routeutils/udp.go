@@ -7,6 +7,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	"time"
 )
 
 /*
@@ -113,6 +114,10 @@ func (udpRoute *udpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 		}
 	}
 	return backendRefs
+}
+
+func (udpRoute *udpRouteDescription) GetRouteCreateTimestamp() time.Time {
+	return udpRoute.route.CreationTimestamp.Time
 }
 
 var _ RouteDescriptor = &udpRouteDescription{}

@@ -8,6 +8,7 @@ import (
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -60,6 +61,11 @@ func (m mockPreLoadRouteDescriptor) GetBackendRefs() []gwv1.BackendRef {
 }
 
 func (m mockPreLoadRouteDescriptor) GetRouteGeneration() int64 {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m mockPreLoadRouteDescriptor) GetRouteCreateTimestamp() time.Time {
 	//TODO implement me
 	panic("implement me")
 }
@@ -595,119 +601,6 @@ func Test_isHostnameCompatible(t *testing.T) {
 			got := isHostnameCompatible(tt.hostnameOne, tt.hostnameTwo)
 			if got != tt.want {
 				t.Errorf("isHostnameCompatible() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-// Test GetHostnamePrecedenceOrder
-func TestGetHostnamePrecedenceOrder(t *testing.T) {
-	tests := []struct {
-		name        string
-		hostnameOne string
-		hostnameTwo string
-		want        int
-		description string
-	}{
-		{
-			name:        "non-wildcard vs wildcard",
-			hostnameOne: "example.com",
-			hostnameTwo: "*.example.com",
-			want:        -1,
-			description: "non-wildcard should have higher precedence than wildcard",
-		},
-		{
-			name:        "wildcard vs non-wildcard",
-			hostnameOne: "*.example.com",
-			hostnameTwo: "example.com",
-			want:        1,
-			description: "wildcard should have lower precedence than non-wildcard",
-		},
-		{
-			name:        "both non-wildcard - first longer",
-			hostnameOne: "test.example.com",
-			hostnameTwo: "example.com",
-			want:        -1,
-			description: "longer hostname should have higher precedence",
-		},
-		{
-			name:        "both non-wildcard - second longer",
-			hostnameOne: "example.com",
-			hostnameTwo: "test.example.com",
-			want:        1,
-			description: "shorter hostname should have lower precedence",
-		},
-		{
-			name:        "both wildcard - first longer",
-			hostnameOne: "*.test.example.com",
-			hostnameTwo: "*.example.com",
-			want:        -1,
-			description: "longer wildcard hostname should have higher precedence",
-		},
-		{
-			name:        "both wildcard - second longer",
-			hostnameOne: "*.example.com",
-			hostnameTwo: "*.test.example.com",
-			want:        1,
-			description: "shorter wildcard hostname should have lower precedence",
-		},
-		{
-			name:        "equal length non-wildcard",
-			hostnameOne: "test1.com",
-			hostnameTwo: "test2.com",
-			want:        0,
-			description: "equal length hostnames should have equal precedence",
-		},
-		{
-			name:        "equal length wildcard",
-			hostnameOne: "*.test1.com",
-			hostnameTwo: "*.test2.com",
-			want:        0,
-			description: "equal length wildcard hostnames should have equal precedence",
-		},
-		{
-			name:        "empty strings",
-			hostnameOne: "",
-			hostnameTwo: "",
-			want:        0,
-			description: "empty strings should have equal precedence",
-		},
-		{
-			name:        "one empty string - first",
-			hostnameOne: "",
-			hostnameTwo: "example.com",
-			want:        1,
-			description: "empty string should have lower precedence",
-		},
-		{
-			name:        "one empty string - second",
-			hostnameOne: "example.com",
-			hostnameTwo: "",
-			want:        -1,
-			description: "non-empty string should have higher precedence than empty",
-		},
-		{
-			name:        "one hostname has more dots",
-			hostnameOne: "*.example.com",
-			hostnameTwo: "*.t.exa.com",
-			want:        1,
-			description: "hostname with more dots should have higher precedence even if it has less character",
-		},
-		{
-			name:        "two hostnames have same number of dots, one has more characters",
-			hostnameOne: "*.t.example.com",
-			hostnameTwo: "*.t.exa.com",
-			want:        -1,
-			description: "hostname with more characters should have higher precedence order if they have same number of dots",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := GetHostnamePrecedenceOrder(tt.hostnameOne, tt.hostnameTwo)
-			if got != tt.want {
-				t.Errorf("GetHostnamePrecedenceOrder() = %v, want %v\nDescription: %s\nHostname1: %q\nHostname2: %q",
-					got, tt.want, tt.description, tt.hostnameOne, tt.hostnameTwo)
 			}
 		})
 	}

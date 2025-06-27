@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
+	"time"
 )
 
 type mockMapper struct {
@@ -68,6 +69,10 @@ func (m *mockRoute) GetRawRoute() interface{} {
 
 func (m *mockRoute) GetAttachedRules() []RouteRule {
 	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockRoute) GetRouteCreateTimestamp() time.Time {
 	panic("implement me")
 }
 

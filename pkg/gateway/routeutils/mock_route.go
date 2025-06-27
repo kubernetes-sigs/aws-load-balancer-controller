@@ -3,6 +3,7 @@ package routeutils
 import (
 	"k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"time"
 )
 
 type MockRoute struct {
@@ -52,6 +53,10 @@ func (m *MockRoute) GetAttachedRules() []RouteRule {
 }
 
 func (m *MockRoute) GetRouteGeneration() int64 {
+	panic("implement me")
+}
+
+func (m *MockRoute) GetRouteCreateTimestamp() time.Time {
 	panic("implement me")
 }
 
