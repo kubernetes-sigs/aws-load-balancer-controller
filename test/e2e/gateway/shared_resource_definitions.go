@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,6 +52,50 @@ func buildDeploymentSpec(testImageRegistry string) *appsv1.Deployment {
 	}
 }
 
+func buildUDPDeploymentSpec() *appsv1.Deployment {
+	numReplicas := int32(defaultNumReplicas)
+	labels := map[string]string{
+		"app.kubernetes.io/instance": udpDefaultName,
+	}
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: udpDefaultName,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numReplicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            "app",
+							ImagePullPolicy: corev1.PullAlways,
+							Image:           utils.UDPImage,
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: udpContainerPort,
+									Protocol:      corev1.ProtocolUDP,
+									Name:          "udp8080",
+								},
+								{
+									ContainerPort: udpContainerPort,
+									Protocol:      corev1.ProtocolTCP,
+									Name:          "tcp8080",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func buildServiceSpec() *corev1.Service {
 	labels := map[string]string{
 		"app.kubernetes.io/name":     "multi-port",
@@ -68,6 +113,36 @@ func buildServiceSpec() *corev1.Service {
 					Port:       80,
 					TargetPort: intstr.FromInt(80),
 					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+	return svc
+}
+
+func buildUDPServiceSpec() *corev1.Service {
+	labels := map[string]string{
+		"app.kubernetes.io/instance": udpDefaultName,
+	}
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: udpDefaultName,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeNodePort,
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "tcp8080",
+					Port:       8080,
+					TargetPort: intstr.FromInt(8080),
+					Protocol:   corev1.ProtocolTCP,
+				},
+				{
+					Name:       "udp8080",
+					Port:       8080,
+					TargetPort: intstr.FromInt(8080),
+					Protocol:   corev1.ProtocolUDP,
 				},
 			},
 		},
@@ -98,31 +173,25 @@ func buildLoadBalancerConfig(spec elbv2gw.LoadBalancerConfigurationSpec) *elbv2g
 	return lbc
 }
 
-func buildTargetGroupConfig(spec elbv2gw.TargetGroupConfigurationSpec, svc *corev1.Service) *elbv2gw.TargetGroupConfiguration {
+func buildTargetGroupConfig(name string, spec elbv2gw.TargetGroupConfigurationSpec, svc *corev1.Service) *elbv2gw.TargetGroupConfiguration {
 	spec.TargetReference.Name = svc.Name
 	tgc := &elbv2gw.TargetGroupConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: defaultTgConfigName,
+			Name: name,
 		},
-		Spec: spec,
+		Spec: *(spec.DeepCopy()),
 	}
 	return tgc
 }
 
-func buildBasicGatewaySpec(gwc *gwv1.GatewayClass, protocol gwv1.ProtocolType) *gwv1.Gateway {
+func buildBasicGatewaySpec(gwc *gwv1.GatewayClass, listeners []gwv1.Listener) *gwv1.Gateway {
 	gw := &gwv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: defaultName,
 		},
 		Spec: gwv1.GatewaySpec{
 			GatewayClassName: gwv1.ObjectName(gwc.Name),
-			Listeners: []gwv1.Listener{
-				{
-					Name:     "test-listener",
-					Port:     80,
-					Protocol: protocol,
-				},
-			},
+			Listeners:        listeners,
 			Infrastructure: &gwv1.GatewayInfrastructure{
 				ParametersRef: &gwv1.LocalParametersReference{
 					Group: "gateway.k8s.aws",
@@ -145,7 +214,12 @@ func buildTCPRoute() *gwalpha2.TCPRoute {
 			CommonRouteSpec: gwalpha2.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{
 					{
-						Name: defaultName,
+						Name:        defaultName,
+						SectionName: (*gwv1.SectionName)(awssdk.String("port80")),
+					},
+					{
+						Name:        defaultName,
+						SectionName: (*gwv1.SectionName)(awssdk.String("port443")),
 					},
 				},
 			},
@@ -165,6 +239,73 @@ func buildTCPRoute() *gwalpha2.TCPRoute {
 	}
 	return tcpr
 }
+
+func buildUDPRoute() *gwalpha2.UDPRoute {
+	port := gwalpha2.PortNumber(8080)
+	udpr := &gwalpha2.UDPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultName,
+		},
+		Spec: gwalpha2.UDPRouteSpec{
+			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{
+						Name:        defaultName,
+						SectionName: (*gwv1.SectionName)(awssdk.String("port8080")),
+					},
+				},
+			},
+			Rules: []gwalpha2.UDPRouteRule{
+				{
+					BackendRefs: []gwalpha2.BackendRef{
+						{
+							BackendObjectReference: gwalpha2.BackendObjectReference{
+								Name: udpDefaultName,
+								Port: &port,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return udpr
+}
+
+/*
+func buildTLSRoute() *gwalpha2.TLSRoute {
+	port := gwalpha2.PortNumber(80)
+	tlrs := &gwalpha2.TLSRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultName,
+		},
+		Spec: gwalpha2.TLSRouteSpec{
+			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{
+						Name:        defaultName,
+						SectionName: (*gwv1.SectionName)(awssdk.String("port443")),
+					},
+				},
+			},
+			Rules: []gwalpha2.TLSRouteRule{
+				{
+					BackendRefs: []gwalpha2.BackendRef{
+						{
+							BackendObjectReference: gwalpha2.BackendObjectReference{
+								Name: defaultName,
+								Port: &port,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return tlrs
+}
+
+*/
 
 func buildHTTPRoute() *gwv1.HTTPRoute {
 	port := gwalpha2.PortNumber(80)

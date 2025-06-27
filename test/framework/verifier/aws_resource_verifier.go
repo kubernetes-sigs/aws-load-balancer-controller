@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sort"
 	"strconv"
@@ -28,8 +29,8 @@ type LoadBalancerExpectation struct {
 	Type          string
 	Scheme        string
 	TargetType    string
-	Listeners     map[string]string // listener port, protocol
-	TargetGroups  map[string]string // target group port, protocol
+	Listeners     map[string]string   // listener port, protocol
+	TargetGroups  map[string][]string // target group port, list of protocols
 	NumTargets    int
 	TargetGroupHC *TargetGroupHC
 }
@@ -176,15 +177,41 @@ func VerifyLoadBalancerListenerCertificates(ctx context.Context, f *framework.Fr
 func VerifyLoadBalancerTargetGroups(ctx context.Context, f *framework.Framework, lbARN string, expected LoadBalancerExpectation) error {
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(len(targetGroups)).To(Equal(len(expected.TargetGroups)))
+
+	expectedTgCount := 0
+	expectedProtocolsPerPort := make(map[string]sets.Set[string])
+
+	for port, protocols := range expected.TargetGroups {
+		expectedTgCount += len(protocols)
+		for _, protocol := range protocols {
+			_, ok := expectedProtocolsPerPort[port]
+			if !ok {
+				expectedProtocolsPerPort[port] = make(sets.Set[string])
+			}
+
+			expectedProtocolsPerPort[port].Insert(protocol)
+		}
+	}
+
+	Expect(len(targetGroups)).To(Equal(expectedTgCount))
 	for _, tg := range targetGroups {
+		port := strconv.Itoa(int(*tg.Port))
 		Expect(string(tg.TargetType)).To(Equal(expected.TargetType))
-		Expect(string(tg.Protocol)).To(Equal(expected.TargetGroups[strconv.Itoa(int(awssdk.ToInt32(tg.Port)))]))
+		protocolSet := expectedProtocolsPerPort[port]
+		protocolFound := protocolSet.Has(string(tg.Protocol))
+		Expect(protocolFound).To(BeTrue())
+		expectedProtocolsPerPort[port] = protocolSet.Delete(string(tg.Protocol))
+
 		err = VerifyTargetGroupHealthCheckConfig(tg, expected.TargetGroupHC)
 		Expect(err).NotTo(HaveOccurred())
 		err = VerifyTargetGroupNumRegistered(ctx, f, awssdk.ToString(tg.TargetGroupArn), expected.NumTargets)
 		Expect(err).NotTo(HaveOccurred())
 	}
+
+	for _, protocols := range expectedProtocolsPerPort {
+		Expect(len(protocols)).To(Equal(0))
+	}
+
 	return nil
 }
 

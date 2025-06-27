@@ -129,10 +129,10 @@ func (s *resourceStack) getListenersPortMap() map[string]string {
 	return listenersMap
 }
 
-func (s *resourceStack) getTargetGroupNodePortMap() map[string]string {
-	tgPortProtocolMap := map[string]string{}
+func (s *resourceStack) getTargetGroupNodePortMap() map[string][]string {
+	tgPortProtocolMap := map[string][]string{}
 	for _, port := range s.createdSVC.Spec.Ports {
-		tgPortProtocolMap[strconv.Itoa(int(port.NodePort))] = string(port.Protocol)
+		tgPortProtocolMap[strconv.Itoa(int(port.NodePort))] = []string{string(port.Protocol)}
 	}
 	return tgPortProtocolMap
 }

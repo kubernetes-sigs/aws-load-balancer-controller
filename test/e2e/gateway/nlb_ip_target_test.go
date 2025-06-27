@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	"strings"
 )
 
 var _ = Describe("test nlb gateway using ip targets reconciled by the aws load balancer controller", func() {
@@ -35,6 +36,20 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
 				Scheme: &interf,
 			}
+
+			var hasTLS bool
+			if len(tf.Options.CertificateARNs) > 0 {
+				cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
+
+				lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{
+					{
+						DefaultCertificate: &cert,
+						ProtocolPort:       "TLS:443",
+					},
+				}
+				hasTLS = true
+			}
+
 			ipTargetType := elbv2gw.TargetTypeIP
 			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
 				DefaultConfiguration: elbv2gw.TargetGroupProps{
@@ -44,6 +59,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 			By("deploying stack", func() {
 				err := stack.Deploy(ctx, tf, lbcSpec, tgSpec)
 				Expect(err).NotTo(HaveOccurred())
+				//time.Sleep(10 * time.Minute)
 			})
 
 			By("checking gateway status for lb dns name", func() {
@@ -58,11 +74,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
-			tgMap := map[string]string{
-				"80": "TCP",
+			tgMap := map[string][]string{
+				"80":   {"TCP"},
+				"8080": {"UDP"},
 			}
 
-			targetNumber := int(*stack.nlbResourceStack.commonStack.dp.Spec.Replicas)
+			targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
 			By("verifying AWS loadbalancer resources", func() {
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
 					Type:         "network",
@@ -93,6 +110,18 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 			By("sending http request to the lb", func() {
 				url := fmt.Sprintf("http://%v/any-path", dnsName)
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("sending https request to the lb", func() {
+				if hasTLS {
+					url := fmt.Sprintf("https://%v/any-path", dnsName)
+					err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+					Expect(err).NotTo(HaveOccurred())
+				}
+			})
+			By("sending udp request to the lb", func() {
+				endpoint := fmt.Sprintf("%v:8080", dnsName)
+				err := tf.UDPVerifier.VerifyUDP(endpoint)
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})

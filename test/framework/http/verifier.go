@@ -1,6 +1,7 @@
 package http
 
 import (
+	"crypto/tls"
 	gohttp "net/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
@@ -11,8 +12,14 @@ type Verifier interface {
 }
 
 func NewDefaultVerifier() *defaultVerifier {
+	httpClient := &gohttp.Client{}
+	httpClient.Transport = &gohttp.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
 	return &defaultVerifier{
-		httpClient: &gohttp.Client{},
+		httpClient: httpClient,
 	}
 }
 
