@@ -68,7 +68,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
-				Name:          "k8s-myrouten-myroute-d02da2803b",
+				Name:          "k8s-myrouten-myroute-8d8111f6ac",
 				TargetType:    elbv2model.TargetTypeInstance,
 				Port:          awssdk.Int32(8080),
 				Protocol:      elbv2model.ProtocolTCP,
@@ -123,7 +123,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
-				Name:            "k8s-myrouten-myroute-d146029dfb",
+				Name:            "k8s-myrouten-myroute-224f4b6ea6",
 				TargetType:      elbv2model.TargetTypeInstance,
 				Port:            awssdk.Int32(8080),
 				Protocol:        elbv2model.ProtocolHTTP,
@@ -183,7 +183,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
-				Name:          "k8s-myrouten-myroute-d9d6c4e6eb",
+				Name:          "k8s-myrouten-myroute-3bce8b0f70",
 				TargetType:    elbv2model.TargetTypeIP,
 				Port:          awssdk.Int32(80),
 				Protocol:      elbv2model.ProtocolTCP,
@@ -238,7 +238,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
-				Name:            "k8s-myrouten-myroute-400113e816",
+				Name:            "k8s-myrouten-myroute-a44a20bcbf",
 				TargetType:      elbv2model.TargetTypeIP,
 				Port:            awssdk.Int32(80),
 				Protocol:        elbv2model.ProtocolHTTP,
@@ -448,7 +448,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
-				Name:            "k8s-myrouten-myroute-d146029dfb",
+				Name:            "k8s-myrouten-myroute-224f4b6ea6",
 				TargetType:      elbv2model.TargetTypeInstance,
 				Port:            awssdk.Int32(8080),
 				Protocol:        elbv2model.ProtocolHTTP,
@@ -476,7 +476,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:   "my-svc-ns",
-						Name:        "k8s-myrouten-myroute-d146029dfb",
+						Name:        "k8s-myrouten-myroute-224f4b6ea6",
 						Annotations: make(map[string]string),
 						Labels:      make(map[string]string),
 					},
@@ -527,7 +527,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
-				Name:          "k8s-myrouten-myroute-d9d6c4e6eb",
+				Name:          "k8s-myrouten-myroute-3bce8b0f70",
 				TargetType:    elbv2model.TargetTypeIP,
 				Port:          awssdk.Int32(80),
 				Protocol:      elbv2model.ProtocolTCP,
@@ -550,7 +550,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:   "my-svc-ns",
-						Name:        "k8s-myrouten-myroute-d9d6c4e6eb",
+						Name:        "k8s-myrouten-myroute-3bce8b0f70",
 						Annotations: make(map[string]string),
 						Labels:      make(map[string]string),
 					},
@@ -601,7 +601,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
-				Name:            "k8s-myrouten-myroute-400113e816",
+				Name:            "k8s-myrouten-myroute-a44a20bcbf",
 				TargetType:      elbv2model.TargetTypeIP,
 				Port:            awssdk.Int32(80),
 				Protocol:        elbv2model.ProtocolHTTP,
@@ -629,7 +629,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:   "my-svc-ns",
-						Name:        "k8s-myrouten-myroute-400113e816",
+						Name:        "k8s-myrouten-myroute-a44a20bcbf",
 						Annotations: make(map[string]string),
 						Labels:      make(map[string]string),
 					},
@@ -690,7 +690,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
-				Name:            "k8s-myrouten-myroute-400113e816",
+				Name:            "k8s-myrouten-myroute-a44a20bcbf",
 				TargetType:      elbv2model.TargetTypeIP,
 				Port:            awssdk.Int32(80),
 				Protocol:        elbv2model.ProtocolHTTP,
@@ -718,7 +718,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Template: elbv2model.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
-						Name:      "k8s-myrouten-myroute-400113e816",
+						Name:      "k8s-myrouten-myroute-a44a20bcbf",
 						Annotations: map[string]string{
 							"foo": "bar",
 						},
@@ -771,7 +771,7 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 
 		targetPort       intstr.IntOrString
 		healthCheckPort  intstr.IntOrString
-		svcPort          corev1.ServicePort
+		tgProtocol       elbv2model.Protocol
 		backendSGIDToken core.StringToken
 
 		expected *elbv2model.TargetGroupBindingNetworking
@@ -804,9 +804,7 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 			name:                     "disable restricted sg rules - with udp",
 			disableRestrictedSGRules: true,
 			backendSGIDToken:         core.LiteralStringToken("foo"),
-			svcPort: corev1.ServicePort{
-				Protocol: corev1.ProtocolUDP,
-			},
+			tgProtocol:               elbv2model.ProtocolUDP,
 			expected: &elbv2model.TargetGroupBindingNetworking{
 				Ingress: []elbv2model.NetworkingIngressRule{
 					{
@@ -834,11 +832,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 		{
 			name:             "use restricted sg rules - int hc port",
 			backendSGIDToken: core.LiteralStringToken("foo"),
-			svcPort: corev1.ServicePort{
-				Protocol: corev1.ProtocolTCP,
-			},
-			targetPort:      intstr80,
-			healthCheckPort: intstr80,
+			tgProtocol:       elbv2model.ProtocolTCP,
+			targetPort:       intstr80,
+			healthCheckPort:  intstr80,
 			expected: &elbv2model.TargetGroupBindingNetworking{
 				Ingress: []elbv2model.NetworkingIngressRule{
 					{
@@ -862,11 +858,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 		{
 			name:             "use restricted sg rules - int hc port - udp traffic",
 			backendSGIDToken: core.LiteralStringToken("foo"),
-			svcPort: corev1.ServicePort{
-				Protocol: corev1.ProtocolUDP,
-			},
-			targetPort:      intstr80,
-			healthCheckPort: intstr80,
+			tgProtocol:       elbv2model.ProtocolUDP,
+			targetPort:       intstr80,
+			healthCheckPort:  intstr80,
 			expected: &elbv2model.TargetGroupBindingNetworking{
 				Ingress: []elbv2model.NetworkingIngressRule{
 					{
@@ -905,11 +899,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 		{
 			name:             "use restricted sg rules - str hc port",
 			backendSGIDToken: core.LiteralStringToken("foo"),
-			svcPort: corev1.ServicePort{
-				Protocol: corev1.ProtocolTCP,
-			},
-			targetPort:      intstr80,
-			healthCheckPort: intstrTrafficPort,
+			tgProtocol:       elbv2model.ProtocolHTTP,
+			targetPort:       intstr80,
+			healthCheckPort:  intstrTrafficPort,
 			expected: &elbv2model.TargetGroupBindingNetworking{
 				Ingress: []elbv2model.NetworkingIngressRule{
 					{
@@ -933,11 +925,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 		{
 			name:             "use restricted sg rules - str hc port - udp",
 			backendSGIDToken: core.LiteralStringToken("foo"),
-			svcPort: corev1.ServicePort{
-				Protocol: corev1.ProtocolUDP,
-			},
-			targetPort:      intstr80,
-			healthCheckPort: intstrTrafficPort,
+			tgProtocol:       elbv2model.ProtocolUDP,
+			targetPort:       intstr80,
+			healthCheckPort:  intstrTrafficPort,
 			expected: &elbv2model.TargetGroupBindingNetworking{
 				Ingress: []elbv2model.NetworkingIngressRule{
 					{
@@ -976,11 +966,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 		{
 			name:             "use restricted sg rules - diff hc port",
 			backendSGIDToken: core.LiteralStringToken("foo"),
-			svcPort: corev1.ServicePort{
-				Protocol: corev1.ProtocolTCP,
-			},
-			targetPort:      intstr80,
-			healthCheckPort: intstr85,
+			tgProtocol:       elbv2model.ProtocolHTTP,
+			targetPort:       intstr80,
+			healthCheckPort:  intstr85,
 			expected: &elbv2model.TargetGroupBindingNetworking{
 				Ingress: []elbv2model.NetworkingIngressRule{
 					{
@@ -1019,11 +1007,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 		{
 			name:             "use restricted sg rules - str hc port - udp",
 			backendSGIDToken: core.LiteralStringToken("foo"),
-			svcPort: corev1.ServicePort{
-				Protocol: corev1.ProtocolUDP,
-			},
-			targetPort:      intstr80,
-			healthCheckPort: intstr85,
+			tgProtocol:       elbv2model.ProtocolUDP,
+			targetPort:       intstr80,
+			healthCheckPort:  intstr85,
 			expected: &elbv2model.TargetGroupBindingNetworking{
 				Ingress: []elbv2model.NetworkingIngressRule{
 					{
@@ -1066,7 +1052,7 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 				disableRestrictedSGRules: tc.disableRestrictedSGRules,
 			}
 
-			result := builder.buildTargetGroupBindingNetworking(tc.targetPort, tc.healthCheckPort, tc.svcPort, tc.backendSGIDToken)
+			result := builder.buildTargetGroupBindingNetworking(tc.targetPort, tc.healthCheckPort, tc.tgProtocol, tc.backendSGIDToken)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
@@ -1101,16 +1087,16 @@ func Test_buildTargetGroupName(t *testing.T) {
 		{
 			name:             "no name in props",
 			targetGroupProps: &elbv2gw.TargetGroupProps{},
-			expected:         "k8s-myns-myroute-719950e570",
+			expected:         "k8s-myns-myroute-27d98b9190",
 		},
 		{
 			name:     "no props",
-			expected: "k8s-myns-myroute-719950e570",
+			expected: "k8s-myns-myroute-27d98b9190",
 		},
 		{
 			name:            "protocol specified props",
 			protocolVersion: &http2,
-			expected:        "k8s-myns-myroute-ce262fa9fe",
+			expected:        "k8s-myns-myroute-d2bd5deaa7",
 		},
 	}
 
@@ -1120,7 +1106,7 @@ func Test_buildTargetGroupName(t *testing.T) {
 				clusterName: clusterName,
 			}
 
-			result := builder.buildTargetGroupName(tc.targetGroupProps, gwKey, routeKey, svcKey, 80, elbv2model.TargetTypeIP, elbv2model.ProtocolTCP, tc.protocolVersion)
+			result := builder.buildTargetGroupName(tc.targetGroupProps, gwKey, routeKey, routeutils.HTTPRouteKind, svcKey, 80, elbv2model.TargetTypeIP, elbv2model.ProtocolTCP, tc.protocolVersion)
 			assert.Equal(t, tc.expected, result)
 		})
 	}

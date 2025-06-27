@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	awsresources "sigs.k8s.io/aws-load-balancer-controller/test/framework/resources/aws"
 	k8sresources "sigs.k8s.io/aws-load-balancer-controller/test/framework/resources/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/udp"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +40,7 @@ type Framework struct {
 	TGManager               awsresources.TargetGroupManager
 
 	HTTPVerifier http.Verifier
+	UDPVerifier  udp.Verifier
 
 	Logger         logr.Logger
 	LoggerReporter httpexpect.LoggerReporter
@@ -91,6 +93,7 @@ func InitFramework() (*Framework, error) {
 		TGManager:               awsresources.NewDefaultTargetGroupManager(cloud.ELBV2(), logger),
 
 		HTTPVerifier: http.NewDefaultVerifier(),
+		UDPVerifier:  udp.NewDefaultVerifier(),
 
 		Logger:         logger,
 		LoggerReporter: loggerReporter,

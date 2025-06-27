@@ -59,11 +59,11 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
-			tgMap := map[string]string{
-				"80": "HTTP",
+			tgMap := map[string][]string{
+				"80": {"HTTP"},
 			}
 
-			targetNumber := int(*stack.albResourceStack.commonStack.dp.Spec.Replicas)
+			targetNumber := int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)
 
 			By("verifying AWS loadbalancer resources", func() {
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{

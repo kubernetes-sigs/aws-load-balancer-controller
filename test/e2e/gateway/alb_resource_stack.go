@@ -12,7 +12,7 @@ import (
 
 func newALBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgc *elbv2gw.TargetGroupConfiguration, httpr *gwv1.HTTPRoute, baseName string, enablePodReadinessGate bool) *albResourceStack {
 
-	commonStack := newCommonResourceStack(dp, svc, gwc, gw, lbc, tgc, baseName, enablePodReadinessGate)
+	commonStack := newCommonResourceStack([]*appsv1.Deployment{dp}, []*corev1.Service{svc}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgc}, baseName, enablePodReadinessGate)
 	return &albResourceStack{
 		httpr:       httpr,
 		commonStack: commonStack,
@@ -32,10 +32,6 @@ func (s *albResourceStack) Deploy(ctx context.Context, f *framework.Framework) e
 	})
 }
 
-func (s *albResourceStack) ScaleDeployment(ctx context.Context, f *framework.Framework, numReplicas int32) error {
-	return s.commonStack.ScaleDeployment(ctx, f, numReplicas)
-}
-
 func (s *albResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {
 	s.commonStack.Cleanup(ctx, f)
 }
@@ -44,29 +40,8 @@ func (s *albResourceStack) GetLoadBalancerIngressHostname() string {
 	return s.commonStack.GetLoadBalancerIngressHostname()
 }
 
-func (s *albResourceStack) GetStackName() string {
-	return s.commonStack.GetStackName()
-}
-
 func (s *albResourceStack) getListenersPortMap() map[string]string {
 	return s.commonStack.getListenersPortMap()
-}
-
-func (s *albResourceStack) getTargetGroupNodePortMap() map[string]string {
-	res := s.commonStack.getTargetGroupNodePortMap()
-
-	for p := range res {
-		// TODO - kinda a hack to get HTTP to work.
-		if res[p] == string(corev1.ProtocolTCP) {
-			res[p] = "HTTP"
-		}
-	}
-
-	return res
-}
-
-func (s *albResourceStack) getHealthCheckNodePort() string {
-	return s.commonStack.getHealthCheckNodePort()
 }
 
 func (s *albResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {

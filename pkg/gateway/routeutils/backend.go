@@ -98,6 +98,10 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		// Otherwise, general error. No need for status update.
 		return nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch svc object %+v", svcIdentifier))
 	}
+
+	// TODO -- This should be updated, to handle UDP and TCP on the same service port.
+	// Currently, it will just arbitrarily take one.
+
 	var servicePort *corev1.ServicePort
 
 	for _, svcPort := range svc.Spec.Ports {
@@ -107,17 +111,17 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		}
 	}
 
+	if servicePort == nil {
+		initialErrorMessage := fmt.Sprintf("Unable to find service port for port %d", *backendRef.Port)
+		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
+		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil)
+	}
+
 	tgConfig, err := LookUpTargetGroupConfiguration(ctx, k8sClient, k8s.NamespacedName(svc))
 
 	if err != nil {
 		// As of right now, this error can only be thrown because of a k8s api error hence no status update.
 		return nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch tg config object"))
-	}
-
-	if servicePort == nil {
-		initialErrorMessage := fmt.Sprintf("Unable to find service port for port %d", *backendRef.Port)
-		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil)
 	}
 
 	var tgProps *elbv2gw.TargetGroupProps

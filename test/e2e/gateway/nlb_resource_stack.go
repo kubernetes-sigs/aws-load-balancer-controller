@@ -11,11 +11,13 @@ import (
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
-func newNLBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgc *elbv2gw.TargetGroupConfiguration, tcpr *gwalpha2.TCPRoute, baseName string, enablePodReadinessGate bool) *nlbResourceStack {
+func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr *gwalpha2.TCPRoute, udpr *gwalpha2.UDPRoute, tlsr *gwalpha2.TLSRoute, baseName string, enablePodReadinessGate bool) *nlbResourceStack {
 
-	commonStack := newCommonResourceStack(dp, svc, gwc, gw, lbc, tgc, baseName, enablePodReadinessGate)
+	commonStack := newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, baseName, enablePodReadinessGate)
 	return &nlbResourceStack{
 		tcpr:        tcpr,
+		udpr:        udpr,
+		tlsr:        tlsr,
 		commonStack: commonStack,
 	}
 }
@@ -24,17 +26,27 @@ func newNLBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.G
 type nlbResourceStack struct {
 	commonStack *commonResourceStack
 	tcpr        *gwalpha2.TCPRoute
+	udpr        *gwalpha2.UDPRoute
+	tlsr        *gwalpha2.TLSRoute
 }
 
 func (s *nlbResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
 	return s.commonStack.Deploy(ctx, f, func(ctx context.Context, f *framework.Framework, namespace string) error {
 		s.tcpr.Namespace = namespace
-		return s.createTCPRoute(ctx, f)
+		s.udpr.Namespace = namespace
+		if s.tlsr != nil {
+			s.tlsr.Namespace = namespace
+		}
+		err := s.createTCPRoute(ctx, f)
+		if err != nil {
+			return err
+		}
+		err = s.createUDPRoute(ctx, f)
+		if err != nil {
+			return err
+		}
+		return s.createTLSRoute(ctx, f)
 	})
-}
-
-func (s *nlbResourceStack) ScaleDeployment(ctx context.Context, f *framework.Framework, numReplicas int32) error {
-	return s.commonStack.ScaleDeployment(ctx, f, numReplicas)
 }
 
 func (s *nlbResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {
@@ -45,20 +57,8 @@ func (s *nlbResourceStack) GetLoadBalancerIngressHostname() string {
 	return s.commonStack.GetLoadBalancerIngressHostname()
 }
 
-func (s *nlbResourceStack) GetStackName() string {
-	return s.commonStack.GetStackName()
-}
-
 func (s *nlbResourceStack) getListenersPortMap() map[string]string {
 	return s.commonStack.getListenersPortMap()
-}
-
-func (s *nlbResourceStack) getTargetGroupNodePortMap() map[string]string {
-	return s.commonStack.getTargetGroupNodePortMap()
-}
-
-func (s *nlbResourceStack) getHealthCheckNodePort() string {
-	return s.commonStack.getHealthCheckNodePort()
 }
 
 func (s *nlbResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
@@ -70,6 +70,15 @@ func (s *nlbResourceStack) createTCPRoute(ctx context.Context, f *framework.Fram
 	return f.K8sClient.Create(ctx, s.tcpr)
 }
 
-func (s *nlbResourceStack) deleteTCPRoute(ctx context.Context, f *framework.Framework) error {
-	return f.K8sClient.Delete(ctx, s.tcpr)
+func (s *nlbResourceStack) createUDPRoute(ctx context.Context, f *framework.Framework) error {
+	f.Logger.Info("creating udp route", "udpr", k8s.NamespacedName(s.udpr))
+	return f.K8sClient.Create(ctx, s.udpr)
+}
+
+func (s *nlbResourceStack) createTLSRoute(ctx context.Context, f *framework.Framework) error {
+	if s.tlsr == nil {
+		return nil
+	}
+	f.Logger.Info("creating tls route", "tlsr", k8s.NamespacedName(s.tlsr))
+	return f.K8sClient.Create(ctx, s.tlsr)
 }

@@ -16,17 +16,19 @@ func (s *ALBTestStack) Deploy(ctx context.Context, f *framework.Framework, lbCon
 	dp := buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := buildServiceSpec()
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/alb")
-	gw := buildBasicGatewaySpec(gwc, gwv1.HTTPProtocolType)
+	gw := buildBasicGatewaySpec(gwc, []gwv1.Listener{
+		{
+			Name:     "test-listener",
+			Port:     80,
+			Protocol: gwv1.HTTPProtocolType,
+		},
+	})
 	lbc := buildLoadBalancerConfig(lbConfSpec)
-	tgc := buildTargetGroupConfig(tgConfSpec, svc)
+	tgc := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svc)
 	httpr := buildHTTPRoute()
 	s.albResourceStack = newALBResourceStack(dp, svc, gwc, gw, lbc, tgc, httpr, "alb-gateway-e2e", false)
 
 	return s.albResourceStack.Deploy(ctx, f)
-}
-
-func (s *ALBTestStack) ScaleDeployment(ctx context.Context, f *framework.Framework, numReplicas int32) error {
-	return s.albResourceStack.ScaleDeployment(ctx, f, numReplicas)
 }
 
 func (s *ALBTestStack) Cleanup(ctx context.Context, f *framework.Framework) {

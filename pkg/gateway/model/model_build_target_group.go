@@ -100,8 +100,9 @@ func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (*elbv2model.TargetGroup, error) {
 
 	targetGroupProps := backend.ELBV2TargetGroupProps
-	tgResID := t.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.Service), routeDescriptor.GetRouteNamespacedName(), backend.ServicePort.TargetPort)
+	tgResID := t.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.Service), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backend.ServicePort.TargetPort)
 	if tg, exists := t.tgByResID[tgResID]; exists {
+		fmt.Println("TG already exists. Returning cached version")
 		return tg, nil
 	}
 
@@ -129,7 +130,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 	if targetType == elbv2api.TargetTypeInstance {
 		targetPort = intstr.FromInt32(backend.ServicePort.NodePort)
 	}
-	tgbNetworking := builder.buildTargetGroupBindingNetworking(targetPort, *tgSpec.HealthCheckConfig.Port, *backend.ServicePort, backendSGIDToken)
+	tgbNetworking := builder.buildTargetGroupBindingNetworking(targetPort, *tgSpec.HealthCheckConfig.Port, tgSpec.Protocol, backendSGIDToken)
 
 	multiClusterEnabled := builder.buildTargetGroupBindingMultiClusterFlag(tgProps)
 
@@ -175,14 +176,14 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 	}
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, svcPort corev1.ServicePort, backendSGIDToken core.StringToken) *elbv2model.TargetGroupBindingNetworking {
+func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, tgProtocol elbv2model.Protocol, backendSGIDToken core.StringToken) *elbv2model.TargetGroupBindingNetworking {
 	if backendSGIDToken == nil {
 		return nil
 	}
 	protocolTCP := elbv2api.NetworkingProtocolTCP
 	protocolUDP := elbv2api.NetworkingProtocolUDP
 
-	udpSupported := svcPort.Protocol == corev1.ProtocolUDP
+	udpSupported := tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolTCP_UDP
 
 	if builder.disableRestrictedSGRules {
 		ports := []elbv2api.NetworkingPort{
@@ -282,7 +283,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	tgPort := builder.buildTargetGroupPort(targetType, *backend.ServicePort)
-	name := builder.buildTargetGroupName(targetGroupProps, k8s.NamespacedName(gw), route.GetRouteNamespacedName(), k8s.NamespacedName(backend.Service), tgPort, targetType, tgProtocol, tgProtocolVersion)
+	name := builder.buildTargetGroupName(targetGroupProps, k8s.NamespacedName(gw), route.GetRouteNamespacedName(), route.GetRouteKind(), k8s.NamespacedName(backend.Service), tgPort, targetType, tgProtocol, tgProtocolVersion)
 
 	if tgPort == 0 {
 		if targetType == elbv2model.TargetTypeIP {
@@ -290,7 +291,6 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 		}
 		return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. When using Instance targets, your service be must of type 'NodePort' or 'LoadBalancer'")
 	}
-
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,
@@ -308,7 +308,7 @@ var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
 // buildTargetGroupName will calculate the targetGroup's name.
 func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *elbv2gw.TargetGroupProps,
-	gwKey types.NamespacedName, routeKey types.NamespacedName, svcKey types.NamespacedName, tgPort int32,
+	gwKey types.NamespacedName, routeKey types.NamespacedName, routeKind routeutils.RouteKind, svcKey types.NamespacedName, tgPort int32,
 	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion) string {
 
 	if targetGroupProps != nil && targetGroupProps.TargetGroupName != nil {
@@ -321,6 +321,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *el
 	_, _ = uuidHash.Write([]byte(gwKey.Name))
 	_, _ = uuidHash.Write([]byte(routeKey.Namespace))
 	_, _ = uuidHash.Write([]byte(routeKey.Name))
+	_, _ = uuidHash.Write([]byte(routeKind))
 	_, _ = uuidHash.Write([]byte(svcKey.Namespace))
 	_, _ = uuidHash.Write([]byte(svcKey.Name))
 	_, _ = uuidHash.Write([]byte(strconv.Itoa(int(tgPort))))
@@ -664,8 +665,8 @@ func (builder *targetGroupBuilderImpl) convertMapToAttributes(attributeMap map[s
 	return convertedAttributes
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupResourceID(gwKey types.NamespacedName, svcKey types.NamespacedName, routeKey types.NamespacedName, port intstr.IntOrString) string {
-	return fmt.Sprintf("%s/%s:%s-%s:%s-%s:%s", gwKey.Namespace, gwKey.Name, routeKey.Namespace, routeKey.Name, svcKey.Namespace, svcKey.Name, port.String())
+func (builder *targetGroupBuilderImpl) buildTargetGroupResourceID(gwKey types.NamespacedName, svcKey types.NamespacedName, routeKey types.NamespacedName, routeKind routeutils.RouteKind, port intstr.IntOrString) string {
+	return fmt.Sprintf("%s/%s:%s-%s:%s-%s-%s:%s", gwKey.Namespace, gwKey.Name, routeKey.Namespace, routeKey.Name, routeKind, svcKey.Namespace, svcKey.Name, port.String())
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNodeSelector(tgProps *elbv2gw.TargetGroupProps, targetType elbv2model.TargetType) *metav1.LabelSelector {
