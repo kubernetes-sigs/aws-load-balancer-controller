@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
 	"testing"
@@ -11,9 +10,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/golang/mock/gomock"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,7 +17,10 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
 
 func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
@@ -65,7 +64,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			},
 		},
 		{
-			testName: "Invalid value",
+			testName: "no matching value",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -73,7 +72,59 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 					},
 				},
 			},
-			wantError: true,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "matching value",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "80",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "true",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "multiple values",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "443, 80, 9090",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Name:       "http",
+				Port:       80,
+				TargetPort: intstr.FromInt(8080),
+				NodePort:   32768,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "true",
+				},
+			},
+			wantError: false,
 		},
 		{
 			testName: "target group attributes",
