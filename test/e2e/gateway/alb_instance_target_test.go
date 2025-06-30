@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	"strconv"
 )
 
 var _ = Describe("test k8s alb gateway using instance targets reconciled by the aws load balancer controller", func() {
@@ -54,6 +55,10 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 
+			tgMap := map[string][]string{
+				strconv.Itoa(int(stack.albResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort)): {"HTTP"},
+			}
+
 			By("verifying AWS loadbalancer resources", func() {
 				nodeList, err := stack.GetWorkerNodes(ctx, tf)
 				Expect(err).ToNot(HaveOccurred())
@@ -62,7 +67,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 					Scheme:       "internet-facing",
 					TargetType:   "instance",
 					Listeners:    stack.albResourceStack.getListenersPortMap(),
-					TargetGroups: stack.albResourceStack.getTargetGroupNodePortMap(),
+					TargetGroups: tgMap,
 					NumTargets:   len(nodeList),
 					TargetGroupHC: &verifier.TargetGroupHC{
 						Protocol:           "HTTP",

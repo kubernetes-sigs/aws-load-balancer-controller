@@ -27,10 +27,10 @@ var allRoutes = map[RouteKind]func(context context.Context, client client.Client
 }
 
 // Default protocol map used to infer accepted route kinds when a listener doesn't specify the `allowedRoutes` field.
-var defaultProtocolToRouteKindMap = map[gwv1.ProtocolType]RouteKind{
-	gwv1.TCPProtocolType:   TCPRouteKind,
-	gwv1.UDPProtocolType:   UDPRouteKind,
-	gwv1.TLSProtocolType:   TLSRouteKind,
-	gwv1.HTTPProtocolType:  HTTPRouteKind,
-	gwv1.HTTPSProtocolType: HTTPRouteKind,
+var defaultProtocolToRouteKindMap = map[gwv1.ProtocolType][]RouteKind{
+	gwv1.TCPProtocolType:   {TCPRouteKind},
+	gwv1.UDPProtocolType:   {UDPRouteKind},
+	gwv1.TLSProtocolType:   {TLSRouteKind, TCPRouteKind},
+	gwv1.HTTPProtocolType:  {HTTPRouteKind},
+	gwv1.HTTPSProtocolType: {HTTPRouteKind},
 }

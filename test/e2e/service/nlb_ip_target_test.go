@@ -128,8 +128,8 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string]string{
-						"80": "TCP",
+					TargetGroups: map[string][]string{
+						"80": {"TCP"},
 					},
 					NumTargets: int(numReplicas),
 					TargetGroupHC: &verifier.TargetGroupHC{
@@ -174,8 +174,8 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string]string{
-						"80": "TCP",
+					TargetGroups: map[string][]string{
+						"80": {"TCP"},
 					},
 					NumTargets: int(numReplicas),
 					TargetGroupHC: &verifier.TargetGroupHC{
@@ -239,8 +239,8 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string]string{
-						"80": "TCP",
+					TargetGroups: map[string][]string{
+						"80": {"TCP"},
 					},
 					NumTargets: int(numReplicas) + 1,
 					TargetGroupHC: &verifier.TargetGroupHC{
@@ -272,8 +272,8 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string]string{
-						"80": "TCP",
+					TargetGroups: map[string][]string{
+						"80": {"TCP"},
 					},
 					NumTargets: int(numReplicas),
 					TargetGroupHC: &verifier.TargetGroupHC{
@@ -363,10 +363,10 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 						"443": "TLS",
 						"333": "TLS",
 					},
-					TargetGroups: map[string]string{
-						"80":  "TCP",
-						"443": "TCP",
-						"333": "TCP",
+					TargetGroups: map[string][]string{
+						"80":  {"TCP"},
+						"443": {"TCP"},
+						"333": {"TCP"},
 					},
 					NumTargets: int(numReplicas),
 				})
@@ -394,10 +394,10 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 						"443": "TLS",
 						"333": "TLS",
 					},
-					TargetGroups: map[string]string{
-						"80":  "TCP",
-						"443": "TCP",
-						"333": "TCP",
+					TargetGroups: map[string][]string{
+						"80":  {"TCP"},
+						"443": {"TCP"},
+						"333": {"TCP"},
 					},
 					NumTargets: int(numReplicas),
 				})
@@ -492,8 +492,8 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string]string{
-						"80": "TCP",
+					TargetGroups: map[string][]string{
+						"80": {"TCP"},
 					},
 					NumTargets: int(numReplicas),
 					TargetGroupHC: &verifier.TargetGroupHC{
