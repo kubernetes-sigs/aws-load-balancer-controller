@@ -297,6 +297,8 @@ func Test_namespaceCheck(t *testing.T) {
 }
 
 func Test_kindCheck(t *testing.T) {
+	term := gwv1.TLSModeTerminate
+	pt := gwv1.TLSModePassthrough
 	testCases := []struct {
 		name           string
 		route          preLoadRouteDescriptor
@@ -344,6 +346,55 @@ func Test_kindCheck(t *testing.T) {
 				AllowedRoutes: &gwv1.AllowedRoutes{Kinds: []gwv1.RouteGroupKind{
 					{Kind: gwv1.Kind(HTTPRouteKind)},
 				}},
+			},
+			expectedResult: true,
+		},
+		{
+			name:  "tls listener, tcp route, terminate by default",
+			route: &tcpRouteDescription{},
+			listener: gwv1.Listener{
+				Protocol: gwv1.TCPProtocolType,
+			},
+			expectedResult: true,
+		},
+		{
+			name:  "tls listener, tls route, terminate by default",
+			route: &tlsRouteDescription{},
+			listener: gwv1.Listener{
+				Protocol: gwv1.TCPProtocolType,
+			},
+			expectedResult: false,
+		},
+		{
+			name:  "tls listener, tcp route, terminate specified",
+			route: &tcpRouteDescription{},
+			listener: gwv1.Listener{
+				Protocol: gwv1.TCPProtocolType,
+				TLS: &gwv1.GatewayTLSConfig{
+					Mode: &term,
+				},
+			},
+			expectedResult: true,
+		},
+		{
+			name:  "tls listener, tcp route, passthrough specified",
+			route: &tcpRouteDescription{},
+			listener: gwv1.Listener{
+				Protocol: gwv1.TLSProtocolType,
+				TLS: &gwv1.GatewayTLSConfig{
+					Mode: &pt,
+				},
+			},
+			expectedResult: false,
+		},
+		{
+			name:  "tls listener, tls route, passthrough specified",
+			route: &tlsRouteDescription{},
+			listener: gwv1.Listener{
+				Protocol: gwv1.TLSProtocolType,
+				TLS: &gwv1.GatewayTLSConfig{
+					Mode: &pt,
+				},
 			},
 			expectedResult: true,
 		},

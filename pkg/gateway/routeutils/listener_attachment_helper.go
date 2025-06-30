@@ -134,7 +134,36 @@ func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Li
 			allowedRoutes.Insert(RouteKind(v.Kind))
 		}
 	}
-	return allowedRoutes.Has(route.GetRouteKind())
+
+	isAllowed := allowedRoutes.Has(route.GetRouteKind())
+
+	if !isAllowed {
+		return false
+	}
+
+	if listener.Protocol == gwv1.TLSProtocolType {
+
+		var tlsMode *gwv1.TLSModeType
+
+		if listener.TLS != nil && listener.TLS.Mode != nil {
+			tlsMode = listener.TLS.Mode
+		}
+		switch route.GetRouteKind() {
+		case TCPRouteKind:
+			// Listener must allow termination at lb
+			return tlsMode == nil || *tlsMode == gwv1.TLSModeTerminate
+		case TLSRouteKind:
+			// This is kind of different.
+			// For AWS NLB, the original TLS will be terminated, however
+			// the LB will establish a new TLS connection to the backend.
+			// Users that want to persist the same TLS connection should use TCP
+			return tlsMode != nil && *tlsMode == gwv1.TLSModePassthrough
+		}
+		// Unsupported route type.
+		return false
+	}
+
+	return true
 }
 
 func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {

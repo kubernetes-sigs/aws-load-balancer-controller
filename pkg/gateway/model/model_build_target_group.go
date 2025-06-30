@@ -102,7 +102,6 @@ func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 	targetGroupProps := backend.ELBV2TargetGroupProps
 	tgResID := t.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.Service), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backend.ServicePort.TargetPort)
 	if tg, exists := t.tgByResID[tgResID]; exists {
-		fmt.Println("TG already exists. Returning cached version")
 		return tg, nil
 	}
 
