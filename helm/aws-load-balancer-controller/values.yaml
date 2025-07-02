@@ -119,6 +119,9 @@ enableCertManager: false
 certManager:
   duration:
   renewBefore:
+  # name of the existing issuer to use for certificate requests
+  # when set, the controller will not create a self-signed issuer
+  existingIssuerName:
 
 # The name of the Kubernetes cluster. A non-empty value is required
 clusterName:
