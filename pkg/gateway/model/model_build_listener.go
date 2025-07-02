@@ -201,6 +201,21 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 			})
 		}
 		actions := buildL7ListenerActions(targetGroupTuples)
+
+		// configure actions based on filters
+		switch route.GetRouteKind() {
+		case routeutils.HTTPRouteKind:
+			httpRule := rule.GetRawRouteRule().(*gwv1.HTTPRouteRule)
+			if len(httpRule.Filters) > 0 {
+				finalActions, err := routeutils.BuildHttpRuleActionsBasedOnFilter(httpRule.Filters)
+				if err != nil {
+					return err
+				}
+				actions = finalActions
+			}
+			// TODO: add case for GRPC
+		}
+
 		albRules = append(albRules, elbv2model.Rule{
 			Conditions: conditionsList,
 			Actions:    actions,
