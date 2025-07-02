@@ -276,3 +276,118 @@ func Test_buildHttpMethodCondition(t *testing.T) {
 		})
 	}
 }
+
+func Test_buildHttpRedirectAction(t *testing.T) {
+
+	scheme := "https"
+	expectedScheme := "HTTPS"
+	invalidScheme := "invalid"
+	hostname := "example.com"
+	port := int32(80)
+	portString := "80"
+	statusCode := 301
+	replaceFullPath := "/new-path"
+	replacePrefixPath := "/new-prefix-path"
+	replacePrefixPathAfterProcessing := "/new-prefix-path/*"
+	invalidPath := "/invalid-path*"
+
+	tests := []struct {
+		name    string
+		filter  *gwv1.HTTPRequestRedirectFilter
+		want    []elbv2model.Action
+		wantErr bool
+	}{
+		{
+			name: "redirect with all fields provided",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Scheme:     &scheme,
+				Hostname:   (*gwv1.PreciseHostname)(&hostname),
+				Port:       (*gwv1.PortNumber)(&port),
+				StatusCode: &statusCode,
+				Path: &gwv1.HTTPPathModifier{
+					Type:            gwv1.FullPathHTTPPathModifier,
+					ReplaceFullPath: &replaceFullPath,
+				},
+			},
+			want: []elbv2model.Action{
+				{
+					Type: elbv2model.ActionTypeRedirect,
+					RedirectConfig: &elbv2model.RedirectActionConfig{
+						Host:       &hostname,
+						Path:       &replaceFullPath,
+						Port:       &portString,
+						Protocol:   &expectedScheme,
+						StatusCode: "HTTP_301",
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "redirect with prefix match",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Path: &gwv1.HTTPPathModifier{
+					Type:               gwv1.PrefixMatchHTTPPathModifier,
+					ReplacePrefixMatch: &replacePrefixPath,
+				},
+			},
+			want: []elbv2model.Action{
+				{
+					Type: elbv2model.ActionTypeRedirect,
+					RedirectConfig: &elbv2model.RedirectActionConfig{
+						Path: &replacePrefixPathAfterProcessing,
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name:    "redirect with no component provided",
+			filter:  &gwv1.HTTPRequestRedirectFilter{},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "invalid scheme provided",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Scheme: &invalidScheme,
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "path with wildcards in ReplaceFullPath",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Path: &gwv1.HTTPPathModifier{
+					Type:            gwv1.FullPathHTTPPathModifier,
+					ReplaceFullPath: &invalidPath,
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name: "path with wildcards in ReplacePrefixMatch",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Path: &gwv1.HTTPPathModifier{
+					Type:               gwv1.PrefixMatchHTTPPathModifier,
+					ReplacePrefixMatch: &invalidPath,
+				},
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildHttpRedirectAction(tt.filter)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

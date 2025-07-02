@@ -1,6 +1,7 @@
 package routeutils
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -143,4 +144,88 @@ func buildHttpMethodCondition(method *gwv1.HTTPMethod) []elbv2model.RuleConditio
 func buildGrpcRouteRuleConditions(matches RouteRule) ([][]elbv2model.RuleCondition, error) {
 	var conditions [][]elbv2model.RuleCondition
 	return conditions, nil
+}
+
+func BuildHttpRuleActionsBasedOnFilter(filters []gwv1.HTTPRouteFilter) ([]elbv2model.Action, error) {
+	for _, filter := range filters {
+		switch filter.Type {
+		case gwv1.HTTPRouteFilterRequestHeaderModifier:
+			// TODO: decide behavior for request header modifier
+		case gwv1.HTTPRouteFilterRequestRedirect:
+			return buildHttpRedirectAction(filter.RequestRedirect)
+		case gwv1.HTTPRouteFilterResponseHeaderModifier:
+			// TODO: decide behavior for response header modifier
+		}
+	}
+	return nil, nil
+}
+
+// buildHttpRedirectAction configure filter attributes to RedirectActionConfig
+// gateway api has no attribute to specify query
+func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter) ([]elbv2model.Action, error) {
+	isComponentSpecified := false
+	var statusCode string
+	if filter.StatusCode != nil {
+		statusCodeStr := fmt.Sprintf("HTTP_%d", *filter.StatusCode)
+		statusCode = statusCodeStr
+	}
+
+	var port *string
+	if filter.Port != nil {
+		portStr := fmt.Sprintf("%d", *filter.Port)
+		port = &portStr
+		isComponentSpecified = true
+	}
+
+	var protocol *string
+	if filter.Scheme != nil {
+		upperScheme := strings.ToUpper(*filter.Scheme)
+		if upperScheme != "HTTP" && upperScheme != "HTTPS" {
+			return nil, errors.Errorf("unsupported redirect scheme: %v", upperScheme)
+		}
+		protocol = &upperScheme
+		isComponentSpecified = true
+	}
+
+	var path *string
+	if filter.Path != nil {
+		if filter.Path.ReplaceFullPath != nil {
+			pathValue := *filter.Path.ReplaceFullPath
+			if strings.ContainsAny(pathValue, "*?") {
+				return nil, errors.Errorf("ReplaceFullPath shouldn't contain wildcards: %v", pathValue)
+			}
+			path = filter.Path.ReplaceFullPath
+			isComponentSpecified = true
+		} else if filter.Path.ReplacePrefixMatch != nil {
+			pathValue := *filter.Path.ReplacePrefixMatch
+			if strings.ContainsAny(pathValue, "*?") {
+				return nil, errors.Errorf("ReplacePrefixMatch shouldn't contain wildcards: %v", pathValue)
+			}
+			processedPath := fmt.Sprintf("%s/*", pathValue)
+			path = &processedPath
+			isComponentSpecified = true
+		}
+	}
+
+	var hostname *string
+	if filter.Hostname != nil {
+		hostname = (*string)(filter.Hostname)
+		isComponentSpecified = true
+	}
+
+	if !isComponentSpecified {
+		return nil, errors.Errorf("To avoid a redirect loop, you must modify at least one of the following components: protocol, port, hostname or path.")
+	}
+
+	action := elbv2model.Action{
+		Type: elbv2model.ActionTypeRedirect,
+		RedirectConfig: &elbv2model.RedirectActionConfig{
+			Host:       hostname,
+			Path:       path,
+			Port:       port,
+			Protocol:   protocol,
+			StatusCode: statusCode,
+		},
+	}
+	return []elbv2model.Action{action}, nil
 }
