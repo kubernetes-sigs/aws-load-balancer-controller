@@ -21,6 +21,9 @@ AWS_SDK_MODEL_OVERRIDE ?= "n"
 # Move Gateway API CRDs from bases directory to gateway directory
 MOVE_GATEWAY_CRDS = mv config/crd/bases/gateway.k8s.aws_* config/crd/gateway/
 
+# Copy combined Gateway API CRDs from bases directory to helm directory
+COPY_GATEWAY_CRDS_TO_HELM = cp config/crd/gateway/gateway-crds.yaml helm/aws-load-balancer-controller/crds/gateway-crds.yaml
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -67,6 +70,7 @@ crds: manifests
 	$(MOVE_GATEWAY_CRDS)
 	$(KUSTOMIZE) build config/crd > helm/aws-load-balancer-controller/crds/crds.yaml
 	$(KUSTOMIZE) build config/crd/gateway > config/crd/gateway/gateway-crds.yaml
+	$(COPY_GATEWAY_CRDS_TO_HELM)
 
 # Run go fmt against code
 fmt:

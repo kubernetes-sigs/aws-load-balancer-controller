@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -307,11 +308,12 @@ func buildTLSRoute() *gwalpha2.TLSRoute {
 
 */
 
-func buildHTTPRoute() *gwv1.HTTPRoute {
+func buildHTTPRoute(hostnames []string) *gwv1.HTTPRoute {
 	port := gwalpha2.PortNumber(80)
+	routeName := fmt.Sprintf("%v-%v", defaultName, utils.RandomDNS1123Label(6))
 	httpr := &gwv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: defaultName,
+			Name: routeName,
 		},
 		Spec: gwv1.HTTPRouteSpec{
 			CommonRouteSpec: gwalpha2.CommonRouteSpec{
@@ -337,5 +339,10 @@ func buildHTTPRoute() *gwv1.HTTPRoute {
 			},
 		},
 	}
+	routeHostnames := make([]gwv1.Hostname, 0, len(hostnames))
+	for _, hostname := range hostnames {
+		routeHostnames = append(routeHostnames, gwv1.Hostname(hostname))
+	}
+	httpr.Spec.Hostnames = routeHostnames
 	return httpr
 }

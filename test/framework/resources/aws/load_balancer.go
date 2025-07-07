@@ -16,6 +16,7 @@ type LoadBalancerManager interface {
 	FindLoadBalancerByDNSName(ctx context.Context, dnsName string) (string, error)
 	WaitUntilLoadBalancerAvailable(ctx context.Context, lbARN string) error
 	GetLoadBalancerFromARN(ctx context.Context, lbARN string) (*elbv2types.LoadBalancer, error)
+	GetLoadBalancerListenerFromARN(ctx context.Context, lsARN string) (*elbv2types.Listener, error)
 	GetLoadBalancerListeners(ctx context.Context, lbARN string) ([]elbv2types.Listener, error)
 	GetLoadBalancerListenerCertificates(ctx context.Context, listenerARN string) ([]elbv2types.Certificate, error)
 	GetLoadBalancerAttributes(ctx context.Context, lbARN string) ([]elbv2types.LoadBalancerAttribute, error)
@@ -119,6 +120,20 @@ func (m *defaultLoadBalancerManager) GetLoadBalancerListenerRules(ctx context.Co
 		return nil, err
 	}
 	return listenersRules.Rules, nil
+}
+
+func (m *defaultLoadBalancerManager) GetLoadBalancerListenerFromARN(ctx context.Context, lsARN string) (*elbv2types.Listener, error) {
+	req := &elbv2sdk.DescribeListenersInput{
+		ListenerArns: []string{lsARN},
+	}
+	listeners, err := m.elbv2Client.DescribeListenersWithContext(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if len(listeners.Listeners) == 0 {
+		return nil, errors.Errorf("couldn't find Listener with ARN %v", lsARN)
+	}
+	return &listeners.Listeners[0], nil
 }
 
 func (m *defaultLoadBalancerManager) GetListenerAttributes(ctx context.Context, lsARN string) ([]elbv2types.ListenerAttribute, error) {

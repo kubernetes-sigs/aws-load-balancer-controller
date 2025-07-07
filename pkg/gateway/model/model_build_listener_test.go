@@ -2,7 +2,13 @@ package model
 
 import (
 	"context"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"reflect"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -309,7 +315,7 @@ func Test_buildListenerALPNPolicy(t *testing.T) {
 			name:             "TLS listener without listener config",
 			lbLsCfg:          nil,
 			listenerProtocol: elbv2model.ProtocolTLS,
-			want:             nil,
+			want:             []string{string(elbv2gw.ALPNPolicyNone)},
 			wantErr:          nil,
 		},
 		{
@@ -631,6 +637,449 @@ func TestBuildCertificates(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("buildCertificates() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func Test_buildMutualAuthenticationAttributes(t *testing.T) {
+	trueValue := true
+	falseValue := false
+	verifyMode := elbv2gw.MutualAuthenticationVerifyMode
+	passthroughMode := elbv2gw.MutualAuthenticationPassthroughMode
+	offMode := elbv2gw.MutualAuthenticationOffMode
+	advertiseTrustStoreCaNames := elbv2gw.AdvertiseTrustStoreCaNamesEnumOn
+	trustStoreNameOnly := "my-trust-store"
+	nonExistentTrustStoreNameOnly := "non-existent-trust-store"
+	trustStoreArn := "arn:aws:elasticloadbalancing:us-west-2:123456789012:truststore/my-trust-store"
+
+	type resolveSubnetInLocalZoneOrOutpostCall struct {
+		subnetID string
+		result   bool
+		err      error
+	}
+
+	type describeTrustStoresCall struct {
+		names  []string
+		result map[string]*string
+		err    error
+	}
+
+	tests := []struct {
+		name                              string
+		protocol                          elbv2model.Protocol
+		subnets                           buildLoadBalancerSubnetsOutput
+		gwLsCfg                           *gwListenerConfig
+		lbLsCfg                           *elbv2gw.ListenerConfiguration
+		resolveSubnetInLocalZoneOrOutpost resolveSubnetInLocalZoneOrOutpostCall
+		describeTrustStores               describeTrustStoresCall
+		want                              *elbv2model.MutualAuthenticationAttributes
+		wantErr                           bool
+	}{
+		{
+			name:     "non-secure protocol should return nil",
+			protocol: elbv2model.ProtocolHTTP,
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTP,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{},
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:     "subnet in local zone or outpost should return nil",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   true,
+				err:      nil,
+			},
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:     "subnet resolver error should return error",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      errors.New("subnet resolver error"),
+			},
+			want:    nil,
+			wantErr: true,
+		},
+		{
+			name:     "nil lbLsCfg should return off mode",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: nil,
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      nil,
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode: string(elbv2gw.MutualAuthenticationOffMode),
+			},
+			wantErr: false,
+		},
+		{
+			name:     "nil mutualAuthentication should return off mode",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: nil,
+			},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      nil,
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode: string(elbv2gw.MutualAuthenticationOffMode),
+			},
+			wantErr: false,
+		},
+		{
+			name:     "verify mode with truststore name should resolve ARN",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+					Mode:       verifyMode,
+					TrustStore: &trustStoreNameOnly,
+				},
+			},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      nil,
+			},
+			describeTrustStores: describeTrustStoresCall{
+				names: []string{trustStoreNameOnly},
+				result: map[string]*string{
+					trustStoreNameOnly: &trustStoreArn,
+				},
+				err: nil,
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode:                          string(elbv2gw.MutualAuthenticationVerifyMode),
+				TrustStoreArn:                 awssdk.String(trustStoreArn),
+				IgnoreClientCertificateExpiry: awssdk.Bool(false),
+				AdvertiseTrustStoreCaNames:    awssdk.String(""),
+			},
+			wantErr: false,
+		},
+		{
+			name:     "verify mode with truststore ARN should use ARN directly",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+					Mode:       verifyMode,
+					TrustStore: &trustStoreArn,
+				},
+			},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      nil,
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode:                          string(elbv2gw.MutualAuthenticationVerifyMode),
+				TrustStoreArn:                 awssdk.String(trustStoreArn),
+				IgnoreClientCertificateExpiry: awssdk.Bool(false),
+				AdvertiseTrustStoreCaNames:    awssdk.String(""),
+			},
+			wantErr: false,
+		},
+		{
+			name:     "verify mode with all options",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+					Mode:                          verifyMode,
+					TrustStore:                    &trustStoreArn,
+					IgnoreClientCertificateExpiry: &trueValue,
+					AdvertiseTrustStoreCaNames:    &advertiseTrustStoreCaNames,
+				},
+			},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      nil,
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode:                          string(elbv2gw.MutualAuthenticationVerifyMode),
+				TrustStoreArn:                 awssdk.String(trustStoreArn),
+				IgnoreClientCertificateExpiry: &trueValue,
+				AdvertiseTrustStoreCaNames:    awssdk.String(string(elbv2gw.AdvertiseTrustStoreCaNamesEnumOn)),
+			},
+			wantErr: false,
+		},
+		{
+			name:     "verify mode with nil ignoreClientCertificateExpiry",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+					Mode:                          verifyMode,
+					TrustStore:                    &trustStoreArn,
+					IgnoreClientCertificateExpiry: nil,
+					AdvertiseTrustStoreCaNames:    &advertiseTrustStoreCaNames,
+				},
+			},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      nil,
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode:                          string(elbv2gw.MutualAuthenticationVerifyMode),
+				TrustStoreArn:                 awssdk.String(trustStoreArn),
+				IgnoreClientCertificateExpiry: &falseValue,
+				AdvertiseTrustStoreCaNames:    awssdk.String(string(elbv2gw.AdvertiseTrustStoreCaNamesEnumOn)),
+			},
+			wantErr: false,
+		},
+		{
+			name:     "passthrough mode",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+					Mode: passthroughMode,
+				},
+			},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      nil,
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode:                          string(elbv2gw.MutualAuthenticationPassthroughMode),
+				TrustStoreArn:                 nil,
+				AdvertiseTrustStoreCaNames:    awssdk.String(""),
+				IgnoreClientCertificateExpiry: nil,
+			},
+			wantErr: false,
+		},
+		{
+			name:     "off mode",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+					Mode: offMode,
+				},
+			},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      nil,
+			},
+			want: &elbv2model.MutualAuthenticationAttributes{
+				Mode:                          string(elbv2gw.MutualAuthenticationOffMode),
+				TrustStoreArn:                 nil,
+				AdvertiseTrustStoreCaNames:    awssdk.String(""),
+				IgnoreClientCertificateExpiry: nil,
+			},
+			wantErr: false,
+		},
+		{
+			name:     "error on truststore ARN resolution",
+			protocol: elbv2model.ProtocolHTTPS,
+			subnets: buildLoadBalancerSubnetsOutput{
+				subnets: []elbv2model.SubnetMapping{
+					{
+						SubnetID: "subnet-1",
+					},
+				},
+			},
+			gwLsCfg: &gwListenerConfig{
+				protocol:  elbv2model.ProtocolHTTPS,
+				hostnames: []string{"example.com"},
+			},
+			lbLsCfg: &elbv2gw.ListenerConfiguration{
+				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
+					Mode:       verifyMode,
+					TrustStore: &nonExistentTrustStoreNameOnly,
+				},
+			},
+			resolveSubnetInLocalZoneOrOutpost: resolveSubnetInLocalZoneOrOutpostCall{
+				subnetID: "subnet-1",
+				result:   false,
+				err:      nil,
+			},
+			describeTrustStores: describeTrustStoresCall{
+				names:  []string{nonExistentTrustStoreNameOnly},
+				result: nil,
+				err:    errors.New("trust store resolution error"),
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			mockSubnetsResolver := networking.NewMockSubnetsResolver(ctrl)
+			mockELBV2Client := services.NewMockELBV2(ctrl)
+
+			if tt.protocol == elbv2model.ProtocolHTTPS {
+				callInfo := tt.resolveSubnetInLocalZoneOrOutpost
+				mockSubnetsResolver.EXPECT().
+					IsSubnetInLocalZoneOrOutpost(gomock.Any(), callInfo.subnetID).
+					Return(callInfo.result, callInfo.err)
+
+				if !callInfo.result && callInfo.err == nil &&
+					tt.lbLsCfg != nil && tt.lbLsCfg.MutualAuthentication != nil &&
+					tt.lbLsCfg.MutualAuthentication.Mode == verifyMode &&
+					tt.lbLsCfg.MutualAuthentication.TrustStore != nil &&
+					!strings.HasPrefix(*tt.lbLsCfg.MutualAuthentication.TrustStore, "arn:") {
+					callInfo := tt.describeTrustStores
+					mockELBV2Client.EXPECT().
+						DescribeTrustStoresWithContext(gomock.Any(), gomock.Any()).
+						DoAndReturn(func(_ context.Context, req *elbv2sdk.DescribeTrustStoresInput) (*elbv2sdk.DescribeTrustStoresOutput, error) {
+							if !reflect.DeepEqual(req.Names, callInfo.names) {
+								t.Errorf("expected names %v, got %v", callInfo.names, req.Names)
+							}
+							if callInfo.err != nil {
+								return nil, callInfo.err
+							}
+							var trustStores []elbv2types.TrustStore
+							for name, arn := range callInfo.result {
+								trustStores = append(trustStores, elbv2types.TrustStore{
+									Name:          awssdk.String(name),
+									TrustStoreArn: arn,
+								})
+							}
+							return &elbv2sdk.DescribeTrustStoresOutput{
+								TrustStores: trustStores,
+							}, nil
+						})
+				}
+			}
+
+			builder := &listenerBuilderImpl{
+				subnetsResolver: mockSubnetsResolver,
+				elbv2Client:     mockELBV2Client,
+			}
+
+			got, err := builder.buildMutualAuthenticationAttributes(context.Background(), mockSubnetsResolver, tt.subnets, tt.gwLsCfg, tt.lbLsCfg)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("buildMutualAuthenticationAttributes() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
