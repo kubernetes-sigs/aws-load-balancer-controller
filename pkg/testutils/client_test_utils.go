@@ -48,6 +48,7 @@ func GenerateTestClient() client.Client {
 	clientgoscheme.AddToScheme(k8sSchema)
 	elbv2api.AddToScheme(k8sSchema)
 	gwv1.AddToScheme(k8sSchema)
+	gwbeta1.AddToScheme(k8sSchema)
 	gwalpha2.AddToScheme(k8sSchema)
 	elbv2gw.AddToScheme(k8sSchema)
 	gwbeta1.AddToScheme(k8sSchema)

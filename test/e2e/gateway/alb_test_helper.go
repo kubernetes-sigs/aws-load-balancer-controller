@@ -12,7 +12,7 @@ type ALBTestStack struct {
 	albResourceStack *albResourceStack
 }
 
-func (s *ALBTestStack) Deploy(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec) error {
+func (s *ALBTestStack) Deploy(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
 	dp := buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := buildServiceSpec()
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/alb")
@@ -26,7 +26,7 @@ func (s *ALBTestStack) Deploy(ctx context.Context, f *framework.Framework, lbCon
 	lbc := buildLoadBalancerConfig(lbConfSpec)
 	tgc := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svc)
 	httpr := buildHTTPRoute()
-	s.albResourceStack = newALBResourceStack(dp, svc, gwc, gw, lbc, tgc, httpr, "alb-gateway-e2e", false)
+	s.albResourceStack = newALBResourceStack(dp, svc, gwc, gw, lbc, tgc, httpr, "alb-gateway-e2e", readinessGateEnabled)
 
 	return s.albResourceStack.Deploy(ctx, f)
 }
