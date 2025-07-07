@@ -1,13 +1,17 @@
 package gateway
 
 import (
+	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"strings"
@@ -240,6 +244,39 @@ func buildTCPRoute() *gwalpha2.TCPRoute {
 	return tcpr
 }
 
+func buildOtherNsRefTcpRoute(sectionName string, otherNs *corev1.Namespace) *gwalpha2.TCPRoute {
+	port := gwalpha2.PortNumber(80)
+	tcpr := &gwalpha2.TCPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultName + "-otherns",
+		},
+		Spec: gwalpha2.TCPRouteSpec{
+			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{
+						Name:        defaultName,
+						SectionName: (*gwv1.SectionName)(awssdk.String(sectionName)),
+					},
+				},
+			},
+			Rules: []gwalpha2.TCPRouteRule{
+				{
+					BackendRefs: []gwalpha2.BackendRef{
+						{
+							BackendObjectReference: gwalpha2.BackendObjectReference{
+								Name:      defaultName,
+								Namespace: (*gwv1.Namespace)(&otherNs.Name),
+								Port:      &port,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return tcpr
+}
+
 func buildUDPRoute() *gwalpha2.UDPRoute {
 	port := gwalpha2.PortNumber(8080)
 	udpr := &gwalpha2.UDPRoute{
@@ -338,4 +375,26 @@ func buildHTTPRoute() *gwv1.HTTPRoute {
 		},
 	}
 	return httpr
+}
+
+func allocateNamespace(ctx context.Context, f *framework.Framework, baseName string, enablePodReadinessGate bool) (*corev1.Namespace, error) {
+	f.Logger.Info("allocating namespace")
+	ns, err := f.NSManager.AllocateNamespace(ctx, baseName)
+	if err != nil {
+		return nil, err
+	}
+	f.Logger.Info("allocated namespace", "nsName", ns.Name)
+	if enablePodReadinessGate {
+		f.Logger.Info("label namespace for podReadinessGate injection", "nsName", ns.Name)
+		oldNS := ns.DeepCopy()
+		ns.Labels = algorithm.MergeStringMap(map[string]string{
+			"elbv2.k8s.aws/pod-readiness-gate-inject": "enabled",
+		}, ns.Labels)
+		err := f.K8sClient.Patch(ctx, ns, client.MergeFrom(oldNS))
+		if err != nil {
+			return nil, err
+		}
+		f.Logger.Info("labeled namespace with podReadinessGate injection", "nsName", ns.Name)
+	}
+	return ns, nil
 }

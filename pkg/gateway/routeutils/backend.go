@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	serviceKind = "Service"
+	serviceKind             = "Service"
+	referenceGrantNotExists = "No explicit ReferenceGrant exists to allow the reference."
 )
 
 var (
@@ -76,9 +77,8 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		// That way, users can't infer if the route is missing because of a misconfigured service reference
 		// or the sentence grant is not allowing the connection.
 		if !allowed {
-			initialErrorMessage := "No explicit ReferenceGrant exits to allow the reference."
-			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-			return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonRefNotPermitted, &wrappedGatewayErrorMessage, nil)
+			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(referenceGrantNotExists, routeKind, routeIdentifier)
+			return nil, wrapError(errors.Errorf("%s", referenceGrantNotExists), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonRefNotPermitted, &wrappedGatewayErrorMessage, nil)
 
 		}
 	}
