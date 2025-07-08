@@ -96,6 +96,9 @@ type SubnetsResolver interface {
 
 	// ResolveViaNameOrIDSlice resolve subnets using subnet name or ID.
 	ResolveViaNameOrIDSlice(ctx context.Context, subnetNameOrIDs []string, opts ...SubnetsResolveOption) ([]ec2types.Subnet, error)
+
+	// Checks whether the subnet is in Outpost or local-zone
+	IsSubnetInLocalZoneOrOutpost(ctx context.Context, subnetID string) (bool, error)
 }
 
 // NewDefaultSubnetsResolver constructs new defaultSubnetsResolver.
@@ -594,6 +597,25 @@ func (r *defaultSubnetsResolver) buildSDKSubnetLocaleType(ctx context.Context, s
 	default:
 		return "", fmt.Errorf("unknown zone type for subnet %v: %v", awssdk.ToString(subnet.SubnetId), subnetZoneType)
 	}
+}
+
+func (r *defaultSubnetsResolver) IsSubnetInLocalZoneOrOutpost(ctx context.Context, subnetID string) (bool, error) {
+	resolvedList, err := r.listSubnetsByIDs(ctx, []string{subnetID})
+	if err != nil {
+		return false, fmt.Errorf("failed to list subnet by ID: %w", err)
+	}
+	subnet := resolvedList[0]
+	if subnet.OutpostArn != nil && len(*subnet.OutpostArn) != 0 {
+		return true, nil
+	}
+	subnetAZID := awssdk.ToString(subnet.AvailabilityZoneId)
+	azInfoByAZID, err := r.azInfoProvider.FetchAZInfos(ctx, []string{subnetAZID})
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch AZ infos: %w", err)
+	}
+	subnetAZInfo := azInfoByAZID[subnetAZID]
+	subnetZoneType := awssdk.ToString(subnetAZInfo.ZoneType)
+	return zoneTypeAvailabilityZone != subnetZoneType, nil
 }
 
 // mapSDKSubnetsByAZ builds the subnets slice by AZ mapping.

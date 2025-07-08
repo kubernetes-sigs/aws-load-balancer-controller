@@ -10,11 +10,11 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func newALBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgc *elbv2gw.TargetGroupConfiguration, httpr *gwv1.HTTPRoute, baseName string, enablePodReadinessGate bool) *albResourceStack {
+func newALBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgc *elbv2gw.TargetGroupConfiguration, httpr []*gwv1.HTTPRoute, baseName string, enablePodReadinessGate bool) *albResourceStack {
 
 	commonStack := newCommonResourceStack([]*appsv1.Deployment{dp}, []*corev1.Service{svc}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgc}, baseName, enablePodReadinessGate)
 	return &albResourceStack{
-		httpr:       httpr,
+		httprs:      httpr,
 		commonStack: commonStack,
 	}
 }
@@ -22,13 +22,18 @@ func newALBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.G
 // resourceStack containing the deployment and service resources
 type albResourceStack struct {
 	commonStack *commonResourceStack
-	httpr       *gwv1.HTTPRoute
+	httprs      []*gwv1.HTTPRoute
 }
 
 func (s *albResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
 	return s.commonStack.Deploy(ctx, f, func(ctx context.Context, f *framework.Framework, namespace string) error {
-		s.httpr.Namespace = namespace
-		return s.createHTTPRoute(ctx, f)
+		for _, httpr := range s.httprs {
+			httpr.Namespace = namespace
+			if err := s.createHTTPRoute(ctx, f, httpr); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
@@ -48,11 +53,11 @@ func (s *albResourceStack) waitUntilDeploymentReady(ctx context.Context, f *fram
 	return s.commonStack.waitUntilDeploymentReady(ctx, f)
 }
 
-func (s *albResourceStack) createHTTPRoute(ctx context.Context, f *framework.Framework) error {
-	f.Logger.Info("creating http route", "httpr", k8s.NamespacedName(s.httpr))
-	return f.K8sClient.Create(ctx, s.httpr)
+func (s *albResourceStack) createHTTPRoute(ctx context.Context, f *framework.Framework, httpr *gwv1.HTTPRoute) error {
+	f.Logger.Info("creating http route", "httpr", k8s.NamespacedName(httpr))
+	return f.K8sClient.Create(ctx, httpr)
 }
 
-func (s *albResourceStack) deleteHTTPRoute(ctx context.Context, f *framework.Framework) error {
-	return f.K8sClient.Delete(ctx, s.httpr)
+func (s *albResourceStack) deleteHTTPRoute(ctx context.Context, f *framework.Framework, httpr *gwv1.HTTPRoute) error {
+	return f.K8sClient.Delete(ctx, httpr)
 }

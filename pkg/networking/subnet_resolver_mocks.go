@@ -36,6 +36,21 @@ func (m *MockSubnetsResolver) EXPECT() *MockSubnetsResolverMockRecorder {
 	return m.recorder
 }
 
+// IsSubnetInLocalZoneOrOutpost mocks base method.
+func (m *MockSubnetsResolver) IsSubnetInLocalZoneOrOutpost(arg0 context.Context, arg1 string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsSubnetInLocalZoneOrOutpost", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// IsSubnetInLocalZoneOrOutpost indicates an expected call of IsSubnetInLocalZoneOrOutpost.
+func (mr *MockSubnetsResolverMockRecorder) IsSubnetInLocalZoneOrOutpost(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsSubnetInLocalZoneOrOutpost", reflect.TypeOf((*MockSubnetsResolver)(nil).IsSubnetInLocalZoneOrOutpost), arg0, arg1)
+}
+
 // ResolveViaDiscovery mocks base method.
 func (m *MockSubnetsResolver) ResolveViaDiscovery(arg0 context.Context, arg1 ...SubnetsResolveOption) ([]types.Subnet, error) {
 	m.ctrl.T.Helper()

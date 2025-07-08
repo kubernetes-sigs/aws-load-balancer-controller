@@ -6,18 +6,32 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
 
+// URLOptions contains options for HTTP/HTTPS requests
+type URLOptions struct {
+	// TLS options
+	InsecureSkipVerify bool
+
+	// Request options
+	Method     string
+	HostHeader string
+	Headers    map[string]string
+}
+
+// DefaultURLOptions provides reasonable defaults for URLOptions
+func DefaultURLOptions() URLOptions {
+	return URLOptions{
+		InsecureSkipVerify: true,
+	}
+}
+
 // Verifier is responsible for verify the behavior of an HTTP endpoint.
 type Verifier interface {
 	VerifyURL(url string, matchers ...Matcher) error
+	VerifyURLWithOptions(url string, options URLOptions, matchers ...Matcher) error
 }
 
 func NewDefaultVerifier() *defaultVerifier {
 	httpClient := &gohttp.Client{}
-	httpClient.Transport = &gohttp.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
-	}
 	return &defaultVerifier{
 		httpClient: httpClient,
 	}
@@ -31,7 +45,42 @@ type defaultVerifier struct {
 }
 
 func (v *defaultVerifier) VerifyURL(url string, matchers ...Matcher) error {
-	goResp, err := v.httpClient.Get(url)
+
+	return v.VerifyURLWithOptions(url, DefaultURLOptions(), matchers...)
+}
+
+func (v *defaultVerifier) VerifyURLWithOptions(url string, options URLOptions, matchers ...Matcher) error {
+	// Create a custom client for this request
+	client := v.httpClient
+	client.Transport = &gohttp.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: options.InsecureSkipVerify,
+		},
+	}
+
+	// Create request with specified method (default to GET if not provided)
+	method := options.Method
+	if method == "" {
+		method = "GET"
+	}
+
+	req, err := gohttp.NewRequest(method, url, nil)
+	if err != nil {
+		return err
+	}
+
+	// Set custom headers
+	for k, v := range options.Headers {
+		req.Header.Set(k, v)
+	}
+
+	// Set Host header if provided (overrides any value in Headers)
+	if options.HostHeader != "" {
+		req.Host = options.HostHeader
+	}
+
+	// Execute request
+	goResp, err := client.Do(req)
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sort"
 	"strconv"
+	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -33,6 +34,26 @@ type LoadBalancerExpectation struct {
 	TargetGroups  map[string][]string // target group port, list of protocols
 	NumTargets    int
 	TargetGroupHC *TargetGroupHC
+}
+
+// ListenerExpectation contains the expected configuration for an ALB/NLB listener
+// to be verified against actual AWS resources
+type ListenerExpectation struct {
+	ProtocolPort              string
+	DefaultCertificateARN     string
+	AdditionalCertificateARNs []string
+	SSLPolicy                 string
+	ALPNPolicy                string
+	MutualAuthentication      *MutualAuthenticationExpectation
+	Attributes                map[string]string
+}
+
+// MutualAuthenticationExpectation contains expected mTLS settings
+type MutualAuthenticationExpectation struct {
+	Mode                          string
+	TrustStoreARN                 string
+	IgnoreClientCertificateExpiry bool
+	AdvertiseTrustStoreCaNames    string
 }
 
 func VerifyAWSLoadBalancerResources(ctx context.Context, f *framework.Framework, lbARN string, expected LoadBalancerExpectation) error {
@@ -297,4 +318,56 @@ func GetLoadBalancerListenerARN(ctx context.Context, f *framework.Framework, lbA
 		}
 	}
 	return lsARN
+}
+
+func VerifyLoadBalancerListener(ctx context.Context, f *framework.Framework, lbARN string, port int32, expectedListener *ListenerExpectation) error {
+	lsARN := GetLoadBalancerListenerARN(ctx, f, lbARN, strconv.Itoa(int(port)))
+	if lsARN == "" && expectedListener == nil {
+		return nil
+	}
+	if lsARN == "" {
+		return errors.Errorf("Listener on port %v, expected but none found", port)
+	}
+	ls, err := f.LBManager.GetLoadBalancerListenerFromARN(ctx, lsARN)
+	Expect(err).NotTo(HaveOccurred())
+
+	expectedProtocolPort := strings.Split(expectedListener.ProtocolPort, ":")
+	expectedProtocol, expectedPortStr := expectedProtocolPort[0], expectedProtocolPort[1]
+	// Verify protocol matches
+	if string(ls.Protocol) != expectedProtocol {
+		return errors.Errorf("expected listener protocol %s, got %s", expectedProtocol, string(ls.Protocol))
+	}
+	// Verify port matches
+	if strconv.Itoa(int(awssdk.ToInt32(ls.Port))) != expectedPortStr {
+		return errors.Errorf("expected listener port %s, got %d", expectedPortStr, awssdk.ToInt32(ls.Port))
+	}
+
+	if expectedListener.DefaultCertificateARN != "" {
+		// Get certificates for the listener
+		certs, err := f.LBManager.GetLoadBalancerListenerCertificates(ctx, lsARN)
+		Expect(err).ToNot(HaveOccurred())
+		defaultCertFound := false
+		for _, cert := range certs {
+			if awssdk.ToBool(cert.IsDefault) && awssdk.ToString(cert.CertificateArn) == expectedListener.DefaultCertificateARN {
+				defaultCertFound = true
+				break
+			}
+			if !defaultCertFound {
+				return errors.Errorf("default certificate %s not found on listener", expectedListener.DefaultCertificateARN)
+			}
+		}
+	}
+
+	err = VerifyListenerMutualAuthentication(ls.MutualAuthentication, expectedListener.MutualAuthentication)
+	Expect(err).NotTo(HaveOccurred())
+
+	return nil
+}
+
+// TODO: Add "verify mode" verification later after adding a trust-store to the prow test account
+func VerifyListenerMutualAuthentication(lsMutualAuth *elbv2types.MutualAuthenticationAttributes, expectedListenerMutualAuthentication *MutualAuthenticationExpectation) error {
+	if expectedListenerMutualAuthentication != nil {
+		Expect(awssdk.ToString(lsMutualAuth.Mode)).To(Equal(expectedListenerMutualAuthentication.Mode))
+	}
+	return nil
 }

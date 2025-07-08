@@ -6,9 +6,9 @@ import (
 	"fmt"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"net"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"strings"
 
-	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	"k8s.io/utils/strings/slices"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -404,7 +404,7 @@ func (t *defaultModelBuildTask) parseMtlsAttributesForTrustStoreNames(ctx contex
 		for names := range trustStoreNameAndPortMap {
 			trustStoreNames = append(trustStoreNames, names)
 		}
-		tsNameAndArnMap, err := t.fetchTrustStoreArnFromName(ctx, trustStoreNames)
+		tsNameAndArnMap, err := shared_utils.GetTrustStoreArnFromName(ctx, t.elbv2Client, trustStoreNames)
 		if err != nil {
 			return nil, err
 		}
@@ -419,34 +419,6 @@ func (t *defaultModelBuildTask) parseMtlsAttributesForTrustStoreNames(ctx contex
 		}
 	}
 	return portAndMtlsAttributes, nil
-}
-
-func (t *defaultModelBuildTask) fetchTrustStoreArnFromName(ctx context.Context, trustStoreNames []string) (map[string]*string, error) {
-	tsNameAndArnMap := make(map[string]*string, len(trustStoreNames))
-	req := &elbv2sdk.DescribeTrustStoresInput{
-		Names: trustStoreNames,
-	}
-	trustStores, err := t.elbv2Client.DescribeTrustStoresWithContext(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	if len(trustStores.TrustStores) == 0 {
-		return nil, errors.Errorf("couldn't find TrustStore with names %v", trustStoreNames)
-	}
-	for _, tsName := range trustStoreNames {
-		for _, ts := range trustStores.TrustStores {
-			if tsName == awssdk.ToString(ts.Name) {
-				tsNameAndArnMap[tsName] = ts.TrustStoreArn
-			}
-		}
-	}
-	for _, tsName := range trustStoreNames {
-		_, exists := tsNameAndArnMap[tsName]
-		if !exists {
-			return nil, errors.Errorf("couldn't find TrustStore with name %v", tsName)
-		}
-	}
-	return tsNameAndArnMap, nil
 }
 
 func (t *defaultModelBuildTask) buildIngressGroupListenerAttributes(ctx context.Context, ingList []ClassifiedIngress, listenerProtocol elbv2model.Protocol, port int32) ([]elbv2model.ListenerAttribute, error) {

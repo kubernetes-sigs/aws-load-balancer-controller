@@ -118,6 +118,10 @@ const (
 )
 
 // Information about the mutual authentication attributes of a listener.
+// +kubebuilder:validation:XValidation:rule="!(self.mode == 'verify' && !has(self.trustStore))",message="trustStore is required when mutualAuthentication mode is 'verify'"
+// +kubebuilder:validation:XValidation:rule="!(self.mode != 'verify' && has(self.trustStore))",message="Mutual Authentication mode 'off' or 'passthrough' does not support 'trustStore'"
+// +kubebuilder:validation:XValidation:rule="!(self.mode != 'verify' && has(self.ignoreClientCertificateExpiry))",message="Mutual Authentication mode 'off' or 'passthrough' does not support 'ignoreClientCertificateExpiry'"
+// +kubebuilder:validation:XValidation:rule="!(self.mode != 'verify' && has(self.advertiseTrustStoreCaNames))",message="Mutual Authentication mode 'off' or 'passthrough' does not support 'advertiseTrustStoreCaNames'"
 type MutualAuthenticationAttributes struct {
 
 	// Indicates whether trust store CA certificate names are advertised.
@@ -142,7 +146,6 @@ type ListenerConfiguration struct {
 	// protocolPort is identifier for the listener on load balancer. It should be of the form PROTOCOL:PORT
 	ProtocolPort ProtocolPort `json:"protocolPort"`
 
-	// TODO: Add validation in admission webhook to make it required for secure protocols
 	// defaultCertificate the cert arn to be used by default.
 	DefaultCertificate *string `json:"defaultCertificate,omitempty"`
 
@@ -155,10 +158,12 @@ type ListenerConfiguration struct {
 
 	// alpnPolicy an optional string that allows you to configure ALPN policies on your Load Balancer
 	// +optional
+	// +kubebuilder:default="None"
 	ALPNPolicy *ALPNPolicy `json:"alpnPolicy,omitempty"`
 
 	// mutualAuthentication defines the mutual authentication configuration information.
 	// +optional
+	// +kubebuilder:default={"mode": "off"}
 	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`
 
 	// listenerAttributes defines the attributes for the listener

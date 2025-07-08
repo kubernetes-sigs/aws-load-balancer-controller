@@ -80,6 +80,7 @@ spec:
                 items:
                   properties:
                     alpnPolicy:
+                      default: None
                       description: alpnPolicy an optional string that allows you to
                         configure ALPN policies on your Load Balancer
                       enum:
@@ -96,9 +97,7 @@ spec:
                         type: string
                       type: array
                     defaultCertificate:
-                      description: |-
-                        TODO: Add validation in admission webhook to make it required for secure protocols
-                        defaultCertificate the cert arn to be used by default.
+                      description: defaultCertificate the cert arn to be used by default.
                       type: string
                     listenerAttributes:
                       description: listenerAttributes defines the attributes for the
@@ -118,6 +117,8 @@ spec:
                         type: object
                       type: array
                     mutualAuthentication:
+                      default:
+                        mode: "off"
                       description: mutualAuthentication defines the mutual authentication
                         configuration information.
                       properties:
@@ -146,6 +147,19 @@ spec:
                       required:
                       - mode
                       type: object
+                      x-kubernetes-validations:
+                      - message: trustStore is required when mutualAuthentication
+                          mode is 'verify'
+                        rule: '!(self.mode == ''verify'' && !has(self.trustStore))'
+                      - message: Mutual Authentication mode 'off' or 'passthrough'
+                          does not support 'trustStore'
+                        rule: '!(self.mode != ''verify'' && has(self.trustStore))'
+                      - message: Mutual Authentication mode 'off' or 'passthrough'
+                          does not support 'ignoreClientCertificateExpiry'
+                        rule: '!(self.mode != ''verify'' && has(self.ignoreClientCertificateExpiry))'
+                      - message: Mutual Authentication mode 'off' or 'passthrough'
+                          does not support 'advertiseTrustStoreCaNames'
+                        rule: '!(self.mode != ''verify'' && has(self.advertiseTrustStoreCaNames))'
                     protocolPort:
                       description: protocolPort is identifier for the listener on
                         load balancer. It should be of the form PROTOCOL:PORT
