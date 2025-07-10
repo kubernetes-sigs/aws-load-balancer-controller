@@ -242,10 +242,9 @@ func (t *defaultModelBuildTask) buildFrontendNlbSecurityGroups(ctx context.Conte
 		}
 		for _, sgID := range frontendSGIDs {
 			lbSGTokens = append(lbSGTokens, core.LiteralStringToken(sgID))
-			return lbSGTokens, nil
 		}
 	}
-	return nil, nil
+	return lbSGTokens, nil
 }
 
 func (t *defaultModelBuildTask) buildNLBFrontendSGNameOrIDsFromAnnotation(ctx context.Context) ([]string, error) {
