@@ -27,7 +27,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-name](#load-balancer-name)                                             | string                  |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-internal](#lb-internal)                                                | boolean                 | false                    | deprecated, in favor of [aws-load-balancer-scheme](#lb-scheme)                                                                                                                                                                                                                                                                                                                                                       |
 | [service.beta.kubernetes.io/aws-load-balancer-scheme](#lb-scheme)                                                    | string                  | internal                 |                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                                    | string                  |                          | Set to `"*"` to enable                                                                                                                                                                                                                                                                                                                                                                                               |
+| [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol](#proxy-protocol-v2)                                    | string                  |                          | Set to `"*"` to enable for all service ports |
 | [service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group](#proxy-protocol-v2)                   | string                  |                          | If specified,configures proxy protocol for the target groups corresponding to the ports mentioned and disables for the rest. For example, if you have services deployed on ports `"80, 443 and 22"`, the annotation value `"80, 443"` will enable proxy protocol for ports 80 and 443 only, and disable for port 22. This annotation is overriden by `"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"` |
 | [service.beta.kubernetes.io/aws-load-balancer-ip-address-type](#ip-address-type)                                     | string                  | ipv4                     | ipv4 \| dualstack                                                                                                                                                                                                                                                                                                                                                                                                    |
 | [service.beta.kubernetes.io/aws-load-balancer-access-log-enabled](#deprecated-attributes)                            | boolean                 | false                    | deprecated, in favor of [aws-load-balancer-attributes](#load-balancer-attributes)                                                                                                                                                                                                                                                                                                                                    |
@@ -256,11 +256,18 @@ You can configure dualstack NLB to support UDP-based services over IPv6 via the 
 NLB resource attributes can be controlled via the following annotations:
 
 - <a name="proxy-protocol-v2">service.beta.kubernetes.io/aws-load-balancer-proxy-protocol</a> specifies whether to enable proxy protocol v2 on the target group.
-Set to '*' to enable proxy protocol v2. This annotation takes precedence over the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes`
-for proxy protocol v2 configuration.
+This annotation takes precedence over the annotation `service.beta.kubernetes.io/aws-load-balancer-target-group-attributes` for proxy protocol v2 configuration.
+If you specify `*`, proxy protocol v2 is enabled for all ports. If you specify a list of one or more ports, proxy protocol v2 is enabled only for those ports.
 
-    !!!note ""
-        The only valid value for this annotation is `*`.
+    !!!example
+        - enable proxy protocol for all ports
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: *
+        ```
+        - enable proxy protocol for ports 80 and 443
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-proxy-protocol: 80, 443
+        ```
 
 - <a name="target-group-attributes">`service.beta.kubernetes.io/aws-load-balancer-target-group-attributes`</a> specifies the
 [Target Group Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#target-group-attributes) to be configured.
