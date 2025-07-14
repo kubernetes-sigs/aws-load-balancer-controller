@@ -1,6 +1,7 @@
 package routeutils
 
 import (
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -388,6 +389,54 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_BuildHttpRuleActionsBasedOnFilter(t *testing.T) {
+	tests := []struct {
+		name        string
+		filters     []gwv1.HTTPRouteFilter
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "request redirect filter",
+			filters: []gwv1.HTTPRouteFilter{
+				{
+					Type: gwv1.HTTPRouteFilterRequestRedirect,
+					RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+						Port: (*gwv1.PortNumber)(awssdk.Int32(80)),
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "unsupported filter type",
+			filters: []gwv1.HTTPRouteFilter{
+				{
+					Type: gwv1.HTTPRouteFilterRequestHeaderModifier,
+				},
+			},
+			wantErr:     true,
+			errContains: "Unsupported filter type",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actions, err := BuildHttpRuleActionsBasedOnFilter(tt.filters)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				assert.Nil(t, actions)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

@@ -98,7 +98,8 @@ func buildHttpHeaderCondition(headers []gwv1.HTTPHeaderMatch) []elbv2model.RuleC
 				Field: elbv2model.RuleConditionFieldHTTPHeader,
 				HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
 					HTTPHeaderName: string(header.Name),
-					Values:         []string{header.Value},
+					// for a given HTTPHeaderName, ALB rule can accept a list of values. However, gateway route headers only accept one value per name, and name cannot duplicate.
+					Values: []string{header.Value},
 				},
 			},
 		}
@@ -146,15 +147,14 @@ func buildGrpcRouteRuleConditions(matches RouteRule) ([][]elbv2model.RuleConditi
 	return conditions, nil
 }
 
+// BuildHttpRuleActionsBasedOnFilter only request redirect is supported, header modification is limited due to ALB support level.
 func BuildHttpRuleActionsBasedOnFilter(filters []gwv1.HTTPRouteFilter) ([]elbv2model.Action, error) {
 	for _, filter := range filters {
 		switch filter.Type {
-		case gwv1.HTTPRouteFilterRequestHeaderModifier:
-			// TODO: decide behavior for request header modifier
 		case gwv1.HTTPRouteFilterRequestRedirect:
 			return buildHttpRedirectAction(filter.RequestRedirect)
-		case gwv1.HTTPRouteFilterResponseHeaderModifier:
-			// TODO: decide behavior for response header modifier
+		default:
+			return nil, errors.Errorf("Unsupported filter type: %v. Only request redirect is supported. To specify header modification, please configure it through LoadBalancerConfiguration.", filter.Type)
 		}
 	}
 	return nil, nil

@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
-	certs "sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -204,7 +204,7 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 				Weight:         &weight,
 			})
 		}
-		actions := buildL7ListenerActions(targetGroupTuples)
+		actions := buildL7ListenerForwardActions(targetGroupTuples, nil)
 
 		// configure actions based on filters
 		switch route.GetRouteKind() {
@@ -344,13 +344,24 @@ func buildL4ListenerDefaultActions(targetGroup *elbv2model.TargetGroup) []elbv2m
 	}
 }
 
-func buildL7ListenerActions(targetGroupTuple []elbv2model.TargetGroupTuple) []elbv2model.Action {
+func buildL7ListenerForwardActions(targetGroupTuple []elbv2model.TargetGroupTuple, duration *int32) []elbv2model.Action {
+
+	forwardConfig := &elbv2model.ForwardActionConfig{
+		TargetGroups: targetGroupTuple,
+	}
+
+	// Configure target group stickiness if a duration is specified
+	if duration != nil {
+		forwardConfig.TargetGroupStickinessConfig = &elbv2model.TargetGroupStickinessConfig{
+			Enabled:         awssdk.Bool(true),
+			DurationSeconds: awssdk.Int32(*duration),
+		}
+	}
+
 	return []elbv2model.Action{
 		{
-			Type: elbv2model.ActionTypeForward,
-			ForwardConfig: &elbv2model.ForwardActionConfig{
-				TargetGroups: targetGroupTuple,
-			},
+			Type:          elbv2model.ActionTypeForward,
+			ForwardConfig: forwardConfig,
 		},
 	}
 }
