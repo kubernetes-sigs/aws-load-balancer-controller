@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"time"
 )
 
@@ -457,6 +458,8 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		loggerPrefix.WithName("HTTPRoute"))
 	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(httpRouteEventChan, grpcRouteEventChan, nil, nil, nil, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("Service"), constants.ALBGatewayController)
+	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan, grpcRouteEventChan, nil, nil, nil, r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("ReferenceGrant"))
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
 		return err
 	}
@@ -473,6 +476,9 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwbeta1.ReferenceGrant{}, refGrantHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.HTTPRoute{}, httpRouteEventHandler)); err != nil {
@@ -501,6 +507,8 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 		loggerPrefix.WithName("TLSRoute"))
 	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(nil, nil, tcpRouteEventChan, udpRouteEventChan, tlsRouteEventChan, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("Service"), constants.NLBGatewayController)
+	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(nil, nil, tcpRouteEventChan, udpRouteEventChan, tlsRouteEventChan, r.k8sClient, r.eventRecorder,
+		loggerPrefix.WithName("ReferenceGrant"))
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
 		return err
 	}
@@ -520,6 +528,9 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwbeta1.ReferenceGrant{}, refGrantHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwalpha2.TCPRoute{}, tcpRouteEventHandler)); err != nil {
