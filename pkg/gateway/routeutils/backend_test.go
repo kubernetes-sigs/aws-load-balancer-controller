@@ -79,7 +79,8 @@ func TestCommonBackendLoader(t *testing.T) {
 		routeIdentifier     types.NamespacedName
 		weight              int
 		servicePort         int32
-		expectErr           bool
+		expectWarning       bool
+		expectFatal         bool
 		expectNoResult      bool
 		expectedTargetGroup *elbv2gw.TargetGroupProps
 	}{
@@ -189,7 +190,7 @@ func TestCommonBackendLoader(t *testing.T) {
 				},
 			},
 			expectNoResult: true,
-			expectErr:      true,
+			expectWarning:  true,
 			storedService: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespaceToUse,
@@ -287,7 +288,8 @@ func TestCommonBackendLoader(t *testing.T) {
 					Port:      portConverter(80),
 				},
 			},
-			expectErr: true,
+			expectWarning:  true,
+			expectNoResult: true,
 		},
 		{
 			name: "missing port in backend ref should result in an error",
@@ -301,7 +303,8 @@ func TestCommonBackendLoader(t *testing.T) {
 					Namespace: (*gwv1.Namespace)(&namespaceToUse),
 				},
 			},
-			expectErr: true,
+			expectWarning:  true,
+			expectNoResult: true,
 		},
 	}
 
@@ -324,14 +327,18 @@ func TestCommonBackendLoader(t *testing.T) {
 				assert.NoError(t, err, fmt.Sprintf("%+v", g))
 			}
 
-			result, err := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.backendRef, tc.routeIdentifier, kind)
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.backendRef, tc.routeIdentifier, kind)
 
-			if tc.expectErr {
-				assert.Error(t, err)
-				return
+			if tc.expectWarning {
+				assert.Error(t, warningErr)
+				assert.NoError(t, fatalErr)
+			} else if tc.expectFatal {
+				assert.Error(t, fatalErr)
+				assert.NoError(t, warningErr)
+			} else {
+				assert.NoError(t, warningErr)
+				assert.NoError(t, fatalErr)
 			}
-
-			assert.NoError(t, err)
 
 			if tc.expectNoResult {
 				assert.Nil(t, result)

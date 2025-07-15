@@ -31,7 +31,7 @@ type mockRoute struct {
 	generation     int64
 }
 
-func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error) {
+func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 	return m, nil
 }
 
@@ -137,11 +137,11 @@ func TestLoadRoutesForGateway(t *testing.T) {
 		loadedTCPRoutes = append(loadedTCPRoutes, r)
 	}
 
-	allRouteLoaders := map[RouteKind]func(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error){
-		HTTPRouteKind: func(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+	allRouteLoaders := map[RouteKind]func(ctx context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error){
+		HTTPRouteKind: func(ctx context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 			return preLoadHTTPRoutes, nil
 		},
-		TCPRouteKind: func(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+		TCPRouteKind: func(ctx context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 			return preLoadTCPRoutes, nil
 		},
 	}

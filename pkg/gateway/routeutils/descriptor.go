@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+type routeLoadError struct {
+	Err   error
+	Fatal bool
+}
+
 // routeMetadataDescriptor a common set of functions that will describe a route.
 // These are intentionally meant to be type agnostic;
 // however, consumers can use `GetRawRoute()` to inspect the actual route fields if needed.
@@ -27,7 +32,7 @@ type routeMetadataDescriptor interface {
 // loadAttachedRules() to generate a full route description.
 type preLoadRouteDescriptor interface {
 	routeMetadataDescriptor
-	loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error)
+	loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError)
 }
 
 // RouteDescriptor is a type agnostic representation of a Gateway Route.

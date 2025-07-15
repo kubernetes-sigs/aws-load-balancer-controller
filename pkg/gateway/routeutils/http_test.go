@@ -125,11 +125,11 @@ func Test_ListHTTPRoutes(t *testing.T) {
 
 func Test_HTTP_LoadAttachedRules(t *testing.T) {
 	weight := 0
-	mockLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error) {
+	mockLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
 		weight++
 		return &Backend{
 			Weight: weight,
-		}, nil
+		}, nil, nil
 	}
 
 	routeDescription := httpRouteDescription{
@@ -158,8 +158,8 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 		backendLoader: mockLoader,
 	}
 
-	result, err := routeDescription.loadAttachedRules(context.Background(), nil)
-	assert.NoError(t, err)
+	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)
+	assert.Equal(t, 0, len(errs))
 	convertedRules := result.GetAttachedRules()
 	assert.Equal(t, 3, len(convertedRules))
 

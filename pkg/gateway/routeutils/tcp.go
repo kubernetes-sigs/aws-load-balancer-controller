@@ -49,23 +49,34 @@ func (t *convertedTCPRouteRule) GetBackends() []Backend {
 type tcpRouteDescription struct {
 	route         *gwalpha2.TCPRoute
 	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error)
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
 }
 
 func (tcpRoute *tcpRouteDescription) GetAttachedRules() []RouteRule {
 	return tcpRoute.rules
 }
 
-func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, error) {
+func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 
 	convertedRules := make([]RouteRule, 0)
+	allErrors := make([]routeLoadError, 0)
 	for _, rule := range tcpRoute.route.Spec.Rules {
 		convertedBackends := make([]Backend, 0)
 
 		for _, backend := range rule.BackendRefs {
-			convertedBackend, err := tcpRoute.backendLoader(ctx, k8sClient, backend, backend, tcpRoute.GetRouteNamespacedName(), tcpRoute.GetRouteKind())
-			if err != nil {
-				return nil, err
+			convertedBackend, warningErr, fatalErr := tcpRoute.backendLoader(ctx, k8sClient, backend, backend, tcpRoute.GetRouteNamespacedName(), tcpRoute.GetRouteKind())
+			if warningErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err: warningErr,
+				})
+			}
+
+			if fatalErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err:   fatalErr,
+					Fatal: true,
+				})
+				return nil, allErrors
 			}
 			if convertedBackend != nil {
 				convertedBackends = append(convertedBackends, *convertedBackend)
@@ -124,9 +135,9 @@ var _ RouteDescriptor = &tcpRouteDescription{}
 
 // Can we use an indexer here to query more efficiently?
 
-func ListTCPRoutes(context context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+func ListTCPRoutes(context context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 	routeList := &gwalpha2.TCPRouteList{}
-	err := k8sClient.List(context, routeList)
+	err := k8sClient.List(context, routeList, opts...)
 	if err != nil {
 		return nil, err
 	}
