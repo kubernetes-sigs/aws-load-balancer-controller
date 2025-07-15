@@ -48,17 +48,28 @@ func (t *convertedGRPCRouteRule) GetBackends() []Backend {
 type grpcRouteDescription struct {
 	route         *gwv1.GRPCRoute
 	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error)
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
 }
 
-func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, error) {
+func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 	convertedRules := make([]RouteRule, 0)
+	allErrors := make([]routeLoadError, 0)
 	for _, rule := range grpcRoute.route.Spec.Rules {
 		convertedBackends := make([]Backend, 0)
 		for _, backend := range rule.BackendRefs {
-			convertedBackend, err := grpcRoute.backendLoader(ctx, k8sClient, backend, backend.BackendRef, grpcRoute.GetRouteNamespacedName(), grpcRoute.GetRouteKind())
-			if err != nil {
-				return nil, err
+			convertedBackend, warningErr, fatalErr := grpcRoute.backendLoader(ctx, k8sClient, backend, backend.BackendRef, grpcRoute.GetRouteNamespacedName(), grpcRoute.GetRouteKind())
+			if warningErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err: warningErr,
+				})
+			}
+
+			if fatalErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err:   fatalErr,
+					Fatal: true,
+				})
+				return nil, allErrors
 			}
 			if convertedBackend != nil {
 				convertedBackends = append(convertedBackends, *convertedBackend)

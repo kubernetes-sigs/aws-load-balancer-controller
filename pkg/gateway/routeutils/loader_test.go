@@ -31,7 +31,7 @@ type mockRoute struct {
 	generation     int64
 }
 
-func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error) {
+func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 	return m, nil
 }
 

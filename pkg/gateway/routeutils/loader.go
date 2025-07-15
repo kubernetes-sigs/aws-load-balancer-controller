@@ -130,15 +130,19 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 				continue
 			}
 
-			generatedRoute, err := preloadedRoute.loadAttachedRules(ctx, l.k8sClient)
-			if err != nil {
-				var loaderErr LoaderError
-				if errors.As(err, &loaderErr) {
-					deferredRouteReconciler.Enqueue(
-						GenerateRouteData(false, false, string(loaderErr.GetRouteReason()), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), gw),
-					)
+			generatedRoute, loadAttachedRulesErrors := preloadedRoute.loadAttachedRules(ctx, l.k8sClient)
+			if len(loadAttachedRulesErrors) > 0 {
+				for _, lare := range loadAttachedRulesErrors {
+					var loaderErr LoaderError
+					if errors.As(lare.Err, &loaderErr) {
+						deferredRouteReconciler.Enqueue(
+							GenerateRouteData(false, false, string(loaderErr.GetRouteReason()), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), gw),
+						)
+					}
+					if lare.Fatal {
+						return nil, lare.Err
+					}
 				}
-				return nil, err
 			}
 			loadedRouteData[int32(port)] = append(loadedRouteData[int32(port)], generatedRoute)
 			resourceCache[cacheKey] = generatedRoute

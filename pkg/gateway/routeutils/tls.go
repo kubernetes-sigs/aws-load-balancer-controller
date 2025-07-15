@@ -49,22 +49,33 @@ func (t *convertedTLSRouteRule) GetBackends() []Backend {
 type tlsRouteDescription struct {
 	route         *gwalpha2.TLSRoute
 	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error)
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
 }
 
 func (tlsRoute *tlsRouteDescription) GetAttachedRules() []RouteRule {
 	return tlsRoute.rules
 }
 
-func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, error) {
+func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 	convertedRules := make([]RouteRule, 0)
+	allErrors := make([]routeLoadError, 0)
 	for _, rule := range tlsRoute.route.Spec.Rules {
 		convertedBackends := make([]Backend, 0)
 
 		for _, backend := range rule.BackendRefs {
-			convertedBackend, err := tlsRoute.backendLoader(ctx, k8sClient, backend, backend, tlsRoute.GetRouteNamespacedName(), tlsRoute.GetRouteKind())
-			if err != nil {
-				return nil, err
+			convertedBackend, warningErr, fatalErr := tlsRoute.backendLoader(ctx, k8sClient, backend, backend, tlsRoute.GetRouteNamespacedName(), tlsRoute.GetRouteKind())
+			if warningErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err: warningErr,
+				})
+			}
+
+			if fatalErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err:   fatalErr,
+					Fatal: true,
+				})
+				return nil, allErrors
 			}
 
 			if convertedBackend != nil {

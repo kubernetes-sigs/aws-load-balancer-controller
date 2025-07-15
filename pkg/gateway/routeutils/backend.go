@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	serviceKind = "Service"
+	serviceKind             = "Service"
+	referenceGrantNotExists = "No explicit ReferenceGrant exists to allow the reference."
 )
 
 var (
@@ -32,24 +33,27 @@ type Backend struct {
 	Weight                int
 }
 
+// returns (loaded backend, warning error, fatal error)
+// warning error -> continue with reconcile cycle.
+// fatal error -> stop reconcile cycle (probably k8s api outage)
 // commonBackendLoader this function will load the services and target group configurations associated with this gateway backend.
-func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error) {
+func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
 
 	// We only support references of type service.
 	if backendRef.Kind != nil && *backendRef.Kind != "Service" {
 		initialErrorMessage := "Backend Ref must be of kind 'Service'"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonInvalidKind, &wrappedGatewayErrorMessage, nil)
+		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonInvalidKind, &wrappedGatewayErrorMessage, nil), nil
 	}
 
 	if backendRef.Weight != nil && *backendRef.Weight == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	if backendRef.Port == nil {
 		initialErrorMessage := "Port is required"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue, &wrappedGatewayErrorMessage, nil)
+		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue, &wrappedGatewayErrorMessage, nil), nil
 	}
 
 	var svcNamespace string
@@ -68,18 +72,16 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 	if svcNamespace != routeIdentifier.Namespace {
 		allowed, err := referenceGrantCheck(ctx, k8sClient, svcIdentifier, routeIdentifier, routeKind)
 		if err != nil {
-			// Currently, this API only fails for a k8s related error message, hence no status update.
-			return nil, errors.Wrapf(err, "Unable to perform reference grant check")
+			// Currently, this API only fails for a k8s related error message, hence no status update + make the error fatal.
+			return nil, nil, errors.Wrapf(err, "Unable to perform reference grant check")
 		}
 
 		// We should not give any hints about the existence of this resource, therefore, we return nil.
 		// That way, users can't infer if the route is missing because of a misconfigured service reference
 		// or the sentence grant is not allowing the connection.
 		if !allowed {
-			initialErrorMessage := "No explicit ReferenceGrant exits to allow the reference."
-			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-			return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonRefNotPermitted, &wrappedGatewayErrorMessage, nil)
-
+			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(referenceGrantNotExists, routeKind, routeIdentifier)
+			return nil, wrapError(errors.Errorf("%s", referenceGrantNotExists), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonRefNotPermitted, &wrappedGatewayErrorMessage, nil), nil
 		}
 	}
 
@@ -93,10 +95,10 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 			// Svc not found, post an updated status.
 			initialErrorMessage := fmt.Sprintf("Service (%s:%s) not found)", svcIdentifier.Namespace, svcIdentifier.Name)
 			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-			return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil)
+			return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil), nil
 		}
 		// Otherwise, general error. No need for status update.
-		return nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch svc object %+v", svcIdentifier))
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch svc object %+v", svcIdentifier))
 	}
 
 	// TODO -- This should be updated, to handle UDP and TCP on the same service port.
@@ -114,14 +116,14 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 	if servicePort == nil {
 		initialErrorMessage := fmt.Sprintf("Unable to find service port for port %d", *backendRef.Port)
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil)
+		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil), nil
 	}
 
 	tgConfig, err := LookUpTargetGroupConfiguration(ctx, k8sClient, k8s.NamespacedName(svc))
 
 	if err != nil {
 		// As of right now, this error can only be thrown because of a k8s api error hence no status update.
-		return nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch tg config object"))
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch tg config object"))
 	}
 
 	var tgProps *elbv2gw.TargetGroupProps
@@ -149,7 +151,8 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 				initialErrorMessage := fmt.Sprintf("Service port appProtocol %s is not compatible with target group protocolVersion %s", *servicePort.AppProtocol, *tgProps.ProtocolVersion)
 				wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
 
-				return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedProtocol, &wrappedGatewayErrorMessage, nil)
+				// This potentially could be fatal, but let's make the reconcile cycle as resilient as possible.
+				return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedProtocol, &wrappedGatewayErrorMessage, nil), nil
 			}
 		}
 	}
@@ -175,7 +178,7 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		Weight:                weight,
 		TypeSpecificBackend:   typeSpecificBackend,
 		ELBV2TargetGroupProps: tgProps,
-	}, nil
+	}, nil, nil
 }
 
 // LookUpTargetGroupConfiguration given a service, lookup the target group configuration associated with the service.
