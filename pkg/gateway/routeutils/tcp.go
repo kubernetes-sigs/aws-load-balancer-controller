@@ -124,9 +124,9 @@ var _ RouteDescriptor = &tcpRouteDescription{}
 
 // Can we use an indexer here to query more efficiently?
 
-func ListTCPRoutes(context context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+func ListTCPRoutes(context context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 	routeList := &gwalpha2.TCPRouteList{}
-	err := k8sClient.List(context, routeList)
+	err := k8sClient.List(context, routeList, opts...)
 	if err != nil {
 		return nil, err
 	}

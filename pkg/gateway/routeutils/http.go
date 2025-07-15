@@ -124,9 +124,9 @@ var _ RouteDescriptor = &httpRouteDescription{}
 
 // Can we use an indexer here to query more efficiently?
 
-func ListHTTPRoutes(context context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+func ListHTTPRoutes(context context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 	routeList := &gwv1.HTTPRouteList{}
-	err := k8sClient.List(context, routeList)
+	err := k8sClient.List(context, routeList, opts...)
 	if err != nil {
 		return nil, err
 	}

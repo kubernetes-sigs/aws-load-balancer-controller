@@ -57,7 +57,7 @@ type loaderImpl struct {
 	mapper          listenerToRouteMapper
 	k8sClient       client.Client
 	logger          logr.Logger
-	allRouteLoaders map[RouteKind]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error)
+	allRouteLoaders map[RouteKind]func(context context.Context, client client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error)
 }
 
 func NewLoader(k8sClient client.Client, logger logr.Logger) Loader {

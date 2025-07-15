@@ -122,9 +122,9 @@ func (udpRoute *udpRouteDescription) GetRouteCreateTimestamp() time.Time {
 
 var _ RouteDescriptor = &udpRouteDescription{}
 
-func ListUDPRoutes(context context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+func ListUDPRoutes(context context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 	routeList := &gwalpha2.UDPRouteList{}
-	err := k8sClient.List(context, routeList)
+	err := k8sClient.List(context, routeList, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -123,9 +123,9 @@ func (tlsRoute *tlsRouteDescription) GetRouteCreateTimestamp() time.Time {
 
 var _ RouteDescriptor = &tlsRouteDescription{}
 
-func ListTLSRoutes(context context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+func ListTLSRoutes(context context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 	routeList := &gwalpha2.TLSRouteList{}
-	err := k8sClient.List(context, routeList)
+	err := k8sClient.List(context, routeList, opts...)
 	if err != nil {
 		return nil, err
 	}
