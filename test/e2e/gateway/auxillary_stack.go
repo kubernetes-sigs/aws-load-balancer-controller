@@ -41,36 +41,8 @@ type auxiliaryResourceStack struct {
 	ns *corev1.Namespace
 }
 
-func (s *auxiliaryResourceStack) Deploy(ctx context.Context, f *framework.Framework, preprovisionedNs *corev1.Namespace) error {
+func (s *auxiliaryResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
 
-	refGrants := []*gwbeta1.ReferenceGrant{
-		{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "refgrant",
-				Namespace: s.ns.Name,
-			},
-			Spec: gwbeta1.ReferenceGrantSpec{
-				From: []gwbeta1.ReferenceGrantFrom{
-					{
-						Group:     gwbeta1.Group(gwbeta1.GroupName),
-						Kind:      gwbeta1.Kind("HTTPRoute"),
-						Namespace: gwbeta1.Namespace(preprovisionedNs.Name),
-					},
-					{
-						Group:     gwbeta1.Group(gwbeta1.GroupName),
-						Kind:      gwbeta1.Kind("TCPRoute"),
-						Namespace: gwbeta1.Namespace(preprovisionedNs.Name),
-					},
-				},
-				To: []gwbeta1.ReferenceGrantTo{
-					{
-						Kind: "Service",
-					},
-				},
-			},
-		},
-	}
-	s.refGrants = refGrants
 	for _, v := range s.dps {
 		v.Namespace = s.ns.Name
 	}
@@ -87,10 +59,6 @@ func (s *auxiliaryResourceStack) Deploy(ctx context.Context, f *framework.Framew
 		v.Namespace = s.ns.Name
 	}
 
-	if err := createReferenceGrants(ctx, f, s.refGrants); err != nil {
-		return err
-	}
-
 	if err := createTargetGroupConfigs(ctx, f, s.tgcs); err != nil {
 		return err
 	}
@@ -101,6 +69,47 @@ func (s *auxiliaryResourceStack) Deploy(ctx context.Context, f *framework.Framew
 		return err
 	}
 	return nil
+}
+
+func (s *auxiliaryResourceStack) CreateReferenceGrants(ctx context.Context, f *framework.Framework, mainNamespace *corev1.Namespace) error {
+	refGrants := []*gwbeta1.ReferenceGrant{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "refgrant",
+				Namespace: s.ns.Name,
+			},
+			Spec: gwbeta1.ReferenceGrantSpec{
+				From: []gwbeta1.ReferenceGrantFrom{
+					{
+						Group:     gwbeta1.Group(gwbeta1.GroupName),
+						Kind:      gwbeta1.Kind("HTTPRoute"),
+						Namespace: gwbeta1.Namespace(mainNamespace.Name),
+					},
+					{
+						Group:     gwbeta1.Group(gwbeta1.GroupName),
+						Kind:      gwbeta1.Kind("TCPRoute"),
+						Namespace: gwbeta1.Namespace(mainNamespace.Name),
+					},
+				},
+				To: []gwbeta1.ReferenceGrantTo{
+					{
+						Kind: "Service",
+					},
+				},
+			},
+		},
+	}
+	s.refGrants = refGrants
+
+	if err := createReferenceGrants(ctx, f, s.refGrants); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *auxiliaryResourceStack) DeleteReferenceGrants(ctx context.Context, f *framework.Framework) error {
+	return deleteReferenceGrants(ctx, f, s.refGrants)
 }
 
 func (s *auxiliaryResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {

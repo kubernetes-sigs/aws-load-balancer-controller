@@ -178,6 +178,19 @@ func createReferenceGrants(ctx context.Context, f *framework.Framework, refGrant
 	return nil
 }
 
+func deleteReferenceGrants(ctx context.Context, f *framework.Framework, refGrants []*gwbeta1.ReferenceGrant) error {
+	f.Logger.Info("About to delete ref grant")
+	for _, refg := range refGrants {
+		f.Logger.Info("deleting ref grant", "refg", k8s.NamespacedName(refg))
+		if err := f.K8sClient.Delete(ctx, refg); err != nil {
+			f.Logger.Error(err, "failed to delete ref grant")
+			return err
+		}
+		f.Logger.Info("deleted ref grant", "refg", k8s.NamespacedName(refg))
+	}
+	return nil
+}
+
 func createGatewayClass(ctx context.Context, f *framework.Framework, gwc *gwv1.GatewayClass) error {
 	f.Logger.Info("creating gateway class", "gwc", k8s.NamespacedName(gwc))
 	return f.K8sClient.Create(ctx, gwc)
