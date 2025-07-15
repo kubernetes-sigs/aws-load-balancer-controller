@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"net"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"strings"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	"k8s.io/utils/strings/slices"
 

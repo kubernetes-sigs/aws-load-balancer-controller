@@ -2,13 +2,14 @@ package elbv2
 
 import (
 	"context"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"time"
 )
 
 const (
@@ -54,6 +55,9 @@ func buildSDKAction(modelAction elbv2model.Action, featureGates config.FeatureGa
 	}
 	if modelAction.AuthenticateOIDCConfig != nil {
 		sdkObj.AuthenticateOidcConfig = buildSDKAuthenticateOidcActionConfig(*modelAction.AuthenticateOIDCConfig)
+	}
+	if modelAction.JwtValidationConfig != nil {
+		sdkObj.JwtValidationConfig = buildSDKJwtValidationConfig(*modelAction.JwtValidationConfig)
 	}
 	if modelAction.FixedResponseConfig != nil {
 		sdkObj.FixedResponseConfig = buildSDKFixedResponseActionConfig(*modelAction.FixedResponseConfig)
@@ -105,6 +109,23 @@ func buildSDKAuthenticateOidcActionConfig(modelCfg elbv2model.AuthenticateOIDCAc
 		AuthorizationEndpoint:            awssdk.String(modelCfg.AuthorizationEndpoint),
 		TokenEndpoint:                    awssdk.String(modelCfg.TokenEndpoint),
 		UserInfoEndpoint:                 awssdk.String(modelCfg.UserInfoEndpoint),
+	}
+}
+
+func buildSDKJwtValidationConfig(modelCfg elbv2model.JwtValidationConfig) *elbv2types.JwtValidationActionConfig {
+	var additionalClaims []elbv2types.JwtValidationActionAdditionalClaim
+	for _, additionalClaim := range modelCfg.AdditionalClaims {
+		additionalClaims = append(additionalClaims, elbv2types.JwtValidationActionAdditionalClaim{
+			Format: elbv2types.JwtValidationActionAdditionalClaimFormatEnum(additionalClaim.Format),
+			Name:   awssdk.String(additionalClaim.Name),
+			Values: append([]string{}, additionalClaim.Values...),
+		})
+	}
+
+	return &elbv2types.JwtValidationActionConfig{
+		JwksEndpoint:     awssdk.String(modelCfg.JwksEndpoint),
+		Issuer:           awssdk.String(modelCfg.Issuer),
+		AdditionalClaims: additionalClaims,
 	}
 }
 

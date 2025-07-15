@@ -2,6 +2,10 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -17,8 +21,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
-	"time"
 )
 
 func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
@@ -301,6 +303,104 @@ func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
 				k8sClient: k8sClient,
 			}
 			got, err := task.buildAuthenticateOIDCAction(context.Background(), tt.args.namespace, tt.args.authCfg)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildJwtValidationAction(t *testing.T) {
+	type args struct {
+		jwtValidationConfig *JwtValidationConfig
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *elbv2model.Action
+		wantErr error
+	}{
+		{
+			name: "gracefully handles nil config",
+			args: args{
+				jwtValidationConfig: nil,
+			},
+			want: nil,
+		},
+		{
+			name: "jwt validation with no additional claims",
+			args: args{
+				jwtValidationConfig: &JwtValidationConfig{
+					JwksEndpoint: "https://issuer.example.com/.well-known/jwks.json",
+					Issuer:       "https://issuer.com",
+				},
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeJwtValidation,
+				JwtValidationConfig: &elbv2model.JwtValidationConfig{
+					JwksEndpoint: "https://issuer.example.com/.well-known/jwks.json",
+					Issuer:       "https://issuer.com",
+				},
+			},
+		},
+		{
+			name: "jwt validation with additional claims",
+			args: args{
+				jwtValidationConfig: &JwtValidationConfig{
+					JwksEndpoint: "https://issuer.example.com/.well-known/jwks.json",
+					Issuer:       "https://issuer.com",
+					AdditionalClaims: []JwtAdditionalClaim{
+						{
+							Format: "string-array",
+							Name:   "scope",
+							Values: []string{"read:api", "write:api"},
+						},
+						{
+							Format: "single-string",
+							Name:   "iat",
+							Values: []string{"12456"},
+						},
+						{
+							Format: "space-separated-values",
+							Name:   "aud",
+							Values: []string{"https://example.com", "https://another-site.com"},
+						},
+					},
+				},
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeJwtValidation,
+				JwtValidationConfig: &elbv2model.JwtValidationConfig{
+					JwksEndpoint: "https://issuer.example.com/.well-known/jwks.json",
+					Issuer:       "https://issuer.com",
+					AdditionalClaims: []elbv2model.JwtAdditionalClaim{
+						{
+							Format: "string-array",
+							Name:   "scope",
+							Values: []string{"read:api", "write:api"},
+						},
+						{
+							Format: "single-string",
+							Name:   "iat",
+							Values: []string{"12456"},
+						},
+						{
+							Format: "space-separated-values",
+							Name:   "aud",
+							Values: []string{"https://example.com", "https://another-site.com"},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t1 *testing.T) {
+			task := &defaultModelBuildTask{}
+			got, err := task.buildJwtValidationAction(context.Background(), tt.args.jwtValidationConfig)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

@@ -61,6 +61,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/auth-scope](#auth-scope)                                                   | string                                             |openid| Ingress,Service | N/A           |
 | [alb.ingress.kubernetes.io/auth-session-cookie](#auth-session-cookie)                                 | string                                             |AWSELBAuthSessionCookie| Ingress,Service | N/A           |
 | [alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)                               | integer                                            |'604800'| Ingress,Service | N/A           |
+| [alb.ingress.kubernetes.io/jwt-validation](#jwt-validation)                               | json                                            |N/A| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/actions.${action-name}](#actions)                                          | json                                               |N/A| Ingress         | N/A           |
 | [alb.ingress.kubernetes.io/transforms.${transforms-name}](#transforms)                                | json                                               |N/A| Ingress         | N/A           |
 | [alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)                                | json                                               |N/A| Ingress         | N/A           |
@@ -845,6 +846,19 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
     !!!example
         ```
         alb.ingress.kubernetes.io/auth-session-timeout: '86400'
+        ```
+
+## Token Validation
+ALB supports validating JSON Web Tokens (JWTs) for secure service-to-service communication. The `exp` and `iss` claims are always validated by default. If present, the `nbf` and `iat` claims will also be automatically validated. JWT validation can be controlled with the following annotation:
+
+!!!warning "HTTPS only"
+    JWT validation is only supported for HTTPS listeners. See [TLS](#tls) for configuring HTTPS listeners.
+
+- <a name="jwt-validation">`alb.ingress.kubernetes.io/jwt-validation`</a> specifies the configuration for JWT validation. This includes the JSON Web Key Set (JWKS) endpoint and issuer, along with any additional claims to validate. For each additional claim added, the name of the claim, the format of the values in the JWT, and the values of the claim should all be specified.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/jwt-validation: '{"jwksEndpoint":"https://example-endpoint.com","issuer":"https://example-issuer.com","additionalClaims":[{"name":"admin","format":"single-string","values":["true"]},{"name":"ver","format":"string-array","values":["6","19"]},{"name":"scope","format":"space-separated-values","values":["read:api","write","email"]}]}'
         ```
 
 ## Health Check

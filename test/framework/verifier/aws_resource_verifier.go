@@ -828,6 +828,69 @@ func verifyListenerRuleActions(actual, expected []elbv2types.Action) error {
 				}
 			}
 			break
+		case elbv2types.ActionTypeEnumJwtValidation:
+			if actualAction.JwtValidationConfig == nil {
+				return errors.Errorf("expected jwt-validation config, got nil")
+			}
+
+			// Verify JwksEndpoint
+			if awssdk.ToString(actualAction.JwtValidationConfig.JwksEndpoint) !=
+				awssdk.ToString(expectedAction.JwtValidationConfig.JwksEndpoint) {
+				return errors.Errorf("JwksEndpoint mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.JwtValidationConfig.JwksEndpoint),
+					awssdk.ToString(actualAction.JwtValidationConfig.JwksEndpoint))
+			}
+
+			// Verify Issuer
+			if awssdk.ToString(actualAction.JwtValidationConfig.Issuer) !=
+				awssdk.ToString(expectedAction.JwtValidationConfig.Issuer) {
+				return errors.Errorf("Issuer mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.JwtValidationConfig.Issuer),
+					awssdk.ToString(actualAction.JwtValidationConfig.Issuer))
+			}
+
+			// Verify AdditionalClaims
+			actualAdditionalClaimsLen := len(actualAction.JwtValidationConfig.AdditionalClaims)
+			expectedAdditionalClaimsLen := len(expectedAction.JwtValidationConfig.AdditionalClaims)
+			if actualAdditionalClaimsLen != expectedAdditionalClaimsLen {
+				return errors.Errorf("AdditionalClaims length mismatch: expected %d, got %d",
+					expectedAdditionalClaimsLen,
+					actualAdditionalClaimsLen)
+			}
+			for claimIndex, actualAdditionalClaim := range actualAction.JwtValidationConfig.AdditionalClaims {
+				expectedAdditionalClaim := expectedAction.JwtValidationConfig.AdditionalClaims[claimIndex]
+				// Verify Format
+				if string(actualAdditionalClaim.Format) !=
+					string(expectedAdditionalClaim.Format) {
+					return errors.Errorf("Format mismatch: expected %s, got %s",
+						string(expectedAdditionalClaim.Format),
+						string(actualAdditionalClaim.Format))
+				}
+
+				// Verify Name
+				if awssdk.ToString(actualAdditionalClaim.Name) !=
+					awssdk.ToString((expectedAdditionalClaim.Name)) {
+					return errors.Errorf("Name mismatch: expected %s, got %s",
+						awssdk.ToString(expectedAdditionalClaim.Name),
+						awssdk.ToString(actualAdditionalClaim.Name))
+				}
+
+				// Verify Values
+				actualValuesLen := len(actualAdditionalClaim.Values)
+				expectedValuesLen := len(expectedAdditionalClaim.Values)
+				if actualValuesLen != expectedValuesLen {
+					return errors.Errorf("Values length mismatch: expected %d, got %d",
+						expectedValuesLen,
+						actualValuesLen)
+				}
+				for valueIndex, actualValue := range actualAdditionalClaim.Values {
+					expectedValue := expectedAdditionalClaim.Values[valueIndex]
+					if actualValue != expectedValue {
+						return errors.Errorf("Value mismatch: expected %s, got %s", expectedValue, actualValue)
+					}
+				}
+			}
+			break
 		default:
 			return errors.Errorf("unknown listener rule action type %s", expectedAction.Type)
 		}

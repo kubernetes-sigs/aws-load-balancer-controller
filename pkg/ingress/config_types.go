@@ -500,3 +500,33 @@ func (t *Transform) Validate() error {
 	}
 	return nil
 }
+
+// The format of an additional claim's value(s) used in JWT validation.
+type jwtAdditionalClaimFormat string
+
+const (
+	FormatSingleString         jwtAdditionalClaimFormat = "single-string"
+	FormatStringArray          jwtAdditionalClaimFormat = "string-array"
+	FormatSpaceSeparatedValues jwtAdditionalClaimFormat = "space-separated-values"
+)
+
+// An additional claim to validate during JWT validation.
+type JwtAdditionalClaim struct {
+	// The format of the claim value(s).
+	Format jwtAdditionalClaimFormat `json:"format"`
+	// The claim name.
+	Name string `json:"name"`
+	// The claim values.
+	Values []string `json:"values"`
+}
+
+// Information about an action that performs JSON Web Token (JWT) validation prior to the routing action.
+type JwtValidationConfig struct {
+	// The JSON Web Key Set (JWKS) endpoint containing the public keys used to verify the JWT.
+	JwksEndpoint string `json:"jwksEndpoint"`
+	// The issuer of the JWT.
+	Issuer string `json:"issuer"`
+	// Any additional claims in the JWT that should be validated.
+	// +optional
+	AdditionalClaims []JwtAdditionalClaim `json:"additionalClaims,omitempty"`
+}
