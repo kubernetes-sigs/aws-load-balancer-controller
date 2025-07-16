@@ -14,7 +14,7 @@ The LBC is supported by AWS. Some clusters may be using the legacy "in-tree" fun
     You will no longer be able to provision new Classic Load Balancer (CLB) from your kubernetes service unless you disable this feature. Existing CLB will continue to work fine.
 
 ## Supported Kubernetes versions
-* AWS Load Balancer Controller v2.0.0~v2.1.3 requires Kubernetes 1.15+
+* AWS Load Balancer Controller v2.0.0~v2.1.3 requires Kubernetes 1.15-1.21
 * AWS Load Balancer Controller v2.2.0~v2.3.1 requires Kubernetes 1.16-1.21
 * AWS Load Balancer Controller v2.4.0+ requires Kubernetes 1.19+
 * AWS Load Balancer Controller v2.5.0+ requires Kubernetes 1.22+
