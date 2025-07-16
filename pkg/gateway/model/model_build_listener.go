@@ -211,7 +211,12 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 				Weight:         &weight,
 			})
 		}
-		actions := buildL7ListenerForwardActions(targetGroupTuples, nil)
+
+		var actions []elbv2model.Action
+
+		if len(targetGroupTuples) > 0 {
+			actions = buildL7ListenerForwardActions(targetGroupTuples, nil)
+		}
 
 		// configure actions based on filters
 		switch route.GetRouteKind() {
@@ -227,11 +232,13 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 			// TODO: add case for GRPC
 		}
 
-		albRules = append(albRules, elbv2model.Rule{
-			Conditions: conditionsList,
-			Actions:    actions,
-			Tags:       tags,
-		})
+		if len(actions) > 0 {
+			albRules = append(albRules, elbv2model.Rule{
+				Conditions: conditionsList,
+				Actions:    actions,
+				Tags:       tags,
+			})
+		}
 	}
 
 	priority := int32(1)
