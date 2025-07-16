@@ -308,8 +308,7 @@ func buildTLSRoute() *gwalpha2.TLSRoute {
 
 */
 
-func buildHTTPRoute(hostnames []string) *gwv1.HTTPRoute {
-	port := gwalpha2.PortNumber(80)
+func buildHTTPRoute(hostnames []string, rules []gwv1.HTTPRouteRule) *gwv1.HTTPRoute {
 	routeName := fmt.Sprintf("%v-%v", defaultName, utils.RandomDNS1123Label(6))
 	httpr := &gwv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -323,20 +322,6 @@ func buildHTTPRoute(hostnames []string) *gwv1.HTTPRoute {
 					},
 				},
 			},
-			Rules: []gwv1.HTTPRouteRule{
-				{
-					BackendRefs: []gwv1.HTTPBackendRef{
-						{
-							BackendRef: gwv1.BackendRef{
-								BackendObjectReference: gwv1.BackendObjectReference{
-									Name: defaultName,
-									Port: &port,
-								},
-							},
-						},
-					},
-				},
-			},
 		},
 	}
 	routeHostnames := make([]gwv1.Hostname, 0, len(hostnames))
@@ -344,5 +329,14 @@ func buildHTTPRoute(hostnames []string) *gwv1.HTTPRoute {
 		routeHostnames = append(routeHostnames, gwv1.Hostname(hostname))
 	}
 	httpr.Spec.Hostnames = routeHostnames
+	if len(rules) > 0 {
+		httpr.Spec.Rules = rules
+	} else {
+		httpr.Spec.Rules = []gwv1.HTTPRouteRule{
+			{
+				BackendRefs: DefaultHttpRouteRuleBackendRefs,
+			},
+		}
+	}
 	return httpr
 }
