@@ -9,6 +9,7 @@
 Package v1beta1 contains API Schema definitions for the elbv2 v1beta1 API group
 
 ### Resource Types
+- [ListenerRuleConfiguration](#listenerruleconfiguration)
 - [LoadBalancerConfiguration](#loadbalancerconfiguration)
 - [TargetGroupConfiguration](#targetgroupconfiguration)
 
@@ -40,6 +41,48 @@ _Appears in:_
 | `HTTP2Preferred` |  |
 
 
+#### Action
+
+
+
+Action defines an action for a listener rule
+
+
+
+_Appears in:_
+- [ListenerRuleSpec](#listenerrulespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `type` _[ActionType](#actiontype)_ | The type of action |  | Enum: [forward fixed-response redirect authenticate-cognito authenticate-oidc] <br /> |
+| `forwardConfig` _[ForwardActionConfig](#forwardactionconfig)_ | Information for a forward action |  |  |
+| `redirectConfig` _[RedirectActionConfig](#redirectactionconfig)_ | Information for a redirect action |  |  |
+| `fixedResponseConfig` _[FixedResponseActionConfig](#fixedresponseactionconfig)_ | Information for a fixed-response action |  |  |
+| `authenticateCognitoConfig` _[AuthenticateCognitoActionConfig](#authenticatecognitoactionconfig)_ | Information for an authenticate-cognito action |  |  |
+| `authenticateOIDCConfig` _[AuthenticateOidcActionConfig](#authenticateoidcactionconfig)_ | Information for an authenticate-oidc action |  |  |
+
+
+#### ActionType
+
+_Underlying type:_ _string_
+
+ActionType defines the type of action for the rule
+
+_Validation:_
+- Enum: [forward fixed-response redirect authenticate-cognito authenticate-oidc]
+
+_Appears in:_
+- [Action](#action)
+
+| Field | Description |
+| --- | --- |
+| `forward` |  |
+| `fixed-response` |  |
+| `redirect` |  |
+| `authenticate-cognito` |  |
+| `authenticate-oidc` |  |
+
+
 #### AdvertiseTrustStoreCaNamesEnum
 
 _Underlying type:_ _string_
@@ -56,6 +99,127 @@ _Appears in:_
 | --- | --- |
 | `on` |  |
 | `off` |  |
+
+
+#### AuthenticateCognitoActionConditionalBehaviorEnum
+
+_Underlying type:_ _string_
+
+AuthenticateCognitoActionConditionalBehaviorEnum defines the behavior when a user is not authenticated
+
+_Validation:_
+- Enum: [deny allow authenticate]
+
+_Appears in:_
+- [AuthenticateCognitoActionConfig](#authenticatecognitoactionconfig)
+
+| Field | Description |
+| --- | --- |
+| `deny` |  |
+| `allow` |  |
+| `authenticate` |  |
+
+
+#### AuthenticateCognitoActionConfig
+
+
+
+Information about an authenticate-cognito action
+
+
+
+_Appears in:_
+- [Action](#action)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `userPoolArn` _string_ | The Amazon Resource Name (ARN) of the Amazon Cognito user pool. |  |  |
+| `userPoolClientId` _string_ | The ID of the Amazon Cognito user pool client. |  |  |
+| `userPoolDomain` _string_ | The domain prefix or fully-qualified domain name of the Amazon Cognito user<br />pool. |  |  |
+| `scope` _string_ | The set of user claims to be requested from the IdP. The default is openid .<br /><br />To verify which scope values your IdP supports and how to separate multiple<br />values, see the documentation for your IdP. | openid |  |
+| `authenticationRequestExtraParams` _map[string]string_ | The query parameters (up to 10) to include in the redirect request to the<br />authorization endpoint. |  | MaxProperties: 10 <br /> |
+| `onUnauthenticatedRequest` _[AuthenticateCognitoActionConditionalBehaviorEnum](#authenticatecognitoactionconditionalbehaviorenum)_ | The behavior if the user is not authenticated. The following are possible | authenticate | Enum: [deny allow authenticate] <br /> |
+| `sessionCookieName` _string_ | The name of the cookie used to maintain session information. The default is<br />AWSELBAuthSessionCookie. | AWSELBAuthSessionCookie |  |
+| `sessionTimeout` _integer_ | The maximum duration of the authentication session, in seconds. The default is<br />604800 seconds (7 days). | 604800 | Maximum: 604800 <br />Minimum: 1 <br /> |
+
+
+#### AuthenticateOidcActionConditionalBehaviorEnum
+
+_Underlying type:_ _string_
+
+AuthenticateOidcActionConditionalBehaviorEnum defines the behavior when a user is not authenticated
+
+_Validation:_
+- Enum: [deny allow authenticate]
+
+_Appears in:_
+- [AuthenticateOidcActionConfig](#authenticateoidcactionconfig)
+
+| Field | Description |
+| --- | --- |
+| `deny` |  |
+| `allow` |  |
+| `authenticate` |  |
+
+
+#### AuthenticateOidcActionConfig
+
+
+
+Information about an authenticate-oidc action
+
+
+
+_Appears in:_
+- [Action](#action)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `authorizationEndpoint` _string_ | The authorization endpoint of the IdP. This must be a full URL, including the<br />HTTPS protocol, the domain, and the path. |  |  |
+| `secret` _[Secret](#secret)_ | Secret holds OAuth 2.0 clientID and clientSecret. You need to create this secret and provide its name and namespace |  |  |
+| `issuer` _string_ | The OIDC issuer identifier of the IdP. This must be a full URL, including the<br />HTTPS protocol, the domain, and the path. |  |  |
+| `tokenEndpoint` _string_ | The token endpoint of the IdP. This must be a full URL, including the HTTPS<br />protocol, the domain, and the path. |  |  |
+| `userInfoEndpoint` _string_ | The user info endpoint of the IdP. This must be a full URL, including the HTTPS<br />protocol, the domain, and the path. |  |  |
+| `scope` _string_ | The set of user claims to be requested from the IdP. The default is openid .<br /><br />To verify which scope values your IdP supports and how to separate multiple<br />values, see the documentation for your IdP. | openid |  |
+| `authenticationRequestExtraParams` _map[string]string_ | The query parameters (up to 10) to include in the redirect request to the<br />authorization endpoint. |  | MaxProperties: 10 <br /> |
+| `onUnauthenticatedRequest` _[AuthenticateOidcActionConditionalBehaviorEnum](#authenticateoidcactionconditionalbehaviorenum)_ | The behavior if the user is not authenticated. The following are possible | authenticate | Enum: [deny allow authenticate] <br /> |
+| `sessionCookieName` _string_ | The name of the cookie used to maintain session information. The default is<br />AWSELBAuthSessionCookie. | AWSELBAuthSessionCookie |  |
+| `sessionTimeout` _integer_ | The maximum duration of the authentication session, in seconds. The default is<br />604800 seconds (7 days). | 604800 | Maximum: 604800 <br />Minimum: 1 <br /> |
+| `useExistingClientSecret` _boolean_ | Indicates whether to use the existing client secret when modifying a listener rule. If<br />you are creating a listener rule, you can omit this parameter or set it to false. |  |  |
+
+
+#### FixedResponseActionConfig
+
+
+
+Information about an action that returns a custom HTTP response.
+
+
+
+_Appears in:_
+- [Action](#action)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `statusCode` _integer_ | The HTTP response code (2XX, 4XX, or 5XX). |  |  |
+| `contentType` _string_ | The content type of the fixed response. | text/plain | Enum: [text/plain text/css text/html application/javascript application/json] <br /> |
+| `messageBody` _string_ | The message |  |  |
+
+
+#### ForwardActionConfig
+
+
+
+Information about a forward action.
+
+
+
+_Appears in:_
+- [Action](#action)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `targetGroupStickinessConfig` _[TargetGroupStickinessConfig](#targetgroupstickinessconfig)_ | The target group stickiness for the rule.<br />Note: ForwardActionConfig only supports target group stickiness configuration through CRD.<br />All other forward action fields must be set through the Gateway API native way. |  |  |
 
 
 #### HealthCheckConfiguration
@@ -130,12 +294,99 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `protocolPort` _[ProtocolPort](#protocolport)_ | protocolPort is identifier for the listener on load balancer. It should be of the form PROTOCOL:PORT |  | Pattern: `^(HTTP\|HTTPS\|TLS\|TCP\|UDP)?:(6553[0-5]\|655[0-2]\d\|65[0-4]\d\{2\}\|6[0-4]\d\{3\}\|[1-5]\d\{4\}\|[1-9]\d\{0,3\})?$` <br /> |
-| `defaultCertificate` _string_ | TODO: Add validation in admission webhook to make it required for secure protocols<br />defaultCertificate the cert arn to be used by default. |  |  |
+| `defaultCertificate` _string_ | defaultCertificate the cert arn to be used by default. |  |  |
 | `certificates` _string array_ | certificates is the list of other certificates to add to the listener. |  |  |
 | `sslPolicy` _string_ | sslPolicy is the security policy that defines which protocols and ciphers are supported for secure listeners [HTTPS or TLS listener]. |  |  |
-| `alpnPolicy` _[ALPNPolicy](#alpnpolicy)_ | alpnPolicy an optional string that allows you to configure ALPN policies on your Load Balancer |  | Enum: [HTTP1Only HTTP2Only HTTP2Optional HTTP2Preferred None] <br /> |
-| `mutualAuthentication` _[MutualAuthenticationAttributes](#mutualauthenticationattributes)_ | mutualAuthentication defines the mutual authentication configuration information. |  |  |
+| `alpnPolicy` _[ALPNPolicy](#alpnpolicy)_ | alpnPolicy an optional string that allows you to configure ALPN policies on your Load Balancer | None | Enum: [HTTP1Only HTTP2Only HTTP2Optional HTTP2Preferred None] <br /> |
+| `mutualAuthentication` _[MutualAuthenticationAttributes](#mutualauthenticationattributes)_ | mutualAuthentication defines the mutual authentication configuration information. | \{ mode:off \} |  |
 | `listenerAttributes` _[ListenerAttribute](#listenerattribute) array_ | listenerAttributes defines the attributes for the listener |  |  |
+
+
+#### ListenerRuleCondition
+
+
+
+Information about a condition for a listener rule
+
+
+
+_Appears in:_
+- [ListenerRuleSpec](#listenerrulespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `field` _[ListenerRuleConditionField](#listenerruleconditionfield)_ | The field in the HTTP request |  | Enum: [source-ip] <br /> |
+| `sourceIPConfig` _[SourceIPConditionConfig](#sourceipconditionconfig)_ | Information for a source IP condition |  |  |
+
+
+#### ListenerRuleConditionField
+
+_Underlying type:_ _string_
+
+ListenerRuleConditionField defines the field in the HTTP request to match
+
+_Validation:_
+- Enum: [source-ip]
+
+_Appears in:_
+- [ListenerRuleCondition](#listenerrulecondition)
+
+| Field | Description |
+| --- | --- |
+| `source-ip` |  |
+
+
+#### ListenerRuleConfiguration
+
+
+
+ListenerRuleConfiguration is the Schema for the ListenerRuleConfiguration API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `gateway.k8s.aws/v1beta1` | | |
+| `kind` _string_ | `ListenerRuleConfiguration` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ListenerRuleSpec](#listenerrulespec)_ |  |  |  |
+| `status` _[ListenerRuleStatus](#listenerrulestatus)_ |  |  |  |
+
+
+#### ListenerRuleSpec
+
+
+
+ListenerRuleSpec defines the desired state of ListenerRuleConfiguration
+
+
+
+_Appears in:_
+- [ListenerRuleConfiguration](#listenerruleconfiguration)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `actions` _[Action](#action) array_ | Actions defines the set of actions to be performed when conditions match.<br />This CRD implementation currently supports only  authenticate-oidc, authenticate-cognito, and fixed-response action types fully and forward and redirect actions partially<br /><br />For other fields in forward and redirect actions, please use the standard Gateway API HTTPRoute or other route resources, which provide<br />native support for those conditions through the Gateway API specification.<br /><br />At most one authentication action can be specified (either authenticate-oidc or authenticate-cognito). |  | MaxItems: 2 <br />MinItems: 1 <br /> |
+| `conditions` _[ListenerRuleCondition](#listenerrulecondition) array_ | Conditions defines the circumstances under which the rule actions will be performed.<br />This CRD implementation currently supports only the source-ip condition type<br /><br />For other condition types (such as path-pattern, host-header, http-header, etc.),<br />please use the standard Gateway API HTTPRoute or other route resources, which provide<br />native support for those conditions through the Gateway API specification. |  | MinItems: 1 <br /> |
+| `tags` _map[string]string_ | Tags are the AWS resource tags to be applied to all AWS resources created for this rule. |  |  |
+
+
+#### ListenerRuleStatus
+
+
+
+ListenerRuleStatus defines the observed state of ListenerRuleConfiguration
+
+
+
+_Appears in:_
+- [ListenerRuleConfiguration](#listenerruleconfiguration)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `observedGeneration` _integer_ | The observed generation of the rule configuration |  |  |
 
 
 #### LoadBalancerAttribute
@@ -394,6 +645,22 @@ _Appears in:_
 | `GRPC` |  |
 
 
+#### RedirectActionConfig
+
+
+
+Information about a redirect action.
+
+
+
+_Appears in:_
+- [Action](#action)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `query` _string_ | The query parameters, URL-encoded when necessary, but not percent-encoded. Do<br />not include the leading "?", as it is automatically added. You can specify any<br />of the reserved keywords.<br />Note: RedirectActionConfig only supports setting the query parameter through CRD.<br />All other redirect action fields must be set through the Gateway API native way. | #\{query\} |  |
+
+
 #### Reference
 
 
@@ -445,6 +712,39 @@ _Appears in:_
 | `kind` _string_ |  |  |  |
 | `namespace` _string_ |  |  |  |
 | `name` _string_ |  |  |  |
+
+
+#### Secret
+
+
+
+Secret holds OAuth 2.0 clientID and clientSecret. You need to create this secret and provide its name and namespace
+
+
+
+_Appears in:_
+- [AuthenticateOidcActionConfig](#authenticateoidcactionconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is name of the secret |  |  |
+| `namespace` _string_ | Namespace is namespace of secret. If empty it will be considered to be in same namespace as of the resource referring it |  |  |
+
+
+#### SourceIPConditionConfig
+
+
+
+Information about a source IP condition
+
+
+
+_Appears in:_
+- [ListenerRuleCondition](#listenerrulecondition)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `values` _string array_ | One or more source IP addresses, in CIDR format |  | MinItems: 1 <br /> |
 
 
 #### SubnetConfiguration
@@ -601,6 +901,23 @@ _Appears in:_
 | `protocolVersion` _[ProtocolVersion](#protocolversion)_ | protocolVersion [HTTP/HTTPS protocol] The protocol version. The possible values are GRPC , HTTP1 and HTTP2 |  | Enum: [HTTP1 HTTP2 GRPC] <br /> |
 | `enableMultiCluster` _boolean_ | EnableMultiCluster [Application / Network LoadBalancer]<br />Allows for multiple Clusters / Services to use the generated TargetGroup ARN |  |  |
 | `tags` _map[string]string_ | Tags the Tags to add on the target group. |  |  |
+
+
+#### TargetGroupStickinessConfig
+
+
+
+Information about the target group stickiness for a listener rule.
+
+
+
+_Appears in:_
+- [ForwardActionConfig](#forwardactionconfig)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `durationSeconds` _integer_ | The time period, in seconds, during which requests from a client should be<br />routed to the same target group. The range is 1-604800 seconds (7 days). | 3600 | Maximum: 604800 <br />Minimum: 1 <br /> |
+| `enabled` _boolean_ | Indicates whether target group stickiness is enabled. | false |  |
 
 
 #### TargetType
