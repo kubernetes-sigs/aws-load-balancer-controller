@@ -20,6 +20,8 @@ TCP specific features of the route.
 
 var _ RouteRule = &convertedTCPRouteRule{}
 
+var defaultTCPRuleAccumulator = newAttachedRuleAccumulator[gwalpha2.TCPRouteRule](commonBackendLoader)
+
 type convertedTCPRouteRule struct {
 	rule     *gwalpha2.TCPRouteRule
 	backends []Backend
@@ -47,9 +49,9 @@ func (t *convertedTCPRouteRule) GetBackends() []Backend {
 /* Route Description */
 
 type tcpRouteDescription struct {
-	route         *gwalpha2.TCPRoute
-	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
+	route           *gwalpha2.TCPRoute
+	rules           []RouteRule
+	ruleAccumulator attachedRuleAccumulator[gwalpha2.TCPRouteRule]
 }
 
 func (tcpRoute *tcpRouteDescription) GetAttachedRules() []RouteRule {
@@ -57,36 +59,13 @@ func (tcpRoute *tcpRouteDescription) GetAttachedRules() []RouteRule {
 }
 
 func (tcpRoute *tcpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
-
-	convertedRules := make([]RouteRule, 0)
-	allErrors := make([]routeLoadError, 0)
-	for _, rule := range tcpRoute.route.Spec.Rules {
-		convertedBackends := make([]Backend, 0)
-
-		for _, backend := range rule.BackendRefs {
-			convertedBackend, warningErr, fatalErr := tcpRoute.backendLoader(ctx, k8sClient, backend, backend, tcpRoute.GetRouteNamespacedName(), tcpRoute.GetRouteKind())
-			if warningErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err: warningErr,
-				})
-			}
-
-			if fatalErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err:   fatalErr,
-					Fatal: true,
-				})
-				return nil, allErrors
-			}
-			if convertedBackend != nil {
-				convertedBackends = append(convertedBackends, *convertedBackend)
-			}
-		}
-
-		convertedRules = append(convertedRules, convertTCPRouteRule(&rule, convertedBackends))
-	}
+	convertedRules, allErrors := tcpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, tcpRoute, tcpRoute.route.Spec.Rules, func(rule gwalpha2.TCPRouteRule) []gwv1.BackendRef {
+		return rule.BackendRefs
+	}, func(trr *gwalpha2.TCPRouteRule, backends []Backend) RouteRule {
+		return convertTCPRouteRule(trr, backends)
+	})
 	tcpRoute.rules = convertedRules
-	return tcpRoute, nil
+	return tcpRoute, allErrors
 }
 
 func (tcpRoute *tcpRouteDescription) GetHostnames() []gwv1.Hostname {
@@ -102,7 +81,7 @@ func (tcpRoute *tcpRouteDescription) GetRouteNamespacedName() types.NamespacedNa
 }
 
 func convertTCPRoute(r gwalpha2.TCPRoute) *tcpRouteDescription {
-	return &tcpRouteDescription{route: &r, backendLoader: commonBackendLoader}
+	return &tcpRouteDescription{route: &r, ruleAccumulator: defaultTCPRuleAccumulator}
 }
 
 func (tcpRoute *tcpRouteDescription) GetRawRoute() interface{} {

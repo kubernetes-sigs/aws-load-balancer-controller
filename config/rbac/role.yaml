@@ -271,6 +271,15 @@ rules:
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
+  - referencegrants
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
   - tcproutes
   verbs:
   - get

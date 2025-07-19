@@ -20,6 +20,8 @@ UDP specific features of the route.
 
 var _ RouteRule = &convertedUDPRouteRule{}
 
+var defaultUDPRuleAccumulator = newAttachedRuleAccumulator[gwalpha2.UDPRouteRule](commonBackendLoader)
+
 type convertedUDPRouteRule struct {
 	rule     *gwalpha2.UDPRouteRule
 	backends []Backend
@@ -47,9 +49,9 @@ func (t *convertedUDPRouteRule) GetBackends() []Backend {
 /* Route Description */
 
 type udpRouteDescription struct {
-	route         *gwalpha2.UDPRoute
-	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
+	route           *gwalpha2.UDPRoute
+	rules           []RouteRule
+	ruleAccumulator attachedRuleAccumulator[gwalpha2.UDPRouteRule]
 }
 
 func (udpRoute *udpRouteDescription) GetAttachedRules() []RouteRule {
@@ -57,36 +59,13 @@ func (udpRoute *udpRouteDescription) GetAttachedRules() []RouteRule {
 }
 
 func (udpRoute *udpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
-	convertedRules := make([]RouteRule, 0)
-	allErrors := make([]routeLoadError, 0)
-	for _, rule := range udpRoute.route.Spec.Rules {
-		convertedBackends := make([]Backend, 0)
-
-		for _, backend := range rule.BackendRefs {
-			convertedBackend, warningErr, fatalErr := udpRoute.backendLoader(ctx, k8sClient, backend, backend, udpRoute.GetRouteNamespacedName(), udpRoute.GetRouteKind())
-			if warningErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err: warningErr,
-				})
-			}
-
-			if fatalErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err:   fatalErr,
-					Fatal: true,
-				})
-				return nil, allErrors
-			}
-			if convertedBackend != nil {
-				convertedBackends = append(convertedBackends, *convertedBackend)
-			}
-		}
-
-		convertedRules = append(convertedRules, convertUDPRouteRule(&rule, convertedBackends))
-	}
-
+	convertedRules, allErrors := udpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, udpRoute, udpRoute.route.Spec.Rules, func(rule gwalpha2.UDPRouteRule) []gwv1.BackendRef {
+		return rule.BackendRefs
+	}, func(urr *gwalpha2.UDPRouteRule, backends []Backend) RouteRule {
+		return convertUDPRouteRule(urr, backends)
+	})
 	udpRoute.rules = convertedRules
-	return udpRoute, nil
+	return udpRoute, allErrors
 }
 
 func (udpRoute *udpRouteDescription) GetHostnames() []gwv1.Hostname {
@@ -106,7 +85,7 @@ func (udpRoute *udpRouteDescription) GetRouteGeneration() int64 {
 }
 
 func convertUDPRoute(r gwalpha2.UDPRoute) *udpRouteDescription {
-	return &udpRouteDescription{route: &r, backendLoader: commonBackendLoader}
+	return &udpRouteDescription{route: &r, ruleAccumulator: defaultUDPRuleAccumulator}
 }
 
 func (udpRoute *udpRouteDescription) GetRouteNamespacedName() types.NamespacedName {

@@ -19,6 +19,8 @@ GRPC specific features of the route.
 
 var _ RouteRule = &convertedGRPCRouteRule{}
 
+var defaultGRPCRuleAccumulator = newAttachedRuleAccumulator[gwv1.GRPCRouteRule](commonBackendLoader)
+
 type convertedGRPCRouteRule struct {
 	rule     *gwv1.GRPCRouteRule
 	backends []Backend
@@ -46,41 +48,23 @@ func (t *convertedGRPCRouteRule) GetBackends() []Backend {
 /* Route Description */
 
 type grpcRouteDescription struct {
-	route         *gwv1.GRPCRoute
-	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
+	route           *gwv1.GRPCRoute
+	rules           []RouteRule
+	ruleAccumulator attachedRuleAccumulator[gwv1.GRPCRouteRule]
 }
 
 func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
-	convertedRules := make([]RouteRule, 0)
-	allErrors := make([]routeLoadError, 0)
-	for _, rule := range grpcRoute.route.Spec.Rules {
-		convertedBackends := make([]Backend, 0)
-		for _, backend := range rule.BackendRefs {
-			convertedBackend, warningErr, fatalErr := grpcRoute.backendLoader(ctx, k8sClient, backend, backend.BackendRef, grpcRoute.GetRouteNamespacedName(), grpcRoute.GetRouteKind())
-			if warningErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err: warningErr,
-				})
-			}
-
-			if fatalErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err:   fatalErr,
-					Fatal: true,
-				})
-				return nil, allErrors
-			}
-			if convertedBackend != nil {
-				convertedBackends = append(convertedBackends, *convertedBackend)
-			}
+	convertedRules, allErrors := grpcRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, grpcRoute, grpcRoute.route.Spec.Rules, func(rule gwv1.GRPCRouteRule) []gwv1.BackendRef {
+		refs := make([]gwv1.BackendRef, 0, len(rule.BackendRefs))
+		for _, grpcRef := range rule.BackendRefs {
+			refs = append(refs, grpcRef.BackendRef)
 		}
-
-		convertedRules = append(convertedRules, convertGRPCRouteRule(&rule, convertedBackends))
-	}
-
+		return refs
+	}, func(grr *gwv1.GRPCRouteRule, backends []Backend) RouteRule {
+		return convertGRPCRouteRule(grr, backends)
+	})
 	grpcRoute.rules = convertedRules
-	return grpcRoute, nil
+	return grpcRoute, allErrors
 }
 
 func (grpcRoute *grpcRouteDescription) GetHostnames() []gwv1.Hostname {
@@ -104,7 +88,7 @@ func (grpcRoute *grpcRouteDescription) GetRouteNamespacedName() types.Namespaced
 }
 
 func convertGRPCRoute(r gwv1.GRPCRoute) *grpcRouteDescription {
-	return &grpcRouteDescription{route: &r, backendLoader: commonBackendLoader}
+	return &grpcRouteDescription{route: &r, ruleAccumulator: defaultGRPCRuleAccumulator}
 }
 
 func (grpcRoute *grpcRouteDescription) GetRawRoute() interface{} {

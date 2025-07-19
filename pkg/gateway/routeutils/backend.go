@@ -33,6 +33,51 @@ type Backend struct {
 	Weight                int
 }
 
+type attachedRuleAccumulator[RuleType any] interface {
+	accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, ruleConverter func(*RuleType, []Backend) RouteRule) ([]RouteRule, []routeLoadError)
+}
+
+type attachedRuleAccumulatorImpl[RuleType any] struct {
+	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
+}
+
+func newAttachedRuleAccumulator[RuleType any](backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)) attachedRuleAccumulator[RuleType] {
+	return &attachedRuleAccumulatorImpl[RuleType]{
+		backendLoader: backendLoader,
+	}
+}
+
+func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, ruleConverter func(*RuleType, []Backend) RouteRule) ([]RouteRule, []routeLoadError) {
+	convertedRules := make([]RouteRule, 0)
+	allErrors := make([]routeLoadError, 0)
+	for _, rule := range rules {
+		convertedBackends := make([]Backend, 0)
+		for _, backend := range backendRefIterator(rule) {
+			convertedBackend, warningErr, fatalErr := ara.backendLoader(ctx, k8sClient, backend, backend, route.GetRouteNamespacedName(), route.GetRouteKind())
+			if warningErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err: warningErr,
+				})
+			}
+
+			if fatalErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err:   fatalErr,
+					Fatal: true,
+				})
+				return nil, allErrors
+			}
+
+			if convertedBackend != nil {
+				convertedBackends = append(convertedBackends, *convertedBackend)
+			}
+		}
+
+		convertedRules = append(convertedRules, ruleConverter(&rule, convertedBackends))
+	}
+	return convertedRules, allErrors
+}
+
 // returns (loaded backend, warning error, fatal error)
 // warning error -> continue with reconcile cycle.
 // fatal error -> stop reconcile cycle (probably k8s api outage)

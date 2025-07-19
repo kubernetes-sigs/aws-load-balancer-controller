@@ -133,7 +133,7 @@ func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx contex
 				}
 
 			} else {
-				h.logger.Error(err, "Unable to list impacted grpc routes for reference grant event handler")
+				h.logger.Error(err, "Unable to list impacted tcp routes for reference grant event handler")
 			}
 		case string(routeutils.UDPRouteKind):
 			if h.udpRouteEventChan == nil {
@@ -148,7 +148,7 @@ func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx contex
 				}
 
 			} else {
-				h.logger.Error(err, "Unable to list impacted grpc routes for reference grant event handler")
+				h.logger.Error(err, "Unable to list impacted udp routes for reference grant event handler")
 			}
 		case string(routeutils.TLSRouteKind):
 			if h.tlsRouteEventChan == nil {
@@ -163,7 +163,7 @@ func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx contex
 				}
 
 			} else {
-				h.logger.Error(err, "Unable to list impacted grpc routes for reference grant event handler")
+				h.logger.Error(err, "Unable to list impacted tls routes for reference grant event handler")
 			}
 		}
 	}

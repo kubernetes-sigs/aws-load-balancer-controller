@@ -138,8 +138,8 @@ func Test_TCP_LoadAttachedRules(t *testing.T) {
 				},
 			}},
 		},
-		rules:         nil,
-		backendLoader: mockLoader,
+		rules:           nil,
+		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.TCPRouteRule](mockLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)

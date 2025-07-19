@@ -152,8 +152,8 @@ func Test_TLS_LoadAttachedRules(t *testing.T) {
 				},
 			}},
 		},
-		rules:         nil,
-		backendLoader: mockLoader,
+		rules:           nil,
+		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.TLSRouteRule](mockLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)

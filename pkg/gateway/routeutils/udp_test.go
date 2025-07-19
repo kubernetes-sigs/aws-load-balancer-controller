@@ -138,8 +138,8 @@ func Test_UDP_LoadAttachedRules(t *testing.T) {
 				},
 			}},
 		},
-		rules:         nil,
-		backendLoader: mockLoader,
+		rules:           nil,
+		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.UDPRouteRule](mockLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)
