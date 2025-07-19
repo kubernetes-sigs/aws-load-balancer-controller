@@ -2,6 +2,7 @@ package verifier
 
 import (
 	"context"
+	"fmt"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/strings/slices"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -27,15 +28,20 @@ type TargetGroupHC struct {
 	UnhealthyThreshold int32
 }
 
-type LoadBalancerExpectation struct {
-	Name          string
-	Type          string
-	Scheme        string
-	TargetType    string
-	Listeners     map[string]string   // listener port, protocol
-	TargetGroups  map[string][]string // target group port, list of protocols
+type ExpectedTargetGroup struct {
+	Protocol      string
+	Port          int32
 	NumTargets    int
+	TargetType    string
 	TargetGroupHC *TargetGroupHC
+}
+
+type LoadBalancerExpectation struct {
+	Name         string
+	Type         string
+	Scheme       string
+	Listeners    map[string]string // listener port, protocol
+	TargetGroups []ExpectedTargetGroup
 }
 
 // ListenerExpectation contains the expected configuration for an ALB/NLB listener
@@ -207,40 +213,33 @@ func VerifyLoadBalancerTargetGroups(ctx context.Context, f *framework.Framework,
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 
-	expectedTgCount := 0
-	expectedProtocolsPerPort := make(map[string]sets.Set[string])
+	Expect(len(targetGroups)).To(Equal(len(expected.TargetGroups)))
 
-	for port, protocols := range expected.TargetGroups {
-		expectedTgCount += len(protocols)
-		for _, protocol := range protocols {
-			_, ok := expectedProtocolsPerPort[port]
-			if !ok {
-				expectedProtocolsPerPort[port] = make(sets.Set[string])
+	validatedTGs := sets.New[string]() // TG ARNs that have already mapped to another expected TG.
+	for _, expectedTg := range expected.TargetGroups {
+
+		for _, awsTg := range targetGroups {
+			if awssdk.ToInt32(awsTg.Port) == expectedTg.Port && string(awsTg.Protocol) == expectedTg.Protocol && string(awsTg.TargetType) == expectedTg.TargetType && !validatedTGs.Has(*awsTg.TargetGroupArn) {
+
+				var hcErr error
+				if expectedTg.TargetGroupHC != nil {
+					hcErr = VerifyTargetGroupHealthCheckConfig(awsTg, expectedTg.TargetGroupHC)
+					Expect(hcErr).NotTo(HaveOccurred())
+				}
+
+				registeredTargetsErr := VerifyTargetGroupNumRegistered(ctx, f, awssdk.ToString(awsTg.TargetGroupArn), expectedTg.NumTargets)
+				Expect(registeredTargetsErr).NotTo(HaveOccurred())
+
+				if hcErr == nil && registeredTargetsErr == nil {
+					validatedTGs.Insert(*awsTg.TargetGroupArn)
+				}
 			}
-
-			expectedProtocolsPerPort[port].Insert(protocol)
 		}
 	}
 
-	Expect(len(targetGroups)).To(Equal(expectedTgCount))
-	for _, tg := range targetGroups {
-		port := strconv.Itoa(int(*tg.Port))
-		Expect(string(tg.TargetType)).To(Equal(expected.TargetType))
-		protocolSet := expectedProtocolsPerPort[port]
-		protocolFound := protocolSet.Has(string(tg.Protocol))
-		Expect(protocolFound).To(BeTrue())
-		expectedProtocolsPerPort[port] = protocolSet.Delete(string(tg.Protocol))
-
-		err = VerifyTargetGroupHealthCheckConfig(tg, expected.TargetGroupHC)
-		Expect(err).NotTo(HaveOccurred())
-		err = VerifyTargetGroupNumRegistered(ctx, f, awssdk.ToString(tg.TargetGroupArn), expected.NumTargets)
-		Expect(err).NotTo(HaveOccurred())
+	if len(validatedTGs) != len(expected.TargetGroups) {
+		return fmt.Errorf("target group mismatch expected [%+v] got [%+v]\n", expected.TargetGroups, targetGroups)
 	}
-
-	for _, protocols := range expectedProtocolsPerPort {
-		Expect(len(protocols)).To(Equal(0))
-	}
-
 	return nil
 }
 

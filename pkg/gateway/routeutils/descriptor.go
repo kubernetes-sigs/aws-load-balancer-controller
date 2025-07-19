@@ -22,12 +22,17 @@ type routeMetadataDescriptor interface {
 	GetRouteCreateTimestamp() time.Time
 }
 
+type routeLoadError struct {
+	Err   error
+	Fatal bool
+}
+
 // preLoadRouteDescriptor this object is used to represent a route description that has not loaded its child data (services, tg config)
 // generally use this interface to represent broad data, filter that data down to the absolutely required data, and the call
 // loadAttachedRules() to generate a full route description.
 type preLoadRouteDescriptor interface {
 	routeMetadataDescriptor
-	loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error)
+	loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError)
 }
 
 // RouteDescriptor is a type agnostic representation of a Gateway Route.

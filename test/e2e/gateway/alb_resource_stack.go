@@ -50,7 +50,7 @@ func (s *albResourceStack) getListenersPortMap() map[string]string {
 }
 
 func (s *albResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
-	return s.commonStack.waitUntilDeploymentReady(ctx, f)
+	return waitUntilDeploymentReady(ctx, f, s.commonStack.dps)
 }
 
 func (s *albResourceStack) createHTTPRoute(ctx context.Context, f *framework.Framework, httpr *gwv1.HTTPRoute) error {

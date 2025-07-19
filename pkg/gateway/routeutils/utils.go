@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"strings"
 )
 
@@ -118,6 +119,37 @@ func IsHostNameInValidFormat(hostName string) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+func attachedRulesAccumulator[RuleType any](ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, ruleConverter func(*RuleType, []Backend) RouteRule) ([]RouteRule, []routeLoadError) {
+	convertedRules := make([]RouteRule, 0)
+	allErrors := make([]routeLoadError, 0)
+	for _, rule := range rules {
+		convertedBackends := make([]Backend, 0)
+		for _, backend := range backendRefIterator(rule) {
+			convertedBackend, warningErr, fatalErr := commonBackendLoader(ctx, k8sClient, backend, backend, route.GetRouteNamespacedName(), route.GetRouteKind())
+			if warningErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err: warningErr,
+				})
+			}
+
+			if fatalErr != nil {
+				allErrors = append(allErrors, routeLoadError{
+					Err:   fatalErr,
+					Fatal: true,
+				})
+				return nil, allErrors
+			}
+
+			if convertedBackend != nil {
+				convertedBackends = append(convertedBackends, *convertedBackend)
+			}
+		}
+
+		convertedRules = append(convertedRules, ruleConverter(&rule, convertedBackends))
+	}
+	return convertedRules, allErrors
 }
 
 // isHostnameCompatible checks if given two hostnames are compatible with each other
