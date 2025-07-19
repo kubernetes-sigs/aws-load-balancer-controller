@@ -160,6 +160,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 	}
 	routeDescriptor := routes[0]
 	if routeDescriptor.GetAttachedRules()[0].GetBackends() == nil || len(routeDescriptor.GetAttachedRules()[0].GetBackends()) == 0 {
+		l.logger.Info("Skipping listener creation due to no backend ref found for route", "route", routeDescriptor.GetRouteNamespacedName(), "listener", fmt.Sprintf("%v:%v", listenerSpec.Protocol, port), "gateway", k8s.NamespacedName(gw))
 		return nil, nil
 	}
 	if len(routeDescriptor.GetAttachedRules()[0].GetBackends()) > 1 {
@@ -232,13 +233,17 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 			// TODO: add case for GRPC
 		}
 
-		if len(actions) > 0 {
-			albRules = append(albRules, elbv2model.Rule{
-				Conditions: conditionsList,
-				Actions:    actions,
-				Tags:       tags,
-			})
+		if len(actions) == 0 {
+			l.logger.Info("Filling in no backend actions with fixed 503")
+			actions = buildL7ListenerNoBackendActions()
 		}
+
+		albRules = append(albRules, elbv2model.Rule{
+			Conditions: conditionsList,
+			Actions:    actions,
+			Tags:       tags,
+		})
+
 	}
 
 	priority := int32(1)
@@ -341,6 +346,18 @@ func buildL7ListenerDefaultActions() []elbv2model.Action {
 		},
 	}
 	return []elbv2model.Action{action404}
+}
+
+// returns 503 when no backends are configured
+func buildL7ListenerNoBackendActions() []elbv2model.Action {
+	action503 := elbv2model.Action{
+		Type: elbv2model.ActionTypeFixedResponse,
+		FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+			ContentType: awssdk.String("text/plain"),
+			StatusCode:  "503",
+		},
+	}
+	return []elbv2model.Action{action503}
 }
 
 func buildL4ListenerDefaultActions(targetGroup *elbv2model.TargetGroup) []elbv2model.Action {

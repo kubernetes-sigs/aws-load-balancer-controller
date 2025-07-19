@@ -154,8 +154,8 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 				},
 			}},
 		},
-		rules:         nil,
-		backendLoader: mockLoader,
+		rules:           nil,
+		ruleAccumulator: newAttachedRuleAccumulator[gwv1.HTTPRouteRule](mockLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)

@@ -20,6 +20,8 @@ TLS specific features of the route.
 
 var _ RouteRule = &convertedTLSRouteRule{}
 
+var defaultTLSRuleAccumulator = newAttachedRuleAccumulator[gwalpha2.TLSRouteRule](commonBackendLoader)
+
 type convertedTLSRouteRule struct {
 	rule     *gwalpha2.TLSRouteRule
 	backends []Backend
@@ -47,9 +49,9 @@ func (t *convertedTLSRouteRule) GetBackends() []Backend {
 /* Route Description */
 
 type tlsRouteDescription struct {
-	route         *gwalpha2.TLSRoute
-	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
+	route           *gwalpha2.TLSRoute
+	rules           []RouteRule
+	ruleAccumulator attachedRuleAccumulator[gwalpha2.TLSRouteRule]
 }
 
 func (tlsRoute *tlsRouteDescription) GetAttachedRules() []RouteRule {
@@ -57,37 +59,13 @@ func (tlsRoute *tlsRouteDescription) GetAttachedRules() []RouteRule {
 }
 
 func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
-	convertedRules := make([]RouteRule, 0)
-	allErrors := make([]routeLoadError, 0)
-	for _, rule := range tlsRoute.route.Spec.Rules {
-		convertedBackends := make([]Backend, 0)
-
-		for _, backend := range rule.BackendRefs {
-			convertedBackend, warningErr, fatalErr := tlsRoute.backendLoader(ctx, k8sClient, backend, backend, tlsRoute.GetRouteNamespacedName(), tlsRoute.GetRouteKind())
-			if warningErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err: warningErr,
-				})
-			}
-
-			if fatalErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err:   fatalErr,
-					Fatal: true,
-				})
-				return nil, allErrors
-			}
-
-			if convertedBackend != nil {
-				convertedBackends = append(convertedBackends, *convertedBackend)
-			}
-		}
-
-		convertedRules = append(convertedRules, convertTLSRouteRule(&rule, convertedBackends))
-	}
-
+	convertedRules, allErrors := tlsRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, tlsRoute, tlsRoute.route.Spec.Rules, func(rule gwalpha2.TLSRouteRule) []gwv1.BackendRef {
+		return rule.BackendRefs
+	}, func(trr *gwalpha2.TLSRouteRule, backends []Backend) RouteRule {
+		return convertTLSRouteRule(trr, backends)
+	})
 	tlsRoute.rules = convertedRules
-	return tlsRoute, nil
+	return tlsRoute, allErrors
 }
 
 func (tlsRoute *tlsRouteDescription) GetHostnames() []gwv1.Hostname {
@@ -107,7 +85,7 @@ func (tlsRoute *tlsRouteDescription) GetRouteGeneration() int64 {
 }
 
 func convertTLSRoute(r gwalpha2.TLSRoute) *tlsRouteDescription {
-	return &tlsRouteDescription{route: &r, backendLoader: commonBackendLoader}
+	return &tlsRouteDescription{route: &r, ruleAccumulator: defaultTLSRuleAccumulator}
 }
 
 func (tlsRoute *tlsRouteDescription) GetRouteNamespacedName() types.NamespacedName {

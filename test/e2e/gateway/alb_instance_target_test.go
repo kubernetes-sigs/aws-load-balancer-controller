@@ -125,9 +125,9 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
 			})
-			By("cross-ns listener should return 404 as no ref grant is available", func() {
+			By("cross-ns listener should return 503 as no ref grant is available", func() {
 				url := fmt.Sprintf("http://%v:5000/any-path", dnsName)
-				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(404))
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(503))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("deploying ref grant", func() {
@@ -164,15 +164,20 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
+			By("sending http request cross namespace service", func() {
+				url := fmt.Sprintf("http://%v:5000/any-path", dnsName)
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+				Expect(err).NotTo(HaveOccurred())
+			})
 			By("removing ref grant", func() {
 				err := auxiliaryStack.DeleteReferenceGrants(ctx, tf)
 				Expect(err).NotTo(HaveOccurred())
 				// Give some time to have the reference grant to be deleted
 				time.Sleep(2 * time.Minute)
 			})
-			By("cross-ns listener should return 404 as no ref grant is available", func() {
+			By("cross-ns listener should return 503 as no ref grant is available", func() {
 				url := fmt.Sprintf("http://%v:5000/any-path", dnsName)
-				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(404))
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(503))
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
