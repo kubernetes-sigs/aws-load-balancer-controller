@@ -288,7 +288,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 		if targetType == elbv2model.TargetTypeIP {
 			return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. Are you using the correct service type?")
 		}
-		return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. When using Instance targets, your service be must of type 'NodePort' or 'LoadBalancer'")
+		return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. When using Instance targets, your service must be of type 'NodePort' or 'LoadBalancer'")
 	}
 	return elbv2model.TargetGroupSpec{
 		Name:                  name,

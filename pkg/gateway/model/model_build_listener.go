@@ -188,18 +188,19 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 
 	var albRules []elbv2model.Rule
 	for _, ruleWithPrecedence := range rulesWithPrecedenceOrder {
-		route := ruleWithPrecedence.RouteDescriptor
-		rule := ruleWithPrecedence.Rule
+		route := ruleWithPrecedence.CommonRulePrecedence.RouteDescriptor
+		rule := ruleWithPrecedence.CommonRulePrecedence.Rule
 
 		var conditionsList []elbv2model.RuleCondition
 		var err error
 		switch route.GetRouteKind() {
 		case routeutils.HTTPRouteKind:
 			conditionsList, err = routeutils.BuildHttpRuleConditions(ruleWithPrecedence)
-			if err != nil {
-				return err
-			}
-			// TODO: add case for GRPC
+		case routeutils.GRPCRouteKind:
+			conditionsList, err = routeutils.BuildGrpcRuleConditions(ruleWithPrecedence)
+		}
+		if err != nil {
+			return err
 		}
 		tags, tagsErr := l.tagHelper.getGatewayTags(lbCfg)
 		if tagsErr != nil {
