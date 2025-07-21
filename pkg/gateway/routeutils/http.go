@@ -19,6 +19,8 @@ HTTP specific features of the route.
 
 var _ RouteRule = &convertedHTTPRouteRule{}
 
+var defaultHTTPRuleAccumulator = newAttachedRuleAccumulator[gwv1.HTTPRouteRule](commonBackendLoader)
+
 type convertedHTTPRouteRule struct {
 	rule     *gwv1.HTTPRouteRule
 	backends []Backend
@@ -46,34 +48,27 @@ func (t *convertedHTTPRouteRule) GetBackends() []Backend {
 /* Route Description */
 
 type httpRouteDescription struct {
-	route         *gwv1.HTTPRoute
-	rules         []RouteRule
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error)
+	route           *gwv1.HTTPRoute
+	rules           []RouteRule
+	ruleAccumulator attachedRuleAccumulator[gwv1.HTTPRouteRule]
 }
 
 func (httpRoute *httpRouteDescription) GetAttachedRules() []RouteRule {
 	return httpRoute.rules
 }
 
-func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, error) {
-	convertedRules := make([]RouteRule, 0)
-	for _, rule := range httpRoute.route.Spec.Rules {
-		convertedBackends := make([]Backend, 0)
-		for _, backend := range rule.BackendRefs {
-			convertedBackend, err := httpRoute.backendLoader(ctx, k8sClient, backend, backend.BackendRef, httpRoute.GetRouteNamespacedName(), httpRoute.GetRouteKind())
-			if err != nil {
-				return nil, err
-			}
-
-			if convertedBackend != nil {
-				convertedBackends = append(convertedBackends, *convertedBackend)
-			}
+func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
+	convertedRules, allErrors := httpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, httpRoute, httpRoute.route.Spec.Rules, func(rule gwv1.HTTPRouteRule) []gwv1.BackendRef {
+		refs := make([]gwv1.BackendRef, 0, len(rule.BackendRefs))
+		for _, httpRef := range rule.BackendRefs {
+			refs = append(refs, httpRef.BackendRef)
 		}
-
-		convertedRules = append(convertedRules, convertHTTPRouteRule(&rule, convertedBackends))
-	}
+		return refs
+	}, func(hrr *gwv1.HTTPRouteRule, backends []Backend) RouteRule {
+		return convertHTTPRouteRule(hrr, backends)
+	})
 	httpRoute.rules = convertedRules
-	return httpRoute, nil
+	return httpRoute, allErrors
 }
 
 func (httpRoute *httpRouteDescription) GetHostnames() []gwv1.Hostname {
@@ -113,7 +108,7 @@ func (httpRoute *httpRouteDescription) GetRouteCreateTimestamp() time.Time {
 }
 
 func convertHTTPRoute(r gwv1.HTTPRoute) *httpRouteDescription {
-	return &httpRouteDescription{route: &r, backendLoader: commonBackendLoader}
+	return &httpRouteDescription{route: &r, ruleAccumulator: defaultHTTPRuleAccumulator}
 }
 
 func (httpRoute *httpRouteDescription) GetRawRoute() interface{} {
@@ -124,9 +119,9 @@ var _ RouteDescriptor = &httpRouteDescription{}
 
 // Can we use an indexer here to query more efficiently?
 
-func ListHTTPRoutes(context context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+func ListHTTPRoutes(context context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 	routeList := &gwv1.HTTPRouteList{}
-	err := k8sClient.List(context, routeList)
+	err := k8sClient.List(context, routeList, opts...)
 	if err != nil {
 		return nil, err
 	}

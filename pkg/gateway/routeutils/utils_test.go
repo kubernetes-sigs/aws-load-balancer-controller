@@ -70,7 +70,7 @@ func (m mockPreLoadRouteDescriptor) GetRouteCreateTimestamp() time.Time {
 	panic("implement me")
 }
 
-func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error) {
+func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 	//TODO implement me
 	panic("implement me")
 }

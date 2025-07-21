@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"context"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	appsv1 "k8s.io/api/apps/v1"
@@ -8,7 +9,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"strings"
@@ -273,42 +277,7 @@ func buildUDPRoute() *gwalpha2.UDPRoute {
 	return udpr
 }
 
-/*
-func buildTLSRoute() *gwalpha2.TLSRoute {
-	port := gwalpha2.PortNumber(80)
-	tlrs := &gwalpha2.TLSRoute{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: defaultName,
-		},
-		Spec: gwalpha2.TLSRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
-				ParentRefs: []gwv1.ParentReference{
-					{
-						Name:        defaultName,
-						SectionName: (*gwv1.SectionName)(awssdk.String("port443")),
-					},
-				},
-			},
-			Rules: []gwalpha2.TLSRouteRule{
-				{
-					BackendRefs: []gwalpha2.BackendRef{
-						{
-							BackendObjectReference: gwalpha2.BackendObjectReference{
-								Name: defaultName,
-								Port: &port,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	return tlrs
-}
-
-*/
-
-func buildHTTPRoute(hostnames []string, rules []gwv1.HTTPRouteRule) *gwv1.HTTPRoute {
+func buildHTTPRoute(hostnames []string, rules []gwv1.HTTPRouteRule, sectionName *gwv1.SectionName) *gwv1.HTTPRoute {
 	routeName := fmt.Sprintf("%v-%v", defaultName, utils.RandomDNS1123Label(6))
 	httpr := &gwv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -318,7 +287,8 @@ func buildHTTPRoute(hostnames []string, rules []gwv1.HTTPRouteRule) *gwv1.HTTPRo
 			CommonRouteSpec: gwalpha2.CommonRouteSpec{
 				ParentRefs: []gwv1.ParentReference{
 					{
-						Name: defaultName,
+						Name:        defaultName,
+						SectionName: sectionName,
 					},
 				},
 			},
@@ -339,4 +309,94 @@ func buildHTTPRoute(hostnames []string, rules []gwv1.HTTPRouteRule) *gwv1.HTTPRo
 		}
 	}
 	return httpr
+}
+
+func buildOtherNsRefTcpRoute(sectionName string, otherNs *corev1.Namespace) *gwalpha2.TCPRoute {
+	port := gwalpha2.PortNumber(80)
+	tcpr := &gwalpha2.TCPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultName + "-otherns",
+		},
+		Spec: gwalpha2.TCPRouteSpec{
+			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{
+						Name:        defaultName,
+						SectionName: (*gwv1.SectionName)(awssdk.String(sectionName)),
+					},
+				},
+			},
+			Rules: []gwalpha2.TCPRouteRule{
+				{
+					BackendRefs: []gwalpha2.BackendRef{
+						{
+							BackendObjectReference: gwalpha2.BackendObjectReference{
+								Name:      defaultName,
+								Namespace: (*gwv1.Namespace)(&otherNs.Name),
+								Port:      &port,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return tcpr
+}
+
+func buildOtherNsRefHttpRoute(sectionName string, otherNs *corev1.Namespace) *gwv1.HTTPRoute {
+	port := gwalpha2.PortNumber(80)
+	httpr := &gwv1.HTTPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultName + "-otherns",
+		},
+		Spec: gwv1.HTTPRouteSpec{
+			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{
+						Name:        defaultName,
+						SectionName: (*gwv1.SectionName)(awssdk.String(sectionName)),
+					},
+				},
+			},
+			Rules: []gwv1.HTTPRouteRule{
+				{
+					BackendRefs: []gwv1.HTTPBackendRef{
+						{
+							BackendRef: gwv1.BackendRef{
+								BackendObjectReference: gwv1.BackendObjectReference{
+									Name:      defaultName,
+									Namespace: (*gwv1.Namespace)(&otherNs.Name),
+									Port:      &port,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return httpr
+}
+
+func allocateNamespace(ctx context.Context, f *framework.Framework, baseName string, enablePodReadinessGate bool) (*corev1.Namespace, error) {
+	f.Logger.Info("allocating namespace")
+	ns, err := f.NSManager.AllocateNamespace(ctx, baseName)
+	if err != nil {
+		return nil, err
+	}
+	f.Logger.Info("allocated namespace", "nsName", ns.Name)
+	if enablePodReadinessGate {
+		f.Logger.Info("label namespace for podReadinessGate injection", "nsName", ns.Name)
+		oldNS := ns.DeepCopy()
+		ns.Labels = algorithm.MergeStringMap(map[string]string{
+			"elbv2.k8s.aws/pod-readiness-gate-inject": "enabled",
+		}, ns.Labels)
+		err := f.K8sClient.Patch(ctx, ns, client.MergeFrom(oldNS))
+		if err != nil {
+			return nil, err
+		}
+		f.Logger.Info("labeled namespace with podReadinessGate injection", "nsName", ns.Name)
+	}
+	return ns, nil
 }
