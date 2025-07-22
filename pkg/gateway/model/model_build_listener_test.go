@@ -2,11 +2,17 @@ package model
 
 import (
 	"context"
+	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	corev1 "k8s.io/api/core/v1"
 	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
+	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"strings"
 	"testing"
@@ -16,7 +22,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	certs "sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -1080,6 +1086,194 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestBuildListenerRules(t *testing.T) {
+	testCases := []struct {
+		name          string
+		sgOutput      securityGroupOutput
+		ipAddressType elbv2model.IPAddressType
+		port          int32
+		routes        map[int32][]routeutils.RouteDescriptor
+
+		expectedRules []*elbv2model.ListenerRuleSpec
+		expectedTags  map[string]string
+		tagErr        error
+	}{
+		{
+			name:          "no backends should result in 503 fixed response",
+			port:          80,
+			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			sgOutput: securityGroupOutput{
+				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind:      routeutils.HTTPRouteKind,
+						Name:      "my-route",
+						Namespace: "my-route-ns",
+						Rules: []routeutils.RouteRule{
+							&routeutils.MockRule{
+								RawRule: &gwv1.HTTPRouteRule{
+									Matches: []gwv1.HTTPRouteMatch{
+										{
+											Path: &gwv1.HTTPPathMatch{
+												Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+												Value: awssdk.String("/"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRules: []*elbv2model.ListenerRuleSpec{
+				{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "fixed-response",
+							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+								ContentType: awssdk.String("text/plain"),
+								StatusCode:  "503",
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "backends should result in forward action generated",
+			port:          80,
+			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			sgOutput: securityGroupOutput{
+				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind:      routeutils.HTTPRouteKind,
+						Name:      "my-route",
+						Namespace: "my-route-ns",
+						Rules: []routeutils.RouteRule{
+							&routeutils.MockRule{
+								RawRule: &gwv1.HTTPRouteRule{
+									Matches: []gwv1.HTTPRouteMatch{
+										{
+											Path: &gwv1.HTTPPathMatch{
+												Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+												Value: awssdk.String("/"),
+											},
+										},
+									},
+								},
+								BackendRefs: []routeutils.Backend{
+									{
+										Service:     &corev1.Service{},
+										ServicePort: &corev1.ServicePort{Name: "svcport"},
+										Weight:      1,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRules: []*elbv2model.ListenerRuleSpec{
+				{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "forward",
+							ForwardConfig: &elbv2model.ForwardActionConfig{
+								// cmp can't compare the TG ARN, so don't inject it.
+								TargetGroups: []elbv2model.TargetGroupTuple{
+									{
+										Weight: awssdk.Int32(1),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
+			mockTagger := &mockTagHelper{
+				tags: tc.expectedTags,
+				err:  tc.tagErr,
+			}
+
+			mockTgBuilder := &MockTargetGroupBuilder{
+				tgs: []*elbv2model.TargetGroup{
+					{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::TargetGroup", "id-1"),
+					},
+				},
+			}
+
+			builder := &listenerBuilderImpl{
+				tagHelper: mockTagger,
+				tgBuilder: mockTgBuilder,
+			}
+
+			err := builder.buildListenerRules(stack, &elbv2model.Listener{}, tc.ipAddressType, tc.sgOutput, &gwv1.Gateway{}, tc.port, elbv2gw.LoadBalancerConfiguration{}, tc.routes)
+			assert.NoError(t, err)
+
+			var resLRs []*elbv2model.ListenerRule
+			assert.NoError(t, stack.ListResources(&resLRs))
+
+			assert.Equal(t, len(tc.expectedRules), len(resLRs))
+
+			// cmp absolutely barfs trying to validate the TargetGroupARN due to stack id semantics
+			opt := cmp.Options{
+				cmpopts.IgnoreFields(elbv2model.TargetGroupTuple{}, "TargetGroupARN"),
+			}
+
+			processedSet := make(map[*elbv2model.ListenerRule]bool)
+			for _, elr := range tc.expectedRules {
+				for _, alr := range resLRs {
+					conditionsEqual := cmp.Equal(elr.Conditions, alr.Spec.Conditions)
+					actionsEqual := cmp.Equal(elr.Actions, alr.Spec.Actions, opt)
+					priorityEqual := elr.Priority == alr.Spec.Priority
+					fmt.Printf("%+v,%+v,%+v\n", conditionsEqual, actionsEqual, priorityEqual)
+					if conditionsEqual && actionsEqual && priorityEqual {
+						processedSet[alr] = true
+						break
+					}
+				}
+			}
+
+			assert.Equal(t, len(tc.expectedRules), len(processedSet))
+
+			for _, lr := range resLRs {
+				assert.Equal(t, tc.expectedTags, lr.Spec.Tags)
+			}
 		})
 	}
 }

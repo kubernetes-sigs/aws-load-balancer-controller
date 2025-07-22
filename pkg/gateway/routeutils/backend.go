@@ -18,6 +18,7 @@ import (
 const (
 	serviceKind             = "Service"
 	referenceGrantNotExists = "No explicit ReferenceGrant exists to allow the reference."
+	maxWeight               = 999
 )
 
 var (
@@ -89,10 +90,6 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		initialErrorMessage := "Backend Ref must be of kind 'Service'"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
 		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonInvalidKind, &wrappedGatewayErrorMessage, nil), nil
-	}
-
-	if backendRef.Weight != nil && *backendRef.Weight == 0 {
-		return nil, nil, nil
 	}
 
 	if backendRef.Port == nil {
@@ -216,6 +213,10 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 	weight := 1
 	if backendRef.Weight != nil {
 		weight = int(*backendRef.Weight)
+	}
+
+	if weight > maxWeight {
+		return nil, nil, errors.Errorf("Weight [%d] must be less than or equal to %d", weight, maxWeight)
 	}
 	return &Backend{
 		Service:               svc,
