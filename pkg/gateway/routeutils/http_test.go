@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -166,4 +167,178 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 	assert.Equal(t, 2, len(convertedRules[0].GetBackends()))
 	assert.Equal(t, 4, len(convertedRules[1].GetBackends()))
 	assert.Equal(t, 0, len(convertedRules[2].GetBackends()))
+}
+
+func Test_HTTP_GetListenerRuleConfigs(t *testing.T) {
+	tests := []struct {
+		name     string
+		route    *gwv1.HTTPRoute
+		expected []gwv1.LocalObjectReference
+	}{
+		{
+			name: "route with no rules",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{},
+			},
+			expected: []gwv1.LocalObjectReference{},
+		},
+		{
+			name: "route with rules but no filters",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{},
+								{},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{},
+		},
+		{
+			name: "route with filters but none are listener rule configurations",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterRequestRedirect,
+									RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+										Port: (*gwv1.PortNumber)(awssdk.Int32(80)),
+									},
+								},
+								{
+									Type: gwv1.HTTPRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: "SomeOtherGroup",
+										Kind:  "SomeOtherKind",
+										Name:  "test-config",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{},
+		},
+		{
+			name: "route with one matching listener rule configuration",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterRequestRedirect,
+									RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+										Port: (*gwv1.PortNumber)(awssdk.Int32(80)),
+									},
+								},
+								{
+									Type: gwv1.HTTPRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: constants.ControllerCRDGroupVersion,
+										Kind:  constants.ListenerRuleConfiguration,
+										Name:  "test-config-1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config-1",
+				},
+			},
+		},
+		{
+			name: "route with multiple matching listener rule configurations",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: constants.ControllerCRDGroupVersion,
+										Kind:  constants.ListenerRuleConfiguration,
+										Name:  "test-config-1",
+									},
+								},
+							},
+						},
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterRequestRedirect,
+									RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+										Port: (*gwv1.PortNumber)(awssdk.Int32(80)),
+									},
+								},
+							},
+						},
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: constants.ControllerCRDGroupVersion,
+										Kind:  constants.ListenerRuleConfiguration,
+										Name:  "test-config-2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config-1",
+				},
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config-2",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			httpRoute := &httpRouteDescription{
+				route: tt.route,
+			}
+
+			got := httpRoute.GetListenerRuleConfigs()
+
+			// Check if the length matches
+			assert.Equal(t, len(tt.expected), len(got), "Expected %d rule configs, got %d", len(tt.expected), len(got))
+
+			// Check if all expected items exist in the result
+			for _, expected := range tt.expected {
+				found := false
+				for _, actual := range got {
+					if expected.Group == actual.Group && expected.Kind == actual.Kind && expected.Name == actual.Name {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Expected listener rule config %s not found in result", expected.Name)
+			}
+		})
+	}
 }

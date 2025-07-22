@@ -105,6 +105,9 @@ func (udpRoute *udpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 	}
 	return backendRefs
 }
+func (udpRoute *udpRouteDescription) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+	return []gwv1.LocalObjectReference{}
+}
 
 func (udpRoute *udpRouteDescription) GetRouteCreateTimestamp() time.Time {
 	return udpRoute.route.CreationTimestamp.Time

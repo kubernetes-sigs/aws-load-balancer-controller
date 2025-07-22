@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -101,6 +102,32 @@ func (httpRoute *httpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 		}
 	}
 	return backendRefs
+}
+
+// GetListenerRuleConfigs returns all ListenerRuleConfiguration references from
+// ExtensionRef filters in the HTTPRoute
+func (httpRoute *httpRouteDescription) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+	listenerRuleConfigs := make([]gwv1.LocalObjectReference, 0)
+	if httpRoute.route.Spec.Rules != nil {
+		for _, rule := range httpRoute.route.Spec.Rules {
+			if rule.Filters != nil {
+				for _, filter := range rule.Filters {
+					if filter.Type != gwv1.HTTPRouteFilterExtensionRef {
+						continue
+					}
+					if string(filter.ExtensionRef.Group) == constants.ControllerCRDGroupVersion && string(filter.ExtensionRef.Kind) == constants.ListenerRuleConfiguration {
+						listenerRuleConfigs = append(listenerRuleConfigs, gwv1.LocalObjectReference{
+							Group: constants.ControllerCRDGroupVersion,
+							Kind:  constants.ListenerRuleConfiguration,
+							Name:  filter.ExtensionRef.Name,
+						})
+					}
+				}
+
+			}
+		}
+	}
+	return listenerRuleConfigs
 }
 
 func (httpRoute *httpRouteDescription) GetRouteCreateTimestamp() time.Time {

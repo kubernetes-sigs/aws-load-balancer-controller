@@ -102,6 +102,10 @@ func (tcpRoute *tcpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 	return backendRefs
 }
 
+func (tcpRoute *tcpRouteDescription) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+	return []gwv1.LocalObjectReference{}
+}
+
 func (tcpRoute *tcpRouteDescription) GetRouteGeneration() int64 {
 	return tcpRoute.route.Generation
 }

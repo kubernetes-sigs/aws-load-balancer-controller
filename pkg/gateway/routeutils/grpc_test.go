@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -166,4 +167,163 @@ func Test_GRPC_LoadAttachedRules(t *testing.T) {
 	assert.Equal(t, 2, len(convertedRules[0].GetBackends()))
 	assert.Equal(t, 4, len(convertedRules[1].GetBackends()))
 	assert.Equal(t, 0, len(convertedRules[2].GetBackends()))
+}
+
+func Test_GRPC_GetListenerRuleConfigs(t *testing.T) {
+	tests := []struct {
+		name     string
+		route    *gwv1.GRPCRoute
+		expected []gwv1.LocalObjectReference
+	}{
+		{
+			name: "route with no rules",
+			route: &gwv1.GRPCRoute{
+				Spec: gwv1.GRPCRouteSpec{},
+			},
+			expected: []gwv1.LocalObjectReference{},
+		},
+		{
+			name: "route with rules but no filters",
+			route: &gwv1.GRPCRoute{
+				Spec: gwv1.GRPCRouteSpec{
+					Rules: []gwv1.GRPCRouteRule{
+						{
+							Matches: []gwv1.GRPCRouteMatch{
+								{
+									Method: &gwv1.GRPCMethodMatch{
+										Service: awssdk.String("TestService"),
+										Method:  awssdk.String("TestMethod"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{},
+		},
+		{
+			name: "route with filters but none are listener rule configurations",
+			route: &gwv1.GRPCRoute{
+				Spec: gwv1.GRPCRouteSpec{
+					Rules: []gwv1.GRPCRouteRule{
+						{
+							Filters: []gwv1.GRPCRouteFilter{
+								{
+									Type: gwv1.GRPCRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: "SomeOtherGroup",
+										Kind:  "SomeOtherKind",
+										Name:  "test-config",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{},
+		},
+		{
+			name: "route with one matching listener rule configuration",
+			route: &gwv1.GRPCRoute{
+				Spec: gwv1.GRPCRouteSpec{
+					Rules: []gwv1.GRPCRouteRule{
+						{
+							Filters: []gwv1.GRPCRouteFilter{
+								{
+									Type: gwv1.GRPCRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: constants.ControllerCRDGroupVersion,
+										Kind:  constants.ListenerRuleConfiguration,
+										Name:  "test-config-1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config-1",
+				},
+			},
+		},
+		{
+			name: "route with multiple matching listener rule configurations",
+			route: &gwv1.GRPCRoute{
+				Spec: gwv1.GRPCRouteSpec{
+					Rules: []gwv1.GRPCRouteRule{
+						{
+							Filters: []gwv1.GRPCRouteFilter{
+								{
+									Type: gwv1.GRPCRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: constants.ControllerCRDGroupVersion,
+										Kind:  constants.ListenerRuleConfiguration,
+										Name:  "test-config-1",
+									},
+								},
+							},
+						},
+						{
+							Filters: []gwv1.GRPCRouteFilter{},
+						},
+						{
+							Filters: []gwv1.GRPCRouteFilter{
+								{
+									Type: gwv1.GRPCRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: constants.ControllerCRDGroupVersion,
+										Kind:  constants.ListenerRuleConfiguration,
+										Name:  "test-config-2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config-1",
+				},
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config-2",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			grpcRoute := &grpcRouteDescription{
+				route: tt.route,
+			}
+
+			got := grpcRoute.GetListenerRuleConfigs()
+
+			// Check if the length matches
+			assert.Equal(t, len(tt.expected), len(got), "Expected %d rule configs, got %d", len(tt.expected), len(got))
+
+			// Check if all expected items exist in the result
+			for _, expected := range tt.expected {
+				found := false
+				for _, actual := range got {
+					if expected.Group == actual.Group && expected.Kind == actual.Kind && expected.Name == actual.Name {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Expected listener rule config %s not found in result", expected.Name)
+			}
+		})
+	}
 }
