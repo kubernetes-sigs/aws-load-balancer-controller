@@ -259,20 +259,34 @@ func TestCommonBackendLoader(t *testing.T) {
 			servicePort:         80,
 		},
 		{
-			name: "0 weight backend should return nil",
+			name: "backend ref with 0 weight",
 			routeIdentifier: types.NamespacedName{
+				Namespace: "backend-ref-ns",
 				Name:      routeNameToUse,
-				Namespace: namespaceToUse,
 			},
 			backendRef: gwv1.BackendRef{
 				BackendObjectReference: gwv1.BackendObjectReference{
-					Name:      gwv1.ObjectName(svcNameToUse),
-					Namespace: (*gwv1.Namespace)(&namespaceToUse),
-					Port:      portConverter(80),
+					Name: gwv1.ObjectName(svcNameToUse),
+					Port: portConverter(80),
 				},
 				Weight: awssdk.Int32(0),
 			},
-			expectNoResult: true,
+			storedService: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "backend-ref-ns",
+					Name:      svcNameToUse,
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name: "port-80",
+							Port: 80,
+						},
+					},
+				},
+			},
+			weight:      0,
+			servicePort: 80,
 		},
 		{
 			name: "non-service based backend should return nil",
@@ -304,6 +318,36 @@ func TestCommonBackendLoader(t *testing.T) {
 				},
 			},
 			expectWarning:  true,
+			expectNoResult: true,
+		},
+		{
+			name: "invalid weight should produce fatal error",
+			routeIdentifier: types.NamespacedName{
+				Namespace: "backend-ref-ns",
+				Name:      routeNameToUse,
+			},
+			storedService: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "backend-ref-ns",
+					Name:      svcNameToUse,
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name: "port-80",
+							Port: 80,
+						},
+					},
+				},
+			},
+			backendRef: gwv1.BackendRef{
+				BackendObjectReference: gwv1.BackendObjectReference{
+					Name: gwv1.ObjectName(svcNameToUse),
+					Port: portConverter(80),
+				},
+				Weight: awssdk.Int32(maxWeight + 1),
+			},
+			expectFatal:    true,
 			expectNoResult: true,
 		},
 	}

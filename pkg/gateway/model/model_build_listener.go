@@ -69,7 +69,7 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 
 			// build rules only for L7 gateways
 			if l.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
-				if err := l.buildListenerRules(stack, ls, lb, securityGroups, gw, port, lbCfg, routes); err != nil {
+				if err := l.buildListenerRules(stack, ls, lb.Spec.IPAddressType, securityGroups, gw, port, lbCfg, routes); err != nil {
 					return err
 				}
 			}
@@ -167,6 +167,12 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 		return &elbv2model.ListenerSpec{}, errors.Errorf("multiple backend refs found for route %v for listener on port:protocol %v:%v for gateway %v , only one must be specified", routeDescriptor.GetRouteNamespacedName(), port, listenerSpec.Protocol, k8s.NamespacedName(gw))
 	}
 	backend := routeDescriptor.GetAttachedRules()[0].GetBackends()[0]
+
+	if backend.Weight == 0 {
+		l.logger.Info("Ignoring NLB backend with 0 weight.", "route", routeDescriptor.GetRouteNamespacedName())
+		return nil, nil
+	}
+
 	targetGroup, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, lb.Spec.IPAddressType, routeDescriptor, backend, securityGroups.backendSecurityGroupToken)
 	if tgErr != nil {
 		return &elbv2model.ListenerSpec{}, tgErr
@@ -176,7 +182,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 }
 
 // this is only for L7 ALB
-func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model.Listener, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) error {
+func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model.Listener, ipAddressType elbv2model.IPAddressType, securityGroups securityGroupOutput, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) error {
 	// sort all rules based on precedence
 	rulesWithPrecedenceOrder := routeutils.SortAllRulesByPrecedence(routes[port])
 
@@ -201,7 +207,7 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 		}
 		targetGroupTuples := make([]elbv2model.TargetGroupTuple, 0, len(rule.GetBackends()))
 		for _, backend := range rule.GetBackends() {
-			targetGroup, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, lb.Spec.IPAddressType, route, backend, securityGroups.backendSecurityGroupToken)
+			targetGroup, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, ipAddressType, route, backend, securityGroups.backendSecurityGroupToken)
 			if tgErr != nil {
 				return tgErr
 			}
@@ -215,7 +221,7 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 
 		var actions []elbv2model.Action
 
-		if len(targetGroupTuples) > 0 {
+		if shouldProvisionActions(targetGroupTuples) {
 			actions = buildL7ListenerForwardActions(targetGroupTuples, nil)
 		}
 
@@ -544,4 +550,17 @@ func newListenerBuilder(ctx context.Context, loadBalancerType elbv2model.LoadBal
 		certDiscovery:    certDiscovery,
 		logger:           logger,
 	}
+}
+
+// shouldProvisionActions -- determine if the given target groups are acceptable for ELB Actions.
+// The criteria -
+// 1/ One or more target groups are present.
+// 2/ At least one target group has a weight greater than zero.
+func shouldProvisionActions(targetGroups []elbv2model.TargetGroupTuple) bool {
+	for _, tg := range targetGroups {
+		if tg.Weight == nil || *tg.Weight != 0 {
+			return true
+		}
+	}
+	return false
 }

@@ -6,11 +6,33 @@ import (
 	"time"
 )
 
+type MockRule struct {
+	RawRule     interface{}
+	BackendRefs []Backend
+}
+
+func (m *MockRule) GetRawRouteRule() interface{} {
+	return m.RawRule
+}
+
+func (m *MockRule) GetSectionName() *gwv1.SectionName {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *MockRule) GetBackends() []Backend {
+	return m.BackendRefs
+}
+
+var _ RouteRule = &MockRule{}
+
 type MockRoute struct {
-	Kind      RouteKind
-	Name      string
-	Namespace string
-	Hostnames []string
+	Kind         RouteKind
+	Name         string
+	Namespace    string
+	Hostnames    []string
+	CreationTime time.Time
+	Rules        []RouteRule
 }
 
 func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
@@ -49,7 +71,7 @@ func (m *MockRoute) GetRawRoute() interface{} {
 
 func (m *MockRoute) GetAttachedRules() []RouteRule {
 	//TODO implement me
-	panic("implement me")
+	return m.Rules
 }
 
 func (m *MockRoute) GetRouteGeneration() int64 {
@@ -57,7 +79,7 @@ func (m *MockRoute) GetRouteGeneration() int64 {
 }
 
 func (m *MockRoute) GetRouteCreateTimestamp() time.Time {
-	panic("implement me")
+	return m.CreationTime
 }
 
 var _ RouteDescriptor = &MockRoute{}
