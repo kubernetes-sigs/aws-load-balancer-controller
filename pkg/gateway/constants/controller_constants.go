@@ -63,4 +63,7 @@ const (
 
 	//TargetGroupConfigurationController the controller that reconciles TargetGroupConfiguration changes
 	TargetGroupConfigurationController = "aws-lbc-targetgroupconfiguration-controller"
+
+	//ListenerRuleConfigurationController the controller that reconciles ListenerRuleConfiguration changes
+	ListenerRuleConfigurationController = "aws-lbc-listenerruleconfiguration-controller"
 )
