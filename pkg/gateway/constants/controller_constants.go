@@ -14,8 +14,14 @@ const (
 	// GatewayResourceGroupVersion the groupVersion used by Gateway & GatewayClass resources.
 	GatewayResourceGroupVersion = "gateway.networking.k8s.io/v1"
 
+	//ControllerCRDGroupVersion the groupVersion used by customization CRDs
+	ControllerCRDGroupVersion = "gateway.k8s.aws"
+
 	// LoadBalancerConfiguration the CRD name of LoadBalancerConfiguration
 	LoadBalancerConfiguration = "LoadBalancerConfiguration"
+
+	// ListenerRuleConfiguration the CRD name of ListenerRuleConfiguration
+	ListenerRuleConfiguration = "ListenerRuleConfiguration"
 )
 
 /*

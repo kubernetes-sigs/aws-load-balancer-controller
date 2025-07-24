@@ -106,6 +106,10 @@ func (tlsRoute *tlsRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 	return backendRefs
 }
 
+func (tlsRoute *tlsRouteDescription) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+	return []gwv1.LocalObjectReference{}
+}
+
 func (tlsRoute *tlsRouteDescription) GetRouteCreateTimestamp() time.Time {
 	return tlsRoute.route.CreationTimestamp.Time
 }

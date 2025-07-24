@@ -40,6 +40,11 @@ func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
 	panic("implement me")
 }
 
+func (m *MockRoute) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m *MockRoute) GetRouteNamespacedName() types.NamespacedName {
 	return types.NamespacedName{
 		Namespace: m.Namespace,

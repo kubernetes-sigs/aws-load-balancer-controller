@@ -144,6 +144,10 @@ type gatewayReconciler struct {
 //+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations/finalizers,verbs=update;patch
 
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=listenerruleconfigurations,verbs=get;list;watch;patch
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=listenerruleconfigurations/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=listenerruleconfigurations/finalizers,verbs=update;patch
+
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=udproutes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=udproutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=udproutes/finalizers,verbs=update
@@ -163,9 +167,6 @@ type gatewayReconciler struct {
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/finalizers,verbs=update
-
-//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=loadbalancerconfigurations,verbs=get;list;watch
-//+kubebuilder:rbac:groups=gateway.k8s.aws,resources=targetgroupconfigurations,verbs=get;list;watch
 
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
@@ -449,11 +450,13 @@ func (r *gatewayReconciler) setupCommonGatewayControllerWatches(ctrl controller.
 func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Controller, mgr ctrl.Manager) error {
 	loggerPrefix := r.logger.WithName("eventHandlers")
 	tbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.TargetGroupConfiguration])
+	listenerRuleConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.ListenerRuleConfiguration])
 	httpRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.HTTPRoute])
 	grpcRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.GRPCRoute])
 	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("TargetGroupConfiguration"))
+	listenerRuleConfigEventHandler := eventhandlers.NewEnqueueRequestsForListenerRuleConfigurationEvent(httpRouteEventChan, grpcRouteEventChan, r.k8sClient, loggerPrefix.WithName("ListenerRuleConfiguration"))
 	grpcRouteEventHandler := eventhandlers.NewEnqueueRequestsForGRPCRouteEvent(r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("GRPCRoute"))
 	httpRouteEventHandler := eventhandlers.NewEnqueueRequestsForHTTPRouteEvent(r.k8sClient, r.eventRecorder,
@@ -463,6 +466,9 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan, grpcRouteEventChan, nil, nil, nil, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("ReferenceGrant"))
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(listenerRuleConfigEventChan, listenerRuleConfigEventHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Channel(httpRouteEventChan, httpRouteEventHandler)); err != nil {
@@ -475,6 +481,9 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.TargetGroupConfiguration{}, tgConfigEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.ListenerRuleConfiguration{}, listenerRuleConfigEventHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &corev1.Service{}, svcEventHandler)); err != nil {
