@@ -8,63 +8,99 @@ import (
 )
 
 type RulePrecedence struct {
-	RouteDescriptor  RouteDescriptor
-	Rule             RouteRule
-	RuleIndexInRoute int // index of the rule in the route
-	MatchIndexInRule int // index of the match in the rule
-
-	HTTPMatch *v1.HTTPRouteMatch
-	GRPCMatch *v1.GRPCRouteMatch
+	CommonRulePrecedence CommonRulePrecedence
+	HTTPMatch            *v1.HTTPRouteMatch
+	GRPCMatch            *v1.GRPCRouteMatch
 
 	// factors determining precedence
+	HttpSpecificRulePrecedenceFactor *HttpSpecificRulePrecedenceFactor
+	GrpcSpecificRulePrecedenceFactor *GrpcSpecificRulePrecedenceFactor
+}
+
+type GrpcSpecificRulePrecedenceFactor struct {
+	PathType      int // 3=exact, 1=regex
+	ServiceLength int // grpcRouteMatch Method - service characters number
+	MethodLength  int // grpcRouteMatch Method - method characters number
+	HeaderCount   int // headers count
+}
+
+type HttpSpecificRulePrecedenceFactor struct {
+	PathType        int  // 3=exact, 2=prefix, 1=regex
+	PathLength      int  // httpRouteMatch path length
+	HasMethod       bool // httpRouteMatch Method
+	HeaderCount     int  // httpRouteMatch headers count
+	QueryParamCount int  // httpRouteMatch query params count
+}
+
+type CommonRulePrecedence struct {
+	RouteDescriptor RouteDescriptor
+	Rule            RouteRule
+
+	// common rule precedence factors
 	Hostnames            []string // raw hostnames from route, unsorted
-	PathType             int      // 3=exact, 2=regex, 1=prefix
-	PathLength           int
-	HasMethod            bool
-	HeaderCount          int
-	QueryParamCount      int
-	RouteCreateTimestamp time.Time
 	RouteNamespacedName  string
+	RuleIndexInRoute     int // index of the rule in the route
+	MatchIndexInRule     int // index of the match in the rule
+	RouteCreateTimestamp time.Time
 }
 
 func SortAllRulesByPrecedence(routes []RouteDescriptor) []RulePrecedence {
 	var allRoutes []RulePrecedence
+	var httpRoutes []RulePrecedence
+	var grpcRoutes []RulePrecedence
 
 	for _, route := range routes {
-		routeNamespacedName := route.GetRouteNamespacedName().String()
-		routeCreateTimestamp := route.GetRouteCreateTimestamp()
-		// get hostname in string array format
-		hostnames := make([]string, len(route.GetHostnames()))
-		for i, hostname := range route.GetHostnames() {
-			hostnames[i] = string(hostname)
-		}
+		routeInfo := getCommonRouteInfo(route)
 		for ruleIndex, rule := range route.GetAttachedRules() {
 			rawRule := rule.GetRawRouteRule()
 			switch r := rawRule.(type) {
-			// TODO: add handling for GRPC
 			case *v1.HTTPRouteRule:
 				for matchIndex, httpMatch := range r.Matches {
+					common := routeInfo
+					common.Rule = rule
+					common.RuleIndexInRoute = ruleIndex
+					common.MatchIndexInRule = matchIndex
 					match := RulePrecedence{
-						RouteDescriptor:      route,
-						Rule:                 rule,
-						RuleIndexInRoute:     ruleIndex,
-						MatchIndexInRule:     matchIndex,
-						HTTPMatch:            &httpMatch,
-						Hostnames:            hostnames,
-						RouteCreateTimestamp: routeCreateTimestamp,
-						RouteNamespacedName:  routeNamespacedName,
+						HTTPMatch:                        &httpMatch,
+						HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{},
+						CommonRulePrecedence:             common,
 					}
+					// set HttpSpecificRulePrecedenceFactor
 					getHttpMatchPrecedenceInfo(&httpMatch, &match)
-					allRoutes = append(allRoutes, match)
+					httpRoutes = append(httpRoutes, match)
+				}
+			case *v1.GRPCRouteRule:
+				for matchIndex, grpcMatch := range r.Matches {
+					common := routeInfo
+					common.Rule = rule
+					common.RuleIndexInRoute = ruleIndex
+					common.MatchIndexInRule = matchIndex
+					match := RulePrecedence{
+						GRPCMatch:                        &grpcMatch,
+						GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{},
+						CommonRulePrecedence:             common,
+					}
+					// set GrpcSpecificRulePrecedenceFactor
+					getGrpcMatchPrecedenceInfo(&grpcMatch, &match)
+					grpcRoutes = append(grpcRoutes, match)
 				}
 			}
-
 		}
 	}
-	// sort rules based on precedence
-	sort.Slice(allRoutes, func(i, j int) bool {
-		return comparePrecedence(allRoutes[i], allRoutes[j])
+
+	// sort http rules based on precedence
+	sort.Slice(httpRoutes, func(i, j int) bool {
+		return compareHttpRulePrecedence(httpRoutes[i], httpRoutes[j])
 	})
+
+	// sort grpc rules based on precedence
+	sort.Slice(grpcRoutes, func(i, j int) bool {
+		return compareGrpcRulePrecedence(grpcRoutes[i], grpcRoutes[j])
+	})
+
+	// append with HTTP routes first since it is usually more specific
+	allRoutes = append(allRoutes, httpRoutes...)
+	allRoutes = append(allRoutes, grpcRoutes...)
 	return allRoutes
 }
 
@@ -124,64 +160,147 @@ func getHostnameListPrecedenceOrder(hostnameListOne, hostnameListTwo []string) i
 	return 0
 }
 
-func comparePrecedence(ruleOne RulePrecedence, ruleTwo RulePrecedence) bool {
-	precedence := getHostnameListPrecedenceOrder(ruleOne.Hostnames, ruleTwo.Hostnames)
+func compareHttpRulePrecedence(ruleOne RulePrecedence, ruleTwo RulePrecedence) bool {
+	precedence := getHostnameListPrecedenceOrder(ruleOne.CommonRulePrecedence.Hostnames, ruleTwo.CommonRulePrecedence.Hostnames)
 	if precedence != 0 {
 		return precedence < 0 // -1 means first hostname has higher precedence
 	}
 	// equal hostname precedence, sort by other factors
-	// compare path match type (exact  > regex > prefix)
-	if ruleOne.PathType != ruleTwo.PathType {
-		return ruleOne.PathType > ruleTwo.PathType
+	// compare path match type (exact  > prefix > regex)
+	if ruleOne.HttpSpecificRulePrecedenceFactor.PathType != ruleTwo.HttpSpecificRulePrecedenceFactor.PathType {
+		return ruleOne.HttpSpecificRulePrecedenceFactor.PathType > ruleTwo.HttpSpecificRulePrecedenceFactor.PathType
 	}
 	// compare path length
-	if ruleOne.PathLength != ruleTwo.PathLength {
-		return ruleOne.PathLength > ruleTwo.PathLength
+	if ruleOne.HttpSpecificRulePrecedenceFactor.PathLength != ruleTwo.HttpSpecificRulePrecedenceFactor.PathLength {
+		return ruleOne.HttpSpecificRulePrecedenceFactor.PathLength > ruleTwo.HttpSpecificRulePrecedenceFactor.PathLength
 	}
 	// compare has method
-	if ruleOne.HasMethod != ruleTwo.HasMethod {
-		return ruleOne.HasMethod
+	if ruleOne.HttpSpecificRulePrecedenceFactor.HasMethod != ruleTwo.HttpSpecificRulePrecedenceFactor.HasMethod {
+		return ruleOne.HttpSpecificRulePrecedenceFactor.HasMethod
 	}
 	// compare header count
-	if ruleOne.HeaderCount != ruleTwo.HeaderCount {
-		return ruleOne.HeaderCount > ruleTwo.HeaderCount
+	if ruleOne.HttpSpecificRulePrecedenceFactor.HeaderCount != ruleTwo.HttpSpecificRulePrecedenceFactor.HeaderCount {
+		return ruleOne.HttpSpecificRulePrecedenceFactor.HeaderCount > ruleTwo.HttpSpecificRulePrecedenceFactor.HeaderCount
 	}
 	// compare query param count
-	if ruleOne.QueryParamCount != ruleTwo.QueryParamCount {
-		return ruleOne.QueryParamCount > ruleTwo.QueryParamCount
+	if ruleOne.HttpSpecificRulePrecedenceFactor.QueryParamCount != ruleTwo.HttpSpecificRulePrecedenceFactor.QueryParamCount {
+		return ruleOne.HttpSpecificRulePrecedenceFactor.QueryParamCount > ruleTwo.HttpSpecificRulePrecedenceFactor.QueryParamCount
 	}
+	return compareCommonTieBreakers(ruleOne, ruleTwo)
+}
+
+func compareGrpcRulePrecedence(ruleOne RulePrecedence, ruleTwo RulePrecedence) bool {
+	precedence := getHostnameListPrecedenceOrder(ruleOne.CommonRulePrecedence.Hostnames, ruleTwo.CommonRulePrecedence.Hostnames)
+	if precedence != 0 {
+		return precedence < 0 // -1 means first hostname has higher precedence
+	}
+	// equal hostname precedence, sort by other factors
+	// compare path match type (exact  > regex)
+	if ruleOne.GrpcSpecificRulePrecedenceFactor.PathType != ruleTwo.GrpcSpecificRulePrecedenceFactor.PathType {
+		return ruleOne.GrpcSpecificRulePrecedenceFactor.PathType > ruleTwo.GrpcSpecificRulePrecedenceFactor.PathType
+	}
+	// compare service length
+	if ruleOne.GrpcSpecificRulePrecedenceFactor.ServiceLength != ruleTwo.GrpcSpecificRulePrecedenceFactor.ServiceLength {
+		return ruleOne.GrpcSpecificRulePrecedenceFactor.ServiceLength > ruleTwo.GrpcSpecificRulePrecedenceFactor.ServiceLength
+	}
+	// compare method length
+	if ruleOne.GrpcSpecificRulePrecedenceFactor.MethodLength != ruleTwo.GrpcSpecificRulePrecedenceFactor.MethodLength {
+		return ruleOne.GrpcSpecificRulePrecedenceFactor.MethodLength > ruleTwo.GrpcSpecificRulePrecedenceFactor.MethodLength
+	}
+	// compare header count
+	if ruleOne.GrpcSpecificRulePrecedenceFactor.HeaderCount != ruleTwo.GrpcSpecificRulePrecedenceFactor.HeaderCount {
+		return ruleOne.GrpcSpecificRulePrecedenceFactor.HeaderCount > ruleTwo.GrpcSpecificRulePrecedenceFactor.HeaderCount
+	}
+	return compareCommonTieBreakers(ruleOne, ruleTwo)
+}
+
+func compareCommonTieBreakers(ruleOne RulePrecedence, ruleTwo RulePrecedence) bool {
 	// compare creation timestamp
-	if !ruleOne.RouteCreateTimestamp.Equal(ruleTwo.RouteCreateTimestamp) {
-		return ruleOne.RouteCreateTimestamp.Before(ruleTwo.RouteCreateTimestamp)
+	if !ruleOne.CommonRulePrecedence.RouteCreateTimestamp.Equal(ruleTwo.CommonRulePrecedence.RouteCreateTimestamp) {
+		return ruleOne.CommonRulePrecedence.RouteCreateTimestamp.Before(ruleTwo.CommonRulePrecedence.RouteCreateTimestamp)
 	}
 	// compare namespaced name (namespace/name) in alphabetic order
-	if ruleOne.RouteNamespacedName != ruleTwo.RouteNamespacedName {
-		return ruleOne.RouteNamespacedName < ruleTwo.RouteNamespacedName
+	if ruleOne.CommonRulePrecedence.RouteNamespacedName != ruleTwo.CommonRulePrecedence.RouteNamespacedName {
+		return ruleOne.CommonRulePrecedence.RouteNamespacedName < ruleTwo.CommonRulePrecedence.RouteNamespacedName
 	}
 	// compare rule index in route
-	if ruleOne.RuleIndexInRoute != ruleTwo.RuleIndexInRoute {
-		return ruleOne.RuleIndexInRoute < ruleTwo.RuleIndexInRoute
+	if ruleOne.CommonRulePrecedence.RuleIndexInRoute != ruleTwo.CommonRulePrecedence.RuleIndexInRoute {
+		return ruleOne.CommonRulePrecedence.RuleIndexInRoute < ruleTwo.CommonRulePrecedence.RuleIndexInRoute
 	}
 	// compare match index within rule
-	return ruleOne.MatchIndexInRule < ruleTwo.MatchIndexInRule
+	return ruleOne.CommonRulePrecedence.MatchIndexInRule < ruleTwo.CommonRulePrecedence.MatchIndexInRule
+}
+
+func getCommonRouteInfo(route RouteDescriptor) CommonRulePrecedence {
+	routeNamespacedName := route.GetRouteNamespacedName().String()
+	routeCreateTimestamp := route.GetRouteCreateTimestamp()
+	// get hostname in string array format
+	hostnames := make([]string, len(route.GetHostnames()))
+	for i, hostname := range route.GetHostnames() {
+		hostnames[i] = string(hostname)
+	}
+	return CommonRulePrecedence{
+		RouteDescriptor:      route,
+		Hostnames:            hostnames,
+		RouteCreateTimestamp: routeCreateTimestamp,
+		RouteNamespacedName:  routeNamespacedName,
+	}
 }
 
 func getHttpMatchPrecedenceInfo(httpMatch *v1.HTTPRouteMatch, matchPrecedence *RulePrecedence) {
-
-	matchPrecedence.PathType, matchPrecedence.PathLength = getHttpRoutePathTypeAndLength(httpMatch.Path)
-	matchPrecedence.HasMethod = httpMatch.Method != nil
-	matchPrecedence.HeaderCount = len(httpMatch.Headers)
-	matchPrecedence.QueryParamCount = len(httpMatch.QueryParams)
+	matchPrecedence.HttpSpecificRulePrecedenceFactor.PathType = getHttpRoutePathType(httpMatch.Path)
+	// httpMatch.Path.Value won't be nil, default is /
+	matchPrecedence.HttpSpecificRulePrecedenceFactor.PathLength = len(*httpMatch.Path.Value)
+	matchPrecedence.HttpSpecificRulePrecedenceFactor.HasMethod = httpMatch.Method != nil
+	matchPrecedence.HttpSpecificRulePrecedenceFactor.HeaderCount = len(httpMatch.Headers)
+	matchPrecedence.HttpSpecificRulePrecedenceFactor.QueryParamCount = len(httpMatch.QueryParams)
 
 }
 
-func getHttpRoutePathTypeAndLength(path *v1.HTTPPathMatch) (int, int) {
+// getHttpRoutePathType returns path type
+// the higher priority path type has higher value
+// Exact = 3, Prefix = 2, RegularExpression = 1
+func getHttpRoutePathType(path *v1.HTTPPathMatch) int {
+	if path == nil {
+		return 0
+	}
 	switch *path.Type {
 	case v1.PathMatchExact:
-		return 3, len(*path.Value)
+		return 3
+	case v1.PathMatchPathPrefix:
+		return 2
 	case v1.PathMatchRegularExpression:
-		return 2, len(*path.Value)
+		return 1
 	default:
-		return 1, len(*path.Value)
+		return 0
+	}
+}
+
+// getGrpcMatchPrecedenceInfo
+func getGrpcMatchPrecedenceInfo(grpcMatch *v1.GRPCRouteMatch, matchPrecedence *RulePrecedence) {
+	matchPrecedence.GrpcSpecificRulePrecedenceFactor.PathType = getGrpcRoutePathType(grpcMatch.Method)
+	matchPrecedence.GrpcSpecificRulePrecedenceFactor.HeaderCount = len(grpcMatch.Headers)
+	if grpcMatch.Method != nil {
+		if grpcMatch.Method.Service != nil {
+			matchPrecedence.GrpcSpecificRulePrecedenceFactor.ServiceLength = len(*grpcMatch.Method.Service)
+		}
+		if grpcMatch.Method.Method != nil {
+			matchPrecedence.GrpcSpecificRulePrecedenceFactor.MethodLength = len(*grpcMatch.Method.Method)
+		}
+	}
+}
+
+// getGrpcRoutePathTypeAndLength returns path type for grpc
+func getGrpcRoutePathType(method *v1.GRPCMethodMatch) int {
+	if method == nil {
+		return 0
+	}
+	switch *method.Type {
+	case v1.GRPCMethodMatchExact:
+		return 3
+	case v1.GRPCMethodMatchRegularExpression:
+		return 1
+	default:
+		return 0
 	}
 }

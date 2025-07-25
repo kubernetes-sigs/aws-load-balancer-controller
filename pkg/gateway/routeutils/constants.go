@@ -32,5 +32,5 @@ var defaultProtocolToRouteKindMap = map[gwv1.ProtocolType][]RouteKind{
 	gwv1.UDPProtocolType:   {UDPRouteKind},
 	gwv1.TLSProtocolType:   {TLSRouteKind, TCPRouteKind},
 	gwv1.HTTPProtocolType:  {HTTPRouteKind},
-	gwv1.HTTPSProtocolType: {HTTPRouteKind},
+	gwv1.HTTPSProtocolType: {HTTPRouteKind, GRPCRouteKind},
 }
