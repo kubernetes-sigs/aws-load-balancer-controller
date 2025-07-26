@@ -24,4 +24,7 @@ const (
 
 	// LoadBalancerConfigurationFinalizer the finalizer we attach to a load balancer configuration resource
 	LoadBalancerConfigurationFinalizer = "gateway.k8s.aws/loadbalancerconfigurations"
+
+	// ListenerRuleConfigurationFinalizer the finalizer we attach to a listener rule configuration resource
+	ListenerRuleConfigurationFinalizer = "gateway.k8s.aws/listenerruleconfigurations"
 )
