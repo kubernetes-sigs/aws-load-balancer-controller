@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
 
-var _ = Describe("k8s service reconciled by the aws load balancer", func() {
+var _ = Describe("k8s service using ip target reconciled by the aws load balancer", func() {
 	var (
 		ctx         context.Context
 		deployment  *appsv1.Deployment
