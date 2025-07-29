@@ -28,7 +28,7 @@ import (
 // Builder builds the model stack for a Gateway resource.
 type Builder interface {
 	// Build model stack for a gateway
-	Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, previousAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, error)
+	Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, error)
 }
 
 // NewModelBuilder construct a new baseModelBuilder
@@ -117,19 +117,17 @@ type baseModelBuilder struct {
 	defaultIPType             elbv2model.IPAddressType
 }
 
-func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, previousAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, error) {
+func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, baseBuilder.tgPropertiesConstructor, baseBuilder.disableRestrictedSGRules, baseBuilder.defaultTargetType)
 	listenerBuilder := newListenerBuilder(ctx, baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.acmClient, baseBuilder.allowedCAARNs, baseBuilder.subnetsResolver, baseBuilder.logger)
 	var isPreDelete bool
 	if gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero() {
-		// TODO - Figure out if we need something special here for removal of addons.
-		// Zac -- See fetchExistingLoadBalancer in the service package for an example of how to do this.
 		if baseBuilder.isDeleteProtected(lbConf) {
 			return nil, nil, nil, false, errors.Errorf("Unable to delete gateway %+v because deletion protection is enabled.", k8s.NamespacedName(gw))
 		}
 
-		if len(previousAddonConfig) == 0 {
+		if len(currentAddonConfig) == 0 {
 			return stack, nil, nil, false, nil
 		}
 
@@ -183,12 +181,12 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 		addOnCfg = elbv2gw.LoadBalancerConfiguration{}
 	}
 
-	currentAddonConfig, err := baseBuilder.addOnBuilder.buildAddons(stack, lb.LoadBalancerARN(), addOnCfg, previousAddonConfig)
+	newAddonConfig, err := baseBuilder.addOnBuilder.buildAddons(stack, lb.LoadBalancerARN(), addOnCfg, currentAddonConfig)
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
 
-	return stack, lb, currentAddonConfig, securityGroups.backendSecurityGroupAllocated, nil
+	return stack, lb, newAddonConfig, securityGroups.backendSecurityGroupAllocated, nil
 }
 
 func (baseBuilder *baseModelBuilder) isDeleteProtected(lbConf elbv2gw.LoadBalancerConfiguration) bool {

@@ -62,8 +62,6 @@ func (aob *addOnBuilderImpl) buildWAFv2(stack core.Stack, lbARN core.StringToken
 		webACLARN = lbCfg.Spec.WAFv2.ACL
 	}
 
-	aob.logger.Info("WAF ACL", "ACL", webACLARN)
-
 	// Check if we're trying to disable the WAF ACL, if so, we should only do so if the addon is active.
 	// We should not call WAF repeatedly when the user has disabled it.
 	if webACLARN == "" && !aob.isAddonActive(addon.WAFv2, previousAddonConfig) {

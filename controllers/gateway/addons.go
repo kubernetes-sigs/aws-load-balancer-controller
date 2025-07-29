@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/addon"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
@@ -23,7 +24,7 @@ const (
 )
 
 // getStoredAddonConfig parses the addon configuration stored in a Gateways' annotation into their representation in native go structs.
-func getStoredAddonConfig(gateway *gwv1.Gateway) []addon.AddonMetadata {
+func getStoredAddonConfig(gateway *gwv1.Gateway, logger logr.Logger) []addon.AddonMetadata {
 	res := make([]addon.AddonMetadata, 0)
 
 	if gateway.Annotations == nil {
@@ -36,7 +37,7 @@ func getStoredAddonConfig(gateway *gwv1.Gateway) []addon.AddonMetadata {
 				if annotationKey == generateAddOnKey(ao) {
 					res = append(res, addon.AddonMetadata{
 						Name:    ao,
-						Enabled: parseAddOnEnabledValue(annotationValue),
+						Enabled: parseAddOnEnabledValue(annotationValue, logger),
 					})
 				}
 			}
@@ -53,10 +54,10 @@ func generateAddOnKey(a addon.Addon) string {
 }
 
 // parseAddOnEnabledValue parses an annotation key value into a boolean, assuming false if the value is malformed.
-func parseAddOnEnabledValue(e string) bool {
+func parseAddOnEnabledValue(e string, logger logr.Logger) bool {
 	b, err := strconv.ParseBool(e)
 	if err != nil {
-		// Assume corrupted value is false (todo - maybe error log?)
+		logger.V(1).Info("Unknown boolean value, default it to false", "val", e)
 		return false
 	}
 	return b

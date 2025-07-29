@@ -225,7 +225,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	}
 
 	// To handle Addons, we need to build the set that has been previously enabled. This is stored within the Gateway annotations.
-	allAddOns := getStoredAddonConfig(gw)
+	allAddOns := getStoredAddonConfig(gw, r.logger)
 
 	currentAddOns := make([]addon.Addon, 0)
 	for _, ao := range allAddOns {
@@ -346,8 +346,8 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 	return nil
 }
 
-func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor, oldAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, error) {
-	stack, lb, newAddOnConfig, backendSGRequired, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute, oldAddonConfig)
+func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, error) {
+	stack, lb, newAddOnConfig, backendSGRequired, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute, currentAddonConfig)
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, nil, false, err

@@ -14,5 +14,4 @@ var (
 type AddonMetadata struct {
 	Name    Addon
 	Enabled bool
-	// Potentially other metadata? //
 }
