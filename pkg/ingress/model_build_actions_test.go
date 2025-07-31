@@ -3,12 +3,17 @@ package ingress
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
@@ -336,6 +341,77 @@ func Test_defaultModelBuildTask_buildSSLRedirectAction(t *testing.T) {
 			task := &defaultModelBuildTask{}
 			got := task.buildSSLRedirectAction(context.Background(), tt.args.sslRedirectConfig)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildForwardActionWithTargetGroupName(t *testing.T) {
+	type describeTargetGroupsAsListCall struct {
+		req  *elbv2sdk.DescribeTargetGroupsInput
+		resp []elbv2types.TargetGroup
+		err  error
+	}
+	type args struct {
+		ingress                         ClassifiedIngress
+		forwardActionConfig             ForwardActionConfig
+		describeTargetGroupsAsListCalls []describeTargetGroupsAsListCall
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    elbv2model.Action
+		wantErr error
+	}{
+		{
+			name: "Forward to target group identified by name",
+			args: args{
+				forwardActionConfig: ForwardActionConfig{
+					TargetGroups: []TargetGroupTuple{{TargetGroupName: awssdk.String("tg-name")}},
+				},
+
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							Names: []string{"tg-name"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-arn"),
+								TargetType:     elbv2types.TargetTypeEnum("instance"),
+							},
+						},
+					},
+				},
+			},
+			want: elbv2model.Action{
+				Type: elbv2model.ActionTypeForward,
+				ForwardConfig: &elbv2model.ForwardActionConfig{
+					TargetGroups: []elbv2model.TargetGroupTuple{{
+						TargetGroupARN: core.LiteralStringToken("tg-arn"),
+					}},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t1 *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			elbv2Client := services.NewMockELBV2(ctrl)
+			for _, call := range tt.args.describeTargetGroupsAsListCalls {
+				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
+			}
+			task := &defaultModelBuildTask{
+				elbv2Client: elbv2Client,
+			}
+			got, err := task.buildForwardAction(context.Background(), tt.args.ingress, Action{
+				Type:          ActionTypeForward,
+				ForwardConfig: &tt.args.forwardActionConfig,
+			})
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantErr, err)
 		})
 	}
 }

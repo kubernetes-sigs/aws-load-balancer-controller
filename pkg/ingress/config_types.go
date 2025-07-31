@@ -68,6 +68,10 @@ type TargetGroupTuple struct {
 	// The Amazon Resource Name (ARN) of the target group.
 	TargetGroupARN *string `json:"targetGroupARN"`
 
+	// The Name of the target group.
+	// +optional
+	TargetGroupName *string `json:"targetGroupName,omitempty"`
+
 	// the K8s service Name
 	ServiceName *string `json:"serviceName"`
 
@@ -80,8 +84,12 @@ type TargetGroupTuple struct {
 }
 
 func (t *TargetGroupTuple) validate() error {
-	if (t.TargetGroupARN != nil) == (t.ServiceName != nil) {
-		return errors.New("precisely one of targetGroupARN and serviceName can be specified")
+	if t.TargetGroupARN == nil && t.TargetGroupName == nil && t.ServiceName == nil {
+		return errors.New("missing serviceName or targetGroupARN/targetGroupName")
+	}
+
+	if (t.TargetGroupARN != nil || t.TargetGroupName != nil) && t.ServiceName != nil {
+		return errors.New("either serviceName or targetGroupARN/targetGroupName can be specified")
 	}
 
 	if t.ServiceName != nil && t.ServicePort == nil {
@@ -146,6 +154,9 @@ type Action struct {
 	// or more target groups, use ForwardConfig instead.
 	TargetGroupARN *string `json:"targetGroupARN"`
 
+	// Name of the target group. Can be specified instead of TargetGroupARN.
+	TargetGroupName *string `json:"targetGroupName,omitempty"`
+
 	// [Application Load Balancer] Information for creating an action that returns a custom HTTP response.
 	// +optional
 	FixedResponseConfig *FixedResponseActionConfig `json:"fixedResponseConfig,omitempty"`
@@ -176,8 +187,11 @@ func (a *Action) validate() error {
 			return errors.Wrap(err, "invalid RedirectConfig")
 		}
 	case ActionTypeForward:
-		if (a.TargetGroupARN != nil) == (a.ForwardConfig != nil) {
-			return errors.New("precisely one of TargetGroupArn and ForwardConfig can be specified")
+		if a.TargetGroupARN == nil && a.TargetGroupName == nil && a.ForwardConfig == nil {
+			return errors.New("missing ForwardConfig or TargetGroupARN/TargetGroupName")
+		}
+		if (a.TargetGroupARN != nil || a.TargetGroupName != nil) && (a.ForwardConfig != nil) {
+			return errors.New("either ForwardConfig or TargetGroupARN/TargetGroupName can be specified")
 		}
 		if a.ForwardConfig != nil {
 			if err := a.ForwardConfig.validate(); err != nil {
