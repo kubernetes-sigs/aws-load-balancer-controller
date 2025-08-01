@@ -18,6 +18,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	k8s2 "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"strconv"
@@ -25,14 +26,14 @@ import (
 
 type buildTargetGroupOutput struct {
 	targetGroupSpec elbv2model.TargetGroupSpec
-	bindingSpec     elbv2model.TargetGroupBindingResourceSpec
+	bindingSpec     k8s2.TargetGroupBindingResourceSpec
 }
 
 type targetGroupBuilder interface {
 	buildTargetGroup(stack core.Stack,
 		gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (*elbv2model.TargetGroup, error)
 	buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, backend routeutils.Backend, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error)
-	buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec
+	buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) k8s2.TargetGroupBindingResourceSpec
 }
 
 type targetGroupBuilderImpl struct {
@@ -118,12 +119,12 @@ func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 	}
 	tg := elbv2model.NewTargetGroup(stack, tgResID, tgOut.targetGroupSpec)
 	tgOut.bindingSpec.Template.Spec.TargetGroupARN = tg.TargetGroupARN()
-	elbv2model.NewTargetGroupBindingResource(stack, tg.ID(), tgOut.bindingSpec)
+	k8s2.NewTargetGroupBindingResource(stack, tg.ID(), tgOut.bindingSpec)
 	t.tgByResID[tgResID] = tg
 	return tg, nil
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
+func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) k8s2.TargetGroupBindingResourceSpec {
 	targetType := elbv2api.TargetType(tgSpec.TargetType)
 	targetPort := backend.ServicePort.TargetPort
 	if targetType == elbv2api.TargetTypeInstance {
@@ -150,15 +151,15 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 		}
 	}
 
-	return elbv2model.TargetGroupBindingResourceSpec{
-		Template: elbv2model.TargetGroupBindingTemplate{
+	return k8s2.TargetGroupBindingResourceSpec{
+		Template: k8s2.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace:   backend.Service.Namespace,
 				Name:        tgSpec.Name,
 				Annotations: annotations,
 				Labels:      labels,
 			},
-			Spec: elbv2model.TargetGroupBindingSpec{
+			Spec: k8s2.TargetGroupBindingSpec{
 				TargetGroupARN: nil, // This should get filled in later!
 				TargetType:     &targetType,
 				ServiceRef: elbv2api.ServiceReference{
@@ -170,12 +171,13 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 				IPAddressType:           elbv2api.TargetGroupIPAddressType(tgSpec.IPAddressType),
 				VpcID:                   builder.vpcID,
 				MultiClusterTargetGroup: multiClusterEnabled,
+				TargetGroupProtocol:     &tgSpec.Protocol,
 			},
 		},
 	}
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, tgProtocol elbv2model.Protocol, backendSGIDToken core.StringToken) *elbv2model.TargetGroupBindingNetworking {
+func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, tgProtocol elbv2model.Protocol, backendSGIDToken core.StringToken) *k8s2.TargetGroupBindingNetworking {
 	if backendSGIDToken == nil {
 		return nil
 	}
@@ -199,12 +201,12 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetP
 			})
 		}
 
-		return &elbv2model.TargetGroupBindingNetworking{
-			Ingress: []elbv2model.NetworkingIngressRule{
+		return &k8s2.TargetGroupBindingNetworking{
+			Ingress: []k8s2.NetworkingIngressRule{
 				{
-					From: []elbv2model.NetworkingPeer{
+					From: []k8s2.NetworkingPeer{
 						{
-							SecurityGroup: &elbv2model.SecurityGroup{
+							SecurityGroup: &k8s2.SecurityGroup{
 								GroupID: backendSGIDToken,
 							},
 						},
@@ -241,12 +243,12 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetP
 		})
 	}
 
-	var networkingRules []elbv2model.NetworkingIngressRule
+	var networkingRules []k8s2.NetworkingIngressRule
 	for _, port := range networkingPorts {
-		networkingRules = append(networkingRules, elbv2model.NetworkingIngressRule{
-			From: []elbv2model.NetworkingPeer{
+		networkingRules = append(networkingRules, k8s2.NetworkingIngressRule{
+			From: []k8s2.NetworkingPeer{
 				{
-					SecurityGroup: &elbv2model.SecurityGroup{
+					SecurityGroup: &k8s2.SecurityGroup{
 						GroupID: backendSGIDToken,
 					},
 				},
@@ -254,7 +256,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetP
 			Ports: []elbv2api.NetworkingPort{port},
 		})
 	}
-	return &elbv2model.TargetGroupBindingNetworking{
+	return &k8s2.TargetGroupBindingNetworking{
 		Ingress: networkingRules,
 	}
 }

@@ -2,6 +2,8 @@ package elbv2
 
 import (
 	"context"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sync"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 
@@ -18,6 +20,11 @@ import (
 )
 
 const apiPathMutateELBv2TargetGroupBinding = "/mutate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
+
+type tgCacheObject struct {
+	tg    *elbv2types.TargetGroup
+	error error
+}
 
 // NewTargetGroupBindingMutator returns a mutator for TargetGroupBinding CRD.
 func NewTargetGroupBindingMutator(elbv2Client services.ELBV2, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *targetGroupBindingMutator {
@@ -41,7 +48,17 @@ func (m *targetGroupBindingMutator) Prototype(_ admission.Request) (runtime.Obje
 }
 
 func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
+
 	tgb := obj.(*elbv2api.TargetGroupBinding)
+
+	targetGroupCache := sync.OnceValue(func() tgCacheObject {
+		targetGroup, err := getTargetGroupFromAWS(ctx, m.elbv2Client, tgb)
+		return tgCacheObject{
+			tg:    targetGroup,
+			error: err,
+		}
+	})
+
 	if tgb.Spec.TargetGroupARN == "" && tgb.Spec.TargetGroupName == "" {
 		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "checkTargetGroupArnOrName")
 		return nil, errors.Errorf("must provide either TargetGroupARN or TargetGroupName")
@@ -50,16 +67,20 @@ func (m *targetGroupBindingMutator) MutateCreate(ctx context.Context, obj runtim
 		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "getArnFromNameIfNeeded")
 		return nil, err
 	}
-	if err := m.defaultingTargetType(ctx, tgb); err != nil {
+	if err := m.defaultingTargetType(tgb, targetGroupCache); err != nil {
 		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "defaultingTargetType")
 		return nil, err
 	}
-	if err := m.defaultingIPAddressType(ctx, tgb); err != nil {
+	if err := m.defaultingIPAddressType(tgb, targetGroupCache); err != nil {
 		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "defaultingIPAddressType")
 		return nil, err
 	}
-	if err := m.defaultingVpcID(ctx, tgb); err != nil {
+	if err := m.defaultingVpcID(tgb, targetGroupCache); err != nil {
 		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "defaultingVpcID")
+		return nil, err
+	}
+	if err := m.defaultingTargetGroupProtocol(tgb, targetGroupCache); err != nil {
+		m.metricsCollector.ObserveWebhookMutationError(apiPathMutateELBv2TargetGroupBinding, "defaultingTargetGroupProtocol")
 		return nil, err
 	}
 	return tgb, nil
@@ -80,11 +101,11 @@ func (m *targetGroupBindingMutator) MutateUpdate(ctx context.Context, obj runtim
 	return obj, nil
 }
 
-func (m *targetGroupBindingMutator) defaultingTargetType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+func (m *targetGroupBindingMutator) defaultingTargetType(tgb *elbv2api.TargetGroupBinding, tgCache func() tgCacheObject) error {
 	if tgb.Spec.TargetType != nil {
 		return nil
 	}
-	sdkTargetType, err := m.obtainSDKTargetTypeFromAWS(ctx, tgb)
+	sdkTargetType, err := m.obtainSDKTargetTypeFromAWS(tgCache)
 	if err != nil {
 		return errors.Wrap(err, "couldn't determine TargetType")
 	}
@@ -102,11 +123,11 @@ func (m *targetGroupBindingMutator) defaultingTargetType(ctx context.Context, tg
 	return nil
 }
 
-func (m *targetGroupBindingMutator) defaultingIPAddressType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+func (m *targetGroupBindingMutator) defaultingIPAddressType(tgb *elbv2api.TargetGroupBinding, tgCache func() tgCacheObject) error {
 	if tgb.Spec.IPAddressType != nil {
 		return nil
 	}
-	targetGroupIPAddressType, err := m.getTargetGroupIPAddressTypeFromAWS(ctx, tgb)
+	targetGroupIPAddressType, err := m.getTargetGroupIPAddressTypeFromAWS(tgCache)
 	if err != nil {
 		return errors.Wrap(err, "unable to get target group IP address type")
 	}
@@ -114,11 +135,11 @@ func (m *targetGroupBindingMutator) defaultingIPAddressType(ctx context.Context,
 	return nil
 }
 
-func (m *targetGroupBindingMutator) defaultingVpcID(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+func (m *targetGroupBindingMutator) defaultingVpcID(tgb *elbv2api.TargetGroupBinding, tgCache func() tgCacheObject) error {
 	if tgb.Spec.VpcID != "" {
 		return nil
 	}
-	vpcId, err := m.getVpcIDFromAWS(ctx, tgb)
+	vpcId, err := m.getVpcIDFromAWS(tgCache)
 	if err != nil {
 		return errors.Wrap(err, "unable to get target group VpcID")
 	}
@@ -126,17 +147,43 @@ func (m *targetGroupBindingMutator) defaultingVpcID(ctx context.Context, tgb *el
 	return nil
 }
 
-func (m *targetGroupBindingMutator) obtainSDKTargetTypeFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, error) {
-	targetGroup, err := getTargetGroupFromAWS(ctx, m.elbv2Client, tgb)
+func (m *targetGroupBindingMutator) defaultingTargetGroupProtocol(tgb *elbv2api.TargetGroupBinding, tgCache func() tgCacheObject) error {
+	if tgb.Spec.TargetGroupProtocol != nil {
+		return nil
+	}
+	sdkTgProtocol, err := obtainSDKTargetGroupProtocolFromAWS(tgCache)
+	if err != nil {
+		return errors.Wrap(err, "couldn't determine TargetGroup protocol")
+	}
+	tgb.Spec.TargetGroupProtocol = (*elbv2model.Protocol)(&sdkTgProtocol)
+	return nil
+}
+
+func (m *targetGroupBindingMutator) obtainSDKTargetTypeFromAWS(tgCache func() tgCacheObject) (string, error) {
+	obj := tgCache()
+	targetGroup := obj.tg
+	err := obj.error
 	if err != nil {
 		return "", err
 	}
 	return string(targetGroup.TargetType), nil
 }
 
+func obtainSDKTargetGroupProtocolFromAWS(tgCache func() tgCacheObject) (string, error) {
+	obj := tgCache()
+	targetGroup := obj.tg
+	err := obj.error
+	if err != nil {
+		return "", err
+	}
+	return string(targetGroup.Protocol), nil
+}
+
 // getTargetGroupIPAddressTypeFromAWS returns the target group IP address type of AWS target group
-func (m *targetGroupBindingMutator) getTargetGroupIPAddressTypeFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (elbv2api.TargetGroupIPAddressType, error) {
-	targetGroup, err := getTargetGroupFromAWS(ctx, m.elbv2Client, tgb)
+func (m *targetGroupBindingMutator) getTargetGroupIPAddressTypeFromAWS(tgCache func() tgCacheObject) (elbv2api.TargetGroupIPAddressType, error) {
+	obj := tgCache()
+	targetGroup := obj.tg
+	err := obj.error
 	if err != nil {
 		return "", err
 	}
@@ -152,8 +199,10 @@ func (m *targetGroupBindingMutator) getTargetGroupIPAddressTypeFromAWS(ctx conte
 	return ipAddressType, nil
 }
 
-func (m *targetGroupBindingMutator) getVpcIDFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, error) {
-	targetGroup, err := getTargetGroupFromAWS(ctx, m.elbv2Client, tgb)
+func (m *targetGroupBindingMutator) getVpcIDFromAWS(tgCache func() tgCacheObject) (string, error) {
+	obj := tgCache()
+	targetGroup := obj.tg
+	err := obj.error
 	if err != nil {
 		return "", err
 	}

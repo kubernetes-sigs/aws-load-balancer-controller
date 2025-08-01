@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	k8s2 "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
@@ -428,47 +429,47 @@ func (t *defaultModelBuildTask) buildTargetGroupTags(ctx context.Context) (map[s
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, targetGroup *elbv2model.TargetGroup,
-	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig, scheme elbv2model.LoadBalancerScheme) (*elbv2model.TargetGroupBindingResource, error) {
+	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig, scheme elbv2model.LoadBalancerScheme) (*k8s2.TargetGroupBindingResource, error) {
 	tgbSpec, err := t.buildTargetGroupBindingSpec(ctx, targetGroup, port, hc, scheme)
 	if err != nil {
 		return nil, err
 	}
-	return elbv2model.NewTargetGroupBindingResource(t.stack, targetGroup.ID(), tgbSpec), nil
+	return k8s2.NewTargetGroupBindingResource(t.stack, targetGroup.ID(), tgbSpec), nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, targetGroup *elbv2model.TargetGroup,
-	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig, scheme elbv2model.LoadBalancerScheme) (elbv2model.TargetGroupBindingResourceSpec, error) {
+	port corev1.ServicePort, hc *elbv2model.TargetGroupHealthCheckConfig, scheme elbv2model.LoadBalancerScheme) (k8s2.TargetGroupBindingResourceSpec, error) {
 	nodeSelector, err := t.buildTargetGroupBindingNodeSelector(ctx, targetGroup.Spec.TargetType)
 	if err != nil {
-		return elbv2model.TargetGroupBindingResourceSpec{}, err
+		return k8s2.TargetGroupBindingResourceSpec{}, err
 	}
 	targetPort := port.TargetPort
 	targetType := elbv2api.TargetType(targetGroup.Spec.TargetType)
 	if targetType == elbv2api.TargetTypeInstance {
 		targetPort = intstr.FromInt(int(port.NodePort))
 	}
-	var tgbNetworking *elbv2model.TargetGroupBindingNetworking
+	var tgbNetworking *k8s2.TargetGroupBindingNetworking
 	if len(t.loadBalancer.Spec.SecurityGroups) == 0 {
 		tgbNetworking, err = t.buildTargetGroupBindingNetworkingLegacy(ctx, targetPort, targetGroup.Spec.Protocol, *hc.Port, scheme, targetGroup.Spec.IPAddressType)
 	} else {
 		tgbNetworking, err = t.buildTargetGroupBindingNetworking(ctx, targetPort, *hc.Port, targetGroup.Spec.Protocol)
 	}
 	if err != nil {
-		return elbv2model.TargetGroupBindingResourceSpec{}, err
+		return k8s2.TargetGroupBindingResourceSpec{}, err
 	}
 
 	multiTg, err := t.buildTargetGroupBindingMultiClusterFlag(t.service)
 	if err != nil {
-		return elbv2model.TargetGroupBindingResourceSpec{}, err
+		return k8s2.TargetGroupBindingResourceSpec{}, err
 	}
 
-	return elbv2model.TargetGroupBindingResourceSpec{
-		Template: elbv2model.TargetGroupBindingTemplate{
+	return k8s2.TargetGroupBindingResourceSpec{
+		Template: k8s2.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: t.service.Namespace,
 				Name:      targetGroup.Spec.Name,
 			},
-			Spec: elbv2model.TargetGroupBindingSpec{
+			Spec: k8s2.TargetGroupBindingSpec{
 				TargetGroupARN: targetGroup.TargetGroupARN(),
 				TargetType:     &targetType,
 				ServiceRef: elbv2api.ServiceReference{
@@ -480,13 +481,14 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 				IPAddressType:           elbv2api.TargetGroupIPAddressType(targetGroup.Spec.IPAddressType),
 				VpcID:                   t.vpcID,
 				MultiClusterTargetGroup: multiTg,
+				TargetGroupProtocol:     &targetGroup.Spec.Protocol,
 			},
 		},
 	}, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, tgPort intstr.IntOrString,
-	hcPort intstr.IntOrString, tgProtocol elbv2model.Protocol) (*elbv2model.TargetGroupBindingNetworking, error) {
+	hcPort intstr.IntOrString, tgProtocol elbv2model.Protocol) (*k8s2.TargetGroupBindingNetworking, error) {
 
 	if t.backendSGIDToken == nil {
 		return nil, nil
@@ -537,12 +539,12 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 			})
 		}
 	}
-	return &elbv2model.TargetGroupBindingNetworking{
-		Ingress: []elbv2model.NetworkingIngressRule{
+	return &k8s2.TargetGroupBindingNetworking{
+		Ingress: []k8s2.NetworkingIngressRule{
 			{
-				From: []elbv2model.NetworkingPeer{
+				From: []k8s2.NetworkingPeer{
 					{
-						SecurityGroup: &elbv2model.SecurityGroup{
+						SecurityGroup: &k8s2.SecurityGroup{
 							GroupID: t.backendSGIDToken,
 						},
 					},
@@ -564,10 +566,10 @@ func (t *defaultModelBuildTask) getLoadBalancerSourceRanges(_ context.Context) [
 	return sourceRanges
 }
 
-func (t *defaultModelBuildTask) buildPeersFromSourceRangeCIDRs(_ context.Context, sourceRanges []string) []elbv2model.NetworkingPeer {
-	var peers []elbv2model.NetworkingPeer
+func (t *defaultModelBuildTask) buildPeersFromSourceRangeCIDRs(_ context.Context, sourceRanges []string) []k8s2.NetworkingPeer {
+	var peers []k8s2.NetworkingPeer
 	for _, cidr := range sourceRanges {
-		peers = append(peers, elbv2model.NetworkingPeer{
+		peers = append(peers, k8s2.NetworkingPeer{
 			IPBlock: &elbv2api.IPBlock{
 				CIDR: cidr,
 			},
@@ -577,7 +579,7 @@ func (t *defaultModelBuildTask) buildPeersFromSourceRangeCIDRs(_ context.Context
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx context.Context, tgPort intstr.IntOrString, tgProtocol elbv2model.Protocol,
-	hcPort intstr.IntOrString, scheme elbv2model.LoadBalancerScheme, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) (*elbv2model.TargetGroupBindingNetworking, error) {
+	hcPort intstr.IntOrString, scheme elbv2model.LoadBalancerScheme, targetGroupIPAddressType elbv2model.TargetGroupIPAddressType) (*k8s2.TargetGroupBindingNetworking, error) {
 	manageBackendSGRules, err := t.buildManageSecurityGroupRulesFlagLegacy(ctx)
 	if err != nil {
 		return nil, err
@@ -628,8 +630,8 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 			},
 		}
 	}
-	tgbNetworking := &elbv2model.TargetGroupBindingNetworking{
-		Ingress: []elbv2model.NetworkingIngressRule{
+	tgbNetworking := &k8s2.TargetGroupBindingNetworking{
+		Ingress: []k8s2.NetworkingIngressRule{
 			{
 				From:  t.buildPeersFromSourceRangeCIDRs(ctx, trafficSource),
 				Ports: trafficPorts,
@@ -642,7 +644,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 		if hcPort.String() == shared_constants.HealthCheckPortTrafficPort {
 			networkingHealthCheckPort = tgPort
 		}
-		tgbNetworking.Ingress = append(tgbNetworking.Ingress, elbv2model.NetworkingIngressRule{
+		tgbNetworking.Ingress = append(tgbNetworking.Ingress, k8s2.NetworkingIngressRule{
 			From: t.buildPeersFromSourceRangeCIDRs(ctx, healthCheckSourceCIDRs),
 			Ports: []elbv2api.NetworkingPort{
 				{
