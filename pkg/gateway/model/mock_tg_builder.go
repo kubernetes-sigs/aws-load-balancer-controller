@@ -6,6 +6,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -30,7 +31,7 @@ func (m *MockTargetGroupBuilder) buildTargetGroupSpec(gw *gwv1.Gateway, route ro
 	panic("implement me")
 }
 
-func (m *MockTargetGroupBuilder) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2model.TargetGroupBindingResourceSpec {
+func (m *MockTargetGroupBuilder) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) k8s.TargetGroupBindingResourceSpec {
 	//TODO implement me
 	panic("implement me")
 }

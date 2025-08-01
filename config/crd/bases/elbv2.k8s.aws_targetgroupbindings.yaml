@@ -421,6 +421,17 @@ spec:
               targetGroupName:
                 description: targetGroupName is the Name of the TargetGroup.
                 type: string
+              targetGroupProtocol:
+                description: targetGroupProtocol is the Protocol of the TargetGroup.
+                  If unspecified, it will be automatically inferred.
+                enum:
+                - HTTP
+                - HTTPS
+                - TCP
+                - TLS
+                - UDP
+                - TCP_UDP
+                type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,
                   it will be automatically inferred.

@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"time"
 )
@@ -196,9 +196,10 @@ func buildK8sTargetGroupBindingSpec(ctx context.Context, resTGB *elbv2model.Targ
 	}
 
 	k8sTGBSpec := elbv2api.TargetGroupBindingSpec{
-		TargetGroupARN: tgARN,
-		TargetType:     resTGB.Spec.Template.Spec.TargetType,
-		ServiceRef:     resTGB.Spec.Template.Spec.ServiceRef,
+		TargetGroupARN:      tgARN,
+		TargetType:          resTGB.Spec.Template.Spec.TargetType,
+		TargetGroupProtocol: resTGB.Spec.Template.Spec.TargetGroupProtocol,
+		ServiceRef:          resTGB.Spec.Template.Spec.ServiceRef,
 	}
 
 	if resTGB.Spec.Template.Spec.Networking != nil {

@@ -5,7 +5,9 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"strings"
+	"sync"
 	"testing"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -47,6 +49,8 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 	}
 	instanceTargetType := elbv2api.TargetTypeInstance
 	ipTargetType := elbv2api.TargetTypeIP
+	udpTgProtocol := elbv2.ProtocolUDP
+	httpTgProtocol := elbv2.ProtocolHTTP
 	clusterVpcID := "vpc-123456ab"
 	tests := []struct {
 		name    string
@@ -78,6 +82,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
 								TargetType:     elbv2types.TargetTypeEnum("instance"),
+								Protocol:       elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -118,6 +123,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 							{
 								TargetGroupArn: awssdk.String("tg-2"),
 								TargetType:     elbv2types.TargetTypeEnumInstance,
+								Protocol:       elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -147,6 +153,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 								TargetGroupArn:  awssdk.String("tg-arn"),
 								TargetGroupName: awssdk.String("tg-name"),
 								TargetType:      elbv2types.TargetTypeEnumInstance,
+								Protocol:        elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -159,6 +166,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 								TargetGroupArn:  awssdk.String("tg-arn"),
 								TargetGroupName: awssdk.String("tg-name"),
 								TargetType:      elbv2types.TargetTypeEnumInstance,
+								Protocol:        elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -188,6 +196,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 								TargetGroupArn: awssdk.String("tg-2"),
 								TargetType:     elbv2types.TargetTypeEnumInstance,
 								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv4,
+								Protocol:       elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -217,6 +226,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 								TargetGroupArn: awssdk.String("tg-2"),
 								TargetType:     elbv2types.TargetTypeEnumInstance,
 								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
+								Protocol:       elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -246,19 +256,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 								TargetType:     elbv2types.TargetTypeEnumInstance,
 								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
 								VpcId:          &clusterVpcID,
-							},
-						},
-					},
-					{
-						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: []string{"tg-2"},
-						},
-						resp: []elbv2types.TargetGroup{
-							{
-								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     elbv2types.TargetTypeEnumInstance,
-								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
-								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -274,7 +272,6 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: nil,
 		},
 		{
 			name: "VpcID provided doesnt match TG VpcID mismatch",
@@ -290,19 +287,7 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 								TargetType:     elbv2types.TargetTypeEnumInstance,
 								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
 								VpcId:          &clusterVpcID,
-							},
-						},
-					},
-					{
-						req: &elbv2sdk.DescribeTargetGroupsInput{
-							TargetGroupArns: []string{"tg-2"},
-						},
-						resp: []elbv2types.TargetGroup{
-							{
-								TargetGroupArn: awssdk.String("tg-2"),
-								TargetType:     elbv2types.TargetTypeEnumInstance,
-								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
-								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -319,6 +304,71 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			wantErr: errors.New("invalid VpcID vpc-1234567a doesnt match VpcID from TargetGroup tg-2"),
+		},
+		{
+			name: "protocol in spec matches with TG protocol",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-2"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
+								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumHttp,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:      "tg-2",
+						TargetType:          &instanceTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv6,
+						VpcID:               clusterVpcID,
+						TargetGroupProtocol: &httpTgProtocol,
+					},
+				},
+			},
+		},
+		{
+			name: "tg protocol provided doesnt match TG protocol mismatch",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-2"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
+								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumHttp,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:      "tg-2",
+						TargetType:          &instanceTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv6,
+						VpcID:               clusterVpcID,
+						TargetGroupProtocol: &udpTgProtocol,
+					},
+				},
+			},
+			wantErr: errors.New("TargetGroup tg-2 protocol differs (got UDP, expected HTTP)"),
 		},
 	}
 	for _, tt := range tests {
@@ -1331,7 +1381,8 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 						},
 						resp: []elbv2types.TargetGroup{
 							{
-								VpcId: awssdk.String(vpcID8Chars),
+								VpcId:    awssdk.String(vpcID8Chars),
+								Protocol: elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -1356,7 +1407,8 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 						},
 						resp: []elbv2types.TargetGroup{
 							{
-								VpcId: awssdk.String(vpcID17Chars),
+								VpcId:    awssdk.String(vpcID17Chars),
+								Protocol: elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -1381,7 +1433,8 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 						},
 						resp: []elbv2types.TargetGroup{
 							{
-								VpcId: awssdk.String(vpcIDUUID),
+								VpcId:    awssdk.String(vpcIDUUID),
+								Protocol: elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -1406,7 +1459,8 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 						},
 						resp: []elbv2types.TargetGroup{
 							{
-								VpcId: awssdk.String(fmt.Sprintf("vpc-%s", generateRandomString(17))),
+								VpcId:    awssdk.String(fmt.Sprintf("vpc-%s", generateRandomString(17))),
+								Protocol: elbv2types.ProtocolEnumHttp,
 							},
 						},
 					},
@@ -1548,7 +1602,17 @@ func Test_targetGroupBindingValidator_checkTargetGroupVpcID(t *testing.T) {
 				logger:           logr.New(&log.NullLogSink{}),
 				metricsCollector: mockMetricsCollector,
 			}
-			err := v.checkTargetGroupVpcID(context.Background(), tt.args.obj)
+
+			tgb := tt.args.obj
+			targetGroupCache := sync.OnceValue(func() tgCacheObject {
+				targetGroup, err := getTargetGroupFromAWS(ctx, elbv2Client, tgb)
+				return tgCacheObject{
+					tg:    targetGroup,
+					error: err,
+				}
+			})
+
+			err := v.checkTargetGroupVpcID(tgb, targetGroupCache)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
