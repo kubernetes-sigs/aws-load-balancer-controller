@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -13,7 +14,7 @@ import (
 // listenerAttachmentHelper is an internal utility interface that can be used to determine if a listener will allow
 // a route to attach to it.
 type listenerAttachmentHelper interface {
-	listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler) (bool, error)
+	listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, error)
 }
 
 var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
@@ -33,7 +34,7 @@ func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) li
 
 // listenerAllowsAttachment utility method to determine if a listener will allow a route to connect using
 // Gateway API rules to determine compatibility between lister and route.
-func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler) (bool, error) {
+func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, error) {
 	// check namespace
 	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, gw, listener, route)
 	if err != nil {
@@ -63,9 +64,20 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 			return false, err
 		}
 		if !hostnameOK {
-			// hostname is not ok, print out gwName and gwNamespace test-gw-alb gateway-alb
 			deferredRouteReconciler.Enqueue(
 				GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingListenerHostname), RouteStatusInfoRejectedMessageNoMatchingHostname, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw),
+			)
+			return false, nil
+		}
+	}
+
+	// check cross serving hostname uniqueness
+	if route.GetRouteKind() == HTTPRouteKind || route.GetRouteKind() == GRPCRouteKind {
+		hostnameUniquenessOK, conflictRoute := attachmentHelper.crossServingHostnameUniquenessCheck(route, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
+		if !hostnameUniquenessOK {
+			message := fmt.Sprintf("HTTPRoute and GRPCRoute have overlap hostname, attachment is rejected. Conflict route: %s", conflictRoute)
+			deferredRouteReconciler.Enqueue(
+				GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), message, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw),
 			)
 			return false, nil
 		}
@@ -198,4 +210,35 @@ func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv
 		}
 	}
 	return false, nil
+}
+
+func (attachmentHelper *listenerAttachmentHelperImpl) crossServingHostnameUniquenessCheck(route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, string) {
+	namespacedName := route.GetRouteNamespacedName()
+	hostnames := route.GetHostnames()
+	routeKind := route.GetRouteKind()
+	var conflictMap map[types.NamespacedName][]gwv1.Hostname
+
+	switch routeKind {
+	case GRPCRouteKind:
+		hostnamesFromGrpcRoutes[namespacedName] = hostnames
+		if len(hostnamesFromHttpRoutes) > 0 {
+			conflictMap = hostnamesFromHttpRoutes
+		}
+	case HTTPRouteKind:
+		hostnamesFromHttpRoutes[namespacedName] = hostnames
+		if len(hostnamesFromGrpcRoutes) > 0 {
+			conflictMap = hostnamesFromGrpcRoutes
+		}
+	}
+
+	for _, hostname := range hostnames {
+		for conflictNamespacedName, conflictHostnames := range conflictMap {
+			for _, conflictHostname := range conflictHostnames {
+				if isHostnameCompatible(string(hostname), string(conflictHostname)) {
+					return false, conflictNamespacedName.String()
+				}
+			}
+		}
+	}
+	return true, ""
 }

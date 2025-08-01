@@ -29,6 +29,7 @@ type mockRoute struct {
 	namespacedName types.NamespacedName
 	routeKind      RouteKind
 	generation     int64
+	hostnames      []gwv1.Hostname
 }
 
 func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -44,8 +45,7 @@ func (m *mockRoute) GetRouteKind() RouteKind {
 }
 
 func (m *mockRoute) GetHostnames() []gwv1.Hostname {
-	//TODO implement me
-	panic("implement me")
+	return m.hostnames
 }
 
 func (m *mockRoute) GetParentRefs() []gwv1.ParentReference {

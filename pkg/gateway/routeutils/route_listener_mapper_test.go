@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
 )
@@ -19,7 +20,7 @@ func makeListenerAttachmentMapKey(listener gwv1.Listener, route preLoadRouteDesc
 	return fmt.Sprintf("%s-%d-%s-%s", listener.Name, listener.Port, nsn.Name, nsn.Namespace)
 }
 
-func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, routeReconciler RouteReconciler) (bool, error) {
+func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, routeReconciler RouteReconciler, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, error) {
 	k := makeListenerAttachmentMapKey(listener, route)
 	return m.attachmentMap[k], nil
 }
