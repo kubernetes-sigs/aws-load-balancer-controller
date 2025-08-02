@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -28,6 +29,7 @@ const (
 	apiPathValidateELBv2TargetGroupBinding = "/validate-elbv2-k8s-aws-v1beta1-targetgroupbinding"
 	vpcIDValidationErr                     = "ValidationError: vpcID %v failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8, 17 or 32 lowercase letters (a-f) or numbers."
 	vpcIDNotMatchErr                       = "invalid VpcID %v doesnt match VpcID from TargetGroup %v"
+	tgProtocolMismatch                     = "TargetGroup %v protocol differs (got %v, expected %v)"
 )
 
 var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17}|vpc-[0-9a-f]{32})$")
@@ -59,6 +61,15 @@ func (v *targetGroupBindingValidator) Prototype(_ admission.Request) (runtime.Ob
 
 func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
 	tgb := obj.(*elbv2api.TargetGroupBinding)
+
+	targetGroupCache := sync.OnceValue(func() tgCacheObject {
+		targetGroup, err := getTargetGroupFromAWS(ctx, v.elbv2Client, tgb)
+		return tgCacheObject{
+			tg:    targetGroup,
+			error: err,
+		}
+	})
+
 	if err := v.checkRequiredFields(ctx, tgb); err != nil {
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkRequiredFields")
 		return err
@@ -71,11 +82,11 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkExistingTargetGroups")
 		return err
 	}
-	if err := v.checkTargetGroupIPAddressType(ctx, tgb); err != nil {
+	if err := v.checkTargetGroupIPAddressType(tgb, targetGroupCache); err != nil {
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkTargetGroupIPAddressType")
 		return err
 	}
-	if err := v.checkTargetGroupVpcID(ctx, tgb); err != nil {
+	if err := v.checkTargetGroupVpcID(tgb, targetGroupCache); err != nil {
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkTargetGroupVpcID")
 		return err
 
@@ -84,6 +95,12 @@ func (v *targetGroupBindingValidator) ValidateCreate(ctx context.Context, obj ru
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkAssumeRoleConfig")
 		return err
 	}
+
+	if err := v.checkTargetGroupProtocol(tgb, targetGroupCache); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateELBv2TargetGroupBinding, "checkTargetGroupProtocol")
+		return err
+	}
+
 	return nil
 }
 
@@ -217,8 +234,8 @@ func (v *targetGroupBindingValidator) checkNodeSelector(tgb *elbv2api.TargetGrou
 }
 
 // checkTargetGroupIPAddressType ensures IP address type matches with that on the AWS target group
-func (v *targetGroupBindingValidator) checkTargetGroupIPAddressType(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
-	targetGroupIPAddressType, err := v.getTargetGroupIPAddressTypeFromAWS(ctx, tgb)
+func (v *targetGroupBindingValidator) checkTargetGroupIPAddressType(tgb *elbv2api.TargetGroupBinding, tgCache func() tgCacheObject) error {
+	targetGroupIPAddressType, err := v.getTargetGroupIPAddressTypeFromAWS(tgCache)
 	if err != nil {
 		return errors.Wrap(err, "unable to get target group IP address type")
 	}
@@ -230,14 +247,14 @@ func (v *targetGroupBindingValidator) checkTargetGroupIPAddressType(ctx context.
 }
 
 // checkTargetGroupVpcID ensures VpcID matches with that on the AWS target group
-func (v *targetGroupBindingValidator) checkTargetGroupVpcID(ctx context.Context, tgb *elbv2api.TargetGroupBinding) error {
+func (v *targetGroupBindingValidator) checkTargetGroupVpcID(tgb *elbv2api.TargetGroupBinding, tgCache func() tgCacheObject) error {
 	if tgb.Spec.VpcID == "" {
 		return nil
 	}
 	if !vpcIDPatternRegex.MatchString(tgb.Spec.VpcID) {
 		return errors.Errorf(vpcIDValidationErr, tgb.Spec.VpcID)
 	}
-	vpcID, err := v.getVpcIDFromAWS(ctx, tgb)
+	vpcID, err := v.getVpcIDFromAWS(tgCache)
 	if err != nil {
 		return errors.Wrap(err, "unable to get target group VpcID")
 	}
@@ -248,8 +265,12 @@ func (v *targetGroupBindingValidator) checkTargetGroupVpcID(ctx context.Context,
 }
 
 // getTargetGroupIPAddressTypeFromAWS returns the target group IP address type of AWS target group
-func (v *targetGroupBindingValidator) getTargetGroupIPAddressTypeFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (elbv2api.TargetGroupIPAddressType, error) {
-	targetGroup, err := getTargetGroupFromAWS(ctx, v.elbv2Client, tgb)
+func (v *targetGroupBindingValidator) getTargetGroupIPAddressTypeFromAWS(tgCache func() tgCacheObject) (elbv2api.TargetGroupIPAddressType, error) {
+
+	obj := tgCache()
+	targetGroup := obj.tg
+	err := obj.error
+
 	if err != nil {
 		return "", err
 	}
@@ -265,8 +286,10 @@ func (v *targetGroupBindingValidator) getTargetGroupIPAddressTypeFromAWS(ctx con
 	return ipAddressType, nil
 }
 
-func (v *targetGroupBindingValidator) getVpcIDFromAWS(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (string, error) {
-	targetGroup, err := getTargetGroupFromAWS(ctx, v.elbv2Client, tgb)
+func (v *targetGroupBindingValidator) getVpcIDFromAWS(tgCache func() tgCacheObject) (string, error) {
+	obj := tgCache()
+	targetGroup := obj.tg
+	err := obj.error
 	if err != nil {
 		return "", err
 	}
@@ -283,6 +306,22 @@ func (v *targetGroupBindingValidator) checkAssumeRoleConfig(tgb *elbv2api.Target
 		return errors.New("Unable to use instance target type while using assume role")
 	}
 
+	return nil
+}
+
+// checkTargetGroupVpcID ensures Target Group Protocol matches with that on the AWS target group
+func (v *targetGroupBindingValidator) checkTargetGroupProtocol(tgb *elbv2api.TargetGroupBinding, tgCache func() tgCacheObject) error {
+	// Backwards compatibility -- nil is acceptable for legacy tgb
+	if tgb.Spec.TargetGroupProtocol == nil {
+		return nil
+	}
+	tgProtocol, err := obtainSDKTargetGroupProtocolFromAWS(tgCache)
+	if err != nil {
+		return errors.Wrap(err, "unable to get target group VpcID")
+	}
+	if tgProtocol != string(*tgb.Spec.TargetGroupProtocol) {
+		return errors.Errorf(tgProtocolMismatch, tgb.Spec.TargetGroupARN, *tgb.Spec.TargetGroupProtocol, tgProtocol)
+	}
 	return nil
 }
 

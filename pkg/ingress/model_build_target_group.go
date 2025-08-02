@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	k8s2 "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
 
@@ -48,16 +49,16 @@ func (t *defaultModelBuildTask) buildTargetGroup(ctx context.Context,
 	return tg, err
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector, ing ClassifiedIngress) (*elbv2model.TargetGroupBindingResource, error) {
+func (t *defaultModelBuildTask) buildTargetGroupBinding(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector, ing ClassifiedIngress) (*k8s2.TargetGroupBindingResource, error) {
 	tgbSpec, err := t.buildTargetGroupBindingSpec(ctx, tg, svc, port, svcPort, nodeSelector, ing)
 	if err != nil {
 		return nil, err
 	}
-	tgb := elbv2model.NewTargetGroupBindingResource(t.stack, tg.ID(), tgbSpec)
+	tgb := k8s2.NewTargetGroupBindingResource(t.stack, tg.ID(), tgbSpec)
 	return tgb, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector, ing ClassifiedIngress) (elbv2model.TargetGroupBindingResourceSpec, error) {
+func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context, tg *elbv2model.TargetGroup, svc *corev1.Service, port intstr.IntOrString, svcPort corev1.ServicePort, nodeSelector *metav1.LabelSelector, ing ClassifiedIngress) (k8s2.TargetGroupBindingResourceSpec, error) {
 	targetType := elbv2api.TargetType(tg.Spec.TargetType)
 	targetPort := svcPort.TargetPort
 	if targetType == elbv2api.TargetTypeInstance {
@@ -67,16 +68,16 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 
 	multiTg, err := t.buildTargetGroupBindingMultiClusterFlag(ing, svc)
 	if err != nil {
-		return elbv2model.TargetGroupBindingResourceSpec{}, err
+		return k8s2.TargetGroupBindingResourceSpec{}, err
 	}
 
-	return elbv2model.TargetGroupBindingResourceSpec{
-		Template: elbv2model.TargetGroupBindingTemplate{
+	return k8s2.TargetGroupBindingResourceSpec{
+		Template: k8s2.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: svc.Namespace,
 				Name:      tg.Spec.Name,
 			},
-			Spec: elbv2model.TargetGroupBindingSpec{
+			Spec: k8s2.TargetGroupBindingSpec{
 				TargetGroupARN: tg.TargetGroupARN(),
 				TargetType:     &targetType,
 				ServiceRef: elbv2api.ServiceReference{
@@ -88,23 +89,24 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 				IPAddressType:           elbv2api.TargetGroupIPAddressType(tg.Spec.IPAddressType),
 				VpcID:                   t.vpcID,
 				MultiClusterTargetGroup: multiTg,
+				TargetGroupProtocol:     &tg.Spec.Protocol,
 			},
 		},
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString) *elbv2model.TargetGroupBindingNetworking {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString) *k8s2.TargetGroupBindingNetworking {
 	if t.backendSGIDToken == nil {
 		return nil
 	}
 	protocolTCP := elbv2api.NetworkingProtocolTCP
 	if t.disableRestrictedSGRules {
-		return &elbv2model.TargetGroupBindingNetworking{
-			Ingress: []elbv2model.NetworkingIngressRule{
+		return &k8s2.TargetGroupBindingNetworking{
+			Ingress: []k8s2.NetworkingIngressRule{
 				{
-					From: []elbv2model.NetworkingPeer{
+					From: []k8s2.NetworkingPeer{
 						{
-							SecurityGroup: &elbv2model.SecurityGroup{
+							SecurityGroup: &k8s2.SecurityGroup{
 								GroupID: t.backendSGIDToken,
 							},
 						},
@@ -120,7 +122,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 		}
 	}
 	var networkingPorts []elbv2api.NetworkingPort
-	var networkingRules []elbv2model.NetworkingIngressRule
+	var networkingRules []k8s2.NetworkingIngressRule
 	networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
 		Protocol: &protocolTCP,
 		Port:     &targetPort,
@@ -132,10 +134,10 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 		})
 	}
 	for _, port := range networkingPorts {
-		networkingRules = append(networkingRules, elbv2model.NetworkingIngressRule{
-			From: []elbv2model.NetworkingPeer{
+		networkingRules = append(networkingRules, k8s2.NetworkingIngressRule{
+			From: []k8s2.NetworkingPeer{
 				{
-					SecurityGroup: &elbv2model.SecurityGroup{
+					SecurityGroup: &k8s2.SecurityGroup{
 						GroupID: t.backendSGIDToken,
 					},
 				},
@@ -143,7 +145,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 			Ports: []elbv2api.NetworkingPort{port},
 		})
 	}
-	return &elbv2model.TargetGroupBindingNetworking{
+	return &k8s2.TargetGroupBindingNetworking{
 		Ingress: networkingRules,
 	}
 }
