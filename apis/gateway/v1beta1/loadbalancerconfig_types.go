@@ -140,6 +140,18 @@ type MutualAuthenticationAttributes struct {
 	TrustStore *string `json:"trustStore,omitempty"`
 }
 
+// ShieldConfiguration configuration parameters used to configure Shield
+type ShieldConfiguration struct {
+	// Enabled whether Shield Advanced should be configured with the Gateway
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// WAFv2Configuration configuration parameters used to configure WAFv2
+type WAFv2Configuration struct {
+	// ACL The WebACL to configure with the Gateway
+	ACL string `json:"webACL"`
+}
+
 // +kubebuilder:validation:Pattern="^(HTTP|HTTPS|TLS|TCP|UDP)?:(6553[0-5]|655[0-2]\\d|65[0-4]\\d{2}|6[0-4]\\d{3}|[1-5]\\d{4}|[1-9]\\d{0,3})?$"
 type ProtocolPort string
 type ListenerConfiguration struct {
@@ -261,6 +273,14 @@ type LoadBalancerConfigurationSpec struct {
 	// MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers
 	// +optional
 	MinimumLoadBalancerCapacity *MinimumLoadBalancerCapacity `json:"minimumLoadBalancerCapacity,omitempty"`
+
+	// WAFv2 define the AWS WAFv2 settings for a Gateway [Application Load Balancer]
+	// +optional
+	WAFv2 *WAFv2Configuration `json:"wafV2,omitempty"`
+
+	// ShieldAdvanced define the AWS Shield settings for a Gateway [Application Load Balancer]
+	// +optional
+	ShieldAdvanced *ShieldConfiguration `json:"shieldConfiguration,omitempty"`
 }
 
 // TODO -- these can be used to set what generation the gateway is currently on to track progress on reconcile.

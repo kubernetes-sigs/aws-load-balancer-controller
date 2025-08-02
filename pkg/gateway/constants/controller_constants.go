@@ -66,4 +66,7 @@ const (
 
 	//ListenerRuleConfigurationController the controller that reconciles ListenerRuleConfiguration changes
 	ListenerRuleConfigurationController = "aws-lbc-listenerruleconfiguration-controller"
+
+	// GatewayLBPrefixEnabledAddon The prefix tracking addons within the Gateway.
+	GatewayLBPrefixEnabledAddon = "gateway.k8s.aws.addon."
 )

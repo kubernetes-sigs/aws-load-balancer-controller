@@ -171,4 +171,16 @@ func (merger *loadBalancerConfigMergerImpl) performTakeOneMerges(merged *elbv2gw
 	} else {
 		merged.ManageBackendSecurityGroupRules = lowPriority.Spec.ManageBackendSecurityGroupRules
 	}
+
+	if highPriority.Spec.WAFv2 != nil {
+		merged.WAFv2 = highPriority.Spec.WAFv2
+	} else {
+		merged.WAFv2 = lowPriority.Spec.WAFv2
+	}
+
+	if highPriority.Spec.ShieldAdvanced != nil {
+		merged.ShieldAdvanced = highPriority.Spec.ShieldAdvanced
+	} else {
+		merged.ShieldAdvanced = lowPriority.Spec.ShieldAdvanced
+	}
 }
