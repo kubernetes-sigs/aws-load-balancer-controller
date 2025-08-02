@@ -1049,10 +1049,29 @@ func Test_defaultEnhancedBackendBuilder_buildActionViaAnnotation(t *testing.T) {
 			},
 		},
 		{
+			name: "forward action - simplified schema with target group name",
+			args: args{
+				ingAnnotation: map[string]string{
+					"alb.ingress.kubernetes.io/actions.forward-single-tg": `{"type":"forward","targetGroupName": "tg-name"}`,
+				},
+				svcName: "forward-single-tg",
+			},
+			want: Action{
+				Type: ActionTypeForward,
+				ForwardConfig: &ForwardActionConfig{
+					TargetGroups: []TargetGroupTuple{
+						{
+							TargetGroupName: awssdk.String("tg-name"),
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "forward action - advanced schema",
 			args: args{
 				ingAnnotation: map[string]string{
-					"alb.ingress.kubernetes.io/actions.forward-multiple-tg": `{"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"service-1","servicePort":"http","weight":20},{"serviceName":"service-2","servicePort":80,"weight":20},{"targetGroupARN":"tg-arn","weight":60}],"targetGroupStickinessConfig":{"enabled":true,"durationSeconds":200}}}`,
+					"alb.ingress.kubernetes.io/actions.forward-multiple-tg": `{"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"service-1","servicePort":"http","weight":20},{"serviceName":"service-2","servicePort":80,"weight":20},{"targetGroupARN":"tg-arn","weight":60},{"targetGroupName":"tg-name","weight":80}],"targetGroupStickinessConfig":{"enabled":true,"durationSeconds":200}}}`,
 				},
 				svcName: "forward-multiple-tg",
 			},
@@ -1073,6 +1092,10 @@ func Test_defaultEnhancedBackendBuilder_buildActionViaAnnotation(t *testing.T) {
 						{
 							TargetGroupARN: awssdk.String("tg-arn"),
 							Weight:         awssdk.Int32(60),
+						},
+						{
+							TargetGroupName: awssdk.String("tg-name"),
+							Weight:          awssdk.Int32(80),
 						},
 					},
 					TargetGroupStickinessConfig: &TargetGroupStickinessConfig{

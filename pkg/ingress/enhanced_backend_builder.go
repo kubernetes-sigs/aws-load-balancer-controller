@@ -208,13 +208,14 @@ func (b *defaultEnhancedBackendBuilder) buildActionViaServiceAndServicePort(_ co
 // normalizeSimplifiedSchemaForwardAction will normalize to the advanced schema for forward action to share common processing logic.
 // we support a simplified schema in action annotation when configure forward to a single TargetGroup.
 func (b *defaultEnhancedBackendBuilder) normalizeSimplifiedSchemaForwardAction(_ context.Context, action *Action) {
-	if action.Type == ActionTypeForward && action.TargetGroupARN != nil {
+	if action.Type == ActionTypeForward && (action.TargetGroupARN != nil || action.TargetGroupName != nil) {
 		*action = Action{
 			Type: ActionTypeForward,
 			ForwardConfig: &ForwardActionConfig{
 				TargetGroups: []TargetGroupTuple{
 					{
-						TargetGroupARN: action.TargetGroupARN,
+						TargetGroupARN:  action.TargetGroupARN,
+						TargetGroupName: action.TargetGroupName,
 					},
 				},
 			},
