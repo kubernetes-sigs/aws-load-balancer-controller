@@ -13,7 +13,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
+	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
@@ -340,7 +340,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 		tagErr                   error
 		expectErr                bool
 		expectedTgSpec           elbv2model.TargetGroupSpec
-		expectedTgBindingSpec    k8s.TargetGroupBindingResourceSpec
+		expectedTgBindingSpec    elbv2modelk8s.TargetGroupBindingResourceSpec
 	}{
 		{
 			name:                     "no tg config - instance - nlb",
@@ -396,15 +396,15 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				TargetGroupAttributes: make([]elbv2model.TargetGroupAttribute, 0),
 				Tags:                  make(map[string]string),
 			},
-			expectedTgBindingSpec: k8s.TargetGroupBindingResourceSpec{
-				Template: k8s.TargetGroupBindingTemplate{
+			expectedTgBindingSpec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:   "my-svc-ns",
 						Name:        "k8s-myrouten-myroute-d02da2803b",
 						Annotations: make(map[string]string),
 						Labels:      make(map[string]string),
 					},
-					Spec: k8s.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetType: &instanceType,
 						ServiceRef: elbv2api.ServiceReference{
 							Name: "my-svc",
@@ -476,15 +476,15 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				TargetGroupAttributes: make([]elbv2model.TargetGroupAttribute, 0),
 				Tags:                  make(map[string]string),
 			},
-			expectedTgBindingSpec: k8s.TargetGroupBindingResourceSpec{
-				Template: k8s.TargetGroupBindingTemplate{
+			expectedTgBindingSpec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:   "my-svc-ns",
 						Name:        "k8s-myrouten-myroute-224f4b6ea6",
 						Annotations: make(map[string]string),
 						Labels:      make(map[string]string),
 					},
-					Spec: k8s.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetType: &instanceType,
 						ServiceRef: elbv2api.ServiceReference{
 							Name: "my-svc",
@@ -551,15 +551,15 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				TargetGroupAttributes: make([]elbv2model.TargetGroupAttribute, 0),
 				Tags:                  make(map[string]string),
 			},
-			expectedTgBindingSpec: k8s.TargetGroupBindingResourceSpec{
-				Template: k8s.TargetGroupBindingTemplate{
+			expectedTgBindingSpec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:   "my-svc-ns",
 						Name:        "k8s-myrouten-myroute-3bce8b0f70",
 						Annotations: make(map[string]string),
 						Labels:      make(map[string]string),
 					},
-					Spec: k8s.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetType: &ipType,
 						ServiceRef: elbv2api.ServiceReference{
 							Name: "my-svc",
@@ -631,15 +631,15 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				TargetGroupAttributes: make([]elbv2model.TargetGroupAttribute, 0),
 				Tags:                  make(map[string]string),
 			},
-			expectedTgBindingSpec: k8s.TargetGroupBindingResourceSpec{
-				Template: k8s.TargetGroupBindingTemplate{
+			expectedTgBindingSpec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace:   "my-svc-ns",
 						Name:        "k8s-myrouten-myroute-a44a20bcbf",
 						Annotations: make(map[string]string),
 						Labels:      make(map[string]string),
 					},
-					Spec: k8s.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetType: &ipType,
 						ServiceRef: elbv2api.ServiceReference{
 							Name: "my-svc",
@@ -721,8 +721,8 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				TargetGroupAttributes: make([]elbv2model.TargetGroupAttribute, 0),
 				Tags:                  make(map[string]string),
 			},
-			expectedTgBindingSpec: k8s.TargetGroupBindingResourceSpec{
-				Template: k8s.TargetGroupBindingTemplate{
+			expectedTgBindingSpec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "k8s-myrouten-myroute-a44a20bcbf",
@@ -733,7 +733,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 							"labelfoo": "labelbar",
 						},
 					},
-					Spec: k8s.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetType: &ipType,
 						ServiceRef: elbv2api.ServiceReference{
 							Name: "my-svc",
@@ -782,18 +782,18 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 		tgProtocol       elbv2model.Protocol
 		backendSGIDToken core.StringToken
 
-		expected *k8s.TargetGroupBindingNetworking
+		expected *elbv2modelk8s.TargetGroupBindingNetworking
 	}{
 		{
 			name:                     "disable restricted sg rules",
 			disableRestrictedSGRules: true,
 			backendSGIDToken:         core.LiteralStringToken("foo"),
-			expected: &k8s.TargetGroupBindingNetworking{
-				Ingress: []k8s.NetworkingIngressRule{
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -813,12 +813,12 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 			disableRestrictedSGRules: true,
 			backendSGIDToken:         core.LiteralStringToken("foo"),
 			tgProtocol:               elbv2model.ProtocolUDP,
-			expected: &k8s.TargetGroupBindingNetworking{
-				Ingress: []k8s.NetworkingIngressRule{
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -843,12 +843,12 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 			tgProtocol:       elbv2model.ProtocolTCP,
 			targetPort:       intstr80,
 			healthCheckPort:  intstr80,
-			expected: &k8s.TargetGroupBindingNetworking{
-				Ingress: []k8s.NetworkingIngressRule{
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -869,12 +869,12 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 			tgProtocol:       elbv2model.ProtocolUDP,
 			targetPort:       intstr80,
 			healthCheckPort:  intstr80,
-			expected: &k8s.TargetGroupBindingNetworking{
-				Ingress: []k8s.NetworkingIngressRule{
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -887,9 +887,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 						},
 					},
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -910,12 +910,12 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 			tgProtocol:       elbv2model.ProtocolHTTP,
 			targetPort:       intstr80,
 			healthCheckPort:  intstrTrafficPort,
-			expected: &k8s.TargetGroupBindingNetworking{
-				Ingress: []k8s.NetworkingIngressRule{
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -936,12 +936,12 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 			tgProtocol:       elbv2model.ProtocolUDP,
 			targetPort:       intstr80,
 			healthCheckPort:  intstrTrafficPort,
-			expected: &k8s.TargetGroupBindingNetworking{
-				Ingress: []k8s.NetworkingIngressRule{
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -954,9 +954,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 						},
 					},
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -977,12 +977,12 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 			tgProtocol:       elbv2model.ProtocolHTTP,
 			targetPort:       intstr80,
 			healthCheckPort:  intstr85,
-			expected: &k8s.TargetGroupBindingNetworking{
-				Ingress: []k8s.NetworkingIngressRule{
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -995,9 +995,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 						},
 					},
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -1018,12 +1018,12 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 			tgProtocol:       elbv2model.ProtocolUDP,
 			targetPort:       intstr80,
 			healthCheckPort:  intstr85,
-			expected: &k8s.TargetGroupBindingNetworking{
-				Ingress: []k8s.NetworkingIngressRule{
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},
@@ -1036,9 +1036,9 @@ func Test_buildTargetGroupBindingNetworking(t *testing.T) {
 						},
 					},
 					{
-						From: []k8s.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &k8s.SecurityGroup{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
 									GroupID: core.LiteralStringToken("foo"),
 								},
 							},

@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
+	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"testing"
@@ -23,18 +23,18 @@ func Test_defaultTargetGroupBindingManager_Create(t *testing.T) {
 	ipv4AddressType := elbv2api.IPAddressTypeIPV4
 	testCases := []struct {
 		name     string
-		spec     elbv2model.TargetGroupBindingResourceSpec
+		spec     elbv2modelk8s.TargetGroupBindingResourceSpec
 		expected elbv2api.TargetGroupBinding
 	}{
 		{
 			name: "just spec, no labels or annotation",
-			spec: elbv2model.TargetGroupBindingResourceSpec{
-				Template: elbv2model.TargetGroupBindingTemplate{
+			spec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb",
 						Namespace: "tgb-ns",
 					},
-					Spec: elbv2model.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetGroupARN: coremodel.LiteralStringToken("arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-echoserv-brokentg-0b7ba7f4ef/ae85b8ea9fb69748"),
 						TargetType:     &instanceTargetType,
 						ServiceRef: elbv2api.ServiceReference{
@@ -69,8 +69,8 @@ func Test_defaultTargetGroupBindingManager_Create(t *testing.T) {
 		},
 		{
 			name: "just spec, labels. no annotation",
-			spec: elbv2model.TargetGroupBindingResourceSpec{
-				Template: elbv2model.TargetGroupBindingTemplate{
+			spec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb",
 						Namespace: "tgb-ns",
@@ -79,7 +79,7 @@ func Test_defaultTargetGroupBindingManager_Create(t *testing.T) {
 							"baz": "bat",
 						},
 					},
-					Spec: elbv2model.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetGroupARN: coremodel.LiteralStringToken("arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-echoserv-brokentg-0b7ba7f4ef/ae85b8ea9fb69748"),
 						TargetType:     &instanceTargetType,
 						ServiceRef: elbv2api.ServiceReference{
@@ -116,8 +116,8 @@ func Test_defaultTargetGroupBindingManager_Create(t *testing.T) {
 		},
 		{
 			name: "spec, labels, annotation",
-			spec: elbv2model.TargetGroupBindingResourceSpec{
-				Template: elbv2model.TargetGroupBindingTemplate{
+			spec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb",
 						Namespace: "tgb-ns",
@@ -130,7 +130,7 @@ func Test_defaultTargetGroupBindingManager_Create(t *testing.T) {
 							"ann3": "ann4",
 						},
 					},
-					Spec: elbv2model.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetGroupARN: coremodel.LiteralStringToken("arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-echoserv-brokentg-0b7ba7f4ef/ae85b8ea9fb69748"),
 						TargetType:     &instanceTargetType,
 						ServiceRef: elbv2api.ServiceReference{
@@ -177,7 +177,7 @@ func Test_defaultTargetGroupBindingManager_Create(t *testing.T) {
 				Namespace: "test-ns",
 				Name:      "test-stack",
 			}))
-			resTGB := elbv2model.NewTargetGroupBindingResource(stack, "my-tgb", tc.spec)
+			resTGB := elbv2modelk8s.NewTargetGroupBindingResource(stack, "my-tgb", tc.spec)
 			manager, k8sClient := createTestDefaultTargetGroupBindingManager()
 			status, err := manager.Create(context.Background(), resTGB)
 			assert.NoError(t, err)
@@ -198,19 +198,19 @@ func Test_defaultTargetGroupBindingManager_Update(t *testing.T) {
 	ipv4AddressType := elbv2api.IPAddressTypeIPV4
 	testCases := []struct {
 		name     string
-		spec     elbv2model.TargetGroupBindingResourceSpec
+		spec     elbv2modelk8s.TargetGroupBindingResourceSpec
 		existing elbv2api.TargetGroupBinding
 		expected elbv2api.TargetGroupBinding
 	}{
 		{
 			name: "just spec, no labels or annotation",
-			spec: elbv2model.TargetGroupBindingResourceSpec{
-				Template: elbv2model.TargetGroupBindingTemplate{
+			spec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb",
 						Namespace: "tgb-ns",
 					},
-					Spec: elbv2model.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetGroupARN: coremodel.LiteralStringToken("arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-echoserv-brokentg-0b7ba7f4ef/ae85b8ea9fb69748"),
 						TargetType:     &instanceTargetType,
 						ServiceRef: elbv2api.ServiceReference{
@@ -264,8 +264,8 @@ func Test_defaultTargetGroupBindingManager_Update(t *testing.T) {
 		},
 		{
 			name: "spec labels annotation",
-			spec: elbv2model.TargetGroupBindingResourceSpec{
-				Template: elbv2model.TargetGroupBindingTemplate{
+			spec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb",
 						Namespace: "tgb-ns",
@@ -277,7 +277,7 @@ func Test_defaultTargetGroupBindingManager_Update(t *testing.T) {
 							"ann3": "ann4",
 						},
 					},
-					Spec: elbv2model.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetGroupARN: coremodel.LiteralStringToken("arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-echoserv-brokentg-0b7ba7f4ef/ae85b8ea9fb69748"),
 						TargetType:     &instanceTargetType,
 						ServiceRef: elbv2api.ServiceReference{
@@ -336,8 +336,8 @@ func Test_defaultTargetGroupBindingManager_Update(t *testing.T) {
 		},
 		{
 			name: "only diff is checkpoint annotation, no update",
-			spec: elbv2model.TargetGroupBindingResourceSpec{
-				Template: elbv2model.TargetGroupBindingTemplate{
+			spec: elbv2modelk8s.TargetGroupBindingResourceSpec{
+				Template: elbv2modelk8s.TargetGroupBindingTemplate{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "tgb",
 						Namespace: "tgb-ns",
@@ -349,7 +349,7 @@ func Test_defaultTargetGroupBindingManager_Update(t *testing.T) {
 							"ann3": "ann4",
 						},
 					},
-					Spec: elbv2model.TargetGroupBindingSpec{
+					Spec: elbv2modelk8s.TargetGroupBindingSpec{
 						TargetGroupARN: coremodel.LiteralStringToken("arn:aws:elasticloadbalancing:us-east-1:565768096483:targetgroup/k8s-echoserv-brokentg-0b7ba7f4ef/ae85b8ea9fb69748"),
 						TargetType:     &instanceTargetType,
 						ServiceRef: elbv2api.ServiceReference{
@@ -422,7 +422,7 @@ func Test_defaultTargetGroupBindingManager_Update(t *testing.T) {
 				Namespace: "test-ns",
 				Name:      "test-stack",
 			}))
-			resTGB := elbv2model.NewTargetGroupBindingResource(stack, "my-tgb", tc.spec)
+			resTGB := elbv2modelk8s.NewTargetGroupBindingResource(stack, "my-tgb", tc.spec)
 			manager, k8sClient := createTestDefaultTargetGroupBindingManager()
 
 			err := k8sClient.Create(context.Background(), &tc.existing)

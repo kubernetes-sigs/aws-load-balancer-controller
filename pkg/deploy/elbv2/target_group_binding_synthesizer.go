@@ -7,7 +7,7 @@ import (
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
+	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -36,7 +36,7 @@ type targetGroupBindingSynthesizer struct {
 }
 
 func (s *targetGroupBindingSynthesizer) Synthesize(ctx context.Context) error {
-	var resTGBs []*elbv2model.TargetGroupBindingResource
+	var resTGBs []*elbv2modelk8s.TargetGroupBindingResource
 	s.stack.ListResources(&resTGBs)
 	k8sTGBs, err := s.findK8sTargetGroupBindings(ctx)
 	if err != nil {
@@ -91,13 +91,13 @@ func (s *targetGroupBindingSynthesizer) findK8sTargetGroupBindings(ctx context.C
 }
 
 type resAndK8sTargetGroupBindingPair struct {
-	resTGB *elbv2model.TargetGroupBindingResource
+	resTGB *elbv2modelk8s.TargetGroupBindingResource
 	k8sTGB *elbv2api.TargetGroupBinding
 }
 
-func matchResAndK8sTargetGroupBindings(resTGBs []*elbv2model.TargetGroupBindingResource, k8sTGBs []*elbv2api.TargetGroupBinding) ([]resAndK8sTargetGroupBindingPair, []*elbv2model.TargetGroupBindingResource, []*elbv2api.TargetGroupBinding, error) {
+func matchResAndK8sTargetGroupBindings(resTGBs []*elbv2modelk8s.TargetGroupBindingResource, k8sTGBs []*elbv2api.TargetGroupBinding) ([]resAndK8sTargetGroupBindingPair, []*elbv2modelk8s.TargetGroupBindingResource, []*elbv2api.TargetGroupBinding, error) {
 	var matchedResAndK8sTGBs []resAndK8sTargetGroupBindingPair
-	var unmatchedResTGBs []*elbv2model.TargetGroupBindingResource
+	var unmatchedResTGBs []*elbv2modelk8s.TargetGroupBindingResource
 	var unmatchedK8sTGBs []*elbv2api.TargetGroupBinding
 	resTGBsByARN, err := mapResTargetGroupBindingByARN(resTGBs)
 	if err != nil {
@@ -126,9 +126,9 @@ func matchResAndK8sTargetGroupBindings(resTGBs []*elbv2model.TargetGroupBindingR
 	return matchedResAndK8sTGBs, unmatchedResTGBs, unmatchedK8sTGBs, nil
 }
 
-func mapResTargetGroupBindingByARN(resTGBs []*elbv2model.TargetGroupBindingResource) (map[string]*elbv2model.TargetGroupBindingResource, error) {
+func mapResTargetGroupBindingByARN(resTGBs []*elbv2modelk8s.TargetGroupBindingResource) (map[string]*elbv2modelk8s.TargetGroupBindingResource, error) {
 	ctx := context.Background()
-	resTGBsByARN := make(map[string]*elbv2model.TargetGroupBindingResource, len(resTGBs))
+	resTGBsByARN := make(map[string]*elbv2modelk8s.TargetGroupBindingResource, len(resTGBs))
 	for _, resTGB := range resTGBs {
 		tgARN, err := resTGB.Spec.Template.Spec.TargetGroupARN.Resolve(ctx)
 		if err != nil {
