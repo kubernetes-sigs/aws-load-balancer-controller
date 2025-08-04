@@ -62,12 +62,14 @@ func (ls *Listener) registerDependencies(stack core.Stack) {
 type Protocol string
 
 const (
-	ProtocolHTTP    Protocol = "HTTP"
-	ProtocolHTTPS   Protocol = "HTTPS"
-	ProtocolTCP     Protocol = "TCP"
-	ProtocolTLS     Protocol = "TLS"
-	ProtocolUDP     Protocol = "UDP"
-	ProtocolTCP_UDP Protocol = "TCP_UDP"
+	ProtocolHTTP     Protocol = "HTTP"
+	ProtocolHTTPS    Protocol = "HTTPS"
+	ProtocolTCP      Protocol = "TCP"
+	ProtocolTLS      Protocol = "TLS"
+	ProtocolUDP      Protocol = "UDP"
+	ProtocolTCP_UDP  Protocol = "TCP_UDP"
+	ProtocolQUIC     Protocol = "QUIC"
+	ProtocolTCP_QUIC Protocol = "TCP_QUIC"
 )
 
 type ProtocolVersion string
