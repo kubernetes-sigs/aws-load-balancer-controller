@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -20,17 +21,19 @@ UDP specific features of the route.
 
 var _ RouteRule = &convertedUDPRouteRule{}
 
-var defaultUDPRuleAccumulator = newAttachedRuleAccumulator[gwalpha2.UDPRouteRule](commonBackendLoader)
+var defaultUDPRuleAccumulator = newAttachedRuleAccumulator[gwalpha2.UDPRouteRule](commonBackendLoader, listenerRuleConfigLoader)
 
 type convertedUDPRouteRule struct {
-	rule     *gwalpha2.UDPRouteRule
-	backends []Backend
+	rule               *gwalpha2.UDPRouteRule
+	backends           []Backend
+	listenerRuleConfig *elbv2gw.ListenerRuleConfiguration
 }
 
 func convertUDPRouteRule(rule *gwalpha2.UDPRouteRule, backends []Backend) RouteRule {
 	return &convertedUDPRouteRule{
-		rule:     rule,
-		backends: backends,
+		rule:               rule,
+		backends:           backends,
+		listenerRuleConfig: nil,
 	}
 }
 
@@ -44,6 +47,10 @@ func (t *convertedUDPRouteRule) GetSectionName() *gwv1.SectionName {
 
 func (t *convertedUDPRouteRule) GetBackends() []Backend {
 	return t.backends
+}
+
+func (t *convertedUDPRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleConfiguration {
+	return nil
 }
 
 /* Route Description */
@@ -61,7 +68,9 @@ func (udpRoute *udpRouteDescription) GetAttachedRules() []RouteRule {
 func (udpRoute *udpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 	convertedRules, allErrors := udpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, udpRoute, udpRoute.route.Spec.Rules, func(rule gwalpha2.UDPRouteRule) []gwv1.BackendRef {
 		return rule.BackendRefs
-	}, func(urr *gwalpha2.UDPRouteRule, backends []Backend) RouteRule {
+	}, func(rule gwalpha2.UDPRouteRule) []gwv1.LocalObjectReference {
+		return []gwv1.LocalObjectReference{}
+	}, func(urr *gwalpha2.UDPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertUDPRouteRule(urr, backends)
 	})
 	udpRoute.rules = convertedRules
@@ -105,7 +114,7 @@ func (udpRoute *udpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 	}
 	return backendRefs
 }
-func (udpRoute *udpRouteDescription) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+func (udpRoute *udpRouteDescription) GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference {
 	return []gwv1.LocalObjectReference{}
 }
 

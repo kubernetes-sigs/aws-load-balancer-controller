@@ -61,7 +61,7 @@ func (m mockPreLoadRouteDescriptor) GetBackendRefs() []gwv1.BackendRef {
 	return m.backendRefs
 }
 
-func (m mockPreLoadRouteDescriptor) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+func (m mockPreLoadRouteDescriptor) GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference {
 	return m.listenerRuleConfigurations
 }
 

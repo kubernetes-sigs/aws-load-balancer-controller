@@ -18,7 +18,7 @@ type routeMetadataDescriptor interface {
 	GetParentRefs() []gwv1.ParentReference
 	GetRawRoute() interface{}
 	GetBackendRefs() []gwv1.BackendRef
-	GetListenerRuleConfigs() []gwv1.LocalObjectReference
+	GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference
 	GetRouteGeneration() int64
 	GetRouteCreateTimestamp() time.Time
 }
