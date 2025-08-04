@@ -2,8 +2,12 @@ package ingress
 
 import (
 	"context"
+	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"k8s.io/apimachinery/pkg/util/cache"
 	"reflect"
 	"strconv"
+	"sync"
+	"time"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
@@ -33,7 +37,8 @@ import (
 )
 
 const (
-	controllerName = "ingress"
+	controllerName                      = "ingress"
+	defaultTargetGroupNameToARNCacheTTL = 20 * time.Minute
 )
 
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
@@ -80,6 +85,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		enableManageBackendSGRules: defaultEnableManageBackendSGRules,
 		disableRestrictedSGRules:   disableRestrictedSGRules,
 		enableIPTargetType:         enableIPTargetType,
+		targetGroupNameToArnMapper: newTargetGroupNameToArnMapper(elbv2Client, defaultTargetGroupNameToARNCacheTTL),
 		logger:                     logger,
 		metricsCollector:           metricsCollector,
 	}
@@ -117,6 +123,7 @@ type defaultModelBuilder struct {
 	enableManageBackendSGRules bool
 	disableRestrictedSGRules   bool
 	enableIPTargetType         bool
+	targetGroupNameToArnMapper *targetGroupNameToArnMapper
 
 	logger           logr.Logger
 	metricsCollector lbcmetrics.MetricCollector
@@ -173,10 +180,11 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		defaultHealthCheckMatcherHTTPCode:         "200",
 		defaultHealthCheckMatcherGRPCCode:         "12",
 
-		loadBalancer:    nil,
-		frontendNlb:     nil,
-		tgByResID:       make(map[string]*elbv2model.TargetGroup),
-		backendServices: make(map[types.NamespacedName]*corev1.Service),
+		loadBalancer:               nil,
+		frontendNlb:                nil,
+		tgByResID:                  make(map[string]*elbv2model.TargetGroup),
+		backendServices:            make(map[types.NamespacedName]*corev1.Service),
+		targetGroupNameToArnMapper: b.targetGroupNameToArnMapper,
 	}
 	if err := task.run(ctx); err != nil {
 		return nil, nil, nil, false, nil, nil, err
@@ -238,6 +246,7 @@ type defaultModelBuildTask struct {
 	secretKeys                         []types.NamespacedName
 	frontendNlb                        *elbv2model.LoadBalancer
 	frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
+	targetGroupNameToArnMapper         *targetGroupNameToArnMapper
 
 	metricsCollector lbcmetrics.MetricCollector
 }
@@ -520,4 +529,43 @@ func (t *defaultModelBuildTask) buildManageSecurityGroupRulesFlag(_ context.Cont
 type listenPortConfigWithIngress struct {
 	ingKey           types.NamespacedName
 	listenPortConfig listenPortConfig
+}
+
+type targetGroupNameToArnMapper struct {
+	elbv2Client services.ELBV2
+	cache       *cache.Expiring
+	cacheTTL    time.Duration
+	cacheMutex  sync.RWMutex
+}
+
+func newTargetGroupNameToArnMapper(elbv2Client services.ELBV2, ttl time.Duration) *targetGroupNameToArnMapper {
+	return &targetGroupNameToArnMapper{
+		elbv2Client: elbv2Client,
+		cache:       cache.NewExpiring(),
+		cacheTTL:    ttl,
+	}
+}
+
+// getArnByName returns the ARN of an AWS target group identified by its name
+func (t *targetGroupNameToArnMapper) getArnByName(ctx context.Context, targetGroupName string) (string, error) {
+	t.cacheMutex.Lock()
+	defer t.cacheMutex.Unlock()
+
+	if rawCacheItem, exists := t.cache.Get(targetGroupName); exists {
+		return rawCacheItem.(string), nil
+	}
+	req := &elbv2sdk.DescribeTargetGroupsInput{
+		Names: []string{targetGroupName},
+	}
+
+	targetGroups, err := t.elbv2Client.DescribeTargetGroupsAsList(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	if len(targetGroups) != 1 {
+		return "", errors.Errorf("expecting a single targetGroup with query [%s] but got %v", targetGroupName, len(targetGroups))
+	}
+	arn := *targetGroups[0].TargetGroupArn
+	t.cache.Set(targetGroupName, arn, t.cacheTTL)
+	return arn, nil
 }

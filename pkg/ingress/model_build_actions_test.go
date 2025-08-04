@@ -355,41 +355,71 @@ func Test_defaultModelBuildTask_buildForwardActionWithTargetGroupName(t *testing
 		ingress                         ClassifiedIngress
 		forwardActionConfig             ForwardActionConfig
 		describeTargetGroupsAsListCalls []describeTargetGroupsAsListCall
+		cache                           map[string]string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    elbv2model.Action
-		wantErr error
+		name      string
+		args      args
+		want      elbv2model.Action
+		wantErr   error
+		wantCache map[string]string
 	}{
 		{
 			name: "Forward to target group identified by name",
 			args: args{
 				forwardActionConfig: ForwardActionConfig{
-					TargetGroups: []TargetGroupTuple{{TargetGroupName: awssdk.String("tg-name")}},
+					TargetGroups: []TargetGroupTuple{{TargetGroupName: awssdk.String("tg-name1")}},
 				},
 
 				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
 					{
 						req: &elbv2sdk.DescribeTargetGroupsInput{
-							Names: []string{"tg-name"},
+							Names: []string{"tg-name1"},
 						},
 						resp: []elbv2types.TargetGroup{
 							{
-								TargetGroupArn: awssdk.String("tg-arn"),
+								TargetGroupArn: awssdk.String("tg-arn1"),
 								TargetType:     elbv2types.TargetTypeEnum("instance"),
 							},
 						},
 					},
+				},
+				cache: map[string]string{},
+			},
+			want: elbv2model.Action{
+				Type: elbv2model.ActionTypeForward,
+				ForwardConfig: &elbv2model.ForwardActionConfig{
+					TargetGroups: []elbv2model.TargetGroupTuple{{
+						TargetGroupARN: core.LiteralStringToken("tg-arn1"),
+					}},
+				},
+			},
+			wantCache: map[string]string{
+				"tg-name1": "tg-arn1",
+			},
+		},
+		{
+			name: "Forward to target group identified by name is cached",
+			args: args{
+				forwardActionConfig: ForwardActionConfig{
+					TargetGroups: []TargetGroupTuple{{TargetGroupName: awssdk.String("tg-name2")}},
+				},
+
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{},
+				cache: map[string]string{
+					"tg-name2": "tg-arn2",
 				},
 			},
 			want: elbv2model.Action{
 				Type: elbv2model.ActionTypeForward,
 				ForwardConfig: &elbv2model.ForwardActionConfig{
 					TargetGroups: []elbv2model.TargetGroupTuple{{
-						TargetGroupARN: core.LiteralStringToken("tg-arn"),
+						TargetGroupARN: core.LiteralStringToken("tg-arn2"),
 					}},
 				},
+			},
+			wantCache: map[string]string{
+				"tg-name2": "tg-arn2",
 			},
 		},
 	}
@@ -404,14 +434,27 @@ func Test_defaultModelBuildTask_buildForwardActionWithTargetGroupName(t *testing
 				elbv2Client.EXPECT().DescribeTargetGroupsAsList(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
 			task := &defaultModelBuildTask{
-				elbv2Client: elbv2Client,
+				elbv2Client:                elbv2Client,
+				targetGroupNameToArnMapper: newTargetGroupNameToArnMapper(elbv2Client, defaultTargetGroupNameToARNCacheTTL),
 			}
+
+			for targetGroupName, cachedArn := range tt.args.cache {
+				task.targetGroupNameToArnMapper.cache.Set(targetGroupName, cachedArn, defaultTargetGroupNameToARNCacheTTL)
+			}
+
 			got, err := task.buildForwardAction(context.Background(), tt.args.ingress, Action{
 				Type:          ActionTypeForward,
 				ForwardConfig: &tt.args.forwardActionConfig,
 			})
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, len(tt.wantCache), task.targetGroupNameToArnMapper.cache.Len())
+			for targetGroupName, expectedArn := range tt.wantCache {
+				rawCacheItem, exists := task.targetGroupNameToArnMapper.cache.Get(targetGroupName)
+				assert.True(t, exists)
+				cachedArn := rawCacheItem.(string)
+				assert.Equal(t, expectedArn, cachedArn)
+			}
 		})
 	}
 }

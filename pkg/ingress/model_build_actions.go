@@ -4,12 +4,9 @@ import (
 	"context"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"strings"
@@ -109,11 +106,11 @@ func (t *defaultModelBuildTask) buildForwardAction(ctx context.Context, ing Clas
 		if tgt.TargetGroupARN != nil {
 			tgARN = core.LiteralStringToken(*tgt.TargetGroupARN)
 		} else if tgt.TargetGroupName != nil {
-			tgObj, err := getTargetGroupsByNameFromAWS(ctx, t.elbv2Client, tgt)
+			targetGroupARN, err := t.targetGroupNameToArnMapper.getArnByName(ctx, *tgt.TargetGroupName)
 			if err != nil {
 				return elbv2model.Action{}, fmt.Errorf("searching TargetGroup with name %s: %w", *tgt.TargetGroupName, err)
 			}
-			tgARN = core.LiteralStringToken(*tgObj.TargetGroupArn)
+			tgARN = core.LiteralStringToken(targetGroupARN)
 		} else {
 			svcKey := types.NamespacedName{
 				Namespace: ing.Ing.Namespace,
@@ -234,20 +231,4 @@ func (t *defaultModelBuildTask) buildSSLRedirectAction(_ context.Context, sslRed
 			StatusCode: sslRedirectConfig.StatusCode,
 		},
 	}
-}
-
-// getTargetGroupsByNameFromAWS returns the AWS target group corresponding to the name
-func getTargetGroupsByNameFromAWS(ctx context.Context, elbv2Client services.ELBV2, tgt TargetGroupTuple) (*elbv2types.TargetGroup, error) {
-	req := &elbv2sdk.DescribeTargetGroupsInput{
-		Names: []string{*tgt.TargetGroupName},
-	}
-
-	tgList, err := elbv2Client.DescribeTargetGroupsAsList(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-	if len(tgList) != 1 {
-		return nil, errors.Errorf("expecting a single targetGroup with query [%s] but got %v", *tgt.TargetGroupName, len(tgList))
-	}
-	return &tgList[0], nil
 }
