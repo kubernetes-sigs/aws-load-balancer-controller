@@ -114,6 +114,21 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 		listenerProtocol = elbv2model.ProtocolTLS
 	}
 
+	if cfg != nil && (cfg.quicPortsSet.Has(port.Name) || cfg.quicPortsSet.Has(strconv.Itoa(int(port.Port)))) {
+		switch listenerProtocol {
+		case elbv2model.ProtocolUDP:
+			tgProtocol = elbv2model.ProtocolQUIC
+			listenerProtocol = elbv2model.ProtocolQUIC
+			break
+		case elbv2model.ProtocolTCP_UDP:
+			tgProtocol = elbv2model.ProtocolTCP_QUIC
+			listenerProtocol = elbv2model.ProtocolTCP_QUIC
+			break
+		default:
+			return elbv2model.ListenerSpec{}, errors.Errorf("Unsupport QUIC upgrade for protocol %v", listenerProtocol)
+		}
+	}
+
 	tags, err := t.buildListenerTags(ctx)
 	if err != nil {
 		return elbv2model.ListenerSpec{}, err
@@ -226,6 +241,12 @@ func (t *defaultModelBuildTask) buildTLSPortsSet(_ context.Context) (sets.Set[st
 	return sets.New[string](rawTLSPorts...), nil
 }
 
+func (t *defaultModelBuildTask) buildQUICPortsSet() sets.Set[string] {
+	var rawQUICPorts []string
+	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixQUICEnabledPorts, &rawQUICPorts, t.service.Annotations)
+	return sets.New[string](rawQUICPorts...)
+}
+
 func (t *defaultModelBuildTask) buildBackendProtocol(_ context.Context) string {
 	rawBackendProtocol := ""
 	_ = t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixBEProtocol, &rawBackendProtocol, t.service.Annotations)
@@ -255,6 +276,7 @@ func (t *defaultModelBuildTask) buildListenerALPNPolicy(ctx context.Context, lis
 type listenerConfig struct {
 	certificates    []elbv2model.Certificate
 	tlsPortsSet     sets.Set[string]
+	quicPortsSet    sets.Set[string]
 	tcpUdpPortsSet  sets.Set[int32]
 	sslPolicy       *string
 	backendProtocol string
@@ -267,12 +289,15 @@ func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context, tcpUdpP
 		return nil, err
 	}
 
+	quicPortsSets := t.buildQUICPortsSet()
+
 	backendProtocol := t.buildBackendProtocol(ctx)
 	sslPolicy := t.buildSSLNegotiationPolicy(ctx)
 
 	return &listenerConfig{
 		certificates:    certificates,
 		tlsPortsSet:     tlsPortsSet,
+		quicPortsSet:    quicPortsSets,
 		tcpUdpPortsSet:  tcpUdpPortsSet,
 		sslPolicy:       sslPolicy,
 		backendProtocol: backendProtocol,
