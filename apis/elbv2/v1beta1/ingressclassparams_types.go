@@ -116,6 +116,10 @@ type IPAMConfiguration struct {
 
 // IngressClassParamsSpec defines the desired state of IngressClassParams
 type IngressClassParamsSpec struct {
+	// LoadBalancerName defines the name of the load balancer that will be created with this IngressClassParams.
+	// +optional
+	LoadBalancerName string `json:"loadBalancerName,omitempty"`
+
 	// CertificateArn specifies the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
 	CertificateArn []string `json:"certificateArn,omitempty"`

@@ -76,6 +76,15 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
       - key: org
         value: my-org
     ```
+    - with loadBalancerName
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: awesome-class
+    spec:
+      loadBalancerName: name-1
+    ```
     - with namespaceSelector
     ```
     apiVersion: elbv2.k8s.aws/v1beta1
@@ -202,6 +211,14 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
     ```
 
 ### IngressClassParams specification
+
+#### spec.loadBalancerName
+`loadBalancerName` is an optional setting.
+
+Cluster administrators can use the `loadBalancerName` field to specify name of the load balancer that will be provisioned by the controller.
+
+1. If `loadBalancerName` is set, one load balancer per `IngressClass` will be provisioned. LBC will ignore the `alb.ingress.kubernetes.io/load-balancer-name` annotation.
+2. If `loadBalancerName` is not set, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/load-balancer-name annotation` to specify name of the load balancer.
 
 #### spec.namespaceSelector
 `namespaceSelector` is an optional setting that follows general Kubernetes

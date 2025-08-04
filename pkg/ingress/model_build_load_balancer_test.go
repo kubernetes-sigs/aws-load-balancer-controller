@@ -574,6 +574,35 @@ func Test_defaultModelBuildTask_buildLoadBalancerName(t *testing.T) {
 			want: "foo",
 		},
 		{
+			name: "name IngressClassParams",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "awesome-ns", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/load-balancer-name": "name-2",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										LoadBalancerName: "name-1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: "name-1",
+		},
+		{
 			name: "trim name annotation",
 			fields: fields{
 				ingGroup: Group{
