@@ -225,19 +225,26 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 		if shouldProvisionActions(targetGroupTuples) {
 			actions = buildL7ListenerForwardActions(targetGroupTuples, nil)
 		}
-
-		// configure actions based on filters
-		switch route.GetRouteKind() {
-		case routeutils.HTTPRouteKind:
-			httpRule := rule.GetRawRouteRule().(*gwv1.HTTPRouteRule)
-			if len(httpRule.Filters) > 0 {
-				finalActions, err := routeutils.BuildHttpRuleActionsBasedOnFilter(httpRule.Filters)
-				if err != nil {
-					return err
+		// Temp log
+		if rule.GetListenerRuleConfig() != nil {
+			l.logger.V(1).Info("got ListenerRuleCfg ", "route", route.GetRouteNamespacedName(), "ListenerRuleCfg", k8s.NamespacedName(rule.GetListenerRuleConfig()))
+		}
+		// Skipping building actions from filter updates for now since having a ListenerRuleConfig means extesnionRef has been added and for now we dont want to take any actions.
+		// TODO :Consume ListenerRuleConfig properly to build actions.
+		if rule.GetListenerRuleConfig() == nil {
+			// configure actions based on filters
+			switch route.GetRouteKind() {
+			case routeutils.HTTPRouteKind:
+				httpRule := rule.GetRawRouteRule().(*gwv1.HTTPRouteRule)
+				if len(httpRule.Filters) > 0 {
+					finalActions, err := routeutils.BuildHttpRuleActionsBasedOnFilter(httpRule.Filters)
+					if err != nil {
+						return err
+					}
+					actions = finalActions
 				}
-				actions = finalActions
+				// TODO: add case for GRPC
 			}
-			// TODO: add case for GRPC
 		}
 
 		if len(actions) == 0 {
