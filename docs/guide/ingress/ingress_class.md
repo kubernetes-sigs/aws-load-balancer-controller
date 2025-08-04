@@ -182,7 +182,7 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
     metadata:
       name: class2048-config
     spec:
-      prefixListsIDs:
+      PrefixListsIDs:
         - pl-00000000
         - pl-11111111
     ```
