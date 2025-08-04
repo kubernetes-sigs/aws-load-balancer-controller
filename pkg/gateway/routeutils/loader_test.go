@@ -57,7 +57,7 @@ func (m *mockRoute) GetBackendRefs() []gwv1.BackendRef {
 	//TODO implement me
 	panic("implement me")
 }
-func (m *mockRoute) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+func (m *mockRoute) GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference {
 	//TODO implement me
 	panic("implement me")
 }

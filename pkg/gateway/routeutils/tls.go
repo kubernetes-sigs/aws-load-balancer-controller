@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -20,17 +21,19 @@ TLS specific features of the route.
 
 var _ RouteRule = &convertedTLSRouteRule{}
 
-var defaultTLSRuleAccumulator = newAttachedRuleAccumulator[gwalpha2.TLSRouteRule](commonBackendLoader)
+var defaultTLSRuleAccumulator = newAttachedRuleAccumulator[gwalpha2.TLSRouteRule](commonBackendLoader, listenerRuleConfigLoader)
 
 type convertedTLSRouteRule struct {
-	rule     *gwalpha2.TLSRouteRule
-	backends []Backend
+	rule               *gwalpha2.TLSRouteRule
+	backends           []Backend
+	listenerRuleConfig *elbv2gw.ListenerRuleConfiguration
 }
 
 func convertTLSRouteRule(rule *gwalpha2.TLSRouteRule, backends []Backend) RouteRule {
 	return &convertedTLSRouteRule{
-		rule:     rule,
-		backends: backends,
+		rule:               rule,
+		backends:           backends,
+		listenerRuleConfig: nil,
 	}
 }
 
@@ -44,6 +47,10 @@ func (t *convertedTLSRouteRule) GetSectionName() *gwv1.SectionName {
 
 func (t *convertedTLSRouteRule) GetBackends() []Backend {
 	return t.backends
+}
+
+func (t *convertedTLSRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleConfiguration {
+	return nil
 }
 
 /* Route Description */
@@ -61,7 +68,9 @@ func (tlsRoute *tlsRouteDescription) GetAttachedRules() []RouteRule {
 func (tlsRoute *tlsRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 	convertedRules, allErrors := tlsRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, tlsRoute, tlsRoute.route.Spec.Rules, func(rule gwalpha2.TLSRouteRule) []gwv1.BackendRef {
 		return rule.BackendRefs
-	}, func(trr *gwalpha2.TLSRouteRule, backends []Backend) RouteRule {
+	}, func(rule gwalpha2.TLSRouteRule) []gwv1.LocalObjectReference {
+		return []gwv1.LocalObjectReference{}
+	}, func(trr *gwalpha2.TLSRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
 		return convertTLSRouteRule(trr, backends)
 	})
 	tlsRoute.rules = convertedRules
@@ -106,7 +115,7 @@ func (tlsRoute *tlsRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 	return backendRefs
 }
 
-func (tlsRoute *tlsRouteDescription) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+func (tlsRoute *tlsRouteDescription) GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference {
 	return []gwv1.LocalObjectReference{}
 }
 

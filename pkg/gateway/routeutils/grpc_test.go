@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,7 +28,9 @@ func Test_ConvertGRPCRuleToRouteRule(t *testing.T) {
 		{}, {},
 	}
 
-	result := convertGRPCRouteRule(rule, backends)
+	listenerRuleCfg := &elbv2gw.ListenerRuleConfiguration{}
+
+	result := convertGRPCRouteRule(rule, backends, listenerRuleCfg)
 
 	assert.Equal(t, backends, result.GetBackends())
 	assert.Equal(t, rule, result.GetRawRouteRule().(*gwv1.GRPCRouteRule))
@@ -126,11 +129,14 @@ func Test_ListGRPCRoutes(t *testing.T) {
 
 func Test_GRPC_LoadAttachedRules(t *testing.T) {
 	weight := 0
-	mockLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
+	mockBackendLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
 		weight++
 		return &Backend{
 			Weight: weight,
 		}, nil, nil
+	}
+	mockListenerRuleConfigLoader := func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error) {
+		return &elbv2gw.ListenerRuleConfiguration{}, nil, nil
 	}
 
 	routeDescription := grpcRouteDescription{
@@ -141,6 +147,16 @@ func Test_GRPC_LoadAttachedRules(t *testing.T) {
 						{},
 						{},
 					},
+					Filters: []gwv1.GRPCRouteFilter{
+						{
+							Type: gwv1.GRPCRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Group: constants.ControllerCRDGroupVersion,
+								Kind:  constants.ListenerRuleConfiguration,
+								Name:  "test-config-1",
+							},
+						},
+					},
 				},
 				{
 					BackendRefs: []gwv1.GRPCBackendRef{
@@ -149,14 +165,34 @@ func Test_GRPC_LoadAttachedRules(t *testing.T) {
 						{},
 						{},
 					},
+					Filters: []gwv1.GRPCRouteFilter{
+						{
+							Type: gwv1.GRPCRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Group: constants.ControllerCRDGroupVersion,
+								Kind:  constants.ListenerRuleConfiguration,
+								Name:  "test-config-1",
+							},
+						},
+					},
 				},
 				{
 					BackendRefs: []gwv1.GRPCBackendRef{},
+					Filters: []gwv1.GRPCRouteFilter{
+						{
+							Type: gwv1.GRPCRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Group: constants.ControllerCRDGroupVersion,
+								Kind:  constants.ListenerRuleConfiguration,
+								Name:  "test-config-1",
+							},
+						},
+					},
 				},
 			}},
 		},
 		rules:           nil,
-		ruleAccumulator: newAttachedRuleAccumulator[gwv1.GRPCRouteRule](mockLoader),
+		ruleAccumulator: newAttachedRuleAccumulator[gwv1.GRPCRouteRule](mockBackendLoader, mockListenerRuleConfigLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)
@@ -167,9 +203,13 @@ func Test_GRPC_LoadAttachedRules(t *testing.T) {
 	assert.Equal(t, 2, len(convertedRules[0].GetBackends()))
 	assert.Equal(t, 4, len(convertedRules[1].GetBackends()))
 	assert.Equal(t, 0, len(convertedRules[2].GetBackends()))
+
+	assert.NotNil(t, convertedRules[0].GetListenerRuleConfig())
+	assert.NotNil(t, convertedRules[1].GetListenerRuleConfig())
+	assert.NotNil(t, convertedRules[2].GetListenerRuleConfig())
 }
 
-func Test_GRPC_GetListenerRuleConfigs(t *testing.T) {
+func Test_GRPC_GetListenerRuleConfigRefs(t *testing.T) {
 	tests := []struct {
 		name     string
 		route    *gwv1.GRPCRoute
@@ -308,7 +348,7 @@ func Test_GRPC_GetListenerRuleConfigs(t *testing.T) {
 				route: tt.route,
 			}
 
-			got := grpcRoute.GetListenerRuleConfigs()
+			got := grpcRoute.GetRouteListenerRuleConfigRefs()
 
 			// Check if the length matches
 			assert.Equal(t, len(tt.expected), len(got), "Expected %d rule configs, got %d", len(tt.expected), len(got))
