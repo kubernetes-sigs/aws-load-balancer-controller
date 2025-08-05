@@ -50,6 +50,8 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 	instanceTargetType := elbv2api.TargetTypeInstance
 	ipTargetType := elbv2api.TargetTypeIP
 	udpTgProtocol := elbv2.ProtocolUDP
+	quicTgProtocol := elbv2.ProtocolQUIC
+	tcpQuicTgProtocol := elbv2.ProtocolTCP_QUIC
 	httpTgProtocol := elbv2.ProtocolHTTP
 	clusterVpcID := "vpc-123456ab"
 	tests := []struct {
@@ -369,6 +371,168 @@ func Test_targetGroupBindingValidator_ValidateCreate(t *testing.T) {
 				},
 			},
 			wantErr: errors.New("TargetGroup tg-2 protocol differs (got UDP, expected HTTP)"),
+		},
+		{
+			name: "protocol in spec matches with TG protocol",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-2"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
+								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumHttp,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:      "tg-2",
+						TargetType:          &instanceTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv6,
+						VpcID:               clusterVpcID,
+						TargetGroupProtocol: &httpTgProtocol,
+					},
+				},
+			},
+		},
+		{
+			name: "QUIC and Instance Target Type should produce error",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-2"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
+								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumQuic,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:      "tg-2",
+						TargetType:          &instanceTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv6,
+						VpcID:               clusterVpcID,
+						TargetGroupProtocol: &quicTgProtocol,
+					},
+				},
+			},
+			wantErr: errors.New("QUIC protocol is not supported for Instance target types."),
+		},
+		{
+			name: "TCP_QUIC and Instance Target Type should produce error",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-2"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     elbv2types.TargetTypeEnumInstance,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
+								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumTcpQuic,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:      "tg-2",
+						TargetType:          &instanceTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv6,
+						VpcID:               clusterVpcID,
+						TargetGroupProtocol: &tcpQuicTgProtocol,
+					},
+				},
+			},
+			wantErr: errors.New("QUIC protocol is not supported for Instance target types."),
+		},
+		{
+			name: "QUIC and IP Target Type should produce error",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-2"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     elbv2types.TargetTypeEnumIp,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
+								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumQuic,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:      "tg-2",
+						TargetType:          &ipTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv6,
+						VpcID:               clusterVpcID,
+						TargetGroupProtocol: &quicTgProtocol,
+					},
+				},
+			},
+		},
+		{
+			name: "TCP_QUIC and Instance Target Type should produce error",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-2"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								TargetGroupArn: awssdk.String("tg-2"),
+								TargetType:     elbv2types.TargetTypeEnumIp,
+								IpAddressType:  elbv2types.TargetGroupIpAddressTypeEnumIpv6,
+								VpcId:          &clusterVpcID,
+								Protocol:       elbv2types.ProtocolEnumTcpQuic,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN:      "tg-2",
+						TargetType:          &ipTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv6,
+						VpcID:               clusterVpcID,
+						TargetGroupProtocol: &tcpQuicTgProtocol,
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
