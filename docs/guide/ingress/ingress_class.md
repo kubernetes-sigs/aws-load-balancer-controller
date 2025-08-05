@@ -175,7 +175,18 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
       ipamConfiguration: 
         ipv4IPAMPoolId: ipam-pool-000000000
     ```
-    - with PrefixListsIDs
+    - with PrefixListsIDs (not recommended, use prefixListsIDs instead)
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      PrefixListsIDs:
+        - pl-00000000
+        - pl-11111111
+    ```
+    - with prefixListsIDs
     ```
     apiVersion: elbv2.k8s.aws/v1beta1
     kind: IngressClassParams
@@ -321,12 +332,24 @@ Cluster administrators can use `ipamConfiguration` field to specify the IPv4 IPA
 
 #### spec.PrefixListsIDs
 
+We accept either `spec.prefixListsIDs` or `spec.PrefixListsIDs`. Specify both is not allowed. But `spec.PrefixListsIDs` is not recommended, use `spec.prefixListsIDs` instead. 
+
 `PrefixListsIDs` is an optional setting.
 
 Cluster administrators can use `PrefixListsIDs` field to specify the managed prefix lists that are allowed to access the load balancers that belong to this IngressClass. You can specify the list of prefix list IDs in the `spec.PrefixListsIDs` field.
 
 1. If `PrefixListsIDs` is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.
 2. If `PrefixListsIDs` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/security-group-prefix-lists` annotation to specify the load balancer prefix lists.
+
+
+#### spec.prefixListsIDs
+
+`prefixListsIDs` is an optional setting.
+
+Cluster administrators can use `prefixListsIDs` field to specify the managed prefix lists that are allowed to access the load balancers that belong to this IngressClass. You can specify the list of prefix list IDs in the `spec.prefixListsIDs` field.
+
+1. If `prefixListsIDs` is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.
+2. If `prefixListsIDs` un-specified, Ingresses with this IngressClass can continue to use `alb.ingress.kubernetes.io/security-group-prefix-lists` annotation to specify the load balancer prefix lists.
 
 #### spec.listeners
 
