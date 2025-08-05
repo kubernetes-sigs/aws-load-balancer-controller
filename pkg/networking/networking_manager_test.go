@@ -367,19 +367,23 @@ func Test_defaultNetworkingManager_computePermissionsForPeerPort(t *testing.T) {
 				pods: []k8s.PodInfo{
 					{
 						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
-						ContainerPorts: []corev1.ContainerPort{
+						ContainerInformation: []k8s.ContainerInformation{
 							{
-								Name:          "http",
-								ContainerPort: 80,
+								Port: corev1.ContainerPort{
+									Name:          "http",
+									ContainerPort: 80,
+								},
 							},
 						},
 					},
 					{
 						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-2"},
-						ContainerPorts: []corev1.ContainerPort{
+						ContainerInformation: []k8s.ContainerInformation{
 							{
-								Name:          "http",
-								ContainerPort: 8080,
+								Port: corev1.ContainerPort{
+									Name:          "http",
+									ContainerPort: 8080,
+								},
 							},
 						},
 					},
@@ -518,19 +522,23 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 				pods: []k8s.PodInfo{
 					{
 						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
-						ContainerPorts: []corev1.ContainerPort{
+						ContainerInformation: []k8s.ContainerInformation{
 							{
-								Name:          "http",
-								ContainerPort: 80,
+								Port: corev1.ContainerPort{
+									Name:          "http",
+									ContainerPort: 80,
+								},
 							},
 						},
 					},
 					{
 						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-2"},
-						ContainerPorts: []corev1.ContainerPort{
+						ContainerInformation: []k8s.ContainerInformation{
 							{
-								Name:          "http",
-								ContainerPort: 80,
+								Port: corev1.ContainerPort{
+									Name:          "http",
+									ContainerPort: 80,
+								},
 							},
 						},
 					},
@@ -545,19 +553,23 @@ func Test_defaultNetworkingManager_computeNumericalPorts(t *testing.T) {
 				pods: []k8s.PodInfo{
 					{
 						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
-						ContainerPorts: []corev1.ContainerPort{
+						ContainerInformation: []k8s.ContainerInformation{
 							{
-								Name:          "http",
-								ContainerPort: 80,
+								Port: corev1.ContainerPort{
+									Name:          "http",
+									ContainerPort: 80,
+								},
 							},
 						},
 					},
 					{
 						Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-2"},
-						ContainerPorts: []corev1.ContainerPort{
+						ContainerInformation: []k8s.ContainerInformation{
 							{
-								Name:          "http",
-								ContainerPort: 8080,
+								Port: corev1.ContainerPort{
+									Name:          "http",
+									ContainerPort: 8080,
+								},
 							},
 						},
 					},

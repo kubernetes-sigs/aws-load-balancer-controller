@@ -20,7 +20,8 @@ func (q *quicServerIDGeneratorImpl) generate() string {
 	defer q.mutex.Unlock()
 	bs := make([]byte, 8)
 	binary.BigEndian.PutUint64(bs, uint64(time.Now().UnixMilli()))
-	return base64.StdEncoding.EncodeToString(bs)
+	// TODO - Change this back once I've fixed envoy.
+	return base64.StdEncoding.EncodeToString(bs[:6])
 }
 
 func newQuicServerIDGenerator() quicServerIDGenerator {
