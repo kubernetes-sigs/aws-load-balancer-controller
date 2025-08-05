@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
@@ -36,14 +35,11 @@ func (m *ServerIDMutator) Prototype(_ admission.Request) (runtime.Object, error)
 }
 
 func (m *ServerIDMutator) MutateCreate(ctx context.Context, obj runtime.Object) (runtime.Object, error) {
-	fmt.Println("Got mutate request")
 	pod := obj.(*corev1.Pod)
 	if err := m.serverIDInjector.Mutate(ctx, pod); err != nil {
 		m.metricsCollector.ObserveWebhookMutationError(apiPathMutatePodServerID, "serverIDInjector")
-		fmt.Printf("Got this error! %+v\n", err)
 		return pod, err
 	}
-	fmt.Println("Done with mutate!")
 	return pod, nil
 }
 

@@ -31,7 +31,6 @@ import (
 
 const (
 	defaultRequeueDuration = 15 * time.Second
-	invalidVPCTTL          = 60 * time.Minute
 )
 const (
 	controllerName = "targetGroupBinding"

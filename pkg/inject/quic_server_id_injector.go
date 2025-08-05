@@ -42,30 +42,37 @@ func (m *quicServerIDInjectorImpl) Mutate(ctx context.Context, pod *corev1.Pod) 
 		return nil
 	}
 
-	containerNameSet := sets.NewString(strings.Split(containerNameList, ",")...)
+	containerNameSet := sets.New(strings.Split(containerNameList, ",")...)
 	for i := range pod.Spec.Containers {
-		cont := &(pod.Spec.Containers[i])
-		if containerNameSet.Has(cont.Name) {
-			if cont.Env == nil {
-				cont.Env = make([]corev1.EnvVar, 0)
-			}
+		m.mutateContainerSpec(&pod.Spec.Containers[i], containerNameSet)
+	}
 
-			var duplicateFound bool
-			for _, env := range cont.Env {
-				if env.Name == m.config.EnvironmentVariableName {
-					duplicateFound = true
-					break
-				}
-			}
-
-			if !duplicateFound {
-				cont.Env = append(cont.Env, corev1.EnvVar{
-					Name:  m.config.EnvironmentVariableName,
-					Value: m.idGenerator.generate(),
-				})
-			}
-		}
+	for i := range pod.Spec.InitContainers {
+		m.mutateContainerSpec(&pod.Spec.InitContainers[i], containerNameSet)
 	}
 
 	return nil
+}
+
+func (m *quicServerIDInjectorImpl) mutateContainerSpec(cont *corev1.Container, containerNameSet sets.Set[string]) {
+	if containerNameSet.Has(cont.Name) {
+		if cont.Env == nil {
+			cont.Env = make([]corev1.EnvVar, 0)
+		}
+
+		var duplicateFound bool
+		for _, env := range cont.Env {
+			if env.Name == m.config.EnvironmentVariableName {
+				duplicateFound = true
+				break
+			}
+		}
+
+		if !duplicateFound {
+			cont.Env = append(cont.Env, corev1.EnvVar{
+				Name:  m.config.EnvironmentVariableName,
+				Value: m.idGenerator.generate(),
+			})
+		}
+	}
 }

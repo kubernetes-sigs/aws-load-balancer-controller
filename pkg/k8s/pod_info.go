@@ -14,18 +14,23 @@ const (
 	annotationKeyPodENIInfo = "vpc.amazonaws.com/pod-eni"
 )
 
+type ContainerInformation struct {
+	Port         corev1.ContainerPort
+	QUICServerID *string
+}
+
 // PodInfo contains simplified pod information we cares about.
 // We do so to minimize memory usage.
 type PodInfo struct {
 	Key types.NamespacedName
 	UID types.UID
 
-	ContainerPorts []corev1.ContainerPort
-	ReadinessGates []corev1.PodReadinessGate
-	Conditions     []corev1.PodCondition
-	NodeName       string
-	PodIP          string
-	CreationTime   v1.Time
+	ContainerInformation []ContainerInformation
+	ReadinessGates       []corev1.PodReadinessGate
+	Conditions           []corev1.PodCondition
+	NodeName             string
+	PodIP                string
+	CreationTime         v1.Time
 
 	ENIInfos []PodENIInfo
 }
@@ -73,9 +78,9 @@ func (i *PodInfo) GetPodCondition(conditionType corev1.PodConditionType) (corev1
 func (i *PodInfo) LookupContainerPort(port intstr.IntOrString) (int64, error) {
 	switch port.Type {
 	case intstr.String:
-		for _, podPort := range i.ContainerPorts {
-			if podPort.Name == port.StrVal {
-				return int64(podPort.ContainerPort), nil
+		for _, ci := range i.ContainerInformation {
+			if ci.Port.Name == port.StrVal {
+				return int64(ci.Port.ContainerPort), nil
 			}
 		}
 	case intstr.Int:
@@ -84,43 +89,73 @@ func (i *PodInfo) LookupContainerPort(port intstr.IntOrString) (int64, error) {
 	return 0, errors.Errorf("unable to find port %s on pod %s", port.String(), i.Key)
 }
 
+type podInfoBuilder struct {
+	quicServerIDVariableName string
+}
+
+func newPodInfoBuilder(quicServerIDVariableName string) *podInfoBuilder {
+	return &podInfoBuilder{
+		quicServerIDVariableName: quicServerIDVariableName,
+	}
+}
+
+// podInfoConversionFunc computes the converted PodInfo per pod object.
+func (podInfoBuilder *podInfoBuilder) podInfoConverter(obj interface{}) (interface{}, error) {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return nil, errors.New("expect pod object")
+	}
+	podInfo := podInfoBuilder.buildPodInfo(pod)
+	return &podInfo, nil
+}
+
 // buildPodInfo will construct PodInfo for given pod.
-func buildPodInfo(pod *corev1.Pod) PodInfo {
+func (podInfoBuilder *podInfoBuilder) buildPodInfo(pod *corev1.Pod) PodInfo {
 	podKey := NamespacedName(pod)
 
 	var podENIInfos []PodENIInfo
 	// we kept podENIInfo as nil if the eniInfo via annotation is malformed.
-	if eniInfo, err := buildPodENIInfos(pod); err == nil {
+	if eniInfo, err := podInfoBuilder.buildPodENIInfos(pod); err == nil {
 		podENIInfos = eniInfo
 	}
 
-	var containerPorts []corev1.ContainerPort
+	var containerInfo []ContainerInformation
 	for _, podContainer := range pod.Spec.Containers {
-		containerPorts = append(containerPorts, podContainer.Ports...)
+		for i := range podContainer.Ports {
+			containerInfo = append(containerInfo, ContainerInformation{
+				Port:         podContainer.Ports[i],
+				QUICServerID: podInfoBuilder.extractQUICServerID(pod, podContainer),
+			})
+		}
 	}
 	// also support sidecar container (initContainer with restartPolicy=Always)
 	for _, podContainer := range pod.Spec.InitContainers {
 		if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
-			containerPorts = append(containerPorts, podContainer.Ports...)
+			for i := range podContainer.Ports {
+				containerInfo = append(containerInfo, ContainerInformation{
+					Port:         podContainer.Ports[i],
+					QUICServerID: podInfoBuilder.extractQUICServerID(pod, podContainer),
+				})
+			}
 		}
 	}
 	return PodInfo{
 		Key: podKey,
 		UID: pod.UID,
 
-		ContainerPorts: containerPorts,
-		ReadinessGates: pod.Spec.ReadinessGates,
-		Conditions:     pod.Status.Conditions,
-		NodeName:       pod.Spec.NodeName,
-		PodIP:          pod.Status.PodIP,
-		CreationTime:   pod.CreationTimestamp,
+		ContainerInformation: containerInfo,
+		ReadinessGates:       pod.Spec.ReadinessGates,
+		Conditions:           pod.Status.Conditions,
+		NodeName:             pod.Spec.NodeName,
+		PodIP:                pod.Status.PodIP,
+		CreationTime:         pod.CreationTimestamp,
 
 		ENIInfos: podENIInfos,
 	}
 }
 
 // buildPodENIInfo will construct PodENIInfo for given pod if any.
-func buildPodENIInfos(pod *corev1.Pod) ([]PodENIInfo, error) {
+func (podInfoBuilder *podInfoBuilder) buildPodENIInfos(pod *corev1.Pod) ([]PodENIInfo, error) {
 	rawAnnotation, ok := pod.Annotations[annotationKeyPodENIInfo]
 	if !ok {
 		return nil, nil
@@ -132,4 +167,30 @@ func buildPodENIInfos(pod *corev1.Pod) ([]PodENIInfo, error) {
 	}
 
 	return podENIInfos, nil
+}
+
+func (podInfoBuilder *podInfoBuilder) extractQUICServerID(pod *corev1.Pod, container corev1.Container) *string {
+
+	if pod.Annotations == nil {
+		return nil
+	}
+
+	// TODO - Fix this
+	_, ok := pod.Annotations["service.beta.kubernetes.io/aws-load-balancer-quic-enabled-containers"]
+
+	if !ok {
+		return nil
+	}
+
+	if container.Env == nil || len(container.Env) == 0 {
+		return nil
+	}
+
+	for _, env := range container.Env {
+		if env.Name == podInfoBuilder.quicServerIDVariableName {
+			return &env.Value
+		}
+	}
+
+	return nil
 }
