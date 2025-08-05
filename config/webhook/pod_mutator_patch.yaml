@@ -16,3 +16,16 @@ webhooks:
           operator: NotIn
           values:
             - aws-load-balancer-controller
+  - name: quicid.elbv2.k8s.aws
+    namespaceSelector:
+      matchExpressions:
+        - key: elbv2.k8s.aws/quic-server-id-inject
+          operator: In
+          values:
+            - enabled
+    objectSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: NotIn
+          values:
+            - aws-load-balancer-controller
