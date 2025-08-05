@@ -19,6 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 // +kubebuilder:validation:Enum=instance;ip
@@ -138,6 +139,11 @@ type TargetGroupBindingSpec struct {
 	// targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
 	TargetType *TargetType `json:"targetType,omitempty"`
+
+	// targetGroupProtocol is the Protocol of the TargetGroup. If unspecified, it will be automatically inferred.
+	// +optional
+	// +kubebuilder:validation:Enum=HTTP;HTTPS;TCP;TLS;UDP;TCP_UDP
+	TargetGroupProtocol *elbv2.Protocol `json:"targetGroupProtocol,omitempty"`
 
 	// serviceRef is a reference to a Kubernetes Service and ServicePort.
 	ServiceRef ServiceReference `json:"serviceRef"`

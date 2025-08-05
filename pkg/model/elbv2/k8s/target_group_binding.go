@@ -1,10 +1,11 @@
-package elbv2
+package k8s
 
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
 var _ core.Resource = &TargetGroupBindingResource{}
@@ -111,6 +112,10 @@ type TargetGroupBindingSpec struct {
 	// multiClusterTargetGroup Denotes if the TargetGroup is shared among multiple clusters
 	// +optional
 	MultiClusterTargetGroup bool `json:"multiClusterTargetGroup,omitempty"`
+
+	// TargetGroupProtocol is the Protocol of the TargetGroup. If unspecified, it will be automatically inferred.
+	// +optional
+	TargetGroupProtocol *elbv2.Protocol `json:"targetGroupProtocol,omitempty"`
 }
 
 // Template for TargetGroupBinding Custom Resource.
