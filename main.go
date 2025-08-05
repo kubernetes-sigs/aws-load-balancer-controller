@@ -409,7 +409,11 @@ func main() {
 
 	podReadinessGateInjector := inject.NewPodReadinessGate(controllerCFG.PodWebhookConfig,
 		mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
-	corewebhook.NewPodMutator(podReadinessGateInjector, lbcMetricsCollector).SetupWithManager(mgr)
+
+	quicServerIDInjector := inject.NewQUICServerIDInjector(controllerCFG.QUICServerIDInjectionConfig, ctrl.Log.WithName("quic-server-id-injector"))
+
+	corewebhook.NewPodReadinessGateMutator(podReadinessGateInjector, lbcMetricsCollector).SetupWithManager(mgr)
+	corewebhook.NewPodServerIDMutator(quicServerIDInjector, lbcMetricsCollector).SetupWithManager(mgr)
 	corewebhook.NewServiceMutator(controllerCFG.ServiceConfig.LoadBalancerClass, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewIngressClassParamsValidator(lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
