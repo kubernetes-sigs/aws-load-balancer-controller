@@ -149,6 +149,10 @@ spec:
                   - value
                   type: object
                 type: array
+              loadBalancerName:
+                description: LoadBalancerName defines the name of the load balancer
+                  that will be created with this IngressClassParams.
+                type: string
               minimumLoadBalancerCapacity:
                 description: MinimumLoadBalancerCapacity define the capacity reservation
                   for LoadBalancers for all Ingress that belong to IngressClass with

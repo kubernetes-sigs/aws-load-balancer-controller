@@ -99,6 +99,11 @@ var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 func (t *defaultModelBuildTask) buildLoadBalancerName(_ context.Context, scheme elbv2model.LoadBalancerScheme) (string, error) {
 	explicitNames := sets.String{}
 	for _, member := range t.ingGroup.Members {
+		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.LoadBalancerName != "" {
+			loadBalancerName := member.IngClassConfig.IngClassParams.Spec.LoadBalancerName
+			explicitNames.Insert(loadBalancerName)
+			continue
+		}
 		rawName := ""
 		if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixLoadBalancerName, &rawName, member.Ing.Annotations); !exists {
 			continue
