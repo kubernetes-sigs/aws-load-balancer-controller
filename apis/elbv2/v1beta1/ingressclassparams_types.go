@@ -115,6 +115,7 @@ type IPAMConfiguration struct {
 }
 
 // IngressClassParamsSpec defines the desired state of IngressClassParams
+// +kubebuilder:validation:XValidation:rule="!(has(self.prefixListsIDs) && has(self.PrefixListsIDs))", message="cannot specify both 'prefixListsIDs' and 'PrefixListsIDs' fields"
 type IngressClassParamsSpec struct {
 	// CertificateArn specifies the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
@@ -172,8 +173,14 @@ type IngressClassParamsSpec struct {
 	// +optional
 	IPAMConfiguration *IPAMConfiguration `json:"ipamConfiguration,omitempty"`
 
+	// PrefixListsIDsLegacy defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// Not Recommended, Use PrefixListsIDs (prefixListsIDs in JSON) instead
+	// +optional
+	PrefixListsIDsLegacy []string `json:"PrefixListsIDs,omitempty"`
+
 	// PrefixListsIDs defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
-	PrefixListsIDs []string `json:"PrefixListsIDs,omitempty"`
+	// +optional
+	PrefixListsIDs []string `json:"prefixListsIDs,omitempty"`
 }
 
 // +kubebuilder:object:root=true
