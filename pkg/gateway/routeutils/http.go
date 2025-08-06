@@ -3,7 +3,7 @@ package routeutils
 import (
 	"context"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -20,17 +20,19 @@ HTTP specific features of the route.
 
 var _ RouteRule = &convertedHTTPRouteRule{}
 
-var defaultHTTPRuleAccumulator = newAttachedRuleAccumulator[gwv1.HTTPRouteRule](commonBackendLoader)
+var defaultHTTPRuleAccumulator = newAttachedRuleAccumulator[gwv1.HTTPRouteRule](commonBackendLoader, listenerRuleConfigLoader)
 
 type convertedHTTPRouteRule struct {
-	rule     *gwv1.HTTPRouteRule
-	backends []Backend
+	rule               *gwv1.HTTPRouteRule
+	backends           []Backend
+	listenerRuleConfig *elbv2gw.ListenerRuleConfiguration
 }
 
-func convertHTTPRouteRule(rule *gwv1.HTTPRouteRule, backends []Backend) RouteRule {
+func convertHTTPRouteRule(rule *gwv1.HTTPRouteRule, backends []Backend, listenerRuleConfig *elbv2gw.ListenerRuleConfiguration) RouteRule {
 	return &convertedHTTPRouteRule{
-		rule:     rule,
-		backends: backends,
+		rule:               rule,
+		backends:           backends,
+		listenerRuleConfig: listenerRuleConfig,
 	}
 }
 
@@ -46,6 +48,10 @@ func (t *convertedHTTPRouteRule) GetBackends() []Backend {
 	return t.backends
 }
 
+func (t *convertedHTTPRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleConfiguration {
+	return t.listenerRuleConfig
+}
+
 /* Route Description */
 
 type httpRouteDescription struct {
@@ -59,15 +65,23 @@ func (httpRoute *httpRouteDescription) GetAttachedRules() []RouteRule {
 }
 
 func (httpRoute *httpRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
-	convertedRules, allErrors := httpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, httpRoute, httpRoute.route.Spec.Rules, func(rule gwv1.HTTPRouteRule) []gwv1.BackendRef {
-		refs := make([]gwv1.BackendRef, 0, len(rule.BackendRefs))
-		for _, httpRef := range rule.BackendRefs {
-			refs = append(refs, httpRef.BackendRef)
-		}
-		return refs
-	}, func(hrr *gwv1.HTTPRouteRule, backends []Backend) RouteRule {
-		return convertHTTPRouteRule(hrr, backends)
-	})
+	convertedRules, allErrors := httpRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, httpRoute, httpRoute.route.Spec.Rules,
+		func(rule gwv1.HTTPRouteRule) []gwv1.BackendRef {
+			refs := make([]gwv1.BackendRef, 0, len(rule.BackendRefs))
+			for _, httpRef := range rule.BackendRefs {
+				refs = append(refs, httpRef.BackendRef)
+			}
+			return refs
+		}, func(rule gwv1.HTTPRouteRule) []gwv1.LocalObjectReference {
+			return getListenerRuleConfigForRuleGeneric(rule.Filters,
+				func(filter gwv1.HTTPRouteFilter) bool {
+					return filter.Type == gwv1.HTTPRouteFilterExtensionRef
+				}, func(filter gwv1.HTTPRouteFilter) *gwv1.LocalObjectReference {
+					return filter.ExtensionRef
+				})
+		}, func(hrr *gwv1.HTTPRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
+			return convertHTTPRouteRule(hrr, backends, listenerRuleConfiguration)
+		})
 	httpRoute.rules = convertedRules
 	return httpRoute, allErrors
 }
@@ -106,25 +120,17 @@ func (httpRoute *httpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 
 // GetListenerRuleConfigs returns all ListenerRuleConfiguration references from
 // ExtensionRef filters in the HTTPRoute
-func (httpRoute *httpRouteDescription) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+func (httpRoute *httpRouteDescription) GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference {
 	listenerRuleConfigs := make([]gwv1.LocalObjectReference, 0)
 	if httpRoute.route.Spec.Rules != nil {
 		for _, rule := range httpRoute.route.Spec.Rules {
-			if rule.Filters != nil {
-				for _, filter := range rule.Filters {
-					if filter.Type != gwv1.HTTPRouteFilterExtensionRef {
-						continue
-					}
-					if string(filter.ExtensionRef.Group) == constants.ControllerCRDGroupVersion && string(filter.ExtensionRef.Kind) == constants.ListenerRuleConfiguration {
-						listenerRuleConfigs = append(listenerRuleConfigs, gwv1.LocalObjectReference{
-							Group: constants.ControllerCRDGroupVersion,
-							Kind:  constants.ListenerRuleConfiguration,
-							Name:  filter.ExtensionRef.Name,
-						})
-					}
-				}
-
-			}
+			cfgList := getListenerRuleConfigForRuleGeneric(rule.Filters,
+				func(filter gwv1.HTTPRouteFilter) bool {
+					return filter.Type == gwv1.HTTPRouteFilterExtensionRef
+				}, func(filter gwv1.HTTPRouteFilter) *gwv1.LocalObjectReference {
+					return filter.ExtensionRef
+				})
+			listenerRuleConfigs = append(listenerRuleConfigs, cfgList...)
 		}
 	}
 	return listenerRuleConfigs

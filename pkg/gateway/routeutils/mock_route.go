@@ -2,13 +2,15 @@ package routeutils
 
 import (
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"time"
 )
 
 type MockRule struct {
-	RawRule     interface{}
-	BackendRefs []Backend
+	RawRule            interface{}
+	BackendRefs        []Backend
+	ListenerRuleConfig *elbv2gw.ListenerRuleConfiguration
 }
 
 func (m *MockRule) GetRawRouteRule() interface{} {
@@ -22,6 +24,10 @@ func (m *MockRule) GetSectionName() *gwv1.SectionName {
 
 func (m *MockRule) GetBackends() []Backend {
 	return m.BackendRefs
+}
+
+func (m *MockRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleConfiguration {
+	return m.ListenerRuleConfig
 }
 
 var _ RouteRule = &MockRule{}
@@ -40,7 +46,7 @@ func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
 	panic("implement me")
 }
 
-func (m *MockRoute) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+func (m *MockRoute) GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference {
 	//TODO implement me
 	panic("implement me")
 }

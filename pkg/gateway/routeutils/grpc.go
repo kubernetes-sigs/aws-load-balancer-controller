@@ -3,7 +3,7 @@ package routeutils
 import (
 	"context"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -20,21 +20,23 @@ GRPC specific features of the route.
 
 var _ RouteRule = &convertedGRPCRouteRule{}
 
-var defaultGRPCRuleAccumulator = newAttachedRuleAccumulator[gwv1.GRPCRouteRule](commonBackendLoader)
+var defaultGRPCRuleAccumulator = newAttachedRuleAccumulator[gwv1.GRPCRouteRule](commonBackendLoader, listenerRuleConfigLoader)
 
 type convertedGRPCRouteRule struct {
-	rule     *gwv1.GRPCRouteRule
-	backends []Backend
+	rule               *gwv1.GRPCRouteRule
+	backends           []Backend
+	listenerRuleConfig *elbv2gw.ListenerRuleConfiguration
 }
 
 func (t *convertedGRPCRouteRule) GetRawRouteRule() interface{} {
 	return t.rule
 }
 
-func convertGRPCRouteRule(rule *gwv1.GRPCRouteRule, backends []Backend) RouteRule {
+func convertGRPCRouteRule(rule *gwv1.GRPCRouteRule, backends []Backend, listenerRuleConfig *elbv2gw.ListenerRuleConfiguration) RouteRule {
 	return &convertedGRPCRouteRule{
-		rule:     rule,
-		backends: backends,
+		rule:               rule,
+		backends:           backends,
+		listenerRuleConfig: listenerRuleConfig,
 	}
 }
 
@@ -46,6 +48,10 @@ func (t *convertedGRPCRouteRule) GetBackends() []Backend {
 	return t.backends
 }
 
+func (t *convertedGRPCRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleConfiguration {
+	return t.listenerRuleConfig
+}
+
 /* Route Description */
 
 type grpcRouteDescription struct {
@@ -55,15 +61,22 @@ type grpcRouteDescription struct {
 }
 
 func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
-	convertedRules, allErrors := grpcRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, grpcRoute, grpcRoute.route.Spec.Rules, func(rule gwv1.GRPCRouteRule) []gwv1.BackendRef {
-		refs := make([]gwv1.BackendRef, 0, len(rule.BackendRefs))
-		for _, grpcRef := range rule.BackendRefs {
-			refs = append(refs, grpcRef.BackendRef)
-		}
-		return refs
-	}, func(grr *gwv1.GRPCRouteRule, backends []Backend) RouteRule {
-		return convertGRPCRouteRule(grr, backends)
-	})
+	convertedRules, allErrors := grpcRoute.ruleAccumulator.accumulateRules(ctx, k8sClient, grpcRoute, grpcRoute.route.Spec.Rules,
+		func(rule gwv1.GRPCRouteRule) []gwv1.BackendRef {
+			refs := make([]gwv1.BackendRef, 0, len(rule.BackendRefs))
+			for _, grpcRef := range rule.BackendRefs {
+				refs = append(refs, grpcRef.BackendRef)
+			}
+			return refs
+		}, func(rule gwv1.GRPCRouteRule) []gwv1.LocalObjectReference {
+			return getListenerRuleConfigForRuleGeneric(rule.Filters, func(filter gwv1.GRPCRouteFilter) bool {
+				return filter.Type == gwv1.GRPCRouteFilterExtensionRef
+			}, func(filter gwv1.GRPCRouteFilter) *gwv1.LocalObjectReference {
+				return filter.ExtensionRef
+			})
+		}, func(grr *gwv1.GRPCRouteRule, backends []Backend, listenerRuleConfiguration *elbv2gw.ListenerRuleConfiguration) RouteRule {
+			return convertGRPCRouteRule(grr, backends, listenerRuleConfiguration)
+		})
 	grpcRoute.rules = convertedRules
 	return grpcRoute, allErrors
 }
@@ -110,25 +123,17 @@ func (grpcRoute *grpcRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 
 // GetListenerRuleConfigs returns all ListenerRuleConfiguration references from
 // ExtensionRef filters in the GRPCRoute
-func (grpcRoute *grpcRouteDescription) GetListenerRuleConfigs() []gwv1.LocalObjectReference {
+func (grpcRoute *grpcRouteDescription) GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference {
 	listenerRuleConfigs := make([]gwv1.LocalObjectReference, 0)
 	if grpcRoute.route.Spec.Rules != nil {
 		for _, rule := range grpcRoute.route.Spec.Rules {
-			if rule.Filters != nil {
-				for _, filter := range rule.Filters {
-					if filter.Type != gwv1.GRPCRouteFilterExtensionRef {
-						continue
-					}
-					if string(filter.ExtensionRef.Group) == constants.ControllerCRDGroupVersion && string(filter.ExtensionRef.Kind) == constants.ListenerRuleConfiguration {
-						listenerRuleConfigs = append(listenerRuleConfigs, gwv1.LocalObjectReference{
-							Group: constants.ControllerCRDGroupVersion,
-							Kind:  constants.ListenerRuleConfiguration,
-							Name:  filter.ExtensionRef.Name,
-						})
-					}
-				}
-
-			}
+			cfgList := getListenerRuleConfigForRuleGeneric(rule.Filters,
+				func(filter gwv1.GRPCRouteFilter) bool {
+					return filter.Type == gwv1.GRPCRouteFilterExtensionRef
+				}, func(filter gwv1.GRPCRouteFilter) *gwv1.LocalObjectReference {
+					return filter.ExtensionRef
+				})
+			listenerRuleConfigs = append(listenerRuleConfigs, cfgList...)
 		}
 	}
 	return listenerRuleConfigs
