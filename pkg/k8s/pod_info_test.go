@@ -221,18 +221,14 @@ func TestPodInfo_LookupContainerPort(t *testing.T) {
 			name: "str container port exists",
 			pod: PodInfo{
 				Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
-				ContainerInformation: []ContainerInformation{
+				ContainerPorts: []corev1.ContainerPort{
 					{
-						Port: corev1.ContainerPort{
-							Name:          "http",
-							ContainerPort: 8080,
-						},
+						Name:          "http",
+						ContainerPort: 8080,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "https",
-							ContainerPort: 8443,
-						},
+						Name:          "https",
+						ContainerPort: 8443,
 					},
 				},
 			},
@@ -245,18 +241,14 @@ func TestPodInfo_LookupContainerPort(t *testing.T) {
 			name: "str container port don't exists",
 			pod: PodInfo{
 				Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
-				ContainerInformation: []ContainerInformation{
+				ContainerPorts: []corev1.ContainerPort{
 					{
-						Port: corev1.ContainerPort{
-							Name:          "http",
-							ContainerPort: 8080,
-						},
+						Name:          "http",
+						ContainerPort: 8080,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "https",
-							ContainerPort: 8443,
-						},
+						Name:          "https",
+						ContainerPort: 8443,
 					},
 				},
 			},
@@ -269,18 +261,14 @@ func TestPodInfo_LookupContainerPort(t *testing.T) {
 			name: "int container port exists",
 			pod: PodInfo{
 				Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
-				ContainerInformation: []ContainerInformation{
+				ContainerPorts: []corev1.ContainerPort{
 					{
-						Port: corev1.ContainerPort{
-							Name:          "http",
-							ContainerPort: 8080,
-						},
+						Name:          "http",
+						ContainerPort: 8080,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "https",
-							ContainerPort: 8443,
-						},
+						Name:          "https",
+						ContainerPort: 8443,
 					},
 				},
 			},
@@ -293,18 +281,14 @@ func TestPodInfo_LookupContainerPort(t *testing.T) {
 			name: "int container port don't exists",
 			pod: PodInfo{
 				Key: types.NamespacedName{Namespace: "ns-1", Name: "pod-1"},
-				ContainerInformation: []ContainerInformation{
+				ContainerPorts: []corev1.ContainerPort{
 					{
-						Port: corev1.ContainerPort{
-							Name:          "http",
-							ContainerPort: 8080,
-						},
+						Name:          "http",
+						ContainerPort: 8080,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "https",
-							ContainerPort: 8443,
-						},
+						Name:          "https",
+						ContainerPort: 8443,
 					},
 				},
 			},
@@ -427,36 +411,26 @@ func Test_buildPodInfo(t *testing.T) {
 			want: PodInfo{
 				Key: types.NamespacedName{Namespace: "my-ns", Name: "pod-1"},
 				UID: "pod-uuid",
-				ContainerInformation: []ContainerInformation{
+				ContainerPorts: []corev1.ContainerPort{
 					{
-						Port: corev1.ContainerPort{
-							Name:          "ssh",
-							ContainerPort: 22,
-						},
+						Name:          "ssh",
+						ContainerPort: 22,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "http",
-							ContainerPort: 8080,
-						},
+						Name:          "http",
+						ContainerPort: 8080,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "https",
-							ContainerPort: 8443,
-						},
+						Name:          "https",
+						ContainerPort: 8443,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "dns",
-							ContainerPort: 53,
-						},
+						Name:          "dns",
+						ContainerPort: 53,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "ftp",
-							ContainerPort: 21,
-						},
+						Name:          "ftp",
+						ContainerPort: 21,
 					},
 				},
 				ReadinessGates: []corev1.PodReadinessGate{
@@ -571,36 +545,26 @@ func Test_buildPodInfo(t *testing.T) {
 			want: PodInfo{
 				Key: types.NamespacedName{Namespace: "my-ns", Name: "pod-1"},
 				UID: "pod-uuid",
-				ContainerInformation: []ContainerInformation{
+				ContainerPorts: []corev1.ContainerPort{
 					{
-						Port: corev1.ContainerPort{
-							Name:          "ssh",
-							ContainerPort: 22,
-						},
+						Name:          "ssh",
+						ContainerPort: 22,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "http",
-							ContainerPort: 8080,
-						},
+						Name:          "http",
+						ContainerPort: 8080,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "https",
-							ContainerPort: 8443,
-						},
+						Name:          "https",
+						ContainerPort: 8443,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "dns",
-							ContainerPort: 53,
-						},
+						Name:          "dns",
+						ContainerPort: 53,
 					},
 					{
-						Port: corev1.ContainerPort{
-							Name:          "ftp",
-							ContainerPort: 21,
-						},
+						Name:          "ftp",
+						ContainerPort: 21,
 					},
 				},
 				ReadinessGates: []corev1.PodReadinessGate{
