@@ -450,6 +450,15 @@ func (t *defaultModelBuildTask) mergeListenPortConfigs(_ context.Context, listen
 func (t *defaultModelBuildTask) buildSSLRedirectConfig(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig) (*SSLRedirectConfig, error) {
 	explicitSSLRedirectPorts := sets.Int32{}
 	for _, member := range t.ingGroup.Members {
+		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.SSLRedirectPort != "" {
+			sslRedirectPort, err := strconv.ParseInt(member.IngClassConfig.IngClassParams.Spec.SSLRedirectPort, 10, 32)
+			if err != nil {
+				return nil, nil
+			}
+			explicitSSLRedirectPorts.Insert(int32(sslRedirectPort))
+			continue
+		}
+
 		var rawSSLRedirectPort int32
 		exists, err := t.annotationParser.ParseInt32Annotation(annotations.IngressSuffixSSLRedirect, &rawSSLRedirectPort, member.Ing.Annotations)
 		if err != nil {
