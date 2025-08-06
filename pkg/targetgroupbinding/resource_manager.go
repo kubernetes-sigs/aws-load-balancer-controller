@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sync"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 
 const (
 	defaultRequeueDuration = 15 * time.Second
+	invalidVPCTTL          = 60 * time.Minute
 )
 const (
 	controllerName = "targetGroupBinding"
@@ -574,14 +576,14 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 		return err
 	}
 
-	sdkTargets, err := m.prepareRegistrationCall(endpoints, overrideAzFn)
+	sdkTargets, err := m.prepareRegistrationCall(endpoints, tgb.Spec.TargetGroupProtocol, overrideAzFn)
 	if err != nil {
 		return err
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
 }
 
-func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.PodEndpoint, doAzOverride func(addr netip.Addr) bool) ([]elbv2types.TargetDescription, error) {
+func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.PodEndpoint, targetGroupProtocol *elbv2.Protocol, doAzOverride func(addr netip.Addr) bool) ([]elbv2types.TargetDescription, error) {
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		target := elbv2types.TargetDescription{
@@ -595,7 +597,29 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 		if doAzOverride(podIP) {
 			target.AvailabilityZone = awssdk.String("all")
 		}
-		sdkTargets = append(sdkTargets, target)
+
+		doAppend := true
+
+		if targetGroupProtocol != nil && (*targetGroupProtocol == elbv2.ProtocolQUIC || *targetGroupProtocol == elbv2.ProtocolTCP_QUIC) {
+
+			var serverId *string
+
+			if endpoint.Pod.QUICServerIDs != nil {
+				sId, ok := endpoint.Pod.QUICServerIDs[endpoint.Port]
+				if ok {
+					serverId = &sId
+				}
+			}
+
+			doAppend = serverId != nil
+			if serverId != nil {
+				target.QuicServerId = serverId
+			}
+		}
+
+		if doAppend {
+			sdkTargets = append(sdkTargets, target)
+		}
 	}
 	return sdkTargets, nil
 }

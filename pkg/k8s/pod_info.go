@@ -14,23 +14,19 @@ const (
 	annotationKeyPodENIInfo = "vpc.amazonaws.com/pod-eni"
 )
 
-type ContainerInformation struct {
-	Port         corev1.ContainerPort
-	QUICServerID *string
-}
-
-// PodInfo contains simplified pod information we cares about.
+// PodInfo contains simplified pod information we care about.
 // We do so to minimize memory usage.
 type PodInfo struct {
 	Key types.NamespacedName
 	UID types.UID
 
-	ContainerInformation []ContainerInformation
-	ReadinessGates       []corev1.PodReadinessGate
-	Conditions           []corev1.PodCondition
-	NodeName             string
-	PodIP                string
-	CreationTime         v1.Time
+	ContainerPorts []corev1.ContainerPort
+	QUICServerIDs  map[int32]string
+	ReadinessGates []corev1.PodReadinessGate
+	Conditions     []corev1.PodCondition
+	NodeName       string
+	PodIP          string
+	CreationTime   v1.Time
 
 	ENIInfos []PodENIInfo
 }
@@ -78,9 +74,9 @@ func (i *PodInfo) GetPodCondition(conditionType corev1.PodConditionType) (corev1
 func (i *PodInfo) LookupContainerPort(port intstr.IntOrString) (int64, error) {
 	switch port.Type {
 	case intstr.String:
-		for _, ci := range i.ContainerInformation {
-			if ci.Port.Name == port.StrVal {
-				return int64(ci.Port.ContainerPort), nil
+		for _, podPort := range i.ContainerPorts {
+			if podPort.Name == port.StrVal {
+				return int64(podPort.ContainerPort), nil
 			}
 		}
 	case intstr.Int:
@@ -119,18 +115,9 @@ func (podInfoBuilder *podInfoBuilder) buildPodInfo(pod *corev1.Pod) PodInfo {
 		podENIInfos = eniInfo
 	}
 
-	var containerInfo []ContainerInformation
-	for _, podContainer := range pod.Spec.Containers {
-		for i := range podContainer.Ports {
-			containerInfo = append(containerInfo, ContainerInformation{
-				Port:         podContainer.Ports[i],
-				QUICServerID: podInfoBuilder.extractQUICServerID(pod, podContainer),
-			})
-		}
-	}
-	// also support sidecar container (initContainer with restartPolicy=Always)
-	for _, podContainer := range pod.Spec.InitContainers {
-		if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
+	/*
+		var containerInfo []ContainerInformation
+		for _, podContainer := range pod.Spec.Containers {
 			for i := range podContainer.Ports {
 				containerInfo = append(containerInfo, ContainerInformation{
 					Port:         podContainer.Ports[i],
@@ -138,17 +125,60 @@ func (podInfoBuilder *podInfoBuilder) buildPodInfo(pod *corev1.Pod) PodInfo {
 				})
 			}
 		}
+		// also support sidecar container (initContainer with restartPolicy=Always)
+		for _, podContainer := range pod.Spec.InitContainers {
+			if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
+				for i := range podContainer.Ports {
+					containerInfo = append(containerInfo, ContainerInformation{
+						Port:         podContainer.Ports[i],
+						QUICServerID: podInfoBuilder.extractQUICServerID(pod, podContainer),
+					})
+				}
+			}
+		}
+	*/
+
+	var containerPorts []corev1.ContainerPort
+	var quicServerIDs map[int32]string
+	for _, podContainer := range pod.Spec.Containers {
+		containerPorts = append(containerPorts, podContainer.Ports...)
+		extractedId := podInfoBuilder.extractQUICServerID(pod, podContainer)
+		if extractedId != nil {
+			if quicServerIDs == nil {
+				quicServerIDs = make(map[int32]string)
+			}
+			for _, p := range podContainer.Ports {
+				quicServerIDs[p.ContainerPort] = *extractedId
+			}
+		}
 	}
+	// also support sidecar container (initContainer with restartPolicy=Always)
+	for _, podContainer := range pod.Spec.InitContainers {
+		if quicServerIDs == nil {
+			quicServerIDs = make(map[int32]string)
+		}
+		if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
+			containerPorts = append(containerPorts, podContainer.Ports...)
+		}
+
+		extractedId := podInfoBuilder.extractQUICServerID(pod, podContainer)
+		if extractedId != nil {
+			for _, p := range podContainer.Ports {
+				quicServerIDs[p.ContainerPort] = *extractedId
+			}
+		}
+	}
+
 	return PodInfo{
 		Key: podKey,
 		UID: pod.UID,
 
-		ContainerInformation: containerInfo,
-		ReadinessGates:       pod.Spec.ReadinessGates,
-		Conditions:           pod.Status.Conditions,
-		NodeName:             pod.Spec.NodeName,
-		PodIP:                pod.Status.PodIP,
-		CreationTime:         pod.CreationTimestamp,
+		ContainerPorts: containerPorts,
+		ReadinessGates: pod.Spec.ReadinessGates,
+		Conditions:     pod.Status.Conditions,
+		NodeName:       pod.Spec.NodeName,
+		PodIP:          pod.Status.PodIP,
+		CreationTime:   pod.CreationTimestamp,
 
 		ENIInfos: podENIInfos,
 	}
