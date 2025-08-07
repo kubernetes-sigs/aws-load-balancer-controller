@@ -2,6 +2,8 @@ package targetgroupbinding
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"net/netip"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -601,10 +603,11 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 		doAppend := true
 
 		if targetGroupProtocol != nil && (*targetGroupProtocol == elbv2.ProtocolQUIC || *targetGroupProtocol == elbv2.ProtocolTCP_QUIC) {
-
+			m.logger.Info("Getting the server ID!")
 			var serverId *string
 
 			if endpoint.Pod.QUICServerIDs != nil {
+				m.logger.Info("got these ids", endpoint.Pod.QUICServerIDs)
 				sId, ok := endpoint.Pod.QUICServerIDs[endpoint.Port]
 				if ok {
 					serverId = &sId
@@ -613,9 +616,20 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 
 			doAppend = serverId != nil
 			if serverId != nil {
-				target.QuicServerId = serverId
+
+				hexServerId, err := convertServerIdToELBFormat(*serverId)
+				if err != nil {
+					return nil, err
+				}
+
+				target.QuicServerId = &hexServerId
+				m.logger.Info("Got this server ID!", "sid", *serverId, "hex", hexServerId)
+			} else {
+				// TODO - metric?
+				m.logger.Info("Dropping registration request for QUIC enabled target with no server ID", "target", target)
 			}
 		}
+		m.logger.Info("Got this value for doAppend", "append", doAppend)
 
 		if doAppend {
 			sdkTargets = append(sdkTargets, target)
@@ -851,4 +865,17 @@ func (m *defaultResourceManager) getMaxNewTargets(newTargetCount int, currentTar
 	}
 
 	return newTargetCount
+}
+
+// convertServerIdToELBFormat
+// convert b64 value into hex
+// append mandatory '0x' into front
+func convertServerIdToELBFormat(b64 string) (string, error) {
+	// Decode the base64 string to bytes
+	data, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64: %w", err)
+	}
+
+	return fmt.Sprintf("0x%s", hex.EncodeToString(data)), nil
 }
