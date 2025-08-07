@@ -2,7 +2,7 @@ package k8s
 
 import (
 	"encoding/json"
-
+	"fmt"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -154,15 +154,15 @@ func (podInfoBuilder *podInfoBuilder) buildPodInfo(pod *corev1.Pod) PodInfo {
 	}
 	// also support sidecar container (initContainer with restartPolicy=Always)
 	for _, podContainer := range pod.Spec.InitContainers {
-		if quicServerIDs == nil {
-			quicServerIDs = make(map[int32]string)
-		}
 		if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
 			containerPorts = append(containerPorts, podContainer.Ports...)
 		}
 
 		extractedId := podInfoBuilder.extractQUICServerID(pod, podContainer)
 		if extractedId != nil {
+			if quicServerIDs == nil {
+				quicServerIDs = make(map[int32]string)
+			}
 			for _, p := range podContainer.Ports {
 				quicServerIDs[p.ContainerPort] = *extractedId
 			}
@@ -174,6 +174,7 @@ func (podInfoBuilder *podInfoBuilder) buildPodInfo(pod *corev1.Pod) PodInfo {
 		UID: pod.UID,
 
 		ContainerPorts: containerPorts,
+		QUICServerIDs:  quicServerIDs,
 		ReadinessGates: pod.Spec.ReadinessGates,
 		Conditions:     pod.Status.Conditions,
 		NodeName:       pod.Spec.NodeName,
@@ -217,7 +218,9 @@ func (podInfoBuilder *podInfoBuilder) extractQUICServerID(pod *corev1.Pod, conta
 	}
 
 	for _, env := range container.Env {
+		fmt.Println("Foo -> " + env.Name)
 		if env.Name == podInfoBuilder.quicServerIDVariableName {
+			fmt.Println("Got the ID! -> " + env.Value)
 			return &env.Value
 		}
 	}
