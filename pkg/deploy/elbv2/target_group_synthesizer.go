@@ -180,7 +180,7 @@ func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWit
 		return false
 	}
 	if resTG.Spec.Protocol != elbv2model.ProtocolTCP && resTG.Spec.Protocol != elbv2model.ProtocolUDP &&
-		resTG.Spec.Protocol != elbv2model.ProtocolTCP_UDP && resTG.Spec.Protocol != elbv2model.ProtocolTLS {
+		resTG.Spec.Protocol != elbv2model.ProtocolTCP_UDP && resTG.Spec.Protocol != elbv2model.ProtocolTLS && resTG.Spec.Protocol != elbv2model.ProtocolQUIC && resTG.Spec.Protocol != elbv2model.ProtocolTCP_QUIC {
 		return false
 	}
 	sdkObj := sdkTG.TargetGroup
