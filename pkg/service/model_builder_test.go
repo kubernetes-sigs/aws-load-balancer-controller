@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
 	"time"
 
@@ -128,6 +131,8 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 		featureGates                 map[config.Feature]bool
 		wantMetric                   bool
 		skipTCPUDPDisabled           bool
+		enhancedBackendBuilder       EnhancedBackendBuilder
+		resolveBackendServices       []*corev1.Service
 	}{
 		{
 			testName: "Simple service",
@@ -7021,9 +7026,13 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 					enableIPTargetType = *tt.enableIPTargetType
 				}
 				mockMetricsCollector := lbcmetrics.NewMockCollector()
+				k8sSchema := runtime.NewScheme()
+				clientgoscheme.AddToScheme(k8sSchema)
+				k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).Build()
+				enhancedBackendBuilder := NewDefaultEnhancedBackendBuilder(k8sClient, annotationParser, logr.Logger{})
 				builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
 					"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
-					backendSGProvider, sgResolver, tt.enableBackendSG, tt.enableManageBackendSGRules, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}), mockMetricsCollector, tcpUdpEnabled)
+					backendSGProvider, sgResolver, tt.enableBackendSG, tt.enableManageBackendSGRules, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}), mockMetricsCollector, tcpUdpEnabled, enhancedBackendBuilder)
 				ctx := context.Background()
 				stack, _, _, err := builder.Build(ctx, tt.svc, mockMetricsCollector)
 				if tt.wantError {

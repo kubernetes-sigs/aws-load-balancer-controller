@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
 	"sync"
@@ -45,7 +46,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool, defaultEnableManageBackendSGRules bool,
-	disableRestrictedSGRules bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, tcpUdpEnabled bool) *defaultModelBuilder {
+	disableRestrictedSGRules bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, tcpUdpEnabled bool, enhancedBackendBuilder EnhancedBackendBuilder) *defaultModelBuilder {
 	return &defaultModelBuilder{
 		annotationParser:           annotationParser,
 		subnetsResolver:            subnetsResolver,
@@ -71,6 +72,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		logger:                     logger,
 		metricsCollector:           metricsCollector,
 		enableTCPUDPSupport:        tcpUdpEnabled,
+		enhancedBackendBuilder:     enhancedBackendBuilder,
 	}
 }
 
@@ -102,6 +104,7 @@ type defaultModelBuilder struct {
 	logger                    logr.Logger
 	metricsCollector          lbcmetrics.MetricCollector
 	enableTCPUDPSupport       bool
+	enhancedBackendBuilder    EnhancedBackendBuilder
 }
 
 func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, bool, error) {
@@ -160,6 +163,8 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		defaultHealthCheckHealthyThresholdForInstanceModeLocal:   2,
 		defaultHealthCheckUnhealthyThresholdForInstanceModeLocal: 2,
 		enableTCPUDPSupport:                                      b.enableTCPUDPSupport,
+		enhancedBackendBuilder:                                   b.enhancedBackendBuilder,
+		backendServices:                                          make(map[types.NamespacedName]*corev1.Service),
 	}
 
 	if err := task.run(ctx); err != nil {
@@ -233,7 +238,9 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckHealthyThresholdForInstanceModeLocal   int32
 	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int32
 
-	enableTCPUDPSupport bool
+	enableTCPUDPSupport    bool
+	enhancedBackendBuilder EnhancedBackendBuilder
+	backendServices        map[types.NamespacedName]*corev1.Service
 }
 
 func (t *defaultModelBuildTask) run(ctx context.Context) error {

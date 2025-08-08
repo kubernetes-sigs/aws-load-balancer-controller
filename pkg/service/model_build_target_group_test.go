@@ -189,7 +189,7 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				service:          tt.svc,
 				annotationParser: parser,
 			}
-			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background(), tt.port)
+			tgAttrs, err := builder.buildTargetGroupAttributes(context.Background(), tt.svc.Annotations, tt.port)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -428,7 +428,7 @@ func Test_defaultModelBuilderTask_buildTargetHealthCheck(t *testing.T) {
 				defaultHealthCheckHealthyThresholdForInstanceModeLocal:   2,
 				defaultHealthCheckUnhealthyThresholdForInstanceModeLocal: 2,
 			}
-			hc, err := builder.buildTargetGroupHealthCheckConfig(context.Background(), tt.targetType)
+			hc, err := builder.buildTargetGroupHealthCheckConfig(context.Background(), tt.svc, tt.svc.Annotations, tt.targetType)
 			if tt.wantError {
 				assert.Error(t, err)
 			} else {
@@ -1335,7 +1335,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			parser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
 			builder := &defaultModelBuildTask{service: tt.svc, annotationParser: parser, ec2Subnets: tt.subnets, preserveClientIP: tt.preserveClientIP,
 				defaultIPv4SourceRanges: []string{"0.0.0.0/0"}, defaultIPv6SourceRanges: []string{"::/0"}, vpcInfoProvider: vpcInfoProvider}
-			got, _ := builder.buildTargetGroupBindingNetworkingLegacy(context.Background(), tt.tgPort, tt.tgProtocol, tt.hcPort, tt.scheme, tt.ipAddressType)
+			got, _ := builder.buildTargetGroupBindingNetworkingLegacy(context.Background(), tt.svc, tt.svc.Annotations, tt.tgPort, tt.tgProtocol, tt.hcPort, tt.scheme, tt.ipAddressType)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -1881,7 +1881,7 @@ func Test_defaultModelBuilder_buildTargetType(t *testing.T) {
 			} else {
 				builder.enableIPTargetType = *tt.enableIPTargetType
 			}
-			got, err := builder.buildTargetType(context.Background(), tt.svc.Spec.Ports[0])
+			got, err := builder.buildTargetType(context.Background(), tt.svc, tt.svc.Annotations, tt.svc.Spec.Ports[0])
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -1902,6 +1902,7 @@ func Test_defaultModelBuilder_buildTargetGroupBindingNodeSelector(t *testing.T) 
 		{
 			testName:   "IP target empty selector",
 			targetType: elbv2.TargetTypeIP,
+			svc:        &corev1.Service{},
 		},
 		{
 			testName:   "IP Target with selector",
@@ -1956,7 +1957,7 @@ func Test_defaultModelBuilder_buildTargetGroupBindingNodeSelector(t *testing.T) 
 				annotationParser: parser,
 				service:          tt.svc,
 			}
-			got, err := builder.buildTargetGroupBindingNodeSelector(context.Background(), tt.targetType)
+			got, err := builder.buildTargetGroupBindingNodeSelector(context.Background(), tt.svc.Annotations, tt.targetType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -2125,7 +2126,7 @@ func Test_defaultModelBuilder_buildTargetGroupHealthCheckPort(t *testing.T) {
 				service:                tt.svc,
 				defaultHealthCheckPort: tt.defaultPort,
 			}
-			got, err := builder.buildTargetGroupHealthCheckPort(context.Background(), tt.defaultPort, tt.targetType)
+			got, err := builder.buildTargetGroupHealthCheckPort(context.Background(), tt.svc, tt.svc.Annotations, tt.defaultPort, tt.targetType)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -2186,7 +2187,7 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingMultiClusterFlag(t *testi
 			task := &defaultModelBuildTask{
 				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
 			}
-			got, err := task.buildTargetGroupBindingMultiClusterFlag(tt.svc)
+			got, err := task.buildTargetGroupBindingMultiClusterFlag(tt.svc.Annotations)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {
