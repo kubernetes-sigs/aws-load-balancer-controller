@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - gateway.k8s.aws_targetgroupconfigurations.yaml
   - gateway.k8s.aws_loadbalancerconfigurations.yaml
+  - gateway.k8s.aws_listenerruleconfigurations.yaml

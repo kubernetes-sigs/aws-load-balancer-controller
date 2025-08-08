@@ -59,7 +59,7 @@ type ActionType string
 const (
 	ActionTypeForward             ActionType = "forward"
 	ActionTypeFixedResponse       ActionType = "fixed-response"
-	ActionTypeEnumRedirect        ActionType = "redirect"
+	ActionTypeRedirect            ActionType = "redirect"
 	ActionTypeAuthenticateCognito ActionType = "authenticate-cognito"
 	ActionTypeAuthenticateOIDC    ActionType = "authenticate-oidc"
 )
@@ -81,7 +81,7 @@ type TargetGroupStickinessConfig struct {
 
 // Information about a forward action.
 type ForwardActionConfig struct {
-
+	// +kubebuilder:default={}
 	// The target group stickiness for the rule.
 	// Note: ForwardActionConfig only supports target group stickiness configuration through CRD.
 	// All other forward action fields must be set through the Gateway API native way.
@@ -263,6 +263,7 @@ type Action struct {
 // +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions) > 0",message="At least one action must be specified if actions field is present"
 // +kubebuilder:validation:XValidation:rule="!has(self.actions) || self.actions.all(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito' || a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')",message="Only forward, redirect, authenticate-oidc, authenticate-cognito, and fixed-response action types are supported"
 // +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions.filter(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito')) <= 1",message="At most one authentication action (either authenticate-oidc or authenticate-cognito) can be specified"
+// +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions.filter(a, a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')) <= 1",message="At most one routing action (fixed-response or forward or redirect) can be specified"
 type ListenerRuleSpec struct {
 	// Actions defines the set of actions to be performed when conditions match.
 	// This CRD implementation currently supports only  authenticate-oidc, authenticate-cognito, and fixed-response action types fully and forward and redirect actions partially
