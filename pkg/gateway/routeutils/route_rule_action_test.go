@@ -236,12 +236,6 @@ func Test_buildFixedResponseRoutingActions(t *testing.T) {
 		wantErr             bool
 	}{
 		{
-			name:                "nil config returns nil",
-			fixedResponseConfig: nil,
-			want:                nil,
-			wantErr:             false,
-		},
-		{
 			name: "fixed response with all fields",
 			fixedResponseConfig: &elbv2gw.FixedResponseActionConfig{
 				StatusCode:  404,

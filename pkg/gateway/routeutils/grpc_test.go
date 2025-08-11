@@ -204,9 +204,11 @@ func Test_GRPC_LoadAttachedRules(t *testing.T) {
 	assert.Equal(t, 4, len(convertedRules[1].GetBackends()))
 	assert.Equal(t, 0, len(convertedRules[2].GetBackends()))
 
-	assert.NotNil(t, convertedRules[0].GetListenerRuleConfig())
-	assert.NotNil(t, convertedRules[1].GetListenerRuleConfig())
-	assert.NotNil(t, convertedRules[2].GetListenerRuleConfig())
+	expectedConfig := &elbv2gw.ListenerRuleConfiguration{}
+
+	assert.Equal(t, expectedConfig, convertedRules[0].GetListenerRuleConfig())
+	assert.Equal(t, expectedConfig, convertedRules[1].GetListenerRuleConfig())
+	assert.Equal(t, expectedConfig, convertedRules[2].GetListenerRuleConfig())
 }
 
 func Test_GRPC_GetListenerRuleConfigRefs(t *testing.T) {

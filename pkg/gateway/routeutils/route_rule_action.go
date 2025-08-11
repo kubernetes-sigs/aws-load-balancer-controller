@@ -12,6 +12,7 @@ import (
 )
 
 // BuildRuleRoutingActions returns routing action for rule
+// The assumption is that the ListenerRuleConfiguration CRD makes sure we only have one of the actions (forward, redirect, fixed-response) defined
 func BuildRuleRoutingActions(rule RouteRule, route RouteDescriptor, routingAction *elbv2gw.Action, targetGroupTuples []elbv2model.TargetGroupTuple) ([]elbv2model.Action, error) {
 	var actions []elbv2model.Action
 	// Build Rule Routing Actions - Fixed Response
@@ -46,18 +47,15 @@ func BuildRuleRoutingActions(rule RouteRule, route RouteDescriptor, routingActio
 }
 
 func buildFixedResponseRoutingActions(fixedResponseConfig *elbv2gw.FixedResponseActionConfig) ([]elbv2model.Action, error) {
-	if fixedResponseConfig != nil {
-		action := elbv2model.Action{
-			Type: elbv2model.ActionTypeFixedResponse,
-			FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
-				ContentType: fixedResponseConfig.ContentType,
-				StatusCode:  strconv.Itoa(int(fixedResponseConfig.StatusCode)),
-				MessageBody: fixedResponseConfig.MessageBody,
-			},
-		}
-		return []elbv2model.Action{action}, nil
+	action := elbv2model.Action{
+		Type: elbv2model.ActionTypeFixedResponse,
+		FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+			ContentType: fixedResponseConfig.ContentType,
+			StatusCode:  strconv.Itoa(int(fixedResponseConfig.StatusCode)),
+			MessageBody: fixedResponseConfig.MessageBody,
+		},
 	}
-	return nil, nil
+	return []elbv2model.Action{action}, nil
 }
 
 func buildForwardRoutingActions(routingAction *elbv2gw.Action, targetGroupTuples []elbv2model.TargetGroupTuple) ([]elbv2model.Action, error) {
