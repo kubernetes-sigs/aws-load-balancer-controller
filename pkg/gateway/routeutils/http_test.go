@@ -6,9 +6,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
 )
@@ -26,8 +29,9 @@ func Test_ConvertHTTPRuleToRouteRule(t *testing.T) {
 	backends := []Backend{
 		{}, {},
 	}
+	listenerRuleCfg := &elbv2gw.ListenerRuleConfiguration{}
 
-	result := convertHTTPRouteRule(rule, backends)
+	result := convertHTTPRouteRule(rule, backends, listenerRuleCfg)
 
 	assert.Equal(t, backends, result.GetBackends())
 	assert.Equal(t, rule, result.GetRawRouteRule().(*gwv1.HTTPRouteRule))
@@ -133,6 +137,10 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 		}, nil, nil
 	}
 
+	mockListenerRuleConfigLoader := func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error) {
+		return &elbv2gw.ListenerRuleConfiguration{}, nil, nil
+	}
+
 	routeDescription := httpRouteDescription{
 		route: &gwv1.HTTPRoute{
 			Spec: gwv1.HTTPRouteSpec{Rules: []gwv1.HTTPRouteRule{
@@ -141,6 +149,16 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 						{},
 						{},
 					},
+					Filters: []gwv1.HTTPRouteFilter{
+						{
+							Type: gwv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Group: constants.ControllerCRDGroupVersion,
+								Kind:  constants.ListenerRuleConfiguration,
+								Name:  "test-config-1",
+							},
+						},
+					},
 				},
 				{
 					BackendRefs: []gwv1.HTTPBackendRef{
@@ -149,14 +167,34 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 						{},
 						{},
 					},
+					Filters: []gwv1.HTTPRouteFilter{
+						{
+							Type: gwv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Group: constants.ControllerCRDGroupVersion,
+								Kind:  constants.ListenerRuleConfiguration,
+								Name:  "test-config-1",
+							},
+						},
+					},
 				},
 				{
 					BackendRefs: []gwv1.HTTPBackendRef{},
+					Filters: []gwv1.HTTPRouteFilter{
+						{
+							Type: gwv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Group: constants.ControllerCRDGroupVersion,
+								Kind:  constants.ListenerRuleConfiguration,
+								Name:  "test-config-1",
+							},
+						},
+					},
 				},
 			}},
 		},
 		rules:           nil,
-		ruleAccumulator: newAttachedRuleAccumulator[gwv1.HTTPRouteRule](mockLoader),
+		ruleAccumulator: newAttachedRuleAccumulator[gwv1.HTTPRouteRule](mockLoader, mockListenerRuleConfigLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)
@@ -167,9 +205,15 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 	assert.Equal(t, 2, len(convertedRules[0].GetBackends()))
 	assert.Equal(t, 4, len(convertedRules[1].GetBackends()))
 	assert.Equal(t, 0, len(convertedRules[2].GetBackends()))
+
+	expectedConfig := &elbv2gw.ListenerRuleConfiguration{}
+
+	assert.Equal(t, expectedConfig, convertedRules[0].GetListenerRuleConfig())
+	assert.Equal(t, expectedConfig, convertedRules[1].GetListenerRuleConfig())
+	assert.Equal(t, expectedConfig, convertedRules[2].GetListenerRuleConfig())
 }
 
-func Test_HTTP_GetListenerRuleConfigs(t *testing.T) {
+func Test_HTTP_GetRouteListenerRuleConfigRefs(t *testing.T) {
 	tests := []struct {
 		name     string
 		route    *gwv1.HTTPRoute
@@ -323,7 +367,7 @@ func Test_HTTP_GetListenerRuleConfigs(t *testing.T) {
 				route: tt.route,
 			}
 
-			got := httpRoute.GetListenerRuleConfigs()
+			got := httpRoute.GetRouteListenerRuleConfigRefs()
 
 			// Check if the length matches
 			assert.Equal(t, len(tt.expected), len(got), "Expected %d rule configs, got %d", len(tt.expected), len(got))

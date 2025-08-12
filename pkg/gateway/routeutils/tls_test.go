@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -130,6 +131,10 @@ func Test_TLS_LoadAttachedRules(t *testing.T) {
 		}, nil, nil
 	}
 
+	mockListenerRuleConfigLoader := func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error) {
+		return nil, nil, nil
+	}
+
 	routeDescription := tlsRouteDescription{
 		route: &gwalpha2.TLSRoute{
 			Spec: gwalpha2.TLSRouteSpec{Rules: []gwalpha2.TLSRouteRule{
@@ -153,7 +158,7 @@ func Test_TLS_LoadAttachedRules(t *testing.T) {
 			}},
 		},
 		rules:           nil,
-		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.TLSRouteRule](mockLoader),
+		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.TLSRouteRule](mockLoader, mockListenerRuleConfigLoader),
 	}
 
 	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)
@@ -164,4 +169,8 @@ func Test_TLS_LoadAttachedRules(t *testing.T) {
 	assert.Equal(t, 2, len(convertedRules[0].GetBackends()))
 	assert.Equal(t, 4, len(convertedRules[1].GetBackends()))
 	assert.Equal(t, 0, len(convertedRules[2].GetBackends()))
+
+	assert.Nil(t, convertedRules[0].GetListenerRuleConfig())
+	assert.Nil(t, convertedRules[1].GetListenerRuleConfig())
+	assert.Nil(t, convertedRules[2].GetListenerRuleConfig())
 }

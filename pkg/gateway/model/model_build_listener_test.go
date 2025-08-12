@@ -2,7 +2,6 @@ package model
 
 import (
 	"context"
-	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -1090,7 +1089,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 	}
 }
 
-func TestBuildListenerRules(t *testing.T) {
+func Test_BuildListenerRules(t *testing.T) {
 	testCases := []struct {
 		name          string
 		sgOutput      securityGroupOutput
@@ -1219,6 +1218,150 @@ func TestBuildListenerRules(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:          "redirect filter should result in redirect action",
+			port:          80,
+			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			sgOutput: securityGroupOutput{
+				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind:      routeutils.HTTPRouteKind,
+						Name:      "my-route",
+						Namespace: "my-route-ns",
+						Rules: []routeutils.RouteRule{
+							&routeutils.MockRule{
+								RawRule: &gwv1.HTTPRouteRule{
+									Filters: []gwv1.HTTPRouteFilter{
+										{
+											Type: gwv1.HTTPRouteFilterRequestRedirect,
+											RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+												Scheme:     awssdk.String("HTTPS"),
+												StatusCode: awssdk.Int(301),
+											},
+										},
+									},
+									Matches: []gwv1.HTTPRouteMatch{
+										{
+											Path: &gwv1.HTTPPathMatch{
+												Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+												Value: awssdk.String("/"),
+											},
+										},
+									},
+								},
+								BackendRefs: []routeutils.Backend{
+									{
+										Service:     &corev1.Service{},
+										ServicePort: &corev1.ServicePort{Name: "svcport"},
+										Weight:      1,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRules: []*elbv2model.ListenerRuleSpec{
+				{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "redirect",
+							RedirectConfig: &elbv2model.RedirectActionConfig{
+								Protocol:   awssdk.String("HTTPS"),
+								StatusCode: "HTTP_301",
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:          "listener rule config with fixed response should override forward",
+			port:          80,
+			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			sgOutput: securityGroupOutput{
+				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind:      routeutils.HTTPRouteKind,
+						Name:      "my-route",
+						Namespace: "my-route-ns",
+						Rules: []routeutils.RouteRule{
+							&routeutils.MockRule{
+								RawRule: &gwv1.HTTPRouteRule{
+									Matches: []gwv1.HTTPRouteMatch{
+										{
+											Path: &gwv1.HTTPPathMatch{
+												Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+												Value: awssdk.String("/"),
+											},
+										},
+									},
+								},
+								BackendRefs: []routeutils.Backend{
+									{
+										Service:     &corev1.Service{},
+										ServicePort: &corev1.ServicePort{Name: "svcport"},
+										Weight:      1,
+									},
+								},
+								ListenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
+									Spec: elbv2gw.ListenerRuleSpec{
+										Actions: []elbv2gw.Action{
+											{
+												Type: elbv2gw.ActionTypeFixedResponse,
+												FixedResponseConfig: &elbv2gw.FixedResponseActionConfig{
+													StatusCode:  404,
+													ContentType: awssdk.String("text/html"),
+													MessageBody: awssdk.String("Not Found"),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRules: []*elbv2model.ListenerRuleSpec{
+				{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "fixed-response",
+							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+								StatusCode:  "404",
+								ContentType: awssdk.String("text/html"),
+								MessageBody: awssdk.String("Not Found"),
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1261,7 +1404,6 @@ func TestBuildListenerRules(t *testing.T) {
 					conditionsEqual := cmp.Equal(elr.Conditions, alr.Spec.Conditions)
 					actionsEqual := cmp.Equal(elr.Actions, alr.Spec.Actions, opt)
 					priorityEqual := elr.Priority == alr.Spec.Priority
-					fmt.Printf("%+v,%+v,%+v\n", conditionsEqual, actionsEqual, priorityEqual)
 					if conditionsEqual && actionsEqual && priorityEqual {
 						processedSet[alr] = true
 						break

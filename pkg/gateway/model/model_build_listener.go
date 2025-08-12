@@ -181,7 +181,6 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 	return listenerSpec, nil
 }
 
-// this is only for L7 ALB
 func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model.Listener, ipAddressType elbv2model.IPAddressType, securityGroups securityGroupOutput, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) error {
 	// sort all rules based on precedence
 	rulesWithPrecedenceOrder := routeutils.SortAllRulesByPrecedence(routes[port])
@@ -191,6 +190,7 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 		route := ruleWithPrecedence.CommonRulePrecedence.RouteDescriptor
 		rule := ruleWithPrecedence.CommonRulePrecedence.Rule
 
+		// Build Rule Conditions
 		var conditionsList []elbv2model.RuleCondition
 		var err error
 		switch route.GetRouteKind() {
@@ -202,9 +202,12 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 		if err != nil {
 			return err
 		}
-		tags, tagsErr := l.tagHelper.getGatewayTags(lbCfg)
-		if tagsErr != nil {
-			return tagsErr
+
+		// set up for building routing actions
+		var actions []elbv2model.Action
+		var routingAction *elbv2gw.Action
+		if rule.GetListenerRuleConfig() != nil {
+			routingAction = getRoutingAction(rule.GetListenerRuleConfig())
 		}
 		targetGroupTuples := make([]elbv2model.TargetGroupTuple, 0, len(rule.GetBackends()))
 		for _, backend := range rule.GetBackends() {
@@ -219,30 +222,22 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 				Weight:         &weight,
 			})
 		}
-
-		var actions []elbv2model.Action
-
-		if shouldProvisionActions(targetGroupTuples) {
-			actions = buildL7ListenerForwardActions(targetGroupTuples, nil)
+		// Build Rule Routing Actions
+		actions, err = routeutils.BuildRuleRoutingActions(rule, route, routingAction, targetGroupTuples)
+		if err != nil {
+			return err
 		}
 
-		// configure actions based on filters
-		switch route.GetRouteKind() {
-		case routeutils.HTTPRouteKind:
-			httpRule := rule.GetRawRouteRule().(*gwv1.HTTPRouteRule)
-			if len(httpRule.Filters) > 0 {
-				finalActions, err := routeutils.BuildHttpRuleActionsBasedOnFilter(httpRule.Filters)
-				if err != nil {
-					return err
-				}
-				actions = finalActions
-			}
-			// TODO: add case for GRPC
-		}
+		// TODO: build rule auth actions
 
 		if len(actions) == 0 {
 			l.logger.Info("Filling in no backend actions with fixed 503")
 			actions = buildL7ListenerNoBackendActions()
+		}
+
+		tags, tagsErr := l.tagHelper.getGatewayTags(lbCfg)
+		if tagsErr != nil {
+			return tagsErr
 		}
 
 		albRules = append(albRules, elbv2model.Rule{
@@ -378,28 +373,6 @@ func buildL4ListenerDefaultActions(targetGroup *elbv2model.TargetGroup) []elbv2m
 					},
 				},
 			},
-		},
-	}
-}
-
-func buildL7ListenerForwardActions(targetGroupTuple []elbv2model.TargetGroupTuple, duration *int32) []elbv2model.Action {
-
-	forwardConfig := &elbv2model.ForwardActionConfig{
-		TargetGroups: targetGroupTuple,
-	}
-
-	// Configure target group stickiness if a duration is specified
-	if duration != nil {
-		forwardConfig.TargetGroupStickinessConfig = &elbv2model.TargetGroupStickinessConfig{
-			Enabled:         awssdk.Bool(true),
-			DurationSeconds: awssdk.Int32(*duration),
-		}
-	}
-
-	return []elbv2model.Action{
-		{
-			Type:          elbv2model.ActionTypeForward,
-			ForwardConfig: forwardConfig,
 		},
 	}
 }
@@ -553,15 +526,15 @@ func newListenerBuilder(ctx context.Context, loadBalancerType elbv2model.LoadBal
 	}
 }
 
-// shouldProvisionActions -- determine if the given target groups are acceptable for ELB Actions.
-// The criteria -
-// 1/ One or more target groups are present.
-// 2/ At least one target group has a weight greater than zero.
-func shouldProvisionActions(targetGroups []elbv2model.TargetGroupTuple) bool {
-	for _, tg := range targetGroups {
-		if tg.Weight == nil || *tg.Weight != 0 {
-			return true
+// getRoutingAction: returns routing action from listener rule configuration
+// action will only be one of forward, fixed response or redirect
+func getRoutingAction(config *elbv2gw.ListenerRuleConfiguration) *elbv2gw.Action {
+	if config != nil && config.Spec.Actions != nil {
+		for _, action := range config.Spec.Actions {
+			if action.Type == elbv2gw.ActionTypeForward || action.Type == elbv2gw.ActionTypeFixedResponse || action.Type == elbv2gw.ActionTypeRedirect {
+				return &action
+			}
 		}
 	}
-	return false
+	return nil
 }
