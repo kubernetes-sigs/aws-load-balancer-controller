@@ -1289,7 +1289,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
-									CIDR: "172.16.0.0/19",
+									CIDR: "0.0.0.0/0",
 								},
 							},
 						},
@@ -1316,6 +1316,44 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 							{
 								Protocol: &networkingProtocolTCP,
 								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "tcpudp-service with no source ranges configuration with same hc",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port80,
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []ec2types.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("az-1"),
+				},
+			},
+			tgProtocol:    elbv2.ProtocolTCP_UDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "0.0.0.0/0",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
 							},
 						},
 					},

@@ -593,7 +593,14 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 	trafficSource := loadBalancerSubnetCIDRs
 	defaultRangeUsed := false
 	var trafficPorts []elbv2api.NetworkingPort
-	if tgProtocol == elbv2model.ProtocolUDP || t.preserveClientIP {
+
+	/*
+		https://docs.aws.amazon.com/elasticloadbalancing/latest/network/edit-target-group-attributes.html#client-ip-preservation
+		By default, client IP preservation is enabled (and can't be disabled) for instance and IP type target groups with UDP and TCP_UDP protocols.
+		However, you can enable or disable client IP preservation for TCP and TLS target groups using the preserve_client_ip.enabled target group attribute.
+	*/
+
+	if tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolTCP_UDP || t.preserveClientIP {
 		trafficSource = t.getLoadBalancerSourceRanges(ctx)
 		if len(trafficSource) == 0 {
 			trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, tgProtocol, scheme)
