@@ -65,6 +65,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity](#load-balancer-capacity-reservation)   | stringMap                  |                          |
 | [service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery](#icmp-path-mtu-discovery)          | string                  |                          | If specified, a security group rule is added to the managed security group to allow explicit ICMP traffic for [Path MTU discovery](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html#path_mtu_discovery) for IPv4 and dual-stack VPCs. Creates a rule for each source range if `service.beta.kubernetes.io/load-balancer-source-ranges` is present.                                               |
 | [service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener](#tcp-udp-listener)                            | boolean                  | false                    | If specified, the controller will attempt to try TCP_UDP Listeners when the service defines a TCP and UDP port on the same port number.                                                                                                                                                                                                                                                                              |
+| [service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg](#nlb-sg-disable)                            | boolean                  | false                    | If specified, the controller will not create or manage Security Groups for the service.                                                                                                                                                                                                                                                                                                                              |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -332,17 +333,26 @@ for proxy protocol v2 configuration.
         service.beta.kubernetes.io/aws-load-balancer-listener-attributes.TCP-80: tcp.idle_timeout.seconds=400
         ```
 
-- <a name="tcp-udp-listener">`service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener`</a> allows creation of [TCP_UDP](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-listeners.html#listener-configuration) listener type when the service defines a TCP and UDP port on the same port number.
+  - <a name="tcp-udp-listener">`service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener`</a> allows creation of [TCP_UDP](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-listeners.html#listener-configuration) listener type when the service defines a TCP and UDP port on the same port number.
 
-  !!!note ""
-  - To change the default from false to true, use the controller flag `--feature-gates=EnableTCPUDPListener=true` to allow creation of TCP_UDP listeners for all services.
-  !!!example
-  - Allow for the creation of TCP_UDP listeners for a service.
-  ```
-  service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener: "true"
-  ```
+    !!!note ""
+    - To change the default from false to true, use the controller flag `--feature-gates=EnableTCPUDPListener=true` to allow creation of TCP_UDP listeners for all services.
+  
+    !!!example
+      - Allow for the creation of TCP_UDP listeners for a service.
+    ```
+    service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener: "true"
+    ```
 
+  - <a name="nlb-sg-disable">`service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg`</a> disables creation and management of SGs for the NLB. Note: This value shouldn't be changed after initial service creation. Once an NLB has been created, SGs can not be removed likewise, SGs can not be added to an existing NLB without an SG attached.
 
+    !!!warning ""
+      - This is a fine-grained way of setting the controller level feature flag `--feature-gates=NLBSecurityGroup=false` to disable SG management for a specific service.
+  
+    !!!example
+    ```
+    service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg: "true"
+    ```
 
 
 - <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
