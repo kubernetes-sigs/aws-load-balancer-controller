@@ -11,7 +11,7 @@ import (
 // listenerToRouteMapper is an internal utility that will map a list of routes to the listeners of a gateway
 // if the gateway and/or route are incompatible, then the route is discarded.
 type listenerToRouteMapper interface {
-	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler) (map[int][]preLoadRouteDescriptor, error)
+	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor, deferredRouteReconciler RouteReconcilerSubmitter) (map[int][]preLoadRouteDescriptor, error)
 }
 
 var _ listenerToRouteMapper = &listenerToRouteMapperImpl{}
@@ -31,7 +31,7 @@ func newListenerToRouteMapper(k8sClient client.Client, logger logr.Logger) liste
 }
 
 // mapGatewayAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
-func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler) (map[int][]preLoadRouteDescriptor, error) {
+func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor, deferredRouteReconciler RouteReconcilerSubmitter) (map[int][]preLoadRouteDescriptor, error) {
 	result := make(map[int][]preLoadRouteDescriptor)
 
 	// First filter out any routes that are not intended for this Gateway.

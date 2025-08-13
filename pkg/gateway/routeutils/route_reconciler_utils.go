@@ -37,8 +37,12 @@ type ParentRefGateway struct {
 }
 
 type RouteReconciler interface {
-	Enqueue(routeData RouteData)
 	Run()
+	Enqueue(routeData RouteData)
+}
+
+type RouteReconcilerSubmitter interface {
+	Enqueue(routeData RouteData)
 }
 
 // constants

@@ -14,7 +14,7 @@ import (
 // listenerAttachmentHelper is an internal utility interface that can be used to determine if a listener will allow
 // a route to attach to it.
 type listenerAttachmentHelper interface {
-	listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, error)
+	listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, deferredRouteReconciler RouteReconcilerSubmitter, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, error)
 }
 
 var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
@@ -34,7 +34,7 @@ func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) li
 
 // listenerAllowsAttachment utility method to determine if a listener will allow a route to connect using
 // Gateway API rules to determine compatibility between lister and route.
-func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, deferredRouteReconciler RouteReconciler, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, error) {
+func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, deferredRouteReconciler RouteReconcilerSubmitter, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, error) {
 	// check namespace
 	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, gw, listener, route)
 	if err != nil {
