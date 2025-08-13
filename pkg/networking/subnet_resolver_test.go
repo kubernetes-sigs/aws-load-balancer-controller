@@ -3,6 +3,7 @@ package networking
 import (
 	"context"
 	"errors"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"testing"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -2947,6 +2948,311 @@ func Test_extractSubnetIDs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := extractSubnetIDs(tt.subnets)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_IsSubnetInLocalZoneOrOutpost(t *testing.T) {
+	type describeSubnetsAsListCall struct {
+		input  *ec2sdk.DescribeSubnetsInput
+		output []ec2types.Subnet
+		err    error
+	}
+	type describeRouteTablesAsListCall struct {
+		input  *ec2sdk.DescribeRouteTablesInput
+		output []ec2types.RouteTable
+		err    error
+	}
+	type fetchAZInfosCall struct {
+		availabilityZoneIDs []string
+		azInfoByAZID        map[string]ec2types.AvailabilityZone
+		err                 error
+	}
+	type fields struct {
+		clusterTagCheckEnabled         bool
+		albSingleSubnetEnabled         bool
+		discoveryByReachabilityEnabled bool
+		describeSubnetsAsListCalls     []describeSubnetsAsListCall
+		describeRouteTablesAsListCalls []describeRouteTablesAsListCall
+		fetchAZInfosCalls              []fetchAZInfosCall
+	}
+	tests := []struct {
+		name     string
+		fields   fields
+		subnetID string
+		want     bool
+		wantErr  bool
+	}{
+		{
+			name:     "Subnet in Local Zone",
+			subnetID: "subnet-1234567890",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: []string{"subnet-1234567890"},
+						},
+						output: []ec2types.Subnet{
+							{
+								SubnetId:                awssdk.String("subnet-1234567890"),
+								AvailabilityZone:        awssdk.String("us-west-2-lax-1a"),
+								AvailabilityZoneId:      awssdk.String("usw2-lax1-az1"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								OutpostArn:              nil,
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/role/elb"),
+										Value: awssdk.String("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-lax1-az1"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-lax1-az1": {
+								ZoneId:   awssdk.String("usw2-lax1-az1"),
+								ZoneType: awssdk.String("local-zone"),
+							},
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:     "Subnet in Outpost",
+			subnetID: "subnet-outpost123",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: []string{"subnet-outpost123"},
+						},
+						output: []ec2types.Subnet{
+							{
+								SubnetId:                awssdk.String("subnet-outpost123"),
+								AvailabilityZone:        awssdk.String("us-west-2a"),
+								AvailabilityZoneId:      awssdk.String("usw2-az1"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								OutpostArn:              awssdk.String("arn:aws:outposts:us-west-2:123456789012:outpost/op-1234567890abcdef0"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/role/elb"),
+										Value: awssdk.String("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:     "Regular AZ subnet",
+			subnetID: "subnet-regular123",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: []string{"subnet-regular123"},
+						},
+						output: []ec2types.Subnet{
+							{
+								SubnetId:                awssdk.String("subnet-regular123"),
+								AvailabilityZone:        awssdk.String("us-west-2a"),
+								AvailabilityZoneId:      awssdk.String("usw2-az1"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								OutpostArn:              nil,
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/role/elb"),
+										Value: awssdk.String("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-az1"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-az1": {
+								ZoneId:   awssdk.String("usw2-az1"),
+								ZoneType: awssdk.String("availability-zone"),
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name:     "Subnet in Wavelength Zone",
+			subnetID: "subnet-wavelength123",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: []string{"subnet-wavelength123"},
+						},
+						output: []ec2types.Subnet{
+							{
+								SubnetId:                awssdk.String("subnet-wavelength123"),
+								AvailabilityZone:        awssdk.String("us-west-2-wl1-sfo-wlz-1"),
+								AvailabilityZoneId:      awssdk.String("usw2-wl1-sfo-wlz1"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								OutpostArn:              nil,
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("kubernetes.io/role/elb"),
+										Value: awssdk.String("1"),
+									},
+								},
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-wl1-sfo-wlz1"},
+						azInfoByAZID: map[string]ec2types.AvailabilityZone{
+							"usw2-wl1-sfo-wlz1": {
+								ZoneId:   awssdk.String("usw2-wl1-sfo-wlz1"),
+								ZoneType: awssdk.String("wavelength-zone"),
+							},
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name:     "Subnet not found",
+			subnetID: "subnet-notfound",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: []string{"subnet-notfound"},
+						},
+						err: awserr.New("InvalidSubnetID.NotFound", "Subnet ID 'subnet-notfound' does not exist", nil),
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name:     "DescribeSubnets API error",
+			subnetID: "subnet-error",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: []string{"subnet-error"},
+						},
+						err: errors.New("API error"),
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name:     "FetchAZInfos error",
+			subnetID: "subnet-azinfo-error",
+			fields: fields{
+				clusterTagCheckEnabled:         true,
+				albSingleSubnetEnabled:         false,
+				discoveryByReachabilityEnabled: true,
+				describeSubnetsAsListCalls: []describeSubnetsAsListCall{
+					{
+						input: &ec2sdk.DescribeSubnetsInput{
+							SubnetIds: []string{"subnet-azinfo-error"},
+						},
+						output: []ec2types.Subnet{
+							{
+								SubnetId:                awssdk.String("subnet-azinfo-error"),
+								AvailabilityZone:        awssdk.String("us-west-2-lax-1a"),
+								AvailabilityZoneId:      awssdk.String("usw2-lax1-az1"),
+								AvailableIpAddressCount: awssdk.Int32(8),
+								VpcId:                   awssdk.String("vpc-dummy"),
+								OutpostArn:              nil,
+							},
+						},
+					},
+				},
+				fetchAZInfosCalls: []fetchAZInfosCall{
+					{
+						availabilityZoneIDs: []string{"usw2-lax1-az1"},
+						err:                 errors.New("failed to fetch AZ info"),
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2Client := services.NewMockEC2(ctrl)
+			for _, call := range tt.fields.describeSubnetsAsListCalls {
+				ec2Client.EXPECT().DescribeSubnetsAsList(gomock.Any(), call.input).Return(call.output, call.err)
+			}
+			for _, call := range tt.fields.describeRouteTablesAsListCalls {
+				ec2Client.EXPECT().DescribeRouteTablesAsList(gomock.Any(), call.input).Return(call.output, call.err)
+			}
+			azInfoProvider := NewMockAZInfoProvider(ctrl)
+			for _, call := range tt.fields.fetchAZInfosCalls {
+				azInfoProvider.EXPECT().FetchAZInfos(gomock.Any(), call.availabilityZoneIDs).Return(call.azInfoByAZID, call.err)
+			}
+			r := NewDefaultSubnetsResolver(azInfoProvider, ec2Client, "vpc-dummy", "cluster-dummy",
+				tt.fields.clusterTagCheckEnabled, tt.fields.albSingleSubnetEnabled, tt.fields.discoveryByReachabilityEnabled,
+				logr.New(&log.NullLogSink{}))
+			got, err := r.IsSubnetInLocalZoneOrOutpost(ctx, tt.subnetID)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }

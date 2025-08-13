@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -79,7 +80,8 @@ func TestCommonBackendLoader(t *testing.T) {
 		routeIdentifier     types.NamespacedName
 		weight              int
 		servicePort         int32
-		expectErr           bool
+		expectWarning       bool
+		expectFatal         bool
 		expectNoResult      bool
 		expectedTargetGroup *elbv2gw.TargetGroupProps
 	}{
@@ -189,7 +191,7 @@ func TestCommonBackendLoader(t *testing.T) {
 				},
 			},
 			expectNoResult: true,
-			expectErr:      true,
+			expectWarning:  true,
 			storedService: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespaceToUse,
@@ -258,20 +260,34 @@ func TestCommonBackendLoader(t *testing.T) {
 			servicePort:         80,
 		},
 		{
-			name: "0 weight backend should return nil",
+			name: "backend ref with 0 weight",
 			routeIdentifier: types.NamespacedName{
+				Namespace: "backend-ref-ns",
 				Name:      routeNameToUse,
-				Namespace: namespaceToUse,
 			},
 			backendRef: gwv1.BackendRef{
 				BackendObjectReference: gwv1.BackendObjectReference{
-					Name:      gwv1.ObjectName(svcNameToUse),
-					Namespace: (*gwv1.Namespace)(&namespaceToUse),
-					Port:      portConverter(80),
+					Name: gwv1.ObjectName(svcNameToUse),
+					Port: portConverter(80),
 				},
 				Weight: awssdk.Int32(0),
 			},
-			expectNoResult: true,
+			storedService: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "backend-ref-ns",
+					Name:      svcNameToUse,
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name: "port-80",
+							Port: 80,
+						},
+					},
+				},
+			},
+			weight:      0,
+			servicePort: 80,
 		},
 		{
 			name: "non-service based backend should return nil",
@@ -287,7 +303,8 @@ func TestCommonBackendLoader(t *testing.T) {
 					Port:      portConverter(80),
 				},
 			},
-			expectErr: true,
+			expectWarning:  true,
+			expectNoResult: true,
 		},
 		{
 			name: "missing port in backend ref should result in an error",
@@ -301,7 +318,38 @@ func TestCommonBackendLoader(t *testing.T) {
 					Namespace: (*gwv1.Namespace)(&namespaceToUse),
 				},
 			},
-			expectErr: true,
+			expectWarning:  true,
+			expectNoResult: true,
+		},
+		{
+			name: "invalid weight should produce fatal error",
+			routeIdentifier: types.NamespacedName{
+				Namespace: "backend-ref-ns",
+				Name:      routeNameToUse,
+			},
+			storedService: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "backend-ref-ns",
+					Name:      svcNameToUse,
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name: "port-80",
+							Port: 80,
+						},
+					},
+				},
+			},
+			backendRef: gwv1.BackendRef{
+				BackendObjectReference: gwv1.BackendObjectReference{
+					Name: gwv1.ObjectName(svcNameToUse),
+					Port: portConverter(80),
+				},
+				Weight: awssdk.Int32(maxWeight + 1),
+			},
+			expectFatal:    true,
+			expectNoResult: true,
 		},
 	}
 
@@ -324,14 +372,18 @@ func TestCommonBackendLoader(t *testing.T) {
 				assert.NoError(t, err, fmt.Sprintf("%+v", g))
 			}
 
-			result, err := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.backendRef, tc.routeIdentifier, kind)
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.backendRef, tc.routeIdentifier, kind)
 
-			if tc.expectErr {
-				assert.Error(t, err)
-				return
+			if tc.expectWarning {
+				assert.Error(t, warningErr)
+				assert.NoError(t, fatalErr)
+			} else if tc.expectFatal {
+				assert.Error(t, fatalErr)
+				assert.NoError(t, warningErr)
+			} else {
+				assert.NoError(t, warningErr)
+				assert.NoError(t, fatalErr)
 			}
-
-			assert.NoError(t, err)
 
 			if tc.expectNoResult {
 				assert.Nil(t, result)
@@ -719,6 +771,141 @@ func Test_referenceGrantCheck(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
+func Test_listenerRuleConfigLoader(t *testing.T) {
+	testCases := []struct {
+		name                    string
+		listenerRuleConfigs     []elbv2gw.ListenerRuleConfiguration
+		listenerRuleConfigsRefs []gwv1.LocalObjectReference
+		routeIdentifier         types.NamespacedName
+		routeKind               RouteKind
+		expectWarning           bool
+		expectFatal             bool
+		expectedConfig          *elbv2gw.ListenerRuleConfiguration
+	}{
+		{
+			name:                    "no references - should return nil",
+			listenerRuleConfigsRefs: []gwv1.LocalObjectReference{},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-route",
+			},
+			routeKind:      HTTPRouteKind,
+			expectedConfig: nil,
+		},
+		{
+			name: "single valid reference - should return config",
+			listenerRuleConfigs: []elbv2gw.ListenerRuleConfiguration{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-config",
+						Namespace: "test-ns",
+					},
+				},
+			},
+			listenerRuleConfigsRefs: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config",
+				},
+			},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-route",
+			},
+			routeKind: HTTPRouteKind,
+			expectedConfig: &elbv2gw.ListenerRuleConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-config",
+					Namespace: "test-ns",
+				},
+			},
+		},
+		{
+			name: "multiple references - should return warning error",
+			listenerRuleConfigsRefs: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "config-1",
+				},
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "config-2",
+				},
+			},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-route",
+			},
+			routeKind:     HTTPRouteKind,
+			expectWarning: true,
+		},
+		{
+			name: "config not found - should return warning error",
+			listenerRuleConfigsRefs: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "non-existent-config",
+				},
+			},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-route",
+			},
+			routeKind:     HTTPRouteKind,
+			expectWarning: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			k8sClient := testutils.GenerateTestClient()
+
+			// Create any listener rule configurations needed for the test
+			for _, config := range tc.listenerRuleConfigs {
+				err := k8sClient.Create(context.Background(), &config)
+				assert.NoError(t, err)
+			}
+
+			// Call the function under test
+			result, warningErr, fatalErr := listenerRuleConfigLoader(
+				context.Background(),
+				k8sClient,
+				tc.routeIdentifier,
+				tc.routeKind,
+				tc.listenerRuleConfigsRefs,
+			)
+
+			// Assert error expectations
+			if tc.expectWarning {
+				assert.Error(t, warningErr)
+				assert.NoError(t, fatalErr)
+			} else if tc.expectFatal {
+				assert.Error(t, fatalErr)
+				assert.NoError(t, warningErr)
+			} else {
+				assert.NoError(t, warningErr)
+				assert.NoError(t, fatalErr)
+			}
+
+			// Assert result expectations
+			if tc.expectedConfig == nil {
+				assert.Nil(t, result)
+			} else {
+				assert.NotNil(t, result)
+				// Reset resource version from the create call
+				if result != nil {
+					result.ResourceVersion = ""
+				}
+				assert.Equal(t, tc.expectedConfig, result)
+			}
 		})
 	}
 }

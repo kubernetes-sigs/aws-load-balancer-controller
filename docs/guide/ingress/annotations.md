@@ -285,18 +285,19 @@ Traffic Routing can be controlled with following annotations:
 
     The `action-name` in the annotation must match the serviceName in the Ingress rules, and servicePort must be `use-annotation`.
 
-    !!!note "use ARN in forward Action"
-        ARN can be used in forward action(both simplified schema and advanced schema), it must be an targetGroup created outside of k8s, typically an targetGroup for legacy application.
+    !!!note "use TargetGroupARN/TargetGroupName in forward Action"
+        TargetGroupARN/TargetGroupName can be used in forward action (both simplified schema and advanced schema), it must be a target group created outside of k8s, typically a targetGroup for a legacy application.
     !!!note "use ServiceName/ServicePort in forward Action"
-        ServiceName/ServicePort can be used in forward action(advanced schema only).
+        ServiceName/ServicePort can be used in forward action (advanced schema only).
 
     !!!warning ""
-        [Auth related annotations](#authentication) on Service object will only be respected if a single TargetGroup in is used.
+        [Auth related annotations](#authentication) on a Service object will only be respected if a single TargetGroup is used.
 
     !!!example
         - response-503: return fixed 503 response
         - redirect-to-eks: redirect to an external url
         - forward-single-tg: forward to a single targetGroup [**simplified schema**]
+        - forward-single-tg-by-name: forward to a single targetGroup identified by its name  [**simplified schema**]
         - forward-multiple-tg: forward to multiple targetGroups with different weights and stickiness config [**advanced schema**]
 
         ```yaml
@@ -313,8 +314,10 @@ Traffic Routing can be controlled with following annotations:
               {"type":"redirect","redirectConfig":{"host":"aws.amazon.com","path":"/eks/","port":"443","protocol":"HTTPS","query":"k=v","statusCode":"HTTP_302"}}
             alb.ingress.kubernetes.io/actions.forward-single-tg: >
               {"type":"forward","targetGroupARN": "arn-of-your-target-group"}
+            alb.ingress.kubernetes.io/actions.forward-single-tg-by-name: >
+              {"type":"forward","targetGroupName": "name-of-your-target-group"}
             alb.ingress.kubernetes.io/actions.forward-multiple-tg: >
-              {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"service-1","servicePort":"http","weight":20},{"serviceName":"service-2","servicePort":80,"weight":20},{"targetGroupARN":"arn-of-your-non-k8s-target-group","weight":60}],"targetGroupStickinessConfig":{"enabled":true,"durationSeconds":200}}}
+              {"type":"forward","forwardConfig":{"targetGroups":[{"serviceName":"service-1","servicePort":"http","weight":20},{"serviceName":"service-2","servicePort":80,"weight":20},{"targetGroupARN":"arn-of-your-non-k8s-target-group","weight":60},{"targetGroupName":"name-of-your-non-k8s-target-group","weight":80}],"targetGroupStickinessConfig":{"enabled":true,"durationSeconds":200}}}
         spec:
           ingressClassName: alb
           rules:
@@ -342,6 +345,13 @@ Traffic Routing can be controlled with following annotations:
                         port:
                           name: use-annotation
                   - path: /path2
+                    pathType: Exact
+                    backend:
+                      service:
+                        name: forward-single-tg-by-name
+                        port:
+                          name: use-annotation
+                  - path: /path3
                     pathType: Exact
                     backend:
                       service:
@@ -647,7 +657,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
 - <a name="auth-idp-oidc">`alb.ingress.kubernetes.io/auth-idp-oidc`</a> specifies the oidc idp configuration.
 
     !!!tip ""
-        You need to create an [secret](https://kubernetes.io/docs/concepts/configuration/secret/) within the same namespace as Ingress to hold your OIDC clientID and clientSecret. The format of secret is as below:
+        You need to create a [secret](https://kubernetes.io/docs/concepts/configuration/secret/) within the same namespace as Ingress to hold your OIDC clientID and clientSecret. The format of secret is as below:
         ```yaml
         apiVersion: v1
         kind: Secret
@@ -667,7 +677,7 @@ ALB supports authentication with Cognito or OIDC. See [Authenticate Users Using 
 - <a name="auth-on-unauthenticated-request">`alb.ingress.kubernetes.io/auth-on-unauthenticated-request`</a> specifies the behavior if the user is not authenticated.
 
 	!!!info "options:"
-        * **authenticate**: try authenticate with configured IDP.
+        * **authenticate**: try to authenticate with configured IDP.
         * **deny**: return an HTTP 401 Unauthorized error.
         * **allow**: allow the request to be forwarded to the target.
 
@@ -837,10 +847,10 @@ TLS support can be controlled with the following annotations:
         - This annotation is not applicable for Outposts, Local Zones or Wavelength zones.
         - "Configuration Options"
             - `port: listen port ` 
-               - Must be a HTTPS port specified by [listen-ports](#listen-ports).
+               - Must be an HTTPS port specified by [listen-ports](#listen-ports).
             - `mode: "off" (default) | "passthrough" | "verify"`
                - `verify` mode requires an existing trust store resource.
-               -  See [Create a trust store](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html#create-trust-store) in the AWS documentation for more details.
+               - See [Create a trust store](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html#create-trust-store) in the AWS documentation for more details.
             - `trustStore: ARN (arn:aws:elasticloadbalancing:trustStoreArn) | Name (my-trust-store)`
                - Both ARN and Name of trustStore are supported values.
                - `trustStore` is required when mode is `verify`.

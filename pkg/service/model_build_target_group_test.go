@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
@@ -460,7 +461,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 		preserveClientIP  bool
 		scheme            elbv2.LoadBalancerScheme
 		fetchVPCInfoCalls []fetchVPCInfoCall
-		want              *elbv2.TargetGroupBindingNetworking
+		want              *elbv2modelk8s.TargetGroupBindingNetworking
 	}{
 		{
 			name: "udp-service with source ranges",
@@ -478,10 +479,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			}},
 			tgProtocol:    elbv2.ProtocolUDP,
 			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "10.0.0.0/16",
@@ -501,7 +502,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 						},
 					},
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/19",
@@ -536,10 +537,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			}},
 			tgProtocol:    elbv2.ProtocolUDP,
 			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "1.2.3.4/17",
@@ -559,7 +560,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 						},
 					},
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/19",
@@ -588,10 +589,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			}},
 			tgProtocol:    elbv2.ProtocolUDP,
 			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "0.0.0.0/0",
@@ -606,7 +607,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 						},
 					},
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/19",
@@ -655,10 +656,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			},
 			tgProtocol:    elbv2.ProtocolUDP,
 			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/16",
@@ -678,7 +679,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 						},
 					},
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/19",
@@ -713,10 +714,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			},
 			tgProtocol:    elbv2.ProtocolTCP,
 			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/19",
@@ -757,10 +758,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgProtocol:       elbv2.ProtocolTCP,
 			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP: true,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "0.0.0.0/0",
@@ -816,10 +817,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 					},
 				},
 			},
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/16",
@@ -859,10 +860,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgProtocol:       elbv2.ProtocolTCP,
 			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP: true,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "0.0.0.0/0",
@@ -877,7 +878,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 						},
 					},
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/19",
@@ -921,10 +922,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgProtocol:       elbv2.ProtocolTCP,
 			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP: true,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "10.0.0.0/16",
@@ -944,7 +945,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 						},
 					},
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/19",
@@ -988,10 +989,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			tgProtocol:       elbv2.ProtocolTCP,
 			preserveClientIP: true,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "10.0.0.0/16",
@@ -1011,7 +1012,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 						},
 					},
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/19",
@@ -1055,10 +1056,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgProtocol:       elbv2.ProtocolTCP,
 			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv4,
 			preserveClientIP: true,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "10.0.0.0/16",
@@ -1113,10 +1114,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgProtocol:       elbv2.ProtocolTCP,
 			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv6,
 			preserveClientIP: true,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "::/0",
@@ -1161,10 +1162,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgProtocol:       elbv2.ProtocolTCP,
 			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv6,
 			preserveClientIP: false,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "2300:1ab3:ab0:1900::/64",
@@ -1229,10 +1230,10 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			tgProtocol:       elbv2.ProtocolTCP,
 			ipAddressType:    elbv2.TargetGroupIPAddressTypeIPv6,
 			preserveClientIP: true,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "2300:1ab3:ab0:1900::/56",
@@ -1282,13 +1283,13 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 			},
 			tgProtocol:    elbv2.ProtocolTCP_UDP,
 			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
-									CIDR: "172.16.0.0/19",
+									CIDR: "0.0.0.0/0",
 								},
 							},
 						},
@@ -1304,7 +1305,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 						},
 					},
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
 								IPBlock: &elbv2api.IPBlock{
 									CIDR: "172.16.0.0/19",
@@ -1315,6 +1316,44 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworkingLegacy(t *tes
 							{
 								Protocol: &networkingProtocolTCP,
 								Port:     &port808,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "tcpudp-service with no source ranges configuration with same hc",
+			svc:    &corev1.Service{},
+			tgPort: port80,
+			hcPort: port80,
+			scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			subnets: []ec2types.Subnet{
+				{
+					CidrBlock: aws.String("172.16.0.0/19"),
+					SubnetId:  aws.String("az-1"),
+				},
+			},
+			tgProtocol:    elbv2.ProtocolTCP_UDP,
+			ipAddressType: elbv2.TargetGroupIPAddressTypeIPv4,
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								IPBlock: &elbv2api.IPBlock{
+									CIDR: "0.0.0.0/0",
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &networkingProtocolTCP,
+								Port:     &port80,
+							},
+							{
+								Protocol: &networkingProtocolUDP,
+								Port:     &port80,
 							},
 						},
 					},
@@ -1355,7 +1394,7 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 		tgProtocol             elbv2.Protocol
 		disableRestrictedRules bool
 		backendSGIDToken       core.StringToken
-		want                   *elbv2.TargetGroupBindingNetworking
+		want                   *elbv2modelk8s.TargetGroupBindingNetworking
 	}{
 		{
 			name:                   "tcp with restricted rules disabled",
@@ -1364,12 +1403,12 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			tgProtocol:             elbv2.ProtocolTCP,
 			backendSGIDToken:       core.LiteralStringToken(sgBackend),
 			disableRestrictedRules: true,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
 							},
 						},
 						Ports: []elbv2api.NetworkingPort{
@@ -1388,12 +1427,12 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			tgProtocol:             elbv2.ProtocolUDP,
 			backendSGIDToken:       core.LiteralStringToken(sgBackend),
 			disableRestrictedRules: true,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
 							},
 						},
 						Ports: []elbv2api.NetworkingPort{
@@ -1414,12 +1453,12 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			hcPort:           trafficPort,
 			tgProtocol:       elbv2.ProtocolTCP,
 			backendSGIDToken: core.LiteralStringToken(sgBackend),
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
 							},
 						},
 						Ports: []elbv2api.NetworkingPort{
@@ -1438,12 +1477,12 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			hcPort:           trafficPort,
 			tgProtocol:       elbv2.ProtocolTLS,
 			backendSGIDToken: core.LiteralStringToken(sgBackend),
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
 							},
 						},
 						Ports: []elbv2api.NetworkingPort{
@@ -1462,12 +1501,12 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			hcPort:           trafficPort,
 			backendSGIDToken: core.LiteralStringToken(sgBackend),
 			tgProtocol:       elbv2.ProtocolUDP,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
 							},
 						},
 						Ports: []elbv2api.NetworkingPort{
@@ -1490,12 +1529,12 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			hcPort:           port808,
 			backendSGIDToken: core.LiteralStringToken(sgBackend),
 			tgProtocol:       elbv2.ProtocolTCP,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
 							},
 						},
 						Ports: []elbv2api.NetworkingPort{
@@ -1518,12 +1557,12 @@ func Test_defaultModelBuilderTask_buildTargetGroupBindingNetworking(t *testing.T
 			hcPort:           port808,
 			backendSGIDToken: core.LiteralStringToken(sgBackend),
 			tgProtocol:       elbv2.ProtocolUDP,
-			want: &elbv2.TargetGroupBindingNetworking{
-				Ingress: []elbv2.NetworkingIngressRule{
+			want: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
 					{
-						From: []elbv2.NetworkingPeer{
+						From: []elbv2modelk8s.NetworkingPeer{
 							{
-								SecurityGroup: &elbv2.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{GroupID: core.LiteralStringToken(sgBackend)},
 							},
 						},
 						Ports: []elbv2api.NetworkingPort{

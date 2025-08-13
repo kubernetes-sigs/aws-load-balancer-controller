@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -45,8 +46,10 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 
 	// Next, greedily looking for the route to attach to.
 	for _, listener := range gw.Spec.Listeners {
+		// used for cross serving check
+		hostnamesFromHttpRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
+		hostnamesFromGrpcRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
 		for _, route := range routesForGateway {
-
 			// We need to check both paths (route -> listener) and (listener -> route)
 			// for connection viability.
 			if !ltr.routeAttachmentHelper.routeAllowsAttachmentToListener(listener, route) {
@@ -54,12 +57,13 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 				continue
 			}
 
-			allowedAttachment, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route, deferredRouteReconciler)
+			allowedAttachment, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route, deferredRouteReconciler, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
 			if err != nil {
 				return nil, err
 			}
 
-			ltr.logger.V(1).Info("lister allows attachment", "route", route.GetRouteNamespacedName(), "allowedAttachment", allowedAttachment)
+			ltr.logger.V(1).Info("listener allows attachment", "route", route.GetRouteNamespacedName(), "allowedAttachment", allowedAttachment)
+
 			if allowedAttachment {
 				result[int(listener.Port)] = append(result[int(listener.Port)], route)
 			}

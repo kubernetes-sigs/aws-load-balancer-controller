@@ -131,6 +131,30 @@ rules:
 - apiGroups:
   - gateway.k8s.aws
   resources:
+  - listenerruleconfigurations
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - gateway.k8s.aws
+  resources:
+  - listenerruleconfigurations/finalizers
+  verbs:
+  - patch
+  - update
+- apiGroups:
+  - gateway.k8s.aws
+  resources:
+  - listenerruleconfigurations/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - gateway.k8s.aws
+  resources:
   - loadbalancerconfigurations
   verbs:
   - get
@@ -268,6 +292,15 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - gateway.networking.k8s.io
+  resources:
+  - referencegrants
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - gateway.networking.k8s.io
   resources:

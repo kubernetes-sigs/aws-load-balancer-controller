@@ -118,6 +118,10 @@ const (
 )
 
 // Information about the mutual authentication attributes of a listener.
+// +kubebuilder:validation:XValidation:rule="!(self.mode == 'verify' && !has(self.trustStore))",message="trustStore is required when mutualAuthentication mode is 'verify'"
+// +kubebuilder:validation:XValidation:rule="!(self.mode != 'verify' && has(self.trustStore))",message="Mutual Authentication mode 'off' or 'passthrough' does not support 'trustStore'"
+// +kubebuilder:validation:XValidation:rule="!(self.mode != 'verify' && has(self.ignoreClientCertificateExpiry))",message="Mutual Authentication mode 'off' or 'passthrough' does not support 'ignoreClientCertificateExpiry'"
+// +kubebuilder:validation:XValidation:rule="!(self.mode != 'verify' && has(self.advertiseTrustStoreCaNames))",message="Mutual Authentication mode 'off' or 'passthrough' does not support 'advertiseTrustStoreCaNames'"
 type MutualAuthenticationAttributes struct {
 
 	// Indicates whether trust store CA certificate names are advertised.
@@ -136,13 +140,24 @@ type MutualAuthenticationAttributes struct {
 	TrustStore *string `json:"trustStore,omitempty"`
 }
 
+// ShieldConfiguration configuration parameters used to configure Shield
+type ShieldConfiguration struct {
+	// Enabled whether Shield Advanced should be configured with the Gateway
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// WAFv2Configuration configuration parameters used to configure WAFv2
+type WAFv2Configuration struct {
+	// ACL The WebACL to configure with the Gateway
+	ACL string `json:"webACL"`
+}
+
 // +kubebuilder:validation:Pattern="^(HTTP|HTTPS|TLS|TCP|UDP)?:(6553[0-5]|655[0-2]\\d|65[0-4]\\d{2}|6[0-4]\\d{3}|[1-5]\\d{4}|[1-9]\\d{0,3})?$"
 type ProtocolPort string
 type ListenerConfiguration struct {
 	// protocolPort is identifier for the listener on load balancer. It should be of the form PROTOCOL:PORT
 	ProtocolPort ProtocolPort `json:"protocolPort"`
 
-	// TODO: Add validation in admission webhook to make it required for secure protocols
 	// defaultCertificate the cert arn to be used by default.
 	DefaultCertificate *string `json:"defaultCertificate,omitempty"`
 
@@ -155,10 +170,12 @@ type ListenerConfiguration struct {
 
 	// alpnPolicy an optional string that allows you to configure ALPN policies on your Load Balancer
 	// +optional
+	// +kubebuilder:default="None"
 	ALPNPolicy *ALPNPolicy `json:"alpnPolicy,omitempty"`
 
 	// mutualAuthentication defines the mutual authentication configuration information.
 	// +optional
+	// +kubebuilder:default={"mode": "off"}
 	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`
 
 	// listenerAttributes defines the attributes for the listener
@@ -256,6 +273,14 @@ type LoadBalancerConfigurationSpec struct {
 	// MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers
 	// +optional
 	MinimumLoadBalancerCapacity *MinimumLoadBalancerCapacity `json:"minimumLoadBalancerCapacity,omitempty"`
+
+	// WAFv2 define the AWS WAFv2 settings for a Gateway [Application Load Balancer]
+	// +optional
+	WAFv2 *WAFv2Configuration `json:"wafV2,omitempty"`
+
+	// ShieldAdvanced define the AWS Shield settings for a Gateway [Application Load Balancer]
+	// +optional
+	ShieldAdvanced *ShieldConfiguration `json:"shieldConfiguration,omitempty"`
 }
 
 // TODO -- these can be used to set what generation the gateway is currently on to track progress on reconcile.

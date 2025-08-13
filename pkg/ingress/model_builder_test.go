@@ -312,6 +312,7 @@ const baseStackJSON = `
                             "targetGroupARN":{
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
                             },
+                            "targetGroupProtocol":"HTTP",
                             "targetType":"instance",
                             "vpcID": "vpc-dummy",
                             "ipAddressType":"ipv4",
@@ -354,6 +355,7 @@ const baseStackJSON = `
                             "targetGroupARN":{
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-2:http/status/targetGroupARN"
                             },
+							"targetGroupProtocol":"HTTP",
                             "targetType":"instance",
                             "ipAddressType":"ipv4",
                             "vpcID": "vpc-dummy",
@@ -396,6 +398,7 @@ const baseStackJSON = `
                             "targetGroupARN":{
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
                             },
+							"targetGroupProtocol":"HTTPS",
                             "targetType":"ip",
                             "vpcID": "vpc-dummy",
                             "ipAddressType":"ipv4",
@@ -1770,6 +1773,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 							"targetGroupARN": {
 								"$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:80/status/targetGroupARN"
 							},
+							"targetGroupProtocol":"HTTP",
 							"targetType": "instance"
 						}
 					}
@@ -2612,6 +2616,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                             "targetGroupARN":{
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-1:http/status/targetGroupARN"
                             },
+							"targetGroupProtocol":"HTTP",
                             "targetType":"ip",
                             "vpcID": "vpc-dummy",
                             "ipAddressType":"ipv4",
@@ -2654,6 +2659,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                             "targetGroupARN":{
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-2:http/status/targetGroupARN"
                             },
+                            "targetGroupProtocol":"HTTP",
                             "targetType":"ip",
                             "ipAddressType":"ipv4",
                             "vpcID": "vpc-dummy",
@@ -2696,6 +2702,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                             "targetGroupARN":{
                                 "$ref":"#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-3:https/status/targetGroupARN"
                             },
+							"targetGroupProtocol":"HTTPS",
                             "targetType":"ip",
                             "vpcID": "vpc-dummy",
                             "ipAddressType":"ipv4",
@@ -2742,6 +2749,109 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 }
             }
         }
+    }
+}`,
+		},
+		{
+			name: "Ingress - wafv2AclArn in IngressClassParams",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										WAFv2ACLArn: "alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:us-west-2:xxxxx:regional/webacl/xxxxxxx/3ab78708-85b0-49d3-b4e1-7a9615a6613b",
+									},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+    "id":"ns-1/ing-1",
+    "resources":{
+		"AWS::WAFv2::WebACLAssociation":{
+			"LoadBalancer":{
+				"spec":{
+					"resourceARN":{
+						"$ref":"#/resources/AWS::ElasticLoadBalancingV2::LoadBalancer/LoadBalancer/status/loadBalancerARN"
+					},
+					"webACLARN":"alb.ingress.kubernetes.io/wafv2-acl-arn: arn:aws:wafv2:us-west-2:xxxxx:regional/webacl/xxxxxxx/3ab78708-85b0-49d3-b4e1-7a9615a6613b"
+				}
+			}
+		}
     }
 }`,
 		},
@@ -3329,6 +3439,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 							"targetGroupARN": {
 								"$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-ipv6:https/status/targetGroupARN"
 							},
+							"targetGroupProtocol":"HTTP",
 							"targetType": "ip"
 						}
 					}
@@ -3598,6 +3709,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 							"targetGroupARN": {
 								"$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-named-targetport:https/status/targetGroupARN"
 							},
+ 							"targetGroupProtocol":"HTTP",
 							"targetType": "ip"
 						}
 					}
@@ -3758,6 +3870,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 							"targetGroupARN": {
 								"$ref": "#/resources/AWS::ElasticLoadBalancingV2::TargetGroup/ns-1/ing-1-svc-named-targetport:https/status/targetGroupARN"
 							},
+ 							"targetGroupProtocol":"HTTP",
 							"targetType": "ip"
 						}
 					}
@@ -4023,6 +4136,132 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 								IngClassParams: &v1beta1.IngressClassParams{
 									Spec: v1beta1.IngressClassParamsSpec{
 										PrefixListsIDs: []string{
+											"pl-11111111",
+											"pl-22222222",
+										},
+									},
+								},
+							},
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/security-group-prefix-lists": "pl-00000000",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_1.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+														{
+															Path: "/svc-2",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_2.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+										{
+											Host: "app-2.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-3",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: ns_1_svc_3.Name,
+																	Port: networking.ServiceBackendPort{
+																		Name: "https",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantStackPatch: `
+{
+	"resources": {
+		"AWS::EC2::SecurityGroup": {
+			"ManagedLBSecurityGroup": {
+				"spec": {
+					"ingress": [
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"prefixLists": [
+								{
+									"listID": "pl-11111111"
+								}
+							],
+							"toPort": 80
+						},
+						{
+							"fromPort": 80,
+							"ipProtocol": "tcp",
+							"prefixLists": [
+								{
+									"listID": "pl-22222222"
+								}
+							],
+							"toPort": 80
+						}
+					]
+				}
+			}
+		}
+	}
+}`,
+		},
+		{
+			name: "Ingress - ingress with managed prefix list in IngressClassParam - input PrefixListsIDsLegacy",
+			env: env{
+				svcs: []*corev1.Service{ns_1_svc_1, ns_1_svc_2, ns_1_svc_3},
+			},
+			fields: fields{
+				resolveViaDiscoveryCalls: []resolveViaDiscoveryCall{resolveViaDiscoveryCallForInternalLB},
+				listLoadBalancersCalls:   []listLoadBalancersCall{listLoadBalancerCallForEmptyLB},
+				enableBackendSG:          true,
+			},
+			args: args{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										PrefixListsIDsLegacy: []string{
 											"pl-11111111",
 											"pl-22222222",
 										},

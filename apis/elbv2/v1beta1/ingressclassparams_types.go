@@ -115,7 +115,12 @@ type IPAMConfiguration struct {
 }
 
 // IngressClassParamsSpec defines the desired state of IngressClassParams
+// +kubebuilder:validation:XValidation:rule="!(has(self.prefixListsIDs) && has(self.PrefixListsIDs))", message="cannot specify both 'prefixListsIDs' and 'PrefixListsIDs' fields"
 type IngressClassParamsSpec struct {
+	// LoadBalancerName defines the name of the load balancer that will be created with this IngressClassParams.
+	// +optional
+	LoadBalancerName string `json:"loadBalancerName,omitempty"`
+
 	// CertificateArn specifies the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
 	CertificateArn []string `json:"certificateArn,omitempty"`
@@ -172,8 +177,18 @@ type IngressClassParamsSpec struct {
 	// +optional
 	IPAMConfiguration *IPAMConfiguration `json:"ipamConfiguration,omitempty"`
 
+	// PrefixListsIDsLegacy defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// Not Recommended, Use PrefixListsIDs (prefixListsIDs in JSON) instead
+	// +optional
+	PrefixListsIDsLegacy []string `json:"PrefixListsIDs,omitempty"`
+
 	// PrefixListsIDs defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
-	PrefixListsIDs []string `json:"PrefixListsIDs,omitempty"`
+	// +optional
+	PrefixListsIDs []string `json:"prefixListsIDs,omitempty"`
+
+	// WAFv2ACLArn specifies ARN for the Amazon WAFv2 web ACL.
+	// +optional
+	WAFv2ACLArn string `json:"wafv2AclArn"`
 }
 
 // +kubebuilder:object:root=true

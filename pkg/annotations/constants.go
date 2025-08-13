@@ -120,4 +120,5 @@ const (
 	SvcLBSuffixLoadBalancerCapacityReservation           = "aws-load-balancer-minimum-load-balancer-capacity"
 	SvcLBSuffixEnableIcmpForPathMtuDiscovery             = "aws-load-balancer-enable-icmp-for-path-mtu-discovery"
 	SvcLBSuffixEnableTCPUDPListener                      = "aws-load-balancer-enable-tcp-udp-listener"
+	SvcLBSuffixDisableNLBSG                              = "aws-load-balancer-disable-nlb-sg"
 )

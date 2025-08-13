@@ -244,6 +244,9 @@ spec:
   {{- if .renewBefore }}
   renewBefore: {{ .renewBefore }}
   {{- end }}
+  {{- if .revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .revisionHistoryLimit }}
+  {{- end }}
   {{- end }}
 ---
 {{- if not $.Values.certManager.existingIssuerName }}

@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
 
-var _ = Describe("k8s service reconciled by the aws load balancer", func() {
+var _ = Describe("k8s service using ip target reconciled by the aws load balancer", func() {
 	var (
 		ctx         context.Context
 		deployment  *appsv1.Deployment
@@ -121,25 +121,31 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 			By("Verify Service with AWS", func() {
+
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           10,
+							Timeout:            10,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+				}
+
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:       "network",
-					Scheme:     "internet-facing",
-					TargetType: "ip",
+					Type:   "network",
+					Scheme: "internet-facing",
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string][]string{
-						"80": {"TCP"},
-					},
-					NumTargets: int(numReplicas),
-					TargetGroupHC: &verifier.TargetGroupHC{
-						Protocol:           "TCP",
-						Port:               "traffic-port",
-						Interval:           10,
-						Timeout:            10,
-						HealthyThreshold:   3,
-						UnhealthyThreshold: 3,
-					},
+					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -167,26 +173,31 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					return verifier.GetTargetGroupHealthCheckProtocol(ctx, tf, lbARN) == "HTTP"
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "HTTP",
+							Port:               "80",
+							Path:               "/healthz",
+							Interval:           30,
+							Timeout:            6,
+							HealthyThreshold:   2,
+							UnhealthyThreshold: 2,
+						},
+					},
+				}
+
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:       "network",
-					Scheme:     "internet-facing",
-					TargetType: "ip",
+					Type:   "network",
+					Scheme: "internet-facing",
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string][]string{
-						"80": {"TCP"},
-					},
-					NumTargets: int(numReplicas),
-					TargetGroupHC: &verifier.TargetGroupHC{
-						Protocol:           "HTTP",
-						Port:               "80",
-						Path:               "/healthz",
-						Interval:           30,
-						Timeout:            6,
-						HealthyThreshold:   2,
-						UnhealthyThreshold: 2,
-					},
+					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -231,27 +242,32 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				// Wait for the change to be applied.
 				time.Sleep(120 * time.Second)
 
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: int(numReplicas) + 1,
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "HTTP",
+							Port:               "80",
+							Path:               "/healthz",
+							Interval:           30,
+							Timeout:            6,
+							HealthyThreshold:   2,
+							UnhealthyThreshold: 2,
+						},
+					},
+				}
+
 				// We should the targets registered from in cluster and the extra IP registered under a different port.
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:       "network",
-					Scheme:     "internet-facing",
-					TargetType: "ip",
+					Type:   "network",
+					Scheme: "internet-facing",
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string][]string{
-						"80": {"TCP"},
-					},
-					NumTargets: int(numReplicas) + 1,
-					TargetGroupHC: &verifier.TargetGroupHC{
-						Protocol:           "HTTP",
-						Port:               "80",
-						Path:               "/healthz",
-						Interval:           30,
-						Timeout:            6,
-						HealthyThreshold:   2,
-						UnhealthyThreshold: 2,
-					},
+					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -265,26 +281,32 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				time.Sleep(120 * time.Second)
 
 				// Only the replicas in the cluster should exist in the target group again.
+
+				expectedTargetGroups = []verifier.ExpectedTargetGroup{
+					{
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "HTTP",
+							Port:               "80",
+							Path:               "/healthz",
+							Interval:           30,
+							Timeout:            6,
+							HealthyThreshold:   2,
+							UnhealthyThreshold: 2,
+						},
+					},
+				}
+
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:       "network",
-					Scheme:     "internet-facing",
-					TargetType: "ip",
+					Type:   "network",
+					Scheme: "internet-facing",
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string][]string{
-						"80": {"TCP"},
-					},
-					NumTargets: int(numReplicas),
-					TargetGroupHC: &verifier.TargetGroupHC{
-						Protocol:           "HTTP",
-						Port:               "80",
-						Path:               "/healthz",
-						Interval:           30,
-						Timeout:            6,
-						HealthyThreshold:   2,
-						UnhealthyThreshold: 2,
-					},
+					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -353,22 +375,38 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(lbARN).ToNot(BeEmpty())
 			})
+
+			expectedTargetGroups := []verifier.ExpectedTargetGroup{
+				{
+					Protocol:   "TCP",
+					Port:       80,
+					NumTargets: int(numReplicas),
+					TargetType: "ip",
+				},
+				{
+					Protocol:   "TCP",
+					Port:       443,
+					NumTargets: int(numReplicas),
+					TargetType: "ip",
+				},
+				{
+					Protocol:   "TCP",
+					Port:       333,
+					NumTargets: int(numReplicas),
+					TargetType: "ip",
+				},
+			}
+
 			By("Verifying AWS configuration", func() {
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:       "network",
-					Scheme:     "internet-facing",
-					TargetType: "ip",
+					Type:   "network",
+					Scheme: "internet-facing",
 					Listeners: map[string]string{
 						"80":  "TLS",
 						"443": "TLS",
 						"333": "TLS",
 					},
-					TargetGroups: map[string][]string{
-						"80":  {"TCP"},
-						"443": {"TCP"},
-						"333": {"TCP"},
-					},
-					NumTargets: int(numReplicas),
+					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -385,21 +423,36 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 					return verifier.GetLoadBalancerListenerProtocol(ctx, tf, lbARN, "80") == "TCP"
 				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
 
+				expectedTargetGroups = []verifier.ExpectedTargetGroup{
+					{
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+					},
+					{
+						Protocol:   "TCP",
+						Port:       443,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+					},
+					{
+						Protocol:   "TCP",
+						Port:       333,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+					},
+				}
+
 				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Type:       "network",
-					Scheme:     "internet-facing",
-					TargetType: "ip",
+					Type:   "network",
+					Scheme: "internet-facing",
 					Listeners: map[string]string{
 						"80":  "TCP",
 						"443": "TLS",
 						"333": "TLS",
 					},
-					TargetGroups: map[string][]string{
-						"80":  {"TCP"},
-						"443": {"TCP"},
-						"333": {"TCP"},
-					},
-					NumTargets: int(numReplicas),
+					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -484,26 +537,31 @@ var _ = Describe("k8s service reconciled by the aws load balancer", func() {
 				Expect(lbARN).ToNot(BeEmpty())
 			})
 			By("Verify Service with AWS", func() {
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           10,
+							Timeout:            10,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+				}
+
 				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
-					Name:       lbName,
-					Type:       "network",
-					Scheme:     "internet-facing",
-					TargetType: "ip",
+					Name:   lbName,
+					Type:   "network",
+					Scheme: "internet-facing",
 					Listeners: map[string]string{
 						"80": "TCP",
 					},
-					TargetGroups: map[string][]string{
-						"80": {"TCP"},
-					},
-					NumTargets: int(numReplicas),
-					TargetGroupHC: &verifier.TargetGroupHC{
-						Protocol:           "TCP",
-						Port:               "traffic-port",
-						Interval:           10,
-						Timeout:            10,
-						HealthyThreshold:   3,
-						UnhealthyThreshold: 3,
-					},
+					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})

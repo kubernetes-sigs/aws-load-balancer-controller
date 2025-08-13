@@ -11,7 +11,7 @@ spec:
     kind: IngressClassParams
     listKind: IngressClassParamsList
     plural: ingressclassparams
-    singular: ingressclassparams
+    singular: ingressclassparam
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -56,8 +56,9 @@ spec:
             description: IngressClassParamsSpec defines the desired state of IngressClassParams
             properties:
               PrefixListsIDs:
-                description: PrefixListsIDs defines the security group prefix lists
-                  for all Ingresses that belong to IngressClass with this IngressClassParams.
+                description: |-
+                  PrefixListsIDsLegacy defines the security group prefix lists for all Ingresses that belong to IngressClass with this IngressClassParams.
+                  Not Recommended, Use PrefixListsIDs (prefixListsIDs in JSON) instead
                 items:
                   type: string
                 type: array
@@ -148,6 +149,10 @@ spec:
                   - value
                   type: object
                 type: array
+              loadBalancerName:
+                description: LoadBalancerName defines the name of the load balancer
+                  that will be created with this IngressClassParams.
+                type: string
               minimumLoadBalancerCapacity:
                 description: MinimumLoadBalancerCapacity define the capacity reservation
                   for LoadBalancers for all Ingress that belong to IngressClass with
@@ -208,6 +213,12 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
+              prefixListsIDs:
+                description: PrefixListsIDs defines the security group prefix lists
+                  for all Ingresses that belong to IngressClass with this IngressClassParams.
+                items:
+                  type: string
+                type: array
               scheme:
                 description: Scheme defines the scheme for all Ingresses that belong
                   to IngressClass with this IngressClassParams.
@@ -268,7 +279,13 @@ spec:
                 - instance
                 - ip
                 type: string
+              wafv2AclArn:
+                description: WAFv2ACLArn specifies ARN for the Amazon WAFv2 web ACL.
+                type: string
             type: object
+            x-kubernetes-validations:
+            - message: cannot specify both 'prefixListsIDs' and 'PrefixListsIDs' fields
+              rule: '!(has(self.prefixListsIDs) && has(self.PrefixListsIDs))'
         type: object
     served: true
     storage: true

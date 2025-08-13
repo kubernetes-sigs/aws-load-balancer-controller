@@ -54,7 +54,7 @@ func (h *enqueueRequestsForHTTPRouteEvent) Delete(ctx context.Context, e event.T
 
 func (h *enqueueRequestsForHTTPRouteEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*gatewayv1.HTTPRoute], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	route := e.Object
-	h.logger.V(1).Info("enqueue grpcroute generic event", "grpcroute", route.Name)
+	h.logger.V(1).Info("enqueue httproute generic event", "httproute", route.Name)
 	h.enqueueImpactedGateways(ctx, route, queue)
 }
 

@@ -14,7 +14,7 @@ type NLBTestStack struct {
 	nlbResourceStack *nlbResourceStack
 }
 
-func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec) error {
+func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxiliaryStack *auxiliaryResourceStack, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
 	dpTCP := buildDeploymentSpec(f.Options.TestImageRegistry)
 	svcTCP := buildServiceSpec()
 
@@ -35,7 +35,6 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, lbCon
 		},
 	}
 
-	var tlsr *gwalpha2.TLSRoute
 	if lbConfSpec.ListenerConfigurations != nil {
 		for _, lsr := range *lbConfSpec.ListenerConfigurations {
 			if lsr.ProtocolPort == "TLS:443" {
@@ -44,19 +43,30 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, lbCon
 					Port:     443,
 					Protocol: gwv1.TLSProtocolType,
 				})
-				//tlsr = buildTLSRoute()
 				break
 			}
 		}
 	}
+
+	tcprs := []*gwalpha2.TCPRoute{buildTCPRoute()}
+	if auxiliaryStack != nil {
+		listeners = append(listeners, gwv1.Listener{
+			Name:     "other-ns",
+			Port:     5000,
+			Protocol: gwv1.TCPProtocolType,
+		})
+
+		tcprs = append(tcprs, buildOtherNsRefTcpRoute("other-ns", auxiliaryStack.ns))
+	}
+
 	gw := buildBasicGatewaySpec(gwc, listeners)
 
 	lbc := buildLoadBalancerConfig(lbConfSpec)
 	tgcTCP := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svcTCP)
 	tgcUDP := buildTargetGroupConfig(udpDefaultTgConfigName, tgConfSpec, svcUDP)
-	tcpr := buildTCPRoute()
 	udpr := buildUDPRoute()
-	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcpr, udpr, tlsr, "nlb-gateway-e2e", false)
+
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", readinessGateEnabled)
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }

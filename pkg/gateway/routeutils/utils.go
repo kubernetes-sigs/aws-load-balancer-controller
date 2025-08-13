@@ -3,7 +3,6 @@ package routeutils
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"net"
@@ -31,7 +30,7 @@ func ListL4Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteD
 	}
 	l4Routes = append(l4Routes, tlsRoutes...)
 	if len(failedRoutes) > 0 {
-		err = errors.Errorf("failed to list L4 routes, %s", failedRoutes)
+		err = fmt.Errorf("failed to list L4 routes, %v", failedRoutes)
 	}
 	return l4Routes, err
 }
@@ -51,7 +50,7 @@ func ListL7Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteD
 	}
 	l7Routes = append(l7Routes, grpcRoutes...)
 	if len(failedRoutes) > 0 {
-		err = errors.Errorf("failed to list L7 routes, %s", failedRoutes)
+		err = fmt.Errorf("failed to list L7 routes, %v", failedRoutes)
 	}
 	return l7Routes, err
 }

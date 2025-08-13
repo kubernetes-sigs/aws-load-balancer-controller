@@ -12,21 +12,25 @@ type ALBTestStack struct {
 	albResourceStack *albResourceStack
 }
 
-func (s *ALBTestStack) Deploy(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec) error {
+func (s *ALBTestStack) Deploy(ctx context.Context, auxiliaryStack *auxiliaryResourceStack, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	if auxiliaryStack != nil {
+		gwListeners = append(gwListeners, gwv1.Listener{
+			Name:     "other-ns",
+			Port:     5000,
+			Protocol: gwv1.HTTPProtocolType,
+		})
+
+		httprs = append(httprs, buildOtherNsRefHttpRoute("other-ns", auxiliaryStack.ns))
+	}
+
 	dp := buildDeploymentSpec(f.Options.TestImageRegistry)
 	svc := buildServiceSpec()
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/alb")
-	gw := buildBasicGatewaySpec(gwc, []gwv1.Listener{
-		{
-			Name:     "test-listener",
-			Port:     80,
-			Protocol: gwv1.HTTPProtocolType,
-		},
-	})
+	gw := buildBasicGatewaySpec(gwc, gwListeners)
 	lbc := buildLoadBalancerConfig(lbConfSpec)
 	tgc := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svc)
-	httpr := buildHTTPRoute()
-	s.albResourceStack = newALBResourceStack(dp, svc, gwc, gw, lbc, tgc, httpr, "alb-gateway-e2e", false)
+
+	s.albResourceStack = newALBResourceStack(dp, svc, gwc, gw, lbc, tgc, httprs, "alb-gateway-e2e", readinessGateEnabled)
 
 	return s.albResourceStack.Deploy(ctx, f)
 }

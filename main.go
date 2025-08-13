@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sync"
 
 	"k8s.io/client-go/util/workqueue"
@@ -82,6 +83,7 @@ func init() {
 	_ = elbv2gw.AddToScheme(scheme)
 	_ = gwv1.AddToScheme(scheme)
 	_ = gwalpha2.AddToScheme(scheme)
+	_ = gwbeta1.AddToScheme(scheme)
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -317,7 +319,7 @@ func main() {
 
 		targetGroupConfigurationReconciler := gateway.NewTargetGroupConfigurationReconciler(
 			mgr.GetClient(),
-			mgr.GetEventRecorderFor(gateway_constants.LoadBalancerConfigurationController),
+			mgr.GetEventRecorderFor(gateway_constants.TargetGroupConfigurationController),
 			controllerCFG,
 			serviceReferenceCounter,
 			finalizerManager,
@@ -333,6 +335,26 @@ func main() {
 		err = targetGroupConfigurationReconciler.SetupWatches(ctx, tgCfgController, mgr)
 		if err != nil {
 			setupLog.Error(err, "Unable to set up TargetGroupConfiguration Watches")
+			os.Exit(1)
+		}
+
+		listenerRuleConfigurationReconciler := gateway.NewListenerRuleConfigurationReconciler(
+			mgr.GetClient(),
+			mgr.GetEventRecorderFor(gateway_constants.ListenerRuleConfigurationController),
+			controllerCFG,
+			finalizerManager,
+			mgr.GetLogger().WithName("listenerruleconfiguration-controller"),
+		)
+
+		listenerRuleCfgController, err := listenerRuleConfigurationReconciler.SetupWithManager(ctx, mgr)
+		if err != nil {
+			setupLog.Error(err, "Unable to set up ListenerRuleConfiguration Manager")
+			os.Exit(1)
+		}
+
+		err = listenerRuleConfigurationReconciler.SetupWatches(ctx, listenerRuleCfgController, mgr)
+		if err != nil {
+			setupLog.Error(err, "Unable to set up ListenerRuleConfiguration Watches")
 			os.Exit(1)
 		}
 

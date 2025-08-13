@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -109,11 +110,14 @@ func Test_ListUDPRoutes(t *testing.T) {
 
 func Test_UDP_LoadAttachedRules(t *testing.T) {
 	weight := 0
-	mockLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error) {
+	mockLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
 		weight++
 		return &Backend{
 			Weight: weight,
-		}, nil
+		}, nil, nil
+	}
+	mockListenerRuleConfigLoader := func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error) {
+		return nil, nil, nil
 	}
 
 	routeDescription := udpRouteDescription{
@@ -138,16 +142,20 @@ func Test_UDP_LoadAttachedRules(t *testing.T) {
 				},
 			}},
 		},
-		rules:         nil,
-		backendLoader: mockLoader,
+		rules:           nil,
+		ruleAccumulator: newAttachedRuleAccumulator[gwalpha2.UDPRouteRule](mockLoader, mockListenerRuleConfigLoader),
 	}
 
-	result, err := routeDescription.loadAttachedRules(context.Background(), nil)
-	assert.NoError(t, err)
+	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)
+	assert.Equal(t, 0, len(errs))
 	convertedRules := result.GetAttachedRules()
 	assert.Equal(t, 3, len(convertedRules))
 
 	assert.Equal(t, 2, len(convertedRules[0].GetBackends()))
 	assert.Equal(t, 4, len(convertedRules[1].GetBackends()))
 	assert.Equal(t, 0, len(convertedRules[2].GetBackends()))
+
+	assert.Nil(t, convertedRules[0].GetListenerRuleConfig())
+	assert.Nil(t, convertedRules[1].GetListenerRuleConfig())
+	assert.Nil(t, convertedRules[2].GetListenerRuleConfig())
 }

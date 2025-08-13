@@ -23,8 +23,9 @@ var _ RouteDescriptor = &mockPreLoadRouteDescriptor{}
 
 // Mock implementations
 type mockPreLoadRouteDescriptor struct {
-	backendRefs    []gwv1.BackendRef
-	namespacedName types.NamespacedName
+	backendRefs                []gwv1.BackendRef
+	listenerRuleConfigurations []gwv1.LocalObjectReference
+	namespacedName             types.NamespacedName
 }
 
 func (m mockPreLoadRouteDescriptor) GetAttachedRules() []RouteRule {
@@ -60,6 +61,10 @@ func (m mockPreLoadRouteDescriptor) GetBackendRefs() []gwv1.BackendRef {
 	return m.backendRefs
 }
 
+func (m mockPreLoadRouteDescriptor) GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference {
+	return m.listenerRuleConfigurations
+}
+
 func (m mockPreLoadRouteDescriptor) GetRouteGeneration() int64 {
 	//TODO implement me
 	panic("implement me")
@@ -70,7 +75,7 @@ func (m mockPreLoadRouteDescriptor) GetRouteCreateTimestamp() time.Time {
 	panic("implement me")
 }
 
-func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error) {
+func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 	//TODO implement me
 	panic("implement me")
 }

@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
@@ -38,6 +39,10 @@ func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(_ context.Context, l
 		_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, member.Ing.Annotations)
 		if rawWebACLARN != "" {
 			explicitWebACLARNs.Insert(rawWebACLARN)
+		}
+		params := member.IngClassConfig.IngClassParams
+		if params != nil && params.Spec.WAFv2ACLArn != "" {
+			explicitWebACLARNs.Insert(params.Spec.WAFv2ACLArn)
 		}
 	}
 	if len(explicitWebACLARNs) == 0 {

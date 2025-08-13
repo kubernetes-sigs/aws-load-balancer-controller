@@ -6,8 +6,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
 )
@@ -25,8 +29,9 @@ func Test_ConvertHTTPRuleToRouteRule(t *testing.T) {
 	backends := []Backend{
 		{}, {},
 	}
+	listenerRuleCfg := &elbv2gw.ListenerRuleConfiguration{}
 
-	result := convertHTTPRouteRule(rule, backends)
+	result := convertHTTPRouteRule(rule, backends, listenerRuleCfg)
 
 	assert.Equal(t, backends, result.GetBackends())
 	assert.Equal(t, rule, result.GetRawRouteRule().(*gwv1.HTTPRouteRule))
@@ -125,11 +130,15 @@ func Test_ListHTTPRoutes(t *testing.T) {
 
 func Test_HTTP_LoadAttachedRules(t *testing.T) {
 	weight := 0
-	mockLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error) {
+	mockLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
 		weight++
 		return &Backend{
 			Weight: weight,
-		}, nil
+		}, nil, nil
+	}
+
+	mockListenerRuleConfigLoader := func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error) {
+		return &elbv2gw.ListenerRuleConfiguration{}, nil, nil
 	}
 
 	routeDescription := httpRouteDescription{
@@ -140,6 +149,16 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 						{},
 						{},
 					},
+					Filters: []gwv1.HTTPRouteFilter{
+						{
+							Type: gwv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Group: constants.ControllerCRDGroupVersion,
+								Kind:  constants.ListenerRuleConfiguration,
+								Name:  "test-config-1",
+							},
+						},
+					},
 				},
 				{
 					BackendRefs: []gwv1.HTTPBackendRef{
@@ -148,22 +167,222 @@ func Test_HTTP_LoadAttachedRules(t *testing.T) {
 						{},
 						{},
 					},
+					Filters: []gwv1.HTTPRouteFilter{
+						{
+							Type: gwv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Group: constants.ControllerCRDGroupVersion,
+								Kind:  constants.ListenerRuleConfiguration,
+								Name:  "test-config-1",
+							},
+						},
+					},
 				},
 				{
 					BackendRefs: []gwv1.HTTPBackendRef{},
+					Filters: []gwv1.HTTPRouteFilter{
+						{
+							Type: gwv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Group: constants.ControllerCRDGroupVersion,
+								Kind:  constants.ListenerRuleConfiguration,
+								Name:  "test-config-1",
+							},
+						},
+					},
 				},
 			}},
 		},
-		rules:         nil,
-		backendLoader: mockLoader,
+		rules:           nil,
+		ruleAccumulator: newAttachedRuleAccumulator[gwv1.HTTPRouteRule](mockLoader, mockListenerRuleConfigLoader),
 	}
 
-	result, err := routeDescription.loadAttachedRules(context.Background(), nil)
-	assert.NoError(t, err)
+	result, errs := routeDescription.loadAttachedRules(context.Background(), nil)
+	assert.Equal(t, 0, len(errs))
 	convertedRules := result.GetAttachedRules()
 	assert.Equal(t, 3, len(convertedRules))
 
 	assert.Equal(t, 2, len(convertedRules[0].GetBackends()))
 	assert.Equal(t, 4, len(convertedRules[1].GetBackends()))
 	assert.Equal(t, 0, len(convertedRules[2].GetBackends()))
+
+	expectedConfig := &elbv2gw.ListenerRuleConfiguration{}
+
+	assert.Equal(t, expectedConfig, convertedRules[0].GetListenerRuleConfig())
+	assert.Equal(t, expectedConfig, convertedRules[1].GetListenerRuleConfig())
+	assert.Equal(t, expectedConfig, convertedRules[2].GetListenerRuleConfig())
+}
+
+func Test_HTTP_GetRouteListenerRuleConfigRefs(t *testing.T) {
+	tests := []struct {
+		name     string
+		route    *gwv1.HTTPRoute
+		expected []gwv1.LocalObjectReference
+	}{
+		{
+			name: "route with no rules",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{},
+			},
+			expected: []gwv1.LocalObjectReference{},
+		},
+		{
+			name: "route with rules but no filters",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							BackendRefs: []gwv1.HTTPBackendRef{
+								{},
+								{},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{},
+		},
+		{
+			name: "route with filters but none are listener rule configurations",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterRequestRedirect,
+									RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+										Port: (*gwv1.PortNumber)(awssdk.Int32(80)),
+									},
+								},
+								{
+									Type: gwv1.HTTPRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: "SomeOtherGroup",
+										Kind:  "SomeOtherKind",
+										Name:  "test-config",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{},
+		},
+		{
+			name: "route with one matching listener rule configuration",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterRequestRedirect,
+									RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+										Port: (*gwv1.PortNumber)(awssdk.Int32(80)),
+									},
+								},
+								{
+									Type: gwv1.HTTPRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: constants.ControllerCRDGroupVersion,
+										Kind:  constants.ListenerRuleConfiguration,
+										Name:  "test-config-1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config-1",
+				},
+			},
+		},
+		{
+			name: "route with multiple matching listener rule configurations",
+			route: &gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					Rules: []gwv1.HTTPRouteRule{
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: constants.ControllerCRDGroupVersion,
+										Kind:  constants.ListenerRuleConfiguration,
+										Name:  "test-config-1",
+									},
+								},
+							},
+						},
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterRequestRedirect,
+									RequestRedirect: &gwv1.HTTPRequestRedirectFilter{
+										Port: (*gwv1.PortNumber)(awssdk.Int32(80)),
+									},
+								},
+							},
+						},
+						{
+							Filters: []gwv1.HTTPRouteFilter{
+								{
+									Type: gwv1.HTTPRouteFilterExtensionRef,
+									ExtensionRef: &gwv1.LocalObjectReference{
+										Group: constants.ControllerCRDGroupVersion,
+										Kind:  constants.ListenerRuleConfiguration,
+										Name:  "test-config-2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config-1",
+				},
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config-2",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			httpRoute := &httpRouteDescription{
+				route: tt.route,
+			}
+
+			got := httpRoute.GetRouteListenerRuleConfigRefs()
+
+			// Check if the length matches
+			assert.Equal(t, len(tt.expected), len(got), "Expected %d rule configs, got %d", len(tt.expected), len(got))
+
+			// Check if all expected items exist in the result
+			for _, expected := range tt.expected {
+				found := false
+				for _, actual := range got {
+					if expected.Group == actual.Group && expected.Kind == actual.Kind && expected.Name == actual.Name {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "Expected listener rule config %s not found in result", expected.Name)
+			}
+		})
+	}
 }

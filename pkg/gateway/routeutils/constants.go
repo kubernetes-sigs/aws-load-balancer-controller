@@ -18,7 +18,7 @@ const (
 )
 
 // RouteKind to Route Loader. These functions will pull data directly from the kube api or local cache.
-var allRoutes = map[RouteKind]func(context context.Context, client client.Client) ([]preLoadRouteDescriptor, error){
+var allRoutes = map[RouteKind]func(context context.Context, client client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error){
 	TCPRouteKind:  ListTCPRoutes,
 	UDPRouteKind:  ListUDPRoutes,
 	TLSRouteKind:  ListTLSRoutes,
@@ -32,5 +32,5 @@ var defaultProtocolToRouteKindMap = map[gwv1.ProtocolType][]RouteKind{
 	gwv1.UDPProtocolType:   {UDPRouteKind},
 	gwv1.TLSProtocolType:   {TLSRouteKind, TCPRouteKind},
 	gwv1.HTTPProtocolType:  {HTTPRouteKind},
-	gwv1.HTTPSProtocolType: {HTTPRouteKind},
+	gwv1.HTTPSProtocolType: {HTTPRouteKind, GRPCRouteKind},
 }

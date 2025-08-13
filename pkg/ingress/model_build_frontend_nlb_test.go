@@ -99,6 +99,44 @@ func Test_defaultModelBuildTask_buildFrontendNlbSecurityGroups(t *testing.T) {
 			},
 			wantSGTokens: []core.StringToken{core.LiteralStringToken("sg-manual")},
 		},
+		{
+			name: "with two sgs",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-security-groups": "sg-manual1, sg-manual2",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+				describeSecurityGroupsResult: []describeSecurityGroupsResult{
+					{
+						securityGroups: []ec2types.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-manual1"),
+							},
+							{
+								GroupId: awssdk.String("sg-manual2"),
+							},
+						},
+					},
+				},
+			},
+			wantSGTokens: []core.StringToken{core.LiteralStringToken("sg-manual1"), core.LiteralStringToken("sg-manual2")},
+		},
 	}
 
 	for _, tt := range tests {

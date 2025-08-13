@@ -44,28 +44,28 @@ type enqueueRequestsForLoadBalancerConfigurationEvent struct {
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Create(ctx context.Context, e event.TypedCreateEvent[*elbv2gw.LoadBalancerConfiguration], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	lbconfigNew := e.Object
 	h.logger.V(1).Info("enqueue loadbalancerconfiguration create event", "loadbalancerconfiguration", lbconfigNew.Name)
-	h.enqueueImpactedService(ctx, lbconfigNew, queue)
+	h.enqueueImpactedGateways(ctx, lbconfigNew, queue)
 }
 
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Update(ctx context.Context, e event.TypedUpdateEvent[*elbv2gw.LoadBalancerConfiguration], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	lbconfigNew := e.ObjectNew
 	h.logger.V(1).Info("enqueue loadbalancerconfiguration update event", "loadbalancerconfiguration", lbconfigNew.Name)
-	h.enqueueImpactedService(ctx, lbconfigNew, queue)
+	h.enqueueImpactedGateways(ctx, lbconfigNew, queue)
 }
 
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Delete(ctx context.Context, e event.TypedDeleteEvent[*elbv2gw.LoadBalancerConfiguration], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	lbconfig := e.Object
 	h.logger.V(1).Info("enqueue loadbalancerconfiguration delete event", "loadbalancerconfiguration", lbconfig.Name)
-	h.enqueueImpactedService(ctx, lbconfig, queue)
+	h.enqueueImpactedGateways(ctx, lbconfig, queue)
 }
 
 func (h *enqueueRequestsForLoadBalancerConfigurationEvent) Generic(ctx context.Context, e event.TypedGenericEvent[*elbv2gw.LoadBalancerConfiguration], queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	lbconfig := e.Object
 	h.logger.V(1).Info("enqueue loadbalancerconfiguration generic event", "loadbalancerconfiguration", lbconfig.Name)
-	h.enqueueImpactedService(ctx, lbconfig, queue)
+	h.enqueueImpactedGateways(ctx, lbconfig, queue)
 }
 
-func (h *enqueueRequestsForLoadBalancerConfigurationEvent) enqueueImpactedService(ctx context.Context, lbconfig *elbv2gw.LoadBalancerConfiguration, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
+func (h *enqueueRequestsForLoadBalancerConfigurationEvent) enqueueImpactedGateways(ctx context.Context, lbconfig *elbv2gw.LoadBalancerConfiguration, queue workqueue.TypedRateLimitingInterface[reconcile.Request]) {
 	// NOTE: That LB Config changes for GatewayClass are done a little differently.
 	// LB config change -> gateway class reconciler -> patch status for new version of LB config on Gateway Class -> Trigger the Gateway Class event handler.
 	gateways, err := gatewayutils.GetImpactedGatewaysFromLbConfig(ctx, h.k8sClient, lbconfig, h.gwController)

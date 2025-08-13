@@ -2,10 +2,14 @@ package verifier
 
 import (
 	"context"
+	"fmt"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/strings/slices"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sort"
 	"strconv"
+	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -24,15 +28,46 @@ type TargetGroupHC struct {
 	UnhealthyThreshold int32
 }
 
-type LoadBalancerExpectation struct {
-	Name          string
-	Type          string
-	Scheme        string
-	TargetType    string
-	Listeners     map[string]string   // listener port, protocol
-	TargetGroups  map[string][]string // target group port, list of protocols
+type ExpectedTargetGroup struct {
+	Protocol      string
+	Port          int32
 	NumTargets    int
+	TargetType    string
 	TargetGroupHC *TargetGroupHC
+}
+
+type LoadBalancerExpectation struct {
+	Name         string
+	Type         string
+	Scheme       string
+	Listeners    map[string]string // listener port, protocol
+	TargetGroups []ExpectedTargetGroup
+}
+
+// ListenerExpectation contains the expected configuration for an ALB/NLB listener
+// to be verified against actual AWS resources
+type ListenerExpectation struct {
+	ProtocolPort              string
+	DefaultCertificateARN     string
+	AdditionalCertificateARNs []string
+	SSLPolicy                 string
+	ALPNPolicy                string
+	MutualAuthentication      *MutualAuthenticationExpectation
+	Attributes                map[string]string
+}
+
+// MutualAuthenticationExpectation contains expected mTLS settings
+type MutualAuthenticationExpectation struct {
+	Mode                          string
+	TrustStoreARN                 string
+	IgnoreClientCertificateExpiry bool
+	AdvertiseTrustStoreCaNames    string
+}
+
+type ListenerRuleExpectation struct {
+	Conditions []elbv2types.RuleCondition
+	Actions    []elbv2types.Action
+	Priority   int32
 }
 
 func VerifyAWSLoadBalancerResources(ctx context.Context, f *framework.Framework, lbARN string, expected LoadBalancerExpectation) error {
@@ -178,40 +213,33 @@ func VerifyLoadBalancerTargetGroups(ctx context.Context, f *framework.Framework,
 	targetGroups, err := f.TGManager.GetTargetGroupsForLoadBalancer(ctx, lbARN)
 	Expect(err).ToNot(HaveOccurred())
 
-	expectedTgCount := 0
-	expectedProtocolsPerPort := make(map[string]sets.Set[string])
+	Expect(len(targetGroups)).To(Equal(len(expected.TargetGroups)))
 
-	for port, protocols := range expected.TargetGroups {
-		expectedTgCount += len(protocols)
-		for _, protocol := range protocols {
-			_, ok := expectedProtocolsPerPort[port]
-			if !ok {
-				expectedProtocolsPerPort[port] = make(sets.Set[string])
+	validatedTGs := sets.New[string]() // TG ARNs that have already mapped to another expected TG.
+	for _, expectedTg := range expected.TargetGroups {
+
+		for _, awsTg := range targetGroups {
+			if awssdk.ToInt32(awsTg.Port) == expectedTg.Port && string(awsTg.Protocol) == expectedTg.Protocol && string(awsTg.TargetType) == expectedTg.TargetType && !validatedTGs.Has(*awsTg.TargetGroupArn) {
+
+				var hcErr error
+				if expectedTg.TargetGroupHC != nil {
+					hcErr = VerifyTargetGroupHealthCheckConfig(awsTg, expectedTg.TargetGroupHC)
+					Expect(hcErr).NotTo(HaveOccurred())
+				}
+
+				registeredTargetsErr := VerifyTargetGroupNumRegistered(ctx, f, awssdk.ToString(awsTg.TargetGroupArn), expectedTg.NumTargets)
+				Expect(registeredTargetsErr).NotTo(HaveOccurred())
+
+				if hcErr == nil && registeredTargetsErr == nil {
+					validatedTGs.Insert(*awsTg.TargetGroupArn)
+				}
 			}
-
-			expectedProtocolsPerPort[port].Insert(protocol)
 		}
 	}
 
-	Expect(len(targetGroups)).To(Equal(expectedTgCount))
-	for _, tg := range targetGroups {
-		port := strconv.Itoa(int(*tg.Port))
-		Expect(string(tg.TargetType)).To(Equal(expected.TargetType))
-		protocolSet := expectedProtocolsPerPort[port]
-		protocolFound := protocolSet.Has(string(tg.Protocol))
-		Expect(protocolFound).To(BeTrue())
-		expectedProtocolsPerPort[port] = protocolSet.Delete(string(tg.Protocol))
-
-		err = VerifyTargetGroupHealthCheckConfig(tg, expected.TargetGroupHC)
-		Expect(err).NotTo(HaveOccurred())
-		err = VerifyTargetGroupNumRegistered(ctx, f, awssdk.ToString(tg.TargetGroupArn), expected.NumTargets)
-		Expect(err).NotTo(HaveOccurred())
+	if len(validatedTGs) != len(expected.TargetGroups) {
+		return fmt.Errorf("target group mismatch expected [%+v] got [%+v]\n", expected.TargetGroups, targetGroups)
 	}
-
-	for _, protocols := range expectedProtocolsPerPort {
-		Expect(len(protocols)).To(Equal(0))
-	}
-
 	return nil
 }
 
@@ -297,4 +325,258 @@ func GetLoadBalancerListenerARN(ctx context.Context, f *framework.Framework, lbA
 		}
 	}
 	return lsARN
+}
+
+func VerifyLoadBalancerListener(ctx context.Context, f *framework.Framework, lbARN string, port int32, expectedListener *ListenerExpectation) error {
+	lsARN := GetLoadBalancerListenerARN(ctx, f, lbARN, strconv.Itoa(int(port)))
+	if lsARN == "" && expectedListener == nil {
+		return nil
+	}
+	if lsARN == "" {
+		return errors.Errorf("Listener on port %v, expected but none found", port)
+	}
+	ls, err := f.LBManager.GetLoadBalancerListenerFromARN(ctx, lsARN)
+	Expect(err).NotTo(HaveOccurred())
+
+	expectedProtocolPort := strings.Split(expectedListener.ProtocolPort, ":")
+	expectedProtocol, expectedPortStr := expectedProtocolPort[0], expectedProtocolPort[1]
+	// Verify protocol matches
+	if string(ls.Protocol) != expectedProtocol {
+		return errors.Errorf("expected listener protocol %s, got %s", expectedProtocol, string(ls.Protocol))
+	}
+	// Verify port matches
+	if strconv.Itoa(int(awssdk.ToInt32(ls.Port))) != expectedPortStr {
+		return errors.Errorf("expected listener port %s, got %d", expectedPortStr, awssdk.ToInt32(ls.Port))
+	}
+
+	if expectedListener.DefaultCertificateARN != "" {
+		// Get certificates for the listener
+		certs, err := f.LBManager.GetLoadBalancerListenerCertificates(ctx, lsARN)
+		Expect(err).ToNot(HaveOccurred())
+		defaultCertFound := false
+		for _, cert := range certs {
+			if awssdk.ToBool(cert.IsDefault) && awssdk.ToString(cert.CertificateArn) == expectedListener.DefaultCertificateARN {
+				defaultCertFound = true
+				break
+			}
+		}
+		if !defaultCertFound {
+			return errors.Errorf("default certificate %s not found on listener", expectedListener.DefaultCertificateARN)
+		}
+	}
+
+	err = VerifyListenerMutualAuthentication(ls.MutualAuthentication, expectedListener.MutualAuthentication)
+	Expect(err).NotTo(HaveOccurred())
+
+	return nil
+}
+
+// TODO: Add "verify mode" verification later after adding a trust-store to the prow test account
+func VerifyListenerMutualAuthentication(lsMutualAuth *elbv2types.MutualAuthenticationAttributes, expectedListenerMutualAuthentication *MutualAuthenticationExpectation) error {
+	if expectedListenerMutualAuthentication != nil {
+		Expect(awssdk.ToString(lsMutualAuth.Mode)).To(Equal(expectedListenerMutualAuthentication.Mode))
+	}
+	return nil
+}
+
+func VerifyLoadBalancerListenerRules(ctx context.Context, f *framework.Framework, lbARN string, port int32, expectedRules []ListenerRuleExpectation) error {
+	lsARN := GetLoadBalancerListenerARN(ctx, f, lbARN, strconv.Itoa(int(port)))
+	if lsARN == "" && expectedRules == nil {
+		return nil
+	}
+	if lsARN == "" {
+		return errors.Errorf("Listener on port %v, expected but none found", port)
+	}
+
+	rules, err := f.LBManager.GetLoadBalancerListenerRules(ctx, lsARN)
+	if err != nil {
+		return err
+	}
+
+	var filteredRules []elbv2types.Rule
+	// Filter out default rules
+	for _, rule := range rules {
+		if !awssdk.ToBool(rule.IsDefault) {
+			filteredRules = append(filteredRules, rule)
+		}
+	}
+
+	if len(filteredRules) != len(expectedRules) {
+		return errors.Errorf("expected %d listener rules, got %d", len(expectedRules), len(filteredRules))
+	}
+	// sort actual and expected rules based on priority
+	sort.Slice(expectedRules, func(i, j int) bool {
+		return expectedRules[i].Priority < expectedRules[j].Priority
+	})
+	sort.Slice(filteredRules, func(i, j int) bool {
+		priorityI, _ := strconv.Atoi(awssdk.ToString(filteredRules[i].Priority))
+		priorityJ, _ := strconv.Atoi(awssdk.ToString(filteredRules[j].Priority))
+		return priorityI < priorityJ
+	})
+	// compare priority, actions and conditions
+	for i, expectedRule := range expectedRules {
+		actualRule := filteredRules[i]
+		actualPriority, _ := strconv.Atoi(awssdk.ToString(actualRule.Priority))
+		if err := verifyListenerRulePriority(int32(actualPriority), expectedRule.Priority); err != nil {
+			return err
+		}
+		if err := verifyListenerRuleConditions(actualRule.Conditions, expectedRule.Conditions); err != nil {
+			return err
+		}
+		if err := verifyListenerRuleActions(actualRule.Actions, expectedRule.Actions); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func verifyListenerRulePriority(rulePriority int32, expectedPriority int32) error {
+	if rulePriority != expectedPriority {
+		return errors.Errorf("expected listener rule priority %d, got %d", expectedPriority, rulePriority)
+	}
+	return nil
+}
+
+func verifyListenerRuleConditions(actual, expected []elbv2types.RuleCondition) error {
+	if len(actual) != len(expected) {
+		return errors.Errorf("expected %d listener rule conditions, got %d", len(expected), len(actual))
+	}
+
+	// Create map of expected key-value pairs for lookup
+	expectedMap := make(map[string]string)
+	expectedMapForHeaders := make(map[string]string)
+	for _, expectedCondition := range expected {
+		expectedField := awssdk.ToString(expectedCondition.Field)
+		if expectedField == string(elbv2model.RuleConditionFieldQueryString) {
+			for _, expectedKV := range expectedCondition.QueryStringConfig.Values {
+				expectedMap[awssdk.ToString(expectedKV.Key)] = awssdk.ToString(expectedKV.Value)
+			}
+		}
+		if expectedField == string(elbv2model.RuleConditionFieldHTTPHeader) {
+			expectedMapForHeaders[awssdk.ToString(expectedCondition.HttpHeaderConfig.HttpHeaderName)] = expectedCondition.HttpHeaderConfig.Values[0]
+		}
+	}
+
+	for _, expectedCondition := range expected {
+		expectedField := awssdk.ToString(expectedCondition.Field)
+		switch expectedField {
+		case string(elbv2model.RuleConditionFieldPathPattern):
+			var foundPath bool
+			for _, actualCondition := range actual {
+				if awssdk.ToString(actualCondition.Field) == string(elbv2model.RuleConditionFieldPathPattern) {
+					foundPath = true
+					if !slices.Equal(actualCondition.PathPatternConfig.Values, expectedCondition.PathPatternConfig.Values) {
+						return errors.Errorf("expected listener rule condition path-pattern values %v, got %v", expectedCondition.PathPatternConfig.Values, actualCondition.PathPatternConfig.Values)
+					}
+				}
+			}
+			if !foundPath {
+				return errors.Errorf("expected listener rule condition with path-pattern field, but not found in actual condition.")
+			}
+		case string(elbv2model.RuleConditionFieldQueryString):
+			var foundQuery bool
+			for _, actualCondition := range actual {
+				if awssdk.ToString(actualCondition.Field) == string(elbv2model.RuleConditionFieldQueryString) {
+					foundQuery = true
+					// Check if all expected keys were found
+					if len(actualCondition.QueryStringConfig.Values) != len(expectedCondition.QueryStringConfig.Values) {
+						return errors.Errorf("expected %d query-string pairs, got %d", len(expectedCondition.QueryStringConfig.Values), len(actualCondition.QueryStringConfig.Values))
+					}
+
+					// Check each actual key-value pair
+					for _, actualKV := range actualCondition.QueryStringConfig.Values {
+						actualKey := awssdk.ToString(actualKV.Key)
+						actualValue := awssdk.ToString(actualKV.Value)
+
+						expectedValue, exists := expectedMap[actualKey]
+						if !exists {
+							return errors.Errorf("unexpected query-string key %v found in actual condition", actualKey)
+						}
+						if actualValue != expectedValue {
+							return errors.Errorf("expected listener rule condition query-string value %v for key %v, got %v", expectedValue, actualKey, actualValue)
+						}
+					}
+				}
+			}
+			if !foundQuery {
+				return errors.Errorf("expected listener rule condition with query-string field, but not found in actual condition.")
+			}
+		case string(elbv2model.RuleConditionFieldHostHeader):
+			var foundHost bool
+			for _, actualCondition := range actual {
+				if awssdk.ToString(actualCondition.Field) == string(elbv2model.RuleConditionFieldHostHeader) {
+					foundHost = true
+					if !slices.Equal(actualCondition.HostHeaderConfig.Values, expectedCondition.HostHeaderConfig.Values) {
+						return errors.Errorf("expected listener rule condition host-header values %v, got %v", expectedCondition.HostHeaderConfig.Values, actualCondition.HostHeaderConfig.Values)
+					}
+				}
+			}
+			if !foundHost {
+				return errors.Errorf("expected listener rule condition with host-header field, but not found in actual condition.")
+			}
+		case string(elbv2model.RuleConditionFieldHTTPHeader):
+			var foundHeader bool
+			for _, actualCondition := range actual {
+				if awssdk.ToString(actualCondition.Field) == string(elbv2model.RuleConditionFieldHTTPHeader) {
+					foundHeader = true
+					actualName := awssdk.ToString(actualCondition.HttpHeaderConfig.HttpHeaderName)
+					expectedValue, exists := expectedMapForHeaders[actualName]
+					if !exists {
+						return errors.Errorf("unexpected http-header name %v found in actual condition", actualName)
+					}
+					if actualCondition.HttpHeaderConfig.Values[0] != expectedValue {
+						return errors.Errorf("expected listener rule condition http-header value %v, got %v", expectedValue, actualCondition.HttpHeaderConfig.Values[0])
+					}
+				}
+			}
+			if !foundHeader {
+				return errors.Errorf("expected listener rule condition with http-header field, but not found in actual condition.")
+			}
+		case string(elbv2model.RuleConditionFieldHTTPRequestMethod):
+			var foundMethod bool
+			for _, actualCondition := range actual {
+				if awssdk.ToString(actualCondition.Field) == string(elbv2model.RuleConditionFieldHTTPRequestMethod) {
+					foundMethod = true
+					if !slices.Equal(actualCondition.HttpRequestMethodConfig.Values, expectedCondition.HttpRequestMethodConfig.Values) {
+						return errors.Errorf("expected listener rule condition http-request-method values %v, got %v", expectedCondition.HttpRequestMethodConfig.Values, actualCondition.HttpRequestMethodConfig.Values)
+					}
+				}
+			}
+			if !foundMethod {
+				return errors.Errorf("expected listener rule condition with http-request-method field, but not found in actual condition.")
+			}
+		default:
+			return errors.Errorf("unknown listener rule condition field %s", expectedField)
+		}
+	}
+	return nil
+}
+
+func verifyListenerRuleActions(actual, expected []elbv2types.Action) error {
+	if len(actual) != len(expected) {
+		return errors.Errorf("expected %d listener rule actions, got %d", len(expected), len(actual))
+	}
+	for i, expectedAction := range expected {
+		actualAction := actual[i]
+		if expectedAction.Type != actualAction.Type {
+			return errors.Errorf("expected listener rule action type %s, got %s", expectedAction.Type, actualAction.Type)
+		}
+		switch expectedAction.Type {
+		case elbv2types.ActionTypeEnumForward:
+			if len(actualAction.ForwardConfig.TargetGroups) != len(expectedAction.ForwardConfig.TargetGroups) {
+				return errors.Errorf("expected %d listener rule action target groups, got %d", len(expectedAction.ForwardConfig.TargetGroups), len(actualAction.ForwardConfig.TargetGroups))
+			}
+			for i, expectedTG := range expectedAction.ForwardConfig.TargetGroups {
+				actualTG := actualAction.ForwardConfig.TargetGroups[i]
+				// only check weight
+				if awssdk.ToInt32(actualTG.Weight) != awssdk.ToInt32(expectedTG.Weight) {
+					return errors.Errorf("expected listener rule action target group weight %d, got %d", awssdk.ToInt32(expectedTG.Weight), awssdk.ToInt32(actualTG.Weight))
+				}
+			}
+		default:
+			return errors.Errorf("unknown listener rule action type %s", expectedAction.Type)
+		}
+	}
+
+	return nil
 }

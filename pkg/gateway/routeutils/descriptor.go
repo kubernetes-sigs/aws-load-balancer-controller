@@ -18,8 +18,14 @@ type routeMetadataDescriptor interface {
 	GetParentRefs() []gwv1.ParentReference
 	GetRawRoute() interface{}
 	GetBackendRefs() []gwv1.BackendRef
+	GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference
 	GetRouteGeneration() int64
 	GetRouteCreateTimestamp() time.Time
+}
+
+type routeLoadError struct {
+	Err   error
+	Fatal bool
 }
 
 // preLoadRouteDescriptor this object is used to represent a route description that has not loaded its child data (services, tg config)
@@ -27,7 +33,7 @@ type routeMetadataDescriptor interface {
 // loadAttachedRules() to generate a full route description.
 type preLoadRouteDescriptor interface {
 	routeMetadataDescriptor
-	loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error)
+	loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError)
 }
 
 // RouteDescriptor is a type agnostic representation of a Gateway Route.

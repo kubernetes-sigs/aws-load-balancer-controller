@@ -2,9 +2,12 @@ package elbv2
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
@@ -48,6 +51,7 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 	type args struct {
 		obj *elbv2api.TargetGroupBinding
 	}
+	httpProtocol := elbv2.ProtocolHTTP
 	tests := []struct {
 		name       string
 		fields     fields
@@ -57,26 +61,28 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 		wantMetric bool
 	}{
 		{
-			name: "targetGroupBinding with TargetType and ipAddressType and vpcID already set",
+			name: "targetGroupBinding with all fields already set",
 			fields: fields{
 				describeTargetGroupsAsListCalls: nil,
 			},
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetGroupARN: "tg-1",
-						TargetType:     &instanceTargetType,
-						IPAddressType:  &targetGroupIPAddressTypeIPv4,
-						VpcID:          "vpcid-01",
+						TargetGroupARN:      "tg-1",
+						TargetType:          &instanceTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv4,
+						VpcID:               "vpcid-01",
+						TargetGroupProtocol: &httpProtocol,
 					},
 				},
 			},
 			want: &elbv2api.TargetGroupBinding{
 				Spec: elbv2api.TargetGroupBindingSpec{
-					TargetGroupARN: "tg-1",
-					TargetType:     &instanceTargetType,
-					IPAddressType:  &targetGroupIPAddressTypeIPv4,
-					VpcID:          "vpcid-01",
+					TargetGroupARN:      "tg-1",
+					TargetType:          &instanceTargetType,
+					IPAddressType:       &targetGroupIPAddressTypeIPv4,
+					VpcID:               "vpcid-01",
+					TargetGroupProtocol: &httpProtocol,
 				},
 			},
 		},
@@ -100,16 +106,18 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetGroupARN: "tg-1",
-						TargetType:     nil,
+						TargetGroupARN:      "tg-1",
+						TargetGroupProtocol: &httpProtocol,
+						TargetType:          nil,
 					},
 				},
 			},
 			want: &elbv2api.TargetGroupBinding{
 				Spec: elbv2api.TargetGroupBindingSpec{
-					TargetGroupARN: "tg-1",
-					TargetType:     &instanceTargetType,
-					IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					TargetGroupARN:      "tg-1",
+					TargetType:          &instanceTargetType,
+					IPAddressType:       &targetGroupIPAddressTypeIPv4,
+					TargetGroupProtocol: &httpProtocol,
 				},
 			},
 		},
@@ -133,16 +141,18 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetGroupARN: "tg-1",
-						TargetType:     nil,
+						TargetGroupARN:      "tg-1",
+						TargetGroupProtocol: &httpProtocol,
+						TargetType:          nil,
 					},
 				},
 			},
 			want: &elbv2api.TargetGroupBinding{
 				Spec: elbv2api.TargetGroupBindingSpec{
-					TargetGroupARN: "tg-1",
-					TargetType:     &ipTargetType,
-					IPAddressType:  &targetGroupIPAddressTypeIPv4,
+					TargetGroupARN:      "tg-1",
+					TargetType:          &ipTargetType,
+					IPAddressType:       &targetGroupIPAddressTypeIPv4,
+					TargetGroupProtocol: &httpProtocol,
 				},
 			},
 		},
@@ -166,8 +176,9 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetGroupARN: "tg-1",
-						TargetType:     nil,
+						TargetGroupARN:      "tg-1",
+						TargetType:          nil,
+						TargetGroupProtocol: &httpProtocol,
 					},
 				},
 			},
@@ -182,19 +193,21 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetGroupARN: "tg-1",
-						TargetType:     &instanceTargetType,
-						IPAddressType:  &targetGroupIPAddressTypeIPv6,
-						VpcID:          "vpcid-01",
+						TargetGroupARN:      "tg-1",
+						TargetType:          &instanceTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv6,
+						VpcID:               "vpcid-01",
+						TargetGroupProtocol: &httpProtocol,
 					},
 				},
 			},
 			want: &elbv2api.TargetGroupBinding{
 				Spec: elbv2api.TargetGroupBindingSpec{
-					TargetGroupARN: "tg-1",
-					TargetType:     &instanceTargetType,
-					IPAddressType:  &targetGroupIPAddressTypeIPv6,
-					VpcID:          "vpcid-01",
+					TargetGroupARN:      "tg-1",
+					TargetType:          &instanceTargetType,
+					IPAddressType:       &targetGroupIPAddressTypeIPv6,
+					VpcID:               "vpcid-01",
+					TargetGroupProtocol: &httpProtocol,
 				},
 			},
 		},
@@ -217,18 +230,20 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetGroupARN: "tg-1",
-						TargetType:     &instanceTargetType,
-						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+						TargetGroupARN:      "tg-1",
+						TargetType:          &instanceTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv4,
+						TargetGroupProtocol: &httpProtocol,
 					},
 				},
 			},
 			want: &elbv2api.TargetGroupBinding{
 				Spec: elbv2api.TargetGroupBindingSpec{
-					TargetGroupARN: "tg-1",
-					TargetType:     &instanceTargetType,
-					IPAddressType:  &targetGroupIPAddressTypeIPv4,
-					VpcID:          "vpcid-01",
+					TargetGroupARN:      "tg-1",
+					TargetType:          &instanceTargetType,
+					IPAddressType:       &targetGroupIPAddressTypeIPv4,
+					VpcID:               "vpcid-01",
+					TargetGroupProtocol: &httpProtocol,
 				},
 			},
 		},
@@ -288,20 +303,83 @@ func Test_targetGroupBindingMutator_MutateCreate(t *testing.T) {
 			args: args{
 				obj: &elbv2api.TargetGroupBinding{
 					Spec: elbv2api.TargetGroupBindingSpec{
-						TargetGroupName: "tg-name",
-						TargetType:      &instanceTargetType,
-						IPAddressType:   &targetGroupIPAddressTypeIPv4,
+						TargetGroupName:     "tg-name",
+						TargetType:          &instanceTargetType,
+						IPAddressType:       &targetGroupIPAddressTypeIPv4,
+						TargetGroupProtocol: &httpProtocol,
 					},
 				},
 			},
 			want: &elbv2api.TargetGroupBinding{
 				Spec: elbv2api.TargetGroupBindingSpec{
-					TargetGroupARN:  "tg-arn",
-					TargetGroupName: "tg-name",
-					TargetType:      &instanceTargetType,
-					IPAddressType:   &targetGroupIPAddressTypeIPv4,
+					TargetGroupARN:      "tg-arn",
+					TargetGroupName:     "tg-name",
+					TargetType:          &instanceTargetType,
+					IPAddressType:       &targetGroupIPAddressTypeIPv4,
+					TargetGroupProtocol: &httpProtocol,
 				},
 			},
+		},
+		{
+			name: "targetGroupBinding with protocol absent will be defaulted via AWS API",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-1"},
+						},
+						resp: []elbv2types.TargetGroup{
+							{
+								Protocol: elbv2types.ProtocolEnumHttp,
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-1",
+						TargetType:     &instanceTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+						VpcID:          "vpcid-01",
+					},
+				},
+			},
+			want: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetGroupARN:      "tg-1",
+					TargetType:          &instanceTargetType,
+					IPAddressType:       &targetGroupIPAddressTypeIPv4,
+					VpcID:               "vpcid-01",
+					TargetGroupProtocol: &httpProtocol,
+				},
+			},
+		},
+		{
+			name: "targetGroupBinding with protocol absent will be defaulted via AWS API - error",
+			fields: fields{
+				describeTargetGroupsAsListCalls: []describeTargetGroupsAsListCall{
+					{
+						req: &elbv2sdk.DescribeTargetGroupsInput{
+							TargetGroupArns: []string{"tg-1"},
+						},
+						err: errors.New("connection error"),
+					},
+				},
+			},
+			args: args{
+				obj: &elbv2api.TargetGroupBinding{
+					Spec: elbv2api.TargetGroupBindingSpec{
+						TargetGroupARN: "tg-1",
+						TargetType:     &instanceTargetType,
+						IPAddressType:  &targetGroupIPAddressTypeIPv4,
+						VpcID:          "vpcid-01",
+					},
+				},
+			},
+			wantErr:    errors.New("couldn't determine TargetGroup protocol: connection error"),
+			wantMetric: true,
 		},
 	}
 	for _, tt := range tests {
@@ -432,7 +510,17 @@ func Test_targetGroupBindingMutator_obtainSDKTargetTypeFromAWS(t *testing.T) {
 				logger:           logr.New(&log.NullLogSink{}),
 				metricsCollector: mockMetricsCollector,
 			}
-			got, err := m.obtainSDKTargetTypeFromAWS(context.Background(), makeTargetGroupBinding(tt.args.tgARN))
+
+			tgb := makeTargetGroupBinding(tt.args.tgARN)
+			targetGroupCache := sync.OnceValue(func() tgCacheObject {
+				targetGroup, err := getTargetGroupFromAWS(ctx, m.elbv2Client, tgb)
+				return tgCacheObject{
+					tg:    targetGroup,
+					error: err,
+				}
+			})
+
+			got, err := m.obtainSDKTargetTypeFromAWS(targetGroupCache)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -564,7 +652,15 @@ func Test_targetGroupBindingMutator_getIPAddressTypeFromAWS(t *testing.T) {
 				logger:           logr.New(&log.NullLogSink{}),
 				metricsCollector: mockMetricsCollector,
 			}
-			got, err := m.getTargetGroupIPAddressTypeFromAWS(context.Background(), makeTargetGroupBinding(tt.args.tgARN))
+			tgb := makeTargetGroupBinding(tt.args.tgARN)
+			targetGroupCache := sync.OnceValue(func() tgCacheObject {
+				targetGroup, err := getTargetGroupFromAWS(ctx, m.elbv2Client, tgb)
+				return tgCacheObject{
+					tg:    targetGroup,
+					error: err,
+				}
+			})
+			got, err := m.getTargetGroupIPAddressTypeFromAWS(targetGroupCache)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
@@ -651,7 +747,15 @@ func Test_targetGroupBindingMutator_obtainSDKVpcIDFromAWS(t *testing.T) {
 				logger:           logr.New(&log.NullLogSink{}),
 				metricsCollector: mockMetricsCollector,
 			}
-			got, err := m.getVpcIDFromAWS(context.Background(), makeTargetGroupBinding(tt.args.tgARN))
+			tgb := makeTargetGroupBinding(tt.args.tgARN)
+			targetGroupCache := sync.OnceValue(func() tgCacheObject {
+				targetGroup, err := getTargetGroupFromAWS(ctx, m.elbv2Client, tgb)
+				return tgCacheObject{
+					tg:    targetGroup,
+					error: err,
+				}
+			})
+			got, err := m.getVpcIDFromAWS(targetGroupCache)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

@@ -29,9 +29,10 @@ type mockRoute struct {
 	namespacedName types.NamespacedName
 	routeKind      RouteKind
 	generation     int64
+	hostnames      []gwv1.Hostname
 }
 
-func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, error) {
+func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
 	return m, nil
 }
 
@@ -44,8 +45,7 @@ func (m *mockRoute) GetRouteKind() RouteKind {
 }
 
 func (m *mockRoute) GetHostnames() []gwv1.Hostname {
-	//TODO implement me
-	panic("implement me")
+	return m.hostnames
 }
 
 func (m *mockRoute) GetParentRefs() []gwv1.ParentReference {
@@ -54,6 +54,10 @@ func (m *mockRoute) GetParentRefs() []gwv1.ParentReference {
 }
 
 func (m *mockRoute) GetBackendRefs() []gwv1.BackendRef {
+	//TODO implement me
+	panic("implement me")
+}
+func (m *mockRoute) GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference {
 	//TODO implement me
 	panic("implement me")
 }
@@ -137,11 +141,11 @@ func TestLoadRoutesForGateway(t *testing.T) {
 		loadedTCPRoutes = append(loadedTCPRoutes, r)
 	}
 
-	allRouteLoaders := map[RouteKind]func(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error){
-		HTTPRouteKind: func(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+	allRouteLoaders := map[RouteKind]func(ctx context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error){
+		HTTPRouteKind: func(ctx context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 			return preLoadHTTPRoutes, nil
 		},
-		TCPRouteKind: func(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
+		TCPRouteKind: func(ctx context.Context, k8sClient client.Client, opts ...client.ListOption) ([]preLoadRouteDescriptor, error) {
 			return preLoadTCPRoutes, nil
 		},
 	}
