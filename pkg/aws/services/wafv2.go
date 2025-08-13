@@ -10,6 +10,7 @@ type WAFv2 interface {
 	AssociateWebACLWithContext(context.Context, *wafv2.AssociateWebACLInput) (*wafv2.AssociateWebACLOutput, error)
 	DisassociateWebACLWithContext(ctx context.Context, req *wafv2.DisassociateWebACLInput) (*wafv2.DisassociateWebACLOutput, error)
 	GetWebACLForResourceWithContext(ctx context.Context, req *wafv2.GetWebACLForResourceInput) (*wafv2.GetWebACLForResourceOutput, error)
+	GetWebACL(ctx context.Context, req *wafv2.GetWebACLInput) (*wafv2.GetWebACLOutput, error)
 }
 
 // NewWAFv2 constructs new WAFv2 implementation.
@@ -45,4 +46,12 @@ func (c *wafv2Client) GetWebACLForResourceWithContext(ctx context.Context, req *
 		return nil, err
 	}
 	return client.GetWebACLForResource(ctx, req)
+}
+
+func (c *wafv2Client) GetWebACL(ctx context.Context, req *wafv2.GetWebACLInput) (*wafv2.GetWebACLOutput, error) {
+	client, err := c.awsClientsProvider.GetWAFv2Client(ctx, "GetWebACL")
+	if err != nil {
+		return nil, err
+	}
+	return client.GetWebACL(ctx, req)
 }

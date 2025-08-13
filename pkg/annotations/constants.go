@@ -23,6 +23,7 @@ const (
 	IngressSuffixCustomerOwnedIPv4Pool                         = "customer-owned-ipv4-pool"
 	IngressSuffixLoadBalancerAttributes                        = "load-balancer-attributes"
 	IngressSuffixWAFv2ACLARN                                   = "wafv2-acl-arn"
+	IngressSuffixWAFv2ACLName                                  = "wafv2-acl-name"
 	IngressSuffixWAFACLID                                      = "waf-acl-id"
 	IngressSuffixWebACLID                                      = "web-acl-id" // deprecated, use "waf-acl-id" instead.
 	IngressSuffixShieldAdvancedProtection                      = "shield-advanced-protection"

@@ -32,12 +32,21 @@ func (t *defaultModelBuildTask) buildLoadBalancerAddOns(ctx context.Context, lbA
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(_ context.Context, lbARN core.StringToken) (*wafv2model.WebACLAssociation, error) {
+func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(ctx context.Context, lbARN core.StringToken) (*wafv2model.WebACLAssociation, error) {
 	explicitWebACLARNs := sets.NewString()
 	for _, member := range t.ingGroup.Members {
 		rawWebACLARN := ""
+		rawWebACLName := ""
+
 		_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, member.Ing.Annotations)
+		_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLName, &rawWebACLName, member.Ing.Annotations)
 		if rawWebACLARN != "" {
+			explicitWebACLARNs.Insert(rawWebACLARN)
+		} else if rawWebACLName != "" {
+			rawWebACLARN, err := t.webACLNameToArnMapper.getArnByName(ctx, rawWebACLName)
+			if err != nil {
+				return nil, errors.Errorf("couldn't find WAFv2 WebACL with name: %v", rawWebACLName)
+			}
 			explicitWebACLARNs.Insert(rawWebACLARN)
 		}
 		params := member.IngClassConfig.IngClassParams
