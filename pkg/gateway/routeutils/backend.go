@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -35,46 +36,65 @@ type Backend struct {
 }
 
 type attachedRuleAccumulator[RuleType any] interface {
-	accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, ruleConverter func(*RuleType, []Backend) RouteRule) ([]RouteRule, []routeLoadError)
+	accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, listenerRuleConfigRefs func(RuleType) []gwv1.LocalObjectReference, ruleConverter func(*RuleType, []Backend, *elbv2gw.ListenerRuleConfiguration) RouteRule) ([]RouteRule, []routeLoadError)
 }
 
 type attachedRuleAccumulatorImpl[RuleType any] struct {
-	backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
+	backendLoader            func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
+	listenerRuleConfigLoader func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error)
 }
 
-func newAttachedRuleAccumulator[RuleType any](backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)) attachedRuleAccumulator[RuleType] {
+func newAttachedRuleAccumulator[RuleType any](backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error),
+	listenerRuleConfigLoader func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error)) attachedRuleAccumulator[RuleType] {
 	return &attachedRuleAccumulatorImpl[RuleType]{
-		backendLoader: backendLoader,
+		backendLoader:            backendLoader,
+		listenerRuleConfigLoader: listenerRuleConfigLoader,
 	}
 }
 
-func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, ruleConverter func(*RuleType, []Backend) RouteRule) ([]RouteRule, []routeLoadError) {
+func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Context, k8sClient client.Client, route preLoadRouteDescriptor, rules []RuleType, backendRefIterator func(RuleType) []gwv1.BackendRef, listenerRuleConfigRefs func(RuleType) []gwv1.LocalObjectReference, ruleConverter func(*RuleType, []Backend, *elbv2gw.ListenerRuleConfiguration) RouteRule) ([]RouteRule, []routeLoadError) {
 	convertedRules := make([]RouteRule, 0)
 	allErrors := make([]routeLoadError, 0)
 	for _, rule := range rules {
 		convertedBackends := make([]Backend, 0)
-		for _, backend := range backendRefIterator(rule) {
-			convertedBackend, warningErr, fatalErr := ara.backendLoader(ctx, k8sClient, backend, backend, route.GetRouteNamespacedName(), route.GetRouteKind())
-			if warningErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err: warningErr,
-				})
-			}
+		listenerRuleConfig, lrcWarningErr, lrcfatalErr := ara.listenerRuleConfigLoader(ctx, k8sClient, route.GetRouteNamespacedName(), route.GetRouteKind(), listenerRuleConfigRefs(rule))
+		if lrcWarningErr != nil {
+			allErrors = append(allErrors, routeLoadError{
+				Err: lrcWarningErr,
+			})
+		}
+		// usually happens due to K8s Api outage
+		if lrcfatalErr != nil {
+			allErrors = append(allErrors, routeLoadError{
+				Err:   lrcfatalErr,
+				Fatal: true,
+			})
+			return nil, allErrors
+		}
+		// If ListenerRuleConfig is loaded properly without any warning errors, then only load backends, else it should be treated as no valid backend to send with fixed 503 response
+		if lrcWarningErr == nil {
+			for _, backend := range backendRefIterator(rule) {
+				convertedBackend, warningErr, fatalErr := ara.backendLoader(ctx, k8sClient, backend, backend, route.GetRouteNamespacedName(), route.GetRouteKind())
+				if warningErr != nil {
+					allErrors = append(allErrors, routeLoadError{
+						Err: warningErr,
+					})
+				}
 
-			if fatalErr != nil {
-				allErrors = append(allErrors, routeLoadError{
-					Err:   fatalErr,
-					Fatal: true,
-				})
-				return nil, allErrors
-			}
+				if fatalErr != nil {
+					allErrors = append(allErrors, routeLoadError{
+						Err:   fatalErr,
+						Fatal: true,
+					})
+					return nil, allErrors
+				}
 
-			if convertedBackend != nil {
-				convertedBackends = append(convertedBackends, *convertedBackend)
+				if convertedBackend != nil {
+					convertedBackends = append(convertedBackends, *convertedBackend)
+				}
 			}
 		}
-
-		convertedRules = append(convertedRules, ruleConverter(&rule, convertedBackends))
+		convertedRules = append(convertedRules, ruleConverter(&rule, convertedBackends, listenerRuleConfig))
 	}
 	return convertedRules, allErrors
 }
@@ -289,4 +309,61 @@ func referenceGrantCheck(ctx context.Context, k8sClient client.Client, svcIdenti
 	}
 
 	return false, nil
+}
+
+func listenerRuleConfigLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigsRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error) {
+	if len(listenerRuleConfigsRefs) == 0 {
+		return nil, nil, nil
+	}
+	// This is warning error so that the reconcile cycle does not stop.
+	if len(listenerRuleConfigsRefs) > 1 {
+		initialErrorMessage := "Only one listener rule config can be referenced per route rule, found multiple"
+		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
+		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonIncompatibleFilters, &wrappedGatewayErrorMessage, nil), nil
+	}
+	listenerRuleCfgId := types.NamespacedName{
+		Namespace: routeIdentifier.Namespace,
+		Name:      string(listenerRuleConfigsRefs[0].Name),
+	}
+	listenerRuleCfg := &elbv2gw.ListenerRuleConfiguration{}
+	err := k8sClient.Get(ctx, listenerRuleCfgId, listenerRuleCfg)
+	if err != nil {
+		convertToNotFoundError := client.IgnoreNotFound(err)
+
+		if convertToNotFoundError == nil {
+			// ListenerRuleConfig not found, post an updated status.
+			initialErrorMessage := fmt.Sprintf("ListenerRuleConfiguration [%v] not found)", listenerRuleCfgId.String())
+			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
+			return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonIncompatibleFilters, &wrappedGatewayErrorMessage, nil), nil
+		}
+
+		return nil, nil, errors.Wrapf(err, "Unable to load listener rule config [%v] for route [%v]", listenerRuleCfgId.String(), routeIdentifier.String())
+	}
+	return listenerRuleCfg, nil, nil
+}
+
+// getListenerRuleConfigForRuleGeneric is a generic helper that extracts ListenerRuleConfiguration
+// references from ExtensionRef filters in route rules
+func getListenerRuleConfigForRuleGeneric[FilterType any](
+	filters []FilterType,
+	isExtensionRefType func(filter FilterType) bool,
+	getExtensionRef func(filter FilterType) *gwv1.LocalObjectReference,
+) []gwv1.LocalObjectReference {
+	listenerRuleConfigsRefs := make([]gwv1.LocalObjectReference, 0)
+	for _, filter := range filters {
+		if !isExtensionRefType(filter) {
+			continue
+		}
+		extRef := getExtensionRef(filter)
+		if extRef != nil &&
+			string(extRef.Group) == constants.ControllerCRDGroupVersion &&
+			string(extRef.Kind) == constants.ListenerRuleConfiguration {
+			listenerRuleConfigsRefs = append(listenerRuleConfigsRefs, gwv1.LocalObjectReference{
+				Group: constants.ControllerCRDGroupVersion,
+				Kind:  constants.ListenerRuleConfiguration,
+				Name:  extRef.Name,
+			})
+		}
+	}
+	return listenerRuleConfigsRefs
 }

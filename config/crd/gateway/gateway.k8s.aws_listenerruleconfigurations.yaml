@@ -243,6 +243,7 @@ spec:
                       description: Information for a forward action
                       properties:
                         targetGroupStickinessConfig:
+                          default: {}
                           description: |-
                             The target group stickiness for the rule.
                             Note: ForwardActionConfig only supports target group stickiness configuration through CRD.
@@ -368,6 +369,10 @@ spec:
                 or authenticate-cognito) can be specified
               rule: '!has(self.actions) || size(self.actions.filter(a, a.type == ''authenticate-oidc''
                 || a.type == ''authenticate-cognito'')) <= 1'
+            - message: At most one routing action (fixed-response or forward or redirect)
+                can be specified
+              rule: '!has(self.actions) || size(self.actions.filter(a, a.type == ''fixed-response''
+                || a.type == ''forward'' || a.type == ''redirect'')) <= 1'
           status:
             description: ListenerRuleStatus defines the observed state of ListenerRuleConfiguration
             properties:

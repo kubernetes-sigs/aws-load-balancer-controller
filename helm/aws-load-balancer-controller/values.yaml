@@ -119,6 +119,7 @@ enableCertManager: false
 certManager:
   duration:
   renewBefore:
+  revisionHistoryLimit:
 
 # The name of the Kubernetes cluster. A non-empty value is required
 clusterName:

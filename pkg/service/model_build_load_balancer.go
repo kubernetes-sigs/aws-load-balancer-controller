@@ -111,10 +111,17 @@ func (t *defaultModelBuildTask) buildLoadBalancerSpec(ctx context.Context, schem
 
 func (t *defaultModelBuildTask) buildLoadBalancerSecurityGroups(ctx context.Context, existingLB *elbv2deploy.LoadBalancerWithTags,
 	ipAddressType elbv2model.IPAddressType) ([]core.StringToken, error) {
+
+	var disableNLBSGFlag bool
+	disableFlagExists, err := t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixDisableNLBSG, &disableNLBSGFlag, t.service.Annotations)
+	if err != nil {
+		return nil, err
+	}
+
 	if existingLB != nil && len(existingLB.LoadBalancer.SecurityGroups) == 0 {
 		return nil, nil
 	}
-	if !t.featureGates.Enabled(config.NLBSecurityGroup) {
+	if !t.featureGates.Enabled(config.NLBSecurityGroup) || (disableFlagExists && disableNLBSGFlag) {
 		if existingLB != nil && len(existingLB.LoadBalancer.SecurityGroups) != 0 {
 			return nil, errors.New("conflicting security groups configuration")
 		}

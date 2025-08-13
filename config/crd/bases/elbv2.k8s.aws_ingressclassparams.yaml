@@ -11,7 +11,7 @@ spec:
     kind: IngressClassParams
     listKind: IngressClassParamsList
     plural: ingressclassparams
-    singular: ingressclassparams
+    singular: ingressclassparam
   scope: Cluster
   versions:
   - additionalPrinterColumns:
@@ -149,6 +149,10 @@ spec:
                   - value
                   type: object
                 type: array
+              loadBalancerName:
+                description: LoadBalancerName defines the name of the load balancer
+                  that will be created with this IngressClassParams.
+                type: string
               minimumLoadBalancerCapacity:
                 description: MinimumLoadBalancerCapacity define the capacity reservation
                   for LoadBalancers for all Ingress that belong to IngressClass with
@@ -278,6 +282,9 @@ spec:
                 enum:
                 - instance
                 - ip
+                type: string
+              wafv2AclArn:
+                description: WAFv2ACLArn specifies ARN for the Amazon WAFv2 web ACL.
                 type: string
             type: object
             x-kubernetes-validations:

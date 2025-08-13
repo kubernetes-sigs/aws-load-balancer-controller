@@ -35,7 +35,7 @@ func FilterRoutesByListenerRuleCfg(routes []preLoadRouteDescriptor, ruleConfig *
 
 // isListenerRuleConfigReferredByRoute checks if a route references a specific ruleConfig.
 func isListenerRuleConfigReferredByRoute(route preLoadRouteDescriptor, ruleConfig types.NamespacedName) bool {
-	for _, config := range route.GetListenerRuleConfigs() {
+	for _, config := range route.GetRouteListenerRuleConfigRefs() {
 		namespace := route.GetRouteNamespacedName().Namespace
 		if string(config.Name) == ruleConfig.Name && namespace == ruleConfig.Namespace {
 			return true
