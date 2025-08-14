@@ -2,7 +2,6 @@ package ingress
 
 import (
 	"context"
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
@@ -444,7 +443,6 @@ func Test_defaultModelBuildTask_buildIngressLoadBalancerMinimumCapacity(t *testi
 			}
 			got, err := task.buildIngressLoadBalancerMinimumCapacity(tt.args.ing)
 			if tt.wantErr != nil {
-				fmt.Println(err)
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)

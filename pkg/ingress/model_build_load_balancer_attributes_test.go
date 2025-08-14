@@ -1,7 +1,6 @@
 package ingress
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -376,7 +375,6 @@ func Test_defaultModelBuildTask_buildIngressLoadBalancerAttributes(t *testing.T)
 			}
 			got, err := task.buildIngressLoadBalancerAttributes(tt.args.ing)
 			if tt.wantErr != nil {
-				fmt.Println(err)
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
 				assert.NoError(t, err)

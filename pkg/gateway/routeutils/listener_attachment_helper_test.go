@@ -22,12 +22,19 @@ func (mnss *mockNamespaceSelector) getNamespacesFromSelector(_ context.Context, 
 }
 
 func Test_listenerAllowsAttachment(t *testing.T) {
+
+	type expectedRouteStatus struct {
+		reason  string
+		message string
+	}
+
 	testCases := []struct {
-		name             string
-		gwNamespace      string
-		routeNamespace   string
-		listenerProtocol gwv1.ProtocolType
-		expected         bool
+		name                 string
+		gwNamespace          string
+		routeNamespace       string
+		listenerProtocol     gwv1.ProtocolType
+		expectedStatusUpdate *expectedRouteStatus
+		expected             bool
 	}{
 		{
 			name:             "namespace and kind are ok",
@@ -41,12 +48,20 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			gwNamespace:      "ns1",
 			routeNamespace:   "ns2",
 			listenerProtocol: gwv1.HTTPProtocolType,
+			expectedStatusUpdate: &expectedRouteStatus{
+				reason:  string(gwv1.RouteReasonNotAllowedByListeners),
+				message: RouteStatusInfoRejectedMessageNamespaceNotMatch,
+			},
 		},
 		{
 			name:             "kind is not ok",
 			gwNamespace:      "ns1",
 			routeNamespace:   "ns1",
 			listenerProtocol: gwv1.TLSProtocolType,
+			expectedStatusUpdate: &expectedRouteStatus{
+				reason:  string(gwv1.RouteReasonNotAllowedByListeners),
+				message: RouteStatusInfoRejectedMessageKindNotMatch,
+			},
 		},
 	}
 
@@ -72,12 +87,22 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			}
 			hostnameFromHttpRoute := map[types.NamespacedName][]gwv1.Hostname{}
 			hostnameFromGrpcRoute := map[types.NamespacedName][]gwv1.Hostname{}
-			mockReconciler := NewMockRouteReconciler()
-			result, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
+			result, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
-			}, route, mockReconciler, hostnameFromHttpRoute, hostnameFromGrpcRoute)
+			}, route, hostnameFromHttpRoute, hostnameFromGrpcRoute)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, result)
+			if tc.expectedStatusUpdate == nil {
+				assert.Nil(t, statusUpdate)
+			} else {
+				assert.NotNil(t, statusUpdate)
+				assert.Equal(t, gw.Name, statusUpdate.ParentRefGateway.Name)
+				assert.Equal(t, gw.Namespace, statusUpdate.ParentRefGateway.Namespace)
+				assert.Equal(t, route.GetRouteNamespacedName().Name, statusUpdate.RouteMetadata.RouteName)
+				assert.Equal(t, route.GetRouteNamespacedName().Namespace, statusUpdate.RouteMetadata.RouteNamespace)
+				assert.Equal(t, tc.expectedStatusUpdate.message, statusUpdate.RouteStatusInfo.Message)
+				assert.Equal(t, tc.expectedStatusUpdate.reason, statusUpdate.RouteStatusInfo.Reason)
+			}
 		})
 	}
 }

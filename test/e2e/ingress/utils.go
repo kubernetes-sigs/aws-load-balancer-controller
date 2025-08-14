@@ -1,7 +1,6 @@
 package ingress
 
 import (
-	"fmt"
 	"strings"
 
 	networking "k8s.io/api/networking/v1"
@@ -19,7 +18,6 @@ func FindIngressDNSName(ing *networking.Ingress) string {
 func FindIngressTwoDNSName(ing *networking.Ingress) (albDNS string, nlbDNS string) {
 	for _, ingSTS := range ing.Status.LoadBalancer.Ingress {
 		if ingSTS.Hostname != "" {
-			fmt.Println("ingSTS.Hostname", ingSTS.Hostname)
 			if strings.Contains(ingSTS.Hostname, "elb.amazonaws.com") {
 				albDNS = ingSTS.Hostname
 			} else {

@@ -753,8 +753,6 @@ func buildFrontendNlbResourceID(resourceType string, protocol elbv2model.Protoco
 func mergeHealthCheckField[T comparable](fieldName string, finalValue **T, currentValue *T, explicit map[string]bool, explicitFields map[string]bool, configIndex int) error {
 	if explicit[fieldName] {
 		if explicitFields[fieldName] {
-			fmt.Printf("*finalValue (%T): %v\n", **finalValue, **finalValue)
-			fmt.Printf("newValue (%T): %v\n", *currentValue, *currentValue)
 			if **finalValue != *currentValue {
 				return errors.Errorf("conflicting %s, config %d: %v, previous: %v", fieldName, configIndex+1, *currentValue, **finalValue)
 			}

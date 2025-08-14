@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -13,14 +14,15 @@ import (
 )
 
 type mockMapper struct {
-	t              *testing.T
-	expectedRoutes []preLoadRouteDescriptor
-	mapToReturn    map[int][]preLoadRouteDescriptor
+	t                  *testing.T
+	expectedRoutes     []preLoadRouteDescriptor
+	mapToReturn        map[int][]preLoadRouteDescriptor
+	routeStatusUpdates []RouteData
 }
 
-func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor, routeReconciler RouteReconcilerSubmitter) (map[int][]preLoadRouteDescriptor, error) {
+func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, []RouteData, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
-	return m.mapToReturn, nil
+	return m.mapToReturn, m.routeStatusUpdates, nil
 }
 
 var _ RouteDescriptor = &mockRoute{}
@@ -151,18 +153,21 @@ func TestLoadRoutesForGateway(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                    string
-		acceptedKinds           sets.Set[RouteKind]
-		expectedMap             map[int32][]RouteDescriptor
-		expectedPreloadMap      map[int][]preLoadRouteDescriptor
-		expectedPreMappedRoutes []preLoadRouteDescriptor
-		expectError             bool
+		name                     string
+		acceptedKinds            sets.Set[RouteKind]
+		expectedMap              map[int32][]RouteDescriptor
+		expectedPreloadMap       map[int][]preLoadRouteDescriptor
+		expectedPreMappedRoutes  []preLoadRouteDescriptor
+		mapperRouteStatusUpdates []RouteData
+		expectedReconcileQueue   map[string]bool // generateRouteDataCacheKey -> succeeded
+		expectError              bool
 	}{
 		{
 			name:                    "filter allows no routes",
 			acceptedKinds:           make(sets.Set[RouteKind]),
 			expectedPreMappedRoutes: make([]preLoadRouteDescriptor, 0),
 			expectedMap:             make(map[int32][]RouteDescriptor),
+			expectedReconcileQueue:  map[string]bool{},
 		},
 		{
 			name:                    "filter only allows http route",
@@ -173,6 +178,11 @@ func TestLoadRoutesForGateway(t *testing.T) {
 			},
 			expectedMap: map[int32][]RouteDescriptor{
 				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"http1-http1-ns-HTTPRoute-gw-gw-ns": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns": true,
 			},
 		},
 		{
@@ -187,6 +197,11 @@ func TestLoadRoutesForGateway(t *testing.T) {
 				80:  loadedHTTPRoutes,
 				443: loadedHTTPRoutes,
 			},
+			expectedReconcileQueue: map[string]bool{
+				"http1-http1-ns-HTTPRoute-gw-gw-ns": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns": true,
+			},
 		},
 		{
 			name:                    "filter only allows tcp route",
@@ -197,6 +212,11 @@ func TestLoadRoutesForGateway(t *testing.T) {
 			},
 			expectedMap: map[int32][]RouteDescriptor{
 				80: loadedTCPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns": true,
+				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns": true,
+				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns": true,
 			},
 		},
 		{
@@ -211,30 +231,92 @@ func TestLoadRoutesForGateway(t *testing.T) {
 				80:  loadedTCPRoutes,
 				443: loadedHTTPRoutes,
 			},
+			expectedReconcileQueue: map[string]bool{
+				"http1-http1-ns-HTTPRoute-gw-gw-ns": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns": true,
+				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns":    true,
+				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns":    true,
+				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns":    true,
+			},
+		},
+		{
+			name:                    "failed route should lead to only failed version status getting published",
+			acceptedKinds:           sets.New[RouteKind](TCPRouteKind, HTTPRouteKind),
+			expectedPreMappedRoutes: append(preLoadHTTPRoutes, preLoadTCPRoutes...),
+			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+				80:  preLoadTCPRoutes,
+				443: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80:  loadedTCPRoutes,
+				443: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"http1-http1-ns-HTTPRoute-gw-gw-ns": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns": true,
+				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns":    true,
+				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns":    false,
+				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns":    true,
+			},
+			mapperRouteStatusUpdates: []RouteData{
+				{
+					RouteStatusInfo: RouteStatusInfo{
+						Accepted: false,
+					},
+					RouteMetadata: RouteMetadata{
+						RouteName:       "tcp2",
+						RouteNamespace:  "tcp2-ns",
+						RouteKind:       string(TCPRouteKind),
+						RouteGeneration: 0,
+					},
+					ParentRefGateway: ParentRefGateway{
+						Name:      "gw",
+						Namespace: "gw-ns",
+					},
+				},
+			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			routeReconciler := NewMockRouteReconciler()
 			loader := loaderImpl{
 				mapper: &mockMapper{
-					t:              t,
-					expectedRoutes: tc.expectedPreMappedRoutes,
-					mapToReturn:    tc.expectedPreloadMap,
+					t:                  t,
+					expectedRoutes:     tc.expectedPreMappedRoutes,
+					mapToReturn:        tc.expectedPreloadMap,
+					routeStatusUpdates: tc.mapperRouteStatusUpdates,
 				},
 				allRouteLoaders: allRouteLoaders,
 				logger:          logr.Discard(),
-				routeSubmitter:  NewMockRouteReconciler(),
+				routeSubmitter:  routeReconciler,
 			}
 
 			filter := &routeFilterImpl{acceptedKinds: tc.acceptedKinds}
-			result, err := loader.LoadRoutesForGateway(context.Background(), gwv1.Gateway{}, filter)
+			result, err := loader.LoadRoutesForGateway(context.Background(), gwv1.Gateway{ObjectMeta: v1.ObjectMeta{
+				Name:      "gw",
+				Namespace: "gw-ns",
+			}}, filter)
 			if tc.expectError {
 				assert.Error(t, err)
 				return
 			}
+
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedMap, result)
+			assert.Equal(t, len(tc.expectedReconcileQueue), len(routeReconciler.Enqueued))
+
+			for _, actual := range routeReconciler.Enqueued {
+				ak := generateRouteDataCacheKey(actual.RouteData)
+
+				v, ok := tc.expectedReconcileQueue[ak]
+				assert.True(t, ok)
+				assert.Equal(t, v, actual.RouteData.RouteStatusInfo.Accepted, ak)
+			}
+
 		})
 	}
 }

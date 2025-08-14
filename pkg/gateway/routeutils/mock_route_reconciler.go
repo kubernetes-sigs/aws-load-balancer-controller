@@ -14,13 +14,9 @@ func NewMockRouteReconciler() *MockRouteReconciler {
 }
 
 func (m *MockRouteReconciler) Enqueue(routeData RouteData) {
-	if m.Enqueued == nil {
-		m.Enqueued = make([]EnqueuedType, 0)
-	} else {
-		m.Enqueued = append(m.Enqueued, EnqueuedType{
-			routeData,
-		})
-	}
+	m.Enqueued = append(m.Enqueued, EnqueuedType{
+		routeData,
+	})
 }
 
 func (m *MockRouteReconciler) Run() {

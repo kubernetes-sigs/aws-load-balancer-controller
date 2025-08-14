@@ -11,7 +11,7 @@ import (
 // listenerToRouteMapper is an internal utility that will map a list of routes to the listeners of a gateway
 // if the gateway and/or route are incompatible, then the route is discarded.
 type listenerToRouteMapper interface {
-	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor, deferredRouteReconciler RouteReconcilerSubmitter) (map[int][]preLoadRouteDescriptor, error)
+	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, []RouteData, error)
 }
 
 var _ listenerToRouteMapper = &listenerToRouteMapperImpl{}
@@ -31,8 +31,9 @@ func newListenerToRouteMapper(k8sClient client.Client, logger logr.Logger) liste
 }
 
 // mapGatewayAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
-func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor, deferredRouteReconciler RouteReconcilerSubmitter) (map[int][]preLoadRouteDescriptor, error) {
+func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, []RouteData, error) {
 	result := make(map[int][]preLoadRouteDescriptor)
+	failedRoutes := make([]RouteData, 0)
 
 	// First filter out any routes that are not intended for this Gateway.
 	routesForGateway := make([]preLoadRouteDescriptor, 0)
@@ -57,9 +58,13 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 				continue
 			}
 
-			allowedAttachment, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route, deferredRouteReconciler, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
+			allowedAttachment, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
 			if err != nil {
-				return nil, err
+				return nil, failedRoutes, err
+			}
+
+			if failedRouteData != nil {
+				failedRoutes = append(failedRoutes, *failedRouteData)
 			}
 
 			ltr.logger.V(1).Info("listener allows attachment", "route", route.GetRouteNamespacedName(), "allowedAttachment", allowedAttachment)
@@ -69,5 +74,5 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 			}
 		}
 	}
-	return result, nil
+	return result, failedRoutes, nil
 }
