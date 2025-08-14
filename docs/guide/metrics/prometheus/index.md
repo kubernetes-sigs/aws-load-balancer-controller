@@ -48,6 +48,7 @@ Following metrics are added:
 | api_call_service_limit_exceeded_errors_total | Counter | Number of failed AWS API calls due to exceeding service limit |
 | api_call_throttled_errors_total | Counter| Number of failed AWS API calls due to throttling error |
 | api_call_validation_errors_total | Counter | Number of failed AWS API calls due to validation error |
+| aws_target_group_info | Guage | Information about target group |
 | awslbc_readiness_gate_ready_seconds | Histogram | Time to flip a readiness gate to true |
 | awslbc_reconcile_stage_duration | Histogram | Latency of different reconcile stages |
 | awslbc_reconcile_errors_total | Counter | Number of controller errors by error type |
@@ -70,7 +71,7 @@ Once inside the Prometheus UI, you can use PromQL queries. Here are some example
 * Get the total reconcile count :  `sum(awslbc_controller_reconcile_errors_total)`
 * Get the average reconcile duration for stage : `avg(awslbc_controller_reconcile_stage_duration_sum{controller="service", reconcile_stage="DNS_resolve"})`
 * Get the cached object: `sum(awslbc_cache_object_total)`
-
+* Enrich metrics with information about target group: `aws_target_group_info * on(target_group) group_left last_over_time(aws_applicationelb_healthy_host_count_minimum[20m])`
 
 
 ##  Visualizing Metrics
