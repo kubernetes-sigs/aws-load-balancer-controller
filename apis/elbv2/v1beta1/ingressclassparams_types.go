@@ -192,7 +192,7 @@ type IngressClassParamsSpec struct {
 }
 
 // +kubebuilder:object:root=true
-// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:resource:scope=Cluster,singular=ingressclassparam
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="GROUP-NAME",type="string",JSONPath=".spec.group.name",description="The Ingress Group name"
 // +kubebuilder:printcolumn:name="SCHEME",type="string",JSONPath=".spec.scheme",description="The AWS Load Balancer scheme"

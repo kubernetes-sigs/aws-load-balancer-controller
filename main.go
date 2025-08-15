@@ -103,7 +103,6 @@ type gatewayControllerConfig struct {
 	sgResolver              networking.SecurityGroupResolver
 	metricsCollector        lbcmetrics.MetricCollector
 	reconcileCounters       *metricsutil.ReconcileCounters
-	routeReconciler         routeutils.RouteReconciler
 	serviceReferenceCounter referencecounter.ServiceReferenceCounter
 	networkingManager       networking.NetworkingManager
 }
@@ -243,7 +242,6 @@ func main() {
 			sgResolver:              sgResolver,
 			metricsCollector:        lbcMetricsCollector,
 			reconcileCounters:       reconcileCounters,
-			routeReconciler:         routeReconciler,
 			networkingManager:       networkingManager,
 			serviceReferenceCounter: serviceReferenceCounter,
 		}
@@ -251,7 +249,7 @@ func main() {
 		enabledControllers := sets.Set[string]{}
 
 		routeLoaderCreator := sync.OnceValue(func() routeutils.Loader {
-			return routeutils.NewLoader(mgr.GetClient(), mgr.GetLogger().WithName("gateway-route-loader"))
+			return routeutils.NewLoader(mgr.GetClient(), routeReconciler, mgr.GetLogger().WithName("gateway-route-loader"))
 		})
 
 		// Setup NLB Gateway controller if enabled
@@ -450,7 +448,6 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			logger,
 			cfg.metricsCollector,
 			cfg.reconcileCounters,
-			cfg.routeReconciler,
 		)
 	case gateway_constants.ALBGatewayController:
 		reconciler = gateway.NewALBGatewayReconciler(
@@ -472,7 +469,6 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			logger,
 			cfg.metricsCollector,
 			cfg.reconcileCounters,
-			cfg.routeReconciler,
 		)
 	default:
 		return fmt.Errorf("unknown controller type: %s", controllerType)

@@ -10,7 +10,7 @@ spec:
     kind: IngressClassParams
     listKind: IngressClassParamsList
     plural: ingressclassparams
-    singular: ingressclassparams
+    singular: ingressclassparam
   scope: Cluster
   versions:
   - additionalPrinterColumns:
