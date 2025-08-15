@@ -144,7 +144,11 @@ type IngressClassParamsSpec struct {
 
 	// SSLPolicy specifies the SSL Policy for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
-	SSLPolicy string `json:"sslPolicy,omitEmpty"`
+	SSLPolicy string `json:"sslPolicy,omitempty"`
+
+	// SSLRedirectPort specifies the SSL Redirect Port for all Ingresses that belong to IngressClass with this IngressClassParams.
+	// +optional
+	SSLRedirectPort string `json:"sslRedirectPort,omitempty"`
 
 	// Subnets defines the subnets for all Ingresses that belong to IngressClass with this IngressClassParams.
 	// +optional
