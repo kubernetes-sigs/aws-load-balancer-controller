@@ -2,6 +2,7 @@ package framework
 
 import (
 	"flag"
+	"time"
 
 	"github.com/pkg/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/controller"
@@ -21,6 +22,9 @@ type Options struct {
 	HelmChart   string
 	KubeConfig  string
 
+	// The timeout to consider failed DNS propagation.
+	DNSTimeout time.Duration
+
 	// AWS Load Balancer Controller image. leave empty to use default one from helm chart.
 	ControllerImage string
 
@@ -37,6 +41,7 @@ func (options *Options) BindFlags() {
 	flag.StringVar(&options.AWSRegion, "aws-region", "", `AWS Region for the kubernetes cluster`)
 	flag.StringVar(&options.AWSVPCID, "aws-vpc-id", "", `ID of VPC to create load balancers in`)
 	flag.StringVar(&options.HelmChart, "helm-chart", controller.AWSLoadBalancerControllerHelmChart, `Helm chart`)
+	flag.DurationVar(&options.DNSTimeout, "dns-propagation", 10*time.Minute, `The timeout we expect the DNS records of ALB to be propagated.`)
 
 	flag.StringVar(&options.ControllerImage, "controller-image", "", `AWS Load Balancer Controller image`)
 

@@ -5,7 +5,7 @@ In this walkthrough, you'll
 - Deploy a grpc service to an existing EKS cluster
 - Send a test message to the hosted service over TLS
 
-## Prerequsites
+## Prerequisites
 
 The following resources are required prior to deployment:
 

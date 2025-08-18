@@ -941,7 +941,7 @@ func ExpectNoLBProvisionedForIngress(ctx context.Context, tf *framework.Framewor
 }
 
 func ExpectLBDNSBeAvailable(ctx context.Context, tf *framework.Framework, lbARN string, lbDNS string) {
-	ctx, cancel := context.WithTimeout(ctx, utils.IngressDNSAvailableWaitTimeout)
+	ctx, cancel := context.WithTimeout(ctx, tf.Options.DNSTimeout)
 	defer cancel()
 
 	tf.Logger.Info("wait loadBalancer becomes available", "arn", lbARN)

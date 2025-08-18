@@ -65,25 +65,28 @@ type ELBV2 interface {
 	AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) (ELBV2, error)
 }
 
-func NewELBV2(awsClientsProvider provider.AWSClientsProvider, cloud Cloud) ELBV2 {
+func NewELBV2(awsClientsProvider provider.AWSClientsProvider, cloud Cloud, stabilizationDuration time.Duration) ELBV2 {
 	return &elbv2Client{
-		awsClientsProvider: awsClientsProvider,
-		cloud:              cloud,
+		awsClientsProvider:    awsClientsProvider,
+		cloud:                 cloud,
+		stabilizationDuration: stabilizationDuration,
 	}
 }
 
-func NewELBV2FromStaticClient(staticELBClient *elasticloadbalancingv2.Client, cloud Cloud) ELBV2 {
+func NewELBV2FromStaticClient(staticELBClient *elasticloadbalancingv2.Client, cloud Cloud, stabilizationDuration time.Duration) ELBV2 {
 	return &elbv2Client{
-		staticELBClient: staticELBClient,
-		cloud:           cloud,
+		staticELBClient:       staticELBClient,
+		cloud:                 cloud,
+		stabilizationDuration: stabilizationDuration,
 	}
 }
 
 // default implementation for ELBV2.
 type elbv2Client struct {
-	awsClientsProvider provider.AWSClientsProvider
-	staticELBClient    *elasticloadbalancingv2.Client
-	cloud              Cloud
+	awsClientsProvider    provider.AWSClientsProvider
+	staticELBClient       *elasticloadbalancingv2.Client
+	stabilizationDuration time.Duration
+	cloud                 Cloud
 }
 
 func (c *elbv2Client) AssumeRole(ctx context.Context, assumeRoleArn string, externalId string) (ELBV2, error) {
@@ -187,7 +190,7 @@ func (c *elbv2Client) WaitUntilLoadBalancerAvailableWithContext(ctx context.Cont
 		return err
 	}
 	waiter := elasticloadbalancingv2.NewLoadBalancerAvailableWaiter(client)
-	err = waiter.Wait(ctx, input, 5*time.Minute)
+	err = waiter.Wait(ctx, input, c.stabilizationDuration)
 	return err
 }
 
