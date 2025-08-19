@@ -3,17 +3,23 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"testing"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	wafv2sdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
+	wafv2types "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
+	"github.com/golang/mock/gomock"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/shield"
 	wafregionalmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafregional"
 	wafv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafv2"
-	"testing"
 )
 
 func Test_defaultModelBuildTask_buildWAFv2WebACLAssociation(t *testing.T) {
@@ -834,6 +840,173 @@ func Test_defaultModelBuildTask_buildShieldProtection(t *testing.T) {
 			}
 			opts := cmpopts.IgnoreTypes(core.ResourceMeta{})
 			assert.True(t, cmp.Equal(tt.want, got, opts), "diff", cmp.Diff(tt.want, got, opts))
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *testing.T) {
+	type describeWebACLCall struct {
+		req  *wafv2sdk.GetWebACLInput
+		resp *wafv2sdk.GetWebACLOutput
+		err  error
+	}
+	type fields struct {
+		ingGroup Group
+	}
+	type args struct {
+		lbARN               core.StringToken
+		cache               map[string]string
+		describeWebACLCalls []describeWebACLCall
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		args      args
+		want      *wafv2model.WebACLAssociation
+		wantErr   assert.ErrorAssertionFunc
+		wantCache map[string]string
+	}{
+		{
+			name: "when one ingress has wafv2-acl-name annotation set",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing-0",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/wafv2-acl-name": "web-acl-name1",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "awesome-ns",
+									Name:        "awesome-ing-1",
+									Annotations: map[string]string{},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				lbARN: core.LiteralStringToken("awesome-lb-arn"),
+				cache: map[string]string{},
+				describeWebACLCalls: []describeWebACLCall{
+					{
+						req: &wafv2sdk.GetWebACLInput{
+							Name: awssdk.String("web-acl-name1"),
+						},
+						resp: &wafv2sdk.GetWebACLOutput{
+							WebACL: &wafv2types.WebACL{
+								ARN: awssdk.String("web-acl-arn1"),
+							},
+						},
+						err: nil,
+					},
+				},
+			},
+			want: &wafv2model.WebACLAssociation{
+				Spec: wafv2model.WebACLAssociationSpec{
+					WebACLARN:   "web-acl-arn1",
+					ResourceARN: core.LiteralStringToken("awesome-lb-arn"),
+				},
+			},
+			wantErr: assert.NoError,
+			wantCache: map[string]string{
+				"web-acl-name1": "web-acl-arn1",
+			},
+		},
+		{
+			name: "when ingresses have different value of wafv2-acl-name annotation",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing-0",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/wafv2-acl-name": "web-acl-name1",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/wafv2-acl-name": "web-acl-name2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				lbARN:               core.LiteralStringToken("awesome-lb-arn"),
+				cache:               map[string]string{},
+				describeWebACLCalls: []describeWebACLCall{},
+			},
+			wantErr: func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
+				assert.EqualError(t, err, "conflicting WAFv2 WebACL names: [web-acl-name1 web-acl-name2]", msgAndArgs...)
+				return false
+			},
+			wantCache: map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stack := core.NewDefaultStack(core.StackID{Name: "awesome-stack"})
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			wafv2Client := services.NewMockWAFv2(ctrl)
+			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+
+			for _, call := range tt.args.describeWebACLCalls {
+				wafv2Client.EXPECT().
+					GetWebACLWithContext(gomock.Any(), call.req).
+					Return(call.resp, call.err)
+			}
+
+			task := &defaultModelBuildTask{
+				ingGroup:              tt.fields.ingGroup,
+				stack:                 stack,
+				annotationParser:      annotationParser,
+				wafv2Client:           wafv2Client,
+				webACLNameToArnMapper: newWebACLNameToArnMapper(wafv2Client, defaultWebACLNameToARNCacheTTL),
+			}
+
+			for webACLName, cachedArn := range tt.args.cache {
+				task.webACLNameToArnMapper.cache.Set(webACLName, cachedArn, defaultWebACLNameToARNCacheTTL)
+			}
+
+			got, err := task.buildWAFv2WebACLAssociation(context.Background(), tt.args.lbARN)
+
+			opts := cmpopts.IgnoreTypes(core.ResourceMeta{})
+			assert.True(t, cmp.Equal(tt.want, got, opts), "diff", cmp.Diff(tt.want, got, opts))
+			if !tt.wantErr(t, err, fmt.Sprintf("buildWAFRegionalWebACLAssociation(ctx, %v)", tt.args.lbARN)) {
+				return
+			}
+			assert.Equal(t, len(tt.wantCache), task.webACLNameToArnMapper.cache.Len())
+
+			for webACLName, expectedArn := range tt.wantCache {
+				rawCacheItem, exists := task.webACLNameToArnMapper.cache.Get(webACLName)
+				assert.True(t, exists)
+				cachedArn := rawCacheItem.(*string)
+				assert.Equal(t, expectedArn, *cachedArn)
+			}
 		})
 	}
 }

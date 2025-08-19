@@ -60,7 +60,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 	referenceIndexer := ingress.NewDefaultReferenceIndexer(enhancedBackendBuilder, authConfigBuilder, logger)
 	trackingProvider := tracking.NewDefaultProvider(ingressTagPrefix, controllerConfig.ClusterName)
 	modelBuilder := ingress.NewDefaultModelBuilder(k8sClient, eventRecorder,
-		cloud.EC2(), cloud.ELBV2(), cloud.ACM(),
+		cloud.EC2(), cloud.ELBV2(), cloud.WAFv2(), cloud.ACM(),
 		annotationParser, subnetsResolver,
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,

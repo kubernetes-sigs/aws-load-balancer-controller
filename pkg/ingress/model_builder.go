@@ -254,6 +254,7 @@ type defaultModelBuildTask struct {
 	frontendNlb                        *elbv2model.LoadBalancer
 	frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
 	targetGroupNameToArnMapper         *targetGroupNameToArnMapper
+	webACLNameToArnMapper              *webACLNameToArnMapper
 
 	metricsCollector lbcmetrics.MetricCollector
 }
@@ -600,10 +601,10 @@ func (w *webACLNameToArnMapper) getArnByName(ctx context.Context, webACLName str
 		return rawCacheItem.(string), nil
 	}
 	req := &wafv2sdk.GetWebACLInput{
-		Name: &webACLName,
+		Name: awssdk.String(webACLName),
 	}
 
-	webACL, err := w.wafv2Client.GetWebACL(ctx, req)
+	webACL, err := w.wafv2Client.GetWebACLWithContext(ctx, req)
 	if err != nil {
 		return "", err
 	}
