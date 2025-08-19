@@ -12,15 +12,17 @@ type URLOptions struct {
 	InsecureSkipVerify bool
 
 	// Request options
-	Method     string
-	HostHeader string
-	Headers    map[string]string
+	Method          string
+	HostHeader      string
+	Headers         map[string]string
+	FollowRedirects bool
 }
 
 // DefaultURLOptions provides reasonable defaults for URLOptions
 func DefaultURLOptions() URLOptions {
 	return URLOptions{
 		InsecureSkipVerify: true,
+		FollowRedirects:    true,
 	}
 }
 
@@ -77,6 +79,13 @@ func (v *defaultVerifier) VerifyURLWithOptions(url string, options URLOptions, m
 	// Set Host header if provided (overrides any value in Headers)
 	if options.HostHeader != "" {
 		req.Host = options.HostHeader
+	}
+
+	// Configure redirect behavior
+	if !options.FollowRedirects {
+		client.CheckRedirect = func(req *gohttp.Request, via []*gohttp.Request) error {
+			return gohttp.ErrUseLastResponse // Stop following redirects
+		}
 	}
 
 	// Execute request

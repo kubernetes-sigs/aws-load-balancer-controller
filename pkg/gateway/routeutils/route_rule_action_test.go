@@ -27,7 +27,7 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 		name           string
 		filter         *gwv1.HTTPRequestRedirectFilter
 		redirectConfig *elbv2gw.RedirectActionConfig
-		want           []elbv2model.Action
+		want           *elbv2model.Action
 		wantErr        bool
 	}{
 		{
@@ -45,17 +45,15 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 			redirectConfig: &elbv2gw.RedirectActionConfig{
 				Query: &query,
 			},
-			want: []elbv2model.Action{
-				{
-					Type: elbv2model.ActionTypeRedirect,
-					RedirectConfig: &elbv2model.RedirectActionConfig{
-						Host:       &hostname,
-						Path:       &replaceFullPath,
-						Port:       &portString,
-						Protocol:   &expectedScheme,
-						StatusCode: "HTTP_301",
-						Query:      &query,
-					},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeRedirect,
+				RedirectConfig: &elbv2model.RedirectActionConfig{
+					Host:       &hostname,
+					Path:       &replaceFullPath,
+					Port:       &portString,
+					Protocol:   &expectedScheme,
+					StatusCode: "HTTP_301",
+					Query:      &query,
 				},
 			},
 			wantErr: false,
@@ -68,12 +66,10 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 					ReplacePrefixMatch: &replacePrefixPath,
 				},
 			},
-			want: []elbv2model.Action{
-				{
-					Type: elbv2model.ActionTypeRedirect,
-					RedirectConfig: &elbv2model.RedirectActionConfig{
-						Path: &replacePrefixPathAfterProcessing,
-					},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeRedirect,
+				RedirectConfig: &elbv2model.RedirectActionConfig{
+					Path: &replacePrefixPathAfterProcessing,
 				},
 			},
 			wantErr: false,
@@ -225,14 +221,14 @@ func Test_BuildHttpRuleRedirectActionsBasedOnFilter(t *testing.T) {
 	}
 }
 
-func Test_buildFixedResponseRoutingActions(t *testing.T) {
+func Test_buildFixedResponseRoutingAction(t *testing.T) {
 	contentType := "text/plain"
 	messageBody := "test-message-body"
 
 	tests := []struct {
 		name                string
 		fixedResponseConfig *elbv2gw.FixedResponseActionConfig
-		want                []elbv2model.Action
+		want                *elbv2model.Action
 		wantErr             bool
 	}{
 		{
@@ -242,14 +238,12 @@ func Test_buildFixedResponseRoutingActions(t *testing.T) {
 				ContentType: &contentType,
 				MessageBody: &messageBody,
 			},
-			want: []elbv2model.Action{
-				{
-					Type: elbv2model.ActionTypeFixedResponse,
-					FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
-						StatusCode:  "404",
-						ContentType: &contentType,
-						MessageBody: &messageBody,
-					},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeFixedResponse,
+				FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+					StatusCode:  "404",
+					ContentType: &contentType,
+					MessageBody: &messageBody,
 				},
 			},
 			wantErr: false,
@@ -259,14 +253,12 @@ func Test_buildFixedResponseRoutingActions(t *testing.T) {
 			fixedResponseConfig: &elbv2gw.FixedResponseActionConfig{
 				StatusCode: 503,
 			},
-			want: []elbv2model.Action{
-				{
-					Type: elbv2model.ActionTypeFixedResponse,
-					FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
-						StatusCode:  "503",
-						ContentType: nil,
-						MessageBody: nil,
-					},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeFixedResponse,
+				FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+					StatusCode:  "503",
+					ContentType: nil,
+					MessageBody: nil,
 				},
 			},
 			wantErr: false,
@@ -277,14 +269,12 @@ func Test_buildFixedResponseRoutingActions(t *testing.T) {
 				StatusCode:  200,
 				ContentType: &contentType,
 			},
-			want: []elbv2model.Action{
-				{
-					Type: elbv2model.ActionTypeFixedResponse,
-					FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
-						StatusCode:  "200",
-						ContentType: &contentType,
-						MessageBody: nil,
-					},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeFixedResponse,
+				FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+					StatusCode:  "200",
+					ContentType: &contentType,
+					MessageBody: nil,
 				},
 			},
 			wantErr: false,
@@ -293,7 +283,7 @@ func Test_buildFixedResponseRoutingActions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := buildFixedResponseRoutingActions(tt.fixedResponseConfig)
+			got, err := buildFixedResponseRoutingAction(tt.fixedResponseConfig)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -301,6 +291,149 @@ func Test_buildFixedResponseRoutingActions(t *testing.T) {
 			}
 
 			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_buildAuthenticateCognitoAction(t *testing.T) {
+	userPoolArn := "arn:aws:cognito-idp:us-west-2:123456789012:userpool/us-west-2_EXAMPLE"
+	userPoolClientID := "client123"
+	userPoolDomain := "my-domain"
+	scope := "openid"
+	sessionCookieName := "AWSELBAuthSessionCookie"
+	sessionTimeout := int64(604800)
+	authRequestExtraParams := map[string]string{
+		"prompt":     "login",
+		"ui_locales": "en",
+	}
+
+	authenticateBehavior := elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnumAuthenticate
+	allowBehavior := elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnumAllow
+	denyBehavior := elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnumDeny
+
+	tests := []struct {
+		name    string
+		config  *elbv2gw.AuthenticateCognitoActionConfig
+		want    *elbv2model.Action
+		wantErr bool
+	}{
+		{
+			name: "authenticate cognito with all fields",
+			config: &elbv2gw.AuthenticateCognitoActionConfig{
+				UserPoolArn:                      userPoolArn,
+				UserPoolClientID:                 userPoolClientID,
+				UserPoolDomain:                   userPoolDomain,
+				AuthenticationRequestExtraParams: &authRequestExtraParams,
+				OnUnauthenticatedRequest:         &authenticateBehavior,
+				Scope:                            &scope,
+				SessionCookieName:                &sessionCookieName,
+				SessionTimeout:                   &sessionTimeout,
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeAuthenticateCognito,
+				AuthenticateCognitoConfig: &elbv2model.AuthenticateCognitoActionConfig{
+					UserPoolARN:                      userPoolArn,
+					UserPoolClientID:                 userPoolClientID,
+					UserPoolDomain:                   userPoolDomain,
+					AuthenticationRequestExtraParams: authRequestExtraParams,
+					OnUnauthenticatedRequest:         elbv2model.AuthenticateCognitoActionConditionalBehavior(authenticateBehavior),
+					Scope:                            &scope,
+					SessionCookieName:                &sessionCookieName,
+					SessionTimeout:                   &sessionTimeout,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "authenticate cognito with required fields only",
+			config: &elbv2gw.AuthenticateCognitoActionConfig{
+				UserPoolArn:                      userPoolArn,
+				UserPoolClientID:                 userPoolClientID,
+				UserPoolDomain:                   userPoolDomain,
+				AuthenticationRequestExtraParams: &map[string]string{},
+				OnUnauthenticatedRequest:         &authenticateBehavior,
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeAuthenticateCognito,
+				AuthenticateCognitoConfig: &elbv2model.AuthenticateCognitoActionConfig{
+					UserPoolARN:                      userPoolArn,
+					UserPoolClientID:                 userPoolClientID,
+					UserPoolDomain:                   userPoolDomain,
+					AuthenticationRequestExtraParams: map[string]string{},
+					OnUnauthenticatedRequest:         elbv2model.AuthenticateCognitoActionConditionalBehavior(authenticateBehavior),
+					Scope:                            nil,
+					SessionCookieName:                nil,
+					SessionTimeout:                   nil,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "authenticate cognito with deny behavior",
+			config: &elbv2gw.AuthenticateCognitoActionConfig{
+				UserPoolArn:                      userPoolArn,
+				UserPoolClientID:                 userPoolClientID,
+				UserPoolDomain:                   userPoolDomain,
+				AuthenticationRequestExtraParams: &map[string]string{},
+				OnUnauthenticatedRequest:         &denyBehavior,
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeAuthenticateCognito,
+				AuthenticateCognitoConfig: &elbv2model.AuthenticateCognitoActionConfig{
+					UserPoolARN:                      userPoolArn,
+					UserPoolClientID:                 userPoolClientID,
+					UserPoolDomain:                   userPoolDomain,
+					AuthenticationRequestExtraParams: map[string]string{},
+					OnUnauthenticatedRequest:         elbv2model.AuthenticateCognitoActionConditionalBehaviorDeny,
+					Scope:                            nil,
+					SessionCookieName:                nil,
+					SessionTimeout:                   nil,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "authenticate cognito with allow behavior",
+			config: &elbv2gw.AuthenticateCognitoActionConfig{
+				UserPoolArn:                      userPoolArn,
+				UserPoolClientID:                 userPoolClientID,
+				UserPoolDomain:                   userPoolDomain,
+				AuthenticationRequestExtraParams: &map[string]string{"custom": "value"},
+				OnUnauthenticatedRequest:         &allowBehavior,
+				Scope:                            &scope,
+				SessionCookieName:                awssdk.String("CustomSessionCookie"),
+				SessionTimeout:                   awssdk.Int64(3600),
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeAuthenticateCognito,
+				AuthenticateCognitoConfig: &elbv2model.AuthenticateCognitoActionConfig{
+					UserPoolARN:                      userPoolArn,
+					UserPoolClientID:                 userPoolClientID,
+					UserPoolDomain:                   userPoolDomain,
+					AuthenticationRequestExtraParams: map[string]string{"custom": "value"},
+					OnUnauthenticatedRequest:         elbv2model.AuthenticateCognitoActionConditionalBehaviorAllow,
+					Scope:                            awssdk.String(scope),
+					SessionCookieName:                awssdk.String("CustomSessionCookie"),
+					SessionTimeout:                   awssdk.Int64(3600),
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildAuthenticateCognitoAction(tt.config)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, got)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, got)
 			assert.Equal(t, tt.want, got)
 		})
 	}

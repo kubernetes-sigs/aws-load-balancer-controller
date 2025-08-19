@@ -219,7 +219,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `targetGroupStickinessConfig` _[TargetGroupStickinessConfig](#targetgroupstickinessconfig)_ | The target group stickiness for the rule.<br />Note: ForwardActionConfig only supports target group stickiness configuration through CRD.<br />All other forward action fields must be set through the Gateway API native way. |  |  |
+| `targetGroupStickinessConfig` _[TargetGroupStickinessConfig](#targetgroupstickinessconfig)_ | The target group stickiness for the rule.<br />Note: ForwardActionConfig only supports target group stickiness configuration through CRD.<br />All other forward action fields must be set through the Gateway API native way. | \{  \} |  |
 
 
 #### HealthCheckConfiguration
@@ -476,6 +476,8 @@ _Appears in:_
 | `enableICMP` _boolean_ | EnableICMP [Network LoadBalancer]<br />enables the creation of security group rules to the managed security group<br />to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs |  |  |
 | `manageBackendSecurityGroupRules` _boolean_ | ManageBackendSecurityGroupRules [Application / Network LoadBalancer]<br />specifies whether you want the controller to configure security group rules on Node/Pod for traffic access<br />when you specify securityGroups |  |  |
 | `minimumLoadBalancerCapacity` _[MinimumLoadBalancerCapacity](#minimumloadbalancercapacity)_ | MinimumLoadBalancerCapacity define the capacity reservation for LoadBalancers |  |  |
+| `wafV2` _[WAFv2Configuration](#wafv2configuration)_ | WAFv2 define the AWS WAFv2 settings for a Gateway [Application Load Balancer] |  |  |
+| `shieldConfiguration` _[ShieldConfiguration](#shieldconfiguration)_ | ShieldAdvanced define the AWS Shield settings for a Gateway [Application Load Balancer] |  |  |
 
 
 #### LoadBalancerConfigurationStatus
@@ -731,6 +733,22 @@ _Appears in:_
 | `namespace` _string_ | Namespace is namespace of secret. If empty it will be considered to be in same namespace as of the resource referring it |  |  |
 
 
+#### ShieldConfiguration
+
+
+
+ShieldConfiguration configuration parameters used to configure Shield
+
+
+
+_Appears in:_
+- [LoadBalancerConfigurationSpec](#loadbalancerconfigurationspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `enabled` _boolean_ | Enabled whether Shield Advanced should be configured with the Gateway |  |  |
+
+
 #### SourceIPConditionConfig
 
 
@@ -940,5 +958,21 @@ _Appears in:_
 | --- | --- |
 | `instance` |  |
 | `ip` |  |
+
+
+#### WAFv2Configuration
+
+
+
+WAFv2Configuration configuration parameters used to configure WAFv2
+
+
+
+_Appears in:_
+- [LoadBalancerConfigurationSpec](#loadbalancerconfigurationspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `webACL` _string_ | ACL The WebACL to configure with the Gateway |  |  |
 
 

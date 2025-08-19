@@ -205,8 +205,12 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 
 		// set up for building routing actions
 		var actions []elbv2model.Action
+		var preRoutingAction *elbv2gw.Action
 		var routingAction *elbv2gw.Action
 		if rule.GetListenerRuleConfig() != nil {
+			if isSecureProtocol(ls.Spec.Protocol) {
+				preRoutingAction = getPreRoutingAction(rule.GetListenerRuleConfig())
+			}
 			routingAction = getRoutingAction(rule.GetListenerRuleConfig())
 		}
 		targetGroupTuples := make([]elbv2model.TargetGroupTuple, 0, len(rule.GetBackends()))
@@ -222,17 +226,31 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 				Weight:         &weight,
 			})
 		}
+
+		// Build Rule PreRoutingAction
+		if preRoutingAction != nil {
+			var rulePreRoutingAction *elbv2model.Action
+			rulePreRoutingAction, err = routeutils.BuildRulePreRoutingAction(route, preRoutingAction)
+			if err != nil {
+				return err
+			}
+			if rulePreRoutingAction != nil {
+				actions = append(actions, *rulePreRoutingAction)
+			}
+		}
+
 		// Build Rule Routing Actions
-		actions, err = routeutils.BuildRuleRoutingActions(rule, route, routingAction, targetGroupTuples)
+		var ruleRoutingAction *elbv2model.Action
+		ruleRoutingAction, err = routeutils.BuildRuleRoutingAction(rule, route, routingAction, targetGroupTuples)
 		if err != nil {
 			return err
 		}
 
-		// TODO: build rule auth actions
-
-		if len(actions) == 0 {
+		if ruleRoutingAction == nil {
 			l.logger.Info("Filling in no backend actions with fixed 503")
-			actions = buildL7ListenerNoBackendActions()
+			actions = append(actions, buildL7ListenerNoBackendActions())
+		} else {
+			actions = append(actions, *ruleRoutingAction)
 		}
 
 		tags, tagsErr := l.tagHelper.getGatewayTags(lbCfg)
@@ -351,7 +369,7 @@ func buildL7ListenerDefaultActions() []elbv2model.Action {
 }
 
 // returns 503 when no backends are configured
-func buildL7ListenerNoBackendActions() []elbv2model.Action {
+func buildL7ListenerNoBackendActions() elbv2model.Action {
 	action503 := elbv2model.Action{
 		Type: elbv2model.ActionTypeFixedResponse,
 		FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
@@ -359,7 +377,7 @@ func buildL7ListenerNoBackendActions() []elbv2model.Action {
 			StatusCode:  "503",
 		},
 	}
-	return []elbv2model.Action{action503}
+	return action503
 }
 
 func buildL4ListenerDefaultActions(targetGroup *elbv2model.TargetGroup) []elbv2model.Action {
@@ -524,6 +542,19 @@ func newListenerBuilder(ctx context.Context, loadBalancerType elbv2model.LoadBal
 		certDiscovery:    certDiscovery,
 		logger:           logger,
 	}
+}
+
+// getPreRoutingAction: returns pre routing action  for secure listeners from listener rule configuration
+// action will only be one of authenticate-oidc or  authenticate-cognito
+func getPreRoutingAction(config *elbv2gw.ListenerRuleConfiguration) *elbv2gw.Action {
+	if config != nil && config.Spec.Actions != nil {
+		for _, action := range config.Spec.Actions {
+			if action.Type == elbv2gw.ActionTypeAuthenticateCognito || action.Type == elbv2gw.ActionTypeAuthenticateOIDC {
+				return &action
+			}
+		}
+	}
+	return nil
 }
 
 // getRoutingAction: returns routing action from listener rule configuration

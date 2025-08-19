@@ -1090,21 +1090,24 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 }
 
 func Test_BuildListenerRules(t *testing.T) {
+	autheticateBehavior := elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnumAuthenticate
 	testCases := []struct {
-		name          string
-		sgOutput      securityGroupOutput
-		ipAddressType elbv2model.IPAddressType
-		port          int32
-		routes        map[int32][]routeutils.RouteDescriptor
+		name             string
+		sgOutput         securityGroupOutput
+		ipAddressType    elbv2model.IPAddressType
+		port             int32
+		listenerProtocol elbv2model.Protocol
+		routes           map[int32][]routeutils.RouteDescriptor
 
 		expectedRules []*elbv2model.ListenerRuleSpec
 		expectedTags  map[string]string
 		tagErr        error
 	}{
 		{
-			name:          "no backends should result in 503 fixed response",
-			port:          80,
-			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			name:             "no backends should result in 503 fixed response",
+			port:             80,
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			ipAddressType:    elbv2model.IPAddressTypeIPV4,
 			sgOutput: securityGroupOutput{
 				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
 			},
@@ -1155,9 +1158,10 @@ func Test_BuildListenerRules(t *testing.T) {
 			},
 		},
 		{
-			name:          "backends should result in forward action generated",
-			port:          80,
-			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			name:             "backends should result in forward action generated",
+			port:             80,
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			ipAddressType:    elbv2model.IPAddressTypeIPV4,
 			sgOutput: securityGroupOutput{
 				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
 			},
@@ -1219,9 +1223,10 @@ func Test_BuildListenerRules(t *testing.T) {
 			},
 		},
 		{
-			name:          "redirect filter should result in redirect action",
-			port:          80,
-			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			name:             "redirect filter should result in redirect action",
+			port:             80,
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			ipAddressType:    elbv2model.IPAddressTypeIPV4,
 			sgOutput: securityGroupOutput{
 				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
 			},
@@ -1288,9 +1293,10 @@ func Test_BuildListenerRules(t *testing.T) {
 			},
 		},
 		{
-			name:          "listener rule config with fixed response should override forward",
-			port:          80,
-			ipAddressType: elbv2model.IPAddressTypeIPV4,
+			name:             "listener rule config with fixed response should override forward",
+			port:             80,
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			ipAddressType:    elbv2model.IPAddressTypeIPV4,
 			sgOutput: securityGroupOutput{
 				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
 			},
@@ -1320,7 +1326,7 @@ func Test_BuildListenerRules(t *testing.T) {
 									},
 								},
 								ListenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
-									Spec: elbv2gw.ListenerRuleSpec{
+									Spec: elbv2gw.ListenerRuleConfigurationSpec{
 										Actions: []elbv2gw.Action{
 											{
 												Type: elbv2gw.ActionTypeFixedResponse,
@@ -1362,6 +1368,200 @@ func Test_BuildListenerRules(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:             "listener rule config with authenticate-cognito should create auth + forward actions",
+			port:             80,
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			ipAddressType:    elbv2model.IPAddressTypeIPV4,
+			sgOutput: securityGroupOutput{
+				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind:      routeutils.HTTPRouteKind,
+						Name:      "my-route",
+						Namespace: "my-route-ns",
+						Rules: []routeutils.RouteRule{
+							&routeutils.MockRule{
+								RawRule: &gwv1.HTTPRouteRule{
+									Matches: []gwv1.HTTPRouteMatch{
+										{
+											Path: &gwv1.HTTPPathMatch{
+												Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+												Value: awssdk.String("/"),
+											},
+										},
+									},
+								},
+								BackendRefs: []routeutils.Backend{
+									{
+										Service:     &corev1.Service{},
+										ServicePort: &corev1.ServicePort{Name: "svcport"},
+										Weight:      1,
+									},
+								},
+								ListenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
+									Spec: elbv2gw.ListenerRuleConfigurationSpec{
+										Actions: []elbv2gw.Action{
+											{
+												Type: elbv2gw.ActionTypeAuthenticateCognito,
+												AuthenticateCognitoConfig: &elbv2gw.AuthenticateCognitoActionConfig{
+													UserPoolArn:              "arn:aws:cognito-idp:us-west-2:123456789012:userpool/us-west-2_EXAMPLE",
+													UserPoolClientID:         "1example23456789",
+													UserPoolDomain:           "my-cognito-domain",
+													OnUnauthenticatedRequest: &autheticateBehavior,
+													Scope:                    awssdk.String("openid"),
+													SessionCookieName:        awssdk.String("AWSELBAuthSessionCookie"),
+													SessionTimeout:           awssdk.Int64(604800),
+													AuthenticationRequestExtraParams: &map[string]string{
+														"display": "page",
+														"prompt":  "login",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRules: []*elbv2model.ListenerRuleSpec{
+				{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "authenticate-cognito",
+							AuthenticateCognitoConfig: &elbv2model.AuthenticateCognitoActionConfig{
+								UserPoolARN:              "arn:aws:cognito-idp:us-west-2:123456789012:userpool/us-west-2_EXAMPLE",
+								UserPoolClientID:         "1example23456789",
+								UserPoolDomain:           "my-cognito-domain",
+								OnUnauthenticatedRequest: elbv2model.AuthenticateCognitoActionConditionalBehaviorAuthenticate,
+								Scope:                    awssdk.String("openid"),
+								SessionCookieName:        awssdk.String("AWSELBAuthSessionCookie"),
+								SessionTimeout:           awssdk.Int64(604800),
+								AuthenticationRequestExtraParams: map[string]string{
+									"display": "page",
+									"prompt":  "login",
+								},
+							},
+						},
+						{
+							Type: "forward",
+							ForwardConfig: &elbv2model.ForwardActionConfig{
+								TargetGroups: []elbv2model.TargetGroupTuple{
+									{
+										Weight: awssdk.Int32(1), // This will be normalized by the builder
+									},
+								},
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "listener rule config with authenticate-cognito and no backends should result in auth + 503 fixed response",
+			port:             80,
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			ipAddressType:    elbv2model.IPAddressTypeIPV4,
+			sgOutput: securityGroupOutput{
+				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Kind:      routeutils.HTTPRouteKind,
+						Name:      "my-route",
+						Namespace: "my-route-ns",
+						Rules: []routeutils.RouteRule{
+							&routeutils.MockRule{
+								RawRule: &gwv1.HTTPRouteRule{
+									Matches: []gwv1.HTTPRouteMatch{
+										{
+											Path: &gwv1.HTTPPathMatch{
+												Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+												Value: awssdk.String("/"),
+											},
+										},
+									},
+								},
+								ListenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
+									Spec: elbv2gw.ListenerRuleConfigurationSpec{
+										Actions: []elbv2gw.Action{
+											{
+												Type: elbv2gw.ActionTypeAuthenticateCognito,
+												AuthenticateCognitoConfig: &elbv2gw.AuthenticateCognitoActionConfig{
+													UserPoolArn:              "arn:aws:cognito-idp:us-west-2:123456789012:userpool/us-west-2_EXAMPLE",
+													UserPoolClientID:         "1example23456789",
+													UserPoolDomain:           "my-cognito-domain",
+													OnUnauthenticatedRequest: &autheticateBehavior,
+													Scope:                    awssdk.String("openid"),
+													SessionCookieName:        awssdk.String("AWSELBAuthSessionCookie"),
+													SessionTimeout:           awssdk.Int64(604800),
+													AuthenticationRequestExtraParams: &map[string]string{
+														"display": "page",
+														"prompt":  "login",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedRules: []*elbv2model.ListenerRuleSpec{
+				{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "authenticate-cognito",
+							AuthenticateCognitoConfig: &elbv2model.AuthenticateCognitoActionConfig{
+								UserPoolARN:              "arn:aws:cognito-idp:us-west-2:123456789012:userpool/us-west-2_EXAMPLE",
+								UserPoolClientID:         "1example23456789",
+								UserPoolDomain:           "my-cognito-domain",
+								OnUnauthenticatedRequest: elbv2model.AuthenticateCognitoActionConditionalBehaviorAuthenticate,
+								Scope:                    awssdk.String("openid"),
+								SessionCookieName:        awssdk.String("AWSELBAuthSessionCookie"),
+								SessionTimeout:           awssdk.Int64(604800),
+								AuthenticationRequestExtraParams: map[string]string{
+									"display": "page",
+									"prompt":  "login",
+								},
+							},
+						},
+						{
+							Type: "fixed-response",
+							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
+								ContentType: awssdk.String("text/plain"),
+								StatusCode:  "503",
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/*"},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1385,7 +1585,11 @@ func Test_BuildListenerRules(t *testing.T) {
 				tgBuilder: mockTgBuilder,
 			}
 
-			err := builder.buildListenerRules(stack, &elbv2model.Listener{}, tc.ipAddressType, tc.sgOutput, &gwv1.Gateway{}, tc.port, elbv2gw.LoadBalancerConfiguration{}, tc.routes)
+			err := builder.buildListenerRules(stack, &elbv2model.Listener{
+				Spec: elbv2model.ListenerSpec{
+					Protocol: tc.listenerProtocol,
+				},
+			}, tc.ipAddressType, tc.sgOutput, &gwv1.Gateway{}, tc.port, elbv2gw.LoadBalancerConfiguration{}, tc.routes)
 			assert.NoError(t, err)
 
 			var resLRs []*elbv2model.ListenerRule

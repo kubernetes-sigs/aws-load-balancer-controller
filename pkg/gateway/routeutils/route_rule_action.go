@@ -11,42 +11,55 @@ import (
 	"strings"
 )
 
-// BuildRuleRoutingActions returns routing action for rule
+// BuildRulePreRoutingActions returns pre-routing action for rule
+// The assumption is that the ListenerRuleConfiguration CRD makes sure we only have one of the actions (authenticate-cognito, authenticate-oidc) defined
+func BuildRulePreRoutingAction(route RouteDescriptor, crdPreRoutingAction *elbv2gw.Action) (*elbv2model.Action, error) {
+	switch crdPreRoutingAction.Type {
+	case elbv2gw.ActionTypeAuthenticateOIDC:
+		return buildAuthenticateOIDCAction(crdPreRoutingAction.AuthenticateOIDCConfig, route)
+	case elbv2gw.ActionTypeAuthenticateCognito:
+		return buildAuthenticateCognitoAction(crdPreRoutingAction.AuthenticateCognitoConfig)
+
+	}
+	return nil, errors.Errorf("unsupported action type %s", crdPreRoutingAction.Type)
+}
+
+// BuildRuleRoutingAction returns routing action for rule
 // The assumption is that the ListenerRuleConfiguration CRD makes sure we only have one of the actions (forward, redirect, fixed-response) defined
-func BuildRuleRoutingActions(rule RouteRule, route RouteDescriptor, routingAction *elbv2gw.Action, targetGroupTuples []elbv2model.TargetGroupTuple) ([]elbv2model.Action, error) {
-	var actions []elbv2model.Action
+func BuildRuleRoutingAction(rule RouteRule, route RouteDescriptor, routingAction *elbv2gw.Action, targetGroupTuples []elbv2model.TargetGroupTuple) (*elbv2model.Action, error) {
+	var action *elbv2model.Action
 	// Build Rule Routing Actions - Fixed Response
 	if routingAction != nil && routingAction.Type == elbv2gw.ActionTypeFixedResponse {
-		fixedResponseActions, err := buildFixedResponseRoutingActions(routingAction.FixedResponseConfig)
+		fixedResponseActions, err := buildFixedResponseRoutingAction(routingAction.FixedResponseConfig)
 		if err != nil {
 			return nil, err
 		}
 		if fixedResponseActions != nil {
-			actions = fixedResponseActions
+			action = fixedResponseActions
 		}
 	} else {
 		// Build Rule Routing Actions - Forward
-		forwardActions, err := buildForwardRoutingActions(routingAction, targetGroupTuples)
+		forwardActions, err := buildForwardRoutingAction(routingAction, targetGroupTuples)
 		if err != nil {
 			return nil, err
 		}
 		if forwardActions != nil {
-			actions = forwardActions
+			action = forwardActions
 		}
 
 		// Build Rule Routing Actions - Redirect
-		redirectActions, err := buildRedirectRoutingActions(rule, route, routingAction)
+		redirectActions, err := buildRedirectRoutingAction(rule, route, routingAction)
 		if err != nil {
 			return nil, err
 		}
 		if redirectActions != nil {
-			actions = redirectActions
+			action = redirectActions
 		}
 	}
-	return actions, nil
+	return action, nil
 }
 
-func buildFixedResponseRoutingActions(fixedResponseConfig *elbv2gw.FixedResponseActionConfig) ([]elbv2model.Action, error) {
+func buildFixedResponseRoutingAction(fixedResponseConfig *elbv2gw.FixedResponseActionConfig) (*elbv2model.Action, error) {
 	action := elbv2model.Action{
 		Type: elbv2model.ActionTypeFixedResponse,
 		FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
@@ -55,10 +68,31 @@ func buildFixedResponseRoutingActions(fixedResponseConfig *elbv2gw.FixedResponse
 			MessageBody: fixedResponseConfig.MessageBody,
 		},
 	}
-	return []elbv2model.Action{action}, nil
+	return &action, nil
 }
 
-func buildForwardRoutingActions(routingAction *elbv2gw.Action, targetGroupTuples []elbv2model.TargetGroupTuple) ([]elbv2model.Action, error) {
+func buildAuthenticateCognitoAction(authCognitoActionConfig *elbv2gw.AuthenticateCognitoActionConfig) (*elbv2model.Action, error) {
+	return &elbv2model.Action{
+		Type: elbv2model.ActionTypeAuthenticateCognito,
+		AuthenticateCognitoConfig: &elbv2model.AuthenticateCognitoActionConfig{
+			UserPoolARN:                      authCognitoActionConfig.UserPoolArn,
+			UserPoolClientID:                 authCognitoActionConfig.UserPoolClientID,
+			UserPoolDomain:                   authCognitoActionConfig.UserPoolDomain,
+			AuthenticationRequestExtraParams: *authCognitoActionConfig.AuthenticationRequestExtraParams,
+			OnUnauthenticatedRequest:         elbv2model.AuthenticateCognitoActionConditionalBehavior(*authCognitoActionConfig.OnUnauthenticatedRequest),
+			Scope:                            authCognitoActionConfig.Scope,
+			SessionCookieName:                authCognitoActionConfig.SessionCookieName,
+			SessionTimeout:                   authCognitoActionConfig.SessionTimeout,
+		},
+	}, nil
+}
+
+func buildAuthenticateOIDCAction(autheticateOIDCActionConfig *elbv2gw.AuthenticateOidcActionConfig, route RouteDescriptor) (*elbv2model.Action, error) {
+	// TODO
+	return nil, nil
+}
+
+func buildForwardRoutingAction(routingAction *elbv2gw.Action, targetGroupTuples []elbv2model.TargetGroupTuple) (*elbv2model.Action, error) {
 	if shouldProvisionActions(targetGroupTuples) {
 		var forwardConfig *elbv2gw.ForwardActionConfig
 		if routingAction != nil {
@@ -69,7 +103,7 @@ func buildForwardRoutingActions(routingAction *elbv2gw.Action, targetGroupTuples
 	return nil, nil
 }
 
-func buildRedirectRoutingActions(rule RouteRule, route RouteDescriptor, routingAction *elbv2gw.Action) ([]elbv2model.Action, error) {
+func buildRedirectRoutingAction(rule RouteRule, route RouteDescriptor, routingAction *elbv2gw.Action) (*elbv2model.Action, error) {
 	switch route.GetRouteKind() {
 	case HTTPRouteKind:
 		httpRule := rule.GetRawRouteRule().(*gwv1.HTTPRouteRule)
@@ -89,7 +123,7 @@ func buildRedirectRoutingActions(rule RouteRule, route RouteDescriptor, routingA
 	return nil, nil
 }
 
-func buildL7ListenerForwardActions(targetGroupTuple []elbv2model.TargetGroupTuple, forwardActionConfig *elbv2gw.ForwardActionConfig) []elbv2model.Action {
+func buildL7ListenerForwardActions(targetGroupTuple []elbv2model.TargetGroupTuple, forwardActionConfig *elbv2gw.ForwardActionConfig) *elbv2model.Action {
 	forwardConfig := &elbv2model.ForwardActionConfig{
 		TargetGroups: targetGroupTuple,
 	}
@@ -102,16 +136,14 @@ func buildL7ListenerForwardActions(targetGroupTuple []elbv2model.TargetGroupTupl
 		}
 	}
 
-	return []elbv2model.Action{
-		{
-			Type:          elbv2model.ActionTypeForward,
-			ForwardConfig: forwardConfig,
-		},
+	return &elbv2model.Action{
+		Type:          elbv2model.ActionTypeForward,
+		ForwardConfig: forwardConfig,
 	}
 }
 
 // buildHttpRuleRedirectActionsBasedOnFilter only request redirect is supported, header modification is limited due to ALB support level.
-func buildHttpRuleRedirectActionsBasedOnFilter(filters []gwv1.HTTPRouteFilter, redirectConfig *elbv2gw.RedirectActionConfig) ([]elbv2model.Action, error) {
+func buildHttpRuleRedirectActionsBasedOnFilter(filters []gwv1.HTTPRouteFilter, redirectConfig *elbv2gw.RedirectActionConfig) (*elbv2model.Action, error) {
 	// edge case: filters only defines ExtensionRef with Kind ListenerRuleConfiguration and ListenerRuleConfiguration type is redirect
 	if len(filters) == 1 && filters[0].Type == gwv1.HTTPRouteFilterExtensionRef && redirectConfig != nil {
 		return nil, errors.Errorf("HTTPRouteFilterRequestRedirect must be provided if RedirectActionConfig in ListenerRuleConfiguration is provided")
@@ -132,7 +164,7 @@ func buildHttpRuleRedirectActionsBasedOnFilter(filters []gwv1.HTTPRouteFilter, r
 
 // buildHttpRedirectAction configure filter attributes to RedirectActionConfig
 // gateway api has no attribute to specify query, use listener rule configuration
-func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter, redirectConfig *elbv2gw.RedirectActionConfig) ([]elbv2model.Action, error) {
+func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter, redirectConfig *elbv2gw.RedirectActionConfig) (*elbv2model.Action, error) {
 	isComponentSpecified := false
 	var statusCode string
 	if filter.StatusCode != nil {
@@ -203,7 +235,7 @@ func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter, redirectCon
 			Query:      query,
 		},
 	}
-	return []elbv2model.Action{action}, nil
+	return &action, nil
 }
 
 // shouldProvisionActions -- determine if the given target groups are acceptable for ELB Actions.

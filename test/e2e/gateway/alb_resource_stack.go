@@ -10,9 +10,9 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func newALBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgc *elbv2gw.TargetGroupConfiguration, httpr []*gwv1.HTTPRoute, baseName string, enablePodReadinessGate bool) *albResourceStack {
+func newALBResourceStack(dp *appsv1.Deployment, svc *corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgc *elbv2gw.TargetGroupConfiguration, lrc *elbv2gw.ListenerRuleConfiguration, httpr []*gwv1.HTTPRoute, baseName string, enablePodReadinessGate bool) *albResourceStack {
 
-	commonStack := newCommonResourceStack([]*appsv1.Deployment{dp}, []*corev1.Service{svc}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgc}, baseName, enablePodReadinessGate)
+	commonStack := newCommonResourceStack([]*appsv1.Deployment{dp}, []*corev1.Service{svc}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgc}, []*elbv2gw.ListenerRuleConfiguration{lrc}, baseName, enablePodReadinessGate)
 	return &albResourceStack{
 		httprs:      httpr,
 		commonStack: commonStack,

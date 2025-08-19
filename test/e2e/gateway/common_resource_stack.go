@@ -19,7 +19,7 @@ const (
 	crossNamespacePort = 5000
 )
 
-func newCommonResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, baseName string, enablePodReadinessGate bool) *commonResourceStack {
+func newCommonResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrcs []*elbv2gw.ListenerRuleConfiguration, baseName string, enablePodReadinessGate bool) *commonResourceStack {
 	return &commonResourceStack{
 		dps:                    dps,
 		svcs:                   svcs,
@@ -27,6 +27,7 @@ func newCommonResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gw
 		gw:                     gw,
 		lbc:                    lbc,
 		tgcs:                   tgcs,
+		lrcs:                   lrcs,
 		baseName:               baseName,
 		enablePodReadinessGate: enablePodReadinessGate,
 	}
@@ -41,6 +42,7 @@ type commonResourceStack struct {
 	gw                     *gwv1.Gateway
 	lbc                    *elbv2gw.LoadBalancerConfiguration
 	tgcs                   []*elbv2gw.TargetGroupConfiguration
+	lrcs                   []*elbv2gw.ListenerRuleConfiguration
 	ns                     *corev1.Namespace
 	baseName               string
 	enablePodReadinessGate bool
@@ -68,6 +70,10 @@ func (s *commonResourceStack) Deploy(ctx context.Context, f *framework.Framework
 		v.Namespace = s.ns.Name
 	}
 
+	for _, v := range s.lrcs {
+		v.Namespace = s.ns.Name
+	}
+
 	s.gw.Namespace = s.ns.Name
 	s.lbc.Namespace = s.ns.Name
 
@@ -78,6 +84,9 @@ func (s *commonResourceStack) Deploy(ctx context.Context, f *framework.Framework
 		return err
 	}
 	if err := createTargetGroupConfigs(ctx, f, s.tgcs); err != nil {
+		return err
+	}
+	if err := createListenerRuleConfigs(ctx, f, s.lrcs); err != nil {
 		return err
 	}
 	if err := createDeployments(ctx, f, s.dps); err != nil {
@@ -210,6 +219,19 @@ func createTargetGroupConfigs(ctx context.Context, f *framework.Framework, tgcs 
 			return err
 		}
 		f.Logger.Info("created target group config", "tgc", k8s.NamespacedName(tgc))
+	}
+	return nil
+}
+
+func createListenerRuleConfigs(ctx context.Context, f *framework.Framework, lrcs []*elbv2gw.ListenerRuleConfiguration) error {
+	for _, lrc := range lrcs {
+		f.Logger.Info("creating listener rule config", "lrc", k8s.NamespacedName(lrc))
+		err := f.K8sClient.Create(ctx, lrc)
+		if err != nil {
+			f.Logger.Error(err, "failed to create listener rule config")
+			return err
+		}
+		f.Logger.Info("created listener rule config", "tgc", k8s.NamespacedName(lrc))
 	}
 	return nil
 }

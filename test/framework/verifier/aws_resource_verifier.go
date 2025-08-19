@@ -556,6 +556,8 @@ func verifyListenerRuleActions(actual, expected []elbv2types.Action) error {
 	if len(actual) != len(expected) {
 		return errors.Errorf("expected %d listener rule actions, got %d", len(expected), len(actual))
 	}
+	sortActionsByOrder(actual)
+	sortActionsByOrder(expected)
 	for i, expectedAction := range expected {
 		actualAction := actual[i]
 		if expectedAction.Type != actualAction.Type {
@@ -573,10 +575,103 @@ func verifyListenerRuleActions(actual, expected []elbv2types.Action) error {
 					return errors.Errorf("expected listener rule action target group weight %d, got %d", awssdk.ToInt32(expectedTG.Weight), awssdk.ToInt32(actualTG.Weight))
 				}
 			}
+			break
+		case elbv2types.ActionTypeEnumAuthenticateCognito:
+			if actualAction.AuthenticateCognitoConfig == nil {
+				return errors.Errorf("expected authenticate-cognito config, got nil")
+			}
+
+			// Verify UserPoolArn
+			if awssdk.ToString(actualAction.AuthenticateCognitoConfig.UserPoolArn) !=
+				awssdk.ToString(expectedAction.AuthenticateCognitoConfig.UserPoolArn) {
+				return errors.Errorf("UserPoolArn mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateCognitoConfig.UserPoolArn),
+					awssdk.ToString(actualAction.AuthenticateCognitoConfig.UserPoolArn))
+			}
+
+			// Verify UserPoolClientId
+			if awssdk.ToString(actualAction.AuthenticateCognitoConfig.UserPoolClientId) !=
+				awssdk.ToString(expectedAction.AuthenticateCognitoConfig.UserPoolClientId) {
+				return errors.Errorf("UserPoolClientId mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateCognitoConfig.UserPoolClientId),
+					awssdk.ToString(actualAction.AuthenticateCognitoConfig.UserPoolClientId))
+			}
+
+			// Verify UserPoolDomain
+			if awssdk.ToString(actualAction.AuthenticateCognitoConfig.UserPoolDomain) !=
+				awssdk.ToString(expectedAction.AuthenticateCognitoConfig.UserPoolDomain) {
+				return errors.Errorf("UserPoolDomain mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateCognitoConfig.UserPoolDomain),
+					awssdk.ToString(actualAction.AuthenticateCognitoConfig.UserPoolDomain))
+			}
+
+			// Verify OnUnauthenticatedRequest behavior
+			if actualAction.AuthenticateCognitoConfig.OnUnauthenticatedRequest !=
+				expectedAction.AuthenticateCognitoConfig.OnUnauthenticatedRequest {
+				return errors.Errorf("OnUnauthenticatedRequest mismatch: expected %s, got %s",
+					expectedAction.AuthenticateCognitoConfig.OnUnauthenticatedRequest,
+					actualAction.AuthenticateCognitoConfig.OnUnauthenticatedRequest)
+			}
+
+			// Verify Scope (optional field)
+			if awssdk.ToString(actualAction.AuthenticateCognitoConfig.Scope) !=
+				awssdk.ToString(expectedAction.AuthenticateCognitoConfig.Scope) {
+				return errors.Errorf("Scope mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateCognitoConfig.Scope),
+					awssdk.ToString(actualAction.AuthenticateCognitoConfig.Scope))
+			}
+
+			// Verify SessionCookieName (optional field)
+			if awssdk.ToString(actualAction.AuthenticateCognitoConfig.SessionCookieName) !=
+				awssdk.ToString(expectedAction.AuthenticateCognitoConfig.SessionCookieName) {
+				return errors.Errorf("SessionCookieName mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateCognitoConfig.SessionCookieName),
+					awssdk.ToString(actualAction.AuthenticateCognitoConfig.SessionCookieName))
+			}
+
+			// Verify SessionTimeout (optional field)
+			if awssdk.ToInt64(actualAction.AuthenticateCognitoConfig.SessionTimeout) !=
+				awssdk.ToInt64(expectedAction.AuthenticateCognitoConfig.SessionTimeout) {
+				return errors.Errorf("SessionTimeout mismatch: expected %d, got %d",
+					awssdk.ToInt64(expectedAction.AuthenticateCognitoConfig.SessionTimeout),
+					awssdk.ToInt64(actualAction.AuthenticateCognitoConfig.SessionTimeout))
+			}
+
+			// Verify AuthenticationRequestExtraParams (map comparison)
+			expectedParams := make(map[string]string)
+			if expectedAction.AuthenticateCognitoConfig.AuthenticationRequestExtraParams != nil {
+				expectedParams = expectedAction.AuthenticateCognitoConfig.AuthenticationRequestExtraParams
+			}
+
+			actualParams := make(map[string]string)
+			if actualAction.AuthenticateCognitoConfig.AuthenticationRequestExtraParams != nil {
+				actualParams = actualAction.AuthenticateCognitoConfig.AuthenticationRequestExtraParams
+			}
+
+			if len(expectedParams) != len(actualParams) {
+				return errors.Errorf("AuthenticationRequestExtraParams length mismatch: expected %d, got %d",
+					len(expectedParams), len(actualParams))
+			}
+
+			for key, expectedValue := range expectedParams {
+				if actualValue, exists := actualParams[key]; !exists {
+					return errors.Errorf("AuthenticationRequestExtraParams missing key: %s", key)
+				} else if actualValue != expectedValue {
+					return errors.Errorf("AuthenticationRequestExtraParams value mismatch for key %s: expected %s, got %s",
+						key, expectedValue, actualValue)
+				}
+			}
+			break
 		default:
 			return errors.Errorf("unknown listener rule action type %s", expectedAction.Type)
 		}
 	}
 
 	return nil
+}
+
+func sortActionsByOrder(actions []elbv2types.Action) {
+	sort.Slice(actions, func(i, j int) bool {
+		return awssdk.ToInt32(actions[i].Order) < awssdk.ToInt32(actions[j].Order)
+	})
 }

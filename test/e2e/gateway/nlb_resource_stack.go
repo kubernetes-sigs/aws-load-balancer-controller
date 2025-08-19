@@ -13,7 +13,7 @@ import (
 
 func newNLBResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, tcpr []*gwalpha2.TCPRoute, udpr []*gwalpha2.UDPRoute, tlsr []*gwalpha2.TLSRoute, baseName string, enablePodReadinessGate bool) *nlbResourceStack {
 
-	commonStack := newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, baseName, enablePodReadinessGate)
+	commonStack := newCommonResourceStack(dps, svcs, gwc, gw, lbc, tgcs, nil, baseName, enablePodReadinessGate)
 	return &nlbResourceStack{
 		tcprs:       tcpr,
 		udprs:       udpr,

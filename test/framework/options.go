@@ -30,6 +30,11 @@ type Options struct {
 	IPFamily           string
 	TestImageRegistry  string
 	EnableGatewayTests bool
+
+	// Cognito configuration for e2e tests
+	CognitoUserPoolArn      string
+	CognitoUserPoolClientId string
+	CognitoUserPoolDomain   string
 }
 
 func (options *Options) BindFlags() {
@@ -46,6 +51,10 @@ func (options *Options) BindFlags() {
 	flag.StringVar(&options.TestImageRegistry, "test-image-registry", "617930562442.dkr.ecr.us-west-2.amazonaws.com", "the aws registry in test-infra-* accounts where e2e test images are stored")
 
 	flag.BoolVar(&options.EnableGatewayTests, "enable-gateway-tests", false, "enables gateway tests")
+
+	flag.StringVar(&options.CognitoUserPoolArn, "cognito-user-pool-arn", "", `Cognito User Pool ARN for authenticate-cognito tests`)
+	flag.StringVar(&options.CognitoUserPoolClientId, "cognito-user-pool-client-id", "", `Cognito User Pool Client ID for authenticate-cognito tests`)
+	flag.StringVar(&options.CognitoUserPoolDomain, "cognito-user-pool-domain", "", `Cognito User Pool Domain for authenticate-cognito tests`)
 }
 
 func (options *Options) Validate() error {

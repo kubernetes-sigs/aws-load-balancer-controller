@@ -17,6 +17,7 @@ const (
 	defaultGatewayClassName = "gwclass-e2e"
 	defaultLbConfigName     = "lbconfig-e2e"
 	defaultTgConfigName     = "tgconfig-e2e"
+	defaultLRConfigName     = "lrconfig-e2e"
 	udpDefaultTgConfigName  = defaultTgConfigName + "-udp"
 	testHostname            = "*.elb.us-west-2.amazonaws.com"
 	// constants used in ALB http route matches and filters tests
