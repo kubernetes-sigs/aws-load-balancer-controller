@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -845,7 +846,7 @@ func Test_defaultModelBuildTask_buildShieldProtection(t *testing.T) {
 }
 
 func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *testing.T) {
-	type describeWebACLCall struct {
+	type getWebACLCall struct {
 		req  *wafv2sdk.GetWebACLInput
 		resp *wafv2sdk.GetWebACLOutput
 		err  error
@@ -854,9 +855,9 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 		ingGroup Group
 	}
 	type args struct {
-		lbARN               core.StringToken
-		cache               map[string]string
-		describeWebACLCalls []describeWebACLCall
+		lbARN          core.StringToken
+		cache          map[string]string
+		getWebACLCalls []getWebACLCall
 	}
 	tests := []struct {
 		name      string
@@ -866,6 +867,48 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 		wantErr   assert.ErrorAssertionFunc
 		wantCache map[string]string
 	}{
+		{
+			name: "when one ingress has wafv2-acl-name annotation set to none",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing-0",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/wafv2-acl-name": "none",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "awesome-ns",
+									Name:        "awesome-ing-1",
+									Annotations: map[string]string{},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				lbARN:          core.LiteralStringToken("awesome-lb-arn"),
+				cache:          map[string]string{},
+				getWebACLCalls: []getWebACLCall{},
+			},
+			want: &wafv2model.WebACLAssociation{
+				Spec: wafv2model.WebACLAssociationSpec{
+					WebACLARN:   "",
+					ResourceARN: core.LiteralStringToken("awesome-lb-arn"),
+				},
+			},
+			wantErr:   assert.NoError,
+			wantCache: map[string]string{},
+		},
 		{
 			name: "when one ingress has wafv2-acl-name annotation set",
 			fields: fields{
@@ -897,7 +940,7 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 			args: args{
 				lbARN: core.LiteralStringToken("awesome-lb-arn"),
 				cache: map[string]string{},
-				describeWebACLCalls: []describeWebACLCall{
+				getWebACLCalls: []getWebACLCall{
 					{
 						req: &wafv2sdk.GetWebACLInput{
 							Name: awssdk.String("web-acl-name1"),
@@ -953,9 +996,219 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 				},
 			},
 			args: args{
-				lbARN:               core.LiteralStringToken("awesome-lb-arn"),
-				cache:               map[string]string{},
-				describeWebACLCalls: []describeWebACLCall{},
+				lbARN:          core.LiteralStringToken("awesome-lb-arn"),
+				cache:          map[string]string{},
+				getWebACLCalls: []getWebACLCall{},
+			},
+			wantErr: func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
+				assert.EqualError(t, err, "conflicting WAFv2 WebACL names: [web-acl-name1 web-acl-name2]", msgAndArgs...)
+				return false
+			},
+			wantCache: map[string]string{},
+		},
+		{
+			name: "when one ingress has web-acl-name1 annotation and other ingress has web-acl-arn1 annotation",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing-0",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/wafv2-acl-name": "web-acl-name1",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/wafv2-acl-arn": "web-acl-arn1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				lbARN: core.LiteralStringToken("awesome-lb-arn"),
+				cache: map[string]string{},
+				getWebACLCalls: []getWebACLCall{
+					{
+						req: &wafv2sdk.GetWebACLInput{
+							Name: awssdk.String("web-acl-name1"),
+						},
+						resp: &wafv2sdk.GetWebACLOutput{
+							WebACL: &wafv2types.WebACL{
+								ARN: awssdk.String("web-acl-arn1"),
+							},
+						},
+						err: nil,
+					},
+				},
+			},
+			want: &wafv2model.WebACLAssociation{
+				Spec: wafv2model.WebACLAssociationSpec{
+					WebACLARN:   "web-acl-arn1",
+					ResourceARN: core.LiteralStringToken("awesome-lb-arn"),
+				},
+			},
+			wantErr: assert.NoError,
+			wantCache: map[string]string{
+				"web-acl-name1": "web-acl-arn1",
+			},
+		},
+		{
+			name: "when one ingress has wafv2AclName ingressClassParam set",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "awesome-ns",
+									Name:        "awesome-ing-0",
+									Annotations: map[string]string{},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										WAFv2ACLName: "web-acl-name1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				lbARN: core.LiteralStringToken("awesome-lb-arn"),
+				cache: map[string]string{},
+				getWebACLCalls: []getWebACLCall{
+					{
+						req: &wafv2sdk.GetWebACLInput{
+							Name: awssdk.String("web-acl-name1"),
+						},
+						resp: &wafv2sdk.GetWebACLOutput{
+							WebACL: &wafv2types.WebACL{
+								ARN: awssdk.String("web-acl-arn1"),
+							},
+						},
+						err: nil,
+					},
+				},
+			},
+			want: &wafv2model.WebACLAssociation{
+				Spec: wafv2model.WebACLAssociationSpec{
+					WebACLARN:   "web-acl-arn1",
+					ResourceARN: core.LiteralStringToken("awesome-lb-arn"),
+				},
+			},
+			wantErr: assert.NoError,
+			wantCache: map[string]string{
+				"web-acl-name1": "web-acl-arn1",
+			},
+		},
+		{
+			name: "when one ingress has both wafv2AclName ingressClassParam and web-acl-name1 annotation set",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing-0",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/wafv2-acl-name": "web-acl-name1",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										WAFv2ACLName: "web-acl-name1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				lbARN: core.LiteralStringToken("awesome-lb-arn"),
+				cache: map[string]string{},
+				getWebACLCalls: []getWebACLCall{
+					{
+						req: &wafv2sdk.GetWebACLInput{
+							Name: awssdk.String("web-acl-name1"),
+						},
+						resp: &wafv2sdk.GetWebACLOutput{
+							WebACL: &wafv2types.WebACL{
+								ARN: awssdk.String("web-acl-arn1"),
+							},
+						},
+						err: nil,
+					},
+				},
+			},
+			want: &wafv2model.WebACLAssociation{
+				Spec: wafv2model.WebACLAssociationSpec{
+					WebACLARN:   "web-acl-arn1",
+					ResourceARN: core.LiteralStringToken("awesome-lb-arn"),
+				},
+			},
+			wantErr: assert.NoError,
+			wantCache: map[string]string{
+				"web-acl-name1": "web-acl-arn1",
+			},
+		},
+		{
+			name: "when one ingress has  wafv2AclName ingressClassParam set to web-acl-name1 and other ingress has web-acl-name2 annotation set",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace:   "awesome-ns",
+									Name:        "awesome-ing-0",
+									Annotations: map[string]string{},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										WAFv2ACLName: "web-acl-name1",
+									},
+								},
+							},
+						},
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing-0",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/wafv2-acl-name": "web-acl-name2",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				lbARN:          core.LiteralStringToken("awesome-lb-arn"),
+				cache:          map[string]string{},
+				getWebACLCalls: []getWebACLCall{},
 			},
 			wantErr: func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
 				assert.EqualError(t, err, "conflicting WAFv2 WebACL names: [web-acl-name1 web-acl-name2]", msgAndArgs...)
@@ -974,7 +1227,7 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 			wafv2Client := services.NewMockWAFv2(ctrl)
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 
-			for _, call := range tt.args.describeWebACLCalls {
+			for _, call := range tt.args.getWebACLCalls {
 				wafv2Client.EXPECT().
 					GetWebACLWithContext(gomock.Any(), call.req).
 					Return(call.resp, call.err)

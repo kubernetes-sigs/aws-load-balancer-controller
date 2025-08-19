@@ -282,6 +282,9 @@ spec:
               wafv2AclArn:
                 description: WAFv2ACLArn specifies ARN for the Amazon WAFv2 web ACL.
                 type: string
+              wafv2AclName:
+                description: WAFv2ACLName specifies name of the Amazon WAFv2 web ACL.
+                type: string
             type: object
             x-kubernetes-validations:
             - message: cannot specify both 'prefixListsIDs' and 'PrefixListsIDs' fields

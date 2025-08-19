@@ -37,6 +37,11 @@ func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(ctx context.Context,
 	explicitWebACLNames := sets.NewString()
 	webACLARN := ""
 	for _, member := range t.ingGroup.Members {
+		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.WAFv2ACLName != "" {
+			rawWebACLName := member.IngClassConfig.IngClassParams.Spec.WAFv2ACLName
+			explicitWebACLNames.Insert(rawWebACLName)
+			continue
+		}
 		rawWebACLName := ""
 		_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLName, &rawWebACLName, member.Ing.Annotations)
 		if rawWebACLName != "" {
@@ -70,11 +75,13 @@ func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(ctx context.Context,
 	}
 
 	if len(explicitWebACLNames) == 1 {
-		var err error
 		rawWebACLName, _ := explicitWebACLNames.PopAny()
-		webACLARN, err = t.webACLNameToArnMapper.getArnByName(ctx, rawWebACLName)
-		if err != nil {
-			return nil, errors.Errorf("couldn't find WAFv2 WebACL with name: %v", rawWebACLName)
+		if rawWebACLName != "none" {
+			var err error
+			webACLARN, err = t.webACLNameToArnMapper.getArnByName(ctx, rawWebACLName)
+			if err != nil {
+				return nil, errors.Errorf("couldn't find WAFv2 WebACL with name: %v", rawWebACLName)
+			}
 		}
 	}
 

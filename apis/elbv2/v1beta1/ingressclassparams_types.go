@@ -189,6 +189,10 @@ type IngressClassParamsSpec struct {
 	// WAFv2ACLArn specifies ARN for the Amazon WAFv2 web ACL.
 	// +optional
 	WAFv2ACLArn string `json:"wafv2AclArn"`
+
+	// WAFv2ACLName specifies name of the Amazon WAFv2 web ACL.
+	// +optional
+	WAFv2ACLName string `json:"wafv2AclName"`
 }
 
 // +kubebuilder:object:root=true
