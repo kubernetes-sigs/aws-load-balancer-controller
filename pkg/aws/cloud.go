@@ -28,11 +28,12 @@ import (
 )
 
 const (
-	cacheTTLBufferTime = 30 * time.Second
+	cacheTTLBufferTime         = 30 * time.Second
+	DefaultLbStabilizationTime = 5 * time.Minute
 )
 
 // NewCloud constructs new Cloud implementation.
-func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics.Collector, logger logr.Logger, awsClientsProvider provider.AWSClientsProvider) (services.Cloud, error) {
+func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics.Collector, logger logr.Logger, awsClientsProvider provider.AWSClientsProvider, lbStabilizationTime time.Duration) (services.Cloud, error) {
 	hasIPv4 := true
 	addrs, err := net.InterfaceAddrs()
 	if err == nil {
@@ -114,7 +115,7 @@ func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics
 		logger:             logger,
 	}
 
-	thisObj.elbv2 = services.NewELBV2(awsClientsProvider, thisObj)
+	thisObj.elbv2 = services.NewELBV2(awsClientsProvider, thisObj, lbStabilizationTime)
 
 	return thisObj, nil
 }
@@ -255,7 +256,7 @@ func (c *defaultCloud) GetAssumedRoleELBV2(ctx context.Context, assumeRoleArn st
 	}
 
 	cacheTTL := assumedRoleCreds.Expiration.Sub(time.Now())
-	elbv2WithAssumedRole := services.NewELBV2FromStaticClient(c.awsClientsProvider.GenerateNewELBv2Client(newAwsConfig), c)
+	elbv2WithAssumedRole := services.NewELBV2FromStaticClient(c.awsClientsProvider.GenerateNewELBv2Client(newAwsConfig), c, DefaultLbStabilizationTime)
 
 	c.assumeRoleElbV2CacheMutex.Lock()
 	defer c.assumeRoleElbV2CacheMutex.Unlock()
