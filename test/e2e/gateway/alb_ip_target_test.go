@@ -4,6 +4,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"strings"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/gavv/httpexpect/v2"
@@ -21,8 +24,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strings"
-	"time"
 )
 
 var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws load balancer controller", func() {
@@ -48,6 +49,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			auxiliaryStack.Cleanup(ctx, tf)
 		}
 	})
+
 	Context("with ALB ip target configuration with basic HTTPRoute", func() {
 		BeforeEach(func() {})
 		It("should provision internet-facing load balancer resources", func() {
