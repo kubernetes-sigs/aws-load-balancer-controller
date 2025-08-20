@@ -4,6 +4,7 @@
 resources:
   - bases/elbv2.k8s.aws_targetgroupbindings.yaml
   - bases/elbv2.k8s.aws_ingressclassparams.yaml
+  - bases/elbv2.k8s.aws_globalaccelerators.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

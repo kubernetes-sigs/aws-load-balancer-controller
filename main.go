@@ -222,6 +222,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup Global Accelerator controller
+	globalAcceleratorReconciler := elbv2controller.NewGlobalAcceleratorReconciler(cloud, mgr.GetClient(),
+		mgr.GetEventRecorderFor("globalAccelerator"), ctrl.Log.WithName("controllers").WithName("globalAccelerator"))
+	if err := globalAcceleratorReconciler.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "GlobalAccelerator")
+		os.Exit(1)
+	}
+
 	// Initialize common gateway configuration
 	if controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI) || controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI) {
 
