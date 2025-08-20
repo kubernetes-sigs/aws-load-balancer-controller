@@ -189,6 +189,16 @@ func buildTargetGroupConfig(name string, spec elbv2gw.TargetGroupConfigurationSp
 	return tgc
 }
 
+func buildListenerRuleConfig(name string, spec elbv2gw.ListenerRuleConfigurationSpec) *elbv2gw.ListenerRuleConfiguration {
+	lrc := &elbv2gw.ListenerRuleConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: *(spec.DeepCopy()),
+	}
+	return lrc
+}
+
 func buildBasicGatewaySpec(gwc *gwv1.GatewayClass, listeners []gwv1.Listener) *gwv1.Gateway {
 	gw := &gwv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{

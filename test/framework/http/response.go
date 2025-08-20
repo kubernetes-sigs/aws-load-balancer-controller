@@ -8,6 +8,7 @@ import (
 type Response struct {
 	Body         []byte
 	ResponseCode int
+	Headers      map[string][]string
 }
 
 func buildResponse(resp *gohttp.Response) (Response, error) {
@@ -19,5 +20,6 @@ func buildResponse(resp *gohttp.Response) (Response, error) {
 	return Response{
 		Body:         body,
 		ResponseCode: resp.StatusCode,
+		Headers:      resp.Header,
 	}, nil
 }

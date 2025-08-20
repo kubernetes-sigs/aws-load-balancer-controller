@@ -166,7 +166,7 @@ type AuthenticateCognitoActionConfig struct {
 	// +kubebuilder:default=604800
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=604800
-	SessionTimeout *int32 `json:"sessionTimeout,omitempty"`
+	SessionTimeout *int64 `json:"sessionTimeout,omitempty"`
 }
 
 // Information about an authenticate-oidc action
@@ -259,12 +259,12 @@ type Action struct {
 	AuthenticateOIDCConfig *AuthenticateOidcActionConfig `json:"authenticateOIDCConfig,omitempty"`
 }
 
-// ListenerRuleSpec defines the desired state of ListenerRuleConfiguration
+// ListenerRuleConfigurationSpec defines the desired state of ListenerRuleConfiguration
 // +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions) > 0",message="At least one action must be specified if actions field is present"
 // +kubebuilder:validation:XValidation:rule="!has(self.actions) || self.actions.all(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito' || a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')",message="Only forward, redirect, authenticate-oidc, authenticate-cognito, and fixed-response action types are supported"
 // +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions.filter(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito')) <= 1",message="At most one authentication action (either authenticate-oidc or authenticate-cognito) can be specified"
 // +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions.filter(a, a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')) <= 1",message="At most one routing action (fixed-response or forward or redirect) can be specified"
-type ListenerRuleSpec struct {
+type ListenerRuleConfigurationSpec struct {
 	// Actions defines the set of actions to be performed when conditions match.
 	// This CRD implementation currently supports only  authenticate-oidc, authenticate-cognito, and fixed-response action types fully and forward and redirect actions partially
 	//
@@ -292,8 +292,8 @@ type ListenerRuleSpec struct {
 	Tags *map[string]string `json:"tags,omitempty"`
 }
 
-// ListenerRuleStatus defines the observed state of ListenerRuleConfiguration
-type ListenerRuleStatus struct {
+// ListenerRuleConfigurationStatus defines the observed state of ListenerRuleConfiguration
+type ListenerRuleConfigurationStatus struct {
 
 	// The observed generation of the rule configuration
 	// +optional
@@ -309,8 +309,8 @@ type ListenerRuleConfiguration struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ListenerRuleSpec   `json:"spec,omitempty"`
-	Status ListenerRuleStatus `json:"status,omitempty"`
+	Spec   ListenerRuleConfigurationSpec   `json:"spec,omitempty"`
+	Status ListenerRuleConfigurationStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
