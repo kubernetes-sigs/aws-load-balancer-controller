@@ -4914,6 +4914,65 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "single Ingress with ssl-redirect annotation",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
+								Namespace: "ns-1",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/ssl-redirect": "443",
+								},
+							},
+								Spec: networking.IngressSpec{
+									Rules: []networking.IngressRule{
+										{
+											Host: "app-1.example.com",
+											IngressRuleValue: networking.IngressRuleValue{
+												HTTP: &networking.HTTPIngressRuleValue{
+													Paths: []networking.HTTPIngressPath{
+														{
+															Path: "/svc-1",
+															Backend: networking.IngressBackend{
+																Service: &networking.IngressServiceBackend{
+																	Name: "svc-1",
+																	Port: networking.ServiceBackendPort{
+																		Name: "http",
+																	},
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				listenPortConfigByPort: map[int32]listenPortConfig{
+					80: {
+						protocol: elbv2model.ProtocolHTTP,
+					},
+					443: {
+						protocol: elbv2model.ProtocolHTTPS,
+					},
+				},
+			},
+			want: &SSLRedirectConfig{
+				SSLPort:    443,
+				StatusCode: "HTTP_301",
+			},
+			wantErr: nil,
+		},
+		{
 			name: "single Ingress with IngressClassParam for ssl-redirect",
 			fields: fields{
 				ingGroup: Group{
