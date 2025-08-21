@@ -1,6 +1,7 @@
 package routeutils
 
 import (
+	"math"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sort"
 	"strings"
@@ -69,7 +70,22 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor) []RulePrecedence {
 					getHttpMatchPrecedenceInfo(&httpMatch, &match)
 					httpRoutes = append(httpRoutes, match)
 				}
+
+				if len(r.Matches) == 0 {
+					common := routeInfo
+					common.Rule = rule
+					common.RuleIndexInRoute = ruleIndex
+					common.MatchIndexInRule = math.MaxInt
+					match := RulePrecedence{
+						HTTPMatch:                        &v1.HTTPRouteMatch{},
+						HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{},
+						CommonRulePrecedence:             common,
+					}
+					httpRoutes = append(httpRoutes, match)
+				}
+
 			case *v1.GRPCRouteRule:
+
 				for matchIndex, grpcMatch := range r.Matches {
 					common := routeInfo
 					common.Rule = rule
@@ -82,6 +98,19 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor) []RulePrecedence {
 					}
 					// set GrpcSpecificRulePrecedenceFactor
 					getGrpcMatchPrecedenceInfo(&grpcMatch, &match)
+					grpcRoutes = append(grpcRoutes, match)
+				}
+
+				if len(r.Matches) == 0 {
+					common := routeInfo
+					common.Rule = rule
+					common.RuleIndexInRoute = ruleIndex
+					common.MatchIndexInRule = math.MaxInt
+					match := RulePrecedence{
+						GRPCMatch:                        &v1.GRPCRouteMatch{},
+						GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{},
+						CommonRulePrecedence:             common,
+					}
 					grpcRoutes = append(grpcRoutes, match)
 				}
 			}

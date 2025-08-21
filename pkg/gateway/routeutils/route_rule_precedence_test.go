@@ -1,7 +1,11 @@
 package routeutils
 
 import (
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"math"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
 	"time"
 )
@@ -9,6 +13,401 @@ import (
 var (
 	defaultHostname = []string{"example.com"}
 )
+
+func Test_SortAllRulesByPrecedence(t *testing.T) {
+
+	httpOneRuleNoMatch := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "httpOneRuleNoMatch",
+				Namespace: "ns",
+			},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{
+				rule: &gwv1.HTTPRouteRule{},
+			},
+		},
+	}
+
+	httpOneRuleOneMatch := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "httpOneRuleOneMatch",
+				Namespace: "ns",
+			},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{
+				rule: &gwv1.HTTPRouteRule{
+					Matches: []gwv1.HTTPRouteMatch{
+						{
+							Path: &gwv1.HTTPPathMatch{
+								Type:  (*gwv1.PathMatchType)(awssdk.String("Exact")),
+								Value: awssdk.String("/foo"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	httpOneRuleMultipleMatches := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "httpOneRuleMultipleMatches",
+				Namespace: "ns",
+			},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{
+				rule: &gwv1.HTTPRouteRule{
+					Matches: []gwv1.HTTPRouteMatch{
+						{
+							Path: &gwv1.HTTPPathMatch{
+								Type:  (*gwv1.PathMatchType)(awssdk.String("Exact")),
+								Value: awssdk.String("/foo"),
+							},
+						},
+						{
+							Path: &gwv1.HTTPPathMatch{
+								Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+								Value: awssdk.String("/other-route"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	grpcOneRuleNoMatch := &grpcRouteDescription{
+		route: &gwv1.GRPCRoute{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "grpcOneRuleNoMatch",
+				Namespace: "ns",
+			},
+		},
+		rules: []RouteRule{
+			&convertedGRPCRouteRule{
+				rule: &gwv1.GRPCRouteRule{},
+			},
+		},
+	}
+
+	grpcOneRuleOneMatch := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "grpcOneRuleOneMatch",
+				Namespace: "ns",
+			},
+		},
+		rules: []RouteRule{
+			&convertedGRPCRouteRule{
+				rule: &gwv1.GRPCRouteRule{
+					Matches: []gwv1.GRPCRouteMatch{
+						{
+							Headers: []gwv1.GRPCHeaderMatch{
+								{
+									Type:  (*gwv1.GRPCHeaderMatchType)(awssdk.String("Exact")),
+									Name:  "my-header",
+									Value: "my-header-value",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	grpcOneRuleMultipleMatches := &grpcRouteDescription{
+		route: &gwv1.GRPCRoute{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "grpcOneRuleMultipleMatches",
+				Namespace: "ns",
+			},
+		},
+		rules: []RouteRule{
+			&convertedGRPCRouteRule{
+				rule: &gwv1.GRPCRouteRule{
+					Matches: []gwv1.GRPCRouteMatch{
+						{
+							Headers: []gwv1.GRPCHeaderMatch{
+								{
+									Type:  (*gwv1.GRPCHeaderMatchType)(awssdk.String("Exact")),
+									Name:  "my-header",
+									Value: "my-header-value",
+								},
+							},
+						},
+						{
+							Headers: []gwv1.GRPCHeaderMatch{
+								{
+									Type:  (*gwv1.GRPCHeaderMatchType)(awssdk.String("Exact")),
+									Name:  "my-header-2",
+									Value: "my-header-value-2",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	testCases := []struct {
+		name   string
+		input  []RouteDescriptor
+		output []RulePrecedence
+	}{
+		{
+			name:  "no routes",
+			input: make([]RouteDescriptor, 0),
+		},
+		{
+			name: "one http route, no rules attached",
+			input: []RouteDescriptor{
+				&httpRouteDescription{
+					route: &gwv1.HTTPRoute{
+						ObjectMeta: v1.ObjectMeta{
+							Name:      "http1",
+							Namespace: "ns",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one http route, one rule attached",
+			input: []RouteDescriptor{
+				httpOneRuleNoMatch,
+			},
+			output: []RulePrecedence{
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/httpOneRuleNoMatch",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      httpOneRuleNoMatch,
+						Rule:                 httpOneRuleNoMatch.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     math.MaxInt,
+						RouteCreateTimestamp: httpOneRuleNoMatch.GetRouteCreateTimestamp(),
+					},
+					HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{},
+					HTTPMatch:                        &gwv1.HTTPRouteMatch{},
+				},
+			},
+		},
+		{
+			name: "one http route, one rule attached with match",
+			input: []RouteDescriptor{
+				httpOneRuleOneMatch,
+			},
+			output: []RulePrecedence{
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/httpOneRuleOneMatch",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      httpOneRuleOneMatch,
+						Rule:                 httpOneRuleOneMatch.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     0,
+						RouteCreateTimestamp: httpOneRuleOneMatch.GetRouteCreateTimestamp(),
+					},
+					HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+						PathType:   3,
+						PathLength: 4,
+					},
+					HTTPMatch: &gwv1.HTTPRouteMatch{
+						Path: &gwv1.HTTPPathMatch{
+							Type:  (*gwv1.PathMatchType)(awssdk.String("Exact")),
+							Value: awssdk.String("/foo"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one http route, one rule attached with multiple matches",
+			input: []RouteDescriptor{
+				httpOneRuleMultipleMatches,
+			},
+			output: []RulePrecedence{
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/httpOneRuleMultipleMatches",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      httpOneRuleMultipleMatches,
+						Rule:                 httpOneRuleMultipleMatches.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     0,
+						RouteCreateTimestamp: httpOneRuleMultipleMatches.GetRouteCreateTimestamp(),
+					},
+					HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+						PathType:   3,
+						PathLength: 4,
+					},
+					HTTPMatch: &gwv1.HTTPRouteMatch{
+						Path: &gwv1.HTTPPathMatch{
+							Type:  (*gwv1.PathMatchType)(awssdk.String("Exact")),
+							Value: awssdk.String("/foo"),
+						},
+					},
+				},
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/httpOneRuleMultipleMatches",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      httpOneRuleMultipleMatches,
+						Rule:                 httpOneRuleMultipleMatches.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     1,
+						RouteCreateTimestamp: httpOneRuleMultipleMatches.GetRouteCreateTimestamp(),
+					},
+					HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+						PathType:   2,
+						PathLength: 12,
+					},
+					HTTPMatch: &gwv1.HTTPRouteMatch{
+						Path: &gwv1.HTTPPathMatch{
+							Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+							Value: awssdk.String("/other-route"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one grpc route, no rules attached",
+			input: []RouteDescriptor{
+				&grpcRouteDescription{
+					route: &gwv1.GRPCRoute{
+						ObjectMeta: v1.ObjectMeta{
+							Name:      "grpc1",
+							Namespace: "ns",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one grpc route, one rule attached",
+			input: []RouteDescriptor{
+				grpcOneRuleNoMatch,
+			},
+			output: []RulePrecedence{
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/grpcOneRuleNoMatch",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      grpcOneRuleNoMatch,
+						Rule:                 grpcOneRuleNoMatch.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     math.MaxInt,
+						RouteCreateTimestamp: grpcOneRuleNoMatch.GetRouteCreateTimestamp(),
+					},
+					GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{},
+					GRPCMatch:                        &gwv1.GRPCRouteMatch{},
+				},
+			},
+		},
+		{
+			name: "one grpc route, one rule attached with match",
+			input: []RouteDescriptor{
+				grpcOneRuleOneMatch,
+			},
+			output: []RulePrecedence{
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/grpcOneRuleOneMatch",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      grpcOneRuleOneMatch,
+						Rule:                 grpcOneRuleOneMatch.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     0,
+						RouteCreateTimestamp: grpcOneRuleOneMatch.GetRouteCreateTimestamp(),
+					},
+					GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
+						HeaderCount: 1,
+					},
+					GRPCMatch: &gwv1.GRPCRouteMatch{
+						Headers: []gwv1.GRPCHeaderMatch{
+							{
+								Type:  (*gwv1.GRPCHeaderMatchType)(awssdk.String("Exact")),
+								Name:  "my-header",
+								Value: "my-header-value",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one grpc route, one rule attached with multiple matches",
+			input: []RouteDescriptor{
+				grpcOneRuleMultipleMatches,
+			},
+			output: []RulePrecedence{
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/grpcOneRuleMultipleMatches",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      grpcOneRuleMultipleMatches,
+						Rule:                 grpcOneRuleMultipleMatches.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     0,
+						RouteCreateTimestamp: grpcOneRuleMultipleMatches.GetRouteCreateTimestamp(),
+					},
+					GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
+						HeaderCount: 1,
+					},
+					GRPCMatch: &gwv1.GRPCRouteMatch{
+						Headers: []gwv1.GRPCHeaderMatch{
+							{
+								Type:  (*gwv1.GRPCHeaderMatchType)(awssdk.String("Exact")),
+								Name:  "my-header",
+								Value: "my-header-value",
+							},
+						},
+					},
+				},
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/grpcOneRuleMultipleMatches",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      grpcOneRuleMultipleMatches,
+						Rule:                 grpcOneRuleMultipleMatches.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     1,
+						RouteCreateTimestamp: grpcOneRuleMultipleMatches.GetRouteCreateTimestamp(),
+					},
+					GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
+						HeaderCount: 1,
+					},
+					GRPCMatch: &gwv1.GRPCRouteMatch{
+						Headers: []gwv1.GRPCHeaderMatch{
+							{
+								Type:  (*gwv1.GRPCHeaderMatchType)(awssdk.String("Exact")),
+								Name:  "my-header-2",
+								Value: "my-header-value-2",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			result := SortAllRulesByPrecedence(tc.input)
+			assert.Equal(t, tc.output, result)
+		})
+	}
+}
 
 func Test_compareHttpRulePrecedence(t *testing.T) {
 	tests := []struct {

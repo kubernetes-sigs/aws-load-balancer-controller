@@ -183,6 +183,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 
 func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model.Listener, ipAddressType elbv2model.IPAddressType, securityGroups securityGroupOutput, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) error {
 	// sort all rules based on precedence
+
 	rulesWithPrecedenceOrder := routeutils.SortAllRulesByPrecedence(routes[port])
 
 	var albRules []elbv2model.Rule
