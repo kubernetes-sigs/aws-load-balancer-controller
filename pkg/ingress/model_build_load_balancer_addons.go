@@ -35,7 +35,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerAddOns(ctx context.Context, lbA
 func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(ctx context.Context, lbARN core.StringToken) (*wafv2model.WebACLAssociation, error) {
 	explicitWebACLARNs := sets.NewString()
 	explicitWebACLNames := sets.NewString()
-	webACLARN := ""
+
 	for _, member := range t.ingGroup.Members {
 		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.WAFv2ACLName != "" {
 			rawWebACLName := member.IngClassConfig.IngClassParams.Spec.WAFv2ACLName
@@ -49,17 +49,21 @@ func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(ctx context.Context,
 		}
 	}
 
-	rawWebACLARN := ""
+	webACLARN := ""
+
 	if len(explicitWebACLNames) == 0 {
 		for _, member := range t.ingGroup.Members {
-			_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, member.Ing.Annotations)
-			if rawWebACLARN != "" {
-				explicitWebACLARNs.Insert(rawWebACLARN)
+			if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.WAFv2ACLArn != "" {
+				webACLARN = member.IngClassConfig.IngClassParams.Spec.WAFv2ACLArn
+				explicitWebACLARNs.Insert(webACLARN)
+				continue
 			}
-			params := member.IngClassConfig.IngClassParams
-			if params != nil && params.Spec.WAFv2ACLArn != "" {
-				explicitWebACLARNs.Insert(params.Spec.WAFv2ACLArn)
+
+			rawWebACLARN := ""
+			if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, member.Ing.Annotations); !exists {
+				continue
 			}
+			explicitWebACLARNs.Insert(rawWebACLARN)
 		}
 		if len(explicitWebACLARNs) == 0 {
 			return nil, nil

@@ -400,4 +400,4 @@ When this param is absent or empty, the controller will keep LoadBalancer WAFv2 
 Cluster administrators can use the optional `wafv2AclName` field to specify name of the Amazon WAFv2 web ACL.
 Only Regional WAFv2 is supported.
 When this param is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the param value to 'none'.
-You cannot specify 2 different web acl names in 2 different ingresses belonging to the same `IngressGroup`
+If the field is specified, LBC will ignore the 'alb.ingress.kubernetes.io/wafv2-acl-name' annotation.
