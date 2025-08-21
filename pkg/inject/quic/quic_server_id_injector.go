@@ -1,4 +1,4 @@
-package inject
+package quic
 
 import (
 	"context"
