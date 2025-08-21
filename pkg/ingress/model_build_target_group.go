@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 
@@ -230,11 +231,14 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 
 func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, svcAndIngAnnotations map[string]string, classCfg ClassConfiguration, svc *corev1.Service) (elbv2model.TargetType, error) {
 	rawTargetType := string(t.defaultTargetType)
-	_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixTargetType, &rawTargetType, svcAndIngAnnotations)
+	annotationTargetTypeExists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixTargetType, &rawTargetType, svcAndIngAnnotations)
 	if classCfg.IngClassParams != nil && classCfg.IngClassParams.Spec.TargetType != "" {
 		rawTargetType = string(classCfg.IngClassParams.Spec.TargetType)
 	}
 	if svc.Spec.Type == corev1.ServiceTypeExternalName && rawTargetType != string(elbv2model.TargetTypeIP) {
+		if annotationTargetTypeExists {
+			return "", fmt.Errorf("only targetType ip is valid for ExternalName services and not: %v", rawTargetType)
+		}
 		t.logger.Info("Target type will be ip since service is an ExternalName", "service", k8s.NamespacedName(svc))
 		rawTargetType = string(elbv2model.TargetTypeIP)
 	}
@@ -243,11 +247,11 @@ func (t *defaultModelBuildTask) buildTargetGroupTargetType(_ context.Context, sv
 		return elbv2model.TargetTypeInstance, nil
 	case string(elbv2model.TargetTypeIP):
 		if !t.enableIPTargetType {
-			return "", errors.Errorf("unsupported targetType: %v when EnableIPTargetType is %v", rawTargetType, t.enableIPTargetType)
+			return "", fmt.Errorf("unsupported targetType: %v when EnableIPTargetType is %v", rawTargetType, t.enableIPTargetType)
 		}
 		return elbv2model.TargetTypeIP, nil
 	default:
-		return "", errors.Errorf("unknown targetType: %v", rawTargetType)
+		return "", fmt.Errorf("unknown targetType: %v", rawTargetType)
 	}
 }
 
@@ -293,7 +297,7 @@ func (t *defaultModelBuildTask) buildTargetGroupProtocol(_ context.Context, svcA
 	case string(elbv2model.ProtocolHTTPS):
 		return elbv2model.ProtocolHTTPS, nil
 	default:
-		return "", errors.Errorf("backend protocol must be within [%v, %v]: %v", elbv2model.ProtocolHTTP, elbv2model.ProtocolHTTPS, rawBackendProtocol)
+		return "", fmt.Errorf("backend protocol must be within [%v, %v]: %v", elbv2model.ProtocolHTTP, elbv2model.ProtocolHTTPS, rawBackendProtocol)
 	}
 }
 
@@ -308,7 +312,7 @@ func (t *defaultModelBuildTask) buildTargetGroupProtocolVersion(_ context.Contex
 	case string(elbv2model.ProtocolVersionGRPC):
 		return elbv2model.ProtocolVersionGRPC, nil
 	default:
-		return "", errors.Errorf("backend protocol version must be within [%v, %v, %v]: %v", elbv2model.ProtocolVersionHTTP1, elbv2model.ProtocolVersionHTTP2, elbv2model.ProtocolVersionGRPC, rawBackendProtocolVersion)
+		return "", fmt.Errorf("backend protocol version must be within [%v, %v, %v]: %v", elbv2model.ProtocolVersionHTTP1, elbv2model.ProtocolVersionHTTP2, elbv2model.ProtocolVersionGRPC, rawBackendProtocolVersion)
 	}
 }
 
@@ -366,7 +370,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckPort(_ context.Contex
 
 	svcPort, err := k8s.LookupServicePort(svc, healthCheckPort)
 	if err != nil {
-		return intstr.IntOrString{}, errors.Wrap(err, "failed to resolve healthCheckPort")
+		return intstr.IntOrString{}, fmt.Errorf("failed to resolve healthCheckPort: %w", err)
 	}
 	if targetType == elbv2model.TargetTypeInstance {
 		return intstr.FromInt(int(svcPort.NodePort)), nil
@@ -386,7 +390,7 @@ func (t *defaultModelBuildTask) buildTargetGroupHealthCheckProtocol(_ context.Co
 	case string(elbv2model.ProtocolHTTPS):
 		return elbv2model.ProtocolHTTPS, nil
 	default:
-		return "", errors.Errorf("healthCheckProtocol must be within [%v, %v]", elbv2model.ProtocolHTTP, elbv2model.ProtocolHTTPS)
+		return "", fmt.Errorf("healthCheckProtocol must be within [%v, %v]", elbv2model.ProtocolHTTP, elbv2model.ProtocolHTTPS)
 	}
 }
 
