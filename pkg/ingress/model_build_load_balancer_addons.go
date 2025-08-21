@@ -32,26 +32,63 @@ func (t *defaultModelBuildTask) buildLoadBalancerAddOns(ctx context.Context, lbA
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(_ context.Context, lbARN core.StringToken) (*wafv2model.WebACLAssociation, error) {
+func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(ctx context.Context, lbARN core.StringToken) (*wafv2model.WebACLAssociation, error) {
 	explicitWebACLARNs := sets.NewString()
+	explicitWebACLNames := sets.NewString()
+
 	for _, member := range t.ingGroup.Members {
-		rawWebACLARN := ""
-		_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, member.Ing.Annotations)
-		if rawWebACLARN != "" {
+		if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.WAFv2ACLName != "" {
+			rawWebACLName := member.IngClassConfig.IngClassParams.Spec.WAFv2ACLName
+			explicitWebACLNames.Insert(rawWebACLName)
+			continue
+		}
+		rawWebACLName := ""
+		_ = t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLName, &rawWebACLName, member.Ing.Annotations)
+		if rawWebACLName != "" {
+			explicitWebACLNames.Insert(rawWebACLName)
+		}
+	}
+
+	webACLARN := ""
+
+	if len(explicitWebACLNames) == 0 {
+		for _, member := range t.ingGroup.Members {
+			if member.IngClassConfig.IngClassParams != nil && member.IngClassConfig.IngClassParams.Spec.WAFv2ACLArn != "" {
+				webACLARN = member.IngClassConfig.IngClassParams.Spec.WAFv2ACLArn
+				explicitWebACLARNs.Insert(webACLARN)
+				continue
+			}
+
+			rawWebACLARN := ""
+			if exists := t.annotationParser.ParseStringAnnotation(annotations.IngressSuffixWAFv2ACLARN, &rawWebACLARN, member.Ing.Annotations); !exists {
+				continue
+			}
 			explicitWebACLARNs.Insert(rawWebACLARN)
 		}
-		params := member.IngClassConfig.IngClassParams
-		if params != nil && params.Spec.WAFv2ACLArn != "" {
-			explicitWebACLARNs.Insert(params.Spec.WAFv2ACLArn)
+		if len(explicitWebACLARNs) == 0 {
+			return nil, nil
+		}
+		if len(explicitWebACLARNs) > 1 {
+			return nil, errors.Errorf("conflicting WAFv2 WebACL ARNs: %v", explicitWebACLARNs.List())
+		}
+		webACLARN, _ = explicitWebACLARNs.PopAny()
+	}
+
+	if len(explicitWebACLNames) > 1 {
+		return nil, errors.Errorf("conflicting WAFv2 WebACL names: %v", explicitWebACLNames.List())
+	}
+
+	if len(explicitWebACLNames) == 1 {
+		rawWebACLName, _ := explicitWebACLNames.PopAny()
+		if rawWebACLName != "none" {
+			var err error
+			webACLARN, err = t.webACLNameToArnMapper.getArnByName(ctx, rawWebACLName)
+			if err != nil {
+				return nil, errors.Errorf("couldn't find WAFv2 WebACL with name: %v", rawWebACLName)
+			}
 		}
 	}
-	if len(explicitWebACLARNs) == 0 {
-		return nil, nil
-	}
-	if len(explicitWebACLARNs) > 1 {
-		return nil, errors.Errorf("conflicting WAFv2 WebACL ARNs: %v", explicitWebACLARNs.List())
-	}
-	webACLARN, _ := explicitWebACLARNs.PopAny()
+
 	switch webACLARN {
 	case wafv2ACLARNNone:
 		association := wafv2model.NewWebACLAssociation(t.stack, resourceIDLoadBalancer, wafv2model.WebACLAssociationSpec{

@@ -1041,7 +1041,24 @@ Load balancer capacity unit reservation can be configured via following annotati
         - disable WAFV2
             ```alb.ingress.kubernetes.io/wafv2-acl-arn: none
             ```
-  
+
+- <a name="wafv2-acl-name">`alb.ingress.kubernetes.io/wafv2-acl-name`</a> specifies Name of the Amazon WAFv2 web ACL.
+
+    !!!warning ""
+        Only Regional WAFv2 is supported.
+
+    !!!note ""
+        When this annotation is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged.
+        To disable WAFv2, explicitly set the annotation value to 'none'.
+
+    !!!example
+        - enable WAFv2
+            ```alb.ingress.kubernetes.io/wafv2-acl-name: web-acl-name-1
+            ```
+        - disable WAFV2
+            ```alb.ingress.kubernetes.io/wafv2-acl-name: none
+            ```
+
 - <a name="shield-advanced-protection">`alb.ingress.kubernetes.io/shield-advanced-protection`</a> turns on / off the AWS Shield Advanced protection for the load balancer.
 
     !!!note ""

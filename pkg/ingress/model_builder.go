@@ -3,6 +3,7 @@ package ingress
 import (
 	"context"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	wafv2sdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"reflect"
 	"strconv"
@@ -39,6 +40,7 @@ import (
 const (
 	controllerName                      = "ingress"
 	defaultTargetGroupNameToARNCacheTTL = 20 * time.Minute
+	defaultWebACLNameToARNCacheTTL      = 60 * time.Minute
 )
 
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
@@ -49,7 +51,7 @@ type ModelBuilder interface {
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
 func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventRecorder,
-	ec2Client services.EC2, elbv2Client services.ELBV2, acmClient services.ACM,
+	ec2Client services.EC2, elbv2Client services.ELBV2, wafv2Client services.WAFv2, acmClient services.ACM,
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
@@ -86,6 +88,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		disableRestrictedSGRules:   disableRestrictedSGRules,
 		enableIPTargetType:         enableIPTargetType,
 		targetGroupNameToArnMapper: newTargetGroupNameToArnMapper(elbv2Client, defaultTargetGroupNameToARNCacheTTL),
+		webACLNameToArnMapper:      newWebACLNameToArnMapper(wafv2Client, defaultWebACLNameToARNCacheTTL),
 		logger:                     logger,
 		metricsCollector:           metricsCollector,
 	}
@@ -99,6 +102,7 @@ type defaultModelBuilder struct {
 	eventRecorder record.EventRecorder
 	ec2Client     services.EC2
 	elbv2Client   services.ELBV2
+	wafv2Client   services.WAFv2
 
 	vpcID       string
 	clusterName string
@@ -124,6 +128,7 @@ type defaultModelBuilder struct {
 	disableRestrictedSGRules   bool
 	enableIPTargetType         bool
 	targetGroupNameToArnMapper *targetGroupNameToArnMapper
+	webACLNameToArnMapper      *webACLNameToArnMapper
 
 	logger           logr.Logger
 	metricsCollector lbcmetrics.MetricCollector
@@ -139,6 +144,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		eventRecorder:              b.eventRecorder,
 		ec2Client:                  b.ec2Client,
 		elbv2Client:                b.elbv2Client,
+		wafv2Client:                b.wafv2Client,
 		vpcID:                      b.vpcID,
 		clusterName:                b.clusterName,
 		annotationParser:           b.annotationParser,
@@ -198,6 +204,7 @@ type defaultModelBuildTask struct {
 	eventRecorder          record.EventRecorder
 	ec2Client              services.EC2
 	elbv2Client            services.ELBV2
+	wafv2Client            services.WAFv2
 	vpcID                  string
 	clusterName            string
 	annotationParser       annotations.Parser
@@ -247,6 +254,7 @@ type defaultModelBuildTask struct {
 	frontendNlb                        *elbv2model.LoadBalancer
 	frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
 	targetGroupNameToArnMapper         *targetGroupNameToArnMapper
+	webACLNameToArnMapper              *webACLNameToArnMapper
 
 	metricsCollector lbcmetrics.MetricCollector
 }
@@ -531,6 +539,21 @@ type listenPortConfigWithIngress struct {
 	listenPortConfig listenPortConfig
 }
 
+type webACLNameToArnMapper struct {
+	wafv2Client services.WAFv2
+	cache       *cache.Expiring
+	cacheTTL    time.Duration
+	cacheMutex  sync.RWMutex
+}
+
+func newWebACLNameToArnMapper(wafv2Client services.WAFv2, ttl time.Duration) *webACLNameToArnMapper {
+	return &webACLNameToArnMapper{
+		wafv2Client: wafv2Client,
+		cache:       cache.NewExpiring(),
+		cacheTTL:    ttl,
+	}
+}
+
 type targetGroupNameToArnMapper struct {
 	elbv2Client services.ELBV2
 	cache       *cache.Expiring
@@ -568,4 +591,24 @@ func (t *targetGroupNameToArnMapper) getArnByName(ctx context.Context, targetGro
 	arn := *targetGroups[0].TargetGroupArn
 	t.cache.Set(targetGroupName, arn, t.cacheTTL)
 	return arn, nil
+}
+
+func (w *webACLNameToArnMapper) getArnByName(ctx context.Context, webACLName string) (string, error) {
+	w.cacheMutex.Lock()
+	defer w.cacheMutex.Unlock()
+
+	if rawCacheItem, exists := w.cache.Get(webACLName); exists {
+		return rawCacheItem.(string), nil
+	}
+	req := &wafv2sdk.GetWebACLInput{
+		Name: awssdk.String(webACLName),
+	}
+
+	webACL, err := w.wafv2Client.GetWebACLWithContext(ctx, req)
+	if err != nil {
+		return "", err
+	}
+	arn := webACL.WebACL.ARN
+	w.cache.Set(webACLName, arn, w.cacheTTL)
+	return *arn, nil
 }

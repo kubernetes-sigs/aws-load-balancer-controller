@@ -220,6 +220,15 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
            - key: routing.http.response.server.enabled
              value: "false"
     ```
+    - with wafv2AclName
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      wafv2AclName: "web-acl-name-1"
+    ```
 
 ### IngressClassParams specification
 
@@ -384,4 +393,11 @@ Cluster administrators can use `Listeners` field to specify the [Listener Attrib
 
 Cluster administrators can use the optional `wafv2AclArn` field to specify ARN for the Amazon WAFv2 web ACL.
 Only Regional WAFv2 is supported.
-When this annotation is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the annotation value to 'none'.
+When this param is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the annotation value to 'none'.
+
+#### spec.wafv2AclName
+
+Cluster administrators can use the optional `wafv2AclName` field to specify name of the Amazon WAFv2 web ACL.
+Only Regional WAFv2 is supported.
+When this param is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the param value to 'none'.
+If the field is specified, LBC will ignore the 'alb.ingress.kubernetes.io/wafv2-acl-name' annotation.
