@@ -1,4 +1,4 @@
-package inject
+package pod_readiness
 
 import "github.com/spf13/pflag"
 

@@ -1,4 +1,4 @@
-package inject
+package quic
 
 import "github.com/spf13/pflag"
 
