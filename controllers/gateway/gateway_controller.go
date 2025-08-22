@@ -164,10 +164,6 @@ type gatewayReconciler struct {
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes/finalizers,verbs=update
 
-// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes,verbs=get;list;watch
-// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=grpcroutes/finalizers,verbs=update
-
 func (r *gatewayReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
 	err := r.reconcileHelper(ctx, req)
@@ -484,18 +480,15 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 	tbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.TargetGroupConfiguration])
 	listenerRuleConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.ListenerRuleConfiguration])
 	httpRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.HTTPRoute])
-	grpcRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.GRPCRoute])
 	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
 	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("TargetGroupConfiguration"))
-	listenerRuleConfigEventHandler := eventhandlers.NewEnqueueRequestsForListenerRuleConfigurationEvent(httpRouteEventChan, grpcRouteEventChan, r.k8sClient, loggerPrefix.WithName("ListenerRuleConfiguration"))
-	grpcRouteEventHandler := eventhandlers.NewEnqueueRequestsForGRPCRouteEvent(r.k8sClient, r.eventRecorder,
-		loggerPrefix.WithName("GRPCRoute"))
+	listenerRuleConfigEventHandler := eventhandlers.NewEnqueueRequestsForListenerRuleConfigurationEvent(httpRouteEventChan, r.k8sClient, loggerPrefix.WithName("ListenerRuleConfiguration"))
 	httpRouteEventHandler := eventhandlers.NewEnqueueRequestsForHTTPRouteEvent(r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("HTTPRoute"))
-	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(httpRouteEventChan, grpcRouteEventChan, nil, nil, nil, r.k8sClient, r.eventRecorder,
+	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(httpRouteEventChan, nil, nil, nil, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("Service"), constants.ALBGatewayController)
-	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan, grpcRouteEventChan, nil, nil, nil, r.k8sClient, r.eventRecorder,
+	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan, nil, nil, nil, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("ReferenceGrant"))
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
 		return err
@@ -504,9 +497,6 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		return err
 	}
 	if err := ctrl.Watch(source.Channel(httpRouteEventChan, httpRouteEventHandler)); err != nil {
-		return err
-	}
-	if err := ctrl.Watch(source.Channel(grpcRouteEventChan, grpcRouteEventHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Channel(svcEventChan, svcEventHandler)); err != nil {
@@ -527,9 +517,6 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.HTTPRoute{}, httpRouteEventHandler)); err != nil {
 		return err
 	}
-	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.GRPCRoute{}, grpcRouteEventHandler)); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -548,9 +535,9 @@ func (r *gatewayReconciler) setupNLBGatewayControllerWatches(ctrl controller.Con
 		loggerPrefix.WithName("UDPRoute"))
 	tlsRouteEventHandler := eventhandlers.NewEnqueueRequestsForTLSRouteEvent(r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("TLSRoute"))
-	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(nil, nil, tcpRouteEventChan, udpRouteEventChan, tlsRouteEventChan, r.k8sClient, r.eventRecorder,
+	svcEventHandler := eventhandlers.NewEnqueueRequestsForServiceEvent(nil, tcpRouteEventChan, udpRouteEventChan, tlsRouteEventChan, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("Service"), constants.NLBGatewayController)
-	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(nil, nil, tcpRouteEventChan, udpRouteEventChan, tlsRouteEventChan, r.k8sClient, r.eventRecorder,
+	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(nil, tcpRouteEventChan, udpRouteEventChan, tlsRouteEventChan, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("ReferenceGrant"))
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
 		return err

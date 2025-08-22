@@ -1,14 +1,218 @@
 package routeutils
 
 import (
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"math"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
-	"time"
 )
 
 var (
 	defaultHostname = []string{"example.com"}
 )
+
+func Test_SortAllRulesByPrecedence(t *testing.T) {
+
+	httpOneRuleNoMatch := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "httpOneRuleNoMatch",
+				Namespace: "ns",
+			},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{
+				rule: &gwv1.HTTPRouteRule{},
+			},
+		},
+	}
+
+	httpOneRuleOneMatch := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "httpOneRuleOneMatch",
+				Namespace: "ns",
+			},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{
+				rule: &gwv1.HTTPRouteRule{
+					Matches: []gwv1.HTTPRouteMatch{
+						{
+							Path: &gwv1.HTTPPathMatch{
+								Type:  (*gwv1.PathMatchType)(awssdk.String("Exact")),
+								Value: awssdk.String("/foo"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	httpOneRuleMultipleMatches := &httpRouteDescription{
+		route: &gwv1.HTTPRoute{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "httpOneRuleMultipleMatches",
+				Namespace: "ns",
+			},
+		},
+		rules: []RouteRule{
+			&convertedHTTPRouteRule{
+				rule: &gwv1.HTTPRouteRule{
+					Matches: []gwv1.HTTPRouteMatch{
+						{
+							Path: &gwv1.HTTPPathMatch{
+								Type:  (*gwv1.PathMatchType)(awssdk.String("Exact")),
+								Value: awssdk.String("/foo"),
+							},
+						},
+						{
+							Path: &gwv1.HTTPPathMatch{
+								Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+								Value: awssdk.String("/other-route"),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	testCases := []struct {
+		name   string
+		input  []RouteDescriptor
+		output []RulePrecedence
+	}{
+		{
+			name:  "no routes",
+			input: make([]RouteDescriptor, 0),
+		},
+		{
+			name: "one http route, no rules attached",
+			input: []RouteDescriptor{
+				&httpRouteDescription{
+					route: &gwv1.HTTPRoute{
+						ObjectMeta: v1.ObjectMeta{
+							Name:      "http1",
+							Namespace: "ns",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one http route, one rule attached",
+			input: []RouteDescriptor{
+				httpOneRuleNoMatch,
+			},
+			output: []RulePrecedence{
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/httpOneRuleNoMatch",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      httpOneRuleNoMatch,
+						Rule:                 httpOneRuleNoMatch.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     math.MaxInt,
+						RouteCreateTimestamp: httpOneRuleNoMatch.GetRouteCreateTimestamp(),
+					},
+					HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{},
+					HTTPMatch:                        &gwv1.HTTPRouteMatch{},
+				},
+			},
+		},
+		{
+			name: "one http route, one rule attached with match",
+			input: []RouteDescriptor{
+				httpOneRuleOneMatch,
+			},
+			output: []RulePrecedence{
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/httpOneRuleOneMatch",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      httpOneRuleOneMatch,
+						Rule:                 httpOneRuleOneMatch.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     0,
+						RouteCreateTimestamp: httpOneRuleOneMatch.GetRouteCreateTimestamp(),
+					},
+					HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+						PathType:   3,
+						PathLength: 4,
+					},
+					HTTPMatch: &gwv1.HTTPRouteMatch{
+						Path: &gwv1.HTTPPathMatch{
+							Type:  (*gwv1.PathMatchType)(awssdk.String("Exact")),
+							Value: awssdk.String("/foo"),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "one http route, one rule attached with multiple matches",
+			input: []RouteDescriptor{
+				httpOneRuleMultipleMatches,
+			},
+			output: []RulePrecedence{
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/httpOneRuleMultipleMatches",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      httpOneRuleMultipleMatches,
+						Rule:                 httpOneRuleMultipleMatches.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     0,
+						RouteCreateTimestamp: httpOneRuleMultipleMatches.GetRouteCreateTimestamp(),
+					},
+					HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+						PathType:   3,
+						PathLength: 4,
+					},
+					HTTPMatch: &gwv1.HTTPRouteMatch{
+						Path: &gwv1.HTTPPathMatch{
+							Type:  (*gwv1.PathMatchType)(awssdk.String("Exact")),
+							Value: awssdk.String("/foo"),
+						},
+					},
+				},
+				{
+					CommonRulePrecedence: CommonRulePrecedence{
+						RouteNamespacedName:  "ns/httpOneRuleMultipleMatches",
+						Hostnames:            make([]string, 0),
+						RouteDescriptor:      httpOneRuleMultipleMatches,
+						Rule:                 httpOneRuleMultipleMatches.rules[0],
+						RuleIndexInRoute:     0,
+						MatchIndexInRule:     1,
+						RouteCreateTimestamp: httpOneRuleMultipleMatches.GetRouteCreateTimestamp(),
+					},
+					HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{
+						PathType:   2,
+						PathLength: 12,
+					},
+					HTTPMatch: &gwv1.HTTPRouteMatch{
+						Path: &gwv1.HTTPPathMatch{
+							Type:  (*gwv1.PathMatchType)(awssdk.String("PathPrefix")),
+							Value: awssdk.String("/other-route"),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			result := SortAllRulesByPrecedence(tc.input)
+			assert.Equal(t, tc.output, result)
+		})
+	}
+}
 
 func Test_compareHttpRulePrecedence(t *testing.T) {
 	tests := []struct {
@@ -107,192 +311,6 @@ func Test_compareHttpRulePrecedence(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := compareHttpRulePrecedence(tt.ruleOne, tt.ruleTwo)
-			assert.Equal(t, tt.want, got, tt.reason)
-		})
-	}
-}
-
-func Test_compareGrpcRulePrecedence(t *testing.T) {
-	now := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
-	earlier := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-
-	tests := []struct {
-		name    string
-		ruleOne RulePrecedence
-		ruleTwo RulePrecedence
-		want    bool
-		reason  string
-	}{
-		{
-			name: "hostname - exact vs wildcard",
-			ruleOne: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"api.example.com"},
-				},
-			},
-			ruleTwo: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: []string{"*.example.com"},
-				},
-			},
-			want:   true,
-			reason: "exact hostname has higher precedence than wildcard",
-		},
-		{
-			name: "grpc route service precedence",
-			ruleOne: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:      1,
-					ServiceLength: 10,
-				},
-			},
-			ruleTwo: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:      1,
-					ServiceLength: 5,
-				},
-			},
-			want:   true,
-			reason: "rule with longer service length has higher precedence",
-		},
-		{
-			name: "grpc header count precedence",
-			ruleOne: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:    1,
-					HeaderCount: 10,
-				},
-			},
-			ruleTwo: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:    1,
-					HeaderCount: 5,
-				},
-			},
-			want:   true,
-			reason: "more headers has higher precedence",
-		},
-		{
-			name: "grpc method precedence",
-			ruleOne: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:     1,
-					MethodLength: 10,
-				},
-			},
-			ruleTwo: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:     1,
-					MethodLength: 5,
-				},
-			},
-			want:   true,
-			reason: "rules with longer method length has higher precedence",
-		},
-		{
-			name: "grpc service precedence over method",
-			ruleOne: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:      1,
-					ServiceLength: 5,
-				},
-			},
-			ruleTwo: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames: defaultHostname,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:     1,
-					MethodLength: 10,
-				},
-			},
-			want:   true,
-			reason: "rules with service has higher precedence than method",
-		},
-		{
-			name: "creation timestamp precedence",
-			ruleOne: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            defaultHostname,
-					RouteCreateTimestamp: earlier,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:      1,
-					ServiceLength: 10,
-					MethodLength:  10,
-					HeaderCount:   10,
-				},
-			},
-			ruleTwo: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:            defaultHostname,
-					RouteCreateTimestamp: now,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:      1,
-					ServiceLength: 10,
-					MethodLength:  10,
-					HeaderCount:   10,
-				},
-			},
-			want:   true,
-			reason: "earlier creation time has higher precedence",
-		},
-		{
-			name: "rule index precedence",
-			ruleOne: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:        defaultHostname,
-					RuleIndexInRoute: 1,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:      1,
-					ServiceLength: 10,
-					MethodLength:  10,
-					HeaderCount:   10,
-				},
-			},
-			ruleTwo: RulePrecedence{
-				CommonRulePrecedence: CommonRulePrecedence{
-					Hostnames:        defaultHostname,
-					RuleIndexInRoute: 3,
-				},
-				GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{
-					PathType:      1,
-					ServiceLength: 10,
-					MethodLength:  10,
-					HeaderCount:   10,
-				},
-			},
-			want:   true,
-			reason: "lower rule index has higher precedence",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := compareGrpcRulePrecedence(tt.ruleOne, tt.ruleTwo)
 			assert.Equal(t, tt.want, got, tt.reason)
 		})
 	}

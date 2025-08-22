@@ -428,8 +428,6 @@ func (builder *targetGroupBuilderImpl) inferTargetGroupProtocolFromRoute(route r
 		return elbv2model.ProtocolUDP
 	case routeutils.HTTPRouteKind:
 		return elbv2model.ProtocolHTTP
-	case routeutils.GRPCRouteKind:
-		return elbv2model.ProtocolHTTP
 	case routeutils.TLSRouteKind:
 		if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
 			return elbv2model.ProtocolTLS
@@ -454,10 +452,6 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupProtocolVersion(targetGro
 		// TODO - We can infer GRPC here from route
 		pv := elbv2model.ProtocolVersion(*targetGroupProps.ProtocolVersion)
 		return &pv
-	}
-
-	if route.GetRouteKind() == routeutils.GRPCRouteKind {
-		return &grpc
 	}
 
 	return &http1

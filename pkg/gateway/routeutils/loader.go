@@ -32,7 +32,6 @@ Listener Protocol |	TLS Mode 	 | Route Type Supported
 TLS 	          | Passthrough  | TLSRoute
 TLS 	          | Terminate 	 | TCPRoute
 HTTPS 	          | Terminate 	 | HTTPRoute
-GRPC 	          | Terminate 	 | GRPCRoute
 */
 
 // L4RouteFilter use this to load routes only pertaining to the L4 Gateway Implementation (AWS NLB)
@@ -42,7 +41,7 @@ var L4RouteFilter LoadRouteFilter = &routeFilterImpl{
 
 // L7RouteFilter use this to load routes only pertaining to the L7 Gateway Implementation (AWS ALB)
 var L7RouteFilter LoadRouteFilter = &routeFilterImpl{
-	acceptedKinds: sets.New(HTTPRouteKind, GRPCRouteKind),
+	acceptedKinds: sets.New(HTTPRouteKind),
 }
 
 // Loader will load all data Kubernetes that are pertinent to a gateway (Routes, Services, Target Group Configurations).
