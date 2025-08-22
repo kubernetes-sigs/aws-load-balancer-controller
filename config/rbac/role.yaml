@@ -87,6 +87,32 @@ rules:
 - apiGroups:
   - elbv2.k8s.aws
   resources:
+  - globalaccelerators
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - globalaccelerators/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
+  - globalaccelerators/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
   - ingressclassparams
   verbs:
   - get
