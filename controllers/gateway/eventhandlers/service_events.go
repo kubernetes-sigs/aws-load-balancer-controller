@@ -19,13 +19,11 @@ import (
 // NewenqueueRequestsForServiceEvent detects changes to TargetGroupConfiguration and enqueues all gateway classes and gateways that
 // would effected by a change in the TargetGroupConfiguration
 func NewEnqueueRequestsForServiceEvent(httpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.HTTPRoute],
-	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute],
 	tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute],
 	udpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute],
 	tlsRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TLSRoute], k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger, gwController string) handler.TypedEventHandler[*corev1.Service, reconcile.Request] {
 	return &enqueueRequestsForServiceEvent{
 		httpRouteEventChan: httpRouteEventChan,
-		grpcRouteEventChan: grpcRouteEventChan,
 		tcpRouteEventChan:  tcpRouteEventChan,
 		udpRouteEventChan:  udpRouteEventChan,
 		tlsRouteEventChan:  tlsRouteEventChan,
@@ -40,7 +38,6 @@ var _ handler.TypedEventHandler[*corev1.Service, reconcile.Request] = (*enqueueR
 
 type enqueueRequestsForServiceEvent struct {
 	httpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.HTTPRoute]
-	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute]
 	tcpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute]
 	udpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute]
 	tlsRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.TLSRoute]
@@ -142,13 +139,6 @@ func (h *enqueueRequestsForServiceEvent) enqueueImpactedL7Routes(
 				"httproute", route.GetRouteNamespacedName())
 			h.httpRouteEventChan <- event.TypedGenericEvent[*gatewayv1.HTTPRoute]{
 				Object: route.GetRawRoute().(*gatewayv1.HTTPRoute),
-			}
-		case routeutils.GRPCRouteKind:
-			h.logger.V(1).Info("enqueue grpcroute for service event",
-				"service", svc.Name,
-				"grpcroute", route.GetRouteNamespacedName())
-			h.grpcRouteEventChan <- event.TypedGenericEvent[*gatewayv1.GRPCRoute]{
-				Object: route.GetRawRoute().(*gatewayv1.GRPCRoute),
 			}
 		}
 	}

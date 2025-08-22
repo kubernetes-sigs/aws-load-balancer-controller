@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
@@ -85,11 +84,9 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			attachmentHelper := listenerAttachmentHelperImpl{
 				logger: logr.Discard(),
 			}
-			hostnameFromHttpRoute := map[types.NamespacedName][]gwv1.Hostname{}
-			hostnameFromGrpcRoute := map[types.NamespacedName][]gwv1.Hostname{}
 			result, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
-			}, route, hostnameFromHttpRoute, hostnameFromGrpcRoute)
+			}, route)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, result)
 			if tc.expectedStatusUpdate == nil {
@@ -543,93 +540,6 @@ func Test_hostnameCheck(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-		})
-	}
-}
-
-func Test_crossServingHostnameUniquenessCheck(t *testing.T) {
-	hostnames := []gwv1.Hostname{"example.com"}
-	namespace := "test-namespace"
-	httpRouteName := "http-route-name"
-	grpcRouteName := "grpc-route-name"
-	tests := []struct {
-		name                    string
-		route                   preLoadRouteDescriptor
-		hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname
-		hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname
-		expected                bool
-	}{
-		{
-			name: "GRPC route only - should pass",
-			route: &mockRoute{
-				routeKind:      GRPCRouteKind,
-				hostnames:      hostnames,
-				namespacedName: types.NamespacedName{Name: grpcRouteName, Namespace: namespace},
-			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			expected:                true,
-		},
-		{
-			name: "HTTP route only - should pass",
-			route: &mockRoute{
-				routeKind:      HTTPRouteKind,
-				hostnames:      hostnames,
-				namespacedName: types.NamespacedName{Name: httpRouteName, Namespace: namespace},
-			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			expected:                true,
-		},
-		{
-			name: "GRPC route with overlapping HTTP route hostname - should fail",
-			route: &mockRoute{
-				routeKind:      GRPCRouteKind,
-				hostnames:      hostnames,
-				namespacedName: types.NamespacedName{Name: grpcRouteName, Namespace: namespace},
-			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{
-				{Name: httpRouteName, Namespace: namespace}: hostnames,
-			},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			expected:                false,
-		},
-		{
-			name: "HTTP route with overlapping GRPC route hostname - should fail",
-			route: &mockRoute{
-				routeKind:      HTTPRouteKind,
-				hostnames:      hostnames,
-				namespacedName: types.NamespacedName{Name: httpRouteName, Namespace: namespace},
-			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{
-				{Name: grpcRouteName, Namespace: namespace}: hostnames,
-			},
-			expected: false,
-		},
-		{
-			name: "GRPC route with non-overlapping HTTP route hostname - should pass",
-			route: &mockRoute{
-				routeKind:      GRPCRouteKind,
-				hostnames:      []gwv1.Hostname{"grpc.example.com"},
-				namespacedName: types.NamespacedName{Name: grpcRouteName, Namespace: namespace},
-			},
-			hostnamesFromHttpRoutes: map[types.NamespacedName][]gwv1.Hostname{
-				{Name: httpRouteName, Namespace: namespace}: {"http.example.com"},
-			},
-			hostnamesFromGrpcRoutes: map[types.NamespacedName][]gwv1.Hostname{},
-			expected:                true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			helper := &listenerAttachmentHelperImpl{
-				logger: logr.Discard(),
-			}
-
-			result, _ := helper.crossServingHostnameUniquenessCheck(tt.route, tt.hostnamesFromHttpRoutes, tt.hostnamesFromGrpcRoutes)
-			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

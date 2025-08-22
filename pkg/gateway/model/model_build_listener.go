@@ -197,8 +197,6 @@ func (l listenerBuilderImpl) buildListenerRules(stack core.Stack, ls *elbv2model
 		switch route.GetRouteKind() {
 		case routeutils.HTTPRouteKind:
 			conditionsList, err = routeutils.BuildHttpRuleConditions(ruleWithPrecedence)
-		case routeutils.GRPCRouteKind:
-			conditionsList, err = routeutils.BuildGrpcRuleConditions(ruleWithPrecedence)
 		}
 		if err != nil {
 			return err

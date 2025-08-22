@@ -1,7 +1,6 @@
 package routeutils
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -139,98 +138,4 @@ func buildHttpMethodCondition(method *gwv1.HTTPMethod) []elbv2model.RuleConditio
 			},
 		},
 	}
-}
-
-func BuildGrpcRuleConditions(rule RulePrecedence) ([]elbv2model.RuleCondition, error) {
-	// handle host header
-	hostnamesStringList := rule.CommonRulePrecedence.Hostnames
-	var conditions []elbv2model.RuleCondition
-	if hostnamesStringList != nil && len(hostnamesStringList) > 0 {
-		conditions = append(conditions, elbv2model.RuleCondition{
-			Field: elbv2model.RuleConditionFieldHostHeader,
-			HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
-				Values: hostnamesStringList,
-			},
-		})
-	}
-
-	match := rule.GRPCMatch
-
-	if match == nil {
-		// If Method field is not specified, all services and methods will match.
-		conditions = append(conditions, elbv2model.RuleCondition{
-			Field: elbv2model.RuleConditionFieldPathPattern,
-			PathPatternConfig: &elbv2model.PathPatternConditionConfig{
-				Values: []string{"/*"},
-			},
-		})
-		return conditions, nil
-	}
-
-	// handle method match
-	if match.Method == nil {
-		conditions = append(conditions, elbv2model.RuleCondition{
-			Field: elbv2model.RuleConditionFieldPathPattern,
-			PathPatternConfig: &elbv2model.PathPatternConditionConfig{
-				Values: []string{"/*"},
-			},
-		})
-	} else {
-		methodCondition, err := buildGrpcMethodCondition(match.Method)
-		if err != nil {
-			return nil, err
-		}
-		conditions = append(conditions, methodCondition...)
-	}
-
-	// handle header match
-	if match.Headers != nil && len(match.Headers) > 0 {
-		headerConditions := buildGrpcHeaderCondition(match.Headers)
-		conditions = append(conditions, headerConditions...)
-	}
-
-	return conditions, nil
-}
-
-func buildGrpcHeaderCondition(headers []gwv1.GRPCHeaderMatch) []elbv2model.RuleCondition {
-	var conditions []elbv2model.RuleCondition
-	for _, header := range headers {
-		headerCondition := []elbv2model.RuleCondition{
-			{
-				Field: elbv2model.RuleConditionFieldHTTPHeader,
-				HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
-					HTTPHeaderName: string(header.Name),
-					// for a given HTTPHeaderName, ALB rule can accept a list of values. However, gateway route headers only accept one value per name, and name cannot duplicate.
-					Values: []string{header.Value},
-				},
-			},
-		}
-		conditions = append(conditions, headerCondition...)
-	}
-	return conditions
-}
-
-// buildGrpcMethodCondition - we handle regex and exact type in same way since regex is taken as-is
-// Exact method type will not accept wildcards - this is checked by kubebuilder validation
-// Regular expression method type only works with wildcard * and ? for now
-func buildGrpcMethodCondition(method *gwv1.GRPCMethodMatch) ([]elbv2model.RuleCondition, error) {
-	var pathValue string
-	if method.Service != nil && method.Method != nil {
-		pathValue = fmt.Sprintf("/%s/%s", *method.Service, *method.Method)
-	} else if method.Service != nil {
-		pathValue = fmt.Sprintf("/%s/*", *method.Service)
-	} else if method.Method != nil {
-		pathValue = fmt.Sprintf("/*/%s", *method.Method)
-	} else {
-		return nil, errors.Errorf("Invalid grpc method match: %v", method)
-	}
-
-	return []elbv2model.RuleCondition{
-		{
-			Field: elbv2model.RuleConditionFieldPathPattern,
-			PathPatternConfig: &elbv2model.PathPatternConditionConfig{
-				Values: []string{pathValue},
-			},
-		},
-	}, nil
 }

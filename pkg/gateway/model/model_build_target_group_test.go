@@ -1288,16 +1288,6 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolHTTP,
 		},
 		{
-			name:   "alb - auto detect - grpc",
-			lbType: elbv2model.LoadBalancerTypeApplication,
-			route: &routeutils.MockRoute{
-				Kind:      routeutils.GRPCRouteKind,
-				Name:      "r1",
-				Namespace: "ns",
-			},
-			expected: elbv2model.ProtocolHTTP,
-		},
-		{
 			name:   "alb - auto detect - tls",
 			lbType: elbv2model.LoadBalancerTypeApplication,
 			route: &routeutils.MockRoute{
@@ -1493,7 +1483,6 @@ func Test_buildTargetGroupProtocolVersion(t *testing.T) {
 	http2Gw := elbv2gw.ProtocolVersionHTTP2
 	http2Elb := elbv2model.ProtocolVersionHTTP2
 	http1Elb := elbv2model.ProtocolVersionHTTP1
-	grpcElb := elbv2model.ProtocolVersionGRPC
 	testCases := []struct {
 		name             string
 		loadBalancerType elbv2model.LoadBalancerType
@@ -1519,12 +1508,6 @@ func Test_buildTargetGroupProtocolVersion(t *testing.T) {
 			route:            &routeutils.MockRoute{Kind: routeutils.HTTPRouteKind},
 			loadBalancerType: elbv2model.LoadBalancerTypeApplication,
 			expected:         &http1Elb,
-		},
-		{
-			name:             "alb - no props - grpc",
-			route:            &routeutils.MockRoute{Kind: routeutils.GRPCRouteKind},
-			loadBalancerType: elbv2model.LoadBalancerTypeApplication,
-			expected:         &grpcElb,
 		},
 		{
 			name:             "alb - with props",

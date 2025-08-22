@@ -84,8 +84,6 @@ func (d *routeReconcilerImpl) handleRouteStatusUpdate(routeData routeutils.Route
 	switch routeKind {
 	case "HTTPRoute":
 		route = &gwv1.HTTPRoute{}
-	case "GRPCRoute":
-		route = &gwv1.GRPCRoute{}
 	case "UDPRoute":
 		route = &gwalpha2.UDPRoute{}
 	case "TCPRoute":
@@ -123,13 +121,6 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 
 	switch r := route.(type) {
 	case *gwv1.HTTPRoute:
-		controllerName = constants.ALBGatewayController
-		if r.Status.Parents == nil {
-			r.Status.Parents = []gwv1.RouteParentStatus{}
-		}
-		originalRouteStatus = r.Status.Parents
-		ParentRefs = r.Spec.ParentRefs
-	case *gwv1.GRPCRoute:
 		controllerName = constants.ALBGatewayController
 		if r.Status.Parents == nil {
 			r.Status.Parents = []gwv1.RouteParentStatus{}
@@ -194,8 +185,6 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 
 	switch r := route.(type) {
 	case *gwv1.HTTPRoute:
-		r.Status.Parents = newRouteStatus
-	case *gwv1.GRPCRoute:
 		r.Status.Parents = newRouteStatus
 	case *gwalpha2.TLSRoute:
 		r.Status.Parents = newRouteStatus
@@ -365,8 +354,6 @@ func getRouteStatus(route client.Object) []gwv1.RouteParentStatus {
 
 	switch r := route.(type) {
 	case *gwv1.HTTPRoute:
-		routeStatus = r.Status.Parents
-	case *gwv1.GRPCRoute:
 		routeStatus = r.Status.Parents
 	case *gwalpha2.TLSRoute:
 		routeStatus = r.Status.Parents

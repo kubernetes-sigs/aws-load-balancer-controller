@@ -251,28 +251,6 @@ rules:
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
-  - grpcroutes
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - gateway.networking.k8s.io
-  resources:
-  - grpcroutes/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - gateway.networking.k8s.io
-  resources:
-  - grpcroutes/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - gateway.networking.k8s.io
-  resources:
   - httproutes
   verbs:
   - get
