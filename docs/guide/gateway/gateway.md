@@ -10,7 +10,7 @@ L4 routes (TCPRoute, UDPRoute, TLSRoute) with an AWS NLB. It satisfies L7 routes
 Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not supported.
 
 
-NOTE: The LBC will is able to "upgrade" HTTPRoutes in order to support GRPC traffic. It does not natively support GRPCRoutes,
+NOTE: The LBC is able to "upgrade" HTTPRoutes in order to support GRPC traffic. It does not natively support GRPCRoutes,
 due to limitations with the AWS ALB GRPC implementation. Please see our documentation about using TargetGroupConfiguration
 to support HTTPRoute upgrades to GRPC traffic.
 
