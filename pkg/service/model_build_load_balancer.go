@@ -370,22 +370,25 @@ func (t *defaultModelBuildTask) buildLoadBalancerSubnetMappings(_ context.Contex
 			Name:   awssdk.String("domain"),
 			Values: []string{"vpc"},
 		})
-		filters = append(filters, ec2types.Filter{
-			Name:   awssdk.String("association-id"),
-			Values: []string{""}, // Only unassociated
-		})
 		addresses, err := t.ec2Client.DescribeAddressesAsList(context.Background(), &ec2.DescribeAddressesInput{
 			Filters: filters,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to describe EIPs by tags")
 		}
-		if len(addresses) < len(ec2Subnets) {
-			return nil, errors.Errorf("not enough unassociated EIPs with specified tags; needed %d, found %d", len(ec2Subnets), len(addresses))
+		// Filter unassociated EIPs client-side
+		var unassociatedAddresses []ec2types.Address
+		for _, addr := range addresses {
+			if addr.AssociationId == nil || awssdk.ToString(addr.AssociationId) == "" {
+				unassociatedAddresses = append(unassociatedAddresses, addr)
+			}
+		}
+		if len(unassociatedAddresses) < len(ec2Subnets) {
+			return nil, errors.Errorf("not enough unassociated EIPs with specified tags; needed %d, found %d", len(ec2Subnets), len(unassociatedAddresses))
 		}
 		eipAllocation = make([]string, len(ec2Subnets))
 		for i := range ec2Subnets {
-			eipAllocation[i] = awssdk.ToString(addresses[i].AllocationId)
+			eipAllocation[i] = awssdk.ToString(unassociatedAddresses[i].AllocationId)
 		}
 		eipConfigured = true
 	}
