@@ -1,7 +1,6 @@
 package routeutils
 
 import (
-	"math"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sort"
 	"strings"
@@ -11,9 +10,18 @@ import (
 type RulePrecedence struct {
 	CommonRulePrecedence CommonRulePrecedence
 	HTTPMatch            *v1.HTTPRouteMatch
+	GRPCMatch            *v1.GRPCRouteMatch
 
 	// factors determining precedence
 	HttpSpecificRulePrecedenceFactor *HttpSpecificRulePrecedenceFactor
+	GrpcSpecificRulePrecedenceFactor *GrpcSpecificRulePrecedenceFactor
+}
+
+type GrpcSpecificRulePrecedenceFactor struct {
+	PathType      int // 3=exact, 1=regex
+	ServiceLength int // grpcRouteMatch Method - service characters number
+	MethodLength  int // grpcRouteMatch Method - method characters number
+	HeaderCount   int // headers count
 }
 
 type HttpSpecificRulePrecedenceFactor struct {
@@ -38,6 +46,8 @@ type CommonRulePrecedence struct {
 
 func SortAllRulesByPrecedence(routes []RouteDescriptor) []RulePrecedence {
 	var allRoutes []RulePrecedence
+	var httpRoutes []RulePrecedence
+	var grpcRoutes []RulePrecedence
 
 	for _, route := range routes {
 		routeInfo := getCommonRouteInfo(route)
@@ -57,29 +67,40 @@ func SortAllRulesByPrecedence(routes []RouteDescriptor) []RulePrecedence {
 					}
 					// set HttpSpecificRulePrecedenceFactor
 					getHttpMatchPrecedenceInfo(&httpMatch, &match)
-					allRoutes = append(allRoutes, match)
+					httpRoutes = append(httpRoutes, match)
 				}
-
-				if len(r.Matches) == 0 {
+			case *v1.GRPCRouteRule:
+				for matchIndex, grpcMatch := range r.Matches {
 					common := routeInfo
 					common.Rule = rule
 					common.RuleIndexInRoute = ruleIndex
-					common.MatchIndexInRule = math.MaxInt
+					common.MatchIndexInRule = matchIndex
 					match := RulePrecedence{
-						HTTPMatch:                        &v1.HTTPRouteMatch{},
-						HttpSpecificRulePrecedenceFactor: &HttpSpecificRulePrecedenceFactor{},
+						GRPCMatch:                        &grpcMatch,
+						GrpcSpecificRulePrecedenceFactor: &GrpcSpecificRulePrecedenceFactor{},
 						CommonRulePrecedence:             common,
 					}
-					allRoutes = append(allRoutes, match)
+					// set GrpcSpecificRulePrecedenceFactor
+					getGrpcMatchPrecedenceInfo(&grpcMatch, &match)
+					grpcRoutes = append(grpcRoutes, match)
 				}
 			}
 		}
 	}
 
 	// sort http rules based on precedence
-	sort.Slice(allRoutes, func(i, j int) bool {
-		return compareHttpRulePrecedence(allRoutes[i], allRoutes[j])
+	sort.Slice(httpRoutes, func(i, j int) bool {
+		return compareHttpRulePrecedence(httpRoutes[i], httpRoutes[j])
 	})
+
+	// sort grpc rules based on precedence
+	sort.Slice(grpcRoutes, func(i, j int) bool {
+		return compareGrpcRulePrecedence(grpcRoutes[i], grpcRoutes[j])
+	})
+
+	// append with HTTP routes first since it is usually more specific
+	allRoutes = append(allRoutes, httpRoutes...)
+	allRoutes = append(allRoutes, grpcRoutes...)
 	return allRoutes
 }
 
@@ -168,6 +189,31 @@ func compareHttpRulePrecedence(ruleOne RulePrecedence, ruleTwo RulePrecedence) b
 	return compareCommonTieBreakers(ruleOne, ruleTwo)
 }
 
+func compareGrpcRulePrecedence(ruleOne RulePrecedence, ruleTwo RulePrecedence) bool {
+	precedence := getHostnameListPrecedenceOrder(ruleOne.CommonRulePrecedence.Hostnames, ruleTwo.CommonRulePrecedence.Hostnames)
+	if precedence != 0 {
+		return precedence < 0 // -1 means first hostname has higher precedence
+	}
+	// equal hostname precedence, sort by other factors
+	// compare path match type (exact  > regex)
+	if ruleOne.GrpcSpecificRulePrecedenceFactor.PathType != ruleTwo.GrpcSpecificRulePrecedenceFactor.PathType {
+		return ruleOne.GrpcSpecificRulePrecedenceFactor.PathType > ruleTwo.GrpcSpecificRulePrecedenceFactor.PathType
+	}
+	// compare service length
+	if ruleOne.GrpcSpecificRulePrecedenceFactor.ServiceLength != ruleTwo.GrpcSpecificRulePrecedenceFactor.ServiceLength {
+		return ruleOne.GrpcSpecificRulePrecedenceFactor.ServiceLength > ruleTwo.GrpcSpecificRulePrecedenceFactor.ServiceLength
+	}
+	// compare method length
+	if ruleOne.GrpcSpecificRulePrecedenceFactor.MethodLength != ruleTwo.GrpcSpecificRulePrecedenceFactor.MethodLength {
+		return ruleOne.GrpcSpecificRulePrecedenceFactor.MethodLength > ruleTwo.GrpcSpecificRulePrecedenceFactor.MethodLength
+	}
+	// compare header count
+	if ruleOne.GrpcSpecificRulePrecedenceFactor.HeaderCount != ruleTwo.GrpcSpecificRulePrecedenceFactor.HeaderCount {
+		return ruleOne.GrpcSpecificRulePrecedenceFactor.HeaderCount > ruleTwo.GrpcSpecificRulePrecedenceFactor.HeaderCount
+	}
+	return compareCommonTieBreakers(ruleOne, ruleTwo)
+}
+
 func compareCommonTieBreakers(ruleOne RulePrecedence, ruleTwo RulePrecedence) bool {
 	// compare creation timestamp
 	if !ruleOne.CommonRulePrecedence.RouteCreateTimestamp.Equal(ruleTwo.CommonRulePrecedence.RouteCreateTimestamp) {
@@ -224,6 +270,35 @@ func getHttpRoutePathType(path *v1.HTTPPathMatch) int {
 	case v1.PathMatchPathPrefix:
 		return 2
 	case v1.PathMatchRegularExpression:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// getGrpcMatchPrecedenceInfo
+func getGrpcMatchPrecedenceInfo(grpcMatch *v1.GRPCRouteMatch, matchPrecedence *RulePrecedence) {
+	matchPrecedence.GrpcSpecificRulePrecedenceFactor.PathType = getGrpcRoutePathType(grpcMatch.Method)
+	matchPrecedence.GrpcSpecificRulePrecedenceFactor.HeaderCount = len(grpcMatch.Headers)
+	if grpcMatch.Method != nil {
+		if grpcMatch.Method.Service != nil {
+			matchPrecedence.GrpcSpecificRulePrecedenceFactor.ServiceLength = len(*grpcMatch.Method.Service)
+		}
+		if grpcMatch.Method.Method != nil {
+			matchPrecedence.GrpcSpecificRulePrecedenceFactor.MethodLength = len(*grpcMatch.Method.Method)
+		}
+	}
+}
+
+// getGrpcRoutePathTypeAndLength returns path type for grpc
+func getGrpcRoutePathType(method *v1.GRPCMethodMatch) int {
+	if method == nil {
+		return 0
+	}
+	switch *method.Type {
+	case v1.GRPCMethodMatchExact:
+		return 3
+	case v1.GRPCMethodMatchRegularExpression:
 		return 1
 	default:
 		return 0

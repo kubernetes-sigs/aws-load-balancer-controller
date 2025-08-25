@@ -18,12 +18,14 @@ import (
 
 // NewEnqueueRequestsForReferenceGrantEvent creates handler for ReferenceGrant resources
 func NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.HTTPRoute],
+	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute],
 	tcpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute],
 	udpRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute],
 	tlsRouteEventChan chan<- event.TypedGenericEvent[*gwalpha2.TLSRoute],
 	k8sClient client.Client, eventRecorder record.EventRecorder, logger logr.Logger) handler.TypedEventHandler[*gwbeta1.ReferenceGrant, reconcile.Request] {
 	return &enqueueRequestsForReferenceGrantEvent{
 		httpRouteEventChan: httpRouteEventChan,
+		grpcRouteEventChan: grpcRouteEventChan,
 		tcpRouteEventChan:  tcpRouteEventChan,
 		udpRouteEventChan:  udpRouteEventChan,
 		tlsRouteEventChan:  tlsRouteEventChan,
@@ -38,6 +40,7 @@ var _ handler.TypedEventHandler[*gwbeta1.ReferenceGrant, reconcile.Request] = (*
 // enqueueRequestsForReferenceGrantEvent handles ReferenceGrant events
 type enqueueRequestsForReferenceGrantEvent struct {
 	httpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.HTTPRoute]
+	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute]
 	tcpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.TCPRoute]
 	udpRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.UDPRoute]
 	tlsRouteEventChan  chan<- event.TypedGenericEvent[*gwalpha2.TLSRoute]
@@ -101,6 +104,21 @@ func (h *enqueueRequestsForReferenceGrantEvent) enqueueImpactedRoutes(ctx contex
 
 			} else {
 				h.logger.Error(err, "Unable to list impacted http routes for reference grant event handler")
+			}
+		case string(routeutils.GRPCRouteKind):
+			if h.grpcRouteEventChan == nil {
+				continue
+			}
+			routes, err := routeutils.ListGRPCRoutes(ctx, h.k8sClient, &client.ListOptions{Namespace: string(impactedFrom.Namespace)})
+			if err == nil {
+				for _, route := range routes {
+					h.grpcRouteEventChan <- event.TypedGenericEvent[*gatewayv1.GRPCRoute]{
+						Object: route.GetRawRoute().(*gatewayv1.GRPCRoute),
+					}
+				}
+
+			} else {
+				h.logger.Error(err, "Unable to list impacted grpc routes for reference grant event handler")
 			}
 		case string(routeutils.TCPRouteKind):
 			if h.tcpRouteEventChan == nil {

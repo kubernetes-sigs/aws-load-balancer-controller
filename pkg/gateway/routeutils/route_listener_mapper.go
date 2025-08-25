@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -46,6 +47,9 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 
 	// Next, greedily looking for the route to attach to.
 	for _, listener := range gw.Spec.Listeners {
+		// used for cross serving check
+		hostnamesFromHttpRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
+		hostnamesFromGrpcRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
 		for _, route := range routesForGateway {
 			// We need to check both paths (route -> listener) and (listener -> route)
 			// for connection viability.
@@ -54,7 +58,7 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 				continue
 			}
 
-			allowedAttachment, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route)
+			allowedAttachment, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
 			if err != nil {
 				return nil, failedRoutes, err
 			}

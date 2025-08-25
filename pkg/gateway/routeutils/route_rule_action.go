@@ -118,6 +118,7 @@ func buildRedirectRoutingAction(rule RouteRule, route RouteDescriptor, routingAc
 			}
 			return redirectActions, nil
 		}
+		// TODO: add case for GRPC
 	}
 	return nil, nil
 }

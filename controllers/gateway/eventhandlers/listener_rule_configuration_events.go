@@ -15,9 +15,10 @@ import (
 
 // NewEnqueueRequestsForListenerRuleConfigurationEvent creates handler for ListenerRuleConfiguration resources
 func NewEnqueueRequestsForListenerRuleConfigurationEvent(httpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.HTTPRoute],
-	k8sClient client.Client, logger logr.Logger) handler.TypedEventHandler[*elbv2gw.ListenerRuleConfiguration, reconcile.Request] {
+	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute], k8sClient client.Client, logger logr.Logger) handler.TypedEventHandler[*elbv2gw.ListenerRuleConfiguration, reconcile.Request] {
 	return &enqueueRequestsForListenerRuleConfigurationEvent{
 		httpRouteEventChan: httpRouteEventChan,
+		grpcRouteEventChan: grpcRouteEventChan,
 		k8sClient:          k8sClient,
 		logger:             logger,
 	}
@@ -28,6 +29,7 @@ var _ handler.TypedEventHandler[*elbv2gw.ListenerRuleConfiguration, reconcile.Re
 // enqueueRequestsForListenerRuleConfigurationEvent handles ListenerRuleConfiguration events
 type enqueueRequestsForListenerRuleConfigurationEvent struct {
 	httpRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.HTTPRoute]
+	grpcRouteEventChan chan<- event.TypedGenericEvent[*gatewayv1.GRPCRoute]
 	k8sClient          client.Client
 	logger             logr.Logger
 }
@@ -74,6 +76,14 @@ func (h *enqueueRequestsForListenerRuleConfigurationEvent) enqueueImpactedRoutes
 			h.httpRouteEventChan <- event.TypedGenericEvent[*gatewayv1.HTTPRoute]{
 				Object: route.GetRawRoute().(*gatewayv1.HTTPRoute),
 			}
+		case routeutils.GRPCRouteKind:
+			h.logger.V(1).Info("enqueue grpcroute for listenerruleconfiguration event",
+				"listenerruleconfiguration", ruleConfig.Name,
+				"grpcroute", route.GetRouteNamespacedName())
+			h.grpcRouteEventChan <- event.TypedGenericEvent[*gatewayv1.GRPCRoute]{
+				Object: route.GetRawRoute().(*gatewayv1.GRPCRoute),
+			}
 		}
 	}
+
 }

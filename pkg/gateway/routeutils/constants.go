@@ -14,6 +14,7 @@ const (
 	UDPRouteKind  RouteKind = "UDPRoute"
 	TLSRouteKind  RouteKind = "TLSRoute"
 	HTTPRouteKind RouteKind = "HTTPRoute"
+	GRPCRouteKind RouteKind = "GRPCRoute"
 )
 
 // RouteKind to Route Loader. These functions will pull data directly from the kube api or local cache.
@@ -22,6 +23,7 @@ var allRoutes = map[RouteKind]func(context context.Context, client client.Client
 	UDPRouteKind:  ListUDPRoutes,
 	TLSRouteKind:  ListTLSRoutes,
 	HTTPRouteKind: ListHTTPRoutes,
+	GRPCRouteKind: ListGRPCRoutes,
 }
 
 // Default protocol map used to infer accepted route kinds when a listener doesn't specify the `allowedRoutes` field.
@@ -30,5 +32,5 @@ var defaultProtocolToRouteKindMap = map[gwv1.ProtocolType][]RouteKind{
 	gwv1.UDPProtocolType:   {UDPRouteKind},
 	gwv1.TLSProtocolType:   {TLSRouteKind, TCPRouteKind},
 	gwv1.HTTPProtocolType:  {HTTPRouteKind},
-	gwv1.HTTPSProtocolType: {HTTPRouteKind},
+	gwv1.HTTPSProtocolType: {HTTPRouteKind, GRPCRouteKind},
 }

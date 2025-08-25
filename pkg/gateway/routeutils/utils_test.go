@@ -256,9 +256,39 @@ func Test_ListL7Routes(t *testing.T) {
 						},
 					},
 				})
+				k8sClient.Create(context.Background(), &gwv1.GRPCRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo1",
+						Namespace: "bar1",
+					},
+					Spec: gwv1.GRPCRouteSpec{
+						Hostnames: []gwv1.Hostname{
+							"host1",
+						},
+						Rules: []gwv1.GRPCRouteRule{
+							{
+								BackendRefs: []gwv1.GRPCBackendRef{
+									{},
+									{},
+								},
+							},
+							{
+								BackendRefs: []gwv1.GRPCBackendRef{
+									{},
+									{},
+									{},
+									{},
+								},
+							},
+							{
+								BackendRefs: []gwv1.GRPCBackendRef{},
+							},
+						},
+					},
+				})
 				return k8sClient
 			},
-			expectedRoutes: 1,
+			expectedRoutes: 2,
 			expectedErr:    nil,
 		},
 		{
@@ -266,6 +296,7 @@ func Test_ListL7Routes(t *testing.T) {
 			mockSetup: func(ctrl *gomock.Controller) client.Client {
 				mockClient := mock_client.NewMockClient(ctrl)
 				mockClient.EXPECT().List(gomock.Any(), &gwv1.HTTPRouteList{}).Return(fmt.Errorf("HTTP error"))
+				mockClient.EXPECT().List(gomock.Any(), &gwv1.GRPCRouteList{}).Return(nil)
 				return mockClient
 			},
 			expectedRoutes: 0,
