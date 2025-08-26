@@ -436,6 +436,7 @@ func (r *defaultPodENIInfoResolver) classifyPodsByComputeType(ctx context.Contex
 			} else {
 				podsByComputeType.ec2Pods = append(podsByComputeType.ec2Pods, pod)
 			}
+			continue // Skip the rest of the loop iteration since we already processed this pod
 		}
 
 		nodeKey := types.NamespacedName{Name: pod.NodeName}
