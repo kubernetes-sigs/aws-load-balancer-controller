@@ -2,10 +2,11 @@ package routeutils
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/pkg/errors"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strings"
 )
 
 // BuildHttpRuleConditions each match will be mapped to a ruleCondition, conditions within same match will be ANDed
@@ -98,8 +99,7 @@ func buildHttpHeaderCondition(headers []gwv1.HTTPHeaderMatch) []elbv2model.RuleC
 				Field: elbv2model.RuleConditionFieldHTTPHeader,
 				HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
 					HTTPHeaderName: string(header.Name),
-					// for a given HTTPHeaderName, ALB rule can accept a list of values. However, gateway route headers only accept one value per name, and name cannot duplicate.
-					Values: []string{header.Value},
+					Values:         generateValuesFromMatchHeaderValue(header.Value),
 				},
 			},
 		}
@@ -200,8 +200,7 @@ func buildGrpcHeaderCondition(headers []gwv1.GRPCHeaderMatch) []elbv2model.RuleC
 				Field: elbv2model.RuleConditionFieldHTTPHeader,
 				HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
 					HTTPHeaderName: string(header.Name),
-					// for a given HTTPHeaderName, ALB rule can accept a list of values. However, gateway route headers only accept one value per name, and name cannot duplicate.
-					Values: []string{header.Value},
+					Values:         generateValuesFromMatchHeaderValue(header.Value),
 				},
 			},
 		}
@@ -233,4 +232,30 @@ func buildGrpcMethodCondition(method *gwv1.GRPCMethodMatch) ([]elbv2model.RuleCo
 			},
 		},
 	}, nil
+}
+
+// generateValuesFromMatchHeaderValue takes in header value from route match
+// returns list of values
+// for a given HTTPHeaderName/GRPCHeaderName, ALB rule can accept a list of values. However, gateway route headers only accept one value per name, and name cannot duplicate.
+func generateValuesFromMatchHeaderValue(headerValue string) []string {
+	var values []string
+	var current strings.Builder
+
+	for i := 0; i < len(headerValue); i++ {
+		if headerValue[i] == '\\' && i+1 < len(headerValue) {
+			// Escape sequence - add the escaped character literally
+			current.WriteByte(headerValue[i+1])
+			i++ // skip the escaped character
+		} else if headerValue[i] == ',' {
+			// Unescaped comma - split here
+			values = append(values, current.String())
+			current.Reset()
+		} else {
+			// Regular character
+			current.WriteByte(headerValue[i])
+		}
+	}
+
+	values = append(values, current.String())
+	return values
 }
