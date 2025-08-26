@@ -274,8 +274,35 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				{SubnetID: "subnet-2", AllocationID: awssdk.String("eip-2")},
 			},
 		},
+		{
+			name: "error when number of subnets does not match number of EIPs",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-4",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":         "subnet-1,subnet-2,subnet-3",
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-1,eip-2",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantMappings: nil,
+			wantErr:      "count of EIP allocations (2) and subnets (1) must match",
+		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
