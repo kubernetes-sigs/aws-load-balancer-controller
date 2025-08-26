@@ -229,6 +229,10 @@ spec:
                 description: SSLPolicy specifies the SSL Policy for all Ingresses
                   that belong to IngressClass with this IngressClassParams.
                 type: string
+              sslRedirectPort:
+                description: SSLRedirectPort specifies the SSL Redirect Port for all
+                  Ingresses that belong to IngressClass with this IngressClassParams.
+                type: string
               subnets:
                 description: Subnets defines the subnets for all Ingresses that belong
                   to IngressClass with this IngressClassParams.

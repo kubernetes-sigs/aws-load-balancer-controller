@@ -174,6 +174,15 @@ You can use IngressClassParams to enforce settings for a set of Ingresses.
     spec:
       targetType: ip
     ```
+  - with sslRedirectPort
+    ```
+    apiVersion: elbv2.k8s.aws/v1beta1
+    kind: IngressClassParams
+    metadata:
+      name: class2048-config
+    spec:
+      sslRedirectPort: '443'
+    ```
     - with IPv4IPAMPoolId
     ```
     apiVersion: elbv2.k8s.aws/v1beta1
@@ -281,8 +290,14 @@ If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/certif
 
 #### spec.sslPolicy
 
-Cluster administrators can use the optional `sslPolicy` field to specify the SSL policy for the load balancers that belong to this IngressClass.
+Cluster administrators can use the optional `sslPolicy` field to specify the SSL policy for the load balancers that belongs to this IngressClass.
 If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/ssl-policy` annotation.
+
+#### spec.sslRedirectPort
+
+Cluster administrators can use the optional `sslRedirectPort` field to specify the SSL redirect port for the load balancers that belongs to this IngressClass.
+If the field is specified, LBC will ignore the `alb.ingress.kubernetes.io/ssl-redirect` annotation.
+
 
 #### spec.subnets
 
