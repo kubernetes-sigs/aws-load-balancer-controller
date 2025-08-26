@@ -35,7 +35,7 @@ func ListL4Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteD
 	return l4Routes, err
 }
 
-// ListL7Routes retrieves all Layer 7 routes from the cluster.
+// ListL7Routes retrieves all Layer 7 routes (HTTP, gRPC) from the cluster.
 func ListL7Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteDescriptor, error) {
 	l7Routes := make([]preLoadRouteDescriptor, 0)
 	var failedRoutes []RouteKind
@@ -44,6 +44,11 @@ func ListL7Routes(ctx context.Context, k8sClient client.Client) ([]preLoadRouteD
 		failedRoutes = append(failedRoutes, HTTPRouteKind)
 	}
 	l7Routes = append(l7Routes, httpRoutes...)
+	grpcRoutes, err := ListGRPCRoutes(ctx, k8sClient)
+	if err != nil {
+		failedRoutes = append(failedRoutes, GRPCRouteKind)
+	}
+	l7Routes = append(l7Routes, grpcRoutes...)
 	if len(failedRoutes) > 0 {
 		err = fmt.Errorf("failed to list L7 routes, %v", failedRoutes)
 	}

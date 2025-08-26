@@ -6,19 +6,13 @@
 
 
 The AWS Load Balancer Controller (LBC) supports reconciliation for Kubernetes Gateway API objects. It satisfies
-L4 routes (TCPRoute, UDPRoute, TLSRoute) with an AWS NLB. It satisfies L7 routes (HTTPRoute) using an AWS ALB.
+L4 routes (TCPRoute, UDPRoute, TLSRoute) with an AWS NLB. It satisfies L7 routes (HTTPRoute, GRPCRoute) using an AWS ALB.
 Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not supported.
-
-
-NOTE: The LBC will is able to "upgrade" HTTPRoutes in order to support GRPC traffic. It does not natively support GRPCRoutes,
-due to limitations with the AWS ALB GRPC implementation. Please see our documentation about using TargetGroupConfiguration
-to support HTTPRoute upgrades to GRPC traffic.
-
 
 ## Current Support
 
 !!! warning
-    - HTTPS Listeners for L7 gateways do not currently work. And only basic support is added for HTTPRoute.
+    - GRPCRoute and HTTPS Listeners for L7 gateways do not currently work. And only basic support is added for HTTPRoute.
 
 The LBC Gateway API implementation supports the following Gateway API routes:
 

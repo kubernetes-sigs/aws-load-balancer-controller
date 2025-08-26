@@ -9,20 +9,22 @@ import (
 )
 
 var (
-	headerName   = "testHeader"
-	headerValue  = "testValue"
-	queryName    = "testQuery"
-	queryValue   = "testValue"
-	hostname     = "example.com"
-	service      = "testService"
-	method       = "testMethod"
-	testKey      = "testKey"
-	testValue    = "testValue"
-	testKeyTwo   = "testKeyTwo"
-	testValueTwo = "testValueTwo"
-	prefixType   = gwv1.PathMatchPathPrefix
-	exactType    = gwv1.PathMatchExact
-	regexType    = gwv1.PathMatchRegularExpression
+	headerName    = "testHeader"
+	headerValue   = "testValue"
+	queryName     = "testQuery"
+	queryValue    = "testValue"
+	hostname      = "example.com"
+	service       = "testService"
+	method        = "testMethod"
+	testKey       = "testKey"
+	testValue     = "testValue"
+	testKeyTwo    = "testKeyTwo"
+	testValueTwo  = "testValueTwo"
+	prefixType    = gwv1.PathMatchPathPrefix
+	exactType     = gwv1.PathMatchExact
+	regexType     = gwv1.PathMatchRegularExpression
+	grpcExactType = gwv1.GRPCMethodMatchExact
+	grpcRegexType = gwv1.GRPCMethodMatchRegularExpression
 )
 
 func Test_BuildHttpRuleConditions(t *testing.T) {
@@ -391,6 +393,306 @@ func Test_buildHttpMethodCondition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := buildHttpMethodCondition(&tt.method)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_BuildGrpcRuleConditions(t *testing.T) {
+	tests := []struct {
+		name    string
+		rule    RulePrecedence
+		want    []elbv2model.RuleCondition
+		wantErr bool
+	}{
+		{
+			name: "input has both method and headers",
+			rule: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Hostnames: []string{hostname},
+				},
+				GRPCMatch: &gwv1.GRPCRouteMatch{
+					Method: &gwv1.GRPCMethodMatch{
+						Type:    &grpcExactType,
+						Service: &service,
+						Method:  &method,
+					},
+					Headers: []gwv1.GRPCHeaderMatch{
+						{
+							Name:  gwv1.GRPCHeaderName(headerName),
+							Value: headerValue,
+						},
+					},
+				},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{hostname},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{"/" + service + "/" + method},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: headerName,
+						Values:         []string{headerValue},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "input with method is nil",
+			rule: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Hostnames: []string{hostname},
+				},
+				GRPCMatch: &gwv1.GRPCRouteMatch{},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{hostname},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{"/*"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "input with match is nil",
+			rule: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Hostnames: []string{hostname},
+				},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHostHeader,
+					HostHeaderConfig: &elbv2model.HostHeaderConditionConfig{
+						Values: []string{hostname},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{"/*"},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := BuildGrpcRuleConditions(tt.rule)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_buildGrpcHeaderCondition(t *testing.T) {
+	tests := []struct {
+		name        string
+		headerMatch []gwv1.GRPCHeaderMatch
+		want        []elbv2model.RuleCondition
+	}{
+		{
+			name: "single header match",
+			headerMatch: []gwv1.GRPCHeaderMatch{
+				{
+					Name:  gwv1.GRPCHeaderName(testKey),
+					Value: testValue,
+				},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: testKey,
+						Values:         []string{testValue},
+					},
+				},
+			},
+		},
+		{
+			name: "multiple header match",
+			headerMatch: []gwv1.GRPCHeaderMatch{
+				{
+					Name:  gwv1.GRPCHeaderName(testKey),
+					Value: testValue,
+				},
+				{
+					Name:  gwv1.GRPCHeaderName(testKeyTwo),
+					Value: testValueTwo,
+				},
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: testKey,
+						Values:         []string{testValue},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionFieldHTTPHeader,
+					HTTPHeaderConfig: &elbv2model.HTTPHeaderConditionConfig{
+						HTTPHeaderName: testKeyTwo,
+						Values:         []string{testValueTwo},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildGrpcHeaderCondition(tt.headerMatch)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_buildGrpcMethodCondition(t *testing.T) {
+
+	pathWithBoth := "/" + service + "/" + method
+	pathWithService := "/" + service + "/*"
+	pathWithMethod := "/*/" + method
+
+	regexService := "testService*"
+	regexMethod := "testMethod?"
+	regexPathWithBoth := "/" + regexService + "/" + regexMethod
+	regexPathWithService := "/" + regexService + "/*"
+	regexPathWithMethod := "/*/" + regexMethod
+
+	tests := []struct {
+		name    string
+		method  *gwv1.GRPCMethodMatch
+		want    []elbv2model.RuleCondition
+		wantErr bool
+	}{
+		{
+			name: "exact match with both service and method",
+			method: &gwv1.GRPCMethodMatch{
+				Type:    &grpcExactType,
+				Service: &service,
+				Method:  &method,
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{pathWithBoth},
+					},
+				},
+			},
+		},
+		{
+			name: "exact match with only service",
+			method: &gwv1.GRPCMethodMatch{
+				Type:    &grpcExactType,
+				Service: &service,
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{pathWithService},
+					},
+				},
+			},
+		},
+		{
+			name: "exact match with only method",
+			method: &gwv1.GRPCMethodMatch{
+				Type:   &grpcExactType,
+				Method: &method,
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{pathWithMethod},
+					},
+				},
+			},
+		},
+		{
+			name: "regex match with both service and method",
+			method: &gwv1.GRPCMethodMatch{
+				Type:    &grpcRegexType,
+				Service: &regexService,
+				Method:  &regexMethod,
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{regexPathWithBoth},
+					},
+				},
+			},
+		},
+		{
+			name: "regex match with only service",
+			method: &gwv1.GRPCMethodMatch{
+				Type:    &grpcRegexType,
+				Service: &regexService,
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{regexPathWithService},
+					},
+				},
+			},
+		},
+		{
+			name: "regex match with only method",
+			method: &gwv1.GRPCMethodMatch{
+				Type:   &grpcRegexType,
+				Method: &regexMethod,
+			},
+			want: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionFieldPathPattern,
+					PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+						Values: []string{regexPathWithMethod},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := buildGrpcMethodCondition(tt.method)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
 		})
 	}
 }
