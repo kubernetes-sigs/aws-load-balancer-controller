@@ -1,6 +1,7 @@
 package routeutils
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -692,6 +693,74 @@ func Test_buildGrpcMethodCondition(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func TestGenerateValuesFromMatchHeaderValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			name:     "simple comma separation",
+			input:    "a,b,c",
+			expected: []string{"a", "b", "c"},
+		},
+		{
+			name:     "escaped comma",
+			input:    "a\\,b,c",
+			expected: []string{"a,b", "c"},
+		},
+		{
+			name:     "escaped backslash",
+			input:    "a\\\\,b",
+			expected: []string{"a\\", "b"},
+		},
+		{
+			name:     "multiple escaped commas",
+			input:    "a\\,b\\,c",
+			expected: []string{"a,b,c"},
+		},
+		{
+			name:     "mixed escapes",
+			input:    "a\\\\,b\\,c,d",
+			expected: []string{"a\\", "b,c", "d"},
+		},
+		{
+			name:     "no commas",
+			input:    "single-value",
+			expected: []string{"single-value"},
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: []string{""},
+		},
+		{
+			name:     "only commas",
+			input:    ",,",
+			expected: []string{"", "", ""},
+		},
+		{
+			name:     "escaped other characters",
+			input:    "a\\n,b\\t",
+			expected: []string{"an", "bt"},
+		},
+		{
+			name:     "backslash at end",
+			input:    "a\\",
+			expected: []string{"a\\"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := generateValuesFromMatchHeaderValue(tt.input)
+			if !reflect.DeepEqual(result, tt.expected) {
+				t.Errorf("got %v, want %v", result, tt.expected)
 			}
 		})
 	}
