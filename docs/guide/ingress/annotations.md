@@ -269,17 +269,17 @@ Traffic Routing can be controlled with following annotations:
 
 - <a name="ipam-ipv4-pool-id">`alb.ingress.kubernetes.io/ipam-ipv4-pool-id`</a> Specifies the [IPv4 IPAM Pool ID](https://docs.aws.amazon.com/vpc/latest/ipam/tutorials-byoip-ipam-console-ipv4.html) which will be used by your load balancer to assign IP addresses.
 
-  !!!note ""
-  The chosen IPAM pool is always the prioritized source when assigning public IPv4 addresses.
-  If there are no more assignable IP addresses in the IPAM pool, AWS managed IPv4 addresses are assigned.
+    !!!note ""
+        The chosen IPAM pool is always the prioritized source when assigning public IPv4 addresses.
+        If there are no more assignable IP addresses in the IPAM pool, AWS managed IPv4 addresses are assigned.
 
-  !!!tip
-  To remove an IPAM pool associated to your ALB, remove the annotation from your ingress.
+	!!!tip
+        To remove an IPAM pool associated to your ALB, remove the annotation from your ingress.
 
-  !!!example
-  ```
-  alb.ingress.kubernetes.io/ipam-ipv4-pool-id: ipam-pool-0f995c17c00375b48
-  ```
+	!!!example
+	  ```
+	  	alb.ingress.kubernetes.io/ipam-ipv4-pool-id: ipam-pool-0f995c17c00375b48
+	  ```
 
 - <a name="actions">`alb.ingress.kubernetes.io/actions.${action-name}`</a> Provides a method for configuring custom actions on a listener, such as Redirect Actions.
 
