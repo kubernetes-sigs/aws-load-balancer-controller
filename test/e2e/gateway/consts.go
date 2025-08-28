@@ -11,9 +11,11 @@ import (
 const (
 	appContainerPort        = 80
 	udpContainerPort        = 8080
+	grpcContainerPort       = 50051
 	defaultNumReplicas      = 3
 	defaultName             = "gateway-e2e"
 	udpDefaultName          = defaultName + "-udp"
+	grpcDefaultName         = defaultName + "-grpc"
 	defaultGatewayClassName = "gwclass-e2e"
 	defaultLbConfigName     = "lbconfig-e2e"
 	defaultTgConfigName     = "tgconfig-e2e"
@@ -47,6 +49,17 @@ var DEFAULT_ALB_TARGET_GROUP_HC = &verifier.TargetGroupHC{
 	UnhealthyThreshold: 3,
 }
 
+// Common settings for ALB target group health checks using GRPC
+var DEFAULT_ALB_TARGET_GROUP_HC_GRPC = &verifier.TargetGroupHC{
+	Protocol:           "HTTP",
+	Port:               "traffic-port",
+	Path:               "/AWS.ALB/healthcheck",
+	Interval:           15,
+	Timeout:            5,
+	HealthyThreshold:   3,
+	UnhealthyThreshold: 3,
+}
+
 var listenerConfigurationForHeaderModification = &[]elbv2gw.ListenerConfiguration{
 	{
 		ProtocolPort: "HTTP:80",
@@ -70,6 +83,18 @@ var DefaultHttpRouteRuleBackendRefs = []gwv1.HTTPBackendRef{
 			BackendObjectReference: gwv1.BackendObjectReference{
 				Name: defaultName,
 				Port: &defaultPort,
+			},
+		},
+	},
+}
+
+var defaultGrpcPort = gwalpha2.PortNumber(50051)
+var DefaultGrpcRouteRuleBackendRefs = []gwv1.GRPCBackendRef{
+	{
+		BackendRef: gwv1.BackendRef{
+			BackendObjectReference: gwv1.BackendObjectReference{
+				Name: grpcDefaultName,
+				Port: &defaultGrpcPort,
 			},
 		},
 	},

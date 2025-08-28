@@ -2,15 +2,21 @@ package gateway
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/gavv/httpexpect/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
+	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/grpc/echo"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
@@ -42,7 +48,6 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			auxiliaryStack.Cleanup(ctx, tf)
 		}
 	})
-
 	Context("with ALB ip target configuration with basic HTTPRoute", func() {
 		BeforeEach(func() {})
 		It("should provision internet-facing load balancer resources", func() {
@@ -68,7 +73,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, true)
 			httpr := buildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, &gwListeners[0].Name)
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, auxiliaryStack, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, auxiliaryStack, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
 				Expect(err).NotTo(HaveOccurred())
 				err = auxiliaryStack.Deploy(ctx, tf)
 				Expect(err).NotTo(HaveOccurred())
@@ -205,7 +210,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 
 			httpr := buildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndTargetGroupWeights, nil)
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -413,7 +418,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			httpr := buildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndFilters, nil)
 
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -497,7 +502,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			httpr := buildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -609,7 +614,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			httpr := buildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -761,7 +766,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			httpr := buildHTTPRoute([]string{testHostname}, httpRouteRules, nil)
 
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, false)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, false)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -931,7 +936,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 			httpr := buildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -1017,6 +1022,345 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				}
 				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
+
+	Context("with ALB ip target configuration with GRPC", func() {
+		It("should provision internet-facing load balancer resources", func() {
+			if len(tf.Options.CertificateARNs) == 0 {
+				Skip("Skipping tests, certificates not specified")
+			}
+
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+
+			// Use the first certificate from the provided list
+			cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
+			lsConfig := elbv2gw.ListenerConfiguration{
+				ProtocolPort:       "HTTPS:443",
+				DefaultCertificate: &cert,
+			}
+			lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{lsConfig}
+			ipTargetType := elbv2gw.TargetTypeIP
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+				},
+			}
+			lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{}
+			gwListeners := []gwv1.Listener{
+				{
+					Name:     "test-listener",
+					Port:     443,
+					Protocol: gwv1.HTTPSProtocolType,
+				},
+			}
+
+			grpcRouteRules := []gwv1.GRPCRouteRule{
+				{
+					BackendRefs: DefaultGrpcRouteRuleBackendRefs,
+				},
+				{
+					Matches: []gwv1.GRPCRouteMatch{
+						{
+							Headers: []gwv1.GRPCHeaderMatch{
+								{
+									Type:  (*gwv1.GRPCHeaderMatchType)(awssdk.String("Exact")),
+									Name:  "my-header",
+									Value: "my-header-value",
+								},
+							},
+						},
+					},
+					BackendRefs: []gwv1.GRPCBackendRef{
+						{
+							BackendRef: gwv1.BackendRef{
+								BackendObjectReference: gwv1.BackendObjectReference{
+									Name: grpcDefaultName + "-other",
+									Port: &defaultGrpcPort,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			grpcr := buildGRPCRoute([]string{}, grpcRouteRules, &gwListeners[0].Name)
+			By("deploying stack", func() {
+				err := stack.DeployGRPC(ctx, tf, gwListeners, []*gwv1.GRPCRoute{grpcr}, lbcSpec, tgSpec, lrcSpec, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				time.Sleep(2 * time.Minute)
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			targetNumber := int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas)
+
+			By("verifying AWS loadbalancer resources", func() {
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:      "HTTP",
+						Port:          50051,
+						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						TargetType:    "ip",
+						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC_GRPC,
+					},
+					{
+						Protocol:      "HTTP",
+						Port:          50051,
+						NumTargets:    int(*stack.albResourceStack.commonStack.dps[1].Spec.Replicas),
+						TargetType:    "ip",
+						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC_GRPC,
+					},
+				}
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:         "application",
+					Scheme:       "internet-facing",
+					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					TargetGroups: expectedTargetGroups,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("waiting for target group targets to be healthy", func() {
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("waiting until DNS name is available", func() {
+				err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("sending grpc request to the lb", func() {
+				target := fmt.Sprintf("%s:443", dnsName)
+				tlsConfig := &tls.Config{
+					InsecureSkipVerify: true, // This skips all certificate verification, including expiry.
+				}
+
+				conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+				Expect(err).NotTo(HaveOccurred())
+				c := echo.NewEchoServiceClient(conn)
+
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"foo": "cat"}))
+				response, err := c.Echo(mdCtx, &echo.EchoRequest{Message: "Hello from E2E test"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(response.Message).To(Equal("Hello from E2E test"))
+			})
+			By("sending grpc request with certain header must forward traffic to right backend", func() {
+				target := fmt.Sprintf("%s:443", dnsName)
+				tlsConfig := &tls.Config{
+					InsecureSkipVerify: true, // This skips all certificate verification, including expiry.
+				}
+
+				conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+				Expect(err).NotTo(HaveOccurred())
+				c := echo.NewEchoServiceClient(conn)
+
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"my-header": "my-header-value"}))
+				response, err := c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(response.Message).To(Equal("Hello World - Other"))
+			})
+			By("sending grpc request with header missing uses default service.", func() {
+				target := fmt.Sprintf("%s:443", dnsName)
+				tlsConfig := &tls.Config{
+					InsecureSkipVerify: true, // This skips all certificate verification, including expiry.
+				}
+
+				conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+				Expect(err).NotTo(HaveOccurred())
+				c := echo.NewEchoServiceClient(conn)
+
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
+				response, err := c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(response.Message).To(Equal("Hello World"))
+			})
+			By("update grpc route to remove default rule", func() {
+
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+					{
+						Matches: []gwv1.GRPCRouteMatch{
+							{
+								Headers: []gwv1.GRPCHeaderMatch{
+									{
+										Type:  (*gwv1.GRPCHeaderMatchType)(awssdk.String("Exact")),
+										Name:  "my-header",
+										Value: "my-header-value",
+									},
+								},
+							},
+						},
+						BackendRefs: []gwv1.GRPCBackendRef{
+							{
+								BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
+										Name: grpcDefaultName + "-other",
+										Port: &defaultGrpcPort,
+									},
+								},
+							},
+						},
+					},
+				}
+
+				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				Expect(err).NotTo(HaveOccurred())
+				// Wait for listener change to propagate.
+				time.Sleep(1 * time.Minute)
+			})
+			By("send grpc request with correct request header", func() {
+				c, err := generateGRPCClient(dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{"my-header": "my-header-value"}))
+				response, err := c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(response.Message).To(Equal("Hello World - Other"))
+			})
+			By("sending grpc request with header missing uses default service.", func() {
+				c, err := generateGRPCClient(dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
+				_, err = c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				Expect(err).To(HaveOccurred())
+			})
+			By("update grpc route to route by service / method name. use invalid service", func() {
+
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+					{
+						Matches: []gwv1.GRPCRouteMatch{
+							{
+								Method: &gwv1.GRPCMethodMatch{
+									Service: awssdk.String("com.example.FakeService"),
+									Method:  awssdk.String("FakeMethod"),
+								},
+							},
+						},
+						BackendRefs: []gwv1.GRPCBackendRef{
+							{
+								BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
+										Name: grpcDefaultName + "-other",
+										Port: &defaultGrpcPort,
+									},
+								},
+							},
+						},
+					},
+				}
+
+				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				Expect(err).NotTo(HaveOccurred())
+				// Wait for listener change to propagate.
+				time.Sleep(1 * time.Minute)
+			})
+			By("sending grpc request should result in a failure.", func() {
+				c, err := generateGRPCClient(dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
+				_, err = c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				Expect(err).To(HaveOccurred())
+			})
+			By("update grpc route to route by service / method name. filter by service", func() {
+
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+					{
+						Matches: []gwv1.GRPCRouteMatch{
+							{
+								Method: &gwv1.GRPCMethodMatch{
+									Service: awssdk.String("echo.EchoService"),
+								},
+							},
+						},
+						BackendRefs: []gwv1.GRPCBackendRef{
+							{
+								BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
+										Name: grpcDefaultName + "-other",
+										Port: &defaultGrpcPort,
+									},
+								},
+							},
+						},
+					},
+				}
+
+				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				Expect(err).NotTo(HaveOccurred())
+				// Wait for listener change to propagate.
+				time.Sleep(1 * time.Minute)
+			})
+			By("sending grpc request should work for both methods", func() {
+				c, err := generateGRPCClient(dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
+				_, err = c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = c.Echo(mdCtx, &echo.EchoRequest{Message: "foo"})
+				Expect(err).ToNot(HaveOccurred())
+			})
+			By("update grpc route to route by service / method name. filter by service and method", func() {
+
+				err := tf.K8sClient.Get(ctx, types.NamespacedName{Name: stack.albResourceStack.grpcrs[0].Name, Namespace: stack.albResourceStack.grpcrs[0].Namespace}, stack.albResourceStack.grpcrs[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				stack.albResourceStack.grpcrs[0].Spec.Rules = []gwv1.GRPCRouteRule{
+					{
+						Matches: []gwv1.GRPCRouteMatch{
+							{
+								Method: &gwv1.GRPCMethodMatch{
+									Service: awssdk.String("echo.EchoService"),
+									Method:  awssdk.String("Echo"),
+								},
+							},
+						},
+						BackendRefs: []gwv1.GRPCBackendRef{
+							{
+								BackendRef: gwv1.BackendRef{
+									BackendObjectReference: gwv1.BackendObjectReference{
+										Name: grpcDefaultName + "-other",
+										Port: &defaultGrpcPort,
+									},
+								},
+							},
+						},
+					},
+				}
+
+				err = stack.albResourceStack.updateGRPCRoute(ctx, tf, stack.albResourceStack.grpcrs[0])
+				Expect(err).NotTo(HaveOccurred())
+				// Wait for listener change to propagate.
+				time.Sleep(1 * time.Minute)
+			})
+			By("sending grpc request should work for Echo method, should fail for FixedResponse", func() {
+				c, err := generateGRPCClient(dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				mdCtx := metadata.NewOutgoingContext(ctx, metadata.New(map[string]string{}))
+				_, err = c.FixedResponse(mdCtx, &echo.FixedResponseRequest{})
+				Expect(err).To(HaveOccurred())
+
+				_, err = c.Echo(mdCtx, &echo.EchoRequest{Message: "foo"})
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})
