@@ -101,6 +101,45 @@ func buildUDPDeploymentSpec() *appsv1.Deployment {
 	}
 }
 
+func buildGRPCDeploymentSpec(name string, fixedResponseMessage string, labels map[string]string) *appsv1.Deployment {
+	numReplicas := int32(defaultNumReplicas)
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numReplicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            "app",
+							ImagePullPolicy: corev1.PullAlways,
+							Image:           utils.GRPCImage,
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: grpcContainerPort,
+									Protocol:      corev1.ProtocolTCP,
+									Name:          "tcp50051",
+								},
+							},
+							Args: []string{
+								fixedResponseMessage,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func buildServiceSpec() *corev1.Service {
 	labels := map[string]string{
 		"app.kubernetes.io/name":     "multi-port",
@@ -148,6 +187,27 @@ func buildUDPServiceSpec() *corev1.Service {
 					Port:       8080,
 					TargetPort: intstr.FromInt(8080),
 					Protocol:   corev1.ProtocolUDP,
+				},
+			},
+		},
+	}
+	return svc
+}
+
+func buildGRPCServiceSpec(name string, labels map[string]string) *corev1.Service {
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeNodePort,
+			Selector: labels,
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "tcp50051",
+					Port:       50051,
+					TargetPort: intstr.FromInt(50051),
+					Protocol:   corev1.ProtocolTCP,
 				},
 			},
 		},
@@ -319,6 +379,40 @@ func buildHTTPRoute(hostnames []string, rules []gwv1.HTTPRouteRule, sectionName 
 		}
 	}
 	return httpr
+}
+
+func buildGRPCRoute(hostnames []string, rules []gwv1.GRPCRouteRule, sectionName *gwv1.SectionName) *gwv1.GRPCRoute {
+	routeName := fmt.Sprintf("%v-%v", defaultName, utils.RandomDNS1123Label(6))
+	grcpr := &gwv1.GRPCRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: routeName,
+		},
+		Spec: gwv1.GRPCRouteSpec{
+			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{
+						Name:        defaultName,
+						SectionName: sectionName,
+					},
+				},
+			},
+		},
+	}
+	routeHostnames := make([]gwv1.Hostname, 0, len(hostnames))
+	for _, hostname := range hostnames {
+		routeHostnames = append(routeHostnames, gwv1.Hostname(hostname))
+	}
+	grcpr.Spec.Hostnames = routeHostnames
+	if len(rules) > 0 {
+		grcpr.Spec.Rules = rules
+	} else {
+		grcpr.Spec.Rules = []gwv1.GRPCRouteRule{
+			{
+				BackendRefs: DefaultGrpcRouteRuleBackendRefs,
+			},
+		}
+	}
+	return grcpr
 }
 
 func buildOtherNsRefTcpRoute(sectionName string, otherNs *corev1.Namespace) *gwalpha2.TCPRoute {
