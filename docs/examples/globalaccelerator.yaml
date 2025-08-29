@@ -1,0 +1,143 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: GlobalAccelerator
+metadata:
+  name: example-global-accelerator
+  namespace: default
+spec:
+  # Name of the Global Accelerator (optional, defaults to namespace-name)
+  name: "example-ga"
+  
+  # Whether the accelerator is enabled (optional, defaults to true)
+  enabled: true
+  
+  # IP address type: IPv4 or DUAL_STACK (optional, defaults to IPv4)
+  ipAddressType: "IPv4"
+  
+  # Tags to apply to the Global Accelerator
+  tags:
+    - key: "Environment"
+      value: "production"
+    - key: "Team"
+      value: "platform"
+  
+  # Listeners define the ports and protocols that Global Accelerator accepts traffic on
+  listeners:
+    - protocol: "TCP"
+      portRanges:
+        - fromPort: 80
+          toPort: 80
+        - fromPort: 443
+          toPort: 443
+      # Client affinity: NONE or SOURCE_IP (optional)
+      clientAffinity: "NONE"
+    
+    - protocol: "UDP"
+      portRanges:
+        - fromPort: 53
+          toPort: 53
+  
+  # Endpoint groups define where traffic is routed to
+  endpointGroups:
+    - region: "us-west-2"
+      # Traffic dial percentage (0-100, optional, defaults to 100)
+      trafficDialPercentage: 100
+      # Health check settings (optional)
+      healthCheckIntervalSeconds: 30
+      healthCheckPath: "/health"
+      thresholdCount: 3
+      # Explicit endpoint definitions
+      endpoints:
+        - endpointID: "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/example-alb/1234567890abcdef"
+          weight: 100
+          clientIPPreservationEnabled: false
+      # Port overrides (optional)
+      portOverrides:
+        - listenerPort: 443
+          endpointPort: 8443
+    
+    - region: "us-east-1"
+      trafficDialPercentage: 50
+      endpoints:
+        - endpointID: "arn:aws:elasticloadbalancingv2:us-east-1:123456789012:loadbalancer/net/example-nlb/abcdef1234567890"
+          weight: 128
+  
+  # Service endpoints allow automatic discovery of load balancers from Kubernetes services
+  serviceEndpoints:
+    - name: "example-service"
+      namespace: "default"  # optional, defaults to GlobalAccelerator namespace
+      weight: 100  # optional, defaults to equal weight
+
+---
+# Example service that could be referenced by serviceEndpoints
+apiVersion: v1
+kind: Service
+metadata:
+  name: example-service
+  namespace: default
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+spec:
+  type: LoadBalancer
+  selector:
+    app: example-app
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP
+
+---
+# Example of a minimal Global Accelerator configuration
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: GlobalAccelerator
+metadata:
+  name: minimal-global-accelerator
+  namespace: default
+spec:
+  listeners:
+    - protocol: "TCP"
+      portRanges:
+        - fromPort: 80
+          toPort: 80
+  
+  endpointGroups:
+    - region: "us-west-2"
+      endpoints:
+        - endpointID: "my-endpoint-id"
+
+---
+# Example with multiple regions and service discovery
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: GlobalAccelerator
+metadata:
+  name: multi-region-global-accelerator
+  namespace: default
+spec:
+  name: "multi-region-ga"
+  
+  listeners:
+    - protocol: "TCP"
+      portRanges:
+        - fromPort: 80
+          toPort: 80
+        - fromPort: 443
+          toPort: 443
+      clientAffinity: "SOURCE_IP"
+  
+  endpointGroups:
+    - region: "us-west-2"
+      trafficDialPercentage: 70
+      endpoints: []  # Will be populated from serviceEndpoints
+    
+    - region: "us-east-1"
+      trafficDialPercentage: 30
+      endpoints: []  # Will be populated from serviceEndpoints
+  
+  # Automatically discover load balancers from these services across regions
+  serviceEndpoints:
+    - name: "west-service"
+      namespace: "production"
+      weight: 128
+    - name: "east-service"
+      namespace: "production"
+      weight: 64
