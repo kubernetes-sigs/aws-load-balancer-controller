@@ -127,6 +127,8 @@ If you're not setting up IAM roles for service accounts, apply the IAM policies 
 curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.13.4/docs/install/iam_policy.json
 ```
 
+When using this option, IMDS *must* be enabled. The controller retrieves the instance credentials using IMDS. Use IRSA to avoid usage of IMDS.
+
 ## Special IAM cases
 
 ### You only want the LBC to add and remove IPs to already existing target groups:
