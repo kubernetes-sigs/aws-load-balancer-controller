@@ -73,6 +73,7 @@ const (
 	IngressSuffixFrontendNlbHealthCheckHealthyThresholdCount   = "frontend-nlb-healthcheck-healthy-threshold-count"
 	IngressSuffixFrontendNlHealthCheckbUnhealthyThresholdCount = "frontend-nlb-healthcheck-unhealthy-threshold-count"
 	IngressSuffixFrontendNlbHealthCheckSuccessCodes            = "frontend-nlb-healthcheck-success-codes"
+	IngressSuffixFrontendNlbTags                               = "frontend-nlb-tags"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io
