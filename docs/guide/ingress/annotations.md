@@ -82,6 +82,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-healthy-threshold-count](#frontend-nlb-healthcheck-healthy-threshold-count) | integer                         |3| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-unhealthy-threshold-count](#frontend-nlb-healthcheck-unhealthy-threshold-count) | integer                     |3| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-success-codes](#frontend-nlb-healthcheck-success-codes) | string                                     |200| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/frontend-nlb-tags](#frontend-nlb-tags) | stringMap | N/A | Ingress | Exclusive |
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -104,7 +105,7 @@ By default, Ingresses don't belong to any IngressGroup, and we treat it as a "im
         other Kubernetes users may create/modify their Ingresses to belong to the same IngressGroup, and can thus add more rules or overwrite existing rules with higher priority to the ALB for your Ingress.
 
         We'll add more fine-grained access-control in future versions.
-  
+
     !!!note "Rename behavior"
         The ALB for an IngressGroup is found by searching for an AWS tag `ingress.k8s.aws/stack` tag with the name of the IngressGroup as its value. For an implicit IngressGroup, the value is `namespace/ingressname`.
 
@@ -195,9 +196,9 @@ Traffic Routing can be controlled with following annotations:
         - Once defined on a single Ingress, it impacts every Ingress within the IngressGroup.
 
     !!!note "Annotation Behavior"
-    
+
         - This annotation **takes effect only during the creation** of the Ingress. If the Ingress already exists, the change will not be applied until the Ingress is **deleted and recreated**.
-        
+
     !!!example
         ```
         alb.ingress.kubernetes.io/load-balancer-name: custom-name
@@ -499,9 +500,9 @@ Traffic Routing can be controlled with following annotations:
                           name: use-annotation
         ```
 
-    !!!note 
+    !!!note
         If you are using `alb.ingress.kubernetes.io/target-group-attributes` with `stickiness.enabled=true`, you should add `TargetGroupStickinessConfig` under `alb.ingress.kubernetes.io/actions.weighted-routing`
-        
+
     !!!example
 
         ```yaml
@@ -843,10 +844,10 @@ TLS support can be controlled with the following annotations:
 
 - <a name="mutual-authentication">`alb.ingress.kubernetes.io/mutual-authentication`</a>  specifies the mutual authentication configuration that should be assigned to the Application Load Balancer secure listener ports. See [Mutual authentication with TLS](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html) in the AWS documentation for more details.
 
-    !!!note 
+    !!!note
         - This annotation is not applicable for Outposts, Local Zones or Wavelength zones.
         - "Configuration Options"
-            - `port: listen port ` 
+            - `port: listen port `
                - Must be an HTTPS port specified by [listen-ports](#listen-ports).
             - `mode: "off" (default) | "passthrough" | "verify"`
                - `verify` mode requires an existing trust store resource.
@@ -857,7 +858,7 @@ TLS support can be controlled with the following annotations:
             - `ignoreClientCertificateExpiry : true | false (default)`
             - `advertiseTrustStoreCaNames : "on" | "off" (default)`
         - Once the Mutual Authentication is set, to turn it off, you will have to explicitly pass in this annotation with `mode : "off"`.
-  
+
     !!!example
         - [listen-ports](#listen-ports) specifies four HTTPS ports: `80, 443, 8080, 8443`
         - listener `HTTPS:80` will be set to `passthrough` mode
@@ -910,7 +911,7 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
         - set client_keep_alive to 3600 seconds
             ```
-            alb.ingress.kubernetes.io/load-balancer-attributes: client_keep_alive.seconds=3600  
+            alb.ingress.kubernetes.io/load-balancer-attributes: client_keep_alive.seconds=3600
             ```
         - enable [connection logs](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-connection-logs.html)
             ```
@@ -1077,11 +1078,11 @@ Load balancer capacity unit reservation can be configured via following annotati
 ## Enable frontend NLB
 When this option is set to true, the controller will automatically provision a Network Load Balancer and register the Application Load Balancer as its target. Additional annotations are available to customize the NLB configurations, including options for scheme, security groups, subnets, and health check. The ingress resource will have two status entries, one for the NLB DNS and one for the ALB DNS. This allows users to combine the benefits of NLB and ALB into a single solution, leveraging NLB features like static IP address and PrivateLink, while retaining the rich routing capabilities of ALB.
 
-!!!warning 
+!!!warning
     - If you need to change the ALB [scheme](#scheme), make sure to disable this feature first. Changing the scheme will create a new ALB, which could interfere with the current configuration.
     - If you create ingress and enable the feature at once, provisioning the NLB and registering the ALB as target can take up to 3-4 mins to complete.
 
-- <a name="enable-frontend-nlb">`alb.ingress.kubernetes.io/enable-frontend-nlb`</a> enables frontend Network Load Balancer functionality. 
+- <a name="enable-frontend-nlb">`alb.ingress.kubernetes.io/enable-frontend-nlb`</a> enables frontend Network Load Balancer functionality.
 
     !!!example
         - Enable frontend nlb
@@ -1187,3 +1188,14 @@ When this option is set to true, the controller will automatically provision a N
             ```
             alb.ingress.kubernetes.io/frontend-nlb-healthcheck-success-codes: '200'
             ```
+
+- <a name="frontend-nlb-tags">`alb.ingress.kubernetes.io/frontend-nlb-tags`</a> specifies additional tags to be applied to the frontend NLB. If not specified, the tags from ALB (specified via `alb.ingress.kubernetes.io/tags`) will be propagated to the NLB.
+
+    !!!note "Merge Behavior"
+        `frontend-nlb-tags` is exclusive across all Ingresses in IngressGroup.
+        If specified on multiple Ingresses within IngressGroup, the values must match.
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/frontend-nlb-tags: Environment=prod,Team=platform
+        ```
