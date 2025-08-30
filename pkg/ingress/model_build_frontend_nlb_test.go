@@ -662,6 +662,190 @@ func Test_buildEnableFrontendNlbViaAnnotation(t *testing.T) {
 	}
 }
 
+func Test_buildFrontendNlbTags(t *testing.T) {
+	tests := []struct {
+		name     string
+		ingGroup Group
+		wantTags map[string]string
+		wantErr  bool
+		errMsg   string
+	}{
+		{
+			name: "no tags specified",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace:   "test-ns",
+								Name:        "ing-1",
+								Annotations: map[string]string{},
+							},
+						},
+					},
+				},
+			},
+			wantTags: nil,
+			wantErr:  false,
+		},
+		{
+			name: "frontend-nlb-specific tags",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value1,key2=value2",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTags: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			wantErr: false,
+		},
+		{
+			name: "ALB tags propagation when no frontend-nlb-tags",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/tags": "key1=value1,key2=value2",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTags: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			wantErr: false,
+		},
+		{
+			name: "frontend-nlb-tags take precedence over ALB tags",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "nlb-key=nlb-value",
+									"alb.ingress.kubernetes.io/tags":              "alb-key=alb-value",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTags: map[string]string{
+				"nlb-key": "nlb-value",
+			},
+			wantErr: false,
+		},
+		{
+			name: "conflicting frontend-nlb-tags",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value1",
+								},
+							},
+						},
+					},
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-2",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value2",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTags: nil,
+			wantErr:  true,
+			errMsg:   "conflicting frontend NLB tags",
+		},
+		{
+			name: "consistent frontend-nlb-tags across ingresses",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value1",
+								},
+							},
+						},
+					},
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-2",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value1",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantTags: map[string]string{
+				"key1": "value1",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				ingGroup:         tt.ingGroup,
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+
+			got, err := task.buildFrontendNlbTags(context.Background(), nil)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantTags, got)
+			}
+		})
+	}
+}
+
 func Test_mergeFrontendNlbListenPortConfigs(t *testing.T) {
 	tests := []struct {
 		name           string
