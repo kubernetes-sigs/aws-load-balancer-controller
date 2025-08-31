@@ -105,7 +105,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbScheme(ctx context.Context, alb 
 	return t.defaultScheme, nil
 }
 
-func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
+func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme, alb *elbv2model.LoadBalancer) ([]elbv2model.SubnetMapping, error) {
 	var explicitSubnetNameOrIDsList [][]string
 	var eipAllocationsList [][]string
 	for _, member := range t.ingGroup.Members {
@@ -119,13 +119,29 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		}
 	}
 
+	// Check provided EIPs
+	var chosenEipAllocations []string
+	if len(eipAllocationsList) != 0 {
+		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
+			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
+		}
+		chosenEipAllocations = eipAllocationsList[0]
+		for _, eipAllocations := range eipAllocationsList[1:] {
+			if !cmp.Equal(chosenEipAllocations, eipAllocations, equality.IgnoreStringSliceOrder()) {
+				return nil, errors.Errorf("all EIP allocations for the ingress group must be the same: %v | %v", chosenEipAllocations, eipAllocations)
+			}
+		}
+	}
+
 	if len(explicitSubnetNameOrIDsList) != 0 {
+		// Check all ingresses have the same subnets
 		chosenSubnetNameOrIDs := explicitSubnetNameOrIDsList[0]
 		for _, subnetNameOrIDs := range explicitSubnetNameOrIDsList[1:] {
 			if !cmp.Equal(chosenSubnetNameOrIDs, subnetNameOrIDs, equality.IgnoreStringSliceOrder()) {
 				return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
 			}
 		}
+
 		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
@@ -134,30 +150,23 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 			return nil, err
 		}
 
-		var chosenEipAllocations []string
-		if len(eipAllocationsList) != 0 {
-			if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
-				return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
-			}
-			chosenEipAllocations = eipAllocationsList[0]
-			for _, eipAllocations := range eipAllocationsList[1:] {
-				if !cmp.Equal(chosenEipAllocations, eipAllocations, equality.IgnoreStringSliceOrder()) {
-					return nil, errors.Errorf("all EIP allocations for the ingress group must be the same: %v | %v", chosenEipAllocations, eipAllocations)
-				}
-			}
-
+		if len(chosenEipAllocations) != 0 {
 			if len(chosenEipAllocations) != len(chosenSubnets) {
 				return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(explicitSubnetNameOrIDsList))
 			}
-
 			return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
 		}
 
 		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}), nil
+
+	} else {
+		// Attach EIPs to ALB subnets
+		subnetMappings := alb.Spec.SubnetMappings
+		for i := range subnetMappings {
+			subnetMappings[i].AllocationID = awssdk.String(chosenEipAllocations[i])
+		}
+		return subnetMappings, nil
 	}
-
-	return nil, nil
-
 }
 
 func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation []string) []elbv2model.SubnetMapping {
@@ -196,14 +205,9 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		securityGroups = alb.Spec.SecurityGroups
 	}
 
-	subnetMappings, err := t.buildFrontendNlbSubnetMappings(ctx, scheme)
+	subnetMappings, err := t.buildFrontendNlbSubnetMappings(ctx, scheme, alb)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
-	}
-
-	// use alb subnetMappings if it is not explicitly specified
-	if subnetMappings == nil {
-		subnetMappings = alb.Spec.SubnetMappings
 	}
 
 	name, err := t.buildFrontendNlbName(ctx, scheme, alb)
