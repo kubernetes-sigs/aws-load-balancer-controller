@@ -216,7 +216,7 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 			},
 		},
 		{
-			name: "with subnets annoattion",
+			name: "with subnets annotation",
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{
@@ -302,6 +302,34 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 			wantMappings: nil,
 			wantErr:      "count of EIP allocations (2) and subnets (1) must match",
 		},
+		{
+			name: "error when EIP allocations are specified but scheme is internal",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-5",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":         "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-1,eip-2",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal, // EIPs not allowed for internal scheme
+			},
+			wantMappings: nil,
+			wantErr:      "EIP allocations can only be set for internet facing load balancers",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -340,7 +368,12 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				annotationParser: annotationParser,
 				subnetsResolver:  subnetsResolver,
 			}
-			got, err := task.buildFrontendNlbSubnetMappings(context.Background(), tt.fields.scheme)
+			alb := &elbv2model.LoadBalancer{
+				Spec: elbv2model.LoadBalancerSpec{
+					Scheme: tt.fields.scheme,
+				},
+			}
+			got, err := task.buildFrontendNlbSubnetMappings(context.Background(), tt.fields.scheme, alb)
 
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr)
