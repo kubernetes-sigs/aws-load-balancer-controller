@@ -3,6 +3,7 @@ package networking
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -78,6 +79,10 @@ func (v *ingressValidator) ValidateCreate(ctx context.Context, obj runtime.Objec
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressAnnotationConditions")
 		return err
 	}
+	if err := v.checkFrontendNlbTagsAnnotation(ing); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkFrontendNlbTagsAnnotation")
+		return err
+	}
 	return nil
 }
 
@@ -102,6 +107,10 @@ func (v *ingressValidator) ValidateUpdate(ctx context.Context, obj runtime.Objec
 	}
 	if err := v.checkIngressAnnotationConditions(ing); err != nil {
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkIngressAnnotationConditions")
+		return err
+	}
+	if err := v.checkFrontendNlbTagsAnnotation(ing); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateNetworkingIngress, "checkFrontendNlbTagsAnnotation")
 		return err
 	}
 	return nil
@@ -233,6 +242,86 @@ func (v *ingressValidator) checkIngressAnnotationConditions(ing *networking.Ingr
 					)
 				}
 			}
+		}
+	}
+
+	return nil
+}
+
+// checkFrontendNlbTagsAnnotation validates the frontend NLB tags annotation format and constraints
+func (v *ingressValidator) checkFrontendNlbTagsAnnotation(ing *networking.Ingress) error {
+	annotationKey := fmt.Sprintf("%s/%s", annotations.AnnotationPrefixIngress, annotations.IngressSuffixFrontendNlbTags)
+	annotationValue, exists := ing.Annotations[annotationKey]
+
+	// If annotation doesn't exist, no validation needed
+	if !exists {
+		return nil
+	}
+
+	// If annotation is empty, no validation needed
+	if strings.TrimSpace(annotationValue) == "" {
+		return nil
+	}
+
+	// Parse the annotation value manually to provide better error messages
+	tags := make(map[string]string)
+	tagPairs := strings.Split(annotationValue, ",")
+
+	for _, tagPair := range tagPairs {
+		tagPair = strings.TrimSpace(tagPair)
+		if tagPair == "" {
+			continue // Skip empty tag pairs
+		}
+
+		// Check for proper key=value format
+		parts := strings.SplitN(tagPair, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid frontend NLB tags format: tag '%s' must be in 'key=value' format", tagPair)
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		// Validate key and value are not empty
+		if key == "" {
+			return fmt.Errorf("invalid frontend NLB tags format: tag key cannot be empty")
+		}
+		if value == "" {
+			return fmt.Errorf("invalid frontend NLB tags format: tag value cannot be empty")
+		}
+
+		// Check for duplicate keys
+		if _, exists := tags[key]; exists {
+			return fmt.Errorf("invalid frontend NLB tags: duplicate tag key '%s'", key)
+		}
+
+		tags[key] = value
+	}
+
+	// Validate tag count limit (AWS limit is 50 tags)
+	const maxTagCount = 50
+	if len(tags) > maxTagCount {
+		return fmt.Errorf("invalid frontend NLB tags: number of tags (%d) exceeds maximum allowed (%d)", len(tags), maxTagCount)
+	}
+
+	// Validate tag key and value constraints
+	const maxTagKeyLength = 128
+	const maxTagValueLength = 256
+
+	for key, value := range tags {
+		// Validate tag key length
+		if len(key) > maxTagKeyLength {
+			return fmt.Errorf("invalid frontend NLB tags: tag key exceeds maximum length of %d characters", maxTagKeyLength)
+		}
+
+		// Validate tag value length
+		if len(value) > maxTagValueLength {
+			return fmt.Errorf("invalid frontend NLB tags: tag value exceeds maximum length of %d characters", maxTagValueLength)
+		}
+
+		// Check for AWS reserved tag keys (aws:* pattern)
+		if strings.HasPrefix(strings.ToLower(key), "aws:") {
+			return fmt.Errorf("invalid frontend NLB tags: tag key '%s' is reserved (aws:* pattern)", key)
 		}
 	}
 

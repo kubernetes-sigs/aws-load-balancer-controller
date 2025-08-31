@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
@@ -22,6 +23,13 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+)
+
+const (
+	// AWS tag limits
+	maxTagKeyLength   = 128
+	maxTagValueLength = 256
+	maxTagCount       = 50
 )
 
 // FrontendNlbListenerConfig defines the configuration for an NLB listener
@@ -184,6 +192,12 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		return elbv2model.LoadBalancerSpec{}, err
 	}
 
+	// Build tags for frontend NLB
+	tags, err := t.buildFrontendNlbTags(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+
 	spec := elbv2model.LoadBalancerSpec{
 		Name:           name,
 		Type:           elbv2model.LoadBalancerTypeNetwork,
@@ -191,6 +205,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		IPAddressType:  alb.Spec.IPAddressType,
 		SecurityGroups: securityGroups,
 		SubnetMappings: subnetMappings,
+		Tags:           tags,
 	}
 
 	return spec, nil
@@ -741,6 +756,95 @@ func (t *defaultModelBuildTask) buildFrontendNlbSchemeViaAnnotation(ctx context.
 	default:
 		return "", false, errors.Errorf("unknown scheme: %v", rawScheme)
 	}
+}
+
+// buildFrontendNlbTagsViaAnnotation parses frontend NLB tags from ingress annotations
+func (t *defaultModelBuildTask) buildFrontendNlbTagsViaAnnotation(ctx context.Context) (map[string]string, error) {
+	var annotationTags map[string]string
+	for _, member := range t.ingGroup.Members {
+		var rawTags map[string]string
+		exists, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixFrontendNlbTags, &rawTags, member.Ing.Annotations)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to parse frontend NLB tags annotation for ingress %v", k8s.NamespacedName(member.Ing))
+		}
+		if !exists {
+			continue
+		}
+
+		// If this is the first ingress with tags, initialize the map
+		if annotationTags == nil {
+			annotationTags = make(map[string]string)
+		}
+
+		// Merge tags from this ingress, checking for conflicts
+		for key, value := range rawTags {
+			if existingValue, exists := annotationTags[key]; exists && existingValue != value {
+				return nil, errors.Errorf("conflicting frontend NLB tag %v: %v | %v", key, existingValue, value)
+			}
+			annotationTags[key] = value
+		}
+	}
+
+	return annotationTags, nil
+}
+
+// buildFrontendNlbTags builds tags for frontend NLB from annotations with validation
+func (t *defaultModelBuildTask) buildFrontendNlbTags(ctx context.Context) (map[string]string, error) {
+	// Parse tags from annotations
+	annotationTags, err := t.buildFrontendNlbTagsViaAnnotation(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no tags found, return empty map
+	if annotationTags == nil {
+		return make(map[string]string), nil
+	}
+
+	// Validate AWS tag limits and reserved keys
+	if err := t.validateFrontendNlbTags(annotationTags); err != nil {
+		return nil, err
+	}
+
+	// Validate collision with external managed tags
+	if err := t.validateTagCollisionWithExternalManagedTags(annotationTags); err != nil {
+		return nil, errors.Wrap(err, "failed to validate frontend NLB tags")
+	}
+
+	return annotationTags, nil
+}
+
+// validateFrontendNlbTags validates AWS tag limits and reserved keys
+func (t *defaultModelBuildTask) validateFrontendNlbTags(tags map[string]string) error {
+	// Check tag count limit
+	if len(tags) > maxTagCount {
+		return errors.Errorf("too many tags: %d (maximum %d allowed)", len(tags), maxTagCount)
+	}
+
+	// Validate each tag key and value
+	for key, value := range tags {
+		// Check key length
+		if len(key) > maxTagKeyLength {
+			return errors.Errorf("tag key '%s' exceeds maximum length of %d characters", key, maxTagKeyLength)
+		}
+
+		// Check value length
+		if len(value) > maxTagValueLength {
+			return errors.Errorf("tag value for key '%s' exceeds maximum length of %d characters", key, maxTagValueLength)
+		}
+
+		// Check for AWS reserved tag keys (aws:* pattern)
+		if strings.HasPrefix(strings.ToLower(key), "aws:") {
+			return errors.Errorf("tag key '%s' is reserved by AWS and cannot be used", key)
+		}
+
+		// Check for empty key
+		if len(key) == 0 {
+			return errors.New("tag key cannot be empty")
+		}
+	}
+
+	return nil
 }
 
 func buildFrontendNlbResourceID(resourceType string, protocol elbv2model.Protocol, port *int32) string {
