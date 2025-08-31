@@ -330,6 +330,35 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 			wantMappings: nil,
 			wantErr:      "EIP allocations can only be set for internet facing load balancers",
 		},
+		{
+			name: "EIPs still attached when subnet IDs are not specified",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-6",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-10,eip-20",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantMappings: []expectedMapping{
+				{SubnetID: "subnet-1", AllocationID: awssdk.String("eip-10")},
+				{SubnetID: "subnet-2", AllocationID: awssdk.String("eip-20")},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

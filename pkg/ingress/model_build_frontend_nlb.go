@@ -161,7 +161,8 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 
 	} else {
 		// Attach EIPs to ALB subnets
-		subnetMappings := alb.Spec.SubnetMappings
+		subnetMappings := make([]elbv2model.SubnetMapping, len(alb.Spec.SubnetMappings))
+		copy(subnetMappings, alb.Spec.SubnetMappings)
 		for i := range subnetMappings {
 			subnetMappings[i].AllocationID = awssdk.String(chosenEipAllocations[i])
 		}
@@ -199,6 +200,8 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
+
+	fmt.Printf("securityGroups: %+v\n", securityGroups)
 
 	// use alb security group if it is not explicitly specified
 	if securityGroups == nil {
