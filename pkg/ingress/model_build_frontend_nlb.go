@@ -137,15 +137,17 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		if err != nil {
 			return nil, err
 		}
+	// If no explicit subnets, discover public or private subnets based on scheme
+	} else {
+		chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
+			networking.WithSubnetsResolveLBScheme(scheme),
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Validate EIPs
-
-	// If no explicit subnets, discover public or private subnets based on scheme
-
-	// Construct subnet mapping
-
-	// Check provided EIPs
 	var chosenEipAllocations []string
 	if len(eipAllocationsList) != 0 {
 		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
@@ -159,25 +161,15 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		}
 	}
 
-
-		if len(chosenEipAllocations) != 0 {
-			if len(chosenEipAllocations) != len(chosenSubnets) {
-				return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(explicitSubnetNameOrIDsList))
-			}
-			return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
+	// Construct subnet mapping
+	if len(chosenEipAllocations) != 0 {
+		if len(chosenEipAllocations) != len(chosenSubnets) {
+			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(explicitSubnetNameOrIDsList))
 		}
-
-		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}), nil
-
-	} else {
-		// Attach EIPs to ALB subnets
-		subnetMappings := make([]elbv2model.SubnetMapping, len(alb.Spec.SubnetMappings))
-		copy(subnetMappings, alb.Spec.SubnetMappings)
-		for i := range subnetMappings {
-			subnetMappings[i].AllocationID = awssdk.String(chosenEipAllocations[i])
-		}
-		return subnetMappings, nil
+		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
 	}
+
+	return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}), nil
 }
 
 func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation []string) []elbv2model.SubnetMapping {
