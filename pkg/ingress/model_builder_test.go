@@ -4914,22 +4914,18 @@ func Test_defaultModelBuildTask_buildSSLRedirectConfig(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name: "single Ingress with IngressClassParam for ssl-redirect",
+			name: "single Ingress with ssl-redirect annotation",
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{Namespace: "ns-1", Name: "ing-1"},
 					Members: []ClassifiedIngress{
 						{
-							IngClassConfig: ClassConfiguration{
-								IngClassParams: &v1beta1.IngressClassParams{
-									Spec: v1beta1.IngressClassParamsSpec{
-										SSLRedirectPort: "443",
-									},
-								},
-							},
 							Ing: &networking.Ingress{ObjectMeta: metav1.ObjectMeta{
 								Namespace: "ns-1",
 								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/ssl-redirect": "443",
+								},
 							},
 								Spec: networking.IngressSpec{
 									Rules: []networking.IngressRule{
