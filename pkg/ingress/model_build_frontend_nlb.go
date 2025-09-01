@@ -179,7 +179,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 	// Construct subnet mapping
 	if len(chosenEipAllocations) != 0 {
 		if len(chosenEipAllocations) != len(chosenSubnets) {
-			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(explicitSubnetNameOrIDsList))
+			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(chosenSubnets))
 		}
 		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
 	}
