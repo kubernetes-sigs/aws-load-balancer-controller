@@ -119,18 +119,10 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		}
 	}
 
-	var chosenEipAllocations []string
-	if len(eipAllocationsList) != 0 {
-		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
-			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
-		}
-		chosenEipAllocations = eipAllocationsList[0]
-		for _, eipAllocations := range eipAllocationsList[1:] {
-			if !cmp.Equal(chosenEipAllocations, eipAllocations, equality.IgnoreStringSliceOrder()) {
-				return nil, errors.Errorf("all EIP allocations for the ingress group must be the same: %v | %v", chosenEipAllocations, eipAllocations)
-			}
-		}
-	}
+
+	fmt.Printf("explicitSubnetNameOrIDsList: %+v\n", explicitSubnetNameOrIDsList)
+	fmt.Printf("eipAllocationsList: %+v\n", eipAllocationsList)
+
 
 	if len(explicitSubnetNameOrIDsList) != 0 {
 		chosenSubnetNameOrIDs := explicitSubnetNameOrIDsList[0]
@@ -147,11 +139,26 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 			return nil, err
 		}
 
-		if len(chosenEipAllocations) != len(chosenSubnets) {
-			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(explicitSubnetNameOrIDsList))
+		var chosenEipAllocations []string
+		if len(eipAllocationsList) != 0 {
+			if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
+				return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
+			}
+			chosenEipAllocations = eipAllocationsList[0]
+			for _, eipAllocations := range eipAllocationsList[1:] {
+				if !cmp.Equal(chosenEipAllocations, eipAllocations, equality.IgnoreStringSliceOrder()) {
+					return nil, errors.Errorf("all EIP allocations for the ingress group must be the same: %v | %v", chosenEipAllocations, eipAllocations)
+				}
+			}
+			if len(chosenEipAllocations) != len(chosenSubnets) {
+				return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(explicitSubnetNameOrIDsList))
+			}
+
+			return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
 		}
 
-		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
+
+		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}), nil
 	}
 
 	return nil, nil
