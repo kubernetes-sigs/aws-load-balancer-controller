@@ -8,7 +8,6 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
 	gomock "github.com/golang/mock/gomock"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -243,7 +242,10 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				},
 				scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			},
-			wantErr: "called ListLoadBalancers()",
+			wantMappings: []expectedMapping{
+				{SubnetID: "subnet-1", AllocationID: nil},
+				{SubnetID: "subnet-2", AllocationID: nil},
+			},
 		},
 		{
 			name: "with subnets annotation",
@@ -398,12 +400,13 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 			// Create a mock subnets resolver instead of mocking EC2 calls
 			mockSubnetsResolver := networking2.NewMockSubnetsResolver(ctrl)
 
-			// Set up mock expectations based on test case
-			if tt.name == "no annotation implicit subnet" {
-				// For implicit subnet discovery, return an error to match the expected error
-				mockSubnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).
-					Return(nil, errors.New("called ListLoadBalancers()"))
-			} else if tt.name == "with subnets annotation" {
+			mockSubnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).
+				Return([]ec2types.Subnet{
+					{SubnetId: awssdk.String("subnet-1")},
+					{SubnetId: awssdk.String("subnet-2")},
+				}, nil)
+
+			if tt.name == "with subnets annotation" {
 				// For explicit subnet annotation, mock ResolveViaNameOrIDSlice
 				mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return([]ec2types.Subnet{
