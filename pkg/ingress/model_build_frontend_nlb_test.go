@@ -215,7 +215,7 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 
 	type expectedMapping struct {
 		SubnetID     string
-		AllocationID *string // pointer to string for EIP allocation ID
+		AllocationID *string
 	}
 
 	tests := []struct {
@@ -299,7 +299,7 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 						},
 					},
 				},
-				scheme: elbv2.LoadBalancerSchemeInternetFacing, // EIPs require internet-facing
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			},
 			wantMappings: []expectedMapping{
 				{SubnetID: "subnet-1", AllocationID: awssdk.String("eip-1")},
@@ -357,7 +357,7 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 						},
 					},
 				},
-				scheme: elbv2.LoadBalancerSchemeInternal, // EIPs not allowed for internal scheme
+				scheme: elbv2.LoadBalancerSchemeInternal,
 			},
 			wantMappings: nil,
 			wantErr:      "EIP allocations can only be set for internet facing load balancers",
