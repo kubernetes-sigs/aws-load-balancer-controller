@@ -218,8 +218,6 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		return elbv2model.LoadBalancerSpec{}, err
 	}
 
-	fmt.Printf("securityGroups: %+v\n", securityGroups)
-
 	// use alb security group if it is not explicitly specified
 	if securityGroups == nil {
 		securityGroups = alb.Spec.SecurityGroups
