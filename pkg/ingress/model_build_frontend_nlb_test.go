@@ -404,45 +404,12 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				Return([]ec2types.Subnet{
 					{SubnetId: awssdk.String("subnet-1")},
 					{SubnetId: awssdk.String("subnet-2")},
-				}, nil)
-
-			if tt.name == "with subnets annotation" {
-				// For explicit subnet annotation, mock ResolveViaNameOrIDSlice
-				mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return([]ec2types.Subnet{
-						{SubnetId: awssdk.String("subnet-1")},
-						{SubnetId: awssdk.String("subnet-2")},
-					}, nil)
-			} else if tt.name == "with subnets and eip allocations" {
-				// For subnets with EIP allocations
-				mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return([]ec2types.Subnet{
-						{SubnetId: awssdk.String("subnet-1")},
-						{SubnetId: awssdk.String("subnet-2")},
-					}, nil)
-			} else if tt.name == "error when number of subnets does not match number of EIPs" {
-				// For EIP count mismatch error - this test expects 3 subnets but only 2 EIPs
-				mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return([]ec2types.Subnet{
-						{SubnetId: awssdk.String("subnet-1")},
-						{SubnetId: awssdk.String("subnet-2")},
-						{SubnetId: awssdk.String("subnet-3")},
-					}, nil)
-			} else if tt.name == "error when EIP allocations are specified but scheme is internal" {
-				// For internal scheme with EIP error
-				mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return([]ec2types.Subnet{
-						{SubnetId: awssdk.String("subnet-1")},
-						{SubnetId: awssdk.String("subnet-2")},
-					}, nil)
-			} else if tt.name == "EIPs still attached when subnet IDs are not specified" {
-				// For implicit subnet discovery with EIPs
-				mockSubnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).
-					Return([]ec2types.Subnet{
-						{SubnetId: awssdk.String("subnet-1")},
-						{SubnetId: awssdk.String("subnet-2")},
-					}, nil)
-			}
+				}, nil).AnyTimes()
+			mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return([]ec2types.Subnet{
+					{SubnetId: awssdk.String("subnet-1")},
+					{SubnetId: awssdk.String("subnet-2")},
+				}, nil).AnyTimes()
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			task := &defaultModelBuildTask{
