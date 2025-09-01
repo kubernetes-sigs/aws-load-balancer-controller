@@ -130,9 +130,6 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 				return nil, errors.Errorf("all EIP allocations for the ingress group must be the same: %v | %v", chosenEipAllocations, eipAllocations)
 			}
 		}
-		if len(eipAllocationsList) != len(explicitSubnetNameOrIDsList) {
-			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(eipAllocationsList), len(explicitSubnetNameOrIDsList))
-		}
 	}
 
 	if len(explicitSubnetNameOrIDsList) != 0 {
@@ -150,15 +147,18 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 			return nil, err
 		}
 
+		if len(chosenEipAllocations) != len(chosenSubnets) {
+			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(explicitSubnetNameOrIDsList))
+		}
+
 		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
 	}
-
 
 	return nil, nil
 
 }
 
-// I found a bug in the current implementation where EIP allocations require both subnets AND EIPs to be provided together, but there's an indexing issue in buildFrontendNlbSubnetMappingsWithSubnets. 
+// I found a bug in the current implementation where EIP allocations require both subnets AND EIPs to be provided together, but there's an indexing issue in buildFrontendNlbSubnetMappingsWithSubnets.
 // The function tries to access eipAllocation[subnetIndex][0] but the data structure is eipAllocation[ingressIndex][eipIndex].
 func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation []string) []elbv2model.SubnetMapping {
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnets))

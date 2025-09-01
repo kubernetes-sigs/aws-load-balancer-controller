@@ -244,6 +244,36 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				{SubnetID: "subnet-2", AllocationID: nil},
 			},
 		},
+		{
+			name: "with subnets and eip allocations",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-3",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":         "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-1,eip-2",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing, // EIPs require internet-facing
+			},
+			wantMappings: []expectedMapping{
+				{SubnetID: "subnet-1", AllocationID: awssdk.String("eip-1")},
+				{SubnetID: "subnet-2", AllocationID: awssdk.String("eip-2")},
+			},
+		},
 	}
 
 	for _, tt := range tests {
