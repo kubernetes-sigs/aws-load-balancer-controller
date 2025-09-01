@@ -181,11 +181,16 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 		scheme   elbv2.LoadBalancerScheme
 	}
 
+	type expectedMapping struct {
+		SubnetID     string
+		AllocationID *string // pointer to string for EIP allocation ID
+	}
+
 	tests := []struct {
-		name    string
-		fields  fields
-		want    []string
-		wantErr string
+		name         string
+		fields       fields
+		wantMappings []expectedMapping
+		wantErr      string
 	}{
 		{
 			name: "no annotation implicit subnets",
@@ -234,7 +239,10 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				},
 				scheme: elbv2.LoadBalancerSchemeInternal,
 			},
-			want: []string{"subnet-1", "subnet-2"},
+			wantMappings: []expectedMapping{
+				{SubnetID: "subnet-1", AllocationID: nil},
+				{SubnetID: "subnet-2", AllocationID: nil},
+			},
 		},
 	}
 
@@ -280,12 +288,15 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
-
-				var gotSubnets []string
+				// Convert actual mappings to expected format for comparison
+				var gotMappings []expectedMapping
 				for _, mapping := range got {
-					gotSubnets = append(gotSubnets, mapping.SubnetID)
+					gotMappings = append(gotMappings, expectedMapping{
+						SubnetID:     mapping.SubnetID,
+						AllocationID: mapping.AllocationID,
+					})
 				}
-				assert.Equal(t, tt.want, gotSubnets)
+				assert.Equal(t, tt.wantMappings, gotMappings)
 			}
 		})
 	}

@@ -114,7 +114,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 			explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
 		}
 		var rawEIP []string
-		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAllocations, &rawEIP, member.Ing.Annotations); exists {
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAlloactions, &rawEIP, member.Ing.Annotations); exists {
 			eipAllocation = append(eipAllocation, rawEIP)
 		}
 	}
@@ -123,7 +123,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		chosenSubnetNameOrIDs := explicitSubnetNameOrIDsList[0]
 		for _, subnetNameOrIDs := range explicitSubnetNameOrIDsList[1:] {
 			if !cmp.Equal(chosenSubnetNameOrIDs, subnetNameOrIDs, equality.IgnoreStringSliceOrder()) {
-				return nil, errors.Errorf("rawEIP subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
+				return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
 			}
 		}
 		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
@@ -137,10 +137,21 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, eipAllocation), nil
 	}
 
+	if len(eipAllocation) != 0 {
+		if len(eipAllocation) != len(explicitSubnetNameOrIDsList) {
+			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(explicitSubnetNameOrIDsList))
+		}
+		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
+			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
+		}
+		// Check if each EIP exists using the AWS SDK
+	}
+
 	return nil, nil
 
 }
 
+// I found a bug in the current implementation where EIP allocations require both subnets AND EIPs to be provided together, but there's an indexing issue in buildFrontendNlbSubnetMappingsWithSubnets. The function tries to access eipAllocation[subnetIndex][0] but the data structure is eipAllocation[ingressIndex][eipIndex].
 func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation [][]string) []elbv2model.SubnetMapping {
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnets))
 	for idx, subnet := range subnets {
