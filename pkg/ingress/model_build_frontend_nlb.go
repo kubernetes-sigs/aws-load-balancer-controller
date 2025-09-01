@@ -107,19 +107,23 @@ func (t *defaultModelBuildTask) buildFrontendNlbScheme(ctx context.Context, alb 
 
 func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
 	var explicitSubnetNameOrIDsList [][]string
+	var eipAllocation [][]string
 	for _, member := range t.ingGroup.Members {
 		var rawSubnetNameOrIDs []string
-		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbSubnets, &rawSubnetNameOrIDs, member.Ing.Annotations); !exists {
-			continue
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbSubnets, &rawSubnetNameOrIDs, member.Ing.Annotations); exists {
+			explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
 		}
-		explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
+		var rawEIP []string
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAllocations, &rawEIP, member.Ing.Annotations); exists {
+			eipAllocation = append(eipAllocation, rawEIP)
+		}
 	}
 
 	if len(explicitSubnetNameOrIDsList) != 0 {
 		chosenSubnetNameOrIDs := explicitSubnetNameOrIDsList[0]
 		for _, subnetNameOrIDs := range explicitSubnetNameOrIDsList[1:] {
 			if !cmp.Equal(chosenSubnetNameOrIDs, subnetNameOrIDs, equality.IgnoreStringSliceOrder()) {
-				return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
+				return nil, errors.Errorf("rawEIP subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
 			}
 		}
 		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
@@ -130,19 +134,22 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 			return nil, err
 		}
 
-		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets), nil
+		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, eipAllocation), nil
 	}
 
 	return nil, nil
 
 }
 
-func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet) []elbv2model.SubnetMapping {
+func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation [][]string) []elbv2model.SubnetMapping {
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnets))
-	for _, subnet := range subnets {
+	for idx, subnet := range subnets {
 		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
 			SubnetID: awssdk.ToString(subnet.SubnetId),
 		})
+		if len(eipAllocation) > 0 {
+			subnetMappings[idx].AllocationID = awssdk.String(eipAllocation[idx][0])
+		}
 	}
 	return subnetMappings
 }
