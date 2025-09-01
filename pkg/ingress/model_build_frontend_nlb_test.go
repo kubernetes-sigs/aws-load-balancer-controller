@@ -63,7 +63,6 @@ func Test_defaultModelBuildTask_buildFrontendNlbSecurityGroups(t *testing.T) {
 				},
 				scheme: elbv2.LoadBalancerSchemeInternal,
 			},
-			wantErr: "called ListLoadBalancers()",
 		},
 		{
 			name: "with annotations",
@@ -152,42 +151,11 @@ func Test_defaultModelBuildTask_buildFrontendNlbSecurityGroups(t *testing.T) {
 			}
 			sgResolver := networkingpkg.NewDefaultSecurityGroupResolver(mockEC2, vpcID)
 
-			// Set up mock subnet discovery to avoid subnet resolution errors
-			mockEC2.EXPECT().DescribeSubnetsAsList(gomock.Any(), gomock.Any()).Return([]ec2types.Subnet{
-				{
-					SubnetId: awssdk.String("subnet-1"),
-					VpcId:    awssdk.String(vpcID),
-					State:    ec2types.SubnetStateAvailable,
-				},
-			}, nil).AnyTimes()
-
-			azInfoProvider := networking2.NewMockAZInfoProvider(ctrl)
-			azInfoProvider.EXPECT().FetchAZInfos(gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2types.AvailabilityZone, error) {
-					ret := make(map[string]ec2types.AvailabilityZone, len(availabilityZoneIDs))
-					for _, id := range availabilityZoneIDs {
-						ret[id] = ec2types.AvailabilityZone{ZoneType: awssdk.String("availability-zone")}
-					}
-					return ret, nil
-				}).AnyTimes()
-
-			subnetsResolver := networking2.NewDefaultSubnetsResolver(
-				azInfoProvider,
-				mockEC2,
-				vpcID,
-				"test-cluster",
-				true,
-				true,
-				true,
-				logr.New(&log.NullLogSink{}),
-			)
-
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			task := &defaultModelBuildTask{
 				sgResolver:       sgResolver,
 				ingGroup:         tt.fields.ingGroup,
 				annotationParser: annotationParser,
-				subnetsResolver:  subnetsResolver,
 			}
 
 			got, err := task.buildFrontendNlbSecurityGroups(context.Background())
@@ -225,26 +193,26 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 		wantErr      string
 	}{
 		{
-			name: "no annotation implicit subnet",
+			name: "no annotation implicit subnets",
 			fields: fields{
 				ingGroup: Group{
-					ID: GroupID{Namespace: "awesome-ns", Name: "my-ingress"},
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
 					Members: []ClassifiedIngress{
 						{
 							Ing: &networking.Ingress{
 								ObjectMeta: metav1.ObjectMeta{
-									Namespace: "awesome-ns",
-									Name:      "ing-1",
+									Namespace:   "awesome-ns",
+									Name:        "ing-1",
+									Annotations: map[string]string{},
 								},
 							},
 						},
 					},
 				},
-				scheme: elbv2.LoadBalancerSchemeInternetFacing,
-			},
-			wantMappings: []expectedMapping{
-				{SubnetID: "subnet-1", AllocationID: nil},
-				{SubnetID: "subnet-2", AllocationID: nil},
+				scheme: elbv2.LoadBalancerSchemeInternal,
 			},
 		},
 		{
@@ -321,8 +289,8 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 									Namespace: "awesome-ns",
 									Name:      "ing-4",
 									Annotations: map[string]string{
-										"alb.ingress.kubernetes.io/frontend-nlb-subnets":         "subnet-1,subnet-2",
-										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-1",
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":         "subnet-1,subnet-2,subnet-3",
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-1,eip-2",
 									},
 								},
 							},
@@ -332,7 +300,7 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			},
 			wantMappings: nil,
-			wantErr:      "count of EIP allocations (1) and subnets (2) must match",
+			wantErr:      "count of EIP allocations (2) and subnets (1) must match",
 		},
 		{
 			name: "error when EIP allocations are specified but scheme is internal",
@@ -397,27 +365,44 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			// Create a mock subnets resolver instead of mocking EC2 calls
-			mockSubnetsResolver := networking2.NewMockSubnetsResolver(ctrl)
+			mockEC2 := services.NewMockEC2(ctrl)
+			mockEC2.EXPECT().DescribeSubnetsAsList(gomock.Any(), gomock.Any()).
+				DoAndReturn(stubDescribeSubnetsAsList).
+				AnyTimes()
 
-			mockSubnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).
-				Return([]ec2types.Subnet{
-					{SubnetId: awssdk.String("subnet-1")},
-					{SubnetId: awssdk.String("subnet-2")},
-				}, nil).AnyTimes()
-			mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return([]ec2types.Subnet{
-					{SubnetId: awssdk.String("subnet-1")},
-					{SubnetId: awssdk.String("subnet-2")},
-				}, nil).AnyTimes()
+			azInfoProvider := networking2.NewMockAZInfoProvider(ctrl)
+			azInfoProvider.EXPECT().FetchAZInfos(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2types.AvailabilityZone, error) {
+					ret := make(map[string]ec2types.AvailabilityZone, len(availabilityZoneIDs))
+					for _, id := range availabilityZoneIDs {
+						ret[id] = ec2types.AvailabilityZone{ZoneType: awssdk.String("availability-zone")}
+					}
+					return ret, nil
+				}).AnyTimes()
+
+			subnetsResolver := networking2.NewDefaultSubnetsResolver(
+				azInfoProvider,
+				mockEC2,
+				"vpc-1",
+				"test-cluster",
+				true,
+				true,
+				true,
+				logr.New(&log.NullLogSink{}),
+			)
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			task := &defaultModelBuildTask{
 				ingGroup:         tt.fields.ingGroup,
 				annotationParser: annotationParser,
-				subnetsResolver:  mockSubnetsResolver,
+				subnetsResolver:  subnetsResolver,
 			}
-			got, err := task.buildFrontendNlbSubnetMappings(context.Background(), tt.fields.scheme)
+			alb := &elbv2model.LoadBalancer{
+				Spec: elbv2model.LoadBalancerSpec{
+					Scheme: tt.fields.scheme,
+				},
+			}
+			got, err := task.buildFrontendNlbSubnetMappings(context.Background(), tt.fields.scheme, alb)
 
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr)
