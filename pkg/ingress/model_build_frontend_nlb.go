@@ -106,8 +106,6 @@ func (t *defaultModelBuildTask) buildFrontendNlbScheme(ctx context.Context, alb 
 }
 
 func (t *defaultModelBuildTask) validateAndResolveSubnets(ctx context.Context, explicitSubnetNameOrIDsList [][]string, scheme elbv2model.LoadBalancerScheme) ([]ec2types.Subnet, error) {
-	var chosenSubnets []ec2types.Subnet
-	var err error
 	if len(explicitSubnetNameOrIDsList) != 0 {
 		// Check all ingresses have the same subnets
 		chosenSubnetNameOrIDs := explicitSubnetNameOrIDsList[0]
@@ -117,17 +115,20 @@ func (t *defaultModelBuildTask) validateAndResolveSubnets(ctx context.Context, e
 			}
 		}
 
-		chosenSubnets, err = t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
+		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
 		)
-	} else {
-		chosenSubnets, err = t.subnetsResolver.ResolveViaDiscovery(ctx,
-			networking.WithSubnetsResolveLBScheme(scheme),
-		)
+		if err != nil {
+			return nil, err
+		}
+		return chosenSubnets, nil
 	}
 
 	// If no explicit subnets, discover public or private subnets based on scheme
+	chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
+		networking.WithSubnetsResolveLBScheme(scheme),
+	)
 	if err != nil {
 		return nil, err
 	}
