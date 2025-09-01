@@ -332,7 +332,7 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				scheme: elbv2.LoadBalancerSchemeInternetFacing,
 			},
 			wantMappings: nil,
-			wantErr:      "count of EIP allocations (2) and subnets (1) must match",
+			wantErr:      "count of EIP allocations (1) and subnets (2) must match",
 		},
 		{
 			name: "error when EIP allocations are specified but scheme is internal",
