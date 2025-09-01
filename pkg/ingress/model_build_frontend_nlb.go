@@ -107,7 +107,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbScheme(ctx context.Context, alb 
 
 func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
 	var explicitSubnetNameOrIDsList [][]string
-	var eipAllocation [][]string
+	var eipAllocationsList [][]string
 	for _, member := range t.ingGroup.Members {
 		var rawSubnetNameOrIDs []string
 		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbSubnets, &rawSubnetNameOrIDs, member.Ing.Annotations); exists {
@@ -115,7 +115,23 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		}
 		var rawEIP []string
 		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAlloactions, &rawEIP, member.Ing.Annotations); exists {
-			eipAllocation = append(eipAllocation, rawEIP)
+			eipAllocationsList = append(eipAllocationsList, rawEIP)
+		}
+	}
+
+	var chosenEipAllocations []string
+	if len(eipAllocationsList) != 0 {
+		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
+			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
+		}
+		chosenEipAllocations = eipAllocationsList[0]
+		for _, eipAllocations := range eipAllocationsList[1:] {
+			if !cmp.Equal(chosenEipAllocations, eipAllocations, equality.IgnoreStringSliceOrder()) {
+				return nil, errors.Errorf("all EIP allocations for the ingress group must be the same: %v | %v", chosenEipAllocations, eipAllocations)
+			}
+		}
+		if len(eipAllocationsList) != len(explicitSubnetNameOrIDsList) {
+			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(eipAllocationsList), len(explicitSubnetNameOrIDsList))
 		}
 	}
 
@@ -134,32 +150,24 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 			return nil, err
 		}
 
-		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, eipAllocation), nil
+		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
 	}
 
-	if len(eipAllocation) != 0 {
-		if len(eipAllocation) != len(explicitSubnetNameOrIDsList) {
-			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(eipAllocation), len(explicitSubnetNameOrIDsList))
-		}
-		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
-			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
-		}
-		// Check if each EIP exists using the AWS SDK
-	}
 
 	return nil, nil
 
 }
 
-// I found a bug in the current implementation where EIP allocations require both subnets AND EIPs to be provided together, but there's an indexing issue in buildFrontendNlbSubnetMappingsWithSubnets. The function tries to access eipAllocation[subnetIndex][0] but the data structure is eipAllocation[ingressIndex][eipIndex].
-func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation [][]string) []elbv2model.SubnetMapping {
+// I found a bug in the current implementation where EIP allocations require both subnets AND EIPs to be provided together, but there's an indexing issue in buildFrontendNlbSubnetMappingsWithSubnets. 
+// The function tries to access eipAllocation[subnetIndex][0] but the data structure is eipAllocation[ingressIndex][eipIndex].
+func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation []string) []elbv2model.SubnetMapping {
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnets))
 	for idx, subnet := range subnets {
 		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
 			SubnetID: awssdk.ToString(subnet.SubnetId),
 		})
 		if len(eipAllocation) > 0 {
-			subnetMappings[idx].AllocationID = awssdk.String(eipAllocation[idx][0])
+			subnetMappings[idx].AllocationID = awssdk.String(eipAllocation[idx])
 		}
 	}
 	return subnetMappings
