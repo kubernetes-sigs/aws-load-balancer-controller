@@ -1,6 +1,8 @@
 package config
 
 import (
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/pod_readiness"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/quic"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 	"time"
@@ -9,7 +11,6 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
@@ -74,9 +75,9 @@ type ControllerConfig struct {
 	// Configurations for the Controller Runtime
 	RuntimeConfig RuntimeConfig
 	// Configurations for Pod inject webhook
-	PodWebhookConfig inject.PodReadinessGateConfig
+	PodWebhookConfig pod_readiness.PodReadinessGateConfig
 	// Configurations for QUIC integration.
-	QUICServerIDInjectionConfig inject.QUICServerIDInjectionConfig
+	QUICServerIDInjectionConfig quic.QUICServerIDInjectionConfig
 	// Configurations for the Ingress controller
 	IngressConfig IngressConfig
 	// Configurations for Addons feature

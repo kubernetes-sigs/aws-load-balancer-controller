@@ -29,6 +29,8 @@ import (
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/referencecounter"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/pod_readiness"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/quic"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -56,7 +58,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
@@ -407,10 +408,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	podReadinessGateInjector := inject.NewPodReadinessGate(controllerCFG.PodWebhookConfig,
+	podReadinessGateInjector := pod_readiness.NewPodReadinessGate(controllerCFG.PodWebhookConfig,
 		mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
 
-	quicServerIDInjector := inject.NewQUICServerIDInjector(controllerCFG.QUICServerIDInjectionConfig, ctrl.Log.WithName("quic-server-id-injector"))
+	quicServerIDInjector := quic.NewQUICServerIDInjector(controllerCFG.QUICServerIDInjectionConfig, mgr.GetClient(), mgr.GetAPIReader(), ctrl.Log.WithName("quic-server-id-injector"))
 
 	corewebhook.NewPodReadinessGateMutator(podReadinessGateInjector, lbcMetricsCollector).SetupWithManager(mgr)
 	corewebhook.NewPodServerIDMutator(quicServerIDInjector, lbcMetricsCollector).SetupWithManager(mgr)
