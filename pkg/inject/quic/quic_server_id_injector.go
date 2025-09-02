@@ -5,6 +5,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
 
@@ -21,11 +22,11 @@ type quicServerIDInjectorImpl struct {
 }
 
 // NewQUICServerIDInjector constructs a new injector to generate QUIC server IDs for containers.
-func NewQUICServerIDInjector(config QUICServerIDInjectionConfig, logger logr.Logger) QUICServerIDInjector {
+func NewQUICServerIDInjector(config QUICServerIDInjectionConfig, client client.Client, apiReader client.Reader, logger logr.Logger) QUICServerIDInjector {
 	return &quicServerIDInjectorImpl{
 		config:      config,
 		logger:      logger,
-		idGenerator: newQuicServerIDGenerator(),
+		idGenerator: newQuicServerIDGenerator(newWorkerIdGenerator(client, apiReader)),
 	}
 }
 
@@ -44,17 +45,23 @@ func (m *quicServerIDInjectorImpl) Mutate(ctx context.Context, pod *corev1.Pod) 
 
 	containerNameSet := sets.New(strings.Split(containerNameList, ",")...)
 	for i := range pod.Spec.Containers {
-		m.mutateContainerSpec(&pod.Spec.Containers[i], containerNameSet)
+		err := m.mutateContainerSpec(&pod.Spec.Containers[i], containerNameSet)
+		if err != nil {
+			return err
+		}
 	}
 
 	for i := range pod.Spec.InitContainers {
-		m.mutateContainerSpec(&pod.Spec.InitContainers[i], containerNameSet)
+		err := m.mutateContainerSpec(&pod.Spec.InitContainers[i], containerNameSet)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (m *quicServerIDInjectorImpl) mutateContainerSpec(cont *corev1.Container, containerNameSet sets.Set[string]) {
+func (m *quicServerIDInjectorImpl) mutateContainerSpec(cont *corev1.Container, containerNameSet sets.Set[string]) error {
 	if containerNameSet.Has(cont.Name) {
 		if cont.Env == nil {
 			cont.Env = make([]corev1.EnvVar, 0)
@@ -69,10 +76,17 @@ func (m *quicServerIDInjectorImpl) mutateContainerSpec(cont *corev1.Container, c
 		}
 
 		if !duplicateFound {
+
+			serverId, err := m.idGenerator.generate()
+			if err != nil {
+				return err
+			}
+
 			cont.Env = append(cont.Env, corev1.EnvVar{
 				Name:  m.config.EnvironmentVariableName,
-				Value: m.idGenerator.generate(),
+				Value: serverId,
 			})
 		}
 	}
+	return nil
 }

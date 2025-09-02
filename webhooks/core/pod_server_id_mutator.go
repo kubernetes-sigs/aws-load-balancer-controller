@@ -4,7 +4,7 @@ import (
 	"context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/quic"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,7 +16,7 @@ const (
 )
 
 // NewPodServerIDMutator returns a pod server id mutator.
-func NewPodServerIDMutator(serverIDInjector inject.QUICServerIDInjector, metricsCollector lbcmetrics.MetricCollector) *ServerIDMutator {
+func NewPodServerIDMutator(serverIDInjector quic.QUICServerIDInjector, metricsCollector lbcmetrics.MetricCollector) *ServerIDMutator {
 	return &ServerIDMutator{
 		serverIDInjector: serverIDInjector,
 		metricsCollector: metricsCollector,
@@ -26,7 +26,7 @@ func NewPodServerIDMutator(serverIDInjector inject.QUICServerIDInjector, metrics
 var _ webhook.Mutator = &podReadinessGateMutator{}
 
 type ServerIDMutator struct {
-	serverIDInjector inject.QUICServerIDInjector
+	serverIDInjector quic.QUICServerIDInjector
 	metricsCollector lbcmetrics.MetricCollector
 }
 

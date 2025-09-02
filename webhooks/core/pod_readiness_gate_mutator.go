@@ -4,7 +4,7 @@ import (
 	"context"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/pod_readiness"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/webhook"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -16,7 +16,7 @@ const (
 )
 
 // NewPodReadinessGateMutator returns a pod readiness gate mutator.
-func NewPodReadinessGateMutator(podReadinessGateInjector *inject.PodReadinessGate, metricsCollector lbcmetrics.MetricCollector) *podReadinessGateMutator {
+func NewPodReadinessGateMutator(podReadinessGateInjector *pod_readiness.PodReadinessGate, metricsCollector lbcmetrics.MetricCollector) *podReadinessGateMutator {
 	return &podReadinessGateMutator{
 		podReadinessGateInjector: podReadinessGateInjector,
 		metricsCollector:         metricsCollector,
@@ -26,7 +26,7 @@ func NewPodReadinessGateMutator(podReadinessGateInjector *inject.PodReadinessGat
 var _ webhook.Mutator = &podReadinessGateMutator{}
 
 type podReadinessGateMutator struct {
-	podReadinessGateInjector *inject.PodReadinessGate
+	podReadinessGateInjector *pod_readiness.PodReadinessGate
 	metricsCollector         lbcmetrics.MetricCollector
 }
 
