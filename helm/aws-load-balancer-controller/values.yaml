@@ -375,6 +375,7 @@ controllerConfig:
   # NLBHealthCheckAdvancedConfig: true
   # ALBSingleSubnet: false
   # LBCapacityReservation: true
+  # SubnetDiscoveryByReachability: true   # auto-discover subnet public/private via route tables
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope
