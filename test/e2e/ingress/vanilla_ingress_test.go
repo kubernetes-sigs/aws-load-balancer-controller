@@ -8,6 +8,8 @@ import (
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/gavv/httpexpect/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -826,6 +828,73 @@ var _ = Describe("vanilla ingress tests", func() {
 			httpExp.GET("/path").Expect().
 				Status(http.StatusOK).
 				Body().Equal("Hello World!")
+		})
+	})
+
+	Context("When created with managed alb with tags provided via annotations", func() {
+		It("ALB will have correct tags", func() {
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			annotation := map[string]string{
+				"kubernetes.io/ingress.class":             "alb",
+				"alb.ingress.kubernetes.io/scheme":        "internet-facing",
+				"alb.ingress.kubernetes.io/tags":          "k1=v1,k2=v2",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
+			}
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			defer resStack.TearDown(ctx)
+
+			lbARN, _ := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+
+			// Verify tags
+			expectedTags := map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+			}
+			// Verify tags using DescribeTags
+			var tagDescriptions []elbv2types.TagDescription
+			Eventually(func() (bool, error) {
+				req := &elasticloadbalancingv2.DescribeTagsInput{
+					ResourceArns: []string{lbARN},
+				}
+				resp, err := tf.Cloud.ELBV2().DescribeTagsWithContext(ctx, req)
+				if err != nil {
+					return false, err
+				}
+				if len(resp.TagDescriptions) > 0 {
+					tagDescriptions = resp.TagDescriptions
+					return true, nil
+				}
+				return false, nil
+			}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+
+			// At this point we should have exactly one TagDescription since we only queried one LB
+			Expect(tagDescriptions).To(HaveLen(1), "Expected exactly one TagDescription")
+			foundTags := 0
+			for _, tag := range tagDescriptions[0].Tags {
+				if val, ok := expectedTags[awssdk.ToString(tag.Key)]; ok && val == awssdk.ToString(tag.Value) {
+					foundTags++
+				}
+			}
+			Expect(foundTags).To(Equal(len(expectedTags)), "Not all expected tags were found on the ALB")
 		})
 	})
 

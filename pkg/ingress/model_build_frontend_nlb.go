@@ -184,6 +184,11 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		return elbv2model.LoadBalancerSpec{}, err
 	}
 
+	tags, err := t.buildFrontendNlbTags(ctx, alb)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+
 	spec := elbv2model.LoadBalancerSpec{
 		Name:           name,
 		Type:           elbv2model.LoadBalancerTypeNetwork,
@@ -191,6 +196,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		IPAddressType:  alb.Spec.IPAddressType,
 		SecurityGroups: securityGroups,
 		SubnetMappings: subnetMappings,
+		Tags:           tags,
 	}
 
 	return spec, nil
@@ -764,4 +770,39 @@ func mergeHealthCheckField[T comparable](fieldName string, finalValue **T, curre
 		*finalValue = currentValue
 	}
 	return nil
+}
+
+func (t *defaultModelBuildTask) buildFrontendNlbTags(ctx context.Context, alb *elbv2model.LoadBalancer) (map[string]string, error) {
+	// First check for frontend-nlb specific tags
+	var frontendNlbTags map[string]string
+	for _, member := range t.ingGroup.Members {
+		rawFrontendNlbTags := make(map[string]string)
+		exists, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixFrontendNlbTags, &rawFrontendNlbTags, member.Ing.Annotations)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
+		}
+
+		if frontendNlbTags != nil {
+			// If we already found tags from another ingress in the group, they must match
+			if !cmp.Equal(frontendNlbTags, rawFrontendNlbTags) {
+				return nil, errors.Errorf("conflicting frontend NLB tags: %v | %v", frontendNlbTags, rawFrontendNlbTags)
+			}
+		} else {
+			frontendNlbTags = rawFrontendNlbTags
+		}
+	}
+
+	if frontendNlbTags == nil {
+		// If no frontend-nlb specific tags are found, use the ALB tags
+		albTags, err := t.buildLoadBalancerTags(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return albTags, nil
+	}
+
+	return frontendNlbTags, nil
 }
