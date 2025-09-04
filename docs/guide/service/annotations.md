@@ -174,6 +174,21 @@ on the load balancer.
         service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-xyz, eipalloc-zzz
         ```
 
+- <a name="eip-tags">`service.beta.kubernetes.io/aws-load-balancer-eip-tags`</a> specifies a set of AWS tags to dynamically select unassociated Elastic IPs for an internet-facing NLB.
+
+    !!!note
+        - This configuration is optional, and you can use it to assign static IP addresses to your NLB by tag selection.
+        - You must specify tags in the format `key1=value1,key2=value2`.
+        - The controller will select unassociated EIPs matching all tags and assign them to the NLB subnets.
+        - NLB must be internet-facing.
+        - You must tag your EIPs in AWS before using this annotation.
+        - The number of matching, unassociated EIPs must be at least the number of subnets.
+
+    !!!example
+        ```
+        service.beta.kubernetes.io/aws-load-balancer-eip-tags: k8s-cluster=my-prod-cluster,purpose=ingress-nlb
+        ```
+
 
 - <a name="private-ipv4-addresses">`service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses`</a> specifies a list of private IPv4 addresses for an internal NLB.
 
