@@ -4,8 +4,12 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"strings"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gavv/httpexpect/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,8 +25,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strings"
-	"time"
 )
 
 var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws load balancer controller", func() {
@@ -458,6 +460,201 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				httpExp.GET("/secure").WithRedirectPolicy(httpexpect.DontFollowRedirects).Expect().
 					Status(302).
 					Header("Location").Equal("https://secure.example.com:8443/secure")
+			})
+		})
+	})
+
+	Context("with ALB ip target configuration with with HTTPRoute specified source ip in listener rule configuration", func() {
+		BeforeEach(func() {})
+		It("should provision internet-facing load balancer resources", func() {
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			ipTargetType := elbv2gw.TargetTypeIP
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+				},
+			}
+			matchIndex := []int{0, 2}
+			sourceIp := "10.0.0.0/8"
+			lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{
+				Conditions: []elbv2gw.ListenerRuleCondition{
+					{
+						SourceIPConfig: &elbv2gw.SourceIPConditionConfig{Values: []string{sourceIp}},
+						Field:          elbv2gw.ListenerRuleConditionField(elbv2model.RuleConditionFieldSourceIP),
+						MatchIndexes:   &matchIndex,
+					},
+				},
+			}
+			gwListeners := []gwv1.Listener{
+				{
+					Name:     "test-listener",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+				},
+			}
+
+			httpr := buildHTTPRoute([]string{}, httpRouteRuleWithMultiMatchesInSingleRule, nil)
+
+			By("deploying stack", func() {
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("verifying AWS loadbalancer resources", func() {
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:      "HTTP",
+						Port:          80,
+						NumTargets:    int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas),
+						TargetType:    "ip",
+						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+					},
+				}
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:         "application",
+					Scheme:       "internet-facing",
+					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					TargetGroups: expectedTargetGroups,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying HTTP load balancer listener", func() {
+				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, int32(gwListeners[0].Port), &verifier.ListenerExpectation{
+					ProtocolPort: "HTTP:80",
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying listener rules", func() {
+				err := verifier.VerifyLoadBalancerListenerRules(ctx, tf, lbARN, int32(gwListeners[0].Port), []verifier.ListenerRuleExpectation{
+					{
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									Values: []string{testPathString},
+								},
+							},
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldSourceIP)),
+								SourceIpConfig: &elbv2types.SourceIpConditionConfig{
+									Values: []string{sourceIp},
+								},
+							},
+						},
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeForward),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											Weight:         aws.Int32(1),
+										},
+									},
+								},
+							},
+						},
+						Priority: 1,
+					},
+					{
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									Values: []string{testPathString, fmt.Sprintf("%s/*", testPathString)},
+								},
+							},
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldHTTPRequestMethod)),
+								HttpRequestMethodConfig: &elbv2types.HttpRequestMethodConditionConfig{
+									Values: []string{
+										"GET",
+									},
+								},
+							},
+						},
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeForward),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											Weight:         aws.Int32(1),
+										},
+									},
+								},
+							},
+						},
+						Priority: 2,
+					},
+					{
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									Values: []string{testPathString, fmt.Sprintf("%s/*", testPathString)},
+								},
+							},
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldHTTPHeader)),
+								HttpHeaderConfig: &elbv2types.HttpHeaderConditionConfig{
+									HttpHeaderName: awssdk.String(testHttpHeaderNameOne),
+									Values: []string{
+										testHttpHeaderValueOne,
+									},
+								},
+							},
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldSourceIP)),
+								SourceIpConfig: &elbv2types.SourceIpConditionConfig{
+									Values: []string{sourceIp},
+								},
+							},
+						},
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeForward),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											Weight:         aws.Int32(1),
+										},
+									},
+								},
+							},
+						},
+						Priority: 3,
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting for target group targets to be healthy", func() {
+				err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, int(*stack.albResourceStack.commonStack.dps[0].Spec.Replicas))
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("waiting until DNS name is available", func() {
+				err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
 			})
 		})
 	})

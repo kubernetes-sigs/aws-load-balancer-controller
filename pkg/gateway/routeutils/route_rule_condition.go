@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -232,6 +233,42 @@ func buildGrpcMethodCondition(method *gwv1.GRPCMethodMatch) ([]elbv2model.RuleCo
 			},
 		},
 	}, nil
+}
+
+func buildSourceIpCondition(condition elbv2gw.ListenerRuleCondition) []elbv2model.RuleCondition {
+	return []elbv2model.RuleCondition{
+		{
+			Field: elbv2model.RuleConditionField(condition.Field),
+			SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+				Values: condition.SourceIPConfig.Values,
+			},
+		},
+	}
+}
+
+// BuildSourceIpInCondition : takes source ip configuration from listener rule configuration CRD, then AND it to condition list
+func BuildSourceIpInCondition(ruleWithPrecedence RulePrecedence, conditionsList []elbv2model.RuleCondition) []elbv2model.RuleCondition {
+	rule := ruleWithPrecedence.CommonRulePrecedence.Rule
+	matchIndex := ruleWithPrecedence.CommonRulePrecedence.MatchIndexInRule
+	if rule.GetListenerRuleConfig() != nil {
+		conditionsFromRuleConfig := rule.GetListenerRuleConfig().Spec.Conditions
+		for _, condition := range conditionsFromRuleConfig {
+			switch condition.Field {
+			case elbv2gw.ListenerRuleConditionFieldSourceIP:
+				sourceIpCondition := buildSourceIpCondition(condition)
+				if condition.MatchIndexes == nil {
+					conditionsList = append(conditionsList, sourceIpCondition...)
+				} else {
+					for _, index := range *condition.MatchIndexes {
+						if index == matchIndex {
+							conditionsList = append(conditionsList, sourceIpCondition...)
+						}
+					}
+				}
+			}
+		}
+	}
+	return conditionsList
 }
 
 // generateValuesFromMatchHeaderValue takes in header value from route match

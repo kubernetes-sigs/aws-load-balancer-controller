@@ -50,6 +50,11 @@ type ListenerRuleCondition struct {
 	// Information for a source IP condition
 	// +optional
 	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig,omitempty"`
+
+	// Indexes of Match in a rule to apply source ip to
+	// If MatchIndexes is not provided, SourceIpConfig will be applied to all conditions where ListenerRuleConfiguration is used
+	// +optional
+	MatchIndexes *[]int `json:"matchIndexes,omitempty"`
 }
 
 // ActionType defines the type of action for the rule

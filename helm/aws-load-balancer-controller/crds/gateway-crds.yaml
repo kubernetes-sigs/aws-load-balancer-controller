@@ -324,6 +324,13 @@ spec:
                       enum:
                       - source-ip
                       type: string
+                    matchIndexes:
+                      description: |-
+                        Indexes of Match in a rule to apply source ip to
+                        If MatchIndexes is not provided, SourceIpConfig will be applied to all conditions where ListenerRuleConfiguration is used
+                      items:
+                        type: integer
+                      type: array
                     sourceIPConfig:
                       description: Information for a source IP condition
                       properties:

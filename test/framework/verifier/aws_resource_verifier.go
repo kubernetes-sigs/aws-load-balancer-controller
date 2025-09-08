@@ -3,13 +3,14 @@ package verifier
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/utils/strings/slices"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"sort"
-	"strconv"
-	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -472,6 +473,19 @@ func verifyListenerRuleConditions(actual, expected []elbv2types.RuleCondition) e
 			}
 			if !foundPath {
 				return errors.Errorf("expected listener rule condition with path-pattern field, but not found in actual condition.")
+			}
+		case string(elbv2model.RuleConditionFieldSourceIP):
+			var foundSourceIP bool
+			for _, actualCondition := range actual {
+				if awssdk.ToString(actualCondition.Field) == string(elbv2model.RuleConditionFieldSourceIP) {
+					foundSourceIP = true
+					if !slices.Equal(actualCondition.SourceIpConfig.Values, expectedCondition.SourceIpConfig.Values) {
+						return errors.Errorf("expected listener rule condition source-ip values %v, got %v", expectedCondition.SourceIpConfig.Values, actualCondition.SourceIpConfig.Values)
+					}
+				}
+			}
+			if !foundSourceIP {
+				return errors.Errorf("expected listener rule condition with source-ip field, but not found in actual condition.")
 			}
 		case string(elbv2model.RuleConditionFieldQueryString):
 			var foundQuery bool
