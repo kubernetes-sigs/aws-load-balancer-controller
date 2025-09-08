@@ -114,7 +114,8 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 | webhook-cert-dir                                                                | string                          | /tmp/k8s-webhook-server/serving-certs      | The directory that contains the server key and certificate                                                                                                                    |
 | webhook-cert-file                                                               | string                          | tls.crt                                    | The server certificate name                                                                                                                                                   |
 | webhook-key-file                                                                | string                          | tls.key                                    | The server key name                                                                                                                                                           |
-
+| alb-gateway-max-concurrent-reconciles                                           | int                       | 3                                          | Maximum number of concurrently running reconcile loops for ALB gateways, if enabled                                                                                           |
+| nlb-gateway-max-concurrent-reconciles                                           | int                       | 3                                          | Maximum number of concurrently running reconcile loops for NLB gateways, if enabled                                                                                           |
 
 ### disable-ingress-class-annotation
 `--disable-ingress-class-annotation` controls whether to disable new usage of the `kubernetes.io/ingress.class` annotation.
