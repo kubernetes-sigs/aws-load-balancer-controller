@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway/eventhandlers"
@@ -72,7 +73,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 	reconcileTracker func(namespaceName types.NamespacedName), targetGroupCollector awsmetrics.TargetGroupCollector) Reconciler {
 
 	trackingProvider := tracking.NewDefaultProvider(gatewayTagPrefix, controllerConfig.ClusterName)
-	modelBuilder := gatewaymodel.NewModelBuilder(subnetResolver, vpcInfoProvider, cloud.VpcID(), lbType, trackingProvider, elbv2TaggingManager, controllerConfig, cloud.EC2(), cloud.ELBV2(), cloud.ACM(), controllerConfig.FeatureGates, controllerConfig.ClusterName, controllerConfig.DefaultTags, sets.New(controllerConfig.ExternalManagedTags...), controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, supportedAddons, logger)
+	modelBuilder := gatewaymodel.NewModelBuilder(subnetResolver, vpcInfoProvider, cloud.VpcID(), lbType, trackingProvider, elbv2TaggingManager, controllerConfig, cloud.EC2(), cloud.ELBV2(), cloud.ACM(), k8sClient, controllerConfig.FeatureGates, controllerConfig.ClusterName, controllerConfig.DefaultTags, sets.New(controllerConfig.ExternalManagedTags...), controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, supportedAddons, logger)
 
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, gatewayTagPrefix, logger, metricsCollector, controllerName, targetGroupCollector)
@@ -113,6 +114,7 @@ type gatewayReconciler struct {
 	k8sClient               client.Client
 	modelBuilder            gatewaymodel.Builder
 	backendSGProvider       networking.BackendSGProvider
+	secretsManager          k8s.SecretsManager
 	stackMarshaller         deploy.StackMarshaller
 	stackDeployer           deploy.StackDeployer
 	finalizerManager        k8s.FinalizerManager
@@ -233,7 +235,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		}
 	}
 
-	stack, lb, newAddOnConfig, backendSGRequired, err := r.buildModel(ctx, gw, mergedLbConfig, allRoutes, currentAddOns)
+	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.buildModel(ctx, gw, mergedLbConfig, allRoutes, currentAddOns)
 
 	if err != nil {
 		return err
@@ -264,7 +266,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		return nil
 	}
 	r.serviceReferenceCounter.UpdateRelations(getServicesFromRoutes(allRoutes), k8s.NamespacedName(gw), false)
-	err = r.reconcileUpdate(ctx, gw, gwClass, stack, lb, backendSGRequired)
+	err = r.reconcileUpdate(ctx, gw, gwClass, stack, lb, backendSGRequired, secrets)
 	if err != nil {
 		r.logger.Error(err, "Failed to process gateway update", "gw", k8s.NamespacedName(gw))
 		return err
@@ -289,7 +291,7 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 	}
 
 	if k8s.HasFinalizer(gw, r.finalizer) {
-		err := r.deployModel(ctx, gw, stack)
+		err := r.deployModel(ctx, gw, stack, nil)
 		if err != nil {
 			return err
 		}
@@ -306,14 +308,14 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 }
 
 func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, stack core.Stack,
-	lb *elbv2model.LoadBalancer, backendSGRequired bool) error {
+	lb *elbv2model.LoadBalancer, backendSGRequired bool, secrets []types.NamespacedName) error {
 	// add gateway finalizer
 	if err := r.finalizerManager.AddFinalizers(ctx, gw, r.finalizer); err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add gateway finalizer due to %v", err))
 		return err
 	}
 
-	err := r.deployModel(ctx, gw, stack)
+	err := r.deployModel(ctx, gw, stack, secrets)
 	if err != nil {
 		return err
 	}
@@ -332,7 +334,7 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 	return nil
 }
 
-func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, stack core.Stack) error {
+func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, stack core.Stack, secrets []types.NamespacedName) error {
 	if err := r.stackDeployer.Deploy(ctx, stack, r.metricsCollector, r.controllerName, nil); err != nil {
 		var requeueNeededAfter *runtime.RequeueNeededAfter
 		if errors.As(err, &requeueNeededAfter) {
@@ -342,22 +344,23 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 		return err
 	}
 	r.logger.Info("successfully deployed model", "gateway", k8s.NamespacedName(gw))
+	r.secretsManager.MonitorSecrets(k8s.NamespacedName(gw).String(), secrets)
 	return nil
 }
 
-func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, error) {
-	stack, lb, newAddOnConfig, backendSGRequired, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute, currentAddonConfig)
+func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
+	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute, currentAddonConfig, r.secretsManager)
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
-		return nil, nil, nil, false, err
+		return nil, nil, nil, false, nil, err
 	}
 	stackJSON, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
-		return nil, nil, nil, false, err
+		return nil, nil, nil, false, nil, err
 	}
 	r.logger.Info("successfully built model", "model", stackJSON)
-	return stack, lb, newAddOnConfig, backendSGRequired, nil
+	return stack, lb, newAddOnConfig, backendSGRequired, secrets, nil
 }
 
 func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbStatus *elbv2model.LoadBalancerStatus, gw *gwv1.Gateway) error {
@@ -427,13 +430,13 @@ func (r *gatewayReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manag
 	return c, nil
 }
 
-func (r *gatewayReconciler) SetupWatches(ctx context.Context, c controller.Controller, mgr ctrl.Manager) error {
+func (r *gatewayReconciler) SetupWatches(ctx context.Context, c controller.Controller, mgr ctrl.Manager, clientSet *kubernetes.Clientset) error {
 	if err := r.setupCommonGatewayControllerWatches(c, mgr); err != nil {
 		return err
 	}
 	switch r.controllerName {
 	case constants.ALBGatewayController:
-		if err := r.setupALBGatewayControllerWatches(c, mgr); err != nil {
+		if err := r.setupALBGatewayControllerWatches(c, mgr, clientSet); err != nil {
 			return err
 		}
 		break
@@ -479,13 +482,14 @@ func (r *gatewayReconciler) setupCommonGatewayControllerWatches(ctrl controller.
 
 }
 
-func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Controller, mgr ctrl.Manager) error {
+func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Controller, mgr ctrl.Manager, clientSet *kubernetes.Clientset) error {
 	loggerPrefix := r.logger.WithName("eventHandlers")
 	tbConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.TargetGroupConfiguration])
 	listenerRuleConfigEventChan := make(chan event.TypedGenericEvent[*elbv2gw.ListenerRuleConfiguration])
 	httpRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.HTTPRoute])
 	grpcRouteEventChan := make(chan event.TypedGenericEvent[*gwv1.GRPCRoute])
 	svcEventChan := make(chan event.TypedGenericEvent[*corev1.Service])
+	secretEventsChan := make(chan event.TypedGenericEvent[*corev1.Secret])
 	tgConfigEventHandler := eventhandlers.NewEnqueueRequestsForTargetGroupConfigurationEvent(svcEventChan, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("TargetGroupConfiguration"))
 	listenerRuleConfigEventHandler := eventhandlers.NewEnqueueRequestsForListenerRuleConfigurationEvent(httpRouteEventChan, grpcRouteEventChan, r.k8sClient, loggerPrefix.WithName("ListenerRuleConfiguration"))
@@ -497,6 +501,8 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		loggerPrefix.WithName("Service"), constants.ALBGatewayController)
 	refGrantHandler := eventhandlers.NewEnqueueRequestsForReferenceGrantEvent(httpRouteEventChan, grpcRouteEventChan, nil, nil, nil, r.k8sClient, r.eventRecorder,
 		loggerPrefix.WithName("ReferenceGrant"))
+	secretEventHandler := eventhandlers.NewEnqueueRequestsForSecretEvent(listenerRuleConfigEventChan, r.k8sClient, r.eventRecorder,
+		r.logger.WithName("eventHandlers").WithName("secret"))
 	if err := ctrl.Watch(source.Channel(tbConfigEventChan, tgConfigEventHandler)); err != nil {
 		return err
 	}
@@ -510,6 +516,9 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 		return err
 	}
 	if err := ctrl.Watch(source.Channel(svcEventChan, svcEventHandler)); err != nil {
+		return err
+	}
+	if err := ctrl.Watch(source.Channel(secretEventsChan, secretEventHandler)); err != nil {
 		return err
 	}
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.TargetGroupConfiguration{}, tgConfigEventHandler)); err != nil {
@@ -530,6 +539,7 @@ func (r *gatewayReconciler) setupALBGatewayControllerWatches(ctrl controller.Con
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &gwv1.GRPCRoute{}, grpcRouteEventHandler)); err != nil {
 		return err
 	}
+	r.secretsManager = k8s.NewSecretsManager(clientSet, secretEventsChan, r.logger.WithName("secrets-manager"))
 	return nil
 }
 

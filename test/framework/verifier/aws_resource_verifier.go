@@ -662,6 +662,108 @@ func verifyListenerRuleActions(actual, expected []elbv2types.Action) error {
 				}
 			}
 			break
+		case elbv2types.ActionTypeEnumAuthenticateOidc:
+			if actualAction.AuthenticateOidcConfig == nil {
+				return errors.Errorf("expected authenticate-oidc config, got nil")
+			}
+
+			// Verify Issuer
+			if awssdk.ToString(actualAction.AuthenticateOidcConfig.Issuer) !=
+				awssdk.ToString(expectedAction.AuthenticateOidcConfig.Issuer) {
+				return errors.Errorf("Issuer mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateOidcConfig.Issuer),
+					awssdk.ToString(actualAction.AuthenticateOidcConfig.Issuer))
+			}
+
+			// Verify AuthorizationEndpoint
+			if awssdk.ToString(actualAction.AuthenticateOidcConfig.AuthorizationEndpoint) !=
+				awssdk.ToString(expectedAction.AuthenticateOidcConfig.AuthorizationEndpoint) {
+				return errors.Errorf("AuthorizationEndpoint mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateOidcConfig.AuthorizationEndpoint),
+					awssdk.ToString(actualAction.AuthenticateOidcConfig.AuthorizationEndpoint))
+			}
+
+			// Verify TokenEndpoint
+			if awssdk.ToString(actualAction.AuthenticateOidcConfig.TokenEndpoint) !=
+				awssdk.ToString(expectedAction.AuthenticateOidcConfig.TokenEndpoint) {
+				return errors.Errorf("TokenEndpoint mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateOidcConfig.TokenEndpoint),
+					awssdk.ToString(actualAction.AuthenticateOidcConfig.TokenEndpoint))
+			}
+
+			// Verify UserInfoEndpoint
+			if awssdk.ToString(actualAction.AuthenticateOidcConfig.UserInfoEndpoint) !=
+				awssdk.ToString(expectedAction.AuthenticateOidcConfig.UserInfoEndpoint) {
+				return errors.Errorf("UserInfoEndpoint mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateOidcConfig.UserInfoEndpoint),
+					awssdk.ToString(actualAction.AuthenticateOidcConfig.UserInfoEndpoint))
+			}
+
+			// Verify ClientId
+			if awssdk.ToString(actualAction.AuthenticateOidcConfig.ClientId) !=
+				awssdk.ToString(expectedAction.AuthenticateOidcConfig.ClientId) {
+				return errors.Errorf("ClientId mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateOidcConfig.ClientId),
+					awssdk.ToString(actualAction.AuthenticateOidcConfig.ClientId))
+			}
+
+			// Verify OnUnauthenticatedRequest behavior
+			if actualAction.AuthenticateOidcConfig.OnUnauthenticatedRequest !=
+				expectedAction.AuthenticateOidcConfig.OnUnauthenticatedRequest {
+				return errors.Errorf("OnUnauthenticatedRequest mismatch: expected %s, got %s",
+					expectedAction.AuthenticateOidcConfig.OnUnauthenticatedRequest,
+					actualAction.AuthenticateOidcConfig.OnUnauthenticatedRequest)
+			}
+
+			// Verify Scope (optional field)
+			if awssdk.ToString(actualAction.AuthenticateOidcConfig.Scope) !=
+				awssdk.ToString(expectedAction.AuthenticateOidcConfig.Scope) {
+				return errors.Errorf("Scope mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateOidcConfig.Scope),
+					awssdk.ToString(actualAction.AuthenticateOidcConfig.Scope))
+			}
+
+			// Verify SessionCookieName (optional field)
+			if awssdk.ToString(actualAction.AuthenticateOidcConfig.SessionCookieName) !=
+				awssdk.ToString(expectedAction.AuthenticateOidcConfig.SessionCookieName) {
+				return errors.Errorf("SessionCookieName mismatch: expected %s, got %s",
+					awssdk.ToString(expectedAction.AuthenticateOidcConfig.SessionCookieName),
+					awssdk.ToString(actualAction.AuthenticateOidcConfig.SessionCookieName))
+			}
+
+			// Verify SessionTimeout (optional field)
+			if awssdk.ToInt64(actualAction.AuthenticateOidcConfig.SessionTimeout) !=
+				awssdk.ToInt64(expectedAction.AuthenticateOidcConfig.SessionTimeout) {
+				return errors.Errorf("SessionTimeout mismatch: expected %d, got %d",
+					awssdk.ToInt64(expectedAction.AuthenticateOidcConfig.SessionTimeout),
+					awssdk.ToInt64(actualAction.AuthenticateOidcConfig.SessionTimeout))
+			}
+
+			// Verify AuthenticationRequestExtraParams (map comparison)
+			expectedParams := make(map[string]string)
+			if expectedAction.AuthenticateOidcConfig.AuthenticationRequestExtraParams != nil {
+				expectedParams = expectedAction.AuthenticateOidcConfig.AuthenticationRequestExtraParams
+			}
+
+			actualParams := make(map[string]string)
+			if actualAction.AuthenticateOidcConfig.AuthenticationRequestExtraParams != nil {
+				actualParams = actualAction.AuthenticateOidcConfig.AuthenticationRequestExtraParams
+			}
+
+			if len(expectedParams) != len(actualParams) {
+				return errors.Errorf("AuthenticationRequestExtraParams length mismatch: expected %d, got %d",
+					len(expectedParams), len(actualParams))
+			}
+
+			for key, expectedValue := range expectedParams {
+				if actualValue, exists := actualParams[key]; !exists {
+					return errors.Errorf("AuthenticationRequestExtraParams missing key: %s", key)
+				} else if actualValue != expectedValue {
+					return errors.Errorf("AuthenticationRequestExtraParams value mismatch for key %s: expected %s, got %s",
+						key, expectedValue, actualValue)
+				}
+			}
+			break
 		default:
 			return errors.Errorf("unknown listener rule action type %s", expectedAction.Type)
 		}

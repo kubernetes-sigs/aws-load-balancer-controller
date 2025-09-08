@@ -18,7 +18,7 @@ type ALBTestStack struct {
 	albResourceStack *albResourceStack
 }
 
-func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *auxiliaryResourceStack, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, readinessGateEnabled bool) error {
+func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *auxiliaryResourceStack, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
 	if auxiliaryStack != nil {
 		gwListeners = append(gwListeners, gwv1.Listener{
 			Name:     "other-ns",
@@ -31,7 +31,7 @@ func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *auxiliary
 
 	svc := buildServiceSpec()
 	tgc := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svc)
-	return s.deploy(ctx, f, gwListeners, httprs, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{buildDeploymentSpec(f.Options.TestImageRegistry)}, []*corev1.Service{svc}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc}, lrConfSpec, readinessGateEnabled)
+	return s.deploy(ctx, f, gwListeners, httprs, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{buildDeploymentSpec(f.Options.TestImageRegistry)}, []*corev1.Service{svc}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc}, lrConfSpec, secret, readinessGateEnabled)
 }
 
 func (s *ALBTestStack) DeployGRPC(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, grpcrs []*gwv1.GRPCRoute, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, readinessGateEnabled bool) error {
@@ -51,16 +51,16 @@ func (s *ALBTestStack) DeployGRPC(ctx context.Context, f *framework.Framework, g
 	dpOther := buildGRPCDeploymentSpec(grpcDefaultName+"-other", "Hello World - Other", otherLabels)
 	tgcOther := buildTargetGroupConfig(defaultTgConfigName+"-other", tgConfSpec, svcOther)
 
-	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{}, grpcrs, []*appsv1.Deployment{dp, dpOther}, []*corev1.Service{svc, svcOther}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc, tgcOther}, lrConfSpec, readinessGateEnabled)
+	return s.deploy(ctx, f, gwListeners, []*gwv1.HTTPRoute{}, grpcrs, []*appsv1.Deployment{dp, dpOther}, []*corev1.Service{svc, svcOther}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc, tgcOther}, lrConfSpec, nil, readinessGateEnabled)
 }
 
-func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, dps []*appsv1.Deployment, svcs []*corev1.Service, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgcs []*elbv2gw.TargetGroupConfiguration, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, readinessGateEnabled bool) error {
+func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwListeners []gwv1.Listener, httprs []*gwv1.HTTPRoute, grpcrs []*gwv1.GRPCRoute, dps []*appsv1.Deployment, svcs []*corev1.Service, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgcs []*elbv2gw.TargetGroupConfiguration, lrConfSpec elbv2gw.ListenerRuleConfigurationSpec, secret *testOIDCSecret, readinessGateEnabled bool) error {
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/alb")
 	gw := buildBasicGatewaySpec(gwc, gwListeners)
 	lbc := buildLoadBalancerConfig(lbConfSpec)
 	lrc := buildListenerRuleConfig(defaultLRConfigName, lrConfSpec)
 
-	s.albResourceStack = newALBResourceStack(dps, svcs, gwc, gw, lbc, tgcs, lrc, httprs, grpcrs, "alb-gateway-e2e", readinessGateEnabled)
+	s.albResourceStack = newALBResourceStack(dps, svcs, gwc, gw, lbc, tgcs, lrc, httprs, grpcrs, secret, "alb-gateway-e2e", readinessGateEnabled)
 
 	return s.albResourceStack.Deploy(ctx, f)
 }

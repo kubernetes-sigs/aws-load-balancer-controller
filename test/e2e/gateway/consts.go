@@ -264,3 +264,11 @@ var httpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
 		},
 	},
 }
+
+const (
+	// Mock OIDC provider endpoints for testing
+	testOidcIssuer                = "https://test-oidc-provider.example.com"
+	testOidcAuthorizationEndpoint = "https://test-oidc-provider.example.com/oauth2/authorize"
+	testOidcTokenEndpoint         = "https://test-oidc-provider.example.com/oauth2/token"
+	testOidcUserInfoEndpoint      = "https://test-oidc-provider.example.com/oauth2/userinfo"
+)

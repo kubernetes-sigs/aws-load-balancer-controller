@@ -1585,7 +1585,7 @@ func Test_BuildListenerRules(t *testing.T) {
 				tgBuilder: mockTgBuilder,
 			}
 
-			err := builder.buildListenerRules(stack, &elbv2model.Listener{
+			_, err := builder.buildListenerRules(context.Background(), stack, &elbv2model.Listener{
 				Spec: elbv2model.ListenerSpec{
 					Protocol: tc.listenerProtocol,
 				},

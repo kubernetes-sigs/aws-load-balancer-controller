@@ -804,6 +804,10 @@ func Test_listenerRuleConfigLoader(t *testing.T) {
 						Name:      "test-config",
 						Namespace: "test-ns",
 					},
+					Status: elbv2gw.ListenerRuleConfigurationStatus{
+						Accepted: awssdk.Bool(true),
+						Message:  awssdk.String("Accepted"),
+					},
 				},
 			},
 			listenerRuleConfigsRefs: []gwv1.LocalObjectReference{
@@ -822,6 +826,10 @@ func Test_listenerRuleConfigLoader(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-config",
 					Namespace: "test-ns",
+				},
+				Status: elbv2gw.ListenerRuleConfigurationStatus{
+					Accepted: awssdk.Bool(true),
+					Message:  awssdk.String("Accepted"),
 				},
 			},
 		},
@@ -853,6 +861,34 @@ func Test_listenerRuleConfigLoader(t *testing.T) {
 					Group: constants.ControllerCRDGroupVersion,
 					Kind:  constants.ListenerRuleConfiguration,
 					Name:  "non-existent-config",
+				},
+			},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "test-ns",
+				Name:      "test-route",
+			},
+			routeKind:     HTTPRouteKind,
+			expectWarning: true,
+		},
+		{
+			name: "config not accepted - should return warning error",
+			listenerRuleConfigs: []elbv2gw.ListenerRuleConfiguration{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-config",
+						Namespace: "test-ns",
+					},
+					Status: elbv2gw.ListenerRuleConfigurationStatus{
+						Accepted: awssdk.Bool(false),
+						Message:  awssdk.String("Status Unknown"),
+					},
+				},
+			},
+			listenerRuleConfigsRefs: []gwv1.LocalObjectReference{
+				{
+					Group: constants.ControllerCRDGroupVersion,
+					Kind:  constants.ListenerRuleConfiguration,
+					Name:  "test-config",
 				},
 			},
 			routeIdentifier: types.NamespacedName{
