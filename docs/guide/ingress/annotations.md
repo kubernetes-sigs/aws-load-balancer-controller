@@ -83,6 +83,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-unhealthy-threshold-count](#frontend-nlb-healthcheck-unhealthy-threshold-count) | integer                     |3| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-success-codes](#frontend-nlb-healthcheck-success-codes) | string                                     |200| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/frontend-nlb-tags](#frontend-nlb-tags) | stringMap | N/A | Ingress | Exclusive |
+| [alb.ingress.kubernetes.io/frontend-nlb-eip-allocation](#frontend-nlb-eip-allocation) | stringList                                     |200| Ingress | N/A           |
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -1198,4 +1199,16 @@ When this option is set to true, the controller will automatically provision a N
     !!!example
         ```
         alb.ingress.kubernetes.io/frontend-nlb-tags: Environment=prod,Team=platform
+        ```
+
+- <a name="frontend-nlb-eip-allocation">`alb.ingress.kubernetes.io/frontend-nlb-eip-allocation`</a> specifies a list of [elastic IP address](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html) configuration for an internet-facing NLB.
+
+    !!!note
+        - This configuration is optional, and you can use it to assign static IP addresses to your NLB
+        - If you include the subnets [annotation](#frontend-nlb-subnets) it must have the same number of subnets as this annotation has EIPs.
+        - NLB must be internet-facing
+
+    !!!example
+        ```
+        alb.ingress.kubernetes.io/frontend-nlb-eip-allocation: eipalloc-xyz, eipalloc-zzz
         ```
