@@ -2,13 +2,14 @@ package networking
 
 import (
 	"context"
+	"reflect"
+	"testing"
+
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/types"
-	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -42,14 +43,26 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 		resp *ec2sdk.CreateSecurityGroupOutput
 		err  error
 	}
+	type createTagsWithContextCall struct {
+		req  *ec2sdk.CreateTagsInput
+		resp *ec2sdk.CreateTagsOutput
+		err  error
+	}
+	type deleteTagsWithContextCall struct {
+		req  *ec2sdk.DeleteTagsInput
+		resp *ec2sdk.DeleteTagsOutput
+		err  error
+	}
 	type fields struct {
-		backendSG          string
-		ingResources       []*networking.Ingress
-		svcResource        *corev1.Service
-		enableGatewayCheck bool
-		defaultTags        map[string]string
-		describeSGCalls    []describeSecurityGroupsAsListCall
-		createSGCalls      []createSecurityGroupWithContexCall
+		backendSG                  string
+		ingResources               []*networking.Ingress
+		svcResource                *corev1.Service
+		enableGatewayCheck         bool
+		defaultTags                map[string]string
+		describeSGCalls            []describeSecurityGroupsAsListCall
+		createSGCalls              []createSecurityGroupWithContexCall
+		createTagsWithContextCalls []createTagsWithContextCall
+		deleteTagsWithContextCalls []deleteTagsWithContextCall
 	}
 	defaultEC2Filters := []ec2types.Filter{
 		{
@@ -112,9 +125,152 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 						},
 					},
 				},
+				createTagsWithContextCalls: []createTagsWithContextCall{
+					{
+						req: &ec2sdk.CreateTagsInput{
+							Resources: []string{"sg-autogen"},
+							Tags: []ec2types.Tag{
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/resource"),
+									Value: awssdk.String("backend-sg"),
+								},
+							},
+						},
+					},
+				},
 				ingResources: []*networking.Ingress{ing, ing1},
 			},
 			want: "sg-autogen",
+		},
+		{
+			name: "backend sg enabled, auto-gen, SG exists, try to sync tags",
+			fields: fields{
+				describeSGCalls: []describeSecurityGroupsAsListCall{
+					{
+						req: &ec2sdk.DescribeSecurityGroupsInput{
+							Filters: defaultEC2Filters,
+						},
+						resp: []ec2types.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-autogen"),
+								Tags: []ec2types.Tag{
+									{
+										Key:   awssdk.String("tag-to-be-deleted"),
+										Value: awssdk.String("delete-me"),
+									},
+								},
+							},
+						},
+					},
+				},
+				createTagsWithContextCalls: []createTagsWithContextCall{
+					{
+						req: &ec2sdk.CreateTagsInput{
+							Resources: []string{"sg-autogen"},
+							Tags: []ec2types.Tag{
+								{
+									Key:   awssdk.String("KubernetesCluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("defaultTag"),
+									Value: awssdk.String("specified"),
+								},
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/resource"),
+									Value: awssdk.String("backend-sg"),
+								},
+								{
+									Key:   awssdk.String("zzzKey"),
+									Value: awssdk.String("value"),
+								},
+							},
+						},
+					},
+				},
+				deleteTagsWithContextCalls: []deleteTagsWithContextCall{
+					{
+						req: &ec2sdk.DeleteTagsInput{
+							Resources: []string{"sg-autogen"},
+							Tags: []ec2types.Tag{
+								{
+									Key:   awssdk.String("tag-to-be-deleted"),
+									Value: awssdk.String("delete-me"),
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"zzzKey":            "value",
+					"KubernetesCluster": defaultClusterName,
+					"defaultTag":        "specified",
+				},
+				ingResources: []*networking.Ingress{ing, ing1},
+			},
+			want: "sg-autogen",
+		},
+		{
+			name: "backend sg enabled, auto-gen, SG exists, tags sync error",
+			fields: fields{
+				describeSGCalls: []describeSecurityGroupsAsListCall{
+					{
+						req: &ec2sdk.DescribeSecurityGroupsInput{
+							Filters: defaultEC2Filters,
+						},
+						resp: []ec2types.SecurityGroup{
+							{
+								GroupId: awssdk.String("sg-autogen"),
+							},
+						},
+					},
+				},
+				createTagsWithContextCalls: []createTagsWithContextCall{
+					{
+						req: &ec2sdk.CreateTagsInput{
+							Resources: []string{"sg-autogen"},
+							Tags: []ec2types.Tag{
+								{
+									Key:   awssdk.String("KubernetesCluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("defaultTag"),
+									Value: awssdk.String("specified"),
+								},
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/cluster"),
+									Value: awssdk.String(defaultClusterName),
+								},
+								{
+									Key:   awssdk.String("elbv2.k8s.aws/resource"),
+									Value: awssdk.String("backend-sg"),
+								},
+								{
+									Key:   awssdk.String("zzzKey"),
+									Value: awssdk.String("value"),
+								},
+							},
+						},
+						err: &smithy.GenericAPIError{Code: "Some.Other.Error", Message: "unable to tag security group"},
+					},
+				},
+				defaultTags: map[string]string{
+					"zzzKey":            "value",
+					"KubernetesCluster": defaultClusterName,
+					"defaultTag":        "specified",
+				},
+				svcResource: svc,
+			},
+			wantErr: errors.New("api error Some.Other.Error: unable to tag security group"),
 		},
 		{
 			name: "backend sg enabled, auto-gen new SG",
@@ -284,6 +440,12 @@ func Test_defaultBackendSGProvider_Get(t *testing.T) {
 			}
 			for _, call := range tt.fields.createSGCalls {
 				ec2Client.EXPECT().CreateSecurityGroupWithContext(context.Background(), call.req).Return(call.resp, call.err)
+			}
+			for _, call := range tt.fields.createTagsWithContextCalls {
+				ec2Client.EXPECT().CreateTagsWithContext(context.Background(), call.req).Return(call.resp, call.err)
+			}
+			for _, call := range tt.fields.deleteTagsWithContextCalls {
+				ec2Client.EXPECT().DeleteTagsWithContext(gomock.Any(), call.req).Return(call.resp, call.err)
 			}
 			k8sClient := mock_client.NewMockClient(ctrl)
 			sgProvider := NewBackendSGProvider(defaultClusterName, tt.fields.backendSG,
