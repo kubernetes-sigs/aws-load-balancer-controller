@@ -3,6 +3,417 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
+  name: globalaccelerators.elbv2.k8s.aws
+spec:
+  group: elbv2.k8s.aws
+  names:
+    kind: GlobalAccelerator
+    listKind: GlobalAcceleratorList
+    plural: globalaccelerators
+    singular: globalaccelerator
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The Global Accelerator name
+      jsonPath: .spec.name
+      name: NAME
+      type: string
+    - description: The Global Accelerator DNS name
+      jsonPath: .status.dnsName
+      name: DNS-NAME
+      type: string
+    - description: The Global Accelerator type
+      jsonPath: .spec.type
+      name: TYPE
+      type: string
+    - description: The Global Accelerator status
+      jsonPath: .status.status
+      name: STATUS
+      type: string
+    - description: The Global Accelerator ARN
+      jsonPath: .status.acceleratorARN
+      name: ARN
+      priority: 1
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: GlobalAccelerator is the Schema for the GlobalAccelerator API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: GlobalAcceleratorSpec defines the desired state of GlobalAccelerator
+            properties:
+              assumeRoleExternalId:
+                description: AssumeRoleExternalId is the external ID for assume role
+                  operations.
+                type: string
+              attributes:
+                description: Attributes define the custom attributes to Global Accelerator.
+                items:
+                  description: Attributes defines custom attributes on resources.
+                  properties:
+                    key:
+                      description: The key of the attribute.
+                      type: string
+                    value:
+                      description: The value of the attribute.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
+              enabled:
+                description: Enabled indicates whether the accelerator is enabled.
+                type: boolean
+              endpointGroups:
+                description: EndpointGroups defines the endpoint groups for the Global
+                  Accelerator listeners.
+                items:
+                  description: EndpointGroup defines an endpoint group for a Global
+                    Accelerator listener.
+                  properties:
+                    endpoints:
+                      description: Endpoints is the list of endpoint configurations
+                        for this endpoint group.
+                      items:
+                        description: GlobalAcceleratorEndpoint defines an endpoint
+                          for a Global Accelerator endpoint group.
+                        properties:
+                          clientIPPreservationEnabled:
+                            description: ClientIPPreservationEnabled indicates whether
+                              client IP address preservation is enabled.
+                            type: boolean
+                          endpointID:
+                            description: |-
+                              EndpointID is the ID of the endpoint.
+                              For Application Load Balancers, this is the ARN.
+                              For Network Load Balancers, this is the ARN.
+                              For EC2 instances, this is the instance ID.
+                              For Elastic IP addresses, this is the allocation ID.
+                            type: string
+                          weight:
+                            description: Weight is used to determine the proportion
+                              of traffic that is directed to an endpoint.
+                            format: int32
+                            maximum: 255
+                            minimum: 0
+                            type: integer
+                        required:
+                        - endpointID
+                        type: object
+                      type: array
+                    healthCheckIntervalSeconds:
+                      description: HealthCheckIntervalSeconds is the interval in seconds
+                        between health checks.
+                      format: int32
+                      maximum: 30
+                      minimum: 10
+                      type: integer
+                    healthCheckPath:
+                      description: HealthCheckPath is the path that you want to use
+                        for health checks.
+                      type: string
+                    portOverrides:
+                      description: PortOverrides is a list of endpoint port overrides.
+                      items:
+                        description: PortOverride defines a port override for an endpoint
+                          group.
+                        properties:
+                          endpointPort:
+                            description: EndpointPort is the endpoint port that you
+                              want traffic to be routed to.
+                            format: int32
+                            type: integer
+                          listenerPort:
+                            description: ListenerPort is the listener port that you
+                              want to map to a specific endpoint port.
+                            format: int32
+                            type: integer
+                        required:
+                        - endpointPort
+                        - listenerPort
+                        type: object
+                      type: array
+                    region:
+                      description: Region is the AWS Region where the endpoint group
+                        is located.
+                      type: string
+                    thresholdCount:
+                      description: ThresholdCount is the number of consecutive health
+                        check failures required before considering the endpoint unhealthy.
+                      format: int32
+                      maximum: 10
+                      minimum: 1
+                      type: integer
+                    trafficDialPercentage:
+                      description: TrafficDialPercentage is the percentage of traffic
+                        to send to this endpoint group.
+                      format: int32
+                      maximum: 100
+                      minimum: 0
+                      type: integer
+                  required:
+                  - endpoints
+                  - region
+                  type: object
+                type: array
+              iamRoleArnToAssume:
+                description: IAM Role ARN to assume when calling AWS APIs.
+                type: string
+              ipAddressType:
+                description: IPAddressType is the value for the address type.
+                enum:
+                - IPV4
+                - DUAL_STACK
+                type: string
+              listeners:
+                description: Listeners defines the listeners for the Global Accelerator.
+                items:
+                  description: GlobalAcceleratorListener defines a listener for the
+                    Global Accelerator.
+                  properties:
+                    clientAffinity:
+                      description: ClientAffinity controls whether traffic from the
+                        same client IP is routed to the same endpoint.
+                      enum:
+                      - SOURCE_IP
+                      - NONE
+                      type: string
+                    portRanges:
+                      description: PortRanges is the list of port ranges to support
+                        for connections from clients to the accelerator.
+                      items:
+                        description: PortRange defines the port range for Global Accelerator
+                          listeners.
+                        properties:
+                          fromPort:
+                            description: FromPort is the first port in the range of
+                              ports.
+                            format: int32
+                            type: integer
+                          toPort:
+                            description: ToPort is the last port in the range of ports.
+                            format: int32
+                            type: integer
+                        required:
+                        - fromPort
+                        - toPort
+                        type: object
+                      type: array
+                    protocol:
+                      description: Protocol is the protocol for the connections from
+                        clients to the accelerator.
+                      enum:
+                      - TCP
+                      - UDP
+                      type: string
+                  required:
+                  - portRanges
+                  - protocol
+                  type: object
+                type: array
+              name:
+                description: Name is the name of the Global Accelerator.
+                type: string
+              serviceEndpoints:
+                description: ServiceEndpoints defines Kubernetes services that should
+                  be automatically configured as endpoints.
+                items:
+                  description: ServiceEndpointReference defines a reference to a Kubernetes
+                    Service that should be used as an endpoint.
+                  properties:
+                    name:
+                      description: Name is the name of the Service.
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace of the Service.
+                      type: string
+                    port:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: Port is the port of the ServicePort.
+                      x-kubernetes-int-or-string: true
+                    weight:
+                      description: Weight is used to determine the proportion of traffic
+                        that is directed to this service endpoint.
+                      format: int32
+                      maximum: 255
+                      minimum: 0
+                      type: integer
+                  required:
+                  - name
+                  - port
+                  type: object
+                type: array
+              tags:
+                description: Tags defines list of Tags on the Global Accelerator.
+                items:
+                  description: Tag defines a AWS Tag on resources.
+                  properties:
+                    key:
+                      description: The key of the tag.
+                      type: string
+                    value:
+                      description: The value of the tag.
+                      type: string
+                  required:
+                  - key
+                  - value
+                  type: object
+                type: array
+              type:
+                description: Type is the type of accelerator.
+                enum:
+                - STANDARD
+                - CUSTOM_ROUTING
+                type: string
+            required:
+            - endpointGroups
+            - listeners
+            type: object
+          status:
+            description: GlobalAcceleratorStatus defines the observed state of GlobalAccelerator
+            properties:
+              acceleratorARN:
+                description: AcceleratorARN is the Amazon Resource Name (ARN) of the
+                  accelerator.
+                type: string
+              conditions:
+                description: Conditions represent the current conditions of the GlobalAccelerator.
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              dnsName:
+                description: DNSName is the Domain Name System (DNS) name that Global
+                  Accelerator creates that points to your accelerator's static IP
+                  addresses.
+                type: string
+              ipSets:
+                description: IPSets is information about the IP address type.
+                items:
+                  description: IPSet contains information about the IP address type.
+                  properties:
+                    ipAddressFamily:
+                      description: IpAddressFamily is the types of IP addresses included
+                        in this IP set.
+                      type: string
+                    ipAddresses:
+                      description: IpAddresses is the array of IP addresses in the
+                        IP address set.
+                      items:
+                        type: string
+                      type: array
+                    ipFamily:
+                      description: IpFamily is the IP address version.
+                      type: string
+                  type: object
+                type: array
+              observedGeneration:
+                description: The generation observed by the GlobalAccelerator controller.
+                format: int64
+                type: integer
+              status:
+                description: Status is the current status of the accelerator.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: ingressclassparams.elbv2.k8s.aws
 spec:
   group: elbv2.k8s.aws
@@ -744,417 +1155,6 @@ spec:
                 description: The generation observed by the TargetGroupBinding controller.
                 format: int64
                 type: integer
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
-  name: globalaccelerators.elbv2.k8s.aws
-spec:
-  group: elbv2.k8s.aws
-  names:
-    kind: GlobalAccelerator
-    listKind: GlobalAcceleratorList
-    plural: globalaccelerators
-    singular: globalaccelerator
-  scope: Namespaced
-  versions:
-  - additionalPrinterColumns:
-    - description: The Global Accelerator name
-      jsonPath: .spec.name
-      name: NAME
-      type: string
-    - description: The Global Accelerator DNS name
-      jsonPath: .status.dnsName
-      name: DNS-NAME
-      type: string
-    - description: The Global Accelerator type
-      jsonPath: .spec.type
-      name: TYPE
-      type: string
-    - description: The Global Accelerator status
-      jsonPath: .status.status
-      name: STATUS
-      type: string
-    - description: The Global Accelerator ARN
-      jsonPath: .status.acceleratorARN
-      name: ARN
-      priority: 1
-      type: string
-    - jsonPath: .metadata.creationTimestamp
-      name: AGE
-      type: date
-    name: v1beta1
-    schema:
-      openAPIV3Schema:
-        description: GlobalAccelerator is the Schema for the GlobalAccelerator API
-        properties:
-          apiVersion:
-            description: |-
-              APIVersion defines the versioned schema of this representation of an object.
-              Servers should convert recognized schemas to the latest internal value, and
-              may reject unrecognized values.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-            type: string
-          kind:
-            description: |-
-              Kind is a string value representing the REST resource this object represents.
-              Servers may infer this from the endpoint the client submits requests to.
-              Cannot be updated.
-              In CamelCase.
-              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: GlobalAcceleratorSpec defines the desired state of GlobalAccelerator
-            properties:
-              assumeRoleExternalId:
-                description: AssumeRoleExternalId is the external ID for assume role
-                  operations.
-                type: string
-              attributes:
-                description: Attributes define the custom attributes to Global Accelerator.
-                items:
-                  description: Attributes defines custom attributes on resources.
-                  properties:
-                    key:
-                      description: The key of the attribute.
-                      type: string
-                    value:
-                      description: The value of the attribute.
-                      type: string
-                  required:
-                  - key
-                  - value
-                  type: object
-                type: array
-              enabled:
-                description: Enabled indicates whether the accelerator is enabled.
-                type: boolean
-              endpointGroups:
-                description: EndpointGroups defines the endpoint groups for the Global
-                  Accelerator listeners.
-                items:
-                  description: EndpointGroup defines an endpoint group for a Global
-                    Accelerator listener.
-                  properties:
-                    endpoints:
-                      description: Endpoints is the list of endpoint configurations
-                        for this endpoint group.
-                      items:
-                        description: GlobalAcceleratorEndpoint defines an endpoint
-                          for a Global Accelerator endpoint group.
-                        properties:
-                          clientIPPreservationEnabled:
-                            description: ClientIPPreservationEnabled indicates whether
-                              client IP address preservation is enabled.
-                            type: boolean
-                          endpointID:
-                            description: |-
-                              EndpointID is the ID of the endpoint.
-                              For Application Load Balancers, this is the ARN.
-                              For Network Load Balancers, this is the ARN.
-                              For EC2 instances, this is the instance ID.
-                              For Elastic IP addresses, this is the allocation ID.
-                            type: string
-                          weight:
-                            description: Weight is used to determine the proportion
-                              of traffic that is directed to an endpoint.
-                            format: int32
-                            maximum: 255
-                            minimum: 0
-                            type: integer
-                        required:
-                        - endpointID
-                        type: object
-                      type: array
-                    healthCheckIntervalSeconds:
-                      description: HealthCheckIntervalSeconds is the interval in seconds
-                        between health checks.
-                      format: int32
-                      maximum: 30
-                      minimum: 10
-                      type: integer
-                    healthCheckPath:
-                      description: HealthCheckPath is the path that you want to use
-                        for health checks.
-                      type: string
-                    portOverrides:
-                      description: PortOverrides is a list of endpoint port overrides.
-                      items:
-                        description: PortOverride defines a port override for an endpoint
-                          group.
-                        properties:
-                          endpointPort:
-                            description: EndpointPort is the endpoint port that you
-                              want traffic to be routed to.
-                            format: int32
-                            type: integer
-                          listenerPort:
-                            description: ListenerPort is the listener port that you
-                              want to map to a specific endpoint port.
-                            format: int32
-                            type: integer
-                        required:
-                        - endpointPort
-                        - listenerPort
-                        type: object
-                      type: array
-                    region:
-                      description: Region is the AWS Region where the endpoint group
-                        is located.
-                      type: string
-                    thresholdCount:
-                      description: ThresholdCount is the number of consecutive health
-                        check failures required before considering the endpoint unhealthy.
-                      format: int32
-                      maximum: 10
-                      minimum: 1
-                      type: integer
-                    trafficDialPercentage:
-                      description: TrafficDialPercentage is the percentage of traffic
-                        to send to this endpoint group.
-                      format: int32
-                      maximum: 100
-                      minimum: 0
-                      type: integer
-                  required:
-                  - endpoints
-                  - region
-                  type: object
-                type: array
-              iamRoleArnToAssume:
-                description: IAM Role ARN to assume when calling AWS APIs.
-                type: string
-              ipAddressType:
-                description: IPAddressType is the value for the address type.
-                enum:
-                - IPV4
-                - DUAL_STACK
-                type: string
-              listeners:
-                description: Listeners defines the listeners for the Global Accelerator.
-                items:
-                  description: GlobalAcceleratorListener defines a listener for the
-                    Global Accelerator.
-                  properties:
-                    clientAffinity:
-                      description: ClientAffinity controls whether traffic from the
-                        same client IP is routed to the same endpoint.
-                      enum:
-                      - SOURCE_IP
-                      - NONE
-                      type: string
-                    portRanges:
-                      description: PortRanges is the list of port ranges to support
-                        for connections from clients to the accelerator.
-                      items:
-                        description: PortRange defines the port range for Global Accelerator
-                          listeners.
-                        properties:
-                          fromPort:
-                            description: FromPort is the first port in the range of
-                              ports.
-                            format: int32
-                            type: integer
-                          toPort:
-                            description: ToPort is the last port in the range of ports.
-                            format: int32
-                            type: integer
-                        required:
-                        - fromPort
-                        - toPort
-                        type: object
-                      type: array
-                    protocol:
-                      description: Protocol is the protocol for the connections from
-                        clients to the accelerator.
-                      enum:
-                      - TCP
-                      - UDP
-                      type: string
-                  required:
-                  - portRanges
-                  - protocol
-                  type: object
-                type: array
-              name:
-                description: Name is the name of the Global Accelerator.
-                type: string
-              serviceEndpoints:
-                description: ServiceEndpoints defines Kubernetes services that should
-                  be automatically configured as endpoints.
-                items:
-                  description: ServiceEndpointReference defines a reference to a Kubernetes
-                    Service that should be used as an endpoint.
-                  properties:
-                    name:
-                      description: Name is the name of the Service.
-                      type: string
-                    namespace:
-                      description: Namespace is the namespace of the Service.
-                      type: string
-                    port:
-                      anyOf:
-                      - type: integer
-                      - type: string
-                      description: Port is the port of the ServicePort.
-                      x-kubernetes-int-or-string: true
-                    weight:
-                      description: Weight is used to determine the proportion of traffic
-                        that is directed to this service endpoint.
-                      format: int32
-                      maximum: 255
-                      minimum: 0
-                      type: integer
-                  required:
-                  - name
-                  - port
-                  type: object
-                type: array
-              tags:
-                description: Tags defines list of Tags on the Global Accelerator.
-                items:
-                  description: Tag defines a AWS Tag on resources.
-                  properties:
-                    key:
-                      description: The key of the tag.
-                      type: string
-                    value:
-                      description: The value of the tag.
-                      type: string
-                  required:
-                  - key
-                  - value
-                  type: object
-                type: array
-              type:
-                description: Type is the type of accelerator.
-                enum:
-                - STANDARD
-                - CUSTOM_ROUTING
-                type: string
-            required:
-            - endpointGroups
-            - listeners
-            type: object
-          status:
-            description: GlobalAcceleratorStatus defines the observed state of GlobalAccelerator
-            properties:
-              acceleratorARN:
-                description: AcceleratorARN is the Amazon Resource Name (ARN) of the
-                  accelerator.
-                type: string
-              conditions:
-                description: Conditions represent the current conditions of the GlobalAccelerator.
-                items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
-                  properties:
-                    lastTransitionTime:
-                      description: |-
-                        lastTransitionTime is the last time the condition transitioned from one status to another.
-                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
-                      format: date-time
-                      type: string
-                    message:
-                      description: |-
-                        message is a human readable message indicating details about the transition.
-                        This may be an empty string.
-                      maxLength: 32768
-                      type: string
-                    observedGeneration:
-                      description: |-
-                        observedGeneration represents the .metadata.generation that the condition was set based upon.
-                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                        with respect to the current state of the instance.
-                      format: int64
-                      minimum: 0
-                      type: integer
-                    reason:
-                      description: |-
-                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                        Producers of specific condition types may define expected values and meanings for this field,
-                        and whether the values are considered a guaranteed API.
-                        The value should be a CamelCase string.
-                        This field may not be empty.
-                      maxLength: 1024
-                      minLength: 1
-                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
-                      type: string
-                    status:
-                      description: status of the condition, one of True, False, Unknown.
-                      enum:
-                      - "True"
-                      - "False"
-                      - Unknown
-                      type: string
-                    type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
-                      maxLength: 316
-                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
-                      type: string
-                  required:
-                  - lastTransitionTime
-                  - message
-                  - reason
-                  - status
-                  - type
-                  type: object
-                type: array
-              dnsName:
-                description: DNSName is the Domain Name System (DNS) name that Global
-                  Accelerator creates that points to your accelerator's static IP
-                  addresses.
-                type: string
-              ipSets:
-                description: IPSets is information about the IP address type.
-                items:
-                  description: IPSet contains information about the IP address type.
-                  properties:
-                    ipAddressFamily:
-                      description: IpAddressFamily is the types of IP addresses included
-                        in this IP set.
-                      type: string
-                    ipAddresses:
-                      description: IpAddresses is the array of IP addresses in the
-                        IP address set.
-                      items:
-                        type: string
-                      type: array
-                    ipFamily:
-                      description: IpFamily is the IP address version.
-                      type: string
-                  type: object
-                type: array
-              observedGeneration:
-                description: The generation observed by the GlobalAccelerator controller.
-                format: int64
-                type: integer
-              status:
-                description: Status is the current status of the accelerator.
-                type: string
             type: object
         type: object
     served: true
