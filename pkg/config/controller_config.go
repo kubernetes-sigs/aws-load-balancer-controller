@@ -16,6 +16,7 @@ import (
 const (
 	flagLogLevel                                     = "log-level"
 	flagK8sClusterName                               = "cluster-name"
+	flagDefaultSubnets                               = "default-subnets"
 	flagDefaultTags                                  = "default-tags"
 	flagDefaultTargetType                            = "default-target-type"
 	flagDefaultLoadBalancerScheme                    = "default-load-balancer-scheme"
@@ -79,6 +80,9 @@ type ControllerConfig struct {
 	// Configurations for the Service controller
 	ServiceConfig ServiceConfig
 
+	// Default subnets that will be used for all AWS resources managed by the networking controller.
+	DefaultSubnets []string
+
 	// Default AWS Tags that will be applied to all AWS resources managed by this controller.
 	DefaultTags map[string]string
 
@@ -141,6 +145,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&cfg.LogLevel, flagLogLevel, defaultLogLevel,
 		"Set the controller log level - info(default), debug")
 	fs.StringVar(&cfg.ClusterName, flagK8sClusterName, "", "Kubernetes cluster name")
+	fs.StringSliceVar(&cfg.DefaultSubnets, flagDefaultSubnets, nil,
+		"Default subnets that will be used for all AWS resources managed by the networking controller")
 	fs.StringToStringVar(&cfg.DefaultTags, flagDefaultTags, nil,
 		"Default AWS Tags that will be applied to all AWS resources managed by this controller")
 	fs.StringVar(&cfg.DefaultTargetType, flagDefaultTargetType, string(elbv2.TargetTypeInstance),
@@ -192,7 +198,9 @@ func (cfg *ControllerConfig) Validate() error {
 	if len(cfg.ClusterName) == 0 {
 		return errors.New("kubernetes cluster name must be specified")
 	}
-
+	if err := cfg.validateDefaultSubnets(); err != nil {
+		return err
+	}
 	if err := cfg.validateDefaultTagsCollisionWithTrackingTags(); err != nil {
 		return err
 	}
@@ -213,6 +221,27 @@ func (cfg *ControllerConfig) Validate() error {
 	}
 	if err := cfg.validateManageBackendSecurityGroupRulesConfiguration(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (cfg *ControllerConfig) validateDefaultSubnets() error {
+	if len(cfg.DefaultSubnets) == 0 {
+		return nil
+	}
+	for _, subnetID := range cfg.DefaultSubnets {
+		if !strings.HasPrefix(subnetID, "subnet-") {
+			return errors.Errorf("invalid value %v for default subnet id", subnetID)
+		}
+	}
+
+	//validate duplicate subnet ids
+	seen := make(map[string]bool)
+	for _, str := range cfg.DefaultSubnets {
+		if seen[str] {
+			return errors.Errorf("duplicate subnet id %v is specified in the --default-subnets flag", str)
+		}
+		seen[str] = true
 	}
 	return nil
 }

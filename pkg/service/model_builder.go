@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
 	"sync"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
@@ -42,7 +43,7 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
-	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
+	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultSubnets []string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool, defaultEnableManageBackendSGRules bool,
 	disableRestrictedSGRules bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, tcpUdpEnabled bool) *defaultModelBuilder {
@@ -56,6 +57,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		serviceUtils:               serviceUtils,
 		clusterName:                clusterName,
 		vpcID:                      vpcID,
+		defaultSubnets:             defaultSubnets,
 		defaultTags:                defaultTags,
 		externalManagedTags:        sets.NewString(externalManagedTags...),
 		defaultSSLPolicy:           defaultSSLPolicy,
@@ -93,6 +95,7 @@ type defaultModelBuilder struct {
 
 	clusterName               string
 	vpcID                     string
+	defaultSubnets            []string
 	defaultTags               map[string]string
 	externalManagedTags       sets.String
 	defaultSSLPolicy          string
@@ -130,6 +133,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 		stack:     stack,
 		tgByResID: make(map[string]*elbv2model.TargetGroup),
 
+		defaultSubnets:                       b.defaultSubnets,
 		defaultTags:                          b.defaultTags,
 		externalManagedTags:                  b.externalManagedTags,
 		defaultSSLPolicy:                     b.defaultSSLPolicy,
@@ -201,6 +205,7 @@ type defaultModelBuildTask struct {
 	fetchExistingLoadBalancerOnce sync.Once
 	existingLoadBalancer          *elbv2deploy.LoadBalancerWithTags
 
+	defaultSubnets                       []string
 	defaultTags                          map[string]string
 	externalManagedTags                  sets.String
 	defaultSSLPolicy                     string
