@@ -22,6 +22,11 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 	svcUDP := buildUDPServiceSpec()
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
 
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
 	listeners := []gwv1.Listener{
 		{
 			Name:     "port80",

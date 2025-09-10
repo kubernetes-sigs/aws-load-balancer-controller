@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	"strings"
 
@@ -32,7 +33,7 @@ var _ = Describe("test k8s service using instance target reconciled by the aws l
 	Context("with NLB instance target configuration", func() {
 		annotation := make(map[string]string)
 		BeforeEach(func() {
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
 			}
 		})
@@ -377,7 +378,7 @@ var _ = Describe("test k8s service using instance target reconciled by the aws l
 	Context("with NLB instance target configuration with target node labels", func() {
 		annotation := make(map[string]string)
 		BeforeEach(func() {
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
 			}
 		})

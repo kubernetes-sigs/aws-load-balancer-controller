@@ -8,6 +8,11 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/controller"
 )
 
+const (
+	IPv4 = "IPv4"
+	IPv6 = "IPv6"
+)
+
 var globalOptions Options
 
 func init() {
@@ -52,7 +57,7 @@ func (options *Options) BindFlags() {
 
 	flag.StringVar(&options.S3BucketName, "s3-bucket-name", "", `S3 bucket to use for testing load balancer access logging feature`)
 	flag.StringVar(&options.CertificateARNs, "certificate-arns", "", `Certificate ARNs to use for TLS listeners`)
-	flag.StringVar(&options.IPFamily, "ip-family", "IPv4", "the ip family used for the cluster, can be IPv4 or IPv6")
+	flag.StringVar(&options.IPFamily, "ip-family", IPv4, "the ip family used for the cluster, can be IPv4 or IPv6")
 	flag.StringVar(&options.TestImageRegistry, "test-image-registry", "617930562442.dkr.ecr.us-west-2.amazonaws.com", "the aws registry in test-infra-* accounts where e2e test images are stored")
 
 	flag.BoolVar(&options.EnableGatewayTests, "enable-gateway-tests", false, "enables gateway tests")
