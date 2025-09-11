@@ -845,9 +845,9 @@ var _ = Describe("vanilla ingress tests", func() {
 				},
 			}
 			annotation := map[string]string{
-				"kubernetes.io/ingress.class":             "alb",
-				"alb.ingress.kubernetes.io/scheme":        "internet-facing",
-				"alb.ingress.kubernetes.io/tags":          "k1=v1,k2=v2",
+				"kubernetes.io/ingress.class":      "alb",
+				"alb.ingress.kubernetes.io/scheme": "internet-facing",
+				"alb.ingress.kubernetes.io/tags":   "k1=v1,k2=v2",
 			}
 			if tf.Options.IPFamily == "IPv6" {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -41,7 +42,7 @@ type loadbalancerConfigurationReconciler struct {
 	workers          int
 }
 
-func (r *loadbalancerConfigurationReconciler) SetupWatches(_ context.Context, ctrl controller.Controller, mgr ctrl.Manager) error {
+func (r *loadbalancerConfigurationReconciler) SetupWatches(_ context.Context, ctrl controller.Controller, mgr ctrl.Manager, _ *kubernetes.Clientset) error {
 
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.LoadBalancerConfiguration{}, &handler.TypedEnqueueRequestForObject[*elbv2gw.LoadBalancerConfiguration]{})); err != nil {
 		return err

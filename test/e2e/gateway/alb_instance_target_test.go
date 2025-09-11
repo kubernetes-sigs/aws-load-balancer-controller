@@ -68,7 +68,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, true)
 			httpr := buildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, &gwListeners[0].Name)
 			By("deploying stack", func() {
-				err := stack.DeployHTTP(ctx, auxiliaryStack, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, auxiliaryStack, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
 				err = auxiliaryStack.Deploy(ctx, tf)
 				Expect(err).NotTo(HaveOccurred())
@@ -210,7 +210,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 			httpr := buildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndTargetGroupWeights, nil)
 
 			By("deploying stack", func() {
-				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -415,7 +415,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 			httpr := buildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndFilters, nil)
 
 			By("deploying stack", func() {
-				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -487,7 +487,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 			}
 			httpr := buildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
 			By("deploying stack", func() {
-				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -587,7 +587,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 			}
 			httpr := buildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
 			By("deploying stack", func() {
-				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -728,7 +728,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 			httpr := buildHTTPRoute([]string{testHostname}, httpRouteRules, &gwListeners[0].Name)
 
 			By("deploying stack", func() {
-				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, false)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, false)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -844,6 +844,213 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 			})
 		})
 	})
+	Context("with ALB instance target configuration with secure HTTPRoute and authenticate oidc action", func() {
+		BeforeEach(func() {})
+		It("should provision internet-facing load balancer with authenticate-oidc action", func() {
+			if len(tf.Options.CertificateARNs) == 0 {
+				Skip("Skipping tests, certificates not specified")
+			}
+
+			// Generate random OIDC credentials for testing
+			oidcClientID, oidcClientSecret := GenerateOIDCCredentials()
+
+			// Setup HTTPS listener with certificate
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
+			lsConfig := elbv2gw.ListenerConfiguration{
+				ProtocolPort:       "HTTPS:443",
+				DefaultCertificate: &cert,
+			}
+			lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{lsConfig}
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{}
+			gwListeners := []gwv1.Listener{
+				{
+					Name:     "https443",
+					Port:     443,
+					Protocol: gwv1.HTTPSProtocolType,
+					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
+				},
+			}
+
+			// Create Kubernetes Secret for OIDC credentials
+			oidcSecretName := "oidc-auth-secret"
+			// Generate random OIDC credentials for testing
+			oidcClientID, oidcClientSecret = GenerateOIDCCredentials()
+
+			oidcSecret := &testOIDCSecret{
+				name:         oidcSecretName,
+				clientId:     oidcClientID,
+				clientSecret: oidcClientSecret,
+			}
+			// Create ListenerRuleConfiguration with real Cognito values
+			authenticateBehavior := elbv2gw.AuthenticateOidcActionConditionalBehaviorEnumAuthenticate
+			lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{
+				Actions: []elbv2gw.Action{
+					{
+						Type: elbv2gw.ActionTypeAuthenticateOIDC,
+						AuthenticateOIDCConfig: &elbv2gw.AuthenticateOidcActionConfig{
+							Issuer:                testOidcIssuer,
+							AuthorizationEndpoint: testOidcAuthorizationEndpoint,
+							TokenEndpoint:         testOidcTokenEndpoint,
+							UserInfoEndpoint:      testOidcUserInfoEndpoint,
+							Secret: &elbv2gw.Secret{
+								Name: oidcSecretName,
+								// Namespace will default to same as ListenerRuleConfiguration
+							},
+							Scope: awssdk.String("openid profile email"),
+							AuthenticationRequestExtraParams: &map[string]string{
+								"prompt":  "login",
+								"display": "page",
+							},
+							OnUnauthenticatedRequest: &authenticateBehavior,
+							SessionCookieName:        awssdk.String("AWSELBAuthSessionCookie-OIDC"),
+							SessionTimeout:           awssdk.Int64(604800),
+						},
+					},
+				},
+			}
+			httpRouteRules := []gwv1.HTTPRouteRule{
+				{
+					BackendRefs: DefaultHttpRouteRuleBackendRefs,
+					Filters: []gwv1.HTTPRouteFilter{
+						{
+							Type: gwv1.HTTPRouteFilterExtensionRef,
+							ExtensionRef: &gwv1.LocalObjectReference{
+								Name:  defaultLRConfigName,
+								Kind:  constants.ListenerRuleConfiguration,
+								Group: constants.ControllerCRDGroupVersion,
+							},
+						},
+					},
+				},
+			}
+			httpr := buildHTTPRoute([]string{testHostname}, httpRouteRules, &gwListeners[0].Name)
+
+			By("deploying stack", func() {
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, oidcSecret, false)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("checking gateway status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+
+			By("querying AWS loadbalancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+
+			By("verifying AWS loadbalancer resources", func() {
+				nodeList, err := stack.GetWorkerNodes(ctx, tf)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:      "HTTP",
+						Port:          stack.albResourceStack.commonStack.svcs[0].Spec.Ports[0].NodePort,
+						NumTargets:    len(nodeList),
+						TargetType:    "instance",
+						TargetGroupHC: DEFAULT_ALB_TARGET_GROUP_HC,
+					},
+				}
+				err = verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:         "application",
+					Scheme:       "internet-facing",
+					Listeners:    stack.albResourceStack.getListenersPortMap(),
+					TargetGroups: expectedTargetGroups,
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("verifying AWS load balancer listener", func() {
+				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, int32(gwListeners[0].Port), &verifier.ListenerExpectation{
+					ProtocolPort:          "HTTPS:443",
+					DefaultCertificateARN: awssdk.ToString(lsConfig.DefaultCertificate),
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("verifying listener rules with authenticate-oidc action", func() {
+				err := verifier.VerifyLoadBalancerListenerRules(ctx, tf, lbARN, int32(gwListeners[0].Port), []verifier.ListenerRuleExpectation{
+					{
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									Values: []string{"/*"},
+								},
+							},
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldHostHeader)),
+								HostHeaderConfig: &elbv2types.HostHeaderConditionConfig{
+									Values: []string{testHostname},
+								},
+							},
+						},
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeAuthenticateOIDC),
+								AuthenticateOidcConfig: &elbv2types.AuthenticateOidcActionConfig{
+									Issuer:                  awssdk.String(testOidcIssuer),
+									AuthorizationEndpoint:   awssdk.String(testOidcAuthorizationEndpoint),
+									TokenEndpoint:           awssdk.String(testOidcTokenEndpoint),
+									UserInfoEndpoint:        awssdk.String(testOidcUserInfoEndpoint),
+									ClientId:                awssdk.String(oidcClientID),
+									UseExistingClientSecret: awssdk.Bool(true),
+									Scope:                   awssdk.String("openid profile email"),
+									AuthenticationRequestExtraParams: map[string]string{
+										"prompt":  "login",
+										"display": "page",
+									},
+									OnUnauthenticatedRequest: elbv2types.AuthenticateOidcActionConditionalBehaviorEnumAuthenticate,
+									SessionCookieName:        awssdk.String("AWSELBAuthSessionCookie-OIDC"),
+									SessionTimeout:           awssdk.Int64(604800),
+								},
+							},
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeForward),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String(testTargetGroupArn),
+											Weight:         awssdk.Int32(1),
+										},
+									},
+								},
+							},
+						},
+						Priority: 1,
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("waiting until DNS name is available", func() {
+				err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("verifying authenticate-oidc redirect for unauthenticated request", func() {
+				url := fmt.Sprintf("https://%v/any-path", dnsName)
+				urlOptions := http.URLOptions{
+					InsecureSkipVerify: true,
+					HostHeader:         testHostname,
+					FollowRedirects:    false, // Don't follow redirects automatically
+				}
+
+				// Expect 302 redirect to Cognito
+				err := tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions, http.ResponseCodeMatches(302))
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify redirect Location header contains Cognito domain
+				err = tf.HTTPVerifier.VerifyURLWithOptions(url, urlOptions,
+					http.ResponseHeaderContains("Location", testOidcAuthorizationEndpoint))
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
 
 	Context("with both basic and secure HTTPRoutes", func() {
 		BeforeEach(func() {})
@@ -889,7 +1096,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 			httpr := buildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
-				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, true)
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
 			})
 

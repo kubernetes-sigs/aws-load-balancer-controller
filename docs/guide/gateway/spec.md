@@ -50,7 +50,7 @@ Action defines an action for a listener rule
 
 
 _Appears in:_
-- [ListenerRuleSpec](#listenerrulespec)
+- [ListenerRuleConfigurationSpec](#listenerruleconfigurationspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -311,7 +311,7 @@ Information about a condition for a listener rule
 
 
 _Appears in:_
-- [ListenerRuleSpec](#listenerrulespec)
+- [ListenerRuleConfigurationSpec](#listenerruleconfigurationspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -351,15 +351,15 @@ ListenerRuleConfiguration is the Schema for the ListenerRuleConfiguration API
 | `apiVersion` _string_ | `gateway.k8s.aws/v1beta1` | | |
 | `kind` _string_ | `ListenerRuleConfiguration` | | |
 | `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
-| `spec` _[ListenerRuleSpec](#listenerrulespec)_ |  |  |  |
-| `status` _[ListenerRuleStatus](#listenerrulestatus)_ |  |  |  |
+| `spec` _[ListenerRuleConfigurationSpec](#listenerruleconfigurationspec)_ |  |  |  |
+| `status` _[ListenerRuleConfigurationStatus](#listenerruleconfigurationstatus)_ |  |  |  |
 
 
-#### ListenerRuleSpec
+#### ListenerRuleConfigurationSpec
 
 
 
-ListenerRuleSpec defines the desired state of ListenerRuleConfiguration
+ListenerRuleConfigurationSpec defines the desired state of ListenerRuleConfiguration
 
 
 
@@ -373,11 +373,11 @@ _Appears in:_
 | `tags` _map[string]string_ | Tags are the AWS resource tags to be applied to all AWS resources created for this rule. |  |  |
 
 
-#### ListenerRuleStatus
+#### ListenerRuleConfigurationStatus
 
 
 
-ListenerRuleStatus defines the observed state of ListenerRuleConfiguration
+ListenerRuleConfigurationStatus defines the observed state of ListenerRuleConfiguration
 
 
 
@@ -387,6 +387,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `observedGeneration` _integer_ | The observed generation of the rule configuration |  |  |
+| `accepted` _boolean_ | Accepted indicates whether ListenerRuleConfiguration is valid |  |  |
+| `message` _string_ | Message provides details about the current state |  |  |
 
 
 #### LoadBalancerAttribute
@@ -720,7 +722,7 @@ _Appears in:_
 
 
 
-Secret holds OAuth 2.0 clientID and clientSecret. You need to create this secret and provide its name and namespace
+Secret holds OAuth 2.0 clientID and clientSecret. You need to create this secret and provide its name
 
 
 
@@ -730,7 +732,6 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name is name of the secret |  |  |
-| `namespace` _string_ | Namespace is namespace of secret. If empty it will be considered to be in same namespace as of the resource referring it |  |  |
 
 
 #### ShieldConfiguration

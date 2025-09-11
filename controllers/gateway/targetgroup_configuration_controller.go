@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -49,7 +50,7 @@ type targetgroupConfigurationReconciler struct {
 	workers      int
 }
 
-func (r *targetgroupConfigurationReconciler) SetupWatches(_ context.Context, ctrl controller.Controller, mgr ctrl.Manager) error {
+func (r *targetgroupConfigurationReconciler) SetupWatches(_ context.Context, ctrl controller.Controller, mgr ctrl.Manager, _ *kubernetes.Clientset) error {
 
 	if err := ctrl.Watch(source.Kind(mgr.GetCache(), &elbv2gw.TargetGroupConfiguration{}, &handler.TypedEnqueueRequestForObject[*elbv2gw.TargetGroupConfiguration]{})); err != nil {
 		return err
