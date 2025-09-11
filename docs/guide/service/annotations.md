@@ -264,13 +264,27 @@ for proxy protocol v2 configuration.
         The only valid value for this annotation is `*`.
 
 - <a name="target-group-attributes">`service.beta.kubernetes.io/aws-load-balancer-target-group-attributes`</a> specifies the
-[Target Group Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#target-group-attributes) to be configured.
+[Target Group Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#target-group-attributes) to be configured. You can specify attributes globally for all target groups or override them for specific ports using port-specific annotations.
 
     !!!example
         - set the deregistration delay to 120 seconds (available range is 0-3600 seconds)
             ```
+            # Global attributes for all target groups
             service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: deregistration_delay.timeout_seconds=120
+            
+            # Port-specific attributes (overrides global attributes for port 3306)
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306: proxy_protocol_v2.client_to_server.header_placement=on_first_ack
             ```
+            
+        - Port-specific attributes with empty values
+            ```
+            # Global attributes for all target groups
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: target.group-attr-1=80
+            
+            # Port-specific attributes (empty values don't override global attributes)
+            service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306: target.group-attr-1=
+            ```
+            Note: When a port-specific attribute value is empty, it will not override the global attribute value. This allows you to selectively remove attributes for specific ports without affecting other ports that should inherit the global value.
         - enable source IP affinity
             ```
             service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
