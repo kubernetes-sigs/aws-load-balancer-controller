@@ -97,7 +97,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/scheme":      "internet-facing",
 				"alb.ingress.kubernetes.io/target-type": "ip",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
 			ing := ingBuilder.
@@ -141,7 +141,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			annotation := map[string]string{
 				"alb.ingress.kubernetes.io/scheme": "internet-facing",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
 			ing := ingBuilder.
@@ -180,7 +180,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/scheme":      "internet-facing",
 				"alb.ingress.kubernetes.io/target-type": "ip",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
 			ing := ingBuilder.
@@ -216,7 +216,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"kubernetes.io/ingress.class":      "alb",
 				"alb.ingress.kubernetes.io/scheme": "internet-facing",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
 			ing := ingBuilder.
@@ -262,7 +262,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			annotation := map[string]string{
 				"alb.ingress.kubernetes.io/scheme": "internet-facing",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
 			ing := ingBuilder.
@@ -294,7 +294,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"kubernetes.io/ingress.class":      "nginx",
 				"alb.ingress.kubernetes.io/scheme": "internet-facing",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
 			ing := ingBuilder.
@@ -324,7 +324,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			annotation := map[string]string{
 				"alb.ingress.kubernetes.io/scheme": "internet-facing",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
 			ing := ingBuilder.
@@ -360,7 +360,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/scheme":             "internet-facing",
 				"alb.ingress.kubernetes.io/load-balancer-name": lbName,
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
 			}
@@ -406,7 +406,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/scheme":      "internet-facing",
 				"alb.ingress.kubernetes.io/target-type": "ip",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
 			ing := ingBuilder.
@@ -457,7 +457,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/scheme":      "internet-facing",
 				"alb.ingress.kubernetes.io/target-type": "ip",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 			}
 			ing := ingBuilder.
@@ -526,7 +526,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/actions.forward-single-tg":   "{\"type\":\"forward\",\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"app-1\",\"servicePort\":\"80\"}]}}",
 				"alb.ingress.kubernetes.io/actions.forward-multiple-tg": "{\"type\":\"forward\",\"forwardConfig\":{\"targetGroups\":[{\"serviceName\":\"app-1\",\"servicePort\":\"80\",\"weight\":20},{\"serviceName\":\"app-2\",\"servicePort\":80,\"weight\":80}],\"targetGroupStickinessConfig\":{\"enabled\":true,\"durationSeconds\":200}}}",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
 			}
@@ -639,7 +639,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/actions.rule-path7":    "{\"type\":\"fixed-response\",\"fixedResponseConfig\":{\"contentType\":\"text/plain\",\"statusCode\":\"200\",\"messageBody\":\"multiple conditions applies\"}}",
 				"alb.ingress.kubernetes.io/conditions.rule-path7": "[{\"field\":\"http-header\",\"httpHeaderConfig\":{\"httpHeaderName\": \"HeaderName\", \"values\":[\"HeaderValue\"]}},{\"field\":\"query-string\",\"queryStringConfig\":{\"values\":[{\"key\":\"paramA\",\"value\":\"valueA\"}]}},{\"field\":\"query-string\",\"queryStringConfig\":{\"values\":[{\"key\":\"paramB\",\"value\":\"valueB\"}]}}]",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == "framework.IPv6" {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
 			}
@@ -747,7 +747,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/ip-address-type": "ipv4",
 			}
 
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				// TODO: annotate to "dualstack-without-public-ipv4" for all regions once it's GA
 				if tf.Options.AWSRegion == "us-west-2" {
 					annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack-without-public-ipv4"
@@ -800,7 +800,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/listen-ports":                `[{"HTTP": 80}]`,
 				"alb.ingress.kubernetes.io/listener-attributes.HTTP-80": "routing.http.response.server.enabled=false",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
 			}
@@ -849,7 +849,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/scheme": "internet-facing",
 				"alb.ingress.kubernetes.io/tags":   "k1=v1,k2=v2",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
 			}
@@ -920,7 +920,7 @@ var _ = Describe("vanilla ingress tests", func() {
 				"alb.ingress.kubernetes.io/frontend-nlb-scheme":           "internet-facing",
 			}
 
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 				annotation["alb.ingress.kubernetes.io/target-type"] = "ip"
 			}

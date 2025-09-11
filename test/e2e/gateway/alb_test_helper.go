@@ -29,6 +29,11 @@ func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *auxiliary
 		httprs = append(httprs, buildOtherNsRefHttpRoute("other-ns", auxiliaryStack.ns))
 	}
 
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
 	svc := buildServiceSpec()
 	tgc := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svc)
 	return s.deploy(ctx, f, gwListeners, httprs, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{buildDeploymentSpec(f.Options.TestImageRegistry)}, []*corev1.Service{svc}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc}, lrConfSpec, secret, readinessGateEnabled)
