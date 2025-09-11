@@ -3,12 +3,13 @@ package model
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -197,7 +198,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		route := ruleWithPrecedence.CommonRulePrecedence.RouteDescriptor
 		rule := ruleWithPrecedence.CommonRulePrecedence.Rule
 
-		// Build Rule Conditions
+		// Build Rule Conditions based on GRPCRouteMatch and HTTPRouteMatch
 		var conditionsList []elbv2model.RuleCondition
 		var err error
 		switch route.GetRouteKind() {
@@ -209,6 +210,9 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		if err != nil {
 			return nil, err
 		}
+
+		// Add Rule Source-IP Conditions based on ListenerRuleConfiguration CRD
+		conditionsList = routeutils.BuildSourceIpInCondition(ruleWithPrecedence, conditionsList)
 
 		// set up for building routing actions
 		var actions []elbv2model.Action

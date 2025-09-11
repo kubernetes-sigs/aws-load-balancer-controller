@@ -3,6 +3,10 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"unicode"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,12 +16,9 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strconv"
-	"strings"
-	"unicode"
 )
 
-// BuildRulePreRoutingActions returns pre-routing action for rule
+// BuildRulePreRoutingAction returns pre-routing action for rule
 // The assumption is that the ListenerRuleConfiguration CRD makes sure we only have one of the actions (authenticate-cognito, authenticate-oidc) defined
 func BuildRulePreRoutingAction(ctx context.Context, route RouteDescriptor, crdPreRoutingAction *elbv2gw.Action, k8sClient client.Client, secretsManager k8s.SecretsManager) (*elbv2model.Action, *types.NamespacedName, error) {
 	switch crdPreRoutingAction.Type {
@@ -148,6 +149,9 @@ func buildForwardRoutingAction(routingAction *elbv2gw.Action, targetGroupTuples 
 	return nil, nil
 }
 
+// buildRedirectRoutingAction
+// For HTTPRoute: handle RequestRedirect from HTTPRouteFilterType
+// For GRPCRoute: do not support any filter type other than ExtensionRef, which can be used to refer a listener rule configuration CRD
 func buildRedirectRoutingAction(rule RouteRule, route RouteDescriptor, routingAction *elbv2gw.Action) (*elbv2model.Action, error) {
 	switch route.GetRouteKind() {
 	case HTTPRouteKind:
@@ -163,7 +167,16 @@ func buildRedirectRoutingAction(rule RouteRule, route RouteDescriptor, routingAc
 			}
 			return redirectActions, nil
 		}
-		// TODO: add case for GRPC
+	case GRPCRouteKind:
+		grpcRule := rule.GetRawRouteRule().(*gwv1.GRPCRouteRule)
+		for _, filter := range grpcRule.Filters {
+			switch filter.Type {
+			case gwv1.GRPCRouteFilterExtensionRef:
+				continue
+			default:
+				return nil, errors.Errorf("Unsupported filter type: %v. To specify header modification, please configure it through LoadBalancerConfiguration.", filter.Type)
+			}
+		}
 	}
 	return nil, nil
 }
