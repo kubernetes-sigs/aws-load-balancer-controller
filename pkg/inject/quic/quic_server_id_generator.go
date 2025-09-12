@@ -108,12 +108,6 @@ func (q *quicServerIDGeneratorImpl) generate() (string, error) {
 	bs := make([]byte, 8)
 	binary.BigEndian.PutUint64(bs, uint64(id))
 	return base64.StdEncoding.EncodeToString(bs), nil
-	/*
-		bs := make([]byte, 8)
-		binary.BigEndian.PutUint64(bs, uint64(time.Now().UnixMilli()))
-		return base64.StdEncoding.EncodeToString(bs), nil
-
-	*/
 }
 
 func (q *quicServerIDGeneratorImpl) provisionWorkerId() error {
