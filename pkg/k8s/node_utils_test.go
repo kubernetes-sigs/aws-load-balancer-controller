@@ -103,6 +103,20 @@ func TestExtractNodeInstanceID(t *testing.T) {
 			want: "i-abcdefg0",
 		},
 		{
+			name: "node by EKS Hybrid",
+			args: args{
+				node: &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "hybrid-node-name",
+					},
+					Spec: corev1.NodeSpec{
+						ProviderID: "eks-hybrid:///ap-northeast-1/eks-test/mi-01c49bb1234567890",
+					},
+				},
+			},
+			want: "hybrid-mi-01c49bb1234567890",
+		},
+		{
 			name: "node by EKS Fargate",
 			args: args{
 				node: &corev1.Node{
