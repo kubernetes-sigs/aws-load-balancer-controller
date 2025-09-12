@@ -603,11 +603,9 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 		doAppend := true
 
 		if targetGroupProtocol != nil && (*targetGroupProtocol == elbv2.ProtocolQUIC || *targetGroupProtocol == elbv2.ProtocolTCP_QUIC) {
-			m.logger.Info("Getting the server ID!")
 			var serverId *string
 
 			if endpoint.Pod.QUICServerIDs != nil {
-				m.logger.Info("got these ids", endpoint.Pod.QUICServerIDs)
 				sId, ok := endpoint.Pod.QUICServerIDs[endpoint.Port]
 				if ok {
 					serverId = &sId
@@ -623,7 +621,6 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 				}
 
 				target.QuicServerId = &hexServerId
-				m.logger.Info("Got this server ID!", "sid", *serverId, "hex", hexServerId)
 			} else {
 				// TODO - metric?
 				m.logger.Info("Dropping registration request for QUIC enabled target with no server ID", "target", target)

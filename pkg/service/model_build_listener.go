@@ -125,7 +125,7 @@ func (t *defaultModelBuildTask) buildListenerSpec(ctx context.Context, port core
 			listenerProtocol = elbv2model.ProtocolTCP_QUIC
 			break
 		default:
-			return elbv2model.ListenerSpec{}, errors.Errorf("Unsupport QUIC upgrade for protocol %v", listenerProtocol)
+			return elbv2model.ListenerSpec{}, errors.Errorf("Unsupported QUIC upgrade for protocol %v", listenerProtocol)
 		}
 	}
 

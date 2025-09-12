@@ -2,7 +2,6 @@ package k8s
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -218,9 +217,7 @@ func (podInfoBuilder *podInfoBuilder) extractQUICServerID(pod *corev1.Pod, conta
 	}
 
 	for _, env := range container.Env {
-		fmt.Println("Foo -> " + env.Name)
 		if env.Name == podInfoBuilder.quicServerIDVariableName {
-			fmt.Println("Got the ID! -> " + env.Value)
 			return &env.Value
 		}
 	}
