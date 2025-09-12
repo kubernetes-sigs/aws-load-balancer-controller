@@ -49,6 +49,101 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			},
 		},
 		{
+			testName: "port-specific attributes with empty values",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "target.group-attr-1=80",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "target.group-attr-1=",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+				{
+					Key:   "target.group-attr-1",
+					Value: "80",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "multiple port-specific attributes",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "target.group-attr-1=80, attr2=val2",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "target.group-attr-1=3306, attr3=val3",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   "attr2",
+					Value: "val2",
+				},
+				{
+					Key:   "attr3",
+					Value: "val3",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+				{
+					Key:   "target.group-attr-1",
+					Value: "3306",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "port-specific override with proxy protocol",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "proxy_protocol_v2.enabled=true",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "proxy_protocol_v2.enabled=false",
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol": "*",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "true",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "invalid port-specific attribute value",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "target.group-attr-1=80",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "preserve_client_ip.enabled=invalid",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantError: true,
+		},
+		{
 			testName: "Proxy V2 enabled",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -101,6 +196,35 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 				{
 					Key:   "t2.enabled",
 					Value: "false",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "target group port-specific attributes",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "target.group-attr-1=80, proxy_protocol_v2.client_to_server.header_placement=on_first_ack_withpayload",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "proxy_protocol_v2.client_to_server.header_placement=on_first_ack",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   "proxy_protocol_v2.client_to_server.header_placement",
+					Value: "on_first_ack",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+				{
+					Key:   "target.group-attr-1",
+					Value: "80",
 				},
 			},
 			wantError: false,
