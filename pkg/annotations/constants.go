@@ -128,3 +128,7 @@ const (
 	SvcLBSuffixDisableNLBSG                              = "aws-load-balancer-disable-nlb-sg"
 	SvcLBSuffixQUICEnabledPorts                          = "aws-load-balancer-quic-enabled-ports"
 )
+
+const (
+	QuicEnabledContainersAnnotation = "service.beta.kubernetes.io/aws-load-balancer-quic-enabled-containers"
+)

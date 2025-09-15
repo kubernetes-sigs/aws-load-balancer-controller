@@ -1,12 +1,16 @@
 package k8s
 
 import (
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 )
 
 const (
@@ -114,29 +118,6 @@ func (podInfoBuilder *podInfoBuilder) buildPodInfo(pod *corev1.Pod) PodInfo {
 		podENIInfos = eniInfo
 	}
 
-	/*
-		var containerInfo []ContainerInformation
-		for _, podContainer := range pod.Spec.Containers {
-			for i := range podContainer.Ports {
-				containerInfo = append(containerInfo, ContainerInformation{
-					Port:         podContainer.Ports[i],
-					QUICServerID: podInfoBuilder.extractQUICServerID(pod, podContainer),
-				})
-			}
-		}
-		// also support sidecar container (initContainer with restartPolicy=Always)
-		for _, podContainer := range pod.Spec.InitContainers {
-			if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
-				for i := range podContainer.Ports {
-					containerInfo = append(containerInfo, ContainerInformation{
-						Port:         podContainer.Ports[i],
-						QUICServerID: podInfoBuilder.extractQUICServerID(pod, podContainer),
-					})
-				}
-			}
-		}
-	*/
-
 	var containerPorts []corev1.ContainerPort
 	var quicServerIDs map[int32]string
 	for _, podContainer := range pod.Spec.Containers {
@@ -205,8 +186,7 @@ func (podInfoBuilder *podInfoBuilder) extractQUICServerID(pod *corev1.Pod, conta
 		return nil
 	}
 
-	// TODO - Fix this
-	_, ok := pod.Annotations["service.beta.kubernetes.io/aws-load-balancer-quic-enabled-containers"]
+	_, ok := pod.Annotations[annotations.QuicEnabledContainersAnnotation]
 
 	if !ok {
 		return nil
@@ -218,9 +198,26 @@ func (podInfoBuilder *podInfoBuilder) extractQUICServerID(pod *corev1.Pod, conta
 
 	for _, env := range container.Env {
 		if env.Name == podInfoBuilder.quicServerIDVariableName {
-			return &env.Value
+			converted, err := convertServerIdToELBFormat(env.Value)
+			if err != nil {
+				return nil
+			}
+			return &converted
 		}
 	}
 
 	return nil
+}
+
+// convertServerIdToELBFormat
+// convert b64 value into hex
+// append mandatory '0x' into front
+func convertServerIdToELBFormat(b64 string) (string, error) {
+	// Decode the base64 string to bytes
+	data, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64: %w", err)
+	}
+
+	return fmt.Sprintf("0x%s", hex.EncodeToString(data)), nil
 }
