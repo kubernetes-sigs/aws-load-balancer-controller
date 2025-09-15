@@ -2,8 +2,6 @@ package targetgroupbinding
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"net/netip"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -14,7 +12,6 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -188,7 +185,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	}
 
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
-	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
+	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(tgb, endpoints, notDrainingTargets)
 
 	needNetworkingRequeue := false
 	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
@@ -603,30 +600,15 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 		doAppend := true
 
 		if targetGroupProtocol != nil && (*targetGroupProtocol == elbv2.ProtocolQUIC || *targetGroupProtocol == elbv2.ProtocolTCP_QUIC) {
-			var serverId *string
-
-			if endpoint.Pod.QUICServerIDs != nil {
-				sId, ok := endpoint.Pod.QUICServerIDs[endpoint.Port]
-				if ok {
-					serverId = &sId
-				}
-			}
-
+			serverId := endpoint.QuicServerID
 			doAppend = serverId != nil
 			if serverId != nil {
-
-				hexServerId, err := convertServerIdToELBFormat(*serverId)
-				if err != nil {
-					return nil, err
-				}
-
-				target.QuicServerId = &hexServerId
+				target.QuicServerId = serverId
 			} else {
 				// TODO - metric?
 				m.logger.Info("Dropping registration request for QUIC enabled target with no server ID", "target", target)
 			}
 		}
-		m.logger.Info("Got this value for doAppend", "append", doAppend)
 
 		if doAppend {
 			sdkTargets = append(sdkTargets, target)
@@ -747,19 +729,19 @@ func containsTargetsInInitialState(matchedEndpointAndTargets []podEndpointAndTar
 	return false
 }
 
-func matchPodEndpointWithTargets(endpoints []backend.PodEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.PodEndpoint, []TargetInfo) {
+func matchPodEndpointWithTargets(tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.PodEndpoint, []TargetInfo) {
 	var matchedEndpointAndTargets []podEndpointAndTargetPair
 	var unmatchedEndpoints []backend.PodEndpoint
 	var unmatchedTargets []TargetInfo
 
 	endpointsByUID := make(map[string]backend.PodEndpoint, len(endpoints))
 	for _, endpoint := range endpoints {
-		endpointUID := fmt.Sprintf("%v:%v", endpoint.IP, endpoint.Port)
+		endpointUID := endpoint.GetIdentifier(false, tgbProtocolSupportsQuic(tgb))
 		endpointsByUID[endpointUID] = endpoint
 	}
 	targetsByUID := make(map[string]TargetInfo, len(targets))
 	for _, target := range targets {
-		targetUID := fmt.Sprintf("%v:%v", awssdk.ToString(target.Target.Id), awssdk.ToInt32(target.Target.Port))
+		targetUID := target.GetIdentifier()
 		targetsByUID[targetUID] = target
 	}
 	endpointUIDs := sets.StringKeySet(endpointsByUID)

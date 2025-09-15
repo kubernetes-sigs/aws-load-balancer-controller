@@ -77,7 +77,7 @@ type ControllerConfig struct {
 	// Configurations for Pod inject webhook
 	PodWebhookConfig pod_readiness.PodReadinessGateConfig
 	// Configurations for QUIC integration.
-	QUICServerIDInjectionConfig quic.QUICServerIDInjectionConfig
+	ServerIDInjectionConfig quic.ServerIDInjectionConfig
 	// Configurations for the Ingress controller
 	IngressConfig IngressConfig
 	// Configurations for Addons feature
@@ -198,7 +198,7 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	cfg.RuntimeConfig.BindFlags(fs)
 
 	cfg.PodWebhookConfig.BindFlags(fs)
-	cfg.QUICServerIDInjectionConfig.BindFlags(fs)
+	cfg.ServerIDInjectionConfig.BindFlags(fs)
 	cfg.IngressConfig.BindFlags(fs)
 	cfg.AddonsConfig.BindFlags(fs)
 	cfg.ServiceConfig.BindFlags(fs)

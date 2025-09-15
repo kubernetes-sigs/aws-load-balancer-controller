@@ -59,7 +59,7 @@ func (m *multiClusterManagerImpl) UpdateTrackedIPTargets(ctx context.Context, up
 		endpointStrings := make([]string, 0, len(endpoints))
 
 		for _, ep := range endpoints {
-			endpointStrings = append(endpointStrings, ep.GetIdentifier(false))
+			endpointStrings = append(endpointStrings, ep.GetIdentifier(false, tgbProtocolSupportsQuic(tgb)))
 		}
 		return endpointStrings
 	}
@@ -72,7 +72,7 @@ func (m *multiClusterManagerImpl) UpdateTrackedInstanceTargets(ctx context.Conte
 		endpointStrings := make([]string, 0, len(endpoints))
 
 		for _, ep := range endpoints {
-			endpointStrings = append(endpointStrings, ep.GetIdentifier(false))
+			endpointStrings = append(endpointStrings, ep.GetIdentifier(false, false))
 		}
 		return endpointStrings
 	}

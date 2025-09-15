@@ -5,6 +5,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 )
@@ -16,13 +17,13 @@ type QUICServerIDInjector interface {
 
 // quicServerIDInjectorImpl concrete implementation of QUICServerIDInjector
 type quicServerIDInjectorImpl struct {
-	config      QUICServerIDInjectionConfig
+	config      ServerIDInjectionConfig
 	idGenerator quicServerIDGenerator
 	logger      logr.Logger
 }
 
 // NewQUICServerIDInjector constructs a new injector to generate QUIC server IDs for containers.
-func NewQUICServerIDInjector(config QUICServerIDInjectionConfig, client client.Client, apiReader client.Reader, logger logr.Logger) QUICServerIDInjector {
+func NewQUICServerIDInjector(config ServerIDInjectionConfig, client client.Client, apiReader client.Reader, logger logr.Logger) QUICServerIDInjector {
 	return &quicServerIDInjectorImpl{
 		config:      config,
 		logger:      logger,
@@ -38,7 +39,7 @@ func (m *quicServerIDInjectorImpl) Mutate(ctx context.Context, pod *corev1.Pod) 
 		return nil
 	}
 
-	containerNameList, ok := pod.Annotations[quicEnabledContainers]
+	containerNameList, ok := pod.Annotations[annotations.QuicEnabledContainersAnnotation]
 	if !ok {
 		return nil
 	}

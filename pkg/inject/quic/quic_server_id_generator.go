@@ -86,6 +86,7 @@ func (q *quicServerIDGeneratorImpl) generate() (string, error) {
 		return "", fmt.Errorf("clock moved backwards, refusing to generate ID")
 	}
 
+	newSequenceRequested := true
 	// If same millisecond, increment sequence
 	if timestamp == q.lastTimestamp {
 		q.sequence = (q.sequence + 1) & maxSequence
@@ -94,9 +95,12 @@ func (q *quicServerIDGeneratorImpl) generate() (string, error) {
 		if q.sequence == 0 {
 			time.Sleep(2 * time.Millisecond)
 			timestamp = q.currentTimestampFn()
+		} else {
+			newSequenceRequested = false
 		}
-	} else {
-		// New millisecond, reset sequence
+	}
+
+	if newSequenceRequested {
 		q.sequence = q.randFn(maxSequence)
 	}
 
