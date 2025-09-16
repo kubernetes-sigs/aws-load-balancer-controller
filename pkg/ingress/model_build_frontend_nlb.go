@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -209,6 +210,45 @@ func (t *defaultModelBuildTask) buildFrontendNlb(ctx context.Context, scheme elb
 	t.frontendNlb = elbv2model.NewLoadBalancer(t.stack, "FrontendNlb", spec)
 
 	return nil
+}
+
+func (t *defaultModelBuildTask) buildFrontendNlbAttributes(ctx context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
+	loadBalancerAttributes, err := t.getFrontendNlbAttributes()
+	if err != nil {
+		return []elbv2model.LoadBalancerAttribute{}, err
+	}
+	return shared_utils.MakeAttributesSliceFromMap(loadBalancerAttributes), nil
+}
+
+func (t *defaultModelBuildTask) getFrontendNlbAttributes() (any, any) {
+	var chosenAttributes map[string]string
+	for _, member := range t.ingGroup.Members {
+		var attributes map[string]string
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &attributes, member.Ing.Annotations); err != nil {
+			return nil, err
+		}
+		if chosenAttributes == nil {
+			chosenAttributes = attributes
+		} else {
+			if !cmp.Equal(chosenAttributes, attributes) {
+				return nil, errors.Errorf("conflicting frontend NLB attributes: %v | %v", chosenAttributes, attributes)
+			}
+		}
+	}
+
+	dnsRecordClientRoutingPolicy, exists := chosenAttributes[lbAttrsLoadBalancingDnsClientRoutingPolicy]
+	if exists {
+		switch dnsRecordClientRoutingPolicy {
+		case availabilityZoneAffinity:
+		case partialAvailabilityZoneAffinity:
+		case anyAvailabilityZone:
+		default:
+			return nil, errors.Errorf("invalid dns_record.client_routing_policy set in annotation %s: got '%s' expected one of ['%s', '%s', '%s']",
+				annotations.SvcLBSuffixLoadBalancerAttributes, dnsRecordClientRoutingPolicy,
+				anyAvailabilityZone, partialAvailabilityZoneAffinity, availabilityZoneAffinity)
+		}
+	}
+	return chosenAttributes, nil
 }
 
 func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme elbv2model.LoadBalancerScheme,
