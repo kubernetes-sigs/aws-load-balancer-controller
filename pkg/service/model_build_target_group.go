@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"

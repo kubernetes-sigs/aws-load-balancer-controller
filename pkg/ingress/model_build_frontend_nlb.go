@@ -238,14 +238,20 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		return elbv2model.LoadBalancerSpec{}, err
 	}
 
+	lbAttributes, err := t.buildFrontendNlbAttributes(ctx)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
+	}
+
 	spec := elbv2model.LoadBalancerSpec{
-		Name:           name,
-		Type:           elbv2model.LoadBalancerTypeNetwork,
-		Scheme:         scheme,
-		IPAddressType:  alb.Spec.IPAddressType,
-		SecurityGroups: securityGroups,
-		SubnetMappings: subnetMappings,
-		Tags:           tags,
+		Name:                   name,
+		Type:                   elbv2model.LoadBalancerTypeNetwork,
+		Scheme:                 scheme,
+		IPAddressType:          alb.Spec.IPAddressType,
+		LoadBalancerAttributes: lbAttributes,
+		SecurityGroups:         securityGroups,
+		SubnetMappings:         subnetMappings,
+		Tags:                   tags,
 	}
 
 	return spec, nil

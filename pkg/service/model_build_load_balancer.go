@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"net/netip"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"sort"
 	"strconv"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -24,6 +22,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 )
 
 const (
@@ -497,7 +497,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 		return []elbv2model.LoadBalancerAttribute{}, err
 	}
 	mergedAttributes := algorithm.MergeStringMap(specificAttributes, loadBalancerAttributes)
-	return makeAttributesSliceFromMap(mergedAttributes), nil
+	return shared_utils.MakeAttributesSliceFromMap(mergedAttributes), nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerMinimumCapacity(_ context.Context) (*elbv2model.MinimumLoadBalancerCapacity, error) {
@@ -525,20 +525,6 @@ func (t *defaultModelBuildTask) buildLoadBalancerMinimumCapacity(_ context.Conte
 		}
 	}
 	return minimumLoadBalancerCapacity, nil
-}
-
-func makeAttributesSliceFromMap(loadBalancerAttributesMap map[string]string) []elbv2model.LoadBalancerAttribute {
-	attributes := make([]elbv2model.LoadBalancerAttribute, 0, len(loadBalancerAttributesMap))
-	for attrKey, attrValue := range loadBalancerAttributesMap {
-		attributes = append(attributes, elbv2model.LoadBalancerAttribute{
-			Key:   attrKey,
-			Value: attrValue,
-		})
-	}
-	sort.Slice(attributes, func(i, j int) bool {
-		return attributes[i].Key < attributes[j].Key
-	})
-	return attributes
 }
 
 func (t *defaultModelBuildTask) getLoadBalancerAttributes() (map[string]string, error) {
