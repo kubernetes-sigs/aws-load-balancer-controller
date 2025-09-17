@@ -2,6 +2,9 @@ package config
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"github.com/pkg/errors"
+	"os"
 	"time"
 
 	"github.com/spf13/pflag"
@@ -30,6 +33,7 @@ const (
 	flagWebhookCertDir          = "webhook-cert-dir"
 	flagWebhookCertName         = "webhook-cert-file"
 	flagWebhookKeyName          = "webhook-key-file"
+	flagKubernetesCaPemFilepath = "kube-ca-pem-filepath"
 
 	defaultKubeconfig              = ""
 	defaultLeaderElectionID        = "aws-load-balancer-controller-leader"
@@ -65,6 +69,7 @@ type RuntimeConfig struct {
 	WebhookCertDir          string
 	WebhookCertName         string
 	WebhookKeyName          string
+	KubernetesCaPemFilePath string
 }
 
 // BindFlags binds the command line flags to the fields in the config object
@@ -91,6 +96,7 @@ func (c *RuntimeConfig) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&c.WebhookCertDir, flagWebhookCertDir, defaultWebhookCertDir, "WebhookCertDir is the directory that contains the webhook server key and certificate.")
 	fs.StringVar(&c.WebhookCertName, flagWebhookCertName, defaultWebhookCertName, "WebhookCertName is the webhook server certificate name.")
 	fs.StringVar(&c.WebhookKeyName, flagWebhookKeyName, defaultWebhookKeyName, "WebhookKeyName is the webhook server key name.")
+	fs.StringVar(&c.KubernetesCaPemFilePath, flagKubernetesCaPemFilepath, "", "Location of Kubernetes CA file on disk.")
 
 }
 
@@ -115,7 +121,39 @@ func BuildRestConfig(rtCfg RuntimeConfig) (*rest.Config, error) {
 }
 
 // BuildRuntimeOptions builds the options for the controller runtime based on config
-func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Options {
+func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) (ctrl.Options, error) {
+	baseOpts := []func(config *tls.Config){
+		func(config *tls.Config) {
+			config.MinVersion = tls.VersionTLS12
+			config.CipherSuites = []uint16{
+				// AEADs w/ ECDHE
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+
+				// AEADs w/o ECDHE
+				tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+			}
+		},
+	}
+
+	if rtCfg.KubernetesCaPemFilePath != "" {
+		caCertPool := x509.NewCertPool()
+		data, err := os.ReadFile(rtCfg.KubernetesCaPemFilePath)
+		if err != nil {
+			return ctrl.Options{}, err
+		}
+		if !caCertPool.AppendCertsFromPEM(data) {
+			return ctrl.Options{}, errors.Errorf("Unable to append CA PEM to pool")
+		}
+		// This ensures that only the CA configured in the LBC options is allowed to invoke the webhook.
+		baseOpts = append(baseOpts, func(config *tls.Config) {
+			config.ClientCAs = caCertPool
+			config.ClientAuth = tls.RequireAndVerifyClientCert
+		})
+	}
+
 	opt := ctrl.Options{
 		Scheme:                     scheme,
 		HealthProbeBindAddress:     rtCfg.HealthProbeBindAddress,
@@ -139,21 +177,7 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 			CertDir:  rtCfg.WebhookCertDir,
 			CertName: rtCfg.WebhookCertName,
 			KeyName:  rtCfg.WebhookKeyName,
-			TLSOpts: []func(config *tls.Config){
-				func(config *tls.Config) {
-					config.MinVersion = tls.VersionTLS12
-					config.CipherSuites = []uint16{
-						// AEADs w/ ECDHE
-						tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-						tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-						tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305, tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-
-						// AEADs w/o ECDHE
-						tls.TLS_RSA_WITH_AES_128_GCM_SHA256,
-						tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-					}
-				},
-			},
+			TLSOpts:  baseOpts,
 		}),
 	}
 
@@ -165,5 +189,5 @@ func BuildRuntimeOptions(rtCfg RuntimeConfig, scheme *runtime.Scheme) ctrl.Optio
 		}
 	}
 
-	return opt
+	return opt, nil
 }
