@@ -259,13 +259,14 @@ func TestUniqueIDForTargetDescription(t *testing.T) {
 
 func TestGetIdentifier(t *testing.T) {
 	tests := []struct {
-		name       string
-		endpoint   backend.Endpoint
-		targetInfo TargetInfo
-		want       string
+		name        string
+		endpoint    backend.Endpoint
+		targetInfo  TargetInfo
+		quicEnabled bool
+		want        string
 	}{
 		{
-			name: "instance",
+			name: "instance - not quic",
 			endpoint: backend.NodePortEndpoint{
 				InstanceID: "i-12345",
 				Port:       80,
@@ -279,7 +280,7 @@ func TestGetIdentifier(t *testing.T) {
 			want: "i-12345:80",
 		},
 		{
-			name: "ip",
+			name: "ip - not quic",
 			endpoint: backend.PodEndpoint{
 				IP:   "127.0.0.1",
 				Port: 80,
@@ -292,12 +293,29 @@ func TestGetIdentifier(t *testing.T) {
 			},
 			want: "127.0.0.1:80",
 		},
+		{
+			name: "ip - quic",
+			endpoint: backend.PodEndpoint{
+				IP:           "127.0.0.1",
+				Port:         80,
+				QuicServerID: awssdk.String("0xdeadbeef"),
+			},
+			targetInfo: TargetInfo{
+				Target: elbv2types.TargetDescription{
+					Id:           awssdk.String("127.0.0.1"),
+					Port:         awssdk.Int32(80),
+					QuicServerId: awssdk.String("0xdeadbeef"),
+				},
+			},
+			quicEnabled: true,
+			want:        "127.0.0.1:80:0xdeadbeef",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, tt.targetInfo.GetIdentifier())
-			assert.Equal(t, tt.want, tt.endpoint.GetIdentifier(false, false))
+			assert.Equal(t, tt.want, tt.endpoint.GetIdentifier(false, tt.quicEnabled))
 		})
 	}
 }

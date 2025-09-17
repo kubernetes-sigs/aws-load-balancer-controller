@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sync"
 	"time"
 
@@ -575,14 +574,14 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 		return err
 	}
 
-	sdkTargets, err := m.prepareRegistrationCall(endpoints, tgb.Spec.TargetGroupProtocol, overrideAzFn)
+	sdkTargets, err := m.prepareRegistrationCall(endpoints, tgb, overrideAzFn)
 	if err != nil {
 		return err
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
 }
 
-func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.PodEndpoint, targetGroupProtocol *elbv2.Protocol, doAzOverride func(addr netip.Addr) bool) ([]elbv2types.TargetDescription, error) {
+func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool) ([]elbv2types.TargetDescription, error) {
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		target := elbv2types.TargetDescription{
@@ -599,14 +598,14 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 
 		doAppend := true
 
-		if targetGroupProtocol != nil && (*targetGroupProtocol == elbv2.ProtocolQUIC || *targetGroupProtocol == elbv2.ProtocolTCP_QUIC) {
+		if tgbProtocolSupportsQuic(tgb) {
 			serverId := endpoint.QuicServerID
 			doAppend = serverId != nil
 			if serverId != nil {
 				target.QuicServerId = serverId
 			} else {
-				// TODO - metric?
 				m.logger.Info("Dropping registration request for QUIC enabled target with no server ID", "target", target)
+				m.metricsCollector.ObserveQUICTargetMissingServerId(tgb.Name, tgb.Namespace)
 			}
 		}
 

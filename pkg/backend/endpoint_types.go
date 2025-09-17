@@ -25,7 +25,6 @@ type PodEndpoint struct {
 }
 
 func (e PodEndpoint) GetIdentifier(includeTimestamp bool, includeQuicServerId bool) string {
-
 	baseString := fmt.Sprintf("%s:%d", e.IP, e.Port)
 
 	if e.QuicServerID != nil && includeQuicServerId {

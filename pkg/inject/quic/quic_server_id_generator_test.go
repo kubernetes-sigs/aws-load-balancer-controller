@@ -211,7 +211,65 @@ func TestQuicServerIDGenerator_sequenceRollover(t *testing.T) {
 	assert.Equal(t, workerId, generatedWid2)
 	assert.Equal(t, timestamp+1, generatedTs2)
 	assert.Equal(t, int64(5), generatedSeq2)
+}
 
+func TestServerIdUniqueness(t *testing.T) {
+	numThreads := 5
+	gen1 := newQuicServerIDGenerator(&mockWorkerIdGenerator{
+		id: 1,
+	})
+	gen2 := newQuicServerIDGenerator(&mockWorkerIdGenerator{
+		id: 2,
+	})
+	gen3 := newQuicServerIDGenerator(&mockWorkerIdGenerator{
+		id: 3,
+	})
+	gen4 := newQuicServerIDGenerator(&mockWorkerIdGenerator{
+		id: 4,
+	})
+	gen5 := newQuicServerIDGenerator(&mockWorkerIdGenerator{
+		id: 5,
+	})
+
+	mutex := sync.Mutex{}
+	set := make(map[string]bool)
+
+	iterations := 100000
+	workerThread := func(local quicServerIDGenerator) {
+		for i := 0; i < iterations; i++ {
+			id, err := local.generate()
+			assert.NoError(t, err)
+			mutex.Lock()
+			set[id] = true
+			mutex.Unlock()
+		}
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(numThreads)
+	go func() {
+		workerThread(gen1)
+		wg.Done()
+	}()
+	go func() {
+		workerThread(gen2)
+		wg.Done()
+	}()
+	go func() {
+		workerThread(gen3)
+		wg.Done()
+	}()
+	go func() {
+		workerThread(gen4)
+		wg.Done()
+	}()
+	go func() {
+		workerThread(gen5)
+		wg.Done()
+	}()
+	wg.Wait()
+	// We expect no duplicates, so expect that every iteration in each thread produced a distinct result
+	assert.Equal(t, iterations*numThreads, len(set))
 }
 
 // parseSnowflake extracts components from a Snowflake ID
