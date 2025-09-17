@@ -335,7 +335,7 @@ spec:
 
 Annotations used:
 
-- `service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg` Used to disable Frontend SG creation, as QUIC is does not work NLB SG.
+- `service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg` Used to disable Frontend SG creation, as QUIC does not work with NLB SG.
 - `service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener` Allows the controller to combine the UDP and TCP port found on port 443 into a single NLB listener.
 - `service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports` Upgrades the UDP protocol to QUIC.
 

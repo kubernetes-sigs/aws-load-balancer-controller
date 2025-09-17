@@ -70,18 +70,6 @@ func GetTGBReconcileCheckpoint(tgb *elbv2api.TargetGroupBinding) string {
 	return ""
 }
 
-// GetTGBReconcileCheckpointTimestamp gets the latest updated timestamp (in seconds) for the TGB checkpoint
-func GetTGBReconcileCheckpointTimestamp(tgb *elbv2api.TargetGroupBinding) int64 {
-	if ts, ok := tgb.Annotations[annotations.AnnotationCheckPointTimestamp]; ok {
-		ts64, err := strconv.ParseInt(ts, 10, 64)
-		if err != nil {
-			return 0
-		}
-		return ts64
-	}
-	return 0
-}
-
 // SaveTGBReconcileCheckpoint updates the TGB object with a new checkpoint string.
 func SaveTGBReconcileCheckpoint(tgb *elbv2api.TargetGroupBinding, checkpoint string) {
 	if tgb.Annotations == nil {
