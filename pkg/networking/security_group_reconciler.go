@@ -48,6 +48,9 @@ func WithAuthorizeOnly(authorizeOnly bool) SecurityGroupReconcileOption {
 type SecurityGroupReconciler interface {
 	// ReconcileIngress will reconcile Ingress permission on SecurityGroup to be desiredPermission.
 	ReconcileIngress(ctx context.Context, sgID string, desiredPermissions []IPPermissionInfo, opts ...SecurityGroupReconcileOption) error
+
+	// ReconcileEgress will reconcile Egress permission on SecurityGroup to be desiredPermission.
+	ReconcileEgress(ctx context.Context, sgID string, desiredPermissions []IPPermissionInfo, opts ...SecurityGroupReconcileOption) error
 }
 
 // NewDefaultSecurityGroupReconciler constructs new defaultSecurityGroupReconciler.
@@ -94,6 +97,34 @@ func (r *defaultSecurityGroupReconciler) ReconcileIngress(ctx context.Context, s
 	return nil
 }
 
+func (r *defaultSecurityGroupReconciler) ReconcileEgress(ctx context.Context, sgID string, desiredPermissions []IPPermissionInfo, opts ...SecurityGroupReconcileOption) error {
+	reconcileOpts := SecurityGroupReconcileOptions{
+		PermissionSelector: labels.Everything(),
+	}
+	reconcileOpts.ApplyOptions(opts...)
+
+	sgInfoByID, err := r.sgManager.FetchSGInfosByID(ctx, []string{sgID})
+	if err != nil {
+		return err
+	}
+	sgInfo := sgInfoByID[sgID]
+
+	if err := r.reconcileEgressWithSGInfo(ctx, sgInfo, desiredPermissions, false, reconcileOpts); err != nil {
+		if !r.shouldRetryWithoutCache(err) {
+			return err
+		}
+		revokeFirst := r.shouldRemoveSGRulesFirst(err)
+		r.logger.Info("Retrying ReconcileEgress without using cache", "revokeFirst", revokeFirst)
+		sgInfoByID, err := r.sgManager.FetchSGInfosByID(ctx, []string{sgID}, WithReloadIgnoringCache())
+		if err != nil {
+			return err
+		}
+		sgInfo := sgInfoByID[sgID]
+		return r.reconcileEgressWithSGInfo(ctx, sgInfo, desiredPermissions, revokeFirst, reconcileOpts)
+	}
+	return nil
+}
+
 func (r *defaultSecurityGroupReconciler) reconcileIngressWithSGInfo(ctx context.Context, sgInfo SecurityGroupInfo, desiredPermissions []IPPermissionInfo, revokeFirst bool, reconcileOpts SecurityGroupReconcileOptions) error {
 	extraPermissions := diffIPPermissionInfos(sgInfo.Ingress, desiredPermissions)
 	permissionsToRevoke := make([]IPPermissionInfo, 0, len(extraPermissions))
@@ -121,6 +152,41 @@ func (r *defaultSecurityGroupReconciler) reconcileIngressWithSGInfo(ctx context.
 	if !revokeFirst {
 		if len(permissionsToRevoke) > 0 && !reconcileOpts.AuthorizeOnly {
 			if err := r.sgManager.RevokeSGIngress(ctx, sgInfo.SecurityGroupID, permissionsToRevoke); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (r *defaultSecurityGroupReconciler) reconcileEgressWithSGInfo(ctx context.Context, sgInfo SecurityGroupInfo, desiredPermissions []IPPermissionInfo, revokeFirst bool, reconcileOpts SecurityGroupReconcileOptions) error {
+	extraPermissions := diffIPPermissionInfos(sgInfo.Egress, desiredPermissions)
+	permissionsToRevoke := make([]IPPermissionInfo, 0, len(extraPermissions))
+	for _, permission := range extraPermissions {
+		if reconcileOpts.PermissionSelector.Matches(labels.Set(permission.Labels)) {
+			permissionsToRevoke = append(permissionsToRevoke, permission)
+		}
+	}
+	permissionsToGrant := diffIPPermissionInfos(desiredPermissions, sgInfo.Egress)
+
+	if revokeFirst {
+		if len(permissionsToRevoke) > 0 && !reconcileOpts.AuthorizeOnly {
+			if err := r.sgManager.RevokeSGEgress(ctx, sgInfo.SecurityGroupID, permissionsToRevoke); err != nil {
+				return err
+			}
+		}
+	}
+
+	if len(permissionsToGrant) > 0 {
+		if err := r.sgManager.AuthorizeSGEgress(ctx, sgInfo.SecurityGroupID, permissionsToGrant); err != nil {
+			return err
+		}
+	}
+
+	if !revokeFirst {
+		if len(permissionsToRevoke) > 0 && !reconcileOpts.AuthorizeOnly {
+			if err := r.sgManager.RevokeSGEgress(ctx, sgInfo.SecurityGroupID, permissionsToRevoke); err != nil {
 				return err
 			}
 		}

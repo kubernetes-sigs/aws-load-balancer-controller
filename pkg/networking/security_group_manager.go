@@ -51,8 +51,14 @@ type SecurityGroupManager interface {
 	// AuthorizeSGIngress will authorize Ingress permissions to SecurityGroup.
 	AuthorizeSGIngress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error
 
+	// AuthorizeSGEgress will authorize Ingress permissions to SecurityGroup.
+	AuthorizeSGEgress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error
+
 	// RevokeSGIngress will revoke Ingress permissions from SecurityGroup.
 	RevokeSGIngress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error
+
+	// RevokeSGEgress will revoke Ingress permissions from SecurityGroup.
+	RevokeSGEgress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error
 }
 
 // NewDefaultSecurityGroupManager constructs new defaultSecurityGroupManager.
@@ -146,6 +152,26 @@ func (m *defaultSecurityGroupManager) AuthorizeSGIngress(ctx context.Context, sg
 	return nil
 }
 
+func (m *defaultSecurityGroupManager) AuthorizeSGEgress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error {
+	sdkIPPermissions := buildSDKIPPermissions(permissions)
+	req := &ec2sdk.AuthorizeSecurityGroupEgressInput{
+		GroupId:       awssdk.String(sgID),
+		IpPermissions: sdkIPPermissions,
+	}
+	m.logger.Info("authorizing securityGroup egress",
+		"securityGroupID", sgID,
+		"permission", sdkIPPermissions)
+	if _, err := m.ec2Client.AuthorizeSecurityGroupEgressWithContext(ctx, req); err != nil {
+		return err
+	}
+	m.logger.Info("authorized securityGroup egress",
+		"securityGroupID", sgID)
+
+	// TODO: ideally we can remember the permissions we granted to save DescribeSecurityGroup API calls.
+	m.clearSGInfosFromCache(sgID)
+	return nil
+}
+
 func (m *defaultSecurityGroupManager) RevokeSGIngress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error {
 	sdkIPPermissions := buildSDKIPPermissions(permissions)
 	req := &ec2sdk.RevokeSecurityGroupIngressInput{
@@ -159,6 +185,26 @@ func (m *defaultSecurityGroupManager) RevokeSGIngress(ctx context.Context, sgID 
 		return err
 	}
 	m.logger.Info("revoked securityGroup ingress",
+		"securityGroupID", sgID)
+
+	// TODO: ideally we can remember the permissions we revoked to save DescribeSecurityGroup API calls.
+	m.clearSGInfosFromCache(sgID)
+	return nil
+}
+
+func (m *defaultSecurityGroupManager) RevokeSGEgress(ctx context.Context, sgID string, permissions []IPPermissionInfo) error {
+	sdkIPPermissions := buildSDKIPPermissions(permissions)
+	req := &ec2sdk.RevokeSecurityGroupEgressInput{
+		GroupId:       awssdk.String(sgID),
+		IpPermissions: sdkIPPermissions,
+	}
+	m.logger.Info("revoking securityGroup egress",
+		"securityGroupID", sgID,
+		"permission", sdkIPPermissions)
+	if _, err := m.ec2Client.RevokeSecurityGroupEgressWithContext(ctx, req); err != nil {
+		return err
+	}
+	m.logger.Info("revoked securityGroup egress",
 		"securityGroupID", sgID)
 
 	// TODO: ideally we can remember the permissions we revoked to save DescribeSecurityGroup API calls.
