@@ -65,7 +65,8 @@
 | [service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity](#load-balancer-capacity-reservation)   | stringMap                  |                          |
 | [service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery](#icmp-path-mtu-discovery)          | string                  |                          | If specified, a security group rule is added to the managed security group to allow explicit ICMP traffic for [Path MTU discovery](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html#path_mtu_discovery) for IPv4 and dual-stack VPCs. Creates a rule for each source range if `service.beta.kubernetes.io/load-balancer-source-ranges` is present.                                               |
 | [service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener](#tcp-udp-listener)                            | boolean                  | false                    | If specified, the controller will attempt to try TCP_UDP Listeners when the service defines a TCP and UDP port on the same port number.                                                                                                                                                                                                                                                                              |
-| [service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg](#nlb-sg-disable)                            | boolean                  | false                    | If specified, the controller will not create or manage Security Groups for the service.                                                                                                                                                                                                                                                                                                                              |
+| [service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg](#nlb-sg-disable)                                       | boolean                  | false                    | If specified, the controller will not create or manage Security Groups for the service.                                                                                                                                                                                                                                                                                                                              |
+| [service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs](#outbound-cidrs)                                       | stringList               |                          | If specified, the controller will add the CIDR ranges as egress rules to the managed frontend security group, instead of relying on the default AWS `0.0.0.0/0` egress rule. If not set, aws-load-balancer-controller will maintain previous behavior and not manage egress rules at all.                                                                                                                            |
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -368,7 +369,6 @@ for proxy protocol v2 configuration.
     service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg: "true"
     ```
 
-
 - <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
 
     !!!note ""
@@ -643,6 +643,21 @@ Load balancer access can be controlled via following annotations:
         ```
         service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic: "off"
         ```
+
+- <a name="outbound-cidrs">`service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs`</a> allows specifying a comma-delimited list of CIDR ranges to be added as egress rules to the frontend security group.
+
+    !!!note ""
+        - Historically, `aws-load-balancer-controller` hasn't explicitly added any egress rules to managed frontend security groups - instead, it relies on the fact that AWS will add a default `0.0.0.0/0` outbound egress rule for all SGs created without an explicit egress rule list. This is required for the load balancer to be able to talk to the target group and potentially other services (e.g. CloudWatch).
+        
+        - However, some organizations may have issues with the default `0.0.0.0/0` egress rule (e.g. security scanners may flag them) and would rather be able to further limit the rule to a specific set of CIDR range(s). This annotation allows that.
+    
+    !!!warning "Note"
+        - If this annotation is not present, `aws-load-balancer-controller` will effectively not manage egress rules at all, maintaining the behavior before the annotation was added. This means that if the annotation is added to a service to set the egress security group rules and then subsequently removed, the egress security group rule will not be removed automatically.
+
+    !!!example
+    ```
+    service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs: "172.18.0.0/16"
+    ```
 
 ## Capacity Unit Reservation
 Load balancer capacity unit reservation can be configured via following annotations:

@@ -2069,8 +2069,8 @@ func Test_AttemptGarbageCollection(t *testing.T) {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, len(tt.expectedSgReconciles), len(mockReconciler.calls))
-				for _, call := range mockReconciler.calls {
+				assert.Equal(t, len(tt.expectedSgReconciles), len(mockReconciler.ingressCalls))
+				for _, call := range mockReconciler.ingressCalls {
 					assert.True(t, tt.expectedSgReconciles.Has(call.sgID), fmt.Sprintf("expected sgID: %s to be in calls", call.sgID))
 				}
 			}
@@ -2083,12 +2083,29 @@ type reconcileIngressCall struct {
 	desiredPermissions []IPPermissionInfo
 	opts               []SecurityGroupReconcileOption
 }
+
+type reconcileEgressCall struct {
+	sgID               string
+	desiredPermissions []IPPermissionInfo
+	opts               []SecurityGroupReconcileOption
+}
+
 type mockSGReconciler struct {
-	calls []reconcileIngressCall
+	ingressCalls []reconcileIngressCall
+	egressCalls  []reconcileEgressCall
 }
 
 func (m *mockSGReconciler) ReconcileIngress(ctx context.Context, sgID string, desiredPermissions []IPPermissionInfo, opts ...SecurityGroupReconcileOption) error {
-	m.calls = append(m.calls, reconcileIngressCall{
+	m.ingressCalls = append(m.ingressCalls, reconcileIngressCall{
+		sgID:               sgID,
+		desiredPermissions: desiredPermissions,
+		opts:               opts,
+	})
+	return nil
+}
+
+func (m *mockSGReconciler) ReconcileEgress(ctx context.Context, sgID string, desiredPermissions []IPPermissionInfo, opts ...SecurityGroupReconcileOption) error {
+	m.egressCalls = append(m.egressCalls, reconcileEgressCall{
 		sgID:               sgID,
 		desiredPermissions: desiredPermissions,
 		opts:               opts,

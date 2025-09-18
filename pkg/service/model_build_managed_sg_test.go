@@ -147,7 +147,7 @@ func Test_buildCIDRsFromSourceRanges_buildManagedSecurityGroupIngressPermissions
 				svc: &corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
-							"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "daulstack",
+							"service.beta.kubernetes.io/aws-load-balancer-ip-address-type": "dualstack",
 						},
 					},
 					Spec: corev1.ServiceSpec{
@@ -416,6 +416,287 @@ func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
 			for key, value := range tt.wantTags {
 				assert.Contains(t, got, key)
 				assert.Equal(t, value, got[key])
+			}
+		})
+	}
+}
+
+func Test_buildExplicitOutboundCIDRs_buildExplicitOutboundCIDRs(t *testing.T) {
+	type fields struct {
+		svc                   *corev1.Service
+		ipAddressType         elbv2model.IPAddressType
+		prefixListsConfigured bool
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    []string
+		wantErr bool
+	}{
+		{
+			name: "no annotation configured, nil slice returned",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{},
+					},
+				},
+				ipAddressType:         elbv2model.IPAddressTypeIPV4,
+				prefixListsConfigured: false,
+			},
+			wantErr: false,
+			want:    nil,
+		},
+		{
+			name: "empty annotation configured, empty slice returned",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs": "",
+						},
+					},
+				},
+				ipAddressType:         elbv2model.IPAddressTypeIPV4,
+				prefixListsConfigured: false,
+			},
+			wantErr: false,
+			want:    []string{},
+		},
+		{
+			name: "configured with single valid ipv4 value",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs": "0.0.0.0/0",
+						},
+					},
+				},
+				ipAddressType:         elbv2model.IPAddressTypeIPV4,
+				prefixListsConfigured: true,
+			},
+			wantErr: false,
+			want: []string{
+				"0.0.0.0/0",
+			},
+		},
+		{
+			name: "configured with invalid cidr",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs": "10.0.0.0",
+						},
+					},
+				},
+				ipAddressType:         elbv2model.IPAddressTypeIPV4,
+				prefixListsConfigured: true,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t1 *testing.T) {
+			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			task := &defaultModelBuildTask{
+				annotationParser: annotationParser,
+				service:          tt.fields.svc,
+			}
+			got, err := task.buildExplicitOutboundCIDRs(context.Background(), tt.fields.ipAddressType)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_buildManagedSecurityGroupEgressPermissions(t *testing.T) {
+	type fields struct {
+		svc           *corev1.Service
+		ipAddressType elbv2model.IPAddressType
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    []ec2model.IPPermission
+		wantErr bool
+	}{
+		{
+			name: "no annotation configured, nil slice returned",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "http",
+								Port:     80,
+								NodePort: 18080,
+							},
+						},
+					},
+				},
+				ipAddressType: elbv2model.IPAddressTypeIPV4,
+			},
+			wantErr: false,
+			want:    nil,
+		},
+		{
+			name: "empty annotation configured, empty slice returned",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs": "",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "http",
+								Port:     80,
+								NodePort: 18080,
+							},
+						},
+					},
+				},
+				ipAddressType: elbv2model.IPAddressTypeIPV4,
+			},
+			wantErr: false,
+			want:    []ec2model.IPPermission{},
+		},
+		{
+			name: "single valid ipv4",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs": "0.0.0.0/0",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "http",
+								Port:     80,
+								NodePort: 18080,
+							},
+						},
+						LoadBalancerSourceRanges: []string{},
+					},
+				},
+				ipAddressType: elbv2model.IPAddressTypeIPV4,
+			},
+			wantErr: false,
+			want: []ec2model.IPPermission{
+				{
+					IPProtocol: "",
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "0.0.0.0/0",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "multiple valid ipv4 and ipv6 with dualstack",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs": "0.0.0.0/0,::/0",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "http",
+								Port:     80,
+								NodePort: 18080,
+							},
+						},
+						LoadBalancerSourceRanges: []string{},
+					},
+				},
+				ipAddressType: elbv2model.IPAddressTypeDualStack,
+			},
+			wantErr: false,
+			want: []ec2model.IPPermission{
+				{
+					IPProtocol: "",
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: "0.0.0.0/0",
+						},
+					},
+				},
+				{
+					IPProtocol: "",
+					FromPort:   aws.Int32(80),
+					ToPort:     aws.Int32(80),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: "::/0",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "multiple valid ipv4 and ipv6 no dualstack",
+			fields: fields{
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs": "0.0.0.0/0,::/0",
+						},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+						Ports: []corev1.ServicePort{
+							{
+								Name:     "http",
+								Port:     80,
+								NodePort: 18080,
+							},
+						},
+						LoadBalancerSourceRanges: []string{},
+					},
+				},
+				ipAddressType: elbv2model.IPAddressTypeIPV4,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t1 *testing.T) {
+			annotationParser := annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io")
+			task := &defaultModelBuildTask{
+				annotationParser: annotationParser,
+				service:          tt.fields.svc,
+			}
+			got, err := task.buildManagedSecurityGroupEgressPermissions(context.Background(), tt.fields.ipAddressType)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, got, tt.want)
 			}
 		})
 	}

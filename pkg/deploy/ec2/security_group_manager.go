@@ -98,6 +98,18 @@ func (m *defaultSecurityGroupManager) Create(ctx context.Context, resSG *ec2mode
 		return ec2model.SecurityGroupStatus{}, err
 	}
 
+	// Only reconcile egress rules when explicitly set by the service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs annotation. Otherwise, preserve the previous behavior of not touching egress rules.
+	if resSG.Spec.Egress != nil {
+		permissionInfosEgress, err := buildIPPermissionInfos(resSG.Spec.Egress)
+		if err != nil {
+			return ec2model.SecurityGroupStatus{}, err
+		}
+
+		if err := m.networkingSGReconciler.ReconcileEgress(ctx, sgID, permissionInfosEgress); err != nil {
+			return ec2model.SecurityGroupStatus{}, err
+		}
+	}
+
 	return ec2model.SecurityGroupStatus{
 		GroupID: sgID,
 	}, nil
@@ -105,15 +117,31 @@ func (m *defaultSecurityGroupManager) Create(ctx context.Context, resSG *ec2mode
 
 func (m *defaultSecurityGroupManager) Update(ctx context.Context, resSG *ec2model.SecurityGroup, sdkSG networking.SecurityGroupInfo) (ec2model.SecurityGroupStatus, error) {
 	permissionInfos, err := buildIPPermissionInfos(resSG.Spec.Ingress)
+
 	if err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
+
 	if err := m.updateSDKSecurityGroupGroupWithTags(ctx, resSG, sdkSG); err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
 	if err := m.networkingSGReconciler.ReconcileIngress(ctx, sdkSG.SecurityGroupID, permissionInfos); err != nil {
 		return ec2model.SecurityGroupStatus{}, err
 	}
+
+	// Only reconcile egress rules when explicitly set by the service.beta.kubernetes.io/aws-load-balancer-outbound-cidrs annotation. Otherwise, preserve the previous behavior of not touching egress rules.
+	if resSG.Spec.Egress != nil {
+		permissionInfosEgress, err := buildIPPermissionInfos(resSG.Spec.Egress)
+
+		if err != nil {
+			return ec2model.SecurityGroupStatus{}, err
+		}
+
+		if err := m.networkingSGReconciler.ReconcileEgress(ctx, sdkSG.SecurityGroupID, permissionInfosEgress); err != nil {
+			return ec2model.SecurityGroupStatus{}, err
+		}
+	}
+
 	return ec2model.SecurityGroupStatus{
 		GroupID: sdkSG.SecurityGroupID,
 	}, nil

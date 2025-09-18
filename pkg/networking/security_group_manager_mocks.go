@@ -35,6 +35,20 @@ func (m *MockSecurityGroupManager) EXPECT() *MockSecurityGroupManagerMockRecorde
 	return m.recorder
 }
 
+// AuthorizeSGEgress mocks base method.
+func (m *MockSecurityGroupManager) AuthorizeSGEgress(arg0 context.Context, arg1 string, arg2 []IPPermissionInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AuthorizeSGEgress", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AuthorizeSGEgress indicates an expected call of AuthorizeSGEgress.
+func (mr *MockSecurityGroupManagerMockRecorder) AuthorizeSGEgress(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeSGEgress", reflect.TypeOf((*MockSecurityGroupManager)(nil).AuthorizeSGEgress), arg0, arg1, arg2)
+}
+
 // AuthorizeSGIngress mocks base method.
 func (m *MockSecurityGroupManager) AuthorizeSGIngress(arg0 context.Context, arg1 string, arg2 []IPPermissionInfo) error {
 	m.ctrl.T.Helper()
@@ -82,6 +96,20 @@ func (m *MockSecurityGroupManager) FetchSGInfosByRequest(arg0 context.Context, a
 func (mr *MockSecurityGroupManagerMockRecorder) FetchSGInfosByRequest(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FetchSGInfosByRequest", reflect.TypeOf((*MockSecurityGroupManager)(nil).FetchSGInfosByRequest), arg0, arg1)
+}
+
+// RevokeSGEgress mocks base method.
+func (m *MockSecurityGroupManager) RevokeSGEgress(arg0 context.Context, arg1 string, arg2 []IPPermissionInfo) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeSGEgress", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RevokeSGEgress indicates an expected call of RevokeSGEgress.
+func (mr *MockSecurityGroupManagerMockRecorder) RevokeSGEgress(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSGEgress", reflect.TypeOf((*MockSecurityGroupManager)(nil).RevokeSGEgress), arg0, arg1, arg2)
 }
 
 // RevokeSGIngress mocks base method.
