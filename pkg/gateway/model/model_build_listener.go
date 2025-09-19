@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -32,16 +31,15 @@ type gwListenerConfig struct {
 }
 
 type listenerBuilder interface {
-	buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, subnets buildLoadBalancerSubnetsOutput, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbConf elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error)
+	buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbConf elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error)
 	buildListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error)
-	buildL7ListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, subnets buildLoadBalancerSubnetsOutput, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error)
+	buildL7ListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error)
 	buildL4ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, routes []routeutils.RouteDescriptor, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error)
 }
 
 type listenerBuilderImpl struct {
 	elbv2Client      services.ELBV2
 	k8sClient        client.Client
-	subnetsResolver  networking.SubnetsResolver
 	loadBalancerType elbv2model.LoadBalancerType
 	clusterName      string
 	tagHelper        tagHelper
@@ -52,7 +50,7 @@ type listenerBuilderImpl struct {
 	logger           logr.Logger
 }
 
-func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, subnets buildLoadBalancerSubnetsOutput, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
+func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
 	gwLsCfgs, err := mapGatewayListenerConfigsByPort(gw)
 	if err != nil {
 		return nil, err
@@ -64,7 +62,7 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 	if len(gwLsPorts.Intersection(portsWithRoutes).List()) != 0 {
 		lbLsCfgs := mapLoadBalancerListenerConfigsByPort(lbCfg)
 		for _, port := range gwLsPorts.Intersection(portsWithRoutes).List() {
-			ls, err := l.buildListener(ctx, stack, lb, securityGroups, subnets, gw, port, routes[port], lbCfg, gwLsCfgs[port], lbLsCfgs[port])
+			ls, err := l.buildListener(ctx, stack, lb, securityGroups, gw, port, routes[port], lbCfg, gwLsCfgs[port], lbLsCfgs[port])
 			if err != nil {
 				return nil, err
 			}
@@ -87,12 +85,12 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 	return secrets, nil
 }
 
-func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, subnets buildLoadBalancerSubnetsOutput, gw *gwv1.Gateway, port int32, routes []routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.Listener, error) {
+func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, port int32, routes []routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.Listener, error) {
 	var listenerSpec *elbv2model.ListenerSpec
 
 	var err error
 	if l.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
-		listenerSpec, err = l.buildL7ListenerSpec(ctx, lb, subnets, gw, lbCfg, port, gwLsCfg, lbLsCfg)
+		listenerSpec, err = l.buildL7ListenerSpec(ctx, lb, gw, lbCfg, port, gwLsCfg, lbLsCfg)
 	} else {
 		listenerSpec, err = l.buildL4ListenerSpec(ctx, stack, lb, securityGroups, gw, lbCfg, port, routes, gwLsCfg, lbLsCfg)
 	}
@@ -137,13 +135,13 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2mod
 	return listenerSpec, nil
 }
 
-func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, subnets buildLoadBalancerSubnetsOutput, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
+func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
 	listenerSpec, err := l.buildListenerSpec(ctx, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
 	}
 	listenerSpec.DefaultActions = buildL7ListenerDefaultActions()
-	mutualAuth, err := l.buildMutualAuthenticationAttributes(ctx, l.subnetsResolver, subnets, gwLsCfg, lbLsCfg)
+	mutualAuth, err := l.buildMutualAuthenticationAttributes(ctx, gwLsCfg, lbLsCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
 	}
@@ -410,29 +408,12 @@ func buildL4ListenerDefaultActions(targetGroup *elbv2model.TargetGroup) []elbv2m
 	}
 }
 
-func (l listenerBuilderImpl) buildMutualAuthenticationAttributes(ctx context.Context, subnetsResolver networking.SubnetsResolver, subnets buildLoadBalancerSubnetsOutput, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.MutualAuthenticationAttributes, error) {
+func (l listenerBuilderImpl) buildMutualAuthenticationAttributes(ctx context.Context, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.MutualAuthenticationAttributes, error) {
 	// Skip mTLS configuration for non-secure protocols
-	if !isSecureProtocol(gwLsCfg.protocol) {
-		return nil, nil
-	}
-	// mTLS is not supported for Local Zone or Outposts AZs
-	// We only need to check one of the subnets at this point since we have already resolved subnets for this LoadBalancer and we don't allow mix AZs
-	isSubnetInLocalZoneOrOutpost, err := subnetsResolver.IsSubnetInLocalZoneOrOutpost(ctx, subnets.subnets[0].SubnetID)
-	if err != nil {
-		return nil, err
-	}
-	if isSubnetInLocalZoneOrOutpost {
-		// Skip mTLS configuration for Local Zone or Outpost subnets
-		l.logger.V(1).Info("skipping mutual authentication configuration as it is not supported in local zone or outpost")
+	if !isSecureProtocol(gwLsCfg.protocol) || lbLsCfg == nil || lbLsCfg.MutualAuthentication == nil {
 		return nil, nil
 	}
 
-	// Default to "off" mode when no explicit mTLS configuration exists
-	if lbLsCfg == nil || lbLsCfg.MutualAuthentication == nil {
-		return &elbv2model.MutualAuthenticationAttributes{
-			Mode: string(elbv2gw.MutualAuthenticationOffMode),
-		}, nil
-	}
 	mode := string(lbLsCfg.MutualAuthentication.Mode)
 
 	// Process trustStore information for verify mode
@@ -544,10 +525,9 @@ func mapLoadBalancerListenerConfigsByPort(lbCfg elbv2gw.LoadBalancerConfiguratio
 	return lbLsCfgs
 }
 
-func newListenerBuilder(ctx context.Context, loadBalancerType elbv2model.LoadBalancerType, tgBuilder targetGroupBuilder, tagHelper tagHelper, clusterName string, defaultSSLPolicy string, elbv2Client services.ELBV2, acmClient services.ACM, k8sClient client.Client, allowedCAARNs []string, subnetsResolver networking.SubnetsResolver, secretsManager k8s.SecretsManager, logger logr.Logger) listenerBuilder {
+func newListenerBuilder(loadBalancerType elbv2model.LoadBalancerType, tgBuilder targetGroupBuilder, tagHelper tagHelper, clusterName string, defaultSSLPolicy string, elbv2Client services.ELBV2, acmClient services.ACM, k8sClient client.Client, allowedCAARNs []string, secretsManager k8s.SecretsManager, logger logr.Logger) listenerBuilder {
 	certDiscovery := certs.NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
 	return &listenerBuilderImpl{
-		subnetsResolver:  subnetsResolver,
 		elbv2Client:      elbv2Client,
 		k8sClient:        k8sClient,
 		loadBalancerType: loadBalancerType,
