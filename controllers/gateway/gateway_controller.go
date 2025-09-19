@@ -344,7 +344,9 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 		return err
 	}
 	r.logger.Info("successfully deployed model", "gateway", k8s.NamespacedName(gw))
-	r.secretsManager.MonitorSecrets(k8s.NamespacedName(gw).String(), secrets)
+	if r.lbType == elbv2model.LoadBalancerTypeApplication {
+		r.secretsManager.MonitorSecrets(k8s.NamespacedName(gw).String(), secrets)
+	}
 	return nil
 }
 
