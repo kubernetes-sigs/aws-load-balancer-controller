@@ -138,7 +138,9 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			},
 		},
 		{
-			name: "Ignore ALPN configuration if not specified in model",
+			name:         "ALPN configuration if not specified in model",
+			wantLegacy:   false,
+			wantEnhanced: true,
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
 					Port:      80,
@@ -208,6 +210,7 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 						Mode:          "verify",
 						TrustStoreArn: awssdk.String("arn:aws:elasticloadbalancing:us-east-1:123456789123:truststore/ts-1/8786hghf"),
 					},
+					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
 					Listener: &elbv2types.Listener{
@@ -271,9 +274,10 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			name: "desired = nil, sdk = nil.",
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
-					Port:      80,
-					Protocol:  elbv2model.ProtocolHTTPS,
-					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
+					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
 					Listener: &elbv2types.Listener{
@@ -325,9 +329,10 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			name: "desired = nil, sdk = mtls off.",
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
-					Port:      80,
-					Protocol:  elbv2model.ProtocolHTTPS,
-					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
+					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
 					Listener: &elbv2types.Listener{
@@ -386,9 +391,10 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			wantEnhanced: true,
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
-					Port:      80,
-					Protocol:  elbv2model.ProtocolHTTPS,
-					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
+					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
 					Listener: &elbv2types.Listener{
@@ -446,9 +452,10 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			name: "desired = mtls off, sdk = nil",
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
-					Port:      80,
-					Protocol:  elbv2model.ProtocolHTTPS,
-					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
+					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
 					Listener: &elbv2types.Listener{
@@ -506,9 +513,10 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			name: "desired = mtls off, sdk = off, result = no drift",
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
-					Port:      80,
-					Protocol:  elbv2model.ProtocolHTTPS,
-					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
+					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
 					Listener: &elbv2types.Listener{
@@ -574,9 +582,10 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			wantEnhanced: true,
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
-					Port:      80,
-					Protocol:  elbv2model.ProtocolHTTPS,
-					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
+					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
 					Listener: &elbv2types.Listener{
@@ -636,9 +645,10 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			wantLegacy:   true,
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
-					Port:      80,
-					Protocol:  elbv2model.ProtocolHTTPS,
-					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
+					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
 					Listener: &elbv2types.Listener{
@@ -702,9 +712,10 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 			name: "desired = mtls on, sdk = mtls on. result = no drift because no change",
 			args: args{
 				lsSpec: elbv2model.ListenerSpec{
-					Port:      80,
-					Protocol:  elbv2model.ProtocolHTTPS,
-					SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
+					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					ALPNPolicy: []string{"HTTP2Preferred"},
 				},
 				sdkLS: ListenerWithTags{
 					Listener: &elbv2types.Listener{
@@ -787,6 +798,7 @@ func Test_buildSDKModifyListenerInput(t *testing.T) {
 		desiredDefaultActions []elbv2types.Action
 		desiredDefaultCerts   []elbv2types.Certificate
 		removeMTLS            bool
+		removeALPN            bool
 		expected              elbv2sdk.ModifyListenerInput
 	}{
 		{
@@ -887,12 +899,189 @@ func Test_buildSDKModifyListenerInput(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:       "with explicit remove alpn flag on",
+			removeALPN: true,
+			lsSpec: elbv2model.ListenerSpec{
+				Port:      80,
+				Protocol:  elbv2model.ProtocolHTTPS,
+				SSLPolicy: awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+			},
+			desiredDefaultActions: []elbv2types.Action{},
+			desiredDefaultCerts:   []elbv2types.Certificate{},
+			expected: elbv2sdk.ModifyListenerInput{
+				Port:           awssdk.Int32(80),
+				Protocol:       elbv2types.ProtocolEnumHttps,
+				DefaultActions: []elbv2types.Action{},
+				Certificates:   []elbv2types.Certificate{},
+				SslPolicy:      awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+				AlpnPolicy: []string{
+					string(elbv2model.ALPNPolicyNone),
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			res := buildSDKModifyListenerInput(tc.lsSpec, tc.desiredDefaultActions, tc.desiredDefaultCerts, tc.removeMTLS)
+			res := buildSDKModifyListenerInput(tc.lsSpec, tc.desiredDefaultActions, tc.desiredDefaultCerts, tc.removeMTLS, tc.removeALPN)
 			assert.Equal(t, tc.expected, *res)
+		})
+	}
+}
+
+func Test_isRemoveMTLS(t *testing.T) {
+	testCases := []struct {
+		name                               string
+		sdkLS                              ListenerWithTags
+		desiredDefaultMutualAuthentication *elbv2types.MutualAuthenticationAttributes
+		expected                           bool
+	}{
+		{
+			name: "desired = nil, sdk = nil",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{},
+			},
+			desiredDefaultMutualAuthentication: nil,
+		},
+		{
+			name: "desired = nil, sdk = none",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{
+					MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+						Mode: awssdk.String("off"),
+					},
+				},
+			},
+			desiredDefaultMutualAuthentication: nil,
+		},
+		{
+			name: "desired = nil, sdk = verify",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{
+					MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+						Mode: awssdk.String("verify"),
+					},
+				},
+			},
+			desiredDefaultMutualAuthentication: nil,
+			expected:                           true,
+		},
+		{
+			name: "desired = verify, sdk = verify",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{
+					MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+						Mode: awssdk.String("verify"),
+					},
+				},
+			},
+			desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+				Mode: awssdk.String("verify"),
+			},
+		},
+		{
+			name: "desired = passthrough, sdk = verify",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{
+					MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+						Mode: awssdk.String("verify"),
+					},
+				},
+			},
+			desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+				Mode: awssdk.String("passthrough"),
+			},
+		},
+		{
+			name: "desired = verify, sdk = nil",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{},
+			},
+			desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+				Mode: awssdk.String("passthrough"),
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := isRemoveMTLS(tc.sdkLS, tc.desiredDefaultMutualAuthentication)
+			assert.Equal(t, tc.expected, res)
+		})
+	}
+}
+
+func Test_isRemoveALPN(t *testing.T) {
+	testCases := []struct {
+		name         string
+		sdkLS        ListenerWithTags
+		listenerSpec elbv2model.ListenerSpec
+		expected     bool
+	}{
+		{
+			name: "desired = nil, sdk = nil",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{},
+			},
+			listenerSpec: elbv2model.ListenerSpec{},
+		},
+		{
+			name: "desired = nil, sdk = none",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{
+					AlpnPolicy: []string{"None"},
+				},
+			},
+			listenerSpec: elbv2model.ListenerSpec{},
+		},
+		{
+			name: "desired = nil, sdk = HTTP2Only",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{
+					AlpnPolicy: []string{"HTTP2Only"},
+				},
+			},
+			listenerSpec: elbv2model.ListenerSpec{},
+			expected:     true,
+		},
+		{
+			name: "desired = HTTP2Only, sdk = HTTP2Only",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{
+					AlpnPolicy: []string{"HTTP2Only"},
+				},
+			},
+			listenerSpec: elbv2model.ListenerSpec{
+				ALPNPolicy: []string{"HTTP2Only"},
+			},
+		},
+		{
+			name: "desired = HTTP2Optional, sdk = HTTP2Only",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{
+					AlpnPolicy: []string{"HTTP2Only"},
+				},
+			},
+			listenerSpec: elbv2model.ListenerSpec{
+				ALPNPolicy: []string{"HTTP2Optional"},
+			},
+		},
+		{
+			name: "desired = HTTP2Only, sdk = nil",
+			sdkLS: ListenerWithTags{
+				Listener: &elbv2types.Listener{},
+			},
+			listenerSpec: elbv2model.ListenerSpec{
+				ALPNPolicy: []string{"HTTP2Optional"},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := isRemoveALPN(tc.sdkLS, tc.listenerSpec)
+			assert.Equal(t, tc.expected, res)
 		})
 	}
 }

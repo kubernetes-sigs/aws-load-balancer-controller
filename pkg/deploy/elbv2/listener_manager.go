@@ -26,6 +26,10 @@ var mTLSOff = &elbv2types.MutualAuthenticationAttributes{
 	Mode: awssdk.String(string(elbv2model.MutualAuthenticationOffMode)),
 }
 
+var alpnNone = []string{
+	string(elbv2model.ALPNPolicyNone),
+}
+
 var PROTOCOLS_SUPPORTING_LISTENER_ATTRIBUTES = map[elbv2model.Protocol]bool{
 	elbv2model.ProtocolHTTP:  true,
 	elbv2model.ProtocolHTTPS: true,
@@ -170,11 +174,13 @@ func (m *defaultListenerManager) updateSDKListenerWithSettings(ctx context.Conte
 		return nil
 	}
 	var removeMutualAuth bool
+	var removeALPN bool
 	if m.enhancedDefaultingPolicyEnabled {
 		removeMutualAuth = isRemoveMTLS(sdkLS, desiredDefaultMutualAuthentication)
+		removeALPN = isRemoveALPN(sdkLS, resLS.Spec)
 	}
 
-	req := buildSDKModifyListenerInput(resLS.Spec, desiredDefaultActions, desiredDefaultCerts, removeMutualAuth)
+	req := buildSDKModifyListenerInput(resLS.Spec, desiredDefaultActions, desiredDefaultCerts, removeMutualAuth, removeALPN)
 	req.ListenerArn = sdkLS.Listener.ListenerArn
 	m.logger.Info("modifying listener",
 		"stackID", resLS.Stack().StackID(),
@@ -299,8 +305,43 @@ func (m *defaultListenerManager) isSDKListenerSettingsDrifted(lsSpec elbv2model.
 	if lsSpec.SSLPolicy != nil && awssdk.ToString(lsSpec.SSLPolicy) != awssdk.ToString(sdkLS.Listener.SslPolicy) {
 		return true
 	}
-	if len(lsSpec.ALPNPolicy) != 0 && !cmp.Equal(lsSpec.ALPNPolicy, sdkLS.Listener.AlpnPolicy, cmpopts.EquateEmpty()) {
-		return true
+
+	if m.enhancedDefaultingPolicyEnabled {
+		// Cases for ALPN
+		// 1. desired = nil, sdk = nil. Result = no drift.
+		// 2. desired = nil, sdk = None, Result = no drift
+		// 3. desired = nil, sdk = Other value, Result = drift.
+		// 4. desired = None, sdk = nil. Result = no drift.
+		// 5. desired = None, sdk = None. Result = no drift
+		// 6. desired = None, sdk = Other value. Result = drift
+		// 7. desired = Other value, sdk = Nil. Result = drift
+		// 8. desired = Other value, sdk = None. Result = drift
+		// 9. desired = Other value, sdk = Other value. Result = drift depending on equality.
+
+		desiredIsNilOrNone := lsSpec.ALPNPolicy == nil || len(lsSpec.ALPNPolicy) == 0 || lsSpec.ALPNPolicy[0] == string(elbv2model.ALPNPolicyNone)
+		actualIsNilOrNone := sdkLS.Listener.AlpnPolicy == nil || len(sdkLS.Listener.AlpnPolicy) == 0 || sdkLS.Listener.AlpnPolicy[0] == string(elbv2model.ALPNPolicyNone)
+
+		// case 3, case 6
+		if desiredIsNilOrNone && !actualIsNilOrNone {
+			return true
+		}
+
+		// case 7, case 8
+		if actualIsNilOrNone && !desiredIsNilOrNone {
+			return true
+		}
+
+		if !desiredIsNilOrNone && !actualIsNilOrNone {
+			/// Case 9
+			if !cmp.Equal(lsSpec.ALPNPolicy, sdkLS.Listener.AlpnPolicy, cmpopts.EquateEmpty()) {
+				return true
+			}
+		}
+
+	} else {
+		if len(lsSpec.ALPNPolicy) != 0 && !cmp.Equal(lsSpec.ALPNPolicy, sdkLS.Listener.AlpnPolicy, cmpopts.EquateEmpty()) {
+			return true
+		}
 	}
 
 	if !m.enhancedDefaultingPolicyEnabled && desiredDefaultMutualAuthentication == nil {
@@ -366,14 +407,17 @@ func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec, featureGates co
 	return sdkObj, nil
 }
 
-func buildSDKModifyListenerInput(lsSpec elbv2model.ListenerSpec, desiredDefaultActions []elbv2types.Action, desiredDefaultCerts []elbv2types.Certificate, removeMTLS bool) *elbv2sdk.ModifyListenerInput {
+func buildSDKModifyListenerInput(lsSpec elbv2model.ListenerSpec, desiredDefaultActions []elbv2types.Action, desiredDefaultCerts []elbv2types.Certificate, removeMTLS bool, removeALPN bool) *elbv2sdk.ModifyListenerInput {
 	sdkObj := &elbv2sdk.ModifyListenerInput{}
 	sdkObj.Port = awssdk.Int32(lsSpec.Port)
 	sdkObj.Protocol = elbv2types.ProtocolEnum(lsSpec.Protocol)
 	sdkObj.DefaultActions = desiredDefaultActions
 	sdkObj.Certificates = desiredDefaultCerts
 	sdkObj.SslPolicy = lsSpec.SSLPolicy
-	if len(lsSpec.ALPNPolicy) != 0 {
+
+	if removeALPN {
+		sdkObj.AlpnPolicy = alpnNone
+	} else if len(lsSpec.ALPNPolicy) != 0 {
 		sdkObj.AlpnPolicy = lsSpec.ALPNPolicy
 	}
 
@@ -447,8 +491,36 @@ func getRegionFromARN(arn string) string {
 	return ""
 }
 
+// isRemoveMTLS -- should we inject the 'off' button for mutual auth?
 func isRemoveMTLS(sdkLS ListenerWithTags, desiredDefaultMutualAuthentication *elbv2types.MutualAuthenticationAttributes) bool {
-	return desiredDefaultMutualAuthentication == nil && sdkLS.Listener.MutualAuthentication != nil
+	// If the mutual auth annotation config was specified, we never inject our own value.
+	if desiredDefaultMutualAuthentication != nil {
+		return false
+	}
+
+	// If the mutual auth is already turned off on the listener, we don't need to inject off again.
+	if sdkLS.Listener.MutualAuthentication == nil || sdkLS.Listener.MutualAuthentication.Mode == nil || *sdkLS.Listener.MutualAuthentication.Mode == string(elbv2model.MutualAuthenticationOffMode) {
+		return false
+	}
+
+	// Now, we can inject IIF there is mutual auth specified on the listener.
+	return sdkLS.Listener.MutualAuthentication != nil
+}
+
+// isRemoveALPN -- should we inject the 'off' button for alpn?
+func isRemoveALPN(sdkLS ListenerWithTags, lsSpec elbv2model.ListenerSpec) bool {
+	// If the desired state already has alpn data, we should not inject.
+	if lsSpec.ALPNPolicy != nil && len(lsSpec.ALPNPolicy) > 0 {
+		return false
+	}
+
+	// We should not inject alpn data if the SDK already has alpn set to none OR has no data for it.
+	if sdkLS.Listener.AlpnPolicy == nil || len(sdkLS.Listener.AlpnPolicy) == 0 || sdkLS.Listener.AlpnPolicy[0] == string(elbv2model.ALPNPolicyNone) {
+		return false
+	}
+
+	// Getting here indicates that the desired state is nil AND the SDK has ALPN data which needs to be removed.
+	return true
 }
 
 func isIsolatedRegion(region string) bool {
