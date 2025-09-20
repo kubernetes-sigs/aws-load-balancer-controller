@@ -76,7 +76,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 	modelBuilder := gatewaymodel.NewModelBuilder(subnetResolver, vpcInfoProvider, cloud.VpcID(), lbType, trackingProvider, elbv2TaggingManager, controllerConfig, cloud.EC2(), cloud.ELBV2(), cloud.ACM(), k8sClient, controllerConfig.FeatureGates, controllerConfig.ClusterName, controllerConfig.DefaultTags, sets.New(controllerConfig.ExternalManagedTags...), controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, supportedAddons, logger)
 
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, gatewayTagPrefix, logger, metricsCollector, controllerName, targetGroupCollector)
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, gatewayTagPrefix, logger, metricsCollector, controllerName, true, targetGroupCollector)
 
 	cfgResolver := newGatewayConfigResolver()
 
@@ -344,7 +344,9 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 		return err
 	}
 	r.logger.Info("successfully deployed model", "gateway", k8s.NamespacedName(gw))
-	r.secretsManager.MonitorSecrets(k8s.NamespacedName(gw).String(), secrets)
+	if r.lbType == elbv2model.LoadBalancerTypeApplication {
+		r.secretsManager.MonitorSecrets(k8s.NamespacedName(gw).String(), secrets)
+	}
 	return nil
 }
 

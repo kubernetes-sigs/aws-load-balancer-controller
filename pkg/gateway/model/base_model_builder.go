@@ -124,7 +124,7 @@ type baseModelBuilder struct {
 func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, baseBuilder.tgPropertiesConstructor, baseBuilder.disableRestrictedSGRules, baseBuilder.defaultTargetType)
-	listenerBuilder := newListenerBuilder(ctx, baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.acmClient, baseBuilder.k8sClient, baseBuilder.allowedCAARNs, baseBuilder.subnetsResolver, secretsManager, baseBuilder.logger)
+	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.acmClient, baseBuilder.k8sClient, baseBuilder.allowedCAARNs, secretsManager, baseBuilder.logger)
 	var isPreDelete bool
 	if gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero() {
 		if baseBuilder.isDeleteProtected(lbConf) {
@@ -176,7 +176,7 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	lb := elbv2model.NewLoadBalancer(stack, resourceIDLoadBalancer, spec)
 
-	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, securityGroups, subnets, gw, routes, lbConf)
+	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, securityGroups, gw, routes, lbConf)
 	if err != nil {
 		return nil, nil, nil, false, nil, err
 	}

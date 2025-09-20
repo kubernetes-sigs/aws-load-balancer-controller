@@ -27,6 +27,7 @@ const (
 	SubnetDiscoveryByReachability Feature = "SubnetDiscoveryByReachability"
 	NLBGatewayAPI                 Feature = "NLBGatewayAPI"
 	ALBGatewayAPI                 Feature = "ALBGatewayAPI"
+	EnhancedDefaultBehavior       Feature = "EnhancedDefaultBehavior"
 )
 
 type FeatureGates interface {
@@ -70,6 +71,7 @@ func NewFeatureGates() FeatureGates {
 			NLBGatewayAPI:                 false,
 			ALBGatewayAPI:                 false,
 			EnableTCPUDPListenerType:      false,
+			EnhancedDefaultBehavior:       false,
 		},
 	}
 }
