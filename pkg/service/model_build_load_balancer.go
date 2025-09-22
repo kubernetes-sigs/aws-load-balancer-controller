@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/netip"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
 
@@ -34,7 +35,6 @@ const (
 	availabilityZoneAffinity                   = "availability_zone_affinity"
 	partialAvailabilityZoneAffinity            = "partial_availability_zone_affinity"
 	anyAvailabilityZone                        = "any_availability_zone"
-	resourceIDLoadBalancer                     = "LoadBalancer"
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
@@ -46,7 +46,7 @@ func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme el
 	if err != nil {
 		return err
 	}
-	t.loadBalancer = elbv2model.NewLoadBalancer(t.stack, resourceIDLoadBalancer, spec)
+	t.loadBalancer = elbv2model.NewLoadBalancer(t.stack, shared_constants.ResourceIDLoadBalancer, spec)
 	return nil
 }
 

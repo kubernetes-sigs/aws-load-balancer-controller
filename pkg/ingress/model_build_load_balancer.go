@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -23,16 +24,12 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 )
 
-const (
-	resourceIDLoadBalancer = "LoadBalancer"
-)
-
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, listenPortConfigByPort map[int32]listenPortConfig) (*elbv2model.LoadBalancer, error) {
 	lbSpec, err := t.buildLoadBalancerSpec(ctx, listenPortConfigByPort)
 	if err != nil {
 		return nil, err
 	}
-	lb := elbv2model.NewLoadBalancer(t.stack, resourceIDLoadBalancer, lbSpec)
+	lb := elbv2model.NewLoadBalancer(t.stack, shared_constants.ResourceIDLoadBalancer, lbSpec)
 	t.loadBalancer = lb
 	return lb, nil
 }

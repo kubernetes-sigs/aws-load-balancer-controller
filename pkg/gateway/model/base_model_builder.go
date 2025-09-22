@@ -5,6 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/addon"
 	config2 "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
+	modelAddons "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model/addons"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 
@@ -72,7 +73,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 		defaultSSLPolicy:         defaultSSLPolicy,
 		defaultTags:              defaultTags,
 		disableRestrictedSGRules: disableRestrictedSGRules,
-		addOnBuilder:             newAddOnBuilder(logger, supportedAddons),
+		addOnBuilder:             modelAddons.NewAddOnBuilder(logger, supportedAddons),
 
 		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
 		defaultIPType:             elbv2model.IPAddressTypeIPV4,
@@ -115,7 +116,7 @@ type baseModelBuilder struct {
 	securityGroupBuilder    securityGroupBuilder
 	tgPropertiesConstructor config2.TargetGroupConfigConstructor
 
-	addOnBuilder addOnBuilder
+	addOnBuilder modelAddons.AddOnBuilder
 
 	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
 	defaultIPType             elbv2model.IPAddressType
@@ -174,21 +175,25 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 		return nil, nil, nil, false, nil, err
 	}
 
-	lb := elbv2model.NewLoadBalancer(stack, resourceIDLoadBalancer, spec)
+	addOnCfg := lbConf
+	if isPreDelete {
+		addOnCfg = elbv2gw.LoadBalancerConfiguration{}
+	}
+
+	newAddonConfig, preStackAddons, err := baseBuilder.addOnBuilder.BuildAddons(&spec, addOnCfg, currentAddonConfig)
+	if err != nil {
+		return nil, nil, nil, false, nil, err
+	}
+
+	lb := elbv2model.NewLoadBalancer(stack, shared_constants.ResourceIDLoadBalancer, spec)
 
 	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, securityGroups, gw, routes, lbConf)
 	if err != nil {
 		return nil, nil, nil, false, nil, err
 	}
 
-	addOnCfg := lbConf
-	if isPreDelete {
-		addOnCfg = elbv2gw.LoadBalancerConfiguration{}
-	}
-
-	newAddonConfig, err := baseBuilder.addOnBuilder.buildAddons(stack, lb.LoadBalancerARN(), addOnCfg, currentAddonConfig)
-	if err != nil {
-		return nil, nil, nil, false, nil, err
+	for _, psa := range preStackAddons {
+		psa.AddToStack(stack, lb.LoadBalancerARN())
 	}
 
 	return stack, lb, newAddonConfig, securityGroups.backendSecurityGroupAllocated, secrets, nil
