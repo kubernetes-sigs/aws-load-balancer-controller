@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	gatewaymodel "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/referencecounter"
@@ -336,7 +337,7 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 
 func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, stack core.Stack, secrets []types.NamespacedName) error {
 	if err := r.stackDeployer.Deploy(ctx, stack, r.metricsCollector, r.controllerName, nil); err != nil {
-		var requeueNeededAfter *runtime.RequeueNeededAfter
+		var requeueNeededAfter *ctrlerrors.RequeueNeededAfter
 		if errors.As(err, &requeueNeededAfter) {
 			return err
 		}
@@ -401,7 +402,7 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	if requeueNeeded {
-		return runtime.NewRequeueNeededAfter(requeueMessage, statusUpdateRequeueTime)
+		return ctrlerrors.NewRequeueNeededAfter(requeueMessage, statusUpdateRequeueTime)
 	}
 
 	return nil

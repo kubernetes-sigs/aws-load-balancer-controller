@@ -11,9 +11,9 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 )
@@ -131,7 +131,7 @@ func (s *loadBalancerSynthesizer) PostSynthesize(ctx context.Context) error {
 		}
 		if isLoadBalancerProvisioning {
 			requeueMsg := "monitor provisioning state for load balancer: " + awssdk.ToString(resAndSDKLB.sdkLB.LoadBalancer.LoadBalancerName)
-			return runtime.NewRequeueNeededAfter(requeueMsg, s.controllerConfig.LBStabilizationMonitorInterval)
+			return ctrlerrors.NewRequeueNeededAfter(requeueMsg, s.controllerConfig.LBStabilizationMonitorInterval)
 		}
 		if err := s.capacityReservationReconciler.Reconcile(ctx, resAndSDKLB.resLB, resAndSDKLB.sdkLB); err != nil {
 			return err

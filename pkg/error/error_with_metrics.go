@@ -1,6 +1,7 @@
-package errmetrics
+package ctrlerrors
 
 import (
+	"github.com/pkg/errors"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 )
 
@@ -16,7 +17,18 @@ func NewErrorWithMetrics(resourceType string, errorCategory string, err error, m
 		ErrorCategory: errorCategory,
 		Err:           err,
 	}
-	metricCollector.ObserveControllerReconcileError(resourceType, errorCategory)
+
+	var skipErrorMetric bool
+	var requeueNeededAfter *RequeueNeededAfter
+	var requeueAfter *RequeueNeeded
+	if errors.As(err, &requeueNeededAfter) || errors.As(err, &requeueAfter) {
+		skipErrorMetric = true
+	}
+
+	if !skipErrorMetric {
+		metricCollector.ObserveControllerReconcileError(resourceType, errorCategory)
+	}
+
 	return reconcileErr
 }
 
