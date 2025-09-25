@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 
@@ -174,6 +175,10 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupTags(ctx context.Contex
 	sgTags, err := t.buildAdditionalResourceTags(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if t.featureGates.Enabled(config.EnableDefaultTagsLowPriority) {
+		return algorithm.MergeStringMap(sgTags, t.defaultTags), nil
 	}
 	return algorithm.MergeStringMap(t.defaultTags, sgTags), nil
 }

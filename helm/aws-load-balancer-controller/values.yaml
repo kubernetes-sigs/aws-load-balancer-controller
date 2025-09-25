@@ -376,6 +376,7 @@ controllerConfig:
   # ALBSingleSubnet: false
   # LBCapacityReservation: true
   # EnhancedDefaultBehavior: false
+  # EnableDefaultTagsLowPriority: false
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope

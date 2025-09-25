@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
+
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -120,6 +121,7 @@ func main() {
 		infoLogger.Error(err, "unable to load controller config")
 		os.Exit(1)
 	}
+
 	appLogger := getLoggerWithLogLevel(controllerCFG.LogLevel)
 	ctrl.SetLogger(appLogger)
 	klog.SetLoggerWithOptions(appLogger, klog.ContextualLogger(true))

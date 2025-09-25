@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -987,7 +988,8 @@ func Test_buildFrontendNlbTags(t *testing.T) {
 				ingGroup:         tt.ingGroup,
 				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
 				// Default implementation will return an empty map when no tags are specified
-				defaultTags: tt.defaultTags,
+				defaultTags:  tt.defaultTags,
+				featureGates: config.NewFeatureGates(),
 			}
 
 			got, err := task.buildFrontendNlbTags(context.Background(), nil)

@@ -12,14 +12,16 @@ type tagHelper interface {
 }
 
 type tagHelperImpl struct {
-	externalManagedTags sets.Set[string]
-	defaultTags         map[string]string
+	externalManagedTags               sets.Set[string]
+	defaultTags                       map[string]string
+	additionalTagsOverrideDefaultTags bool
 }
 
-func newTagHelper(externalManagedTags sets.Set[string], defaultTags map[string]string) tagHelper {
+func newTagHelper(externalManagedTags sets.Set[string], defaultTags map[string]string, additionalTagsOverrideDefaultTags bool) tagHelper {
 	return &tagHelperImpl{
-		externalManagedTags: externalManagedTags,
-		defaultTags:         defaultTags,
+		externalManagedTags:               externalManagedTags,
+		defaultTags:                       defaultTags,
+		additionalTagsOverrideDefaultTags: additionalTagsOverrideDefaultTags,
 	}
 }
 
@@ -36,6 +38,9 @@ func (t *tagHelperImpl) getGatewayTags(lbConf elbv2gw.LoadBalancerConfiguration)
 		return nil, err
 	}
 
+	if t.additionalTagsOverrideDefaultTags {
+		return algorithm.MergeStringMap(annotationTags, t.defaultTags), nil
+	}
 	return algorithm.MergeStringMap(t.defaultTags, annotationTags), nil
 }
 

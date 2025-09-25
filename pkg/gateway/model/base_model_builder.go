@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/addon"
 	config2 "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
@@ -42,7 +43,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
 	disableRestrictedSGRules bool, allowedCAARNs []string, supportedAddons []addon.Addon, logger logr.Logger) Builder {
 
-	gwTagHelper := newTagHelper(sets.New(lbcConfig.ExternalManagedTags...), lbcConfig.DefaultTags)
+	gwTagHelper := newTagHelper(sets.New(lbcConfig.ExternalManagedTags...), lbcConfig.DefaultTags, featureGates.Enabled(config.EnableDefaultTagsLowPriority))
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
 	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, enableBackendSG, sgResolver, backendSGProvider, logger)
 	lbBuilder := newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName)

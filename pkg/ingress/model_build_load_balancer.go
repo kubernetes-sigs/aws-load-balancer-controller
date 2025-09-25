@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -397,6 +398,10 @@ func (t *defaultModelBuildTask) buildLoadBalancerTags(_ context.Context) (map[st
 	ingGroupTags, err := t.buildIngressGroupResourceTags(t.ingGroup.Members)
 	if err != nil {
 		return nil, err
+	}
+
+	if t.featureGates.Enabled(config.EnableDefaultTagsLowPriority) {
+		return algorithm.MergeStringMap(ingGroupTags, t.defaultTags), nil
 	}
 	return algorithm.MergeStringMap(t.defaultTags, ingGroupTags), nil
 }

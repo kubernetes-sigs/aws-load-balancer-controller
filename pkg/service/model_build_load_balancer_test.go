@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"testing"
+
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -1723,6 +1724,7 @@ func Test_defaultModelBuildTask_buildAdditionalResourceTags(t *testing.T) {
 				defaultTags:         tt.fields.defaultTags,
 				externalManagedTags: tt.fields.externalManagedTags,
 				annotationParser:    annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
+				featureGates:        config.NewFeatureGates(),
 			}
 			got, err := task.buildAdditionalResourceTags(context.Background())
 			if tt.wantErr != nil {
@@ -1953,6 +1955,137 @@ func Test_defaultModelBuildTask_buildManageSecurityGroupRulesFlag(t *testing.T) 
 			}
 			if got != tt.wantManageSGRules {
 				t.Errorf("buildManageSecurityGroupRulesFlag() got = %v, want %v", got, tt.wantManageSGRules)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildLoadBalancerTags(t *testing.T) {
+	tests := []struct {
+		name                string
+		enabledFeatureGates func() config.FeatureGates
+		defaultTags         map[string]string
+		svc                 *corev1.Service
+		wantTags            map[string]string
+		wantErr             bool
+	}{
+		{
+			name:                "no default tags, no annotation tags",
+			enabledFeatureGates: func() config.FeatureGates { return config.NewFeatureGates() },
+			defaultTags:         map[string]string{},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			wantTags: map[string]string{},
+			wantErr:  false,
+		},
+		{
+			name:                "no default tags, annotation tags",
+			enabledFeatureGates: func() config.FeatureGates { return config.NewFeatureGates() },
+			defaultTags:         map[string]string{},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "k1=v1,k2=v2,k3=v3",
+					},
+				},
+			},
+			wantTags: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+				"k3": "v3",
+			},
+			wantErr: false,
+		},
+		{
+			name:                "default tags, no annotation tags",
+			enabledFeatureGates: func() config.FeatureGates { return config.NewFeatureGates() },
+			defaultTags: map[string]string{
+				"k1": "v10",
+				"k2": "v20",
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			wantTags: map[string]string{
+				"k1": "v10",
+				"k2": "v20",
+			},
+			wantErr: false,
+		},
+		{
+			name: "default tags, annotation tags, collision where default tags take priority",
+			enabledFeatureGates: func() config.FeatureGates {
+				featureGates := config.NewFeatureGates()
+				featureGates.Disable(config.EnableDefaultTagsLowPriority)
+				return featureGates
+			},
+			defaultTags: map[string]string{
+				"k1": "v10",
+				"k2": "v20",
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "k1=v1,k2=v2,k3=v3",
+					},
+				},
+			},
+			wantTags: map[string]string{
+				"k1": "v10",
+				"k2": "v20",
+				"k3": "v3",
+			},
+			wantErr: false,
+		},
+		{
+			name: "default tags, annotation tags, collision where annotation tags take priority",
+			enabledFeatureGates: func() config.FeatureGates {
+				featureGates := config.NewFeatureGates()
+				featureGates.Enable(config.EnableDefaultTagsLowPriority)
+				return featureGates
+			},
+			defaultTags: map[string]string{
+				"k1": "v10",
+				"k2": "v20",
+			},
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags": "k1=v10,k2=v20,k3=v30",
+					},
+				},
+			},
+			wantTags: map[string]string{
+				"k1": "v10",
+				"k2": "v20",
+				"k3": "v30",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				featureGates:     tt.enabledFeatureGates(),
+				defaultTags:      tt.defaultTags,
+				annotationParser: annotations.NewSuffixAnnotationParser("service.beta.kubernetes.io"),
+				service:          tt.svc,
+			}
+			got, err := task.buildLoadBalancerTags(context.Background())
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantTags, got)
+			}
+			for key, value := range tt.wantTags {
+				assert.Contains(t, got, key)
+				assert.Equal(t, value, got[key])
 			}
 		})
 	}
