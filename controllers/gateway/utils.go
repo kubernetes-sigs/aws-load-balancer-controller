@@ -3,6 +3,12 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
+
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,11 +18,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
-	"unicode/utf8"
 )
 
 const (
@@ -24,7 +25,8 @@ const (
 	gatewayClassAnnotationLastProcessedConfigTimestamp = gatewayClassAnnotationLastProcessedConfig + "-timestamp"
 
 	// The max message that can be stored in a condition
-	maxMessageLength = 32700
+	maxMessageLength            = 32700
+	gatewayAcceptedFalseMessage = "Gateway is not accepted because there is invalid listener."
 )
 
 // updateGatewayClassLastProcessedConfig updates the gateway class annotations with the last processed lb config resource version or "" if no lb config is attached to the gatewayclass

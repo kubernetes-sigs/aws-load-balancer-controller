@@ -11,6 +11,9 @@ var (
 )
 
 const (
+	// GatewayResourceGroupName the groupName used by Gateway & GatewayClass resources.
+	GatewayResourceGroupName = "gateway.networking.k8s.io"
+
 	// GatewayResourceGroupVersion the groupVersion used by Gateway & GatewayClass resources.
 	GatewayResourceGroupVersion = "gateway.networking.k8s.io/v1"
 
