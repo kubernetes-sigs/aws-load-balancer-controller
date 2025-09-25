@@ -1,6 +1,6 @@
 ## Customizing your ELB resources
 
-The AWS Load Balancer Controller (LBC) provides sensible defaults for provisioning and managing Elastic Load Balancing (ELB) resources in response to Kubernetes Gateway API objects. However, to accommodate diverse use cases and specific operational requirements, the LBC offers extensive, fine-grained customization capabilities through two Custom Resource Definitions (CRDs): [LoadBalancerConfiguration](../spec/#loadbalancerconfiguration) and [TargetGroupConfiguration](../spec/#targetgroupconfiguration).
+The AWS Load Balancer Controller (LBC) provides sensible defaults for provisioning and managing Elastic Load Balancing (ELB) resources in response to Kubernetes Gateway API objects. However, to accommodate diverse use cases and specific operational requirements, the LBC offers extensive, fine-grained customization capabilities through three Custom Resource Definitions (CRDs): [LoadBalancerConfiguration](./spec.md#loadbalancerconfiguration), [TargetGroupConfiguration](./spec.md/#targetgroupconfiguration), and [ListenerRuleConfiguration](./spec.md#listenerruleconfiguration).
 
 ![screen showing all LBC Gateway API components](assets/gateway-full.png)
 
@@ -28,7 +28,7 @@ This configuration can then be applied by attaching the `LoadBalancerConfigurati
 When attached directly to a `Gateway` resource, the specified configuration applies specifically to the Load Balancer provisioned for that individual Gateway.
 
 !!! note
-    Make sure that the `LoadBalancerConfiguration` must be in same namepace as the `Gateway`.
+    Make sure that the `LoadBalancerConfiguration` is located in the same namespace as the `Gateway`.
 
 ```yaml
 apiVersion: gateway.networking.k8s.io/v1
@@ -66,7 +66,7 @@ spec:
 
 #### Conflict Resolution for `LoadBalancerConfiguration`
 
-It is possible for a `LoadBalancerConfiguration` to be attached to both a `Gateway` and its associated `GatewayClass`. In such scenarios, when identical fields are specified in both configurations, the LBC employs a merging algorithm to resolve conflicts. The precedence of values is determined by the `mergingMode` field, which is exclusively read from the `GatewayClass`'s `LoadBalancerConfiguration`. If `mergingMode` is not explicitly set, the `GatewayClass` configuration implicitly takes higher precedence. For more info on `mergingMode`, refer this [doc](../loadbalancerconfig/#mergingmode)
+It is possible for a `LoadBalancerConfiguration` to be attached to both a `Gateway` and its associated `GatewayClass`. In such scenarios, when identical fields are specified in both configurations, the LBC employs a merging algorithm to resolve conflicts. The precedence of values is determined by the `mergingMode` field, which is exclusively read from the `GatewayClass`'s `LoadBalancerConfiguration`. If `mergingMode` is not explicitly set, the `GatewayClass` configuration implicitly takes higher precedence. For more info on `mergingMode`, refer to [the merging mode documentation](./loadbalancerconfig.md#mergingmode).
 
 The following fields exhibit specific merge behaviors:
 
@@ -80,7 +80,7 @@ The following fields exhibit specific merge behaviors:
 
 The `TargetGroupConfiguration` CRD enables granular customization of the AWS Target Groups created for Kubernetes Services.
 
-For a comprehensive overview of configurable parameters, please refer the  [TargetGroupConfiguration CRD documentation](./targetgroupconfig.md).
+For a comprehensive overview of configurable parameters, please refer to the  [TargetGroupConfiguration CRD documentation](./targetgroupconfig.md).
 
 **Example: Default Target Group Configuration for a Service**
 
@@ -141,9 +141,70 @@ spec:
 
 #### How Default and Route-Specific Configurations Merge
 
-When both `defaultConfiguration` and `routeConfigurations` within a `TargetGroupConfiguration` specify the same field, route-specific configurations take precedence. The controller identifies the most relevant route specification from the list of `routeConfigurations` and merges its `targetGroupProps` with the `defaultConfiguration`'s settings. For detailed information on the route matching logic employed, refer to the [Route Matching section](../targetgroupconfig/#route-matching-logic).
+When both `defaultConfiguration` and `routeConfigurations` within a `TargetGroupConfiguration` specify the same field, route-specific configurations take precedence. The controller identifies the most relevant route specification from the list of `routeConfigurations` and merges its `targetGroupProps` with the `defaultConfiguration`'s settings. For detailed information on the route matching logic employed, refer to the [Route Matching section](./targetgroupconfig.md#route-matching-logic).
 
 The following fields exhibit specific merge behaviors:
 
 * **`tags`**: The two tag maps are combined. Any duplicate tag keys will result in the value from the higher-priority (route-specific) configuration being used.
 * **`targetGroupAttributes`**: The two attribute lists are combined. Any duplicate attribute keys will result in the attribute value from the higher-priority (route-specific) configuration being applied.
+
+#### Customizing L7 Routing Rules
+
+The `ListenerRuleConfiguration` CRD allows representation of features present in AWS ALB,
+that are not represented in the standard Gateway API spec.
+
+An exhaustive list is:
+
+- [Cognito Authentication](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html#cognito-requirements)
+- [OIDC Authentication](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-authenticate-users.html#oidc-requirements)
+- [Fixed Response](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/rule-action-types.html#fixed-response-actions)
+- [Source IP Conditions](https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_SourceIpConditionConfig.html#API_SourceIpConditionConfig_Contents)
+
+For a comprehensive overview of the CRD, please refer to the [ListenerRuleConfiguration CRD documentation](./listenerruleconfig.md).
+
+**Example: Adding source IP routing conditions**
+
+This example adds upon the example found [here](./l7gateway.md#step-by-step-l7-gateway-api-resource-implementation-with-an-example). It adds
+a routing rule that only allows requests originating from the range 10.0.0.0/5 to be routed to the backend.
+
+```
+# source-ip-condition.yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: ListenerRuleConfiguration
+metadata:
+  name: custom-rule-config-source-ip
+  namespace: example-ns
+spec:
+  conditions:
+    - field: source-ip
+      sourceIPConfig:
+        values:
+          - 10.0.0.0/5
+---
+# updated-http-route.yaml
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: my-http-app-route
+  namespace: example-ns
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-alb-gateway
+    sectionName: http
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-alb-gateway
+    sectionName: https
+  rules:
+  - backendRefs:
+    - name: <your service>
+      port: <your service port>
+    filters:
+      - type: ExtensionRef
+        extensionRef:
+          group: "gateway.k8s.aws"
+          kind: "ListenerRuleConfiguration"
+          name: "custom-rule-config-source-ip"
+```

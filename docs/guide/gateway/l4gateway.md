@@ -1,6 +1,6 @@
 # Gateway API for Layer 4 (NLB) Implementation
 
-This section details the **AWS Load Balancer Controller's (LBC)** architecture and operational flow when processing Gateway API resources for Layer 4 traffic.
+This section details the **AWS Load Balancer Controller's (LBC)** architecture and operational flow when processing Gateway API resources for Layer 4 traffic utilizing AWS NLB.
 
 ### Gateway API Resources and Controller Architecture
 
@@ -13,8 +13,9 @@ The LBC instances dedicated to L4 routing monitor the following Gateway API reso
 * **`TLSRoute`**: Defines TLS-specific routing rules, enabling secure Layer 4 communication. These routes are satisfied by an **AWS NLB**.
 * **`TCPRoute`**: Defines TCP-specific routing rules, facilitating direct TCP traffic management. These routes are satisfied by an **AWS NLB**.
 * **`UDPRoute`**: Defines UDP-specific routing rules, facilitating UDP traffic management. These routes are satisfied by an **AWS NLB**.
-* **`LoadBalancerConfiguration` (LBC CRD)**: A Custom Resource Definition utilized for fine-grained customization of the provisioned NLB. This CRD can be attached to a `Gateway` or its `GatewayClass`. For more info, please refer [How customization works](../customization)
-* **`TargetGroupConfiguration` (LBC CRD)**: A Custom Resource Definition used for service-specific customizations of AWS Target Groups. This CRD is associated with a Kubernetes `Service`. For more info, please refer [How customization works](../customization)
+* **`ReferenceGrant`**: Defines cross-namespace access. For more information [see](https://gateway-api.sigs.k8s.io/api-types/referencegrant/)
+* **`LoadBalancerConfiguration` (LBC CRD)**: A Custom Resource Definition utilized for fine-grained customization of the provisioned NLB. This CRD can be attached to a `Gateway` or its `GatewayClass`. For more info, please refer [How customization works](customization.md#customizing-the-gateway-load-balancer-using-loadbalancerconfiguration-crd)
+* **`TargetGroupConfiguration` (LBC CRD)**: A Custom Resource Definition used for service-specific customizations of AWS Target Groups. This CRD is associated with a Kubernetes `Service`. For more info, please refer [How customization works](customization.md#customizing-services-target-groups-using-targetgroupconfiguration-crd)
 
 ### The Reconciliation Loop
 
@@ -82,7 +83,7 @@ spec:
 * **API Event Detection:** The LBC's L4 controller continuously monitors the Kubernetes API server. Upon detecting the `aws-nlb-gateway-class` (with `controllerName: gateway.k8s.aws/nlb`), the `my-tcp-gateway` (referencing this `GatewayClass`), and `my-tcp-app-route` (referencing `my-tcp-gateway`'s `tcp-app` listener) resources, it recognizes its responsibility to manage these objects and initiates the provisioning of AWS resources.
 * **NLB Provisioning:** An **AWS Network Load Balancer (NLB)** is provisioned in AWS for the `my-tcp-gateway` resource with default settings. At this stage, the NLB is active but does not yet have any configured listeners. As soon as the NLB becomes active, the status of the gateway is updated.
 * **L4 Listener Materialization:** The controller processes the `my-tcp-app-route` resource. Given that the `TCPRoute` validly references the `my-tcp-gateway` and its `tcp-app` listener, an **NLB Listener** is materialized on the provisioned NLB. This listener will be configured for `TCP` protocol on `port 8080`, as specified in the `Gateway`'s listener definition. A default forward action is subsequently configured on the NLB Listener, directing all incoming traffic on `port 8080` to the newly created Target Group for service `my-tcp-service` in `backendRefs` section of `my-tcp-app-route`.
-* **Target Group Creation:** An **AWS Target Group** is created for the Kubernetes Service `my-tcp-service` with default configuration. The Pods associated with `my-tcp-service` are then registered as targets within this new Target Group.
+* **Target Group Creation:** An **AWS Target Group** is created for the Kubernetes Service `my-tcp-service` with default configuration. The cluster nodes are then registered as targets within this new Target Group.
 
 ### L4 Gateway API Limitations for NLBs
 The LBC implementation of the Gateway API for L4 routes, which provisions NLB, introduces specific constraints to align with NLB capabilities. These limitations are enforced during the reconciliation process and are critical for successful L4 traffic management.

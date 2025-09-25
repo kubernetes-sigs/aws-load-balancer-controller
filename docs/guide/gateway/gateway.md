@@ -11,13 +11,10 @@ Mixing protocol layers, e.g. TCPRoute and HTTPRoute on the same Gateway, is not 
 
 ## Current Support
 
-!!! warning
-    - GRPCRoute and HTTPS Listeners for L7 gateways do not currently work. And only basic support is added for HTTPRoute.
-
 The LBC Gateway API implementation supports the following Gateway API routes:
 
 * L4 (NLBGatewayAPI): UDPRoute, TCPRoute, TLSRoute >=v2.13.3
-* L7 (ALBGatewayAPI): HTTPRoute (Still work in progress, support matching and filtering is not added yet!)
+* L7 (ALBGatewayAPI): HTTPRoute, GRPCRoute >= 2.14.0
 
 ## Prerequisites
 * LBC >= v2.13.0
@@ -47,6 +44,13 @@ See [Subnet Discovery](../../deploy/subnet_discovery.md) for details on configur
 
 !!! tip "disable worker node security group rule management"
 You can disable the worker node security group rule management using the [LoadBalancerConfiguration CRD](./loadbalancerconfig.md).
+
+## Certificate Discovery for secure listeners
+
+Both L4 and L7 Gateway implementations support static certificate configuration and certificate discovery using Listener hostname.
+The caveat is that configuration of TLS certificates can not be done via the `certificateRefs` field of a Gateway Listener,
+as the controller only supports certificate references via an ARN. In the future, we may support syncing Kubernetes secrets into ACM.
+
 
 ### Worker node security groups selection
 The controller automatically selects the worker node security groups that it modifies to allow inbound traffic using the following rules:
