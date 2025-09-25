@@ -1,8 +1,9 @@
 package algorithm
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 // MapFindFirst get from list of maps until first found.

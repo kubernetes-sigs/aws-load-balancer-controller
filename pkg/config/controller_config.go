@@ -1,9 +1,10 @@
 package config
 
 import (
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 	"time"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"

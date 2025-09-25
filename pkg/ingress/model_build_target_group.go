@@ -6,8 +6,10 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 
@@ -473,6 +475,10 @@ func (t *defaultModelBuildTask) buildTargetGroupTags(_ context.Context, ing Clas
 	ingSvcTags, err := t.buildIngressBackendResourceTags(ing, svc)
 	if err != nil {
 		return nil, err
+	}
+
+	if t.featureGates.Enabled(config.EnableDefaultTagsLowPriority) {
+		return algorithm.MergeStringMap(ingSvcTags, t.defaultTags), nil
 	}
 	return algorithm.MergeStringMap(t.defaultTags, ingSvcTags), nil
 }
