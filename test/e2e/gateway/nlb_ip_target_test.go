@@ -23,9 +23,9 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 		lbARN          string
 	)
 	BeforeEach(func() {
-		if !tf.Options.EnableGatewayTests {
-			Skip("Skipping gateway tests")
-		}
+		//if !tf.Options.EnableGatewayTests {
+		Skip("Skipping gateway tests")
+		//}
 		ctx = context.Background()
 		stack = NLBTestStack{}
 		auxiliaryStack = nil
