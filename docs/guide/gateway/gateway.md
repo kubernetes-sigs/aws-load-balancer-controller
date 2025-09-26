@@ -1,7 +1,7 @@
 # Gateway API
 
 !!! warning
-    - Only very basic (and not conforming) support of the Gateway API spec currently exists. The team is actively trying to close conformance and support gaps.
+    - The team is actively trying to close conformance and support gaps.
     - Using the LBC and Gateway API together is not suggested for production workloads (yet!)
 
 
@@ -69,3 +69,65 @@ The controller automatically selects the worker node security groups that it mod
     `${cluster-name}` is the name of the Kubernetes cluster.
 
 If it is possible for multiple security groups with the tag `kubernetes.io/cluster/${cluster-name}` to be on a target ENI, you may use the `--service-target-eni-security-group-tags` flag to specify additional tags that must also match in order for a security group to be used.
+
+
+## Misconfigured Services
+
+The L4 and L7 gateways handle misconfigured services differently. 
+
+
+### L4
+
+```
+# my-tcproute.yaml
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: TCPRoute
+metadata:
+  name: my-tcp-app-route
+  namespace: example-ns
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-tcp-gateway
+    sectionName: tcp-app # Refers to the specific listener on the Gateway
+  rules:
+  - backendRefs:
+    - name: my-tcp-service # Kubernetes Service
+      port: 9000
+```
+
+When `my-tcp-service` or the configured service port can't be found,
+the target group will not be materialized on any NLBs that the route attaches to.
+
+
+### L7
+
+```
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: my-http-app-route
+  namespace: example-ns
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-alb-gateway
+    sectionName: http
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-alb-gateway
+    sectionName: https
+  rules:
+  - backendRefs:
+    - name: my-http-service
+      port: 9000
+```
+
+When `my-http-service` or the configured service port can't be found,
+the target group will not be materialized on any ALBs that the route attaches to.
+An [503 Fixed Response](https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_FixedResponseActionConfig.html)
+will be added to any Listener Rules that would have referenced the invalid backend.
+
+
