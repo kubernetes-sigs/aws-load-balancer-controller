@@ -213,9 +213,9 @@ metadata:
   namespace: echoserver
 spec:
   listenerConfigurations:
-    - protocolPort: TCP:80
+    - protocolPort: HTTPS:80
       defaultCertificate: my-cert
-    - protocolPort: TCP:81
+    - protocolPort: HTTPS:81
       defaultCertificate: my-cert1
 ```
 
@@ -413,7 +413,7 @@ metadata:
   namespace: echoserver
 spec:
   listenerConfigurations:
-    - protocolPort: TCP:80
+    - protocolPort: TLS:80
       defaultCertificate: my-cert
       certificates: [arn-1, arn2, arn3]
       sslPolicy: ELBSecurityPolicy-2016-08
@@ -524,7 +524,7 @@ metadata:
   namespace: echoserver
 spec:
   listenerConfigurations:
-    - protocolPort: TCP:80
+    - protocolPort: HTTPS:80
       defaultCertificate: my-cert
       certificates: [arn-1, arn2, arn3]
       listenerAttributes:
@@ -551,7 +551,7 @@ metadata:
   namespace: echoserver
 spec:
   listenerConfigurations:
-    - protocolPort: TCP:80
+    - protocolPort: HTTPS:80
       defaultCertificate: my-cert
       certificates: [arn-1, arn2, arn3]
       mutualAuthentication:

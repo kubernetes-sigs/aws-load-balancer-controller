@@ -200,3 +200,120 @@ information see the [Gateway API Conformance Page](https://gateway-api.sigs.k8s.
 Backend TLS is not supported by AWS ALB Gateway. For more information on how AWS ALB communicates with targets using encryption, 
 please see the [AWS documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-routing-configuration).
 
+
+
+
+#### Examples
+
+
+##### Modifying Request Headers
+
+AWS ALB only allows [specific](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/header-modification.html) request headers to be modified.
+
+** Request header modification must be done using the LoadBalancerConfiguration, using [Listener Attributes](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-header-modification.html) **
+
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: example-ns
+spec:
+  listenerConfigurations:
+    - protocolPort: HTTPS:443
+      defaultCertificate: my-cert
+      listenerAttributes:
+        - key: routing.http.response.access_control_allow_origin.header_value
+          value: example.com
+---
+# my-alb-gateway.yaml
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: my-alb-gateway
+  namespace: example-ns
+spec:
+  gatewayClassName: aws-alb-gateway-class
+  infrastructure:
+    parametersRef:
+      kind: LoadBalancerConfiguration
+      name: test-gw-lbconfig-1
+      group: gateway.k8s.aws
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: my-http-app-route
+  namespace: example-ns
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: my-http-gateway
+      sectionName: https
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: echoserver
+          port: 80
+          weight: 1
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+```
+
+
+##### Source IP Condition
+
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: ListenerRuleConfiguration
+metadata:
+  name: custom-rule-config-source-ip
+  namespace: example-ns
+spec:
+  conditions:
+    - field: source-ip
+      sourceIPConfig:
+        values:
+          - 10.0.0.0/5
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: my-http-app-route
+  namespace: example-ns
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: my-http-gateway
+      sectionName: https
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: echoserver
+          port: 80
+          weight: 1
+      filters:
+        - extensionRef:
+            group: gateway.k8s.aws
+            kind: ListenerRuleConfiguration
+            name: custom-rule-config-source-ip
+          type: ExtensionRef
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+```
+
