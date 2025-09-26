@@ -117,8 +117,6 @@ spec:
                         type: object
                       type: array
                     mutualAuthentication:
-                      default:
-                        mode: "off"
                       description: mutualAuthentication defines the mutual authentication
                         configuration information.
                       properties:

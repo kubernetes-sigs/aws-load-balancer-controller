@@ -5,6 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/addon"
 	config2 "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
+	modelAddons "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model/addons"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 
@@ -72,7 +73,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 		defaultSSLPolicy:         defaultSSLPolicy,
 		defaultTags:              defaultTags,
 		disableRestrictedSGRules: disableRestrictedSGRules,
-		addOnBuilder:             newAddOnBuilder(logger, supportedAddons),
+		addOnBuilder:             modelAddons.NewAddOnBuilder(logger, supportedAddons),
 
 		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
 		defaultIPType:             elbv2model.IPAddressTypeIPV4,
@@ -115,7 +116,7 @@ type baseModelBuilder struct {
 	securityGroupBuilder    securityGroupBuilder
 	tgPropertiesConstructor config2.TargetGroupConfigConstructor
 
-	addOnBuilder addOnBuilder
+	addOnBuilder modelAddons.AddOnBuilder
 
 	defaultLoadBalancerScheme elbv2model.LoadBalancerScheme
 	defaultIPType             elbv2model.IPAddressType
@@ -124,7 +125,7 @@ type baseModelBuilder struct {
 func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
 	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, baseBuilder.tgPropertiesConstructor, baseBuilder.disableRestrictedSGRules, baseBuilder.defaultTargetType)
-	listenerBuilder := newListenerBuilder(ctx, baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.acmClient, baseBuilder.k8sClient, baseBuilder.allowedCAARNs, baseBuilder.subnetsResolver, secretsManager, baseBuilder.logger)
+	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.acmClient, baseBuilder.k8sClient, baseBuilder.allowedCAARNs, secretsManager, baseBuilder.logger)
 	var isPreDelete bool
 	if gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero() {
 		if baseBuilder.isDeleteProtected(lbConf) {
@@ -174,21 +175,25 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 		return nil, nil, nil, false, nil, err
 	}
 
-	lb := elbv2model.NewLoadBalancer(stack, resourceIDLoadBalancer, spec)
-
-	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, securityGroups, subnets, gw, routes, lbConf)
-	if err != nil {
-		return nil, nil, nil, false, nil, err
-	}
-
 	addOnCfg := lbConf
 	if isPreDelete {
 		addOnCfg = elbv2gw.LoadBalancerConfiguration{}
 	}
 
-	newAddonConfig, err := baseBuilder.addOnBuilder.buildAddons(stack, lb.LoadBalancerARN(), addOnCfg, currentAddonConfig)
+	newAddonConfig, preStackAddons, err := baseBuilder.addOnBuilder.BuildAddons(&spec, addOnCfg, currentAddonConfig)
 	if err != nil {
 		return nil, nil, nil, false, nil, err
+	}
+
+	lb := elbv2model.NewLoadBalancer(stack, shared_constants.ResourceIDLoadBalancer, spec)
+
+	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, securityGroups, gw, routes, lbConf)
+	if err != nil {
+		return nil, nil, nil, false, nil, err
+	}
+
+	for _, psa := range preStackAddons {
+		psa.AddToStack(stack, lb.LoadBalancerARN())
 	}
 
 	return stack, lb, newAddonConfig, securityGroups.backendSecurityGroupAllocated, secrets, nil
