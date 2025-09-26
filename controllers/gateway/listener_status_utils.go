@@ -6,11 +6,12 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func buildListenerStatus(controllerName string, gateway gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32, validateListenerResults *routeutils.ListenerValidationResults) ([]gwv1.ListenerStatus, error) {
+func buildListenerStatus(controllerName string, gateway gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32, validateListenerResults *routeutils.ListenerValidationResults) []gwv1.ListenerStatus {
 	var listenerStatuses []gwv1.ListenerStatus
 
 	// if validateListenerResults is nil, getListenerConditions will build condition with accepted condition
@@ -32,7 +33,7 @@ func buildListenerStatus(controllerName string, gateway gwv1.Gateway, attachedRo
 		}
 		listenerStatuses = append(listenerStatuses, listenerStatus)
 	}
-	return listenerStatuses, nil
+	return listenerStatuses
 }
 
 func getListenerConditions(gw gwv1.Gateway, listenerValidationResult *routeutils.ListenerValidationResult) []metav1.Condition {
@@ -40,7 +41,7 @@ func getListenerConditions(gw gwv1.Gateway, listenerValidationResult *routeutils
 
 	// Determine condition type based on reason
 	if listenerValidationResult == nil {
-		return append(conditions, buildAcceptedCondition(gw, gwv1.ListenerReasonAccepted, "Listener is accepted"))
+		return append(conditions, buildAcceptedCondition(gw, gwv1.ListenerReasonAccepted, gateway_constants.ListenerAcceptedMessage))
 	}
 	listenerReason := listenerValidationResult.Reason
 	listenerErrMessage := listenerValidationResult.Message
@@ -52,7 +53,7 @@ func getListenerConditions(gw gwv1.Gateway, listenerValidationResult *routeutils
 	case gwv1.ListenerReasonInvalidRouteKinds, gwv1.ListenerReasonRefNotPermitted:
 		conditions = append(conditions, buildResolvedRefsCondition(gw, listenerReason, listenerErrMessage))
 	default:
-		conditions = append(conditions, buildAcceptedCondition(gw, gwv1.ListenerReasonAccepted, "Listener is accepted"))
+		conditions = append(conditions, buildAcceptedCondition(gw, gwv1.ListenerReasonAccepted, gateway_constants.ListenerAcceptedMessage))
 	}
 
 	return conditions

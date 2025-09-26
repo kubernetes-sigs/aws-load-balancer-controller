@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -85,19 +86,15 @@ func Test_buildListenerStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := buildListenerStatus(tt.controllerName, *tt.gateway, tt.attachedRoutesMap, tt.validateListenerResults)
+			result := buildListenerStatus(tt.controllerName, *tt.gateway, tt.attachedRoutesMap, tt.validateListenerResults)
 
-			if tt.expectedError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Len(t, result, tt.expectedCount)
+			assert.Len(t, result, tt.expectedCount)
 
-				for i, listener := range tt.gateway.Spec.Listeners {
-					assert.Equal(t, listener.Name, result[i].Name)
-					assert.Equal(t, tt.attachedRoutesMap[listener.Name], result[i].AttachedRoutes)
-				}
+			for i, listener := range tt.gateway.Spec.Listeners {
+				assert.Equal(t, listener.Name, result[i].Name)
+				assert.Equal(t, tt.attachedRoutesMap[listener.Name], result[i].AttachedRoutes)
 			}
+
 		})
 	}
 }
@@ -215,7 +212,7 @@ func Test_buildAcceptedCondition(t *testing.T) {
 		{
 			name:           "accepted reason",
 			reason:         gwv1.ListenerReasonAccepted,
-			message:        "Listener is accepted",
+			message:        gateway_constants.ListenerAcceptedMessage,
 			expectedStatus: metav1.ConditionTrue,
 		},
 		{

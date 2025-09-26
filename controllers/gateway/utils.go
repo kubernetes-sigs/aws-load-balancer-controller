@@ -25,8 +25,7 @@ const (
 	gatewayClassAnnotationLastProcessedConfigTimestamp = gatewayClassAnnotationLastProcessedConfig + "-timestamp"
 
 	// The max message that can be stored in a condition
-	maxMessageLength            = 32700
-	gatewayAcceptedFalseMessage = "Gateway is not accepted because there is invalid listener."
+	maxMessageLength = 32700
 )
 
 // updateGatewayClassLastProcessedConfig updates the gateway class annotations with the last processed lb config resource version or "" if no lb config is attached to the gatewayclass

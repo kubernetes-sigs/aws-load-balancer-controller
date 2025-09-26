@@ -23,6 +23,7 @@ import (
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	gatewaymodel "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/referencecounter"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
@@ -222,7 +223,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 			var gatewayMessage string
 			if loaderErr == nil && loaderResults.ValidationResults.HasErrors {
 				gatewayReason = gwv1.GatewayReasonAccepted
-				gatewayMessage = gatewayAcceptedFalseMessage
+				gatewayMessage = gateway_constants.GatewayAcceptedFalseMessage
 			} else {
 				gatewayReason = loaderErr.GetGatewayReason()
 				gatewayMessage = loaderErr.GetGatewayMessage()
@@ -248,6 +249,9 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 
 	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.buildModel(ctx, gw, mergedLbConfig, allRoutes, currentAddOns)
 
+	if err != nil {
+		return err
+	}
 	r.logger.V(1).Info("Got this addon config", "current", currentAddOns, "new addon", newAddOnConfig)
 
 	// To accurately track the set of enabled addons, we need to figure out if any addons were added / removed during this run.
@@ -402,17 +406,14 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	// update listeners status
-	ListenerStatuses, err := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, nil)
-	if err != nil {
-		r.logger.Info("failed to build listeners status: %v", k8s.NamespacedName(gw))
-	} else if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
+	ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, nil)
+	if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 		gw.Status.Listeners = ListenerStatuses
 		needPatch = true
 	}
 
 	if needPatch {
 		if err := r.k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-			fmt.Printf("failed to update status: %s\n", err.Error())
 			return errors.Wrapf(err, "failed to update gw status: %v", k8s.NamespacedName(gw))
 		}
 	}
@@ -433,10 +434,8 @@ func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *
 	if loadResults != nil {
 		listenerValidationResults := loadResults.ValidationResults
 		attachedRoutesMap := loadResults.AttachedRoutesMap
-		ListenerStatuses, err := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, &listenerValidationResults)
-		if err != nil {
-			r.logger.Info("failed to build listeners status: %v", k8s.NamespacedName(gw))
-		} else if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
+		ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, &listenerValidationResults)
+		if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 			gw.Status.Listeners = ListenerStatuses
 			needPatch = true
 		}
@@ -444,7 +443,6 @@ func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *
 
 	if needPatch {
 		if err := r.k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
-			fmt.Printf("failed to update status: %s\n", err.Error())
 			return errors.Wrapf(err, "failed to update gw status: %v", k8s.NamespacedName(gw))
 		}
 	}

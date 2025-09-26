@@ -8,7 +8,6 @@ import (
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 )
 
 type ListenerValidationResult struct {
@@ -37,7 +36,7 @@ func ValidateListeners(gw gwv1.Gateway, controllerName string, ctx context.Conte
 		return results
 	}
 
-	portHostnameMap := make(map[gwv1.PortNumber]map[gwv1.Hostname]bool)
+	portHostnameMap := make(map[string]bool)
 	portProtocolMap := make(map[gwv1.PortNumber]gwv1.ProtocolType)
 
 	for _, listener := range gw.Spec.Listeners {
@@ -45,7 +44,7 @@ func ValidateListeners(gw gwv1.Gateway, controllerName string, ctx context.Conte
 			ListenerName: listener.Name,
 			IsValid:      true,
 			Reason:       gwv1.ListenerReasonAccepted,
-			Message:      "Listener is accepted",
+			Message:      gateway_constants.ListenerAcceptedMessage,
 		}
 
 		// check supported kinds
@@ -91,39 +90,15 @@ func ValidateListeners(gw gwv1.Gateway, controllerName string, ctx context.Conte
 			// Check hostname conflicts - only when hostname is specified
 			if listener.Hostname != nil {
 				hostname := *listener.Hostname
+				key := fmt.Sprintf("%d-%s", listener.Port, hostname)
 
-				if portHostnameMap[listener.Port] == nil {
-					portHostnameMap[listener.Port] = make(map[gwv1.Hostname]bool)
-				}
-				if portHostnameMap[listener.Port][hostname] {
+				if portHostnameMap[key] {
 					result.IsValid = false
 					result.Reason = gwv1.ListenerReasonHostnameConflict
 					result.Message = fmt.Sprintf("Hostname conflict for port %d with hostname %s", listener.Port, hostname)
 					results.HasErrors = true
 				} else {
-					portHostnameMap[listener.Port][hostname] = true
-				}
-			}
-
-			// Check cross-namespace references
-			if listener.AllowedRoutes != nil && listener.AllowedRoutes.Namespaces != nil {
-				if listener.AllowedRoutes.Namespaces.From != nil && *listener.AllowedRoutes.Namespaces.From == gwv1.NamespacesFromSelector {
-					var refGrants gwbeta1.ReferenceGrantList
-					if err := k8sClient.List(ctx, &refGrants); err == nil {
-						hasGrant := false
-						for _, grant := range refGrants.Items {
-							if grant.Namespace != gw.Namespace {
-								hasGrant = true
-								break
-							}
-						}
-						if !hasGrant {
-							result.IsValid = false
-							result.Reason = gwv1.ListenerReasonRefNotPermitted
-							result.Message = fmt.Sprintf("RefNotPermitted for listener %s", listener.Name)
-							results.HasErrors = true
-						}
-					}
+					portHostnameMap[key] = true
 				}
 			}
 		}

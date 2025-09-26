@@ -73,3 +73,9 @@ const (
 	// GatewayLBPrefixEnabledAddon The prefix tracking addons within the Gateway.
 	GatewayLBPrefixEnabledAddon = "gateway.k8s.aws.addon."
 )
+
+// constant for status update
+const (
+	GatewayAcceptedFalseMessage = "Gateway is not accepted because there is an invalid listener."
+	ListenerAcceptedMessage     = "Listener is accepted"
+)
