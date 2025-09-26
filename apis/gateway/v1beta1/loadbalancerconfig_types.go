@@ -175,7 +175,6 @@ type ListenerConfiguration struct {
 
 	// mutualAuthentication defines the mutual authentication configuration information.
 	// +optional
-	// +kubebuilder:default={"mode": "off"}
 	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`
 
 	// listenerAttributes defines the attributes for the listener
