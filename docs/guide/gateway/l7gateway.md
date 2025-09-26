@@ -271,6 +271,51 @@ spec:
             value: /
 ```
 
+##### HTTP Header Matching
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: my-http-app-route
+  namespace: example-ns
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: my-http-gateway
+      sectionName: https
+  rules:
+    - backendRefs:
+        - group: ""
+          kind: Service
+          name: echoserver
+          port: 80
+          weight: 1
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+        - headers:
+            - name: "oneHeaderSpecial"
+              type: Exact
+              value: "bar\\,bat"
+            - name: "multiHeader"
+              type: Exact
+              value: "value1,value2"
+            - name: "oneHeader"
+              type: Exact
+              value: "cat"
+```
+
+In this example will *only* be forwarded to the echoserver backend when the HTTP Request has these headers:
+`oneHeaderSpecial=bar,bat`
+AND
+`multiHeader=value1` OR `multiHeader=value2`
+AND
+`oneHeader=cat`
+
+
 
 ##### Source IP Condition
 
