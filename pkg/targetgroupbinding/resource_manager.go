@@ -154,12 +154,14 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	var containsPotentialReadyEndpoints bool
 	var err error
 
+	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
+
 	endpoints, containsPotentialReadyEndpoints, err = m.endpointResolver.ResolvePodEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
 
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
-			return "", "", false, m.Cleanup(ctx, tgb)
+			return "", oldCheckPoint, false, m.Cleanup(ctx, tgb)
 		}
 		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "resolve_pod_endpoints_error", err, m.metricsCollector)
 	}
@@ -169,8 +171,6 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if err != nil {
 		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
 	}
-
-	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 
 	if !containsPotentialReadyEndpoints && oldCheckPoint == newCheckPoint {
 		tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
@@ -282,12 +282,13 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "get_traffic_proxy_node_selector_error", err, m.metricsCollector)
 	}
 
+	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 	resolveOpts := []backend.EndpointResolveOption{backend.WithNodeSelector(nodeSelector)}
 	endpoints, err := m.endpointResolver.ResolveNodePortEndpoints(ctx, svcKey, tgb.Spec.ServiceRef.Port, resolveOpts...)
 	if err != nil {
 		if errors.Is(err, backend.ErrNotFound) {
 			m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
-			return "", "", false, m.Cleanup(ctx, tgb)
+			return "", oldCheckPoint, false, m.Cleanup(ctx, tgb)
 		}
 		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "resolve_nodeport_endpoints_error", err, m.metricsCollector)
 	}
@@ -297,8 +298,6 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if err != nil {
 		return "", "", false, errmetrics.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
 	}
-
-	oldCheckPoint := GetTGBReconcileCheckpoint(tgb)
 
 	if newCheckPoint == oldCheckPoint {
 		tgbScopedLogger.Info("Skipping targetgroupbinding reconcile", "calculated hash", newCheckPoint)
