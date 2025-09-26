@@ -26,7 +26,7 @@ type ListenerValidationResults struct {
 // it is different from listener <-> route validation
 // It checks for supported route kinds, valid port ranges (1-65535), controller-compatible protocols
 // (ALB: HTTP/HTTPS/GRPC, NLB: TCP/UDP/TLS), protocol conflicts on same ports (except TCP+UDP),
-// hostname conflicts, and cross-namespace reference permissions.
+// hostname conflicts - same port trying to use same hostname
 func ValidateListeners(gw gwv1.Gateway, controllerName string, ctx context.Context, k8sClient client.Client) ListenerValidationResults {
 	results := ListenerValidationResults{
 		Results: make(map[gwv1.SectionName]ListenerValidationResult),
