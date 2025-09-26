@@ -208,3 +208,73 @@ spec:
           kind: "ListenerRuleConfiguration"
           name: "custom-rule-config-source-ip"
 ```
+
+To add granular rules, specify the index match:
+
+```
+# source-ip-condition.yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: ListenerRuleConfiguration
+metadata:
+  name: custom-rule-config-source-ip
+  namespace: example-ns
+spec:
+  conditions:
+    - field: source-ip
+      matchIndexes: [0,1]
+      sourceIPConfig:
+        values:
+          - 10.0.0.0/5
+---
+# updated-http-route.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http-app-source-ip
+  namespace: example-ns
+spec:
+  parentRefs:
+    - name: my-alb-gateway
+      port: 90
+  rules:
+    - backendRefs:
+        - name: echoserver
+          port: 80
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: "gateway.k8s.aws"
+            kind: "ListenerRuleConfiguration"
+            name: "custom-rule-config-source-ip"
+      matches:
+        - path: # Path Pattern
+            type: Exact
+            value: /pathExactMatch
+          queryParams: # Query String
+            - name: "user"
+              value: "john"
+          method: GET # HTTP Request Method
+        - path: # Regex path match
+            type: RegularExpression
+            value: "/firstRule/some?/users"
+    - backendRefs:
+        - name: echoserver
+          port: 80
+      filters:
+        - type: ExtensionRef
+          extensionRef:
+            group: "gateway.k8s.aws"
+            kind: "ListenerRuleConfiguration"
+            name: "custom-rule-config-source-ip-2"
+      matches:
+        - path: # Path Pattern
+            type: Exact
+            value: /secondRulePath
+          method: POST # HTTP Request Method
+        - path: # Regex path match
+            type: RegularExpression
+            value: "/secondRule/some?/users"
+        - path:
+            type: "PathPrefix"
+            value: "/secondRule"
+```

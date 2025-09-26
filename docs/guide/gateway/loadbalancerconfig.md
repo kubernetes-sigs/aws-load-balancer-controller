@@ -665,3 +665,46 @@ The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from
 Only applies to Network LoadBalancer Gateways.
 
 **Default** Empty string
+
+
+### WAFv2
+
+```
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  wafV2:
+    webACL: "my-web-acl"
+```
+
+#### WebACL
+
+The [WAF](https://docs.aws.amazon.com/waf/latest/APIReference/Welcome.html) Web ACL to add to the Gateway.
+
+Only applies to Application LoadBalancer Gateways.
+
+**Default** Empty string (No WAF enabled)
+
+### Shield
+
+```
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  shieldConfiguration:
+    enabled: true
+```
+
+#### Enabled
+
+Whether to enroll this Gateway with [Shield Advanced](https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-summary.html) support.
+
+Only applies to Application LoadBalancer Gateways.
+
+**Default** false (No Shield enabled)
