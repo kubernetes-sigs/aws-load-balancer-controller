@@ -2,6 +2,7 @@ package elbv2
 
 import (
 	"context"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -12,7 +13,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -147,7 +147,7 @@ func (s *frontendNlbTargetSynthesizer) PostSynthesize(ctx context.Context) error
 
 			if err != nil {
 				requeueMsg := "Failed to register target, retrying after deplay for target group: " + resTG.Status.TargetGroupARN
-				return runtime.NewRequeueNeededAfter(requeueMsg, 15*time.Second)
+				return ctrlerrors.NewRequeueNeededAfter(requeueMsg, 15*time.Second)
 			}
 
 		}

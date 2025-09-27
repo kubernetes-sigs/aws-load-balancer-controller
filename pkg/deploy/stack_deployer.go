@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafregional"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafv2"
-	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -157,7 +157,7 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 		}
 		d.metricsCollector.ObserveControllerReconcileLatency(controllerName, synthesizerType, synthesizeFn)
 		if err != nil {
-			return errmetrics.NewErrorWithMetrics(controllerName, synthesizerType, err, d.metricsCollector)
+			return ctrlerrors.NewErrorWithMetrics(controllerName, synthesizerType, err, d.metricsCollector)
 		}
 	}
 	for i := len(synthesizers) - 1; i >= 0; i-- {
