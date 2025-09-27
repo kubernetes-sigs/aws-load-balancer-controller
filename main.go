@@ -140,7 +140,11 @@ func main() {
 		setupLog.Error(err, "unable to build REST config")
 		os.Exit(1)
 	}
-	rtOpts := config.BuildRuntimeOptions(controllerCFG.RuntimeConfig, scheme)
+	rtOpts, err := config.BuildRuntimeOptions(controllerCFG.RuntimeConfig, scheme)
+	if err != nil {
+		setupLog.Error(err, "unable to build runtime options")
+		os.Exit(1)
+	}
 	mgr, err := ctrl.NewManager(restCFG, rtOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -260,7 +264,7 @@ func main() {
 		// Setup NLB Gateway controller if enabled
 		if nlbGatewayEnabled {
 			gwControllerConfig.routeLoader = routeLoaderCreator()
-			if err := setupGatewayController(ctx, mgr, gwControllerConfig, gateway_constants.NLBGatewayController); err != nil {
+			if err := setupGatewayController(ctx, mgr, gwControllerConfig, gateway_constants.NLBGatewayController, nil); err != nil {
 				setupLog.Error(err, "failed to setup NLB Gateway controller")
 				os.Exit(1)
 			}
@@ -272,7 +276,7 @@ func main() {
 			if gwControllerConfig.routeLoader == nil {
 				gwControllerConfig.routeLoader = routeLoaderCreator()
 			}
-			if err := setupGatewayController(ctx, mgr, gwControllerConfig, gateway_constants.ALBGatewayController); err != nil {
+			if err := setupGatewayController(ctx, mgr, gwControllerConfig, gateway_constants.ALBGatewayController, clientSet); err != nil {
 				setupLog.Error(err, "failed to setup ALB Gateway controller")
 				os.Exit(1)
 			}
@@ -294,7 +298,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err = gatewayClassReconciler.SetupWatches(ctx, controller, mgr)
+		err = gatewayClassReconciler.SetupWatches(ctx, controller, mgr, nil)
 		if err != nil {
 			setupLog.Error(err, "Unable to set up Gateway Class Watches")
 			os.Exit(1)
@@ -314,7 +318,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err = loadbalancerConfigurationReconciler.SetupWatches(ctx, lbCfgController, mgr)
+		err = loadbalancerConfigurationReconciler.SetupWatches(ctx, lbCfgController, mgr, nil)
 		if err != nil {
 			setupLog.Error(err, "Unable to set up LoadBalancerConfiguration Watches")
 			os.Exit(1)
@@ -335,7 +339,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err = targetGroupConfigurationReconciler.SetupWatches(ctx, tgCfgController, mgr)
+		err = targetGroupConfigurationReconciler.SetupWatches(ctx, tgCfgController, mgr, nil)
 		if err != nil {
 			setupLog.Error(err, "Unable to set up TargetGroupConfiguration Watches")
 			os.Exit(1)
@@ -355,7 +359,7 @@ func main() {
 			os.Exit(1)
 		}
 
-		err = listenerRuleConfigurationReconciler.SetupWatches(ctx, listenerRuleCfgController, mgr)
+		err = listenerRuleConfigurationReconciler.SetupWatches(ctx, listenerRuleCfgController, mgr, clientSet)
 		if err != nil {
 			setupLog.Error(err, "Unable to set up ListenerRuleConfiguration Watches")
 			os.Exit(1)
@@ -428,7 +432,7 @@ func main() {
 }
 
 // setupGatewayController handles the setup of both NLB and ALB gateway controllers
-func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayControllerConfig, controllerType string) error {
+func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayControllerConfig, controllerType string, clientSet *kubernetes.Clientset) error {
 	logger := ctrl.Log.WithName("controllers").WithName(controllerType)
 
 	var reconciler gateway.Reconciler
@@ -486,7 +490,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 		return fmt.Errorf("unable to create %s controller: %w", controllerType, err)
 	}
 
-	if err := reconciler.SetupWatches(ctx, controller, mgr); err != nil {
+	if err := reconciler.SetupWatches(ctx, controller, mgr, clientSet); err != nil {
 		return fmt.Errorf("unable to setup watches for %s controller: %w", controllerType, err)
 	}
 

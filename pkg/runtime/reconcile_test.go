@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"testing"
 	"time"
 
@@ -18,7 +18,7 @@ func TestHandleReconcileError(t *testing.T) {
 	}
 
 	otherErrType := errors.New("some error")
-	wrappedOtherErrorType := &errmetrics.ErrorWithMetrics{
+	wrappedOtherErrorType := &ctrlerrors.ErrorWithMetrics{
 		Err:          otherErrType,
 		ResourceType: "foo",
 	}
@@ -39,7 +39,7 @@ func TestHandleReconcileError(t *testing.T) {
 		{
 			name: "input err is nil",
 			args: args{
-				err: &errmetrics.ErrorWithMetrics{},
+				err: &ctrlerrors.ErrorWithMetrics{},
 			},
 			want:    ctrl.Result{},
 			wantErr: nil,
@@ -47,7 +47,7 @@ func TestHandleReconcileError(t *testing.T) {
 		{
 			name: "input err is RequeueNeededAfter",
 			args: args{
-				err: NewRequeueNeededAfter("some error", 3*time.Second),
+				err: ctrlerrors.NewRequeueNeededAfter("some error", 3*time.Second),
 			},
 			want: ctrl.Result{
 				RequeueAfter: 3 * time.Second,
@@ -57,7 +57,7 @@ func TestHandleReconcileError(t *testing.T) {
 		{
 			name: "input err is RequeueNeeded",
 			args: args{
-				err: NewRequeueNeeded("some error"),
+				err: ctrlerrors.NewRequeueNeeded("some error"),
 			},
 			want: ctrl.Result{
 				Requeue: true,
@@ -67,8 +67,8 @@ func TestHandleReconcileError(t *testing.T) {
 		{
 			name: "input err is ErrorWithMetrics and is RequeueNeededAfter",
 			args: args{
-				err: &errmetrics.ErrorWithMetrics{
-					Err: NewRequeueNeededAfter("some error", 3*time.Second),
+				err: &ctrlerrors.ErrorWithMetrics{
+					Err: ctrlerrors.NewRequeueNeededAfter("some error", 3*time.Second),
 				},
 			},
 			want: ctrl.Result{
@@ -79,8 +79,8 @@ func TestHandleReconcileError(t *testing.T) {
 		{
 			name: "input err is ErrorWithMetrics and is RequeueNeeded",
 			args: args{
-				err: &errmetrics.ErrorWithMetrics{
-					Err: NewRequeueNeeded("some error"),
+				err: &ctrlerrors.ErrorWithMetrics{
+					Err: ctrlerrors.NewRequeueNeeded("some error"),
 				},
 			},
 			want: ctrl.Result{

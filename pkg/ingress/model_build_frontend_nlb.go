@@ -105,23 +105,16 @@ func (t *defaultModelBuildTask) buildFrontendNlbScheme(ctx context.Context, alb 
 	return t.defaultScheme, nil
 }
 
-func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
-	var explicitSubnetNameOrIDsList [][]string
-	for _, member := range t.ingGroup.Members {
-		var rawSubnetNameOrIDs []string
-		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbSubnets, &rawSubnetNameOrIDs, member.Ing.Annotations); !exists {
-			continue
-		}
-		explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
-	}
-
+func (t *defaultModelBuildTask) validateAndResolveSubnets(ctx context.Context, explicitSubnetNameOrIDsList [][]string, scheme elbv2model.LoadBalancerScheme) ([]ec2types.Subnet, error) {
 	if len(explicitSubnetNameOrIDsList) != 0 {
+		// Check all ingresses have the same subnets
 		chosenSubnetNameOrIDs := explicitSubnetNameOrIDsList[0]
 		for _, subnetNameOrIDs := range explicitSubnetNameOrIDsList[1:] {
 			if !cmp.Equal(chosenSubnetNameOrIDs, subnetNameOrIDs, equality.IgnoreStringSliceOrder()) {
 				return nil, errors.Errorf("conflicting subnets: %v | %v", chosenSubnetNameOrIDs, subnetNameOrIDs)
 			}
 		}
+
 		chosenSubnets, err := t.subnetsResolver.ResolveViaNameOrIDSlice(ctx, chosenSubnetNameOrIDs,
 			networking.WithSubnetsResolveLBType(elbv2model.LoadBalancerTypeNetwork),
 			networking.WithSubnetsResolveLBScheme(scheme),
@@ -129,21 +122,82 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 		if err != nil {
 			return nil, err
 		}
-
-		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets), nil
+		return chosenSubnets, nil
 	}
 
-	return nil, nil
-
+	// If no explicit subnets, discover public or private subnets based on scheme
+	chosenSubnets, err := t.subnetsResolver.ResolveViaDiscovery(ctx,
+		networking.WithSubnetsResolveLBScheme(scheme),
+	)
+	if err != nil {
+		return nil, err
+	}
+	return chosenSubnets, nil
 }
 
-func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet) []elbv2model.SubnetMapping {
+func (t *defaultModelBuildTask) validateEIPAllocations(eipAllocationsList [][]string, scheme elbv2model.LoadBalancerScheme) ([]string, error) {
+	if len(eipAllocationsList) != 0 {
+		if scheme != elbv2model.LoadBalancerSchemeInternetFacing {
+			return nil, errors.Errorf("EIP allocations can only be set for internet facing load balancers")
+		}
+		chosenEipAllocations := eipAllocationsList[0]
+		for _, eipAllocations := range eipAllocationsList[1:] {
+			if !cmp.Equal(chosenEipAllocations, eipAllocations, equality.IgnoreStringSliceOrder()) {
+				return nil, errors.Errorf("all EIP allocations for the ingress group must be the same: %v | %v", chosenEipAllocations, eipAllocations)
+			}
+		}
+		return chosenEipAllocations, nil
+	}
+	return []string{}, nil
+}
+
+func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Context, scheme elbv2model.LoadBalancerScheme) ([]elbv2model.SubnetMapping, error) {
+	var explicitSubnetNameOrIDsList [][]string
+	var eipAllocationsList [][]string
+	// Read annotations
+	for _, member := range t.ingGroup.Members {
+		var rawSubnetNameOrIDs []string
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbSubnets, &rawSubnetNameOrIDs, member.Ing.Annotations); exists {
+			explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
+		}
+		var rawEIP []string
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAlloactions, &rawEIP, member.Ing.Annotations); exists {
+			eipAllocationsList = append(eipAllocationsList, rawEIP)
+		}
+	}
+
+	chosenSubnets, err := t.validateAndResolveSubnets(ctx, explicitSubnetNameOrIDsList, scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	chosenEipAllocations, err := t.validateEIPAllocations(eipAllocationsList, scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct subnet mapping
+	if len(chosenEipAllocations) != 0 {
+		if len(chosenEipAllocations) != len(chosenSubnets) {
+			return nil, errors.Errorf("count of EIP allocations (%d) and subnets (%d) must match", len(chosenEipAllocations), len(chosenSubnets))
+		}
+		return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, chosenEipAllocations), nil
+	}
+
+	return buildFrontendNlbSubnetMappingsWithSubnets(chosenSubnets, []string{}), nil
+}
+
+func buildFrontendNlbSubnetMappingsWithSubnets(subnets []ec2types.Subnet, eipAllocation []string) []elbv2model.SubnetMapping {
 	subnetMappings := make([]elbv2model.SubnetMapping, 0, len(subnets))
-	for _, subnet := range subnets {
+	for idx, subnet := range subnets {
 		subnetMappings = append(subnetMappings, elbv2model.SubnetMapping{
 			SubnetID: awssdk.ToString(subnet.SubnetId),
 		})
+		if len(eipAllocation) > 0 {
+			subnetMappings[idx].AllocationID = awssdk.String(eipAllocation[idx])
+		}
 	}
+
 	return subnetMappings
 }
 
@@ -174,12 +228,12 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		return elbv2model.LoadBalancerSpec{}, err
 	}
 
-	// use alb subnetMappings if it is not explicitly specified
-	if subnetMappings == nil {
-		subnetMappings = alb.Spec.SubnetMappings
+	name, err := t.buildFrontendNlbName(ctx, scheme, alb)
+	if err != nil {
+		return elbv2model.LoadBalancerSpec{}, err
 	}
 
-	name, err := t.buildFrontendNlbName(ctx, scheme, alb)
+	tags, err := t.buildFrontendNlbTags(ctx, alb)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -191,6 +245,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		IPAddressType:  alb.Spec.IPAddressType,
 		SecurityGroups: securityGroups,
 		SubnetMappings: subnetMappings,
+		Tags:           tags,
 	}
 
 	return spec, nil
@@ -764,4 +819,39 @@ func mergeHealthCheckField[T comparable](fieldName string, finalValue **T, curre
 		*finalValue = currentValue
 	}
 	return nil
+}
+
+func (t *defaultModelBuildTask) buildFrontendNlbTags(ctx context.Context, alb *elbv2model.LoadBalancer) (map[string]string, error) {
+	// First check for frontend-nlb specific tags
+	var frontendNlbTags map[string]string
+	for _, member := range t.ingGroup.Members {
+		rawFrontendNlbTags := make(map[string]string)
+		exists, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixFrontendNlbTags, &rawFrontendNlbTags, member.Ing.Annotations)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			continue
+		}
+
+		if frontendNlbTags != nil {
+			// If we already found tags from another ingress in the group, they must match
+			if !cmp.Equal(frontendNlbTags, rawFrontendNlbTags) {
+				return nil, errors.Errorf("conflicting frontend NLB tags: %v | %v", frontendNlbTags, rawFrontendNlbTags)
+			}
+		} else {
+			frontendNlbTags = rawFrontendNlbTags
+		}
+	}
+
+	if frontendNlbTags == nil {
+		// If no frontend-nlb specific tags are found, use the ALB tags
+		albTags, err := t.buildLoadBalancerTags(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return albTags, nil
+	}
+
+	return frontendNlbTags, nil
 }

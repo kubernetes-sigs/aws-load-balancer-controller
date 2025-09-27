@@ -40,7 +40,7 @@ const (
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
 	defaultEnableBackendSG                           = true
 	defaultEnableManageBackendSGRules                = false
-	defaultEnableEndpointSlices                      = false
+	defaultEnableEndpointSlices                      = true
 	defaultDisableRestrictedSGRules                  = false
 	defaultLbStabilizationMonitorInterval            = time.Second * 120
 )

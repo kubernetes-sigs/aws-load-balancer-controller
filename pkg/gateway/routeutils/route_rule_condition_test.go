@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -26,6 +27,9 @@ var (
 	regexType     = gwv1.PathMatchRegularExpression
 	grpcExactType = gwv1.GRPCMethodMatchExact
 	grpcRegexType = gwv1.GRPCMethodMatchRegularExpression
+	sourceIP1     = "10.0.0.0/8"
+	sourceIP2     = "192.168.1.0/24"
+	sourceIP3     = "172.16.0.0/12"
 )
 
 func Test_BuildHttpRuleConditions(t *testing.T) {
@@ -764,4 +768,201 @@ func TestGenerateValuesFromMatchHeaderValue(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_BuildSourceIpInCondition(t *testing.T) {
+	matchIndex0 := 0
+	matchIndex1 := 1
+
+	tests := []struct {
+		name               string
+		ruleWithPrecedence RulePrecedence
+		conditionsList     []elbv2model.RuleCondition
+		expected           []elbv2model.RuleCondition
+	}{
+		{
+			name: "rule without listener rule config",
+			ruleWithPrecedence: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Rule: &mockRouteRule{
+						listenerRuleConfig: nil,
+					},
+					MatchIndexInRule: matchIndex0,
+				},
+			},
+			conditionsList: []elbv2model.RuleCondition{},
+			expected:       []elbv2model.RuleCondition{},
+		},
+		{
+			name: "source IP condition without MatchIndexes applies to all",
+			ruleWithPrecedence: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Rule: &mockRouteRule{
+						listenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
+							Spec: elbv2gw.ListenerRuleConfigurationSpec{
+								Conditions: []elbv2gw.ListenerRuleCondition{
+									{
+										Field: elbv2gw.ListenerRuleConditionFieldSourceIP,
+										SourceIPConfig: &elbv2gw.SourceIPConditionConfig{
+											Values: []string{sourceIP1},
+										},
+										MatchIndexes: nil,
+									},
+								},
+							},
+						},
+					},
+					MatchIndexInRule: matchIndex0,
+				},
+			},
+			conditionsList: []elbv2model.RuleCondition{},
+			expected: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionField(elbv2gw.ListenerRuleConditionFieldSourceIP),
+					SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+						Values: []string{sourceIP1},
+					},
+				},
+			},
+		},
+		{
+			name: "source IP condition with matching MatchIndex",
+			ruleWithPrecedence: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Rule: &mockRouteRule{
+						listenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
+							Spec: elbv2gw.ListenerRuleConfigurationSpec{
+								Conditions: []elbv2gw.ListenerRuleCondition{
+									{
+										Field: elbv2gw.ListenerRuleConditionFieldSourceIP,
+										SourceIPConfig: &elbv2gw.SourceIPConditionConfig{
+											Values: []string{sourceIP1},
+										},
+										MatchIndexes: &[]int{matchIndex0},
+									},
+								},
+							},
+						},
+					},
+					MatchIndexInRule: matchIndex0,
+				},
+			},
+			conditionsList: []elbv2model.RuleCondition{},
+			expected: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionField(elbv2gw.ListenerRuleConditionFieldSourceIP),
+					SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+						Values: []string{sourceIP1},
+					},
+				},
+			},
+		},
+		{
+			name: "source IP condition with non-matching MatchIndex",
+			ruleWithPrecedence: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Rule: &mockRouteRule{
+						listenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
+							Spec: elbv2gw.ListenerRuleConfigurationSpec{
+								Conditions: []elbv2gw.ListenerRuleCondition{
+									{
+										Field: elbv2gw.ListenerRuleConditionFieldSourceIP,
+										SourceIPConfig: &elbv2gw.SourceIPConditionConfig{
+											Values: []string{sourceIP1},
+										},
+										MatchIndexes: &[]int{matchIndex1},
+									},
+								},
+							},
+						},
+					},
+					MatchIndexInRule: matchIndex0,
+				},
+			},
+			conditionsList: []elbv2model.RuleCondition{},
+			expected:       []elbv2model.RuleCondition{},
+		},
+		{
+			name: "multiple source IP conditions with different MatchIndexes",
+			ruleWithPrecedence: RulePrecedence{
+				CommonRulePrecedence: CommonRulePrecedence{
+					Rule: &mockRouteRule{
+						listenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
+							Spec: elbv2gw.ListenerRuleConfigurationSpec{
+								Conditions: []elbv2gw.ListenerRuleCondition{
+									{
+										Field: elbv2gw.ListenerRuleConditionFieldSourceIP,
+										SourceIPConfig: &elbv2gw.SourceIPConditionConfig{
+											Values: []string{sourceIP1},
+										},
+										MatchIndexes: &[]int{matchIndex0},
+									},
+									{
+										Field: elbv2gw.ListenerRuleConditionFieldSourceIP,
+										SourceIPConfig: &elbv2gw.SourceIPConditionConfig{
+											Values: []string{sourceIP2},
+										},
+										MatchIndexes: &[]int{matchIndex1},
+									},
+									{
+										Field: elbv2gw.ListenerRuleConditionFieldSourceIP,
+										SourceIPConfig: &elbv2gw.SourceIPConditionConfig{
+											Values: []string{sourceIP3},
+										},
+										MatchIndexes: nil, // Apply to all
+									},
+								},
+							},
+						},
+					},
+					MatchIndexInRule: matchIndex0,
+				},
+			},
+			conditionsList: []elbv2model.RuleCondition{},
+			expected: []elbv2model.RuleCondition{
+				{
+					Field: elbv2model.RuleConditionField(elbv2gw.ListenerRuleConditionFieldSourceIP),
+					SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+						Values: []string{sourceIP1},
+					},
+				},
+				{
+					Field: elbv2model.RuleConditionField(elbv2gw.ListenerRuleConditionFieldSourceIP),
+					SourceIPConfig: &elbv2model.SourceIPConditionConfig{
+						Values: []string{sourceIP3},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := BuildSourceIpInCondition(tt.ruleWithPrecedence, tt.conditionsList)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+type mockRouteRule struct {
+	listenerRuleConfig *elbv2gw.ListenerRuleConfiguration
+}
+
+func (m *mockRouteRule) GetRawRouteRule() interface{} {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockRouteRule) GetSectionName() *gwv1.SectionName {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockRouteRule) GetBackends() []Backend {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleConfiguration {
+	return m.listenerRuleConfig
 }

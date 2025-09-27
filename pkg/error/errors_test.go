@@ -1,4 +1,4 @@
-package runtime
+package ctrlerrors
 
 import (
 	"github.com/stretchr/testify/assert"

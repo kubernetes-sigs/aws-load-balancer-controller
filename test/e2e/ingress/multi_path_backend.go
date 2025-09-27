@@ -238,7 +238,7 @@ func (s *multiPathBackendStack) buildIngressResource(ns *corev1.Namespace, ingID
 		"kubernetes.io/ingress.class":      "alb",
 		"alb.ingress.kubernetes.io/scheme": "internet-facing",
 	}
-	if f.Options.IPFamily == "IPv6" {
+	if f.Options.IPFamily == framework.IPv6 {
 		annotations["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
 	}
 	ing := &networking.Ingress{

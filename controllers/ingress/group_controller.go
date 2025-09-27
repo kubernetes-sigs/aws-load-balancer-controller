@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
@@ -70,7 +70,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger, metricsCollector)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
-		controllerConfig, ingressTagPrefix, logger, metricsCollector, controllerName, targetGroupCollector)
+		controllerConfig, ingressTagPrefix, logger, metricsCollector, controllerName, controllerConfig.FeatureGates.Enabled(config.EnhancedDefaultBehavior), targetGroupCollector)
 	classLoader := ingress.NewDefaultClassLoader(k8sClient, true)
 	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)
 	manageIngressesWithoutIngressClass := controllerConfig.IngressConfig.IngressClass == ""
@@ -141,7 +141,7 @@ func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) 
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "fetch_ingress", loadIngressFn)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "fetch_ingress_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "fetch_ingress_error", err, r.metricsCollector)
 	}
 
 	addFinalizerFn := func() {
@@ -150,7 +150,7 @@ func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) 
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "add_group_finalizer", addFinalizerFn)
 	if err != nil {
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
-		return errmetrics.NewErrorWithMetrics(controllerName, "add_group_finalizer_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "add_group_finalizer_error", err, r.metricsCollector)
 	}
 
 	_, lb, frontendNlb, err := r.buildAndDeployModel(ctx, ingGroup)
@@ -181,7 +181,7 @@ func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) 
 		}
 		r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "dns_resolve_and_update_status", dnsResolveAndUpdateStatus)
 		if statusErr != nil {
-			return errmetrics.NewErrorWithMetrics(controllerName, "dns_resolve_and_update_status_error", statusErr, r.metricsCollector)
+			return ctrlerrors.NewErrorWithMetrics(controllerName, "dns_resolve_and_update_status_error", statusErr, r.metricsCollector)
 		}
 	}
 
@@ -192,7 +192,7 @@ func (r *groupReconciler) reconcile(ctx context.Context, req reconcile.Request) 
 		r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "remove_group_finalizer", removeGroupFinalizerFn)
 		if err != nil {
 			r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove finalizer due to %v", err))
-			return errmetrics.NewErrorWithMetrics(controllerName, "remove_group_finalizer_error", err, r.metricsCollector)
+			return ctrlerrors.NewErrorWithMetrics(controllerName, "remove_group_finalizer_error", err, r.metricsCollector)
 		}
 	}
 
@@ -214,7 +214,7 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "build_model", buildModelFn)
 	if err != nil {
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
-		return nil, nil, nil, errmetrics.NewErrorWithMetrics(controllerName, "build_model_error", err, r.metricsCollector)
+		return nil, nil, nil, ctrlerrors.NewErrorWithMetrics(controllerName, "build_model_error", err, r.metricsCollector)
 	}
 	stackJSON, err := r.stackMarshaller.Marshal(stack)
 	if err != nil {
@@ -228,12 +228,12 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "deploy_model", deployModelFn)
 	if err != nil {
-		var requeueNeededAfter *runtime.RequeueNeededAfter
+		var requeueNeededAfter *ctrlerrors.RequeueNeededAfter
 		if errors.As(err, &requeueNeededAfter) {
 			return nil, nil, nil, err
 		}
 		r.recordIngressGroupEvent(ctx, ingGroup, corev1.EventTypeWarning, k8s.IngressEventReasonFailedDeployModel, fmt.Sprintf("Failed deploy model due to %v", err))
-		return nil, nil, nil, errmetrics.NewErrorWithMetrics(controllerName, "deploy_model_error", err, r.metricsCollector)
+		return nil, nil, nil, ctrlerrors.NewErrorWithMetrics(controllerName, "deploy_model_error", err, r.metricsCollector)
 	}
 	r.logger.Info("successfully deployed model", "ingressGroup", ingGroup.ID)
 	r.secretsManager.MonitorSecrets(ingGroup.ID.String(), secrets)
@@ -243,7 +243,7 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 		inactiveResources = append(inactiveResources, k8s.ToSliceOfNamespacedNames(ingGroup.Members)...)
 	}
 	if err := r.backendSGProvider.Release(ctx, networkingpkg.ResourceTypeIngress, inactiveResources); err != nil {
-		return nil, nil, nil, errmetrics.NewErrorWithMetrics(controllerName, "release_auto_generated_backend_sg_error", err, r.metricsCollector)
+		return nil, nil, nil, ctrlerrors.NewErrorWithMetrics(controllerName, "release_auto_generated_backend_sg_error", err, r.metricsCollector)
 	}
 	return stack, lb, frontendNlb, nil
 }

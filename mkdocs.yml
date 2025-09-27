@@ -14,6 +14,7 @@ nav:
     - Subnet Discovery: deploy/subnet_discovery.md
     - Security Group Management: deploy/security_groups.md
     - Pod Readiness Gate: deploy/pod_readiness_gate.md
+    - Scaling your LBC: deploy/scaling.md
     - Upgrade:
           - Migrate v1 to v2: deploy/upgrade/migrate_v1_v2.md
   - Guide:

@@ -65,6 +65,7 @@ const (
 	IngressSuffixFrontendNlbSubnets                            = "frontend-nlb-subnets"
 	IngressSuffixFrontendNlbSecurityGroups                     = "frontend-nlb-security-groups"
 	IngressSuffixFrontendNlbListenerPortMapping                = "frontend-nlb-listener-port-mapping"
+	IngressSuffixFrontendNlbEipAlloactions                     = "frontend-nlb-eip-allocations"
 	IngressSuffixFrontendNlbHealthCheckPort                    = "frontend-nlb-healthcheck-port"
 	IngressSuffixFrontendNlbHealthCheckProtocol                = "frontend-nlb-healthcheck-protocol"
 	IngressSuffixFrontendNlbHealthCheckPath                    = "frontend-nlb-healthcheck-path"
@@ -73,6 +74,7 @@ const (
 	IngressSuffixFrontendNlbHealthCheckHealthyThresholdCount   = "frontend-nlb-healthcheck-healthy-threshold-count"
 	IngressSuffixFrontendNlHealthCheckbUnhealthyThresholdCount = "frontend-nlb-healthcheck-unhealthy-threshold-count"
 	IngressSuffixFrontendNlbHealthCheckSuccessCodes            = "frontend-nlb-healthcheck-success-codes"
+	IngressSuffixFrontendNlbTags                               = "frontend-nlb-tags"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io

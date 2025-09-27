@@ -376,6 +376,7 @@ controllerConfig:
   # ALBSingleSubnet: false
   # LBCapacityReservation: true
   # SubnetDiscoveryByReachability: true   # auto-discover subnet public/private via route tables
+  # EnhancedDefaultBehavior: false
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope

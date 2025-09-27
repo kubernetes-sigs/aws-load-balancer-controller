@@ -167,11 +167,6 @@ spec:
                             name:
                               description: Name is name of the secret
                               type: string
-                            namespace:
-                              description: Namespace is namespace of secret. If empty
-                                it will be considered to be in same namespace as of
-                                the resource referring it
-                              type: string
                           required:
                           - name
                           type: object
@@ -186,7 +181,7 @@ spec:
                           description: |-
                             The maximum duration of the authentication session, in seconds. The default is
                             604800 seconds (7 days).
-                          format: int32
+                          format: int64
                           maximum: 604800
                           minimum: 1
                           type: integer
@@ -330,6 +325,13 @@ spec:
                       enum:
                       - source-ip
                       type: string
+                    matchIndexes:
+                      description: |-
+                        Indexes of Match in a rule to apply source ip to
+                        If MatchIndexes is not provided, SourceIpConfig will be applied to all conditions where ListenerRuleConfiguration is used
+                      items:
+                        type: integer
+                      type: array
                     sourceIPConfig:
                       description: Information for a source IP condition
                       properties:
@@ -378,6 +380,13 @@ spec:
             description: ListenerRuleConfigurationStatus defines the observed state
               of ListenerRuleConfiguration
             properties:
+              accepted:
+                description: Accepted indicates whether ListenerRuleConfiguration
+                  is valid
+                type: boolean
+              message:
+                description: Message provides details about the current state
+                type: string
               observedGeneration:
                 description: The observed generation of the rule configuration
                 format: int64

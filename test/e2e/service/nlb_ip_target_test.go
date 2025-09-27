@@ -4,6 +4,7 @@ import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	"time"
 
@@ -83,7 +84,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 				"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
 				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
 			}
 			svc = &corev1.Service{
@@ -323,7 +324,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 				"service.beta.kubernetes.io/aws-load-balancer-scheme":   "internet-facing",
 				"service.beta.kubernetes.io/aws-load-balancer-ssl-cert": tf.Options.CertificateARNs,
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
 			}
 			svc = &corev1.Service{
@@ -499,7 +500,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 				"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
 				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
 			}
-			if tf.Options.IPFamily == "IPv6" {
+			if tf.Options.IPFamily == framework.IPv6 {
 				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
 			}
 			svc = &corev1.Service{

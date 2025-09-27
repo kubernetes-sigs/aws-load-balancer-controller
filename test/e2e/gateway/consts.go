@@ -3,6 +3,7 @@ package gateway
 import (
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -264,3 +265,57 @@ var httpRouteRuleWithMatchesAndTargetGroupWeights = []gwv1.HTTPRouteRule{
 		},
 	},
 }
+
+var httpRouteRuleWithMultiMatchesInSingleRule = []gwv1.HTTPRouteRule{
+	{
+		BackendRefs: DefaultHttpRouteRuleBackendRefs,
+		Matches: []gwv1.HTTPRouteMatch{
+			// matchIndex = 0
+			{
+				Path: &gwv1.HTTPPathMatch{
+					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchExact}[0],
+					Value: awssdk.String(testPathString),
+				},
+			},
+			// matchIndex = 1
+			{
+				Path: &gwv1.HTTPPathMatch{
+					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchPathPrefix}[0],
+					Value: awssdk.String(testPathString),
+				},
+				Method: &[]gwv1.HTTPMethod{gwv1.HTTPMethodGet}[0],
+			},
+			// matchIndex = 2
+			{
+				Path: &gwv1.HTTPPathMatch{
+					Type:  &[]gwv1.PathMatchType{gwv1.PathMatchPathPrefix}[0],
+					Value: awssdk.String(testPathString),
+				},
+				Headers: []gwv1.HTTPHeaderMatch{
+					{
+						Name:  testHttpHeaderNameOne,
+						Value: testHttpHeaderValueOne,
+					},
+				},
+			},
+		},
+		Filters: []gwv1.HTTPRouteFilter{
+			{
+				Type: gwv1.HTTPRouteFilterExtensionRef,
+				ExtensionRef: &gwv1.LocalObjectReference{
+					Name:  defaultLRConfigName,
+					Kind:  constants.ListenerRuleConfiguration,
+					Group: constants.ControllerCRDGroupVersion,
+				},
+			},
+		},
+	},
+}
+
+const (
+	// Mock OIDC provider endpoints for testing
+	testOidcIssuer                = "https://test-oidc-provider.example.com"
+	testOidcAuthorizationEndpoint = "https://test-oidc-provider.example.com/oauth2/authorize"
+	testOidcTokenEndpoint         = "https://test-oidc-provider.example.com/oauth2/token"
+	testOidcUserInfoEndpoint      = "https://test-oidc-provider.example.com/oauth2/userinfo"
+)

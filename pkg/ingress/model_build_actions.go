@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 	"unicode"
 )
@@ -178,15 +179,15 @@ func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context,
 	if err := t.k8sClient.Get(ctx, secretKey, secret); err != nil {
 		return elbv2model.Action{}, err
 	}
-	rawClientID, ok := secret.Data["clientID"]
+	rawClientID, ok := secret.Data[shared_constants.OIDCSecretKeyClientID]
 	// AWSALBIngressController looks for clientId, we should be backwards-compatible here.
 	if !ok {
-		rawClientID, ok = secret.Data["clientId"]
+		rawClientID, ok = secret.Data[shared_constants.OIDCSecretKeyClientIDLegacy]
 	}
 	if !ok {
 		return elbv2model.Action{}, errors.Errorf("missing clientID, secret: %v", secretKey)
 	}
-	rawClientSecret, ok := secret.Data["clientSecret"]
+	rawClientSecret, ok := secret.Data[shared_constants.OIDCSecretKeyClientSecret]
 	if !ok {
 		return elbv2model.Action{}, errors.Errorf("missing clientSecret, secret: %v", secretKey)
 	}

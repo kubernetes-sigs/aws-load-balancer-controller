@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"errors"
-	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sort"
 	"strconv"
 	"testing"
+
+	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -49,6 +50,101 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			},
 		},
 		{
+			testName: "port-specific attributes with empty values",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes":      "deregistration_delay.timeout_seconds=80",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "deregistration_delay.timeout_seconds=",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+				{
+					Key:   "deregistration_delay.timeout_seconds",
+					Value: "80",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "multiple port-specific attributes",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes":      "slow_start.duration_seconds=30",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "deregistration_delay.timeout_seconds=120, stickiness.enabled=true",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   "deregistration_delay.timeout_seconds",
+					Value: "120",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+				{
+					Key:   "slow_start.duration_seconds",
+					Value: "30",
+				},
+				{
+					Key:   "stickiness.enabled",
+					Value: "true",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "port-specific override with proxy protocol",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes":      "proxy_protocol_v2.enabled=true",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "proxy_protocol_v2.enabled=false",
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol":               "*",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "true",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "invalid port-specific attribute value",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes":      "target.group-attr-1=80",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "preserve_client_ip.enabled=invalid",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantError: true,
+		},
+		{
 			testName: "Proxy V2 enabled",
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -81,26 +177,55 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			svc: &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
-						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "target.group-attr-1=80, t2.enabled=false, preserve_client_ip.enabled=true",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes": "deregistration_delay.timeout_seconds=80, stickiness.enabled=false, preserve_client_ip.enabled=true",
 					},
 				},
 			},
 			wantValue: []elbv2.TargetGroupAttribute{
 				{
-					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
-					Value: "false",
+					Key:   "deregistration_delay.timeout_seconds",
+					Value: "80",
 				},
 				{
 					Key:   shared_constants.TGAttributePreserveClientIPEnabled,
 					Value: "true",
 				},
 				{
-					Key:   "target.group-attr-1",
-					Value: "80",
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
 				},
 				{
-					Key:   "t2.enabled",
+					Key:   "stickiness.enabled",
 					Value: "false",
+				},
+			},
+			wantError: false,
+		},
+		{
+			testName: "target group port-specific attributes",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes":      "target.group-attr-1=80, proxy_protocol_v2.client_to_server.header_placement=on_first_ack_withpayload",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "proxy_protocol_v2.client_to_server.header_placement=on_first_ack",
+					},
+				},
+			},
+			port: corev1.ServicePort{
+				Port: 3306,
+			},
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   "proxy_protocol_v2.client_to_server.header_placement",
+					Value: "on_first_ack",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+				{
+					Key:   "target.group-attr-1",
+					Value: "80",
 				},
 			},
 			wantError: false,
@@ -175,6 +300,76 @@ func Test_defaultModelBuilderTask_targetGroupAttrs(t *testing.T) {
 			port:      corev1.ServicePort{Port: 80},
 			wantError: false,
 			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "true",
+				},
+			},
+		},
+		{
+			testName: "multiple ports with different attributes",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes":      "deregistration_delay.timeout_seconds=60",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.80":   "deregistration_delay.timeout_seconds=30",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "deregistration_delay.timeout_seconds=120",
+					},
+				},
+			},
+			port:      corev1.ServicePort{Port: 3306},
+			wantError: false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   "deregistration_delay.timeout_seconds",
+					Value: "120",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+			},
+		},
+		{
+			testName: "empty port-specific attributes string",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes":      "deregistration_delay.timeout_seconds=60",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306": "",
+					},
+				},
+			},
+			port:      corev1.ServicePort{Port: 3306},
+			wantError: false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   "deregistration_delay.timeout_seconds",
+					Value: "60",
+				},
+				{
+					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
+					Value: "false",
+				},
+			},
+		},
+		{
+			testName: "proxy protocol per target group with port-specific attributes",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group": "80,3306",
+						"service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306":    "deregistration_delay.timeout_seconds=120",
+					},
+				},
+			},
+			port:      corev1.ServicePort{Port: 3306},
+			wantError: false,
+			wantValue: []elbv2.TargetGroupAttribute{
+				{
+					Key:   "deregistration_delay.timeout_seconds",
+					Value: "120",
+				},
 				{
 					Key:   shared_constants.TGAttributeProxyProtocolV2Enabled,
 					Value: "true",

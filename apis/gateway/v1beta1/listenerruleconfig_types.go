@@ -50,6 +50,11 @@ type ListenerRuleCondition struct {
 	// Information for a source IP condition
 	// +optional
 	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig,omitempty"`
+
+	// Indexes of Match in a rule to apply source ip to
+	// If MatchIndexes is not provided, SourceIpConfig will be applied to all conditions where ListenerRuleConfiguration is used
+	// +optional
+	MatchIndexes *[]int `json:"matchIndexes,omitempty"`
 }
 
 // ActionType defines the type of action for the rule
@@ -116,12 +121,10 @@ type FixedResponseActionConfig struct {
 	MessageBody *string `json:"messageBody,omitempty"`
 }
 
-// Secret holds OAuth 2.0 clientID and clientSecret. You need to create this secret and provide its name and namespace
+// Secret holds OAuth 2.0 clientID and clientSecret. You need to create this secret and provide its name
 type Secret struct {
 	// Name is name of the secret
 	Name string `json:"name"`
-	// Namespace is namespace of secret. If empty it will be considered to be in same namespace as of the resource referring it
-	Namespace *string `json:"namespace,omitempty"`
 }
 
 // Information about an authenticate-cognito action
@@ -220,7 +223,7 @@ type AuthenticateOidcActionConfig struct {
 	// +kubebuilder:default=604800
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=604800
-	SessionTimeout *int32 `json:"sessionTimeout,omitempty"`
+	SessionTimeout *int64 `json:"sessionTimeout,omitempty"`
 
 	// Indicates whether to use the existing client secret when modifying a listener rule. If
 	// you are creating a listener rule, you can omit this parameter or set it to false.
@@ -294,10 +297,17 @@ type ListenerRuleConfigurationSpec struct {
 
 // ListenerRuleConfigurationStatus defines the observed state of ListenerRuleConfiguration
 type ListenerRuleConfigurationStatus struct {
-
 	// The observed generation of the rule configuration
 	// +optional
 	ObservedGeneration *int64 `json:"observedGeneration,omitempty"`
+
+	// Accepted indicates whether ListenerRuleConfiguration is valid
+	// +optional
+	Accepted *bool `json:"accepted,omitempty"`
+
+	// Message provides details about the current state
+	// +optional
+	Message *string `json:"message,omitempty"`
 }
 
 // +kubebuilder:object:root=true

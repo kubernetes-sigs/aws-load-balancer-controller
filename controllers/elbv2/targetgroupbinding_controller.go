@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
@@ -131,7 +131,7 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "add_finalizers", finalizerFn)
 	if err != nil {
 		r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
-		return errmetrics.NewErrorWithMetrics(controllerName, "add_finalizers_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "add_finalizers_error", err, r.metricsCollector)
 	}
 
 	var deferred bool
@@ -140,7 +140,7 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "reconcile_targetgroupbinding", tgbResourceFn)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "reconcile_targetgroupbinding_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "reconcile_targetgroupbinding_error", err, r.metricsCollector)
 	}
 
 	if deferred {
@@ -155,7 +155,7 @@ func (r *targetGroupBindingReconciler) reconcileTargetGroupBinding(ctx context.C
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "update_status", updateTargetGroupBindingStatusFn)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "update_status_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "update_status_error", err, r.metricsCollector)
 	}
 
 	r.eventRecorder.Event(tgb, corev1.EventTypeNormal, k8s.TargetGroupBindingEventReasonSuccessfullyReconciled, "Successfully reconciled")

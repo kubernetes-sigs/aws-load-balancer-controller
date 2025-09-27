@@ -339,6 +339,16 @@ func listenerRuleConfigLoader(ctx context.Context, k8sClient client.Client, rout
 
 		return nil, nil, errors.Wrapf(err, "Unable to load listener rule config [%v] for route [%v]", listenerRuleCfgId.String(), routeIdentifier.String())
 	}
+	// Check if LRC is accepted
+	if listenerRuleCfg.Status.Accepted == nil || !*listenerRuleCfg.Status.Accepted {
+		message := "status unknown"
+		if listenerRuleCfg.Status.Message != nil {
+			message = *listenerRuleCfg.Status.Message
+		}
+		initialErrorMessage := fmt.Sprintf("ListenerRuleConfiguration [%v] is not accepted. Reason:  %s)", listenerRuleCfgId.String(), message)
+		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
+		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonIncompatibleFilters, &wrappedGatewayErrorMessage, nil), nil
+	}
 	return listenerRuleCfg, nil, nil
 }
 

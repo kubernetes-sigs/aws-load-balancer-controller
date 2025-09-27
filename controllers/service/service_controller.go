@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	metricsutil "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/util"
@@ -55,7 +55,7 @@ func NewServiceReconciler(cloud services.Cloud, k8sClient client.Client, eventRe
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), serviceUtils,
 		backendSGProvider, sgResolver, controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, logger, metricsCollector, controllerConfig.FeatureGates.Enabled(config.EnableTCPUDPListenerType))
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
-	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, serviceTagPrefix, logger, metricsCollector, controllerName, targetGroupCollector)
+	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager, controllerConfig, serviceTagPrefix, logger, metricsCollector, controllerName, controllerConfig.FeatureGates.Enabled(config.EnhancedDefaultBehavior), targetGroupCollector)
 	return &serviceReconciler{
 		k8sClient:         k8sClient,
 		eventRecorder:     eventRecorder,
@@ -123,7 +123,7 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req reconcile.Request
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "build_model", buildModelFn)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "build_model_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_model_error", err, r.metricsCollector)
 	}
 
 	if lb == nil {
@@ -132,7 +132,7 @@ func (r *serviceReconciler) reconcile(ctx context.Context, req reconcile.Request
 		}
 		r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "cleanup_load_balancer", cleanupLoadBalancerFn)
 		if err != nil {
-			return errmetrics.NewErrorWithMetrics(controllerName, "cleanup_load_balancer_error", err, r.metricsCollector)
+			return ctrlerrors.NewErrorWithMetrics(controllerName, "cleanup_load_balancer_error", err, r.metricsCollector)
 		}
 	}
 	return r.reconcileLoadBalancerResources(ctx, svc, stack, lb, backendSGRequired)
@@ -155,7 +155,7 @@ func (r *serviceReconciler) buildModel(ctx context.Context, svc *corev1.Service)
 
 func (r *serviceReconciler) deployModel(ctx context.Context, svc *corev1.Service, stack core.Stack) error {
 	if err := r.stackDeployer.Deploy(ctx, stack, r.metricsCollector, "service", nil); err != nil {
-		var requeueNeededAfter *runtime.RequeueNeededAfter
+		var requeueNeededAfter *ctrlerrors.RequeueNeededAfter
 		if errors.As(err, &requeueNeededAfter) {
 			return err
 		}
@@ -177,7 +177,7 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "add_finalizers", addFinalizersFn)
 	if err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add finalizer due to %v", err))
-		return errmetrics.NewErrorWithMetrics(controllerName, "add_finalizers_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "add_finalizers_error", err, r.metricsCollector)
 	}
 
 	deployModelFn := func() {
@@ -185,7 +185,7 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "deploy_model", deployModelFn)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "deploy_model_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "deploy_model_error", err, r.metricsCollector)
 	}
 
 	var lbDNS string
@@ -194,12 +194,12 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "DNS_resolve", dnsResolveFn)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "dns_resolve_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "dns_resolve_error", err, r.metricsCollector)
 	}
 
 	if !backendSGRequired {
 		if err := r.backendSGProvider.Release(ctx, networking.ResourceTypeService, []types.NamespacedName{k8s.NamespacedName(svc)}); err != nil {
-			return errmetrics.NewErrorWithMetrics(controllerName, "release_auto_generated_backend_sg_error", err, r.metricsCollector)
+			return ctrlerrors.NewErrorWithMetrics(controllerName, "release_auto_generated_backend_sg_error", err, r.metricsCollector)
 		}
 	}
 
@@ -209,7 +209,7 @@ func (r *serviceReconciler) reconcileLoadBalancerResources(ctx context.Context, 
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "update_status", updateStatusFn)
 	if err != nil {
 		r.eventRecorder.Event(svc, corev1.EventTypeWarning, k8s.ServiceEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
-		return errmetrics.NewErrorWithMetrics(controllerName, "update_status_error", err, r.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "update_status_error", err, r.metricsCollector)
 	}
 	r.eventRecorder.Event(svc, corev1.EventTypeNormal, k8s.ServiceEventReasonSuccessfullyReconciled, "Successfully reconciled")
 	return nil

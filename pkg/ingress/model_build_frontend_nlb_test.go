@@ -63,6 +63,7 @@ func Test_defaultModelBuildTask_buildFrontendNlbSecurityGroups(t *testing.T) {
 				},
 				scheme: elbv2.LoadBalancerSchemeInternal,
 			},
+			wantErr: "called ListLoadBalancers()",
 		},
 		{
 			name: "with annotations",
@@ -151,11 +152,42 @@ func Test_defaultModelBuildTask_buildFrontendNlbSecurityGroups(t *testing.T) {
 			}
 			sgResolver := networkingpkg.NewDefaultSecurityGroupResolver(mockEC2, vpcID)
 
+			// Set up mock subnet discovery to avoid subnet resolution errors
+			mockEC2.EXPECT().DescribeSubnetsAsList(gomock.Any(), gomock.Any()).Return([]ec2types.Subnet{
+				{
+					SubnetId: awssdk.String("subnet-1"),
+					VpcId:    awssdk.String(vpcID),
+					State:    ec2types.SubnetStateAvailable,
+				},
+			}, nil).AnyTimes()
+
+			azInfoProvider := networking2.NewMockAZInfoProvider(ctrl)
+			azInfoProvider.EXPECT().FetchAZInfos(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2types.AvailabilityZone, error) {
+					ret := make(map[string]ec2types.AvailabilityZone, len(availabilityZoneIDs))
+					for _, id := range availabilityZoneIDs {
+						ret[id] = ec2types.AvailabilityZone{ZoneType: awssdk.String("availability-zone")}
+					}
+					return ret, nil
+				}).AnyTimes()
+
+			subnetsResolver := networking2.NewDefaultSubnetsResolver(
+				azInfoProvider,
+				mockEC2,
+				vpcID,
+				"test-cluster",
+				true,
+				true,
+				true,
+				logr.New(&log.NullLogSink{}),
+			)
+
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			task := &defaultModelBuildTask{
 				sgResolver:       sgResolver,
 				ingGroup:         tt.fields.ingGroup,
 				annotationParser: annotationParser,
+				subnetsResolver:  subnetsResolver,
 			}
 
 			got, err := task.buildFrontendNlbSecurityGroups(context.Background())
@@ -181,37 +213,42 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 		scheme   elbv2.LoadBalancerScheme
 	}
 
+	type expectedMapping struct {
+		SubnetID     string
+		AllocationID *string
+	}
+
 	tests := []struct {
-		name    string
-		fields  fields
-		want    []string
-		wantErr string
+		name         string
+		fields       fields
+		wantMappings []expectedMapping
+		wantErr      string
 	}{
 		{
-			name: "no annotation implicit subnets",
+			name: "no annotation implicit subnet",
 			fields: fields{
 				ingGroup: Group{
-					ID: GroupID{
-						Namespace: "awesome-ns",
-						Name:      "my-ingress",
-					},
+					ID: GroupID{Namespace: "awesome-ns", Name: "my-ingress"},
 					Members: []ClassifiedIngress{
 						{
 							Ing: &networking.Ingress{
 								ObjectMeta: metav1.ObjectMeta{
-									Namespace:   "awesome-ns",
-									Name:        "ing-1",
-									Annotations: map[string]string{},
+									Namespace: "awesome-ns",
+									Name:      "ing-1",
 								},
 							},
 						},
 					},
 				},
-				scheme: elbv2.LoadBalancerSchemeInternal,
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantMappings: []expectedMapping{
+				{SubnetID: "subnet-1", AllocationID: nil},
+				{SubnetID: "subnet-2", AllocationID: nil},
 			},
 		},
 		{
-			name: "with subnets annoattion",
+			name: "with subnets annotation",
 			fields: fields{
 				ingGroup: Group{
 					ID: GroupID{
@@ -234,58 +271,166 @@ func Test_buildFrontendNlbSubnetMappings(t *testing.T) {
 				},
 				scheme: elbv2.LoadBalancerSchemeInternal,
 			},
-			want: []string{"subnet-1", "subnet-2"},
+			wantMappings: []expectedMapping{
+				{SubnetID: "subnet-1", AllocationID: nil},
+				{SubnetID: "subnet-2", AllocationID: nil},
+			},
+		},
+		{
+			name: "with subnets and eip allocations",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-3",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":         "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-1,eip-2",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantMappings: []expectedMapping{
+				{SubnetID: "subnet-1", AllocationID: awssdk.String("eip-1")},
+				{SubnetID: "subnet-2", AllocationID: awssdk.String("eip-2")},
+			},
+		},
+		{
+			name: "error when number of subnets does not match number of EIPs",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-4",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":         "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-1",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantMappings: nil,
+			wantErr:      "count of EIP allocations (1) and subnets (2) must match",
+		},
+		{
+			name: "error when EIP allocations are specified but scheme is internal",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-5",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-subnets":         "subnet-1,subnet-2",
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-1,eip-2",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternal,
+			},
+			wantMappings: nil,
+			wantErr:      "EIP allocations can only be set for internet facing load balancers",
+		},
+		{
+			name: "EIPs still attached when subnet IDs are not specified",
+			fields: fields{
+				ingGroup: Group{
+					ID: GroupID{
+						Namespace: "awesome-ns",
+						Name:      "my-ingress",
+					},
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "ing-6",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/frontend-nlb-eip-allocations": "eip-10,eip-20",
+									},
+								},
+							},
+						},
+					},
+				},
+				scheme: elbv2.LoadBalancerSchemeInternetFacing,
+			},
+			wantMappings: []expectedMapping{
+				{SubnetID: "subnet-1", AllocationID: awssdk.String("eip-10")},
+				{SubnetID: "subnet-2", AllocationID: awssdk.String("eip-20")},
+			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			mockEC2 := services.NewMockEC2(ctrl)
-			mockEC2.EXPECT().DescribeSubnetsAsList(gomock.Any(), gomock.Any()).
-				DoAndReturn(stubDescribeSubnetsAsList).
-				AnyTimes()
+			// Create a mock subnets resolver instead of mocking EC2 calls
+			mockSubnetsResolver := networking2.NewMockSubnetsResolver(ctrl)
 
-			azInfoProvider := networking2.NewMockAZInfoProvider(ctrl)
-			azInfoProvider.EXPECT().FetchAZInfos(gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, availabilityZoneIDs []string) (map[string]ec2types.AvailabilityZone, error) {
-					ret := make(map[string]ec2types.AvailabilityZone, len(availabilityZoneIDs))
-					for _, id := range availabilityZoneIDs {
-						ret[id] = ec2types.AvailabilityZone{ZoneType: awssdk.String("availability-zone")}
-					}
-					return ret, nil
-				}).AnyTimes()
-
-			subnetsResolver := networking2.NewDefaultSubnetsResolver(
-				azInfoProvider,
-				mockEC2,
-				"vpc-1",
-				"test-cluster",
-				true,
-				true,
-				true,
-				logr.New(&log.NullLogSink{}),
-			)
+			mockSubnetsResolver.EXPECT().ResolveViaDiscovery(gomock.Any(), gomock.Any()).
+				Return([]ec2types.Subnet{
+					{SubnetId: awssdk.String("subnet-1")},
+					{SubnetId: awssdk.String("subnet-2")},
+				}, nil).AnyTimes()
+			mockSubnetsResolver.EXPECT().ResolveViaNameOrIDSlice(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return([]ec2types.Subnet{
+					{SubnetId: awssdk.String("subnet-1")},
+					{SubnetId: awssdk.String("subnet-2")},
+				}, nil).AnyTimes()
 
 			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
 			task := &defaultModelBuildTask{
 				ingGroup:         tt.fields.ingGroup,
 				annotationParser: annotationParser,
-				subnetsResolver:  subnetsResolver,
+				subnetsResolver:  mockSubnetsResolver,
 			}
 			got, err := task.buildFrontendNlbSubnetMappings(context.Background(), tt.fields.scheme)
 
 			if err != nil {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {
-
-				var gotSubnets []string
+				// Convert actual mappings to expected format for comparison
+				var gotMappings []expectedMapping
 				for _, mapping := range got {
-					gotSubnets = append(gotSubnets, mapping.SubnetID)
+					gotMappings = append(gotMappings, expectedMapping{
+						SubnetID:     mapping.SubnetID,
+						AllocationID: mapping.AllocationID,
+					})
 				}
-				assert.Equal(t, tt.want, gotSubnets)
+				assert.Equal(t, tt.wantMappings, gotMappings)
 			}
 		})
 	}
@@ -658,6 +803,207 @@ func Test_buildEnableFrontendNlbViaAnnotation(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantEnabled, got)
+		})
+	}
+}
+
+func Test_buildFrontendNlbTags(t *testing.T) {
+	tests := []struct {
+		name        string
+		ingGroup    Group
+		defaultTags map[string]string
+		wantTags    map[string]string
+		wantErr     bool
+		errMsg      string
+	}{
+		{
+			name: "no tags specified",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace:   "test-ns",
+								Name:        "ing-1",
+								Annotations: map[string]string{},
+							},
+						},
+					},
+				},
+			},
+			defaultTags: nil,
+			wantTags:    make(map[string]string), // Expect an empty map, not nil
+			wantErr:     false,
+		},
+		{
+			name: "frontend-nlb-specific tags",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value1,key2=value2",
+								},
+							},
+						},
+					},
+				},
+			},
+			defaultTags: map[string]string{
+				"default": "value",
+			},
+			wantTags: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			wantErr: false,
+		},
+		{
+			name: "ALB tags propagation when no frontend-nlb-tags",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/tags": "key1=value1,key2=value2",
+								},
+							},
+						},
+					},
+				},
+			},
+			defaultTags: nil,
+			wantTags: map[string]string{
+				"key1": "value1",
+				"key2": "value2",
+			},
+			wantErr: false,
+		},
+		{
+			name: "frontend-nlb-tags take precedence over ALB tags",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "nlb-key=nlb-value",
+									"alb.ingress.kubernetes.io/tags":              "alb-key=alb-value",
+								},
+							},
+						},
+					},
+				},
+			},
+			defaultTags: map[string]string{
+				"default": "value",
+			},
+			wantTags: map[string]string{
+				"nlb-key": "nlb-value",
+			},
+			wantErr: false,
+		},
+		{
+			name: "conflicting frontend-nlb-tags",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value1",
+								},
+							},
+						},
+					},
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-2",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value2",
+								},
+							},
+						},
+					},
+				},
+			},
+			defaultTags: nil,
+			wantTags:    nil,
+			wantErr:     true,
+			errMsg:      "conflicting frontend NLB tags",
+		},
+		{
+			name: "consistent frontend-nlb-tags across ingresses",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-1",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value1",
+								},
+							},
+						},
+					},
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Namespace: "test-ns",
+								Name:      "ing-2",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/frontend-nlb-tags": "key1=value1",
+								},
+							},
+						},
+					},
+				},
+			},
+			defaultTags: nil,
+			wantTags: map[string]string{
+				"key1": "value1",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a mock task that embeds defaultModelBuildTask and overrides buildLoadBalancerTags
+			task := &defaultModelBuildTask{
+				ingGroup:         tt.ingGroup,
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				// Default implementation will return an empty map when no tags are specified
+				defaultTags: tt.defaultTags,
+			}
+
+			got, err := task.buildFrontendNlbTags(context.Background(), nil)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantTags, got)
+				if got == nil {
+					t.Error("got nil map, expected non-nil map")
+				}
+			}
 		})
 	}
 }
