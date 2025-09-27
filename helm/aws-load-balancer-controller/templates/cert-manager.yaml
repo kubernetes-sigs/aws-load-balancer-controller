@@ -1,0 +1,44 @@
+{{- if and .Values.enableCertManager (not .Values.certManager.issuerRef) -}}
+# Create a selfsigned Issuer, in order to create a root CA certificate for
+# signing webhook serving certificates
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+# Generate a CA Certificate used to sign certificates for the webhook
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ template "aws-load-balancer-controller.namePrefix" . }}-root-cert
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+spec:
+  secretName: {{ template "aws-load-balancer-controller.namePrefix" . }}-root-cert
+  duration: {{ .Values.certManager.rootCert.duration | default "43800h0m0s" | quote }}
+  issuerRef:
+    name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
+  commonName: "ca.webhook.aws-load-balancer-controller"
+  isCA: true
+  subject:
+    organizations:
+      - aws-load-balancer-controller
+---
+# Create an Issuer that uses the above generated CA certificate to issue certs
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ template "aws-load-balancer-controller.namePrefix" . }}-root-issuer
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
+spec:
+  ca:
+    secretName: {{ template "aws-load-balancer-controller.namePrefix" . }}-root-cert
+{{- end -}}
