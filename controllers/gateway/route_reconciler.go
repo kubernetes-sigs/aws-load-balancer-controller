@@ -3,6 +3,9 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,8 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"strconv"
-	"time"
 )
 
 // This route reconciler is currently used for route status update
@@ -261,7 +262,7 @@ func (d *routeReconcilerImpl) setConditionsWithRouteStatusInfo(route client.Obje
 			{
 				Type:               string(gwv1.RouteConditionResolvedRefs),
 				Status:             metav1.ConditionTrue,
-				Reason:             string(gwv1.RouteReasonAccepted),
+				Reason:             string(gwv1.RouteReasonResolvedRefs),
 				LastTransitionTime: timeNow,
 				ObservedGeneration: route.GetGeneration(),
 			},

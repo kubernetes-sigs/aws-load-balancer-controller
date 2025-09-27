@@ -2,15 +2,17 @@ package routeutils
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
-	"time"
 )
 
 type mockMapper struct {
@@ -299,14 +301,14 @@ func TestLoadRoutesForGateway(t *testing.T) {
 			result, err := loader.LoadRoutesForGateway(context.Background(), gwv1.Gateway{ObjectMeta: v1.ObjectMeta{
 				Name:      "gw",
 				Namespace: "gw-ns",
-			}}, filter)
+			}}, filter, gateway_constants.ALBGatewayController)
 			if tc.expectError {
 				assert.Error(t, err)
 				return
 			}
 
 			assert.NoError(t, err)
-			assert.Equal(t, tc.expectedMap, result)
+			assert.Equal(t, tc.expectedMap, result.Routes)
 			assert.Equal(t, len(tc.expectedReconcileQueue), len(routeReconciler.Enqueued))
 
 			for _, actual := range routeReconciler.Enqueued {
