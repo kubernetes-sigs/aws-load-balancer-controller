@@ -6,22 +6,34 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/equality"
+	"sort"
 )
 
 func CompareOptionForTargetGroupTuples() cmp.Option {
 	return cmp.Options{
 		cmpopts.IgnoreUnexported(elbv2types.TargetGroupTuple{}),
-		cmpopts.AcyclicTransformer("normalizeWeights", func(tgt []elbv2types.TargetGroupTuple) []elbv2types.TargetGroupTuple {
-			if len(tgt) != 1 {
+		cmpopts.AcyclicTransformer("sortAndNormalize", func(tgt []elbv2types.TargetGroupTuple) []elbv2types.TargetGroupTuple {
+			// Handle empty slice
+			if len(tgt) == 0 {
 				return tgt
 			}
-			singleTG := tgt[0]
-			return []elbv2types.TargetGroupTuple{
-				{
-					TargetGroupArn: singleTG.TargetGroupArn,
-					Weight:         nil,
-				},
+
+			// Sort by ARN for consistent ordering (for all cases)
+			result := make([]elbv2types.TargetGroupTuple, len(tgt))
+			copy(result, tgt)
+
+			sort.Slice(result, func(i, j int) bool {
+				arnI := awssdk.ToString(result[i].TargetGroupArn)
+				arnJ := awssdk.ToString(result[j].TargetGroupArn)
+				return arnI < arnJ
+			})
+
+			// Normalize weights (only for single target groups)
+			if len(result) == 1 {
+				result[0].Weight = nil
 			}
+
+			return result
 		}),
 	}
 }

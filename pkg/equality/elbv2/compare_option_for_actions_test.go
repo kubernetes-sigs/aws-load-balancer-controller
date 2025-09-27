@@ -554,10 +554,706 @@ func TestCompareOptionForAction(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "actions with weighted target groups equal regardless of order",
+			args: args{
+				lhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(60),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(40),
+							},
+						},
+					},
+				},
+				rhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(40),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(60),
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "actions with weighted target groups not equal when weights differ",
+			args: args{
+				lhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(60),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(40),
+							},
+						},
+					},
+				},
+				rhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(30),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(70),
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "actions with three weighted target groups equal regardless of order",
+			args: args{
+				lhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(50),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(30),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-c"),
+								Weight:         awssdk.Int32(20),
+							},
+						},
+					},
+				},
+				rhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-c"),
+								Weight:         awssdk.Int32(20),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(50),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(30),
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "actions with mixed zero and non-zero weights equal regardless of order",
+			args: args{
+				lhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(80),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(20),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-c"),
+								Weight:         awssdk.Int32(0),
+							},
+						},
+					},
+					Order: awssdk.Int32(1),
+				},
+				rhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-c"),
+								Weight:         awssdk.Int32(0),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(20),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(80),
+							},
+						},
+					},
+					Order:          awssdk.Int32(2),       // Different order should be ignored
+					TargetGroupArn: awssdk.String("tg-a"), // Should be ignored
+				},
+			},
+			want: true,
+		},
+		{
+			name: "actions with three target groups on lhs not equal to two target groups on rhs",
+			args: args{
+				lhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(50),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(30),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-c"),
+								Weight:         awssdk.Int32(20),
+							},
+						},
+					},
+				},
+				rhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(70),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(30),
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "actions with two target groups on lhs not equal to three target groups on rhs",
+			args: args{
+				lhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(60),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(40),
+							},
+						},
+					},
+				},
+				rhs: elbv2types.Action{
+					Type: elbv2types.ActionTypeEnum("forward"),
+					ForwardConfig: &elbv2types.ForwardActionConfig{
+						TargetGroups: []elbv2types.TargetGroupTuple{
+							{
+								TargetGroupArn: awssdk.String("tg-a"),
+								Weight:         awssdk.Int32(40),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-b"),
+								Weight:         awssdk.Int32(30),
+							},
+							{
+								TargetGroupArn: awssdk.String("tg-c"),
+								Weight:         awssdk.Int32(30),
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := cmp.Equal(tt.args.lhs, tt.args.rhs, CompareOptionForAction())
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCompareOptionForForwardActionConfig(t *testing.T) {
+	type args struct {
+		lhs *elbv2types.ForwardActionConfig
+		rhs *elbv2types.ForwardActionConfig
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "two nil ForwardActionConfig equals",
+			args: args{
+				lhs: nil,
+				rhs: nil,
+			},
+			want: true,
+		},
+		{
+			name: "ForwardActionConfig equals with same target groups",
+			args: args{
+				lhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+						},
+					},
+				},
+				rhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "ForwardActionConfig with weighted target groups equal regardless of order",
+			args: args{
+				lhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(70),
+						},
+						{
+							TargetGroupArn: awssdk.String("tg-b"),
+							Weight:         awssdk.Int32(30),
+						},
+					},
+				},
+				rhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-b"),
+							Weight:         awssdk.Int32(30),
+						},
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(70),
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "ForwardActionConfig not equal when target groups differ",
+			args: args{
+				lhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(100),
+						},
+					},
+				},
+				rhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-b"),
+							Weight:         awssdk.Int32(100),
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ForwardActionConfig not equal when weights differ",
+			args: args{
+				lhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(80),
+						},
+						{
+							TargetGroupArn: awssdk.String("tg-b"),
+							Weight:         awssdk.Int32(20),
+						},
+					},
+				},
+				rhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(50),
+						},
+						{
+							TargetGroupArn: awssdk.String("tg-b"),
+							Weight:         awssdk.Int32(50),
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ForwardActionConfig with single target group weight normalization",
+			args: args{
+				lhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+						},
+					},
+				},
+				rhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+						},
+					},
+				},
+			},
+			want: true, // Single target group weights should be normalized
+		},
+		{
+			name: "ForwardActionConfig with TargetGroupStickinessConfig",
+			args: args{
+				lhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+						},
+					},
+					TargetGroupStickinessConfig: &elbv2types.TargetGroupStickinessConfig{
+						Enabled:         awssdk.Bool(true),
+						DurationSeconds: awssdk.Int32(3600),
+					},
+				},
+				rhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+						},
+					},
+					TargetGroupStickinessConfig: &elbv2types.TargetGroupStickinessConfig{
+						Enabled:         awssdk.Bool(true),
+						DurationSeconds: awssdk.Int32(3600),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "ForwardActionConfig with different TargetGroupStickinessConfig",
+			args: args{
+				lhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(100),
+						},
+					},
+					TargetGroupStickinessConfig: &elbv2types.TargetGroupStickinessConfig{
+						Enabled:         awssdk.Bool(true),
+						DurationSeconds: awssdk.Int32(3600),
+					},
+				},
+				rhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(100),
+						},
+					},
+					TargetGroupStickinessConfig: &elbv2types.TargetGroupStickinessConfig{
+						Enabled:         awssdk.Bool(false),
+						DurationSeconds: awssdk.Int32(1800),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "ForwardActionConfig with nil vs non-nil TargetGroupStickinessConfig should be equal (IgnoreLeftHandUnset)",
+			args: args{
+				lhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(100),
+						},
+					},
+					TargetGroupStickinessConfig: nil,
+				},
+				rhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(100),
+						},
+					},
+					TargetGroupStickinessConfig: &elbv2types.TargetGroupStickinessConfig{
+						Enabled:         awssdk.Bool(true),
+						DurationSeconds: awssdk.Int32(3600),
+					},
+				},
+			},
+			want: true, // IgnoreLeftHandUnset should make this equal
+		},
+		{
+			name: "ForwardActionConfig with complex weighted target groups",
+			args: args{
+				lhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(40),
+						},
+						{
+							TargetGroupArn: awssdk.String("tg-b"),
+							Weight:         awssdk.Int32(35),
+						},
+						{
+							TargetGroupArn: awssdk.String("tg-c"),
+							Weight:         awssdk.Int32(25),
+						},
+					},
+					TargetGroupStickinessConfig: &elbv2types.TargetGroupStickinessConfig{
+						Enabled:         awssdk.Bool(true),
+						DurationSeconds: awssdk.Int32(7200),
+					},
+				},
+				rhs: &elbv2types.ForwardActionConfig{
+					TargetGroups: []elbv2types.TargetGroupTuple{
+						{
+							TargetGroupArn: awssdk.String("tg-c"),
+							Weight:         awssdk.Int32(25),
+						},
+						{
+							TargetGroupArn: awssdk.String("tg-a"),
+							Weight:         awssdk.Int32(40),
+						},
+						{
+							TargetGroupArn: awssdk.String("tg-b"),
+							Weight:         awssdk.Int32(35),
+						},
+					},
+					TargetGroupStickinessConfig: &elbv2types.TargetGroupStickinessConfig{
+						Enabled:         awssdk.Bool(true),
+						DurationSeconds: awssdk.Int32(7200),
+					},
+				},
+			},
+			want: true, // Should be equal after sorting by ARN
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := cmp.Equal(tt.args.lhs, tt.args.rhs, CompareOptionForForwardActionConfig())
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestCompareOptionForTargetGroupTuples(t *testing.T) {
+	type args struct {
+		lhs []elbv2types.TargetGroupTuple
+		rhs []elbv2types.TargetGroupTuple
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "empty slices are equal",
+			args: args{
+				lhs: []elbv2types.TargetGroupTuple{},
+				rhs: []elbv2types.TargetGroupTuple{},
+			},
+			want: true,
+		},
+		{
+			name: "single target group with weight normalization",
+			args: args{
+				lhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+					},
+				},
+				rhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+					},
+				},
+			},
+			want: true, // Weights should be normalized to nil for single target groups
+		},
+		{
+			name: "multiple target groups equal regardless of order",
+			args: args{
+				lhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         awssdk.Int32(100),
+					},
+					{
+						TargetGroupArn: awssdk.String("tg-b"),
+						Weight:         awssdk.Int32(0),
+					},
+				},
+				rhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-b"),
+						Weight:         awssdk.Int32(0),
+					},
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         awssdk.Int32(100),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "multiple target groups with different weights are not equal",
+			args: args{
+				lhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         awssdk.Int32(100),
+					},
+					{
+						TargetGroupArn: awssdk.String("tg-b"),
+						Weight:         awssdk.Int32(0),
+					},
+				},
+				rhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         awssdk.Int32(50),
+					},
+					{
+						TargetGroupArn: awssdk.String("tg-b"),
+						Weight:         awssdk.Int32(50),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "multiple target groups with same weights but different ARNs",
+			args: args{
+				lhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         awssdk.Int32(50),
+					},
+					{
+						TargetGroupArn: awssdk.String("tg-b"),
+						Weight:         awssdk.Int32(50),
+					},
+				},
+				rhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-b"),
+						Weight:         awssdk.Int32(50),
+					},
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         awssdk.Int32(50),
+					},
+				},
+			},
+			want: true, // Should be equal after sorting by ARN
+		},
+		{
+			name: "target groups with nil ARNs",
+			args: args{
+				lhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: nil,
+						Weight:         awssdk.Int32(100),
+					},
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         awssdk.Int32(0),
+					},
+				},
+				rhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         awssdk.Int32(0),
+					},
+					{
+						TargetGroupArn: nil,
+						Weight:         awssdk.Int32(100),
+					},
+				},
+			},
+			want: true, // Should be equal after sorting (nil ARN becomes empty string, sorts first)
+		},
+		{
+			name: "target groups with nil weights",
+			args: args{
+				lhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         nil,
+					},
+					{
+						TargetGroupArn: awssdk.String("tg-b"),
+						Weight:         awssdk.Int32(100),
+					},
+				},
+				rhs: []elbv2types.TargetGroupTuple{
+					{
+						TargetGroupArn: awssdk.String("tg-b"),
+						Weight:         awssdk.Int32(100),
+					},
+					{
+						TargetGroupArn: awssdk.String("tg-a"),
+						Weight:         nil,
+					},
+				},
+			},
+			want: true, // Should be equal after sorting by ARN
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := cmp.Equal(tt.args.lhs, tt.args.rhs, CompareOptionForTargetGroupTuples())
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -772,6 +1468,201 @@ func TestCompareOptionForActions(t *testing.T) {
 				},
 			},
 			want: false,
+		},
+		{
+			name: "actions with weighted target groups equal regardless of target group order",
+			args: args{
+				lhs: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnum("forward"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-a"),
+									Weight:         awssdk.Int32(80),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-b"),
+									Weight:         awssdk.Int32(20),
+								},
+							},
+						},
+						Order: awssdk.Int32(1),
+					},
+				},
+				rhs: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnum("forward"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-b"),
+									Weight:         awssdk.Int32(20),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-a"),
+									Weight:         awssdk.Int32(80),
+								},
+							},
+						},
+						Order: awssdk.Int32(1),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "actions with weighted target groups not equal when weights differ",
+			args: args{
+				lhs: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnum("forward"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-a"),
+									Weight:         awssdk.Int32(80),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-b"),
+									Weight:         awssdk.Int32(20),
+								},
+							},
+						},
+						Order: awssdk.Int32(1),
+					},
+				},
+				rhs: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnum("forward"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-a"),
+									Weight:         awssdk.Int32(50),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-b"),
+									Weight:         awssdk.Int32(50),
+								},
+							},
+						},
+						Order: awssdk.Int32(1),
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "multiple actions with weighted target groups equal when sorted by order",
+			args: args{
+				lhs: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnum("authenticate-cognito"),
+						AuthenticateCognitoConfig: &elbv2types.AuthenticateCognitoActionConfig{
+							UserPoolArn:      awssdk.String("pool-arn-a"),
+							UserPoolClientId: awssdk.String("pool-client-id-a"),
+							UserPoolDomain:   awssdk.String("pool-domain-a"),
+						},
+						Order: awssdk.Int32(1),
+					},
+					{
+						Type: elbv2types.ActionTypeEnum("forward"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-a"),
+									Weight:         awssdk.Int32(70),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-b"),
+									Weight:         awssdk.Int32(30),
+								},
+							},
+						},
+						Order: awssdk.Int32(2),
+					},
+				},
+				rhs: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnum("forward"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-b"),
+									Weight:         awssdk.Int32(30),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-a"),
+									Weight:         awssdk.Int32(70),
+								},
+							},
+						},
+						Order: awssdk.Int32(4),
+					},
+					{
+						Type: elbv2types.ActionTypeEnum("authenticate-cognito"),
+						AuthenticateCognitoConfig: &elbv2types.AuthenticateCognitoActionConfig{
+							UserPoolArn:      awssdk.String("pool-arn-a"),
+							UserPoolClientId: awssdk.String("pool-client-id-a"),
+							UserPoolDomain:   awssdk.String("pool-domain-a"),
+						},
+						Order: awssdk.Int32(3),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "actions with zero-weight target groups equal regardless of order",
+			args: args{
+				lhs: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnum("forward"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-a"),
+									Weight:         awssdk.Int32(100),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-b"),
+									Weight:         awssdk.Int32(0),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-c"),
+									Weight:         awssdk.Int32(0),
+								},
+							},
+						},
+						Order: awssdk.Int32(1),
+					},
+				},
+				rhs: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnum("forward"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-c"),
+									Weight:         awssdk.Int32(0),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-a"),
+									Weight:         awssdk.Int32(100),
+								},
+								{
+									TargetGroupArn: awssdk.String("tg-b"),
+									Weight:         awssdk.Int32(0),
+								},
+							},
+						},
+						Order:          awssdk.Int32(1),
+						TargetGroupArn: awssdk.String("tg-a"), // Should be ignored
+					},
+				},
+			},
+			want: true,
 		},
 	}
 	for _, tt := range tests {
