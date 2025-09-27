@@ -2813,3 +2813,656 @@ func Test_defaultPodENIInfoResolver_isPodSupportedByNodeENI(t *testing.T) {
 		})
 	}
 }
+// Add these test functions to pod_eni_info_resolver_test.go
+
+func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_Hybrid(t *testing.T) {
+	hybridNodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hybrid-node-a",
+			Labels: map[string]string{
+				"eks.amazonaws.com/compute-type": "hybrid",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "eks-hybrid:///ap-northeast-1/eks-test/mi-03a43a81234567890",
+		},
+	}
+	hybridNodeB := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hybrid-node-b",
+			Labels: map[string]string{
+				"eks.amazonaws.com/compute-type": "hybrid",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "eks-hybrid:///ap-northeast-1/eks-test/mi-04b52b91345678901",
+		},
+	}
+
+	type env struct {
+		nodes []*corev1.Node
+	}
+	type args struct {
+		pods []k8s.PodInfo
+	}
+	tests := []struct {
+		name    string
+		env     env
+		args    args
+		want    map[types.NamespacedName]ENIInfo
+		wantErr error
+	}{
+		{
+			name: "all hybrid pod's ENI resolved with placeholder info",
+			env: env{
+				nodes: []*corev1.Node{hybridNodeA, hybridNodeB},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.100",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "hybrid-node-b",
+						PodIP:    "10.0.0.101",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"}: {
+					NetworkInterfaceID: "hybrid-no-eni",
+					SecurityGroups:     []string{},
+				},
+				types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"}: {
+					NetworkInterfaceID: "hybrid-no-eni",
+					SecurityGroups:     []string{},
+				},
+			},
+		},
+		{
+			name: "hybrid pods on same node get same placeholder ENI info",
+			env: env{
+				nodes: []*corev1.Node{hybridNodeA},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.100",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.101",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "kube-system", Name: "hybrid-pod-3"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.102",
+					},
+				},
+			},
+			want: map[types.NamespacedName]ENIInfo{
+				types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"}: {
+					NetworkInterfaceID: "hybrid-no-eni",
+					SecurityGroups:     []string{},
+				},
+				types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"}: {
+					NetworkInterfaceID: "hybrid-no-eni",
+					SecurityGroups:     []string{},
+				},
+				types.NamespacedName{Namespace: "kube-system", Name: "hybrid-pod-3"}: {
+					NetworkInterfaceID: "hybrid-no-eni",
+					SecurityGroups:     []string{},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2Client := services.NewMockEC2(ctrl)
+			// No EC2 expectations - hybrid pods should not make EC2 calls
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := fake.NewClientBuilder().WithScheme(k8sSchema).Build()
+			for _, node := range tt.env.nodes {
+				assert.NoError(t, k8sClient.Create(context.Background(), node.DeepCopy()))
+			}
+			nodeInfoProvider := NewMockNodeInfoProvider(ctrl)
+			// No node info provider expectations - hybrid pods don't need instance info
+
+			r := &defaultPodENIInfoResolver{
+				ec2Client:                            ec2Client,
+				k8sClient:                            k8sClient,
+				nodeInfoProvider:                     nodeInfoProvider,
+				vpcID:                                "vpc-0d6d9ee10bd062dcc",
+				logger:                               logr.New(&log.NullLogSink{}),
+				describeNetworkInterfacesIPChunkSize: 2,
+			}
+
+			// Call resolvePodsViaCascadedLookup directly since hybrid pods use the special path
+			got, err := r.resolvePodsViaCascadedLookup(context.Background(), tt.args.pods)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultPodENIInfoResolver_classifyPodsByComputeType_Hybrid(t *testing.T) {
+	hybridNodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hybrid-node-a",
+			Labels: map[string]string{
+				"eks.amazonaws.com/compute-type": "hybrid",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "eks-hybrid:///ap-northeast-1/eks-test/mi-03a43a81234567890",
+		},
+	}
+	hybridNodeB := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hybrid-node-b",
+			Labels: map[string]string{
+				"eks.amazonaws.com/compute-type": "hybrid",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "eks-hybrid:///ap-northeast-1/eks-test/mi-04b52b91345678901",
+		},
+	}
+	ec2NodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "ec2-node-a",
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///us-west-2a/i-0fa2d0064e848c69a",
+		},
+	}
+	fargateNodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "fargate-node-a",
+			Labels: map[string]string{
+				"eks.amazonaws.com/compute-type": "fargate",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///us-west-2b/xxxxxxxx/fargate-ip-192-168-128-147.us-west-2.compute.internal",
+		},
+	}
+	sageMakerNodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "sagemaker-node-a",
+			Labels: map[string]string{
+				"sagemaker.amazonaws.com/compute-type": "hyperpod",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "aws:///usw2-az2/sagemaker/cluster/hyperpod-xxxxxxxxxxxx-i-04442beca624ba65b",
+		},
+	}
+
+	type env struct {
+		nodes []*corev1.Node
+	}
+	type args struct {
+		pods []k8s.PodInfo
+	}
+	tests := []struct {
+		name    string
+		env     env
+		args    args
+		want    PodsByComputeType
+		wantErr error
+	}{
+		{
+			name: "classify hybrid pods correctly",
+			env: env{
+				nodes: []*corev1.Node{hybridNodeA, hybridNodeB},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.100",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "hybrid-node-b",
+						PodIP:    "10.0.0.101",
+					},
+				},
+			},
+			want: PodsByComputeType{
+				ec2Pods:               nil,
+				fargatePods:           nil,
+				sageMakerHyperPodPods: nil,
+				hybridPods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.100",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "hybrid-node-b",
+						PodIP:    "10.0.0.101",
+					},
+				},
+			},
+		},
+		{
+			name: "classify mixed compute types including hybrid",
+			env: env{
+				nodes: []*corev1.Node{hybridNodeA, ec2NodeA, fargateNodeA, sageMakerNodeA},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.100",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "ec2-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "ec2-node-a",
+						PodIP:    "192.168.100.1",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "fargate-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "fargate-node-a",
+						PodIP:    "192.168.128.147",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "sagemaker-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "sagemaker-node-a",
+						PodIP:    "192.168.128.151",
+					},
+				},
+			},
+			want: PodsByComputeType{
+				ec2Pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "ec2-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "ec2-node-a",
+						PodIP:    "192.168.100.1",
+					},
+				},
+				fargatePods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "fargate-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "fargate-node-a",
+						PodIP:    "192.168.128.147",
+					},
+				},
+				sageMakerHyperPodPods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "sagemaker-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc04"),
+						NodeName: "sagemaker-node-a",
+						PodIP:    "192.168.128.151",
+					},
+				},
+				hybridPods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.100",
+					},
+				},
+			},
+		},
+		{
+			name: "hybrid node caching works correctly - multiple pods on same node",
+			env: env{
+				nodes: []*corev1.Node{hybridNodeA},
+			},
+			args: args{
+				pods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.100",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "hybrid-node-a", // Same node as above - should use cache
+						PodIP:    "10.0.0.101",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "kube-system", Name: "hybrid-pod-3"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "hybrid-node-a", // Same node as above - should use cache
+						PodIP:    "10.0.0.102",
+					},
+				},
+			},
+			want: PodsByComputeType{
+				ec2Pods:               nil,
+				fargatePods:           nil,
+				sageMakerHyperPodPods: nil,
+				hybridPods: []k8s.PodInfo{
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.100",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.101",
+					},
+					{
+						Key:      types.NamespacedName{Namespace: "kube-system", Name: "hybrid-pod-3"},
+						UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+						NodeName: "hybrid-node-a",
+						PodIP:    "10.0.0.102",
+					},
+				},
+			},
+		},
+		{
+			name: "empty hybrid pods list",
+			env: env{
+				nodes: []*corev1.Node{hybridNodeA},
+			},
+			args: args{
+				pods: []k8s.PodInfo{},
+			},
+			want: PodsByComputeType{
+				ec2Pods:               nil,
+				fargatePods:           nil,
+				sageMakerHyperPodPods: nil,
+				hybridPods:            nil,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := fake.NewClientBuilder().WithScheme(k8sSchema).Build()
+			for _, node := range tt.env.nodes {
+				assert.NoError(t, k8sClient.Create(context.Background(), node.DeepCopy()))
+			}
+
+			r := &defaultPodENIInfoResolver{
+				k8sClient: k8sClient,
+				logger:    logr.New(&log.NullLogSink{}),
+			}
+
+			got, err := r.classifyPodsByComputeType(context.Background(), tt.args.pods)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultPodENIInfoResolver_Resolve_Hybrid(t *testing.T) {
+	hybridNodeA := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hybrid-node-a",
+			Labels: map[string]string{
+				"eks.amazonaws.com/compute-type": "hybrid",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "eks-hybrid:///ap-northeast-1/eks-test/mi-03a43a81234567890",
+		},
+	}
+	hybridNodeB := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "hybrid-node-b",
+			Labels: map[string]string{
+				"eks.amazonaws.com/compute-type": "hybrid",
+			},
+		},
+		Spec: corev1.NodeSpec{
+			ProviderID: "eks-hybrid:///ap-northeast-1/eks-test/mi-04b52b91345678901",
+		},
+	}
+
+	type env struct {
+		nodes []*corev1.Node
+	}
+	type args struct {
+		pods []k8s.PodInfo
+	}
+	type resolveCall struct {
+		args    args
+		want    map[types.NamespacedName]ENIInfo
+		wantErr error
+	}
+	tests := []struct {
+		name             string
+		env              env
+		wantResolveCalls []resolveCall
+	}{
+		{
+			name: "successfully resolve hybrid pods with placeholder ENI",
+			env: env{
+				nodes: []*corev1.Node{hybridNodeA, hybridNodeB},
+			},
+			wantResolveCalls: []resolveCall{
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+								NodeName: "hybrid-node-a",
+								PodIP:    "10.0.0.100",
+							},
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								NodeName: "hybrid-node-b",
+								PodIP:    "10.0.0.101",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"}: {
+							NetworkInterfaceID: "hybrid-no-eni",
+							SecurityGroups:     []string{},
+						},
+						types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"}: {
+							NetworkInterfaceID: "hybrid-no-eni",
+							SecurityGroups:     []string{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "successfully resolve hybrid pods with cache hit on second call",
+			env: env{
+				nodes: []*corev1.Node{hybridNodeA},
+			},
+			wantResolveCalls: []resolveCall{
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+								NodeName: "hybrid-node-a",
+								PodIP:    "10.0.0.100",
+							},
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								NodeName: "hybrid-node-a",
+								PodIP:    "10.0.0.101",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"}: {
+							NetworkInterfaceID: "hybrid-no-eni",
+							SecurityGroups:     []string{},
+						},
+						types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"}: {
+							NetworkInterfaceID: "hybrid-no-eni",
+							SecurityGroups:     []string{},
+						},
+					},
+				},
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								NodeName: "hybrid-node-a",
+								PodIP:    "10.0.0.101",
+							},
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-3"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc03"),
+								NodeName: "hybrid-node-a",
+								PodIP:    "10.0.0.102",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"}: {
+							NetworkInterfaceID: "hybrid-no-eni",
+							SecurityGroups:     []string{},
+						},
+						types.NamespacedName{Namespace: "default", Name: "hybrid-pod-3"}: {
+							NetworkInterfaceID: "hybrid-no-eni",
+							SecurityGroups:     []string{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "successfully resolve hybrid pods with cache fully hit",
+			env: env{
+				nodes: []*corev1.Node{hybridNodeA},
+			},
+			wantResolveCalls: []resolveCall{
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc01"),
+								NodeName: "hybrid-node-a",
+								PodIP:    "10.0.0.100",
+							},
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								NodeName: "hybrid-node-a",
+								PodIP:    "10.0.0.101",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "hybrid-pod-1"}: {
+							NetworkInterfaceID: "hybrid-no-eni",
+							SecurityGroups:     []string{},
+						},
+						types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"}: {
+							NetworkInterfaceID: "hybrid-no-eni",
+							SecurityGroups:     []string{},
+						},
+					},
+				},
+				{
+					args: args{
+						pods: []k8s.PodInfo{
+							{
+								Key:      types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"},
+								UID:      types.UID("2d8740a6-f4b1-4074-a91c-f0084ec0bc02"),
+								NodeName: "hybrid-node-a",
+								PodIP:    "10.0.0.101",
+							},
+						},
+					},
+					want: map[types.NamespacedName]ENIInfo{
+						types.NamespacedName{Namespace: "default", Name: "hybrid-pod-2"}: {
+							NetworkInterfaceID: "hybrid-no-eni",
+							SecurityGroups:     []string{},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			ec2Client := services.NewMockEC2(ctrl)
+			// No EC2 expectations for hybrid pods
+
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+			k8sClient := fake.NewClientBuilder().WithScheme(k8sSchema).Build()
+			for _, node := range tt.env.nodes {
+				assert.NoError(t, k8sClient.Create(context.Background(), node.DeepCopy()))
+			}
+			nodeInfoProvider := NewMockNodeInfoProvider(ctrl)
+			// No nodeInfoProvider expectations for hybrid pods
+
+			r := NewDefaultPodENIInfoResolver(k8sClient, ec2Client, nodeInfoProvider, "vpc-abc", logr.New(&log.NullLogSink{}))
+			for _, call := range tt.wantResolveCalls {
+				got, err := r.Resolve(context.Background(), call.args.pods)
+				if call.wantErr != nil {
+					assert.EqualError(t, err, call.wantErr.Error())
+				} else {
+					assert.NoError(t, err)
+					assert.Equal(t, call.want, got)
+				}
+			}
+		})
+	}
+}
