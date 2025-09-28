@@ -34,6 +34,7 @@ const (
 	flagBackendSecurityGroup                         = "backend-security-group"
 	flagEnableEndpointSlices                         = "enable-endpoint-slices"
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
+	flagMaxTargetsPerInstance                        = "max-targets-per-instance"
 	defaultLogLevel                                  = "info"
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
@@ -43,6 +44,7 @@ const (
 	defaultEnableEndpointSlices                      = true
 	defaultDisableRestrictedSGRules                  = false
 	defaultLbStabilizationMonitorInterval            = time.Second * 120
+	defaultMaxTargetsPerInstance                     = 0
 )
 
 var (
@@ -133,6 +135,9 @@ type ControllerConfig struct {
 	// LBStabilizationMonitorInterval specifies the duration of interval to monitor the load balancer state for stabilization
 	LBStabilizationMonitorInterval time.Duration
 
+	// MaxTargetsPerInstance limits the number of targets that will be added to an ELB instance
+	MaxTargetsPerInstance int
+
 	FeatureGates FeatureGates
 }
 
@@ -177,6 +182,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Disable the usage of restricted security group rules")
 	fs.StringToStringVar(&cfg.ServiceTargetENISGTags, flagServiceTargetENISGTags, nil,
 		"AWS Tags, in addition to cluster tags, for finding the target ENI security group to which to add inbound rules from NLBs")
+	fs.IntVar(&cfg.MaxTargetsPerInstance, flagMaxTargetsPerInstance, defaultMaxTargetsPerInstance,
+		"Maximum number of targets that can be added to an ELB instance. Use this to prevent TargetGroup quotas being exceeded from blocking reconciliation.")
 	cfg.FeatureGates.BindFlags(fs)
 	cfg.AWSConfig.BindFlags(fs)
 	cfg.RuntimeConfig.BindFlags(fs)
