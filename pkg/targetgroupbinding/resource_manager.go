@@ -183,7 +183,6 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if err != nil {
 		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "list_targets_error", err, m.metricsCollector)
 	}
-	totalTargets := len(targets)
 
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
 	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
@@ -244,7 +243,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_ip_targets_error", err, m.metricsCollector)
 		}
 
-		eligibleTargetsCount := m.getMaxNewTargets(len(unmatchedEndpoints), totalTargets, tgbScopedLogger)
+		eligibleTargetsCount := m.getMaxNewTargets(len(unmatchedEndpoints), len(targets), tgbScopedLogger)
 		unmatchedEndpoints = unmatchedEndpoints[:eligibleTargetsCount]
 
 		if err := m.registerPodEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {
@@ -314,7 +313,6 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if err != nil {
 		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "list_targets_error", err, m.metricsCollector)
 	}
-	totalTargets := len(targets)
 
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
 
@@ -349,7 +347,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_instance_targets_error", err, m.metricsCollector)
 		}
 
-		eligibleTargetsCount := m.getMaxNewTargets(len(unmatchedEndpoints), totalTargets, tgbScopedLogger)
+		eligibleTargetsCount := m.getMaxNewTargets(len(unmatchedEndpoints), len(targets), tgbScopedLogger)
 		unmatchedEndpoints = unmatchedEndpoints[:eligibleTargetsCount]
 
 		if err := m.registerNodePortEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {
