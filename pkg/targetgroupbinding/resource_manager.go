@@ -48,7 +48,8 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	podInfoRepo k8s.PodInfoRepo, networkingManager networking.NetworkingManager,
 	vpcInfoProvider networking.VPCInfoProvider, multiClusterManager MultiClusterManager, metricsCollector lbcmetrics.MetricCollector,
 	vpcID string, failOpenEnabled bool, endpointSliceEnabled bool,
-	eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
+	eventRecorder record.EventRecorder, logger logr.Logger, maxTargetsPerInstance int) *defaultResourceManager {
+
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, failOpenEnabled, endpointSliceEnabled, logger)
 	return &defaultResourceManager{
@@ -61,6 +62,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		vpcID:               vpcID,
 		vpcInfoProvider:     vpcInfoProvider,
 		podInfoRepo:         podInfoRepo,
+		maxTargetsPerInstance: maxTargetsPerInstance,
 		multiClusterManager: multiClusterManager,
 		metricsCollector:    metricsCollector,
 
@@ -83,6 +85,7 @@ type defaultResourceManager struct {
 	logger              logr.Logger
 	vpcInfoProvider     networking.VPCInfoProvider
 	podInfoRepo         k8s.PodInfoRepo
+	maxTargetsPerInstance int
 	multiClusterManager MultiClusterManager
 	metricsCollector    lbcmetrics.MetricCollector
 	vpcID               string
@@ -180,6 +183,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if err != nil {
 		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "list_targets_error", err, m.metricsCollector)
 	}
+	totalTargets := len(targets)
 
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
 	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
@@ -238,6 +242,23 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 
 		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, true, endpoints, tgb); err != nil {
 			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_ip_targets_error", err, m.metricsCollector)
+		}
+
+		// Log that we're witholding target additions to prevent exceeding max-targets-per-instance
+		var limitedUnmatchedEndpoints []backend.PodEndpoint
+
+		if m.maxTargetsPerInstance > 0 && len(unmatchedEndpoints) + totalTargets > m.maxTargetsPerInstance {
+			maxAdditions := m.maxTargetsPerInstance - totalTargets
+			if maxAdditions > 0 {
+				limitedUnmatchedEndpoints = unmatchedEndpoints[:maxAdditions]
+			}
+			tgbScopedLogger.Info("Limiting target additions due to max-targets-per-instance configuration",
+				"currentTargets", totalTargets,
+				"maxTargetsPerInstance", m.maxTargetsPerInstance,
+				"proposedAdditions", len(unmatchedEndpoints),
+				"numberOmitted", len(unmatchedEndpoints) - len(limitedUnmatchedEndpoints))
+
+			unmatchedEndpoints = limitedUnmatchedEndpoints
 		}
 
 		if err := m.registerPodEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {
@@ -307,6 +328,7 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 	if err != nil {
 		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "list_targets_error", err, m.metricsCollector)
 	}
+	totalTargets := len(targets)
 
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
 
@@ -339,6 +361,22 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		updateTrackedTargets = false
 		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, true, endpoints, tgb); err != nil {
 			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_instance_targets_error", err, m.metricsCollector)
+		}
+
+		var limitedUnmatchedEndpoints []backend.NodePortEndpoint
+
+		if m.maxTargetsPerInstance > 0 && len(unmatchedEndpoints) + totalTargets > m.maxTargetsPerInstance {
+			maxAdditions := m.maxTargetsPerInstance - totalTargets
+			if maxAdditions > 0 {
+				limitedUnmatchedEndpoints = unmatchedEndpoints[:maxAdditions]
+			}
+			tgbScopedLogger.Info("Limiting target additions due to max-targets-per-instance configuration",
+				"currentTargets", totalTargets,
+				"maxTargetsPerInstance", m.maxTargetsPerInstance,
+				"proposedAdditions", len(unmatchedEndpoints),
+				"numberOmitted", len(unmatchedEndpoints) - len(limitedUnmatchedEndpoints))
+
+			unmatchedEndpoints = limitedUnmatchedEndpoints
 		}
 
 		if err := m.registerNodePortEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {

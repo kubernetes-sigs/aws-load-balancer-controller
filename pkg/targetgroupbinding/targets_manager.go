@@ -18,7 +18,6 @@ const (
 	defaultTargetsCacheTTL            = 5 * time.Minute
 	defaultRegisterTargetsChunkSize   = 200
 	defaultDeregisterTargetsChunkSize = 200
-	maxTargetsPerInstance             = 500
 )
 
 // TargetsManager is an abstraction around ELBV2's targets API.
@@ -81,16 +80,7 @@ type targetsCacheItem struct {
 
 func (m *cachedTargetsManager) RegisterTargets(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error {
 	tgARN := tgb.Spec.TargetGroupARN
-	sampledTargets := targets
-
-	m.logger.Info("Number of targets", len(targets), "registering a subset per max-targets-per-instance", maxTargetsPerInstance)
-	if maxTargetsPerInstance > 0 && len(targets) > maxTargetsPerInstance {
-		m.logger.Info("Max number of targets exceeded", len(targets), "registering a subset per max-targets-per-instance", maxTargetsPerInstance)
-		m.logger.Info("Max number of targets exceeded", len(targets), "registering a subset per max-targets-per-instance", maxTargetsPerInstance)
-		sampledTargets = targets[:maxTargetsPerInstance]
-	}
-
-	targetsChunks := chunkTargetDescriptions(sampledTargets, m.registerTargetsChunkSize)
+	targetsChunks := chunkTargetDescriptions(targets, m.registerTargetsChunkSize)
 	for _, targetsChunk := range targetsChunks {
 		req := &elbv2sdk.RegisterTargetsInput{
 			TargetGroupArn: aws.String(tgARN),
