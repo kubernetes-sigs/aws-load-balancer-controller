@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -128,7 +129,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Li
 		...
 	*/
 	if listener.AllowedRoutes == nil || listener.AllowedRoutes.Kinds == nil || len(listener.AllowedRoutes.Kinds) == 0 {
-		allowedRoutes = sets.New[RouteKind](defaultProtocolToRouteKindMap[listener.Protocol]...)
+		allowedRoutes = sets.New[RouteKind](DefaultProtocolToRouteKindMap[listener.Protocol]...)
 	} else {
 		// TODO - Not sure how to handle versioning (correctly) here.
 		// So going to ignore the group checks for now :x
