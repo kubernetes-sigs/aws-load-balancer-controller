@@ -1,8 +1,8 @@
 package shared_utils
 
 import (
-	"sort"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sort"
 )
 
 func MakeAttributesSliceFromMap(loadBalancerAttributesMap map[string]string) []elbv2model.LoadBalancerAttribute {
