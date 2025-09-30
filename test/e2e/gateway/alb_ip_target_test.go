@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"strings"
 	"time"
 
@@ -36,9 +37,9 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 		lbARN          string
 	)
 	BeforeEach(func() {
-		//if !tf.Options.EnableGatewayTests {
-		Skip("Skipping gateway tests")
-		//}
+		if !tf.Options.EnableGatewayTests {
+			Skip("Skipping gateway tests")
+		}
 		ctx = context.Background()
 		stack = ALBTestStack{}
 		auxiliaryStack = nil
@@ -137,6 +138,37 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(503))
 				Expect(err).NotTo(HaveOccurred())
 			})
+			By("confirming the route status", func() {
+				validationInfo := map[string]routeValidationInfo{
+					k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
+						parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+						listenerInfo: []listenerValidationInfo{
+							{
+								listenerName:       "test-listener",
+								parentKind:         "Gateway",
+								resolvedRefReason:  "Accepted",
+								resolvedRefsStatus: "True",
+								acceptedReason:     "Accepted",
+								acceptedStatus:     "True",
+							},
+						},
+					},
+					k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
+						parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+						listenerInfo: []listenerValidationInfo{
+							{
+								listenerName:       "other-ns",
+								parentKind:         "Gateway",
+								resolvedRefReason:  "RefNotPermitted",
+								resolvedRefsStatus: "False",
+								acceptedReason:     "RefNotPermitted",
+								acceptedStatus:     "False",
+							},
+						},
+					},
+				}
+				validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+			})
 			By("deploying ref grant", func() {
 				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.albResourceStack.commonStack.ns)
 				Expect(err).NotTo(HaveOccurred())
@@ -174,6 +206,37 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
 			})
+			By("confirming the http route status after ref grant is materialized", func() {
+				validationInfo := map[string]routeValidationInfo{
+					k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
+						parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+						listenerInfo: []listenerValidationInfo{
+							{
+								listenerName:       "test-listener",
+								parentKind:         "Gateway",
+								resolvedRefReason:  "Accepted",
+								resolvedRefsStatus: "True",
+								acceptedReason:     "Accepted",
+								acceptedStatus:     "True",
+							},
+						},
+					},
+					k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
+						parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+						listenerInfo: []listenerValidationInfo{
+							{
+								listenerName:       "other-ns",
+								parentKind:         "Gateway",
+								resolvedRefReason:  "Accepted",
+								resolvedRefsStatus: "True",
+								acceptedReason:     "Accepted",
+								acceptedStatus:     "True",
+							},
+						},
+					},
+				}
+				validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+			})
 			By("removing ref grant", func() {
 				err := auxiliaryStack.DeleteReferenceGrants(ctx, tf)
 				Expect(err).NotTo(HaveOccurred())
@@ -184,6 +247,37 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				url := fmt.Sprintf("http://%v:5000/any-path", dnsName)
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(503))
 				Expect(err).NotTo(HaveOccurred())
+			})
+			By("confirming the route status", func() {
+				validationInfo := map[string]routeValidationInfo{
+					k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
+						parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+						listenerInfo: []listenerValidationInfo{
+							{
+								listenerName:       "test-listener",
+								parentKind:         "Gateway",
+								resolvedRefReason:  "Accepted",
+								resolvedRefsStatus: "True",
+								acceptedReason:     "Accepted",
+								acceptedStatus:     "True",
+							},
+						},
+					},
+					k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
+						parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+						listenerInfo: []listenerValidationInfo{
+							{
+								listenerName:       "other-ns",
+								parentKind:         "Gateway",
+								resolvedRefReason:  "RefNotPermitted",
+								resolvedRefsStatus: "False",
+								acceptedReason:     "RefNotPermitted",
+								acceptedStatus:     "False",
+							},
+						},
+					},
+				}
+				validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
 			})
 		})
 	})
@@ -1767,6 +1861,24 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 
 				_, err = c.Echo(mdCtx, &echo.EchoRequest{Message: "foo"})
 				Expect(err).ToNot(HaveOccurred())
+			})
+			By("confirming the route status", func() {
+				validationInfo := map[string]routeValidationInfo{
+					k8s.NamespacedName(stack.albResourceStack.grpcrs[0]).String(): {
+						parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+						listenerInfo: []listenerValidationInfo{
+							{
+								listenerName:       "test-listener",
+								parentKind:         "Gateway",
+								resolvedRefReason:  "Accepted",
+								resolvedRefsStatus: "True",
+								acceptedReason:     "Accepted",
+								acceptedStatus:     "True",
+							},
+						},
+					},
+				}
+				validateRouteStatus(tf, stack.albResourceStack.grpcrs, grpcRouteStatusConverter, validationInfo)
 			})
 		})
 	})

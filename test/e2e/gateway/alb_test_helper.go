@@ -8,7 +8,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/grpc/echo"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -104,4 +106,24 @@ func generateGRPCClient(dnsName string) (echo.EchoServiceClient, error) {
 		return nil, err
 	}
 	return echo.NewEchoServiceClient(conn), nil
+}
+
+func httpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
+	httpR := i.(*gwv1.HTTPRoute)
+	retrievedRoute := gwv1.HTTPRoute{}
+	err := tf.K8sClient.Get(context.Background(), k8s.NamespacedName(httpR), &retrievedRoute)
+	if err != nil {
+		return gwv1.RouteStatus{}, types.NamespacedName{}, err
+	}
+	return retrievedRoute.Status.RouteStatus, k8s.NamespacedName(&retrievedRoute), nil
+}
+
+func grpcRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
+	grpcR := i.(*gwv1.GRPCRoute)
+	retrievedRoute := gwv1.GRPCRoute{}
+	err := tf.K8sClient.Get(context.Background(), k8s.NamespacedName(grpcR), &retrievedRoute)
+	if err != nil {
+		return gwv1.RouteStatus{}, types.NamespacedName{}, err
+	}
+	return retrievedRoute.Status.RouteStatus, k8s.NamespacedName(&retrievedRoute), nil
 }

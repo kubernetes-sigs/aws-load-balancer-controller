@@ -4,7 +4,9 @@ import (
 	"context"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -97,4 +99,24 @@ func (s *NLBTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framewor
 		}
 	}
 	return nodeList, nil
+}
+
+func tcpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
+	tcpR := i.(*gwalpha2.TCPRoute)
+	retrievedRoute := gwalpha2.TCPRoute{}
+	err := tf.K8sClient.Get(context.Background(), k8s.NamespacedName(tcpR), &retrievedRoute)
+	if err != nil {
+		return gwv1.RouteStatus{}, types.NamespacedName{}, err
+	}
+	return retrievedRoute.Status.RouteStatus, k8s.NamespacedName(&retrievedRoute), nil
+}
+
+func udpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
+	udpR := i.(*gwalpha2.UDPRoute)
+	retrievedRoute := gwalpha2.UDPRoute{}
+	err := tf.K8sClient.Get(context.Background(), k8s.NamespacedName(udpR), &retrievedRoute)
+	if err != nil {
+		return gwv1.RouteStatus{}, types.NamespacedName{}, err
+	}
+	return retrievedRoute.Status.RouteStatus, k8s.NamespacedName(&retrievedRoute), nil
 }
