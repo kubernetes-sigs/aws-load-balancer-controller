@@ -9,7 +9,6 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gavv/httpexpect/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -565,7 +564,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
 											TargetGroupArn: awssdk.String(testTargetGroupArn),
-											Weight:         aws.Int32(1),
+											Weight:         awssdk.Int32(1),
 										},
 									},
 								},
@@ -597,7 +596,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
 											TargetGroupArn: awssdk.String(testTargetGroupArn),
-											Weight:         aws.Int32(1),
+											Weight:         awssdk.Int32(1),
 										},
 									},
 								},
@@ -636,7 +635,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 									TargetGroups: []elbv2types.TargetGroupTuple{
 										{
 											TargetGroupArn: awssdk.String(testTargetGroupArn),
-											Weight:         aws.Int32(1),
+											Weight:         awssdk.Int32(1),
 										},
 									},
 								},
