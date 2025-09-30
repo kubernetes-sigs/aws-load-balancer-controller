@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -1343,6 +1344,361 @@ func Test_defaultModelBuildTask_buildFrontendNlbListeners(t *testing.T) {
 				}
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
+	tests := []struct {
+		name           string
+		ingGroup       Group
+		wantAttributes map[string]string
+		wantErr        bool
+		expectedErrMsg string
+	}{
+		{
+			name: "no attributes specified",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: nil,
+			wantErr:        false,
+		},
+		{
+			name: "valid DNS client routing policy - availability_zone_affinity",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: map[string]string{
+				"dns_record.client_routing_policy": "availability_zone_affinity",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid DNS client routing policy - partial_availability_zone_affinity",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=partial_availability_zone_affinity",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: map[string]string{
+				"dns_record.client_routing_policy": "partial_availability_zone_affinity",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid DNS client routing policy - any_availability_zone",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=any_availability_zone",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: map[string]string{
+				"dns_record.client_routing_policy": "any_availability_zone",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid DNS client routing policy",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=invalid_policy",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: nil,
+			wantErr:        true,
+			expectedErrMsg: "invalid dns_record.client_routing_policy set in annotation",
+		},
+		{
+			name: "multiple attributes with valid DNS policy",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity,cross_zone.enabled=true",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: map[string]string{
+				"dns_record.client_routing_policy": "availability_zone_affinity",
+				"cross_zone.enabled":               "true",
+			},
+			wantErr: false,
+		},
+		{
+			name: "consistent attributes across multiple ingresses",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+								},
+							},
+						},
+					},
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress2",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: map[string]string{
+				"dns_record.client_routing_policy": "availability_zone_affinity",
+			},
+			wantErr: false,
+		},
+		{
+			name: "conflicting attributes across multiple ingresses",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+								},
+							},
+						},
+					},
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress2",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=any_availability_zone",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: nil,
+			wantErr:        true,
+			expectedErrMsg: "conflicting frontend NLB attributes",
+		},
+		{
+			name: "mixed ingresses - some with attributes, some without",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+								},
+							},
+						},
+					},
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress2",
+								Namespace: "default",
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: nil,
+			wantErr:        true,
+			expectedErrMsg: "conflicting frontend NLB attributes",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+			task := &defaultModelBuildTask{
+				annotationParser: parser,
+				ingGroup:         tt.ingGroup,
+			}
+
+			gotAttributes, err := task.getFrontendNlbAttributes()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.expectedErrMsg != "" {
+					assert.Contains(t, err.Error(), tt.expectedErrMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.wantAttributes, gotAttributes)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildFrontendNlbAttributes(t *testing.T) {
+	tests := []struct {
+		name           string
+		ingGroup       Group
+		wantAttributes []elbv2model.LoadBalancerAttribute
+		wantErr        bool
+		expectedErrMsg string
+	}{
+		{
+			name: "no attributes specified",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: []elbv2model.LoadBalancerAttribute{},
+			wantErr:        false,
+		},
+		{
+			name: "valid attributes conversion",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity,cross_zone.enabled=true",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: []elbv2model.LoadBalancerAttribute{
+				{Key: "cross_zone.enabled", Value: "true"},
+				{Key: "dns_record.client_routing_policy", Value: "availability_zone_affinity"},
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid DNS policy should cause error",
+			ingGroup: Group{
+				Members: []ClassifiedIngress{
+					{
+						Ing: &networking.Ingress{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:      "ingress1",
+								Namespace: "default",
+								Annotations: map[string]string{
+									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=invalid_policy",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantAttributes: []elbv2model.LoadBalancerAttribute{},
+			wantErr:        true,
+			expectedErrMsg: "invalid dns_record.client_routing_policy set in annotation",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+			task := &defaultModelBuildTask{
+				annotationParser: parser,
+				ingGroup:         tt.ingGroup,
+			}
+
+			gotAttributes, err := task.buildFrontendNlbAttributes()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.expectedErrMsg != "" {
+					assert.Contains(t, err.Error(), tt.expectedErrMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+				// Sort both slices to ensure stable comparison
+				sort.Slice(gotAttributes, func(i, j int) bool {
+					return gotAttributes[i].Key < gotAttributes[j].Key
+				})
+				sort.Slice(tt.wantAttributes, func(i, j int) bool {
+					return tt.wantAttributes[i].Key < tt.wantAttributes[j].Key
+				})
+				assert.Equal(t, tt.wantAttributes, gotAttributes)
 			}
 		})
 	}
