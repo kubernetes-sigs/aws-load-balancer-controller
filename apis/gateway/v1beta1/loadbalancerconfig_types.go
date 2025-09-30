@@ -245,10 +245,6 @@ type LoadBalancerConfigurationSpec struct {
 	// +optional
 	SourceRanges *[]string `json:"sourceRanges,omitempty"`
 
-	// vpcId is the ID of the VPC for the load balancer.
-	// +optional
-	VpcId *string `json:"vpcId,omitempty"`
-
 	// LoadBalancerAttributes defines the attribute of LB
 	// +optional
 	LoadBalancerAttributes []LoadBalancerAttribute `json:"loadBalancerAttributes,omitempty"`
