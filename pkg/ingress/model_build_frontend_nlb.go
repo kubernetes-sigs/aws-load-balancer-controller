@@ -220,7 +220,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbAttributes(ctx context.Context) 
 	return shared_utils.MakeAttributesSliceFromMap(loadBalancerAttributes), nil
 }
 
-func (t *defaultModelBuildTask) getFrontendNlbAttributes() (any, any) {
+func (t *defaultModelBuildTask) getFrontendNlbAttributes() (map[string]string, error) {
 	var chosenAttributes map[string]string
 	for _, member := range t.ingGroup.Members {
 		var attributes map[string]string
@@ -236,16 +236,16 @@ func (t *defaultModelBuildTask) getFrontendNlbAttributes() (any, any) {
 		}
 	}
 
-	dnsRecordClientRoutingPolicy, exists := chosenAttributes[lbAttrsLoadBalancingDnsClientRoutingPolicy]
+	dnsRecordClientRoutingPolicy, exists := chosenAttributes[shared_constants.LBAttributeLoadBalancingDnsClientRoutingPolicy]
 	if exists {
 		switch dnsRecordClientRoutingPolicy {
-		case availabilityZoneAffinity:
-		case partialAvailabilityZoneAffinity:
-		case anyAvailabilityZone:
+		case shared_constants.LBAttributeAvailabilityZoneAffinity:
+		case shared_constants.LBAttributePartialAvailabilityZoneAffinity:
+		case shared_constants.LBAttributeAnyAvailabilityZone:
 		default:
 			return nil, errors.Errorf("invalid dns_record.client_routing_policy set in annotation %s: got '%s' expected one of ['%s', '%s', '%s']",
 				annotations.SvcLBSuffixLoadBalancerAttributes, dnsRecordClientRoutingPolicy,
-				anyAvailabilityZone, partialAvailabilityZoneAffinity, availabilityZoneAffinity)
+				shared_constants.LBAttributeAnyAvailabilityZone, shared_constants.LBAttributePartialAvailabilityZoneAffinity, shared_constants.LBAttributeAvailabilityZoneAffinity)
 		}
 	}
 	return chosenAttributes, nil
