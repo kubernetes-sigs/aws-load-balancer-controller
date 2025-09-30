@@ -26,7 +26,6 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
 
 // Build target groups for weighted target groups

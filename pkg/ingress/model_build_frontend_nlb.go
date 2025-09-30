@@ -212,7 +212,7 @@ func (t *defaultModelBuildTask) buildFrontendNlb(ctx context.Context, scheme elb
 	return nil
 }
 
-func (t *defaultModelBuildTask) buildFrontendNlbAttributes(ctx context.Context) ([]elbv2model.LoadBalancerAttribute, error) {
+func (t *defaultModelBuildTask) buildFrontendNlbAttributes() ([]elbv2model.LoadBalancerAttribute, error) {
 	loadBalancerAttributes, err := t.getFrontendNlbAttributes()
 	if err != nil {
 		return []elbv2model.LoadBalancerAttribute{}, err
@@ -278,7 +278,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbSpec(ctx context.Context, scheme
 		return elbv2model.LoadBalancerSpec{}, err
 	}
 
-	lbAttributes, err := t.buildFrontendNlbAttributes(ctx)
+	lbAttributes, err := t.buildFrontendNlbAttributes()
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}
@@ -854,7 +854,7 @@ func buildFrontendNlbResourceID(resourceType string, protocol elbv2model.Protoco
 	if port != nil && protocol != "" {
 		return fmt.Sprintf("FrontendNlb-%s-%v-%v", resourceType, protocol, *port)
 	}
-	return fmt.Sprintf("FrontendNlb")
+	return "FrontendNlb"
 }
 
 func mergeHealthCheckField[T comparable](fieldName string, finalValue **T, currentValue *T, explicit map[string]bool, explicitFields map[string]bool, configIndex int) error {
