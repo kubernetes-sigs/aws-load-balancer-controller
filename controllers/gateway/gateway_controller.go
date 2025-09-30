@@ -3,6 +3,8 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"time"
+
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -22,6 +24,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
+	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	gatewaymodel "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/referencecounter"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
@@ -43,7 +46,6 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"time"
 )
 
 const (
@@ -206,25 +208,35 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	mergedLbConfig, err := r.cfgResolver.getLoadBalancerConfigForGateway(ctx, r.k8sClient, r.finalizerManager, gw, gwClass)
 
 	if err != nil {
-		statusErr := r.updateGatewayStatusFailure(ctx, gw, gwv1.GatewayReasonInvalid, err.Error())
+		statusErr := r.updateGatewayStatusFailure(ctx, gw, gwv1.GatewayReasonInvalid, err.Error(), nil)
 		if statusErr != nil {
 			r.logger.Error(statusErr, "Unable to update gateway status on failure to retrieve attached config")
 		}
 		return err
 	}
 
-	allRoutes, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter)
+	loaderResults, err := r.gatewayLoader.LoadRoutesForGateway(ctx, *gw, r.routeFilter, r.controllerName)
 
-	if err != nil {
+	if err != nil || loaderResults.ValidationResults.HasErrors {
 		var loaderErr routeutils.LoaderError
-		if errors.As(err, &loaderErr) {
-			statusErr := r.updateGatewayStatusFailure(ctx, gw, loaderErr.GetGatewayReason(), loaderErr.GetGatewayMessage())
+		if errors.As(err, &loaderErr) || loaderResults.ValidationResults.HasErrors {
+			var gatewayReason gwv1.GatewayConditionReason
+			var gatewayMessage string
+			if loaderErr == nil && loaderResults.ValidationResults.HasErrors {
+				gatewayReason = gwv1.GatewayReasonAccepted
+				gatewayMessage = gateway_constants.GatewayAcceptedFalseMessage
+			} else {
+				gatewayReason = loaderErr.GetGatewayReason()
+				gatewayMessage = loaderErr.GetGatewayMessage()
+			}
+			statusErr := r.updateGatewayStatusFailure(ctx, gw, gatewayReason, gatewayMessage, loaderResults)
 			if statusErr != nil {
 				r.logger.Error(statusErr, "Unable to update gateway status on failure to build routes")
 			}
 		}
 		return err
 	}
+	allRoutes := loaderResults.Routes
 
 	// To handle Addons, we need to build the set that has been previously enabled. This is stored within the Gateway annotations.
 	allAddOns := getStoredAddonConfig(gw, r.logger)
@@ -241,7 +253,6 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 	if err != nil {
 		return err
 	}
-
 	r.logger.V(1).Info("Got this addon config", "current", currentAddOns, "new addon", newAddOnConfig)
 
 	// To accurately track the set of enabled addons, we need to figure out if any addons were added / removed during this run.
@@ -267,7 +278,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		return nil
 	}
 	r.serviceReferenceCounter.UpdateRelations(getServicesFromRoutes(allRoutes), k8s.NamespacedName(gw), false)
-	err = r.reconcileUpdate(ctx, gw, gwClass, stack, lb, backendSGRequired, secrets)
+	err = r.reconcileUpdate(ctx, gw, gwClass, stack, lb, backendSGRequired, secrets, loaderResults.AttachedRoutesMap)
 	if err != nil {
 		r.logger.Error(err, "Failed to process gateway update", "gw", k8s.NamespacedName(gw))
 		return err
@@ -309,7 +320,7 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 }
 
 func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, stack core.Stack,
-	lb *elbv2model.LoadBalancer, backendSGRequired bool, secrets []types.NamespacedName) error {
+	lb *elbv2model.LoadBalancer, backendSGRequired bool, secrets []types.NamespacedName, attachedRoutesMap map[gwv1.SectionName]int32) error {
 	// add gateway finalizer
 	if err := r.finalizerManager.AddFinalizers(ctx, gw, r.finalizer); err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add gateway finalizer due to %v", err))
@@ -327,7 +338,7 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 		}
 	}
 
-	if err = r.updateGatewayStatusSuccess(ctx, lb.Status, gw); err != nil {
+	if err = r.updateGatewayStatusSuccess(ctx, lb.Status, gw, attachedRoutesMap); err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return err
 	}
@@ -366,7 +377,7 @@ func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cf
 	return stack, lb, newAddOnConfig, backendSGRequired, secrets, nil
 }
 
-func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbStatus *elbv2model.LoadBalancerStatus, gw *gwv1.Gateway) error {
+func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbStatus *elbv2model.LoadBalancerStatus, gw *gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32) error {
 	// LB Status should always be set, if it's not, we need to prevent NPE
 	if lbStatus == nil {
 		r.logger.Info("Unable to update Gateway Status due to null LB status")
@@ -395,6 +406,13 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 		needPatch = true
 	}
 
+	// update listeners status
+	ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, nil)
+	if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
+		gw.Status.Listeners = ListenerStatuses
+		needPatch = true
+	}
+
 	if needPatch {
 		if err := r.k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {
 			return errors.Wrapf(err, "failed to update gw status: %v", k8s.NamespacedName(gw))
@@ -408,10 +426,21 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	return nil
 }
 
-func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *gwv1.Gateway, reason gwv1.GatewayConditionReason, errMessage string) error {
+func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *gwv1.Gateway, reason gwv1.GatewayConditionReason, errMessage string, loadResults *routeutils.LoaderResult) error {
 	gwOld := gw.DeepCopy()
 
 	needPatch := r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionAccepted), metav1.ConditionFalse, string(reason), errMessage)
+
+	// update listener status
+	if loadResults != nil {
+		listenerValidationResults := loadResults.ValidationResults
+		attachedRoutesMap := loadResults.AttachedRoutesMap
+		ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, &listenerValidationResults)
+		if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
+			gw.Status.Listeners = ListenerStatuses
+			needPatch = true
+		}
+	}
 
 	if needPatch {
 		if err := r.k8sClient.Status().Patch(ctx, gw, client.MergeFrom(gwOld)); err != nil {

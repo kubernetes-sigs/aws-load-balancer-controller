@@ -3,6 +3,12 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
+	"unicode/utf8"
+
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,11 +18,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sort"
-	"strconv"
-	"strings"
-	"time"
-	"unicode/utf8"
 )
 
 const (
