@@ -101,6 +101,130 @@ func (s *NLBTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framewor
 	return nodeList, nil
 }
 
+func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestStack, hasTLS bool) {
+	tcpRouteListenerInfo := []listenerValidationInfo{
+		{
+			listenerName:       "port80",
+			parentKind:         "Gateway",
+			resolvedRefReason:  "Accepted",
+			resolvedRefsStatus: "True",
+			acceptedReason:     "Accepted",
+			acceptedStatus:     "True",
+		},
+	}
+
+	if hasTLS {
+		tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
+			listenerName:       "port443",
+			parentKind:         "Gateway",
+			resolvedRefReason:  "Accepted",
+			resolvedRefsStatus: "True",
+			acceptedReason:     "Accepted",
+			acceptedStatus:     "True",
+		})
+	}
+
+	tcpValidationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.nlbResourceStack.tcprs[0]).String(): {
+			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
+			listenerInfo:      tcpRouteListenerInfo,
+		},
+		k8s.NamespacedName(stack.nlbResourceStack.tcprs[1]).String(): {
+			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "other-ns",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "RefNotPermitted",
+					resolvedRefsStatus: "False",
+					acceptedReason:     "RefNotPermitted",
+					acceptedStatus:     "False",
+				},
+			},
+		},
+	}
+
+	udpValidationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.nlbResourceStack.udprs[0]).String(): {
+			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "port8080",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
+	validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
+}
+
+func validateL4RouteStatusPermitted(tf *framework.Framework, stack NLBTestStack, hasTLS bool) {
+	tcpRouteListenerInfo := []listenerValidationInfo{
+		{
+			listenerName:       "port80",
+			parentKind:         "Gateway",
+			resolvedRefReason:  "Accepted",
+			resolvedRefsStatus: "True",
+			acceptedReason:     "Accepted",
+			acceptedStatus:     "True",
+		},
+	}
+
+	if hasTLS {
+		tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
+			listenerName:       "port443",
+			parentKind:         "Gateway",
+			resolvedRefReason:  "Accepted",
+			resolvedRefsStatus: "True",
+			acceptedReason:     "Accepted",
+			acceptedStatus:     "True",
+		})
+	}
+
+	tcpValidationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.nlbResourceStack.tcprs[0]).String(): {
+			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
+			listenerInfo:      tcpRouteListenerInfo,
+		},
+		k8s.NamespacedName(stack.nlbResourceStack.tcprs[1]).String(): {
+			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "other-ns",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "RefNotPermitted",
+					resolvedRefsStatus: "False",
+					acceptedReason:     "RefNotPermitted",
+					acceptedStatus:     "False",
+				},
+			},
+		},
+	}
+
+	udpValidationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.nlbResourceStack.udprs[0]).String(): {
+			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "port8080",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
+	validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
+}
+
 func tcpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
 	tcpR := i.(*gwalpha2.TCPRoute)
 	retrievedRoute := gwalpha2.TCPRoute{}

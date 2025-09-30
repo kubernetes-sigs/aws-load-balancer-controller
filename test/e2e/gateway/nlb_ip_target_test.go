@@ -6,7 +6,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
@@ -160,65 +159,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("confirming the route status", func() {
-					tcpRouteListenerInfo := []listenerValidationInfo{
-						{
-							listenerName:       "port80",
-							parentKind:         "Gateway",
-							resolvedRefReason:  "Accepted",
-							resolvedRefsStatus: "True",
-							acceptedReason:     "Accepted",
-							acceptedStatus:     "True",
-						},
-					}
-
-					if hasTLS {
-						tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
-							listenerName:       "port443",
-							parentKind:         "Gateway",
-							resolvedRefReason:  "Accepted",
-							resolvedRefsStatus: "True",
-							acceptedReason:     "Accepted",
-							acceptedStatus:     "True",
-						})
-					}
-
-					tcpValidationInfo := map[string]routeValidationInfo{
-						k8s.NamespacedName(stack.nlbResourceStack.tcprs[0]).String(): {
-							parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-							listenerInfo:      tcpRouteListenerInfo,
-						},
-						k8s.NamespacedName(stack.nlbResourceStack.tcprs[1]).String(): {
-							parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-							listenerInfo: []listenerValidationInfo{
-								{
-									listenerName:       "other-ns",
-									parentKind:         "Gateway",
-									resolvedRefReason:  "RefNotPermitted",
-									resolvedRefsStatus: "False",
-									acceptedReason:     "RefNotPermitted",
-									acceptedStatus:     "False",
-								},
-							},
-						},
-					}
-
-					udpValidationInfo := map[string]routeValidationInfo{
-						k8s.NamespacedName(stack.nlbResourceStack.udprs[0]).String(): {
-							parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-							listenerInfo: []listenerValidationInfo{
-								{
-									listenerName:       "port8080",
-									parentKind:         "Gateway",
-									resolvedRefReason:  "Accepted",
-									resolvedRefsStatus: "True",
-									acceptedReason:     "Accepted",
-									acceptedStatus:     "True",
-								},
-							},
-						},
-					}
-					validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
-					validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
+					validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 				})
 				By("deploying ref grant", func() {
 					err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.nlbResourceStack.commonStack.ns)
@@ -282,66 +223,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("confirming the route status", func() {
-
-					tcpRouteListenerInfo := []listenerValidationInfo{
-						{
-							listenerName:       "port80",
-							parentKind:         "Gateway",
-							resolvedRefReason:  "Accepted",
-							resolvedRefsStatus: "True",
-							acceptedReason:     "Accepted",
-							acceptedStatus:     "True",
-						},
-					}
-
-					if hasTLS {
-						tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
-							listenerName:       "port443",
-							parentKind:         "Gateway",
-							resolvedRefReason:  "Accepted",
-							resolvedRefsStatus: "True",
-							acceptedReason:     "Accepted",
-							acceptedStatus:     "True",
-						})
-					}
-
-					tcpValidationInfo := map[string]routeValidationInfo{
-						k8s.NamespacedName(stack.nlbResourceStack.tcprs[0]).String(): {
-							parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-							listenerInfo:      tcpRouteListenerInfo,
-						},
-						k8s.NamespacedName(stack.nlbResourceStack.tcprs[1]).String(): {
-							parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-							listenerInfo: []listenerValidationInfo{
-								{
-									listenerName:       "other-ns",
-									parentKind:         "Gateway",
-									resolvedRefReason:  "Accepted",
-									resolvedRefsStatus: "True",
-									acceptedReason:     "Accepted",
-									acceptedStatus:     "True",
-								},
-							},
-						},
-					}
-
-					udpValidationInfo := map[string]routeValidationInfo{
-						k8s.NamespacedName(stack.nlbResourceStack.udprs[0]).String(): {
-							parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-							listenerInfo: []listenerValidationInfo{
-								{
-									listenerName:       "port8080",
-									parentKind:         "Gateway",
-									resolvedRefReason:  "Accepted",
-									resolvedRefsStatus: "True",
-									acceptedReason:     "Accepted",
-									acceptedStatus:     "True",
-								},
-							},
-						},
-					}
-					validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
-					validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
+					validateL4RouteStatusPermitted(tf, stack, hasTLS)
 				})
 				By("removing ref grant", func() {
 					err := auxiliaryStack.DeleteReferenceGrants(ctx, tf)
@@ -396,65 +278,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					Expect(err).NotTo(HaveOccurred())
 				})
 				By("confirming the route status", func() {
-					tcpRouteListenerInfo := []listenerValidationInfo{
-						{
-							listenerName:       "port80",
-							parentKind:         "Gateway",
-							resolvedRefReason:  "Accepted",
-							resolvedRefsStatus: "True",
-							acceptedReason:     "Accepted",
-							acceptedStatus:     "True",
-						},
-					}
-
-					if hasTLS {
-						tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
-							listenerName:       "port443",
-							parentKind:         "Gateway",
-							resolvedRefReason:  "Accepted",
-							resolvedRefsStatus: "True",
-							acceptedReason:     "Accepted",
-							acceptedStatus:     "True",
-						})
-					}
-
-					tcpValidationInfo := map[string]routeValidationInfo{
-						k8s.NamespacedName(stack.nlbResourceStack.tcprs[0]).String(): {
-							parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-							listenerInfo:      tcpRouteListenerInfo,
-						},
-						k8s.NamespacedName(stack.nlbResourceStack.tcprs[1]).String(): {
-							parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-							listenerInfo: []listenerValidationInfo{
-								{
-									listenerName:       "other-ns",
-									parentKind:         "Gateway",
-									resolvedRefReason:  "RefNotPermitted",
-									resolvedRefsStatus: "False",
-									acceptedReason:     "RefNotPermitted",
-									acceptedStatus:     "False",
-								},
-							},
-						},
-					}
-
-					udpValidationInfo := map[string]routeValidationInfo{
-						k8s.NamespacedName(stack.nlbResourceStack.udprs[0]).String(): {
-							parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
-							listenerInfo: []listenerValidationInfo{
-								{
-									listenerName:       "port8080",
-									parentKind:         "Gateway",
-									resolvedRefReason:  "Accepted",
-									resolvedRefsStatus: "True",
-									acceptedReason:     "Accepted",
-									acceptedStatus:     "True",
-								},
-							},
-						},
-					}
-					validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
-					validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
+					validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 				})
 			})
 		})

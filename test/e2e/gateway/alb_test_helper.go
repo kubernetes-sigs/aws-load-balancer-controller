@@ -108,6 +108,89 @@ func generateGRPCClient(dnsName string) (echo.EchoServiceClient, error) {
 	return echo.NewEchoServiceClient(conn), nil
 }
 
+func validateHTTPRouteStatusNotPermitted(tf *framework.Framework, stack ALBTestStack) {
+	validationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "test-listener",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+		k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "other-ns",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "RefNotPermitted",
+					resolvedRefsStatus: "False",
+					acceptedReason:     "RefNotPermitted",
+					acceptedStatus:     "False",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+}
+
+func validateHTTPRouteStatusPermitted(tf *framework.Framework, stack ALBTestStack) {
+	validationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "test-listener",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+		k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "other-ns",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+}
+
+func validateGRPCRouteStatus(tf *framework.Framework, stack ALBTestStack) {
+	validationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.albResourceStack.grpcrs[0]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "test-listener",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.albResourceStack.grpcrs, grpcRouteStatusConverter, validationInfo)
+}
+
 func httpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
 	httpR := i.(*gwv1.HTTPRoute)
 	retrievedRoute := gwv1.HTTPRoute{}
