@@ -162,7 +162,7 @@ func (t *defaultModelBuildTask) buildFrontendNlbSubnetMappings(ctx context.Conte
 			explicitSubnetNameOrIDsList = append(explicitSubnetNameOrIDsList, rawSubnetNameOrIDs)
 		}
 		var rawEIP []string
-		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAlloactions, &rawEIP, member.Ing.Annotations); exists {
+		if exists := t.annotationParser.ParseStringSliceAnnotation(annotations.IngressSuffixFrontendNlbEipAllocations, &rawEIP, member.Ing.Annotations); exists {
 			eipAllocationsList = append(eipAllocationsList, rawEIP)
 		}
 	}
@@ -224,7 +224,7 @@ func (t *defaultModelBuildTask) getFrontendNlbAttributes() (map[string]string, e
 	var chosenAttributes map[string]string
 	for _, member := range t.ingGroup.Members {
 		var attributes map[string]string
-		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &attributes, member.Ing.Annotations); err != nil {
+		if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.IngressSuffixFrontendNlbAttributes, &attributes, member.Ing.Annotations); err != nil {
 			return nil, err
 		}
 		if chosenAttributes == nil {
