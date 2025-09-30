@@ -70,6 +70,8 @@ crds: manifests
 	$(MOVE_GATEWAY_CRDS)
 	$(KUSTOMIZE) build config/crd > helm/aws-load-balancer-controller/crds/crds.yaml
 	$(KUSTOMIZE) build config/crd/gateway > config/crd/gateway/gateway-crds.yaml
+	echo '---' > config/crd/gateway/gateway-crds.yaml
+	$(KUSTOMIZE) build config/crd/gateway >> config/crd/gateway/gateway-crds.yaml
 	$(COPY_GATEWAY_CRDS_TO_HELM)
 
 # Run go fmt against code
