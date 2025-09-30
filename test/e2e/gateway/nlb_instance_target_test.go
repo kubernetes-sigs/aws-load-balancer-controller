@@ -155,6 +155,9 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				err := tf.UDPVerifier.VerifyUDP(endpoint)
 				Expect(err).NotTo(HaveOccurred())
 			})
+			By("confirming the route status", func() {
+				validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
+			})
 			By("deploying ref grant", func() {
 				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.nlbResourceStack.commonStack.ns)
 				Expect(err).NotTo(HaveOccurred())
@@ -219,10 +222,13 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				})
 				Expect(err).NotTo(HaveOccurred())
 			})
-			By("sending http request to the lb to the cross ns lsitener", func() {
+			By("sending http request to the lb to the cross ns listener", func() {
 				url := fmt.Sprintf("http://%v:5000/any-path", dnsName)
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
+			})
+			By("confirming the route status", func() {
+				validateL4RouteStatusPermitted(tf, stack, hasTLS)
 			})
 			By("removing ref grant", func() {
 				err := auxiliaryStack.DeleteReferenceGrants(ctx, tf)
@@ -277,6 +283,14 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 					TargetGroups: expectedTargetGroups,
 				})
 				Expect(err).NotTo(HaveOccurred())
+			})
+			By("sending udp request to the lb", func() {
+				endpoint := fmt.Sprintf("%v:8080", dnsName)
+				err := tf.UDPVerifier.VerifyUDP(endpoint)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("confirming the route status", func() {
+				validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 			})
 		})
 	})

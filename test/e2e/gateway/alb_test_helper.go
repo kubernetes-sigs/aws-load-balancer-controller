@@ -8,7 +8,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway/grpc/echo"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -104,4 +106,107 @@ func generateGRPCClient(dnsName string) (echo.EchoServiceClient, error) {
 		return nil, err
 	}
 	return echo.NewEchoServiceClient(conn), nil
+}
+
+func validateHTTPRouteStatusNotPermitted(tf *framework.Framework, stack ALBTestStack) {
+	validationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "test-listener",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+		k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "other-ns",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "RefNotPermitted",
+					resolvedRefsStatus: "False",
+					acceptedReason:     "RefNotPermitted",
+					acceptedStatus:     "False",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+}
+
+func validateHTTPRouteStatusPermitted(tf *framework.Framework, stack ALBTestStack) {
+	validationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "test-listener",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+		k8s.NamespacedName(stack.albResourceStack.httprs[1]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "other-ns",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+}
+
+func validateGRPCRouteStatus(tf *framework.Framework, stack ALBTestStack) {
+	validationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.albResourceStack.grpcrs[0]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "test-listener",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "Accepted",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.albResourceStack.grpcrs, grpcRouteStatusConverter, validationInfo)
+}
+
+func httpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
+	httpR := i.(*gwv1.HTTPRoute)
+	retrievedRoute := gwv1.HTTPRoute{}
+	err := tf.K8sClient.Get(context.Background(), k8s.NamespacedName(httpR), &retrievedRoute)
+	if err != nil {
+		return gwv1.RouteStatus{}, types.NamespacedName{}, err
+	}
+	return retrievedRoute.Status.RouteStatus, k8s.NamespacedName(&retrievedRoute), nil
+}
+
+func grpcRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.RouteStatus, types.NamespacedName, error) {
+	grpcR := i.(*gwv1.GRPCRoute)
+	retrievedRoute := gwv1.GRPCRoute{}
+	err := tf.K8sClient.Get(context.Background(), k8s.NamespacedName(grpcR), &retrievedRoute)
+	if err != nil {
+		return gwv1.RouteStatus{}, types.NamespacedName{}, err
+	}
+	return retrievedRoute.Status.RouteStatus, k8s.NamespacedName(&retrievedRoute), nil
 }

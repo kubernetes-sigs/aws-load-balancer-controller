@@ -141,6 +141,9 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(503))
 				Expect(err).NotTo(HaveOccurred())
 			})
+			By("confirming the route status", func() {
+				validateHTTPRouteStatusNotPermitted(tf, stack)
+			})
 			By("deploying ref grant", func() {
 				err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.albResourceStack.commonStack.ns)
 				Expect(err).NotTo(HaveOccurred())
@@ -180,6 +183,9 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
 			})
+			By("confirming the http route status after ref grant is materialized", func() {
+				validateHTTPRouteStatusPermitted(tf, stack)
+			})
 			By("removing ref grant", func() {
 				err := auxiliaryStack.DeleteReferenceGrants(ctx, tf)
 				Expect(err).NotTo(HaveOccurred())
@@ -190,6 +196,9 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 				url := fmt.Sprintf("http://%v:5000/any-path", dnsName)
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(503))
 				Expect(err).NotTo(HaveOccurred())
+			})
+			By("confirming the route status", func() {
+				validateHTTPRouteStatusNotPermitted(tf, stack)
 			})
 		})
 	})
@@ -1706,6 +1715,9 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 
 				_, err = c.Echo(mdCtx, &echo.EchoRequest{Message: "foo"})
 				Expect(err).ToNot(HaveOccurred())
+			})
+			By("confirming the route status", func() {
+				validateGRPCRouteStatus(tf, stack)
 			})
 		})
 	})

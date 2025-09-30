@@ -158,6 +158,9 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					err := tf.UDPVerifier.VerifyUDP(endpoint)
 					Expect(err).NotTo(HaveOccurred())
 				})
+				By("confirming the route status", func() {
+					validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
+				})
 				By("deploying ref grant", func() {
 					err := auxiliaryStack.CreateReferenceGrants(ctx, tf, stack.nlbResourceStack.commonStack.ns)
 					Expect(err).NotTo(HaveOccurred())
@@ -219,6 +222,9 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 					})
 					Expect(err).NotTo(HaveOccurred())
 				})
+				By("confirming the route status", func() {
+					validateL4RouteStatusPermitted(tf, stack, hasTLS)
+				})
 				By("removing ref grant", func() {
 					err := auxiliaryStack.DeleteReferenceGrants(ctx, tf)
 					Expect(err).NotTo(HaveOccurred())
@@ -270,6 +276,9 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 						TargetGroups: expectedTargetGroups,
 					})
 					Expect(err).NotTo(HaveOccurred())
+				})
+				By("confirming the route status", func() {
+					validateL4RouteStatusNotPermitted(tf, stack, hasTLS)
 				})
 			})
 		})
