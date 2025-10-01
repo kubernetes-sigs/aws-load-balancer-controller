@@ -171,7 +171,7 @@ spec:
 
 An optional list of subnet configurations to be used in the LB. This value takes precedence over subnet `loadBalancerSubnetsSelector` if both are selected.
 
-See [SubnetConfiguration](#SubnetConfiguration) for more more details
+See [SubnetConfiguration](./loadbalancerconfig.md#subnetconfiguration) for more more details
 
 
 **Default** Use [Subnet Discovery](../../deploy/subnet_discovery.md)
@@ -203,7 +203,7 @@ The subnets in the load balancer's VPC where each tag specified in the map key c
 
 `listenerConfigurations`
 
-A list of Listener Configurations. See the [ListenerConfiguration](#ListenerConfiguration)
+A list of Listener Configurations. See the [ListenerConfiguration](#listenerconfiguration)
 
 ```
 apiVersion: gateway.k8s.aws/v1beta1
@@ -213,9 +213,9 @@ metadata:
   namespace: echoserver
 spec:
   listenerConfigurations:
-    - protocolPort: TCP:80
+    - protocolPort: HTTPS:80
       defaultCertificate: my-cert
-    - protocolPort: TCP:81
+    - protocolPort: HTTPS:81
       defaultCertificate: my-cert1
 ```
 
@@ -237,13 +237,11 @@ spec:
     - "sg2"
 ```
 
-If you specify this annotation, you need to configure the security groups on your Node/Pod to allow inbound traffic from the load balancer. 
-You could also set the [`manage-backend-security-group-rules`](#ManageBackendSecurityGroupRules) if you want the controller to manage the access rules.
-Both name or ID of securityGroups are supported. Name matches a `Name` tag, not the `groupName` attribute.
+The security groups to attach to the Load Balancer.
 
 **Default**
 
-The controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from [`SourceRanges`](#SourceRanges) and [`SecurityGroupPrefixes`](#SecurityGroupPrefixes) to each Listener port.
+The controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from [`SourceRanges`](#sourceranges) and [`SecurityGroupPrefixes`](#securitygroupprefixes) to each Listener port.
 Also, the securityGroups for Node/Pod will be modified to allow inbound traffic from this securityGroup.
 
 #### SecurityGroupPrefixes
@@ -415,7 +413,7 @@ metadata:
   namespace: echoserver
 spec:
   listenerConfigurations:
-    - protocolPort: TCP:80
+    - protocolPort: TLS:80
       defaultCertificate: my-cert
       certificates: [arn-1, arn2, arn3]
       sslPolicy: ELBSecurityPolicy-2016-08
@@ -493,7 +491,7 @@ metadata:
   namespace: echoserver
 spec:
   listenerConfigurations:
-    - protocolPort: TCP:80
+    - protocolPort: HTTPS:443
       defaultCertificate: my-cert
       certificates: [arn-1, arn2, arn3]
       mutualAuthentication:
@@ -505,7 +503,7 @@ spec:
 
 `mutualAuthentication`
 
-Define the mutual authentication configuration information. Using [MutualAuthenticationAttributes](#MutualAuthenticationAttributes) 
+Define the mutual authentication configuration information. Using [MutualAuthenticationAttributes](#mutualauthenticationattributes) 
 
 See the documentation for more information
 [mTLS](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html)
@@ -526,7 +524,7 @@ metadata:
   namespace: echoserver
 spec:
   listenerConfigurations:
-    - protocolPort: TCP:80
+    - protocolPort: HTTPS:80
       defaultCertificate: my-cert
       certificates: [arn-1, arn2, arn3]
       listenerAttributes:
@@ -553,7 +551,7 @@ metadata:
   namespace: echoserver
 spec:
   listenerConfigurations:
-    - protocolPort: TCP:80
+    - protocolPort: HTTPS:80
       defaultCertificate: my-cert
       certificates: [arn-1, arn2, arn3]
       mutualAuthentication:
@@ -667,3 +665,46 @@ The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from
 Only applies to Network LoadBalancer Gateways.
 
 **Default** Empty string
+
+
+### WAFv2
+
+```
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  wafV2:
+    webACL: "my-web-acl"
+```
+
+#### WebACL
+
+The [WAF](https://docs.aws.amazon.com/waf/latest/APIReference/Welcome.html) Web ACL to add to the Gateway.
+
+Only applies to Application LoadBalancer Gateways.
+
+**Default** Empty string (No WAF enabled)
+
+### Shield
+
+```
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  shieldConfiguration:
+    enabled: true
+```
+
+#### Enabled
+
+Whether to enroll this Gateway with [Shield Advanced](https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-summary.html) support.
+
+Only applies to Application LoadBalancer Gateways.
+
+**Default** false (No Shield enabled)
