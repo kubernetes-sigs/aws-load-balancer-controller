@@ -50,7 +50,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1", "sg2", "s3"},
 					SecurityGroupPrefixes: &[]string{"pl1"},
 					SourceRanges:          &[]string{"127.0.0.0/20"},
-					VpcId:                 awssdk.String("vpc-1234"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1",
@@ -91,7 +90,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1", "sg2", "s3"},
 					SecurityGroupPrefixes: &[]string{"pl1"},
 					SourceRanges:          &[]string{"127.0.0.0/20"},
-					VpcId:                 awssdk.String("vpc-1234"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1",
@@ -134,7 +132,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1", "sg2", "s3"},
 					SecurityGroupPrefixes: &[]string{"pl1"},
 					SourceRanges:          &[]string{"127.0.0.0/20"},
-					VpcId:                 awssdk.String("vpc-1234"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1",
@@ -175,7 +172,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1", "sg2", "s3"},
 					SecurityGroupPrefixes: &[]string{"pl1"},
 					SourceRanges:          &[]string{"127.0.0.0/20"},
-					VpcId:                 awssdk.String("vpc-1234"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1",
@@ -222,7 +218,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1"},
 					SecurityGroupPrefixes: &[]string{"pl1"},
 					SourceRanges:          &[]string{"127.0.0.0/20"},
-					VpcId:                 awssdk.String("vpc-gw-class"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1-gwclass",
@@ -270,7 +265,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1-gw"},
 					SecurityGroupPrefixes: &[]string{"pl1-gw"},
 					SourceRanges:          &[]string{"127.0.0.10/20"},
-					VpcId:                 awssdk.String("vpc-gw"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1-gw",
@@ -321,7 +315,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1"},
 					SecurityGroupPrefixes: &[]string{"pl1"},
 					SourceRanges:          &[]string{"127.0.0.0/20"},
-					VpcId:                 awssdk.String("vpc-gw-class"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1-common",
@@ -385,7 +378,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1"},
 					SecurityGroupPrefixes: &[]string{"pl1"},
 					SourceRanges:          &[]string{"127.0.0.0/20"},
-					VpcId:                 awssdk.String("vpc-gw-class"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1-gwclass",
@@ -433,7 +425,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1-gw"},
 					SecurityGroupPrefixes: &[]string{"pl1-gw"},
 					SourceRanges:          &[]string{"127.0.0.10/20"},
-					VpcId:                 awssdk.String("vpc-gw"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1-gw",
@@ -481,7 +472,6 @@ func Test_Merge(t *testing.T) {
 					SecurityGroups:        &[]string{"sg1-gw"},
 					SecurityGroupPrefixes: &[]string{"pl1-gw"},
 					SourceRanges:          &[]string{"127.0.0.10/20"},
-					VpcId:                 awssdk.String("vpc-gw"),
 					ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 						{
 							ProtocolPort:       "pp1-common",

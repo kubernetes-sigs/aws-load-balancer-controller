@@ -154,12 +154,6 @@ func (merger *loadBalancerConfigMergerImpl) performTakeOneMerges(merged *elbv2gw
 		merged.SourceRanges = lowPriority.Spec.SourceRanges
 	}
 
-	if highPriority.Spec.VpcId != nil {
-		merged.VpcId = highPriority.Spec.VpcId
-	} else {
-		merged.VpcId = lowPriority.Spec.VpcId
-	}
-
 	if highPriority.Spec.EnableICMP != nil {
 		merged.EnableICMP = highPriority.Spec.EnableICMP
 	} else {
