@@ -48,21 +48,23 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	podInfoRepo k8s.PodInfoRepo, networkingManager networking.NetworkingManager,
 	vpcInfoProvider networking.VPCInfoProvider, multiClusterManager MultiClusterManager, metricsCollector lbcmetrics.MetricCollector,
 	vpcID string, failOpenEnabled bool, endpointSliceEnabled bool,
-	eventRecorder record.EventRecorder, logger logr.Logger) *defaultResourceManager {
+	eventRecorder record.EventRecorder, logger logr.Logger, maxTargetsPerTargetGroup int) *defaultResourceManager {
+
 	targetsManager := NewCachedTargetsManager(elbv2Client, logger)
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, failOpenEnabled, endpointSliceEnabled, logger)
 	return &defaultResourceManager{
-		k8sClient:           k8sClient,
-		targetsManager:      targetsManager,
-		endpointResolver:    endpointResolver,
-		networkingManager:   networkingManager,
-		eventRecorder:       eventRecorder,
-		logger:              logger,
-		vpcID:               vpcID,
-		vpcInfoProvider:     vpcInfoProvider,
-		podInfoRepo:         podInfoRepo,
-		multiClusterManager: multiClusterManager,
-		metricsCollector:    metricsCollector,
+		k8sClient:                k8sClient,
+		targetsManager:           targetsManager,
+		endpointResolver:         endpointResolver,
+		networkingManager:        networkingManager,
+		eventRecorder:            eventRecorder,
+		logger:                   logger,
+		vpcID:                    vpcID,
+		vpcInfoProvider:          vpcInfoProvider,
+		podInfoRepo:              podInfoRepo,
+		maxTargetsPerTargetGroup: maxTargetsPerTargetGroup,
+		multiClusterManager:      multiClusterManager,
+		metricsCollector:         metricsCollector,
 
 		invalidVpcCache:    cache.NewExpiring(),
 		invalidVpcCacheTTL: defaultTargetsCacheTTL,
@@ -75,17 +77,18 @@ var _ ResourceManager = &defaultResourceManager{}
 
 // default implementation for ResourceManager.
 type defaultResourceManager struct {
-	k8sClient           client.Client
-	targetsManager      TargetsManager
-	endpointResolver    backend.EndpointResolver
-	networkingManager   networking.NetworkingManager
-	eventRecorder       record.EventRecorder
-	logger              logr.Logger
-	vpcInfoProvider     networking.VPCInfoProvider
-	podInfoRepo         k8s.PodInfoRepo
-	multiClusterManager MultiClusterManager
-	metricsCollector    lbcmetrics.MetricCollector
-	vpcID               string
+	k8sClient                client.Client
+	targetsManager           TargetsManager
+	endpointResolver         backend.EndpointResolver
+	networkingManager        networking.NetworkingManager
+	eventRecorder            record.EventRecorder
+	logger                   logr.Logger
+	vpcInfoProvider          networking.VPCInfoProvider
+	podInfoRepo              k8s.PodInfoRepo
+	maxTargetsPerTargetGroup int
+	multiClusterManager      MultiClusterManager
+	metricsCollector         lbcmetrics.MetricCollector
+	vpcID                    string
 
 	invalidVpcCache      *cache.Expiring
 	invalidVpcCacheTTL   time.Duration
@@ -240,6 +243,11 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_ip_targets_error", err, m.metricsCollector)
 		}
 
+		if m.maxTargetsPerTargetGroup != 0 {
+			eligibleTargetsCount := m.getMaxNewTargets(len(unmatchedEndpoints), len(targets), tgbScopedLogger)
+			unmatchedEndpoints = unmatchedEndpoints[:eligibleTargetsCount]
+		}
+
 		if err := m.registerPodEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {
 			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "register_pod_endpoint_error", err, m.metricsCollector)
 		}
@@ -339,6 +347,11 @@ func (m *defaultResourceManager) reconcileWithInstanceTargetType(ctx context.Con
 		updateTrackedTargets = false
 		if err := m.multiClusterManager.UpdateTrackedInstanceTargets(ctx, true, endpoints, tgb); err != nil {
 			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_instance_targets_error", err, m.metricsCollector)
+		}
+
+		if m.maxTargetsPerTargetGroup != 0 {
+			eligibleTargetsCount := m.getMaxNewTargets(len(unmatchedEndpoints), len(targets), tgbScopedLogger)
+			unmatchedEndpoints = unmatchedEndpoints[:eligibleTargetsCount]
 		}
 
 		if err := m.registerNodePortEndpoints(ctx, tgb, unmatchedEndpoints); err != nil {
@@ -802,4 +815,17 @@ func isVPCNotFoundError(err error) bool {
 		return code == "InvalidVpcID.NotFound"
 	}
 	return false
+}
+
+func (m *defaultResourceManager) getMaxNewTargets(newTargetCount int, currentTargetCount int, tgbScopedLogger logr.Logger) (maxAdditions int) {
+	if newTargetCount+currentTargetCount > m.maxTargetsPerTargetGroup {
+		maxAdditions = m.maxTargetsPerTargetGroup - currentTargetCount
+		tgbScopedLogger.Info("Limiting target additions due to max-targets-per-instance configuration",
+			"currentTargets", currentTargetCount,
+			"maxTargetsPerTargetGroup", m.maxTargetsPerTargetGroup,
+			"proposedAdditions", newTargetCount)
+		return maxAdditions
+	}
+
+	return newTargetCount
 }
