@@ -24,6 +24,9 @@ type Cloud interface {
 	// RGT provides API to AWS RGT
 	RGT() RGT
 
+	// GlobalAccelerator provides API to AWS GlobalAccelerator
+	GlobalAccelerator() GlobalAccelerator
+
 	// Region for the kubernetes cluster
 	Region() string
 
