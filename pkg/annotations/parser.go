@@ -3,9 +3,10 @@ package annotations
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 type ParseOptions struct {
@@ -151,15 +152,15 @@ func (p *suffixAnnotationParser) ParseStringMapAnnotation(annotation string, val
 	if !exists {
 		return false, nil
 	}
-	rawKVPairs := splitCommaSeparatedString(raw)
+	rawKVPairs := splitKeyValuePairs(raw)
 	keyValues := make(map[string]string)
 	for _, kvPair := range rawKVPairs {
 		parts := strings.SplitN(kvPair, "=", 2)
 		if len(parts) != 2 {
 			return false, errors.Errorf("failed to parse stringMap annotation, %v: %v", matchedKey, raw)
 		}
-		key := parts[0]
-		value := parts[1]
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
 		if len(key) == 0 {
 			return false, errors.Errorf("failed to parse stringMap annotation, %v: %v", matchedKey, raw)
 		}
@@ -209,6 +210,44 @@ func splitCommaSeparatedString(commaSeparatedString string) []string {
 			continue
 		}
 		result = append(result, part)
+	}
+	return result
+}
+
+// splitKeyValuePairs this function supports escaped comma
+func splitKeyValuePairs(s string) []string {
+	var result []string
+	var currentString strings.Builder
+
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			// Escape sequence - add the escaped character literally
+			currentString.WriteByte(s[i+1])
+			i++ // skip the escaped character
+		} else if s[i] == ',' {
+			// Check if next part contains '=' (a new key-value pair)
+			remaining := strings.TrimSpace(s[i+1:])
+			containsEqual := strings.Index(remaining, "=")
+			if containsEqual != -1 {
+				result = append(result, strings.TrimSpace(currentString.String()))
+				currentString.Reset()
+			} else if len(remaining) > 0 {
+				// There's content after comma but no '=' - this is malformed
+				// Add current content and the malformed part as separate items
+				result = append(result, strings.TrimSpace(currentString.String()))
+				result = append(result, remaining)
+				return result
+			} else {
+				// Empty after comma, add comma to current
+				currentString.WriteByte(s[i])
+			}
+		} else {
+			currentString.WriteByte(s[i])
+		}
+	}
+
+	if currentString.Len() > 0 {
+		result = append(result, strings.TrimSpace(currentString.String()))
 	}
 	return result
 }
