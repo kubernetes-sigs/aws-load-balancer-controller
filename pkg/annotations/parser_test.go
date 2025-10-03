@@ -2,8 +2,9 @@ package annotations
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_annotationParser_ParseStringAnnotation(t *testing.T) {
@@ -275,6 +276,22 @@ func Test_serviceAnnotationParser_ParseStringMapAnnotation(t *testing.T) {
 				"key1":             "value1",
 				"key2":             "value2",
 				"key3/with-slash":  "value3",
+				"key4/empty-value": "",
+			},
+		},
+		{
+			name:   "multiple values",
+			prefix: "p.co",
+			suffix: "sfx",
+			annotations: map[string]string{
+				"first-value": "1",
+				"p.co/sfx":    "key1=value1\\,valueOne, key2= value2, key3/with-slash=value3\\,valueThree, key4/empty-value=",
+			},
+			wantExist: true,
+			wantValue: map[string]string{
+				"key1":             "value1,valueOne",
+				"key2":             "value2",
+				"key3/with-slash":  "value3,valueThree",
 				"key4/empty-value": "",
 			},
 		},
