@@ -4,7 +4,6 @@ import (
 	"context"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/smithy-go"
 	"github.com/golang/mock/gomock"
 	"k8s.io/apimachinery/pkg/util/cache"
@@ -513,7 +512,7 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 			vpcInfo: networking.VPCInfo{
 				CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 					{
-						CidrBlock: aws.String("127.0.0.0/24"),
+						CidrBlock: awssdk.String("127.0.0.0/24"),
 						CidrBlockState: &ec2types.VpcCidrBlockState{
 							State: ec2types.VpcCidrBlockStateCodeAssociated,
 						},
@@ -541,7 +540,7 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 			vpcInfo: networking.VPCInfo{
 				Ipv6CidrBlockAssociationSet: []ec2types.VpcIpv6CidrBlockAssociation{
 					{
-						Ipv6CidrBlock: aws.String("2001:db8::/32"),
+						Ipv6CidrBlock: awssdk.String("2001:db8::/32"),
 						Ipv6CidrBlockState: &ec2types.VpcCidrBlockState{
 							State: ec2types.VpcCidrBlockStateCodeAssociated,
 						},
@@ -570,7 +569,7 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 			vpcInfo: networking.VPCInfo{
 				CidrBlockAssociationSet: []ec2types.VpcCidrBlockAssociation{
 					{
-						CidrBlock: aws.String("127.0.0.0/24"),
+						CidrBlock: awssdk.String("127.0.0.0/24"),
 						CidrBlockState: &ec2types.VpcCidrBlockState{
 							State: ec2types.VpcCidrBlockStateCodeAssociated,
 						},
@@ -599,7 +598,7 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 			vpcInfo: networking.VPCInfo{
 				Ipv6CidrBlockAssociationSet: []ec2types.VpcIpv6CidrBlockAssociation{
 					{
-						Ipv6CidrBlock: aws.String("2001:db8::/32"),
+						Ipv6CidrBlock: awssdk.String("2001:db8::/32"),
 						Ipv6CidrBlockState: &ec2types.VpcCidrBlockState{
 							State: ec2types.VpcCidrBlockStateCodeAssociated,
 						},
