@@ -965,6 +965,15 @@ Custom attributes to LoadBalancers and TargetGroups can be controlled with follo
             ```
             alb.ingress.kubernetes.io/listener-attributes.HTTP-80: routing.http.response.server.enabled=true
             ```
+        - Add Access-Control-Allow-Headers header value (with comma)
+            ```
+            alb.ingress.kubernetes.io/listener-attributes.HTTPS-443: "routing.http.response.access_control_allow_headers.header_value=exampleValue\\,anotherExampleValue"
+            ```
+            or
+            ```
+            alb.ingress.kubernetes.io/listener-attributes.HTTPS-443: routing.http.response.access_control_allow_headers.header_value=exampleValue\,anotherExampleValue
+            ```      
+            both result Access-Control-Allow-Headers header value: exampleValue,anotherExampleValue
 
 
 ## Resource Tags
