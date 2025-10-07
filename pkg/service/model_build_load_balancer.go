@@ -26,11 +26,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 )
 
-// Abstract this out??
-const (
-	resourceIDLoadBalancer = "LoadBalancer"
-)
-
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
 	existingLB, err := t.fetchExistingLoadBalancer(ctx)
 	if err != nil {
