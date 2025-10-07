@@ -10,8 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -26,6 +24,7 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
 
 // Build target groups for weighted target groups
