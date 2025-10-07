@@ -1384,7 +1384,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
 								},
 							},
 						},
@@ -1406,7 +1406,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=partial_availability_zone_affinity",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=partial_availability_zone_affinity",
 								},
 							},
 						},
@@ -1428,7 +1428,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=any_availability_zone",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=any_availability_zone",
 								},
 							},
 						},
@@ -1450,7 +1450,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=invalid_policy",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=invalid_policy",
 								},
 							},
 						},
@@ -1471,7 +1471,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity,cross_zone.enabled=true",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=availability_zone_affinity,cross_zone.enabled=true",
 								},
 							},
 						},
@@ -1494,7 +1494,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
 								},
 							},
 						},
@@ -1505,7 +1505,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress2",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
 								},
 							},
 						},
@@ -1527,7 +1527,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
 								},
 							},
 						},
@@ -1538,7 +1538,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress2",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=any_availability_zone",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=any_availability_zone",
 								},
 							},
 						},
@@ -1559,7 +1559,7 @@ func Test_defaultModelBuildTask_getFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=availability_zone_affinity",
 								},
 							},
 						},
@@ -1638,7 +1638,7 @@ func Test_defaultModelBuildTask_buildFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=availability_zone_affinity,cross_zone.enabled=true",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=availability_zone_affinity,cross_zone.enabled=true",
 								},
 							},
 						},
@@ -1661,7 +1661,7 @@ func Test_defaultModelBuildTask_buildFrontendNlbAttributes(t *testing.T) {
 								Name:      "ingress1",
 								Namespace: "default",
 								Annotations: map[string]string{
-									"alb.ingress.kubernetes.io/aws-load-balancer-attributes": "dns_record.client_routing_policy=invalid_policy",
+									"alb.ingress.kubernetes.io/frontend-nlb-attributes": "dns_record.client_routing_policy=invalid_policy",
 								},
 							},
 						},
