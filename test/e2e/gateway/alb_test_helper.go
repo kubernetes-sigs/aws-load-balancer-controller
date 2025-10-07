@@ -116,7 +116,7 @@ func validateHTTPRouteStatusNotPermitted(tf *framework.Framework, stack ALBTestS
 				{
 					listenerName:       "test-listener",
 					parentKind:         "Gateway",
-					resolvedRefReason:  "Accepted",
+					resolvedRefReason:  "ResolvedRefs",
 					resolvedRefsStatus: "True",
 					acceptedReason:     "Accepted",
 					acceptedStatus:     "True",
@@ -148,7 +148,7 @@ func validateHTTPRouteStatusPermitted(tf *framework.Framework, stack ALBTestStac
 				{
 					listenerName:       "test-listener",
 					parentKind:         "Gateway",
-					resolvedRefReason:  "Accepted",
+					resolvedRefReason:  "ResolvedRefs",
 					resolvedRefsStatus: "True",
 					acceptedReason:     "Accepted",
 					acceptedStatus:     "True",
@@ -161,7 +161,7 @@ func validateHTTPRouteStatusPermitted(tf *framework.Framework, stack ALBTestStac
 				{
 					listenerName:       "other-ns",
 					parentKind:         "Gateway",
-					resolvedRefReason:  "Accepted",
+					resolvedRefReason:  "ResolvedRefs",
 					resolvedRefsStatus: "True",
 					acceptedReason:     "Accepted",
 					acceptedStatus:     "True",
@@ -180,7 +180,7 @@ func validateGRPCRouteStatus(tf *framework.Framework, stack ALBTestStack) {
 				{
 					listenerName:       "test-listener",
 					parentKind:         "Gateway",
-					resolvedRefReason:  "Accepted",
+					resolvedRefReason:  "ResolvedRefs",
 					resolvedRefsStatus: "True",
 					acceptedReason:     "Accepted",
 					acceptedStatus:     "True",
