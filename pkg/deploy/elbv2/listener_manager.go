@@ -296,7 +296,7 @@ func (m *defaultListenerManager) isSDKListenerSettingsDrifted(lsSpec elbv2model.
 	if string(lsSpec.Protocol) != string(sdkLS.Listener.Protocol) {
 		return true
 	}
-	if !cmp.Equal(desiredDefaultActions, sdkLS.Listener.DefaultActions, elbv2equality.CompareOptionForActions()) {
+	if !cmp.Equal(desiredDefaultActions, sdkLS.Listener.DefaultActions, elbv2equality.CompareOptionForActions(desiredDefaultActions, sdkLS.Listener.DefaultActions)) {
 		return true
 	}
 	if !cmp.Equal(desiredDefaultCerts, sdkLS.Listener.Certificates, elbv2equality.CompareOptionForCertificates()) {

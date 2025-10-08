@@ -87,7 +87,10 @@ func CompareOptionForAction() cmp.Option {
 }
 
 // CompareOptionForActions returns the compare option for action slice.
-func CompareOptionForActions() cmp.Option {
+// IMPORTANT:
+// When changing the types compared (e.g. the input to the function)
+// ensure to update cmpopts.SortSlices to reflect the new type, otherwise sorting silently doesn't work.
+func CompareOptionForActions(_, _ []elbv2types.Action) cmp.Option {
 	return cmp.Options{
 		cmpopts.EquateEmpty(),
 		cmpopts.IgnoreUnexported(elbv2types.AuthenticateCognitoActionConfig{}),
