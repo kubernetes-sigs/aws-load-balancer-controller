@@ -5819,3 +5819,392 @@ func Test_defaultModelBuildTask_buildManageSecurityGroupRulesFlag(t *testing.T) 
 	}
 
 }
+
+func Test_defaultModelBuildTask_buildResourceTagsPriority(t *testing.T) {
+	type fields struct {
+		ingGroup            Group
+		defaultTags         map[string]string
+		enabledFeatureGates func() config.FeatureGates
+	}
+	type args struct {
+		resourceType string
+	}
+	tests := []struct {
+		name      string
+		fields    fields
+		args      args
+		want      map[string]string
+		wantError string
+	}{
+		{
+			name: "LoadBalancer tags - default tags take priority when feature gate disabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2,k3=v3",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+					"k2": "v20",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Disable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "loadBalancer"},
+			want: map[string]string{
+				"k1": "v10",
+				"k2": "v20",
+				"k3": "v3",
+			},
+		},
+		{
+			name: "LoadBalancer tags - annotation tags take priority when feature gate enabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2,k3=v3",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+					"k2": "v20",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Enable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "loadBalancer"},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+				"k3": "v3",
+			},
+		},
+		{
+			name: "TargetGroup tags - default tags take priority when feature gate disabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+					"k3": "v30",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Disable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "targetGroup"},
+			want: map[string]string{
+				"k1": "v10",
+				"k2": "v2",
+				"k3": "v30",
+			},
+		},
+		{
+			name: "TargetGroup tags - annotation tags take priority when feature gate enabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+					"k3": "v30",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Enable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "targetGroup"},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+				"k3": "v30",
+			},
+		},
+		{
+			name: "Listener tags - default tags take priority when feature gate disabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Disable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "listener"},
+			want: map[string]string{
+				"k1": "v10",
+			},
+		},
+		{
+			name: "Listener tags - annotation tags take priority when feature gate enabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Enable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "listener"},
+			want: map[string]string{
+				"k1": "v1",
+			},
+		},
+		{
+			name: "ListenerRule tags - default tags take priority when feature gate disabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Disable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "listenerRule"},
+			want: map[string]string{
+				"k1": "v10",
+			},
+		},
+		{
+			name: "ListenerRule tags - annotation tags take priority when feature gate enabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Enable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "listenerRule"},
+			want: map[string]string{
+				"k1": "v1",
+			},
+		},
+		{
+			name: "ManagedSecurityGroup tags - default tags take priority when feature gate disabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Disable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "managedSG"},
+			want: map[string]string{
+				"k1": "v10",
+			},
+		},
+		{
+			name: "ManagedSecurityGroup tags - annotation tags take priority when feature gate enabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "ns-1",
+									Name:      "ing-1",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Enable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{resourceType: "managedSG"},
+			want: map[string]string{
+				"k1": "v1",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			annotationParser := annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io")
+			task := &defaultModelBuildTask{
+				annotationParser: annotationParser,
+				ingGroup:         tt.fields.ingGroup,
+				defaultTags:      tt.fields.defaultTags,
+				featureGates:     tt.fields.enabledFeatureGates(),
+			}
+
+			var got map[string]string
+			var err error
+
+			switch tt.args.resourceType {
+			case "loadBalancer":
+				got, err = task.buildLoadBalancerTags(context.Background())
+			case "targetGroup":
+				got, err = task.buildTargetGroupTags(context.Background(), tt.fields.ingGroup.Members[0], &corev1.Service{})
+			case "listener":
+				got, err = task.buildListenerTags(context.Background(), tt.fields.ingGroup.Members)
+			case "listenerRule":
+				got, err = task.buildListenerRuleTags(context.Background(), tt.fields.ingGroup.Members[0])
+			case "managedSG":
+				got, err = task.buildManagedSecurityGroupTags(context.Background())
+			}
+
+			if tt.wantError != "" {
+				assert.EqualError(t, err, tt.wantError)
+			} else {
+				assert.NoError(t, err)
+				for key, value := range tt.want {
+					assert.Contains(t, got, key)
+					assert.Equal(t, value, got[key])
+				}
+			}
+		})
+	}
+}
