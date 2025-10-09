@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"net"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"strings"
+
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	"k8s.io/utils/strings/slices"
 
@@ -101,6 +103,9 @@ func (t *defaultModelBuildTask) buildListenerTags(_ context.Context, ingList []C
 	ingGroupTags, err := t.buildIngressGroupResourceTags(ingList)
 	if err != nil {
 		return nil, err
+	}
+	if t.featureGates.Enabled(config.EnableDefaultTagsLowPriority) {
+		return algorithm.MergeStringMap(ingGroupTags, t.defaultTags), nil
 	}
 	return algorithm.MergeStringMap(t.defaultTags, ingGroupTags), nil
 }

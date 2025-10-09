@@ -324,6 +324,9 @@ func (t *defaultModelBuildTask) buildAdditionalResourceTags(_ context.Context) (
 		}
 	}
 
+	if t.featureGates.Enabled(config.EnableDefaultTagsLowPriority) {
+		return algorithm.MergeStringMap(annotationTags, t.defaultTags), nil
+	}
 	mergedTags := algorithm.MergeStringMap(t.defaultTags, annotationTags)
 	return mergedTags, nil
 }

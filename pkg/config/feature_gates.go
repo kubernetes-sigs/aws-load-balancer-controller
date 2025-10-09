@@ -27,6 +27,7 @@ const (
 	SubnetDiscoveryByReachability Feature = "SubnetDiscoveryByReachability"
 	NLBGatewayAPI                 Feature = "NLBGatewayAPI"
 	ALBGatewayAPI                 Feature = "ALBGatewayAPI"
+	EnableDefaultTagsLowPriority  Feature = "EnableDefaultTagsLowPriority"
 	EnhancedDefaultBehavior       Feature = "EnhancedDefaultBehavior"
 )
 
@@ -71,6 +72,7 @@ func NewFeatureGates() FeatureGates {
 			NLBGatewayAPI:                 false,
 			ALBGatewayAPI:                 false,
 			EnableTCPUDPListenerType:      false,
+			EnableDefaultTagsLowPriority:  false,
 			EnhancedDefaultBehavior:       false,
 		},
 	}

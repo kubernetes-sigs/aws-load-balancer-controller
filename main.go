@@ -19,8 +19,10 @@ package main
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
+	"sync"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -31,7 +33,6 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sync"
 
 	"k8s.io/client-go/util/workqueue"
 
@@ -120,6 +121,7 @@ func main() {
 		infoLogger.Error(err, "unable to load controller config")
 		os.Exit(1)
 	}
+
 	appLogger := getLoggerWithLogLevel(controllerCFG.LogLevel)
 	ctrl.SetLogger(appLogger)
 	klog.SetLoggerWithOptions(appLogger, klog.ContextualLogger(true))

@@ -2,13 +2,15 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
-	"testing"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 )
 
 func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
@@ -254,6 +256,7 @@ func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
 				defaultTags:         tt.fields.defaultTags,
 				externalManagedTags: tt.fields.externalManagedTags,
 				annotationParser:    annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				featureGates:        config.NewFeatureGates(),
 			}
 			got, err := task.buildManagedSecurityGroupTags(context.Background())
 			if tt.wantErr != nil {
@@ -261,6 +264,106 @@ func Test_defaultModelBuildTask_buildManagedSecurityGroupTags(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildManagedSecurityGroupTags_FeatureGate(t *testing.T) {
+	type fields struct {
+		ingGroup            Group
+		defaultTags         map[string]string
+		enabledFeatureGates func() config.FeatureGates
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    map[string]string
+		wantErr error
+	}{
+		{
+			name: "default tags take priority when feature gate disabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2,k3=v3",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+					"k2": "v20",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Disable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			want: map[string]string{
+				"k1": "v10",
+				"k2": "v20",
+				"k3": "v3",
+			},
+		},
+		{
+			name: "annotation tags take priority when feature gate enabled",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2,k3=v3",
+									},
+								},
+							},
+						},
+					},
+				},
+				defaultTags: map[string]string{
+					"k1": "v10",
+					"k2": "v20",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Enable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+				"k3": "v3",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				ingGroup:         tt.fields.ingGroup,
+				defaultTags:      tt.fields.defaultTags,
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				featureGates:     tt.fields.enabledFeatureGates(),
+			}
+			got, err := task.buildManagedSecurityGroupTags(context.Background())
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+			for key, value := range tt.want {
+				assert.Contains(t, got, key)
+				assert.Equal(t, value, got[key])
 			}
 		})
 	}
