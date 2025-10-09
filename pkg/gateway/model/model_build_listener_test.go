@@ -15,7 +15,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -394,11 +393,11 @@ func TestBuildCertificates(t *testing.T) {
 				hostnames: []string{"my-host-1", "my-host-2"},
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
-				DefaultCertificate: aws.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+				DefaultCertificate: awssdk.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
 				},
 			},
 		},
@@ -422,16 +421,16 @@ func TestBuildCertificates(t *testing.T) {
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				Certificates: []*string{
-					aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
-					aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+					awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+					awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
 				},
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
 				},
 				{
-					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
 				},
 			},
 		},
@@ -454,21 +453,21 @@ func TestBuildCertificates(t *testing.T) {
 				hostnames: []string{"my-host-1", "my-host-2"},
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
-				DefaultCertificate: aws.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+				DefaultCertificate: awssdk.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
 				Certificates: []*string{
-					aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
-					aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+					awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+					awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
 				},
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
+					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
 				},
 				{
-					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
+					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-1"),
 				},
 				{
-					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
+					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/extra-cert-2"),
 				},
 			},
 		},
@@ -502,7 +501,7 @@ func TestBuildCertificates(t *testing.T) {
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/cert-1"),
+					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/cert-1"),
 				},
 			},
 		},
@@ -536,10 +535,10 @@ func TestBuildCertificates(t *testing.T) {
 			},
 			want: []elbv2model.Certificate{
 				{
-					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/cert-1"),
+					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/cert-1"),
 				},
 				{
-					CertificateARN: aws.String("arn:aws:acm:region:123456789012:certificate/cert-2"),
+					CertificateARN: awssdk.String("arn:aws:acm:region:123456789012:certificate/cert-2"),
 				},
 			},
 		},
