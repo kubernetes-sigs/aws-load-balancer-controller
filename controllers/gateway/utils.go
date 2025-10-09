@@ -79,8 +79,9 @@ func updateGatewayClassAcceptedCondition(ctx context.Context, k8sClient client.C
 		storedStatus := gwClass.Status.Conditions[indxToUpdate].Status
 		storedMessage := gwClass.Status.Conditions[indxToUpdate].Message
 		storedReason := gwClass.Status.Conditions[indxToUpdate].Reason
+		storedObservedGeneration := gwClass.Status.Conditions[indxToUpdate].ObservedGeneration
 
-		if storedStatus == newStatus && storedMessage == message && storedReason == reason {
+		if storedStatus == newStatus && storedMessage == message && storedReason == reason && storedObservedGeneration == gwClass.Generation {
 			return nil
 		}
 
@@ -99,7 +100,6 @@ func updateGatewayClassAcceptedCondition(ctx context.Context, k8sClient client.C
 
 // prepareGatewayConditionUpdate inserts the necessary data into the condition field of the gateway. The caller should patch the corresponding gateway. Returns false when no change was performed.
 func prepareGatewayConditionUpdate(gw *gwv1.Gateway, targetConditionType string, newStatus metav1.ConditionStatus, reason string, message string) bool {
-
 	indxToUpdate := -1
 	var derivedCondition metav1.Condition
 	for i, condition := range gw.Status.Conditions {
@@ -114,7 +114,7 @@ func prepareGatewayConditionUpdate(gw *gwv1.Gateway, targetConditionType string,
 	truncatedMessage := truncateMessage(message)
 
 	if indxToUpdate != -1 {
-		if derivedCondition.Status != newStatus || derivedCondition.Message != truncatedMessage || derivedCondition.Reason != reason {
+		if derivedCondition.Status != newStatus || derivedCondition.Message != truncatedMessage || derivedCondition.Reason != reason || derivedCondition.ObservedGeneration != gw.Generation {
 			gw.Status.Conditions[indxToUpdate].LastTransitionTime = metav1.NewTime(time.Now())
 			gw.Status.Conditions[indxToUpdate].ObservedGeneration = gw.Generation
 			gw.Status.Conditions[indxToUpdate].Status = newStatus

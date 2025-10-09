@@ -3,6 +3,10 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,9 +15,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strconv"
-	"testing"
-	"time"
 )
 
 func Test_updateGatewayClassLastProcessedConfig(t *testing.T) {
@@ -167,14 +168,14 @@ func Test_updateGatewayClassAcceptedCondition(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 100,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
 						{
 							Type:               string(gwv1.GatewayClassReasonAccepted),
 							Status:             metav1.ConditionFalse,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 100,
 							Reason:             "",
 							Message:            "",
 						},
@@ -185,7 +186,7 @@ func Test_updateGatewayClassAcceptedCondition(t *testing.T) {
 				{
 					Type:               "other condition",
 					Status:             metav1.ConditionTrue,
-					ObservedGeneration: 1000,
+					ObservedGeneration: 100,
 					Reason:             "other reason",
 					Message:            "other message",
 				},
@@ -213,14 +214,14 @@ func Test_updateGatewayClassAcceptedCondition(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 100,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
 						{
 							Type:               string(gwv1.GatewayClassReasonAccepted),
 							Status:             metav1.ConditionFalse,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 100,
 							Reason:             "",
 							Message:            "",
 						},
@@ -231,7 +232,7 @@ func Test_updateGatewayClassAcceptedCondition(t *testing.T) {
 				{
 					Type:               "other condition",
 					Status:             metav1.ConditionTrue,
-					ObservedGeneration: 1000,
+					ObservedGeneration: 100,
 					Reason:             "other reason",
 					Message:            "other message",
 				},
@@ -259,14 +260,14 @@ func Test_updateGatewayClassAcceptedCondition(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 100,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
 						{
 							Type:               string(gwv1.GatewayClassReasonAccepted),
 							Status:             metav1.ConditionFalse,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 100,
 							Reason:             "reason",
 							Message:            "msg",
 						},
@@ -277,14 +278,106 @@ func Test_updateGatewayClassAcceptedCondition(t *testing.T) {
 				{
 					Type:               "other condition",
 					Status:             metav1.ConditionTrue,
-					ObservedGeneration: 1000,
+					ObservedGeneration: 100,
 					Reason:             "other reason",
 					Message:            "other message",
 				},
 				{
 					Type:               string(gwv1.GatewayClassReasonAccepted),
 					Status:             metav1.ConditionFalse,
-					ObservedGeneration: 1000,
+					ObservedGeneration: 100,
+					Reason:             "reason",
+					Message:            "msg",
+				},
+			},
+		},
+		{
+			name:    "update observation generation in Accepted condition result in patch",
+			status:  metav1.ConditionFalse,
+			reason:  "reason",
+			message: "msg",
+			gwClass: gwv1.GatewayClass{
+				ObjectMeta: v1.ObjectMeta{
+					Name:       "gwclass-flip",
+					Generation: 100,
+				},
+				Status: gwv1.GatewayClassStatus{
+					Conditions: []v1.Condition{
+						{
+							Type:               "other condition",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 100,
+							Reason:             "other reason",
+							Message:            "other message",
+						},
+						{
+							Type:               string(gwv1.GatewayClassReasonAccepted),
+							Status:             metav1.ConditionFalse,
+							ObservedGeneration: 99,
+							Reason:             "reason",
+							Message:            "msg",
+						},
+					},
+				},
+			},
+			expectedConditions: []v1.Condition{
+				{
+					Type:               "other condition",
+					Status:             metav1.ConditionTrue,
+					ObservedGeneration: 100,
+					Reason:             "other reason",
+					Message:            "other message",
+				},
+				{
+					Type:               string(gwv1.GatewayClassReasonAccepted),
+					Status:             metav1.ConditionFalse,
+					ObservedGeneration: 100,
+					Reason:             "reason",
+					Message:            "msg",
+				},
+			},
+		},
+		{
+			name:    "update observation generation in other conditions result in no patch",
+			status:  metav1.ConditionFalse,
+			reason:  "reason",
+			message: "msg",
+			gwClass: gwv1.GatewayClass{
+				ObjectMeta: v1.ObjectMeta{
+					Name:       "gwclass-flip",
+					Generation: 100,
+				},
+				Status: gwv1.GatewayClassStatus{
+					Conditions: []v1.Condition{
+						{
+							Type:               "other condition",
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 99,
+							Reason:             "other reason",
+							Message:            "other message",
+						},
+						{
+							Type:               string(gwv1.GatewayClassReasonAccepted),
+							Status:             metav1.ConditionFalse,
+							ObservedGeneration: 100,
+							Reason:             "reason",
+							Message:            "msg",
+						},
+					},
+				},
+			},
+			expectedConditions: []v1.Condition{
+				{
+					Type:               "other condition",
+					Status:             metav1.ConditionTrue,
+					ObservedGeneration: 99,
+					Reason:             "other reason",
+					Message:            "other message",
+				},
+				{
+					Type:               string(gwv1.GatewayClassReasonAccepted),
+					Status:             metav1.ConditionFalse,
+					ObservedGeneration: 100,
 					Reason:             "reason",
 					Message:            "msg",
 				},
@@ -412,20 +505,21 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
 						{
-							Type:    string(gwv1.GatewayConditionAccepted),
-							Status:  metav1.ConditionFalse,
-							Reason:  "other reason",
-							Message: "other message",
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							ObservedGeneration: 50,
+							Reason:             "other reason",
+							Message:            "other message",
 						},
 						{
 							Type:               "other condition2",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1001,
+							ObservedGeneration: 50,
 							Reason:             "other reason2",
 							Message:            "other message2",
 						},
@@ -441,7 +535,7 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
@@ -455,7 +549,7 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition2",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1001,
+							ObservedGeneration: 50,
 							Reason:             "other reason2",
 							Message:            "other message2",
 						},
@@ -479,20 +573,21 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
 						{
-							Type:    string(gwv1.GatewayConditionAccepted),
-							Status:  metav1.ConditionFalse,
-							Reason:  "other reason",
-							Message: "other message",
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionFalse,
+							ObservedGeneration: 50,
+							Reason:             "other reason",
+							Message:            "other message",
 						},
 						{
 							Type:               "other condition2",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1001,
+							ObservedGeneration: 50,
 							Reason:             "other reason2",
 							Message:            "other message2",
 						},
@@ -508,7 +603,7 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
@@ -522,7 +617,7 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition2",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1001,
+							ObservedGeneration: 50,
 							Reason:             "other reason2",
 							Message:            "other message2",
 						},
@@ -546,7 +641,7 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
@@ -555,12 +650,12 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 							Status:             metav1.ConditionTrue,
 							Reason:             "new reason",
 							Message:            "new message",
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 						},
 						{
 							Type:               "other condition2",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1001,
+							ObservedGeneration: 50,
 							Reason:             "other reason2",
 							Message:            "other message2",
 						},
@@ -576,7 +671,7 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
@@ -585,12 +680,12 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 							Status:             metav1.ConditionTrue,
 							Reason:             "new reason",
 							Message:            "new message",
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 						},
 						{
 							Type:               "other condition2",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1001,
+							ObservedGeneration: 50,
 							Reason:             "other reason2",
 							Message:            "other message2",
 						},
@@ -613,7 +708,7 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
@@ -622,12 +717,12 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 							Status:             metav1.ConditionTrue,
 							Reason:             "other reason",
 							Message:            truncatedString,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 						},
 						{
 							Type:               "other condition2",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1001,
+							ObservedGeneration: 50,
 							Reason:             "other reason2",
 							Message:            "other message2",
 						},
@@ -643,7 +738,7 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 						{
 							Type:               "other condition",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 							Reason:             "other reason",
 							Message:            "other message",
 						},
@@ -652,12 +747,12 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 							Status:             metav1.ConditionTrue,
 							Reason:             "other reason",
 							Message:            truncatedString,
-							ObservedGeneration: 1000,
+							ObservedGeneration: 50,
 						},
 						{
 							Type:               "other condition2",
 							Status:             metav1.ConditionTrue,
-							ObservedGeneration: 1001,
+							ObservedGeneration: 50,
 							Reason:             "other reason2",
 							Message:            "other message2",
 						},

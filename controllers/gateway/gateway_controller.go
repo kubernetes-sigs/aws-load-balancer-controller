@@ -440,6 +440,8 @@ func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *
 			gw.Status.Listeners = ListenerStatuses
 			needPatch = true
 		}
+		gwProgrammedNeedPatch := r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionProgrammed), metav1.ConditionFalse, string(gwv1.GatewayConditionProgrammed), errMessage)
+		needPatch = needPatch || gwProgrammedNeedPatch
 	}
 
 	if needPatch {
