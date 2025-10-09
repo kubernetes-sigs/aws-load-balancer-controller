@@ -3,7 +3,7 @@ package runtime
 import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -14,13 +14,13 @@ func HandleReconcileError(inputErr error, log logr.Logger) (ctrl.Result, error) 
 		return ctrl.Result{}, nil
 	}
 
-	var requeueNeededAfter *RequeueNeededAfter
+	var requeueNeededAfter *ctrlerrors.RequeueNeededAfter
 	if errors.As(resolvedErr, &requeueNeededAfter) {
 		log.V(1).Info("requeue after", "duration", requeueNeededAfter.Duration(), "reason", requeueNeededAfter.Reason())
 		return ctrl.Result{RequeueAfter: requeueNeededAfter.Duration()}, nil
 	}
 
-	var requeueNeeded *RequeueNeeded
+	var requeueNeeded *ctrlerrors.RequeueNeeded
 	if errors.As(resolvedErr, &requeueNeeded) {
 		log.V(1).Info("requeue", "reason", requeueNeeded.Reason())
 		return ctrl.Result{Requeue: true}, nil
@@ -34,7 +34,7 @@ func handleNestedError(err error) error {
 		return nil
 	}
 
-	var wrappedError *errmetrics.ErrorWithMetrics
+	var wrappedError *ctrlerrors.ErrorWithMetrics
 	if errors.As(err, &wrappedError) {
 		return wrappedError.Err
 	}

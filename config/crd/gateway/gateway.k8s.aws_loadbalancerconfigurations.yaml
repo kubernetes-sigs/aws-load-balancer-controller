@@ -117,8 +117,6 @@ spec:
                         type: object
                       type: array
                     mutualAuthentication:
-                      default:
-                        mode: "off"
                       description: mutualAuthentication defines the mutual authentication
                         configuration information.
                       properties:
@@ -303,9 +301,6 @@ spec:
                   type: string
                 description: Tags the AWS Tags on all related resources to the gateway.
                 type: object
-              vpcId:
-                description: vpcId is the ID of the VPC for the load balancer.
-                type: string
               wafV2:
                 description: WAFv2 define the AWS WAFv2 settings for a Gateway [Application
                   Load Balancer]

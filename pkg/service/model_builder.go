@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -256,19 +256,19 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 func (t *defaultModelBuildTask) buildModel(ctx context.Context) error {
 	scheme, err := t.buildLoadBalancerScheme(ctx)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "build_load_balancer_scheme_error", err, t.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_scheme_error", err, t.metricsCollector)
 	}
 	t.ec2Subnets, err = t.buildLoadBalancerSubnets(ctx, scheme)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "build_load_balancer_subnets_error", err, t.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_subnets_error", err, t.metricsCollector)
 	}
 	err = t.buildLoadBalancer(ctx, scheme)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "build_load_balancer_error", err, t.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_error", err, t.metricsCollector)
 	}
 	err = t.buildListeners(ctx, scheme)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "build_listeners_error", err, t.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_listeners_error", err, t.metricsCollector)
 	}
 	return nil
 }

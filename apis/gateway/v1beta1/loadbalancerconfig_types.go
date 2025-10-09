@@ -175,7 +175,6 @@ type ListenerConfiguration struct {
 
 	// mutualAuthentication defines the mutual authentication configuration information.
 	// +optional
-	// +kubebuilder:default={"mode": "off"}
 	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`
 
 	// listenerAttributes defines the attributes for the listener
@@ -245,10 +244,6 @@ type LoadBalancerConfigurationSpec struct {
 	// sourceRanges an optional list of CIDRs that are allowed to access the LB.
 	// +optional
 	SourceRanges *[]string `json:"sourceRanges,omitempty"`
-
-	// vpcId is the ID of the VPC for the load balancer.
-	// +optional
-	VpcId *string `json:"vpcId,omitempty"`
 
 	// LoadBalancerAttributes defines the attribute of LB
 	// +optional

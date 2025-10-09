@@ -32,10 +32,12 @@ nav:
       - Gateway API (New):
           - Overview: guide/gateway/gateway.md
           - L4 Routing: guide/gateway/l4gateway.md
+          - L7 Routing: guide/gateway/l7gateway.md
           - Customizations:
               - How customizations works: guide/gateway/customization.md
               - LoadBalancerConfiguration: guide/gateway/loadbalancerconfig.md
               - TargetGroupConfiguration: guide/gateway/targetgroupconfig.md
+              - ListenerRuleConfiguration: guide/gateway/listenerruleconfig.md
               - Specification: guide/gateway/spec.md
       - Tasks:
           - Cognito Authentication: guide/tasks/cognito_authentication.md

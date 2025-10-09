@@ -415,4 +415,16 @@ When this param is absent or empty, the controller will keep LoadBalancer WAFv2 
 Cluster administrators can use the optional `wafv2AclName` field to specify name of the Amazon WAFv2 web ACL.
 Only Regional WAFv2 is supported.
 When this param is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the param value to 'none'.
-If the field is specified, LBC will ignore the 'alb.ingress.kubernetes.io/wafv2-acl-name' annotation.
+    If the field is specified, LBC will ignore the 'alb.ingress.kubernetes.io/wafv2-acl-name' annotation.
+
+### Resource Cleanup Order
+
+When cleaning up AWS Load Balancer Controller resources, it's important to follow the correct order of deletion to avoid orphaned resources. The recommended order is:
+
+1. Delete the Ingresses first
+2. Delete the IngressClass and IngressClassParams last
+
+If you delete the IngressClass before the Ingresses that reference it, the Ingresses will become orphaned and cannot be cleaned up until the `ingressClassName` is manually removed from their manifests. This is because the AWS Load Balancer Controller's validating webhook requires a valid IngressClass to be present when processing Ingress resources.
+
+!!!warning
+    Deleting IngressClass resources before their associated Ingresses can result in orphaned resources that require manual cleanup. Always delete Ingresses first to ensure proper resource cleanup.

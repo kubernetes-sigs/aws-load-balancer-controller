@@ -11,6 +11,9 @@ var (
 )
 
 const (
+	// GatewayResourceGroupName the groupName used by Gateway & GatewayClass resources.
+	GatewayResourceGroupName = "gateway.networking.k8s.io"
+
 	// GatewayResourceGroupVersion the groupVersion used by Gateway & GatewayClass resources.
 	GatewayResourceGroupVersion = "gateway.networking.k8s.io/v1"
 
@@ -69,4 +72,10 @@ const (
 
 	// GatewayLBPrefixEnabledAddon The prefix tracking addons within the Gateway.
 	GatewayLBPrefixEnabledAddon = "gateway.k8s.aws.addon."
+)
+
+// constant for status update
+const (
+	GatewayAcceptedFalseMessage = "Gateway is not accepted because there is an invalid listener."
+	ListenerAcceptedMessage     = "Listener is accepted"
 )

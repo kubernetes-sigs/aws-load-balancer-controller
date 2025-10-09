@@ -28,6 +28,7 @@ const (
 	NLBGatewayAPI                 Feature = "NLBGatewayAPI"
 	ALBGatewayAPI                 Feature = "ALBGatewayAPI"
 	EnableDefaultTagsLowPriority  Feature = "EnableDefaultTagsLowPriority"
+	EnhancedDefaultBehavior       Feature = "EnhancedDefaultBehavior"
 )
 
 type FeatureGates interface {
@@ -72,6 +73,7 @@ func NewFeatureGates() FeatureGates {
 			ALBGatewayAPI:                 false,
 			EnableTCPUDPListenerType:      false,
 			EnableDefaultTagsLowPriority:  false,
+			EnhancedDefaultBehavior:       false,
 		},
 	}
 }

@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafregional"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafv2"
-	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -38,7 +38,7 @@ type StackDeployer interface {
 func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 	networkingManager networking.NetworkingManager, networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
 	elbv2TaggingManager elbv2.TaggingManager,
-	config config.ControllerConfig, tagPrefix string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, controllerName string,
+	config config.ControllerConfig, tagPrefix string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, controllerName string, enhancedDefaultingPolicyEnabled bool,
 	targetGroupCollector awsmetrics.TargetGroupCollector) *defaultStackDeployer {
 
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
@@ -54,7 +54,7 @@ func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 		ec2SGManager:                        ec2.NewDefaultSecurityGroupManager(cloud.EC2(), networkingManager, trackingProvider, ec2TaggingManager, networkingSGReconciler, cloud.VpcID(), config.ExternalManagedTags, logger),
 		elbv2TaggingManager:                 elbv2TaggingManager,
 		elbv2LBManager:                      elbv2.NewDefaultLoadBalancerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
-		elbv2LSManager:                      elbv2.NewDefaultListenerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
+		elbv2LSManager:                      elbv2.NewDefaultListenerManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, enhancedDefaultingPolicyEnabled, logger),
 		elbv2LRManager:                      elbv2.NewDefaultListenerRuleManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, config.ExternalManagedTags, config.FeatureGates, logger),
 		elbv2TGManager:                      elbv2.NewDefaultTargetGroupManager(cloud.ELBV2(), trackingProvider, elbv2TaggingManager, cloud.VpcID(), config.ExternalManagedTags, logger),
 		elbv2TGBManager:                     elbv2.NewDefaultTargetGroupBindingManager(k8sClient, trackingProvider, logger, targetGroupCollector),
@@ -157,7 +157,7 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 		}
 		d.metricsCollector.ObserveControllerReconcileLatency(controllerName, synthesizerType, synthesizeFn)
 		if err != nil {
-			return errmetrics.NewErrorWithMetrics(controllerName, synthesizerType, err, d.metricsCollector)
+			return ctrlerrors.NewErrorWithMetrics(controllerName, synthesizerType, err, d.metricsCollector)
 		}
 	}
 	for i := len(synthesizers) - 1; i >= 0; i-- {

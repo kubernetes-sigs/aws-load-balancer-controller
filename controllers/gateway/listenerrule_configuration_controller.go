@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
@@ -101,7 +102,7 @@ func (r *listenerRuleConfigurationReconciler) handleUpdate(ctx context.Context, 
 			if err := r.updateStatus(ctx, listenerRuleConf, false, secretValidationErr.Error()); err != nil {
 				return err
 			}
-			return runtime.NewRequeueNeededAfter("Required secret not yet available", secretValidationRequeueInterval)
+			return ctrlerrors.NewRequeueNeededAfter("Required secret not yet available", secretValidationRequeueInterval)
 		}
 		return secretValidationErr
 	}

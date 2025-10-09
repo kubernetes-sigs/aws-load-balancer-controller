@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2deploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
-	errmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
+	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -307,30 +307,30 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 
 	lb, err := t.buildLoadBalancer(ctx, listenPortConfigByPort)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "build_load_balancer_error", err, t.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_error", err, t.metricsCollector)
 	}
 
 	t.sslRedirectConfig, err = t.buildSSLRedirectConfig(ctx, listenPortConfigByPort)
 	if err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "build_ssl_redirct_config_error", err, t.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_ssl_redirct_config_error", err, t.metricsCollector)
 	}
 	for port, cfg := range listenPortConfigByPort {
 		ingList := ingListByPort[port]
 		ls, err := t.buildListener(ctx, lb.LoadBalancerARN(), port, cfg, ingList)
 		if err != nil {
-			return errmetrics.NewErrorWithMetrics(controllerName, "build_listener_error", err, t.metricsCollector)
+			return ctrlerrors.NewErrorWithMetrics(controllerName, "build_listener_error", err, t.metricsCollector)
 		}
 		if err := t.buildListenerRules(ctx, ls.ListenerARN(), port, cfg.protocol, ingList); err != nil {
-			return errmetrics.NewErrorWithMetrics(controllerName, "build_listener_rule_error", err, t.metricsCollector)
+			return ctrlerrors.NewErrorWithMetrics(controllerName, "build_listener_rule_error", err, t.metricsCollector)
 		}
 	}
 
 	if err := t.buildLoadBalancerAddOns(ctx, lb.LoadBalancerARN()); err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "build_load_balancer_addons", err, t.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_addons", err, t.metricsCollector)
 	}
 
 	if err := t.buildFrontendNlbModel(ctx, lb, listenerPortConfigByIngress); err != nil {
-		return errmetrics.NewErrorWithMetrics(controllerName, "build_frontend_nlb", err, t.metricsCollector)
+		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_frontend_nlb", err, t.metricsCollector)
 	}
 
 	return nil

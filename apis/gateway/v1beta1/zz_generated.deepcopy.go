@@ -697,11 +697,6 @@ func (in *LoadBalancerConfigurationSpec) DeepCopyInto(out *LoadBalancerConfigura
 			copy(*out, *in)
 		}
 	}
-	if in.VpcId != nil {
-		in, out := &in.VpcId, &out.VpcId
-		*out = new(string)
-		**out = **in
-	}
 	if in.LoadBalancerAttributes != nil {
 		in, out := &in.LoadBalancerAttributes, &out.LoadBalancerAttributes
 		*out = make([]LoadBalancerAttribute, len(*in))

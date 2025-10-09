@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	albAddons = []addon.Addon{addon.WAFv2, addon.Shield}
-	nlbAddons []addon.Addon
+	albAddons = []addon.Addon{addon.WAFv2, addon.Shield, addon.ProvisionedCapacity}
+	nlbAddons = []addon.Addon{addon.ProvisionedCapacity}
 )
 
 const (

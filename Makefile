@@ -2,7 +2,7 @@
 MAKEFILE_PATH = $(dir $(realpath -s $(firstword $(MAKEFILE_LIST))))
 
 # Image URL to use all building/pushing image targets
-IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.13.4
+IMG ?= public.ecr.aws/eks/aws-load-balancer-controller:v2.14.0
 # Image URL to use for builder stage in Docker build
 GOLANG_VERSION ?= $(shell cat .go-version)
 BUILD_IMAGE ?= public.ecr.aws/docker/library/golang:$(GOLANG_VERSION)
@@ -70,6 +70,8 @@ crds: manifests
 	$(MOVE_GATEWAY_CRDS)
 	$(KUSTOMIZE) build config/crd > helm/aws-load-balancer-controller/crds/crds.yaml
 	$(KUSTOMIZE) build config/crd/gateway > config/crd/gateway/gateway-crds.yaml
+	echo '---' > config/crd/gateway/gateway-crds.yaml
+	$(KUSTOMIZE) build config/crd/gateway >> config/crd/gateway/gateway-crds.yaml
 	$(COPY_GATEWAY_CRDS_TO_HELM)
 
 # Run go fmt against code
@@ -177,7 +179,7 @@ docs-preview: docs-dependencies
 
 # publish the versioned docs using mkdocs mike util
 docs-publish: docs-dependencies
-	pipenv run mike deploy v2.13 latest -p --update-aliases
+	pipenv run mike deploy v2.14 latest -p --update-aliases
 
 # install dependencies needed to preview and publish docs
 docs-dependencies:

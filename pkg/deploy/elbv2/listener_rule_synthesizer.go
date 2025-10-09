@@ -167,8 +167,10 @@ func (s *listenerRuleSynthesizer) matchResAndSDKListenerRules(resLRs []*elbv2mod
 		found := false
 		for i := 0; i < len(unmatchedSDKLRs); i++ {
 			sdkLR := unmatchedSDKLRs[i]
-			if cmp.Equal(resLRDesiredActionsAndConditionsPair.desiredActions, sdkLR.ListenerRule.Actions, elbv2equality.CompareOptionForActions()) &&
-				cmp.Equal(resLRDesiredActionsAndConditionsPair.desiredConditions, sdkLR.ListenerRule.Conditions, elbv2equality.CompareOptionForRuleConditions()) {
+
+			actionsEqual := cmp.Equal(resLRDesiredActionsAndConditionsPair.desiredActions, sdkLR.ListenerRule.Actions, elbv2equality.CompareOptionForActions(resLRDesiredActionsAndConditionsPair.desiredActions, sdkLR.ListenerRule.Actions))
+			conditionsEqual := cmp.Equal(resLRDesiredActionsAndConditionsPair.desiredConditions, sdkLR.ListenerRule.Conditions, elbv2equality.CompareOptionForRuleConditions(resLRDesiredActionsAndConditionsPair.desiredConditions, sdkLR.ListenerRule.Conditions))
+			if actionsEqual && conditionsEqual {
 				sdkLRPriority, _ := strconv.ParseInt(awssdk.ToString(sdkLR.ListenerRule.Priority), 10, 64)
 				if resLR.Spec.Priority != int32(sdkLRPriority) {
 					matchedResAndSDKLRsBySettings = append(matchedResAndSDKLRsBySettings, resAndSDKListenerRulePair{

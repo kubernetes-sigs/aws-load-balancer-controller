@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"context"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -91,13 +92,13 @@ func (t *defaultModelBuildTask) buildWAFv2WebACLAssociation(ctx context.Context,
 
 	switch webACLARN {
 	case wafv2ACLARNNone:
-		association := wafv2model.NewWebACLAssociation(t.stack, resourceIDLoadBalancer, wafv2model.WebACLAssociationSpec{
+		association := wafv2model.NewWebACLAssociation(t.stack, shared_constants.ResourceIDLoadBalancer, wafv2model.WebACLAssociationSpec{
 			WebACLARN:   "",
 			ResourceARN: lbARN,
 		})
 		return association, nil
 	default:
-		association := wafv2model.NewWebACLAssociation(t.stack, resourceIDLoadBalancer, wafv2model.WebACLAssociationSpec{
+		association := wafv2model.NewWebACLAssociation(t.stack, shared_constants.ResourceIDLoadBalancer, wafv2model.WebACLAssociationSpec{
 			WebACLARN:   webACLARN,
 			ResourceARN: lbARN,
 		})
@@ -125,13 +126,13 @@ func (t *defaultModelBuildTask) buildWAFRegionalWebACLAssociation(_ context.Cont
 	webACLID, _ := explicitWebACLIDs.PopAny()
 	switch webACLID {
 	case webACLIDNone:
-		association := wafregionalmodel.NewWebACLAssociation(t.stack, resourceIDLoadBalancer, wafregionalmodel.WebACLAssociationSpec{
+		association := wafregionalmodel.NewWebACLAssociation(t.stack, shared_constants.ResourceIDLoadBalancer, wafregionalmodel.WebACLAssociationSpec{
 			WebACLID:    "",
 			ResourceARN: lbARN,
 		})
 		return association, nil
 	default:
-		association := wafregionalmodel.NewWebACLAssociation(t.stack, resourceIDLoadBalancer, wafregionalmodel.WebACLAssociationSpec{
+		association := wafregionalmodel.NewWebACLAssociation(t.stack, shared_constants.ResourceIDLoadBalancer, wafregionalmodel.WebACLAssociationSpec{
 			WebACLID:    webACLID,
 			ResourceARN: lbARN,
 		})
@@ -158,7 +159,7 @@ func (t *defaultModelBuildTask) buildShieldProtection(_ context.Context, lbARN c
 		return nil, errors.New("conflicting enable shield advanced protection")
 	}
 	_, enableProtection := explicitEnableProtections[true]
-	protection := shieldmodel.NewProtection(t.stack, resourceIDLoadBalancer, shieldmodel.ProtectionSpec{
+	protection := shieldmodel.NewProtection(t.stack, shared_constants.ResourceIDLoadBalancer, shieldmodel.ProtectionSpec{
 		Enabled:     enableProtection,
 		ResourceARN: lbARN,
 	})

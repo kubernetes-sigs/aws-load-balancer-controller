@@ -21,11 +21,16 @@ func CompareOptionForRuleCondition() cmp.Option {
 	}
 }
 
+// https://github.com/google/go-cmp/issues/273
+
 // CompareOptionForRuleConditions returns the compare option for rule conditions slice.
-func CompareOptionForRuleConditions() cmp.Option {
+// IMPORTANT:
+// When changing the types compared (e.g. the input to the function)
+// ensure to update cmpopts.SortSlices to reflect the new type, otherwise sorting silently doesn't work.
+func CompareOptionForRuleConditions(_, _ []elbv2types.RuleCondition) cmp.Option {
 	return cmp.Options{
 		cmpopts.EquateEmpty(),
-		cmpopts.SortSlices(func(lhs *elbv2types.RuleCondition, rhs *elbv2types.RuleCondition) bool {
+		cmpopts.SortSlices(func(lhs elbv2types.RuleCondition, rhs elbv2types.RuleCondition) bool {
 			return awssdk.ToString(lhs.Field) < awssdk.ToString(rhs.Field)
 		}),
 		CompareOptionForRuleCondition(),

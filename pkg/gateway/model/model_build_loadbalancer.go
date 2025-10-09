@@ -13,10 +13,6 @@ import (
 
 var invalidLoadBalancerNamePattern = regexp.MustCompile("[[:^alnum:]]")
 
-const (
-	resourceIDLoadBalancer = "LoadBalancer"
-)
-
 type loadBalancerBuilder interface {
 	buildLoadBalancerSpec(scheme elbv2model.LoadBalancerScheme, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, subnets buildLoadBalancerSubnetsOutput, securityGroupTokens []core.StringToken) (elbv2model.LoadBalancerSpec, error)
 }
@@ -48,15 +44,14 @@ func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerSpec(scheme elbv
 	}
 
 	spec := elbv2model.LoadBalancerSpec{
-		Name:                        name,
-		Type:                        lbModelBuilder.loadBalancerType,
-		Scheme:                      scheme,
-		IPAddressType:               ipAddressType,
-		SubnetMappings:              subnets.subnets,
-		SecurityGroups:              securityGroupTokens,
-		LoadBalancerAttributes:      lbModelBuilder.buildLoadBalancerAttributes(lbConf),
-		MinimumLoadBalancerCapacity: lbModelBuilder.buildLoadBalancerMinimumCapacity(lbConf),
-		Tags:                        tags,
+		Name:                   name,
+		Type:                   lbModelBuilder.loadBalancerType,
+		Scheme:                 scheme,
+		IPAddressType:          ipAddressType,
+		SubnetMappings:         subnets.subnets,
+		SecurityGroups:         securityGroupTokens,
+		LoadBalancerAttributes: lbModelBuilder.buildLoadBalancerAttributes(lbConf),
+		Tags:                   tags,
 	}
 
 	if lbModelBuilder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
@@ -115,13 +110,4 @@ func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerAttributes(lbCon
 		})
 	}
 	return attributes
-}
-
-func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerMinimumCapacity(lbConf elbv2gw.LoadBalancerConfiguration) *elbv2model.MinimumLoadBalancerCapacity {
-	if lbConf.Spec.MinimumLoadBalancerCapacity == nil {
-		return nil
-	}
-	return &elbv2model.MinimumLoadBalancerCapacity{
-		CapacityUnits: lbConf.Spec.MinimumLoadBalancerCapacity.CapacityUnits,
-	}
 }
