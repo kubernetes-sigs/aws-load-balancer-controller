@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"errors"
+	"testing"
+
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"testing"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -61,19 +62,19 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.LoadBalancerAttribute{
 				{
-					Key:   lbAttrsAccessLogsS3Enabled,
+					Key:   shared_constants.LBAttributeAccessLogsS3Enabled,
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Bucket,
+					Key:   shared_constants.LBAttributeAccessLogsS3Bucket,
 					Value: "nlb-bucket",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Prefix,
+					Key:   shared_constants.LBAttributeAccessLogsS3Prefix,
 					Value: "bkt-pfx",
 				},
 				{
-					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
+					Key:   shared_constants.LBAttributeLoadBalancingCrossZoneEnabled,
 					Value: "true",
 				},
 				{
@@ -95,19 +96,19 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.LoadBalancerAttribute{
 				{
-					Key:   lbAttrsAccessLogsS3Enabled,
+					Key:   shared_constants.LBAttributeAccessLogsS3Enabled,
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Bucket,
+					Key:   shared_constants.LBAttributeAccessLogsS3Bucket,
 					Value: "nlb-bucket",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Prefix,
+					Key:   shared_constants.LBAttributeAccessLogsS3Prefix,
 					Value: "bkt-pfx",
 				},
 				{
-					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
+					Key:   shared_constants.LBAttributeLoadBalancingCrossZoneEnabled,
 					Value: "true",
 				},
 				{
@@ -115,8 +116,8 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsLoadBalancingDnsClientRoutingPolicy,
-					Value: availabilityZoneAffinity,
+					Key:   shared_constants.LBAttributeLoadBalancingDnsClientRoutingPolicy,
+					Value: shared_constants.LBAttributeAvailabilityZoneAffinity,
 				},
 			},
 		},
@@ -137,19 +138,19 @@ func Test_defaultModelBuilderTask_buildLBAttributes(t *testing.T) {
 			wantError: false,
 			wantValue: []elbv2.LoadBalancerAttribute{
 				{
-					Key:   lbAttrsAccessLogsS3Enabled,
+					Key:   shared_constants.LBAttributeAccessLogsS3Enabled,
 					Value: "true",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Bucket,
+					Key:   shared_constants.LBAttributeAccessLogsS3Bucket,
 					Value: "overridden-nlb-bucket",
 				},
 				{
-					Key:   lbAttrsAccessLogsS3Prefix,
+					Key:   shared_constants.LBAttributeAccessLogsS3Prefix,
 					Value: "overridden-bkt-pfx",
 				},
 				{
-					Key:   lbAttrsLoadBalancingCrossZoneEnabled,
+					Key:   shared_constants.LBAttributeLoadBalancingCrossZoneEnabled,
 					Value: "false",
 				},
 			},
