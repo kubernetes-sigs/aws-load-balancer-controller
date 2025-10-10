@@ -40,7 +40,7 @@
 | [service.beta.kubernetes.io/aws-load-balancer-backend-protocol](#backend-protocol)                                   | string                  |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags](#additional-resource-tags)                   | stringMap             |                          |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol](#healthcheck-protocol)                           | string                  | TCP                      |                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-port ](#healthcheck-port)                                  | integer \| traffic-port | traffic-port             |                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| [service.beta.kubernetes.io/aws-load-balancer-healthcheck-port ](#healthcheck-port)                                  | integer \| traffic-port \| named-service-port | traffic-port             |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-path](#healthcheck-path)                                   | string                  | "/" for HTTP(S) protocols |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold](#healthcheck-healthy-threshold)         | integer | 3                        |                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | [service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold](#healthcheck-unhealthy-threshold)     | integer | 3                        |                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -431,8 +431,13 @@ Health check on target groups can be configured with following annotations:
 
 - <a name="healthcheck-port">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-port`</a> specifies the TCP port to use for target group health check.
 
-    !!!note "default value"
-        - if you do not specify the health check port, the default value will be `spec.healthCheckNodePort` when `externalTrafficPolicy=local` or `traffic-port` otherwise.
+    !!!note "accepted values"
+        - `traffic-port` - use the same port as the target group traffic (default when `externalTrafficPolicy=Cluster`)
+        - Integer string (e.g., `"80"`) - use this specific port number
+        - Service port name (e.g., `"http"`) - resolves based on target type:
+            - **Instance targets**: uses the Service port's `NodePort`
+            - **IP targets**: uses the Service port's `targetPort` (must be numeric, not a named port)
+        - **Default**: `spec.healthCheckNodePort` when `externalTrafficPolicy=Local`, otherwise `traffic-port`
 
     !!!example
         - set the health check port to `traffic-port`
@@ -442,6 +447,10 @@ Health check on target groups can be configured with following annotations:
         - set the health check port to port `80`
             ```
             service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "80"
+            ```
+        - set the health check port to a named Service port
+            ```
+            service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: "http"
             ```
 
 - <a name="healthcheck-path">`service.beta.kubernetes.io/aws-load-balancer-healthcheck-path`</a> specifies the http path for the health check in case of http/https protocol.
