@@ -3,7 +3,6 @@ package networking
 import (
 	"context"
 	"errors"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"testing"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -3164,7 +3163,7 @@ func Test_IsSubnetInLocalZoneOrOutpost(t *testing.T) {
 						input: &ec2sdk.DescribeSubnetsInput{
 							SubnetIds: []string{"subnet-notfound"},
 						},
-						err: awserr.New("InvalidSubnetID.NotFound", "Subnet ID 'subnet-notfound' does not exist", nil),
+						err: errors.New("InvalidSubnetID.NotFound: Subnet ID 'subnet-notfound' does not exist"),
 					},
 				},
 			},

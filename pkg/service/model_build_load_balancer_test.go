@@ -5,7 +5,6 @@ import (
 	"errors"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws/aws-sdk-go/service/ec2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
 
@@ -924,7 +923,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 						{
 							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
 							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
-								State: ec2.SubnetCidrBlockStateCodeAssociated,
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -955,7 +954,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 						{
 							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
 							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
-								State: ec2.SubnetCidrBlockStateCodeAssociated,
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -986,7 +985,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 						{
 							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
 							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
-								State: ec2.SubnetCidrBlockStateCodeAssociated,
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -1017,7 +1016,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 						{
 							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
 							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
-								State: ec2.SubnetCidrBlockStateCodeAssociated,
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -1048,7 +1047,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 						{
 							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
 							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
-								State: ec2.SubnetCidrBlockStateCodeAssociated,
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -1079,7 +1078,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 						{
 							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
 							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
-								State: ec2.SubnetCidrBlockStateCodeAssociated,
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -1110,7 +1109,7 @@ func Test_defaultModelBuilderTask_buildSubnetMappings(t *testing.T) {
 						{
 							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
 							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
-								State: ec2.SubnetCidrBlockStateCodeAssociated,
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -1541,7 +1540,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerEnablePrefixForIpv6SourceNat(t 
 						{
 							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
 							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
-								State: ec2.SubnetCidrBlockStateCodeAssociated,
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},
@@ -1568,7 +1567,7 @@ func Test_defaultModelBuildTask_buildLoadBalancerEnablePrefixForIpv6SourceNat(t 
 						{
 							Ipv6CidrBlock: aws.String("2600:1f13:837:8500::/64"),
 							Ipv6CidrBlockState: &ec2types.SubnetCidrBlockState{
-								State: ec2.SubnetCidrBlockStateCodeAssociated,
+								State: ec2types.SubnetCidrBlockStateCodeAssociated,
 							},
 						},
 					},

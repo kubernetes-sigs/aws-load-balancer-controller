@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 
@@ -672,11 +671,11 @@ func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *
 						SubnetMappings: []elbv2types.SubnetMapping{
 							{
 								SubnetId:    awssdk.String("subnet-A"),
-								IPv6Address: aws.String("2600:1f18::1"),
+								IPv6Address: awssdk.String("2600:1f18::1"),
 							},
 							{
 								SubnetId:    awssdk.String("subnet-B"),
-								IPv6Address: aws.String("2600:1f18::2"),
+								IPv6Address: awssdk.String("2600:1f18::2"),
 							},
 						},
 					},
@@ -690,11 +689,11 @@ func Test_defaultLoadBalancerManager_updateSDKLoadBalancerWithSubnetMappings(t *
 						SubnetMappings: []elbv2model.SubnetMapping{
 							{
 								SubnetID:    "subnet-A",
-								IPv6Address: aws.String("2600:1f18::1"),
+								IPv6Address: awssdk.String("2600:1f18::1"),
 							},
 							{
 								SubnetID:    "subnet-B",
-								IPv6Address: aws.String("2600:1f18::2"),
+								IPv6Address: awssdk.String("2600:1f18::2"),
 							},
 						},
 						Type:          elbv2model.LoadBalancerTypeNetwork,
@@ -762,11 +761,11 @@ func Test_defaultLoadBalancerManager_removeIPAMPools(t *testing.T) {
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID:    "subnet-A",
-							IPv6Address: aws.String("2600:1f18::1"),
+							IPv6Address: awssdk.String("2600:1f18::1"),
 						},
 						{
 							SubnetID:    "subnet-B",
-							IPv6Address: aws.String("2600:1f18::2"),
+							IPv6Address: awssdk.String("2600:1f18::2"),
 						},
 					},
 					Type:          elbv2model.LoadBalancerTypeNetwork,
@@ -791,11 +790,11 @@ func Test_defaultLoadBalancerManager_removeIPAMPools(t *testing.T) {
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID:    "subnet-A",
-							IPv6Address: aws.String("2600:1f18::1"),
+							IPv6Address: awssdk.String("2600:1f18::1"),
 						},
 						{
 							SubnetID:    "subnet-B",
-							IPv6Address: aws.String("2600:1f18::2"),
+							IPv6Address: awssdk.String("2600:1f18::2"),
 						},
 					},
 					Type:          elbv2model.LoadBalancerTypeNetwork,
@@ -821,11 +820,11 @@ func Test_defaultLoadBalancerManager_removeIPAMPools(t *testing.T) {
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID:    "subnet-A",
-							IPv6Address: aws.String("2600:1f18::1"),
+							IPv6Address: awssdk.String("2600:1f18::1"),
 						},
 						{
 							SubnetID:    "subnet-B",
-							IPv6Address: aws.String("2600:1f18::2"),
+							IPv6Address: awssdk.String("2600:1f18::2"),
 						},
 					},
 					Type:          elbv2model.LoadBalancerTypeNetwork,
@@ -850,11 +849,11 @@ func Test_defaultLoadBalancerManager_removeIPAMPools(t *testing.T) {
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID:    "subnet-A",
-							IPv6Address: aws.String("2600:1f18::1"),
+							IPv6Address: awssdk.String("2600:1f18::1"),
 						},
 						{
 							SubnetID:    "subnet-B",
-							IPv6Address: aws.String("2600:1f18::2"),
+							IPv6Address: awssdk.String("2600:1f18::2"),
 						},
 					},
 					Type:          elbv2model.LoadBalancerTypeNetwork,
@@ -913,11 +912,11 @@ func Test_defaultLoadBalancerManager_addIPAMPools(t *testing.T) {
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID:    "subnet-A",
-							IPv6Address: aws.String("2600:1f18::1"),
+							IPv6Address: awssdk.String("2600:1f18::1"),
 						},
 						{
 							SubnetID:    "subnet-B",
-							IPv6Address: aws.String("2600:1f18::2"),
+							IPv6Address: awssdk.String("2600:1f18::2"),
 						},
 					},
 					Type:          elbv2model.LoadBalancerTypeNetwork,
@@ -944,11 +943,11 @@ func Test_defaultLoadBalancerManager_addIPAMPools(t *testing.T) {
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID:    "subnet-A",
-							IPv6Address: aws.String("2600:1f18::1"),
+							IPv6Address: awssdk.String("2600:1f18::1"),
 						},
 						{
 							SubnetID:    "subnet-B",
-							IPv6Address: aws.String("2600:1f18::2"),
+							IPv6Address: awssdk.String("2600:1f18::2"),
 						},
 					},
 					Type:          elbv2model.LoadBalancerTypeNetwork,
@@ -975,11 +974,11 @@ func Test_defaultLoadBalancerManager_addIPAMPools(t *testing.T) {
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID:    "subnet-A",
-							IPv6Address: aws.String("2600:1f18::1"),
+							IPv6Address: awssdk.String("2600:1f18::1"),
 						},
 						{
 							SubnetID:    "subnet-B",
-							IPv6Address: aws.String("2600:1f18::2"),
+							IPv6Address: awssdk.String("2600:1f18::2"),
 						},
 					},
 					Type:          elbv2model.LoadBalancerTypeNetwork,
@@ -1005,11 +1004,11 @@ func Test_defaultLoadBalancerManager_addIPAMPools(t *testing.T) {
 					SubnetMappings: []elbv2model.SubnetMapping{
 						{
 							SubnetID:    "subnet-A",
-							IPv6Address: aws.String("2600:1f18::1"),
+							IPv6Address: awssdk.String("2600:1f18::1"),
 						},
 						{
 							SubnetID:    "subnet-B",
-							IPv6Address: aws.String("2600:1f18::2"),
+							IPv6Address: awssdk.String("2600:1f18::2"),
 						},
 					},
 					Type:          elbv2model.LoadBalancerTypeNetwork,

@@ -3,7 +3,6 @@ package ingress
 import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go/aws"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -462,28 +461,28 @@ func Test_validateMutualAuthenticationConfig(t *testing.T) {
 			port:             800,
 			mode:             string(elbv2model.MutualAuthenticationVerifyMode),
 			trustStoreARN:    "truststore",
-			ignoreClientCert: aws.Bool(true),
+			ignoreClientCert: awssdk.Bool(true),
 		},
 		{
 			name:             "happy path no validation error verify mode, with ignore client cert expiry false",
 			port:             800,
 			mode:             string(elbv2model.MutualAuthenticationVerifyMode),
 			trustStoreARN:    "truststore",
-			ignoreClientCert: aws.Bool(false),
+			ignoreClientCert: awssdk.Bool(false),
 		},
 		{
 			name:             "happy path no validation error verify mode, with advertise ca on",
 			port:             800,
 			mode:             string(elbv2model.MutualAuthenticationVerifyMode),
 			trustStoreARN:    "truststore",
-			advertiseCANames: aws.String("on"),
+			advertiseCANames: awssdk.String("on"),
 		},
 		{
 			name:             "happy path no validation error verify mode, with advertise ca off",
 			port:             800,
 			mode:             string(elbv2model.MutualAuthenticationVerifyMode),
 			trustStoreARN:    "truststore",
-			advertiseCANames: aws.String("off"),
+			advertiseCANames: awssdk.String("off"),
 		},
 		{
 			name:                 "no mode",
