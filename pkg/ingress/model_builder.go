@@ -622,7 +622,7 @@ func (w *webACLNameToArnMapper) getArnByName(ctx context.Context, webACLName str
 			NextMarker: next,
 		}
 
-		output, err := w.wafv2Client.ListWebACLs(ctx, req)
+		output, err := w.wafv2Client.ListWebACLsWithContext(ctx, req)
 		if err != nil {
 			return "", err
 		}

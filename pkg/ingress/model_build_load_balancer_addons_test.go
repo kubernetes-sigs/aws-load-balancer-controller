@@ -1293,7 +1293,7 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 
 			for _, call := range tt.args.getWebACLCalls {
 				wafv2Client.EXPECT().
-					ListWebACLs(gomock.Any(), call.req).
+					ListWebACLsWithContext(gomock.Any(), call.req).
 					Return(call.resp, call.err)
 			}
 
