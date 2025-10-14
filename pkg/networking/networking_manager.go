@@ -162,7 +162,7 @@ func (m *defaultNetworkingManager) computeIngressPermissionsPerSGWithPodEndpoint
 	podsBySG := make(map[string][]k8s.PodInfo)
 	for podKey, eniInfo := range eniInfoByPodKey {
 		// Handle hybrid pods specially - they don't have security groups
-		if eniInfo.NetworkInterfaceID == "hybrid-no-eni" {
+		if eniInfo.NetworkInterfaceID == hybridNetworkInterfaceID {
 			continue
 		}
 		sgID, err := m.resolveEndpointSGForENI(ctx, eniInfo)

@@ -28,6 +28,7 @@ const (
 
 	labelEKSComputeType       = "eks.amazonaws.com/compute-type"
 	labelSageMakerComputeType = "sagemaker.amazonaws.com/compute-type"
+	hybridNetworkInterfaceID  = "hybrid-no-eni"
 )
 
 // PodENIInfoResolver is responsible for resolve the AWS VPC ENI that supports pod network.
@@ -183,7 +184,7 @@ func (r *defaultPodENIInfoResolver) resolvePodsViaCascadedLookup(ctx context.Con
 		for _, pod := range podsByComputeType.hybridPods {
 			eniInfoByPodKey[pod.Key] = ENIInfo{
 				// Use a special identifier to mark this as a hybrid pod
-				NetworkInterfaceID: "hybrid-no-eni",
+				NetworkInterfaceID: hybridNetworkInterfaceID,
 				SecurityGroups:     []string{},
 			}
 		}
