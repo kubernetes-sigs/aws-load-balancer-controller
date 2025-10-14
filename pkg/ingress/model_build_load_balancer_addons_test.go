@@ -847,8 +847,8 @@ func Test_defaultModelBuildTask_buildShieldProtection(t *testing.T) {
 
 func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *testing.T) {
 	type getWebACLCall struct {
-		req  *wafv2sdk.GetWebACLInput
-		resp *wafv2sdk.GetWebACLOutput
+		req  *wafv2sdk.ListWebACLsInput
+		resp *wafv2sdk.ListWebACLsOutput
 		err  error
 	}
 	type fields struct {
@@ -942,12 +942,15 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 				cache: map[string]string{},
 				getWebACLCalls: []getWebACLCall{
 					{
-						req: &wafv2sdk.GetWebACLInput{
-							Name: awssdk.String("web-acl-name1"),
+						req: &wafv2sdk.ListWebACLsInput{
+							Scope: wafv2types.ScopeRegional,
 						},
-						resp: &wafv2sdk.GetWebACLOutput{
-							WebACL: &wafv2types.WebACL{
-								ARN: awssdk.String("web-acl-arn1"),
+						resp: &wafv2sdk.ListWebACLsOutput{
+							WebACLs: []wafv2types.WebACLSummary{
+								{
+									Name: awssdk.String("web-acl-name1"),
+									ARN:  awssdk.String("web-acl-arn1"),
+								},
 							},
 						},
 						err: nil,
@@ -1041,12 +1044,15 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 				cache: map[string]string{},
 				getWebACLCalls: []getWebACLCall{
 					{
-						req: &wafv2sdk.GetWebACLInput{
-							Name: awssdk.String("web-acl-name1"),
+						req: &wafv2sdk.ListWebACLsInput{
+							Scope: wafv2types.ScopeRegional,
 						},
-						resp: &wafv2sdk.GetWebACLOutput{
-							WebACL: &wafv2types.WebACL{
-								ARN: awssdk.String("web-acl-arn1"),
+						resp: &wafv2sdk.ListWebACLsOutput{
+							WebACLs: []wafv2types.WebACLSummary{
+								{
+									Name: awssdk.String("web-acl-name1"),
+									ARN:  awssdk.String("web-acl-arn1"),
+								},
 							},
 						},
 						err: nil,
@@ -1093,12 +1099,15 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 				cache: map[string]string{},
 				getWebACLCalls: []getWebACLCall{
 					{
-						req: &wafv2sdk.GetWebACLInput{
-							Name: awssdk.String("web-acl-name1"),
+						req: &wafv2sdk.ListWebACLsInput{
+							Scope: wafv2types.ScopeRegional,
 						},
-						resp: &wafv2sdk.GetWebACLOutput{
-							WebACL: &wafv2types.WebACL{
-								ARN: awssdk.String("web-acl-arn1"),
+						resp: &wafv2sdk.ListWebACLsOutput{
+							WebACLs: []wafv2types.WebACLSummary{
+								{
+									Name: awssdk.String("web-acl-name1"),
+									ARN:  awssdk.String("web-acl-arn1"),
+								},
 							},
 						},
 						err: nil,
@@ -1147,12 +1156,15 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 				cache: map[string]string{},
 				getWebACLCalls: []getWebACLCall{
 					{
-						req: &wafv2sdk.GetWebACLInput{
-							Name: awssdk.String("web-acl-name1"),
+						req: &wafv2sdk.ListWebACLsInput{
+							Scope: wafv2types.ScopeRegional,
 						},
-						resp: &wafv2sdk.GetWebACLOutput{
-							WebACL: &wafv2types.WebACL{
-								ARN: awssdk.String("web-acl-arn1"),
+						resp: &wafv2sdk.ListWebACLsOutput{
+							WebACLs: []wafv2types.WebACLSummary{
+								{
+									Name: awssdk.String("web-acl-name1"),
+									ARN:  awssdk.String("web-acl-arn1"),
+								},
 							},
 						},
 						err: nil,
@@ -1216,6 +1228,58 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 			},
 			wantCache: map[string]string{},
 		},
+		{
+			name: "name not found",
+			fields: fields{
+				ingGroup: Group{
+					Members: []ClassifiedIngress{
+						{
+							Ing: &networking.Ingress{
+								ObjectMeta: metav1.ObjectMeta{
+									Namespace: "awesome-ns",
+									Name:      "awesome-ing-0",
+									Annotations: map[string]string{
+										"alb.ingress.kubernetes.io/wafv2-acl-name": "web-acl-name1",
+									},
+								},
+							},
+							IngClassConfig: ClassConfiguration{
+								IngClassParams: &v1beta1.IngressClassParams{
+									Spec: v1beta1.IngressClassParamsSpec{
+										WAFv2ACLName: "web-acl-name1",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				lbARN: core.LiteralStringToken("awesome-lb-arn"),
+				cache: map[string]string{},
+				getWebACLCalls: []getWebACLCall{
+					{
+						req: &wafv2sdk.ListWebACLsInput{
+							Scope: wafv2types.ScopeRegional,
+						},
+						resp: &wafv2sdk.ListWebACLsOutput{
+							WebACLs: []wafv2types.WebACLSummary{
+								{
+									Name: awssdk.String("some other name"),
+									ARN:  awssdk.String("web-acl-arn1"),
+								},
+							},
+						},
+						err: nil,
+					},
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, msgAndArgs ...interface{}) bool {
+				assert.EqualError(t, err, "couldn't find WAFv2 WebACL with name: web-acl-name1", msgAndArgs...)
+				return false
+			},
+			wantCache: map[string]string{},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1229,7 +1293,7 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 
 			for _, call := range tt.args.getWebACLCalls {
 				wafv2Client.EXPECT().
-					GetWebACLWithContext(gomock.Any(), call.req).
+					ListWebACLs(gomock.Any(), call.req).
 					Return(call.resp, call.err)
 			}
 
@@ -1257,8 +1321,8 @@ func Test_defaultModelBuildTask_buildWAFv2WebACLAssociationFromWAFv2Name(t *test
 			for webACLName, expectedArn := range tt.wantCache {
 				rawCacheItem, exists := task.webACLNameToArnMapper.cache.Get(webACLName)
 				assert.True(t, exists)
-				cachedArn := rawCacheItem.(*string)
-				assert.Equal(t, expectedArn, *cachedArn)
+				cachedArn := rawCacheItem.(string)
+				assert.Equal(t, expectedArn, cachedArn)
 			}
 		})
 	}

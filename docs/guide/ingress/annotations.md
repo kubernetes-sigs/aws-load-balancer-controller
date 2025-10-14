@@ -1055,6 +1055,9 @@ Load balancer capacity unit reservation can be configured via following annotati
 
 - <a name="wafv2-acl-name">`alb.ingress.kubernetes.io/wafv2-acl-name`</a> specifies Name of the Amazon WAFv2 web ACL.
 
+    !!!note ""
+        The controller role must allow access to `wafv2:ListWebACLs` 
+
     !!!warning ""
         Only Regional WAFv2 is supported.
 

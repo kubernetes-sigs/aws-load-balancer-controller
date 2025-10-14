@@ -80,17 +80,17 @@ func (mr *MockWAFv2MockRecorder) GetWebACLForResourceWithContext(arg0, arg1 inte
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebACLForResourceWithContext", reflect.TypeOf((*MockWAFv2)(nil).GetWebACLForResourceWithContext), arg0, arg1)
 }
 
-// GetWebACLWithContext mocks base method.
-func (m *MockWAFv2) GetWebACLWithContext(arg0 context.Context, arg1 *wafv2.GetWebACLInput) (*wafv2.GetWebACLOutput, error) {
+// ListWebACLs mocks base method.
+func (m *MockWAFv2) ListWebACLs(arg0 context.Context, arg1 *wafv2.ListWebACLsInput) (*wafv2.ListWebACLsOutput, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetWebACLWithContext", arg0, arg1)
-	ret0, _ := ret[0].(*wafv2.GetWebACLOutput)
+	ret := m.ctrl.Call(m, "ListWebACLs", arg0, arg1)
+	ret0, _ := ret[0].(*wafv2.ListWebACLsOutput)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// GetWebACLWithContext indicates an expected call of GetWebACLWithContext.
-func (mr *MockWAFv2MockRecorder) GetWebACLWithContext(arg0, arg1 interface{}) *gomock.Call {
+// ListWebACLs indicates an expected call of ListWebACLs.
+func (mr *MockWAFv2MockRecorder) ListWebACLs(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWebACLWithContext", reflect.TypeOf((*MockWAFv2)(nil).GetWebACLWithContext), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListWebACLs", reflect.TypeOf((*MockWAFv2)(nil).ListWebACLs), arg0, arg1)
 }
