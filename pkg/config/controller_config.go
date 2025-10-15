@@ -26,6 +26,7 @@ const (
 	flagGatewayClassMaxConcurrentReconciles          = "gateway-class-max-concurrent-reconciles"
 	flagALBGatewayMaxConcurrentReconciles            = "alb-gateway-max-concurrent-reconciles"
 	flagNLBGatewayMaxConcurrentReconciles            = "nlb-gateway-max-concurrent-reconciles"
+	flagGlobalAcceleratorMaxConcurrentReconciles     = "globalaccelerator-max-concurrent-reconciles"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagLbStabilizationMonitorInterval               = "lb-stabilization-monitor-interval"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
@@ -119,6 +120,9 @@ type ControllerConfig struct {
 	// NLBGatewayMaxConcurrentReconciles Max concurrent reconcile loops for NLB Gateway objects
 	NLBGatewayMaxConcurrentReconciles int
 
+	// GlobalAcceleratorMaxConcurrentReconciles Max concurrent reconcile loops for GlobalAccelerator objects
+	GlobalAcceleratorMaxConcurrentReconciles int
+
 	// EnableBackendSecurityGroup specifies whether to use optimized security group rules
 	EnableBackendSecurityGroup bool
 
@@ -164,6 +168,8 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrently running reconcile loops for alb gateway")
 	fs.IntVar(&cfg.NLBGatewayMaxConcurrentReconciles, flagNLBGatewayMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for nlb gateway")
+	fs.IntVar(&cfg.GlobalAcceleratorMaxConcurrentReconciles, flagGlobalAcceleratorMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
+		"Maximum number of concurrently running reconcile loops for globalAccelerator")
 	fs.DurationVar(&cfg.TargetGroupBindingMaxExponentialBackoffDelay, flagTargetGroupBindingMaxExponentialBackoffDelay, defaultMaxExponentialBackoffDelay,
 		"Maximum duration of exponential backoff for targetGroupBinding reconcile failures")
 	fs.DurationVar(&cfg.LBStabilizationMonitorInterval, flagLbStabilizationMonitorInterval, defaultLbStabilizationMonitorInterval,

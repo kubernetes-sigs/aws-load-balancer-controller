@@ -45,7 +45,9 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/klog/v2"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	agacontroller "sigs.k8s.io/aws-load-balancer-controller/controllers/aga"
 	elbv2controller "sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/service"
@@ -79,6 +81,7 @@ var (
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
+	_ = agaapi.AddToScheme(scheme)
 	_ = elbv2api.AddToScheme(scheme)
 	_ = elbv2gw.AddToScheme(scheme)
 	_ = gwv1.AddToScheme(scheme)
@@ -224,6 +227,16 @@ func main() {
 	if err := tgbReconciler.SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "TargetGroupBinding")
 		os.Exit(1)
+	}
+
+	// Setup GlobalAccelerator controller only if enabled
+	if controllerCFG.FeatureGates.Enabled(config.AGAController) {
+		agaReconciler := agacontroller.NewGlobalAcceleratorReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("globalAccelerator"),
+			finalizerManager, controllerCFG, ctrl.Log.WithName("controllers").WithName("globalAccelerator"), lbcMetricsCollector, reconcileCounters)
+		if err := agaReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "GlobalAccelerator")
+			os.Exit(1)
+		}
 	}
 
 	// Initialize common gateway configuration

@@ -8,12 +8,13 @@ import (
 )
 
 type ReconcileCounters struct {
-	serviceReconciles    map[types.NamespacedName]int
-	ingressReconciles    map[types.NamespacedName]int
-	tgbReconciles        map[types.NamespacedName]int
-	nlbGatewayReconciles map[types.NamespacedName]int
-	albGatewayReconciles map[types.NamespacedName]int
-	mutex                sync.Mutex
+	serviceReconciles           map[types.NamespacedName]int
+	ingressReconciles           map[types.NamespacedName]int
+	tgbReconciles               map[types.NamespacedName]int
+	nlbGatewayReconciles        map[types.NamespacedName]int
+	albGatewayReconciles        map[types.NamespacedName]int
+	globalAcceleratorReconciles map[types.NamespacedName]int
+	mutex                       sync.Mutex
 }
 
 type ResourceReconcileCount struct {
@@ -23,12 +24,13 @@ type ResourceReconcileCount struct {
 
 func NewReconcileCounters() *ReconcileCounters {
 	return &ReconcileCounters{
-		serviceReconciles:    make(map[types.NamespacedName]int),
-		ingressReconciles:    make(map[types.NamespacedName]int),
-		tgbReconciles:        make(map[types.NamespacedName]int),
-		albGatewayReconciles: make(map[types.NamespacedName]int),
-		nlbGatewayReconciles: make(map[types.NamespacedName]int),
-		mutex:                sync.Mutex{},
+		serviceReconciles:           make(map[types.NamespacedName]int),
+		ingressReconciles:           make(map[types.NamespacedName]int),
+		tgbReconciles:               make(map[types.NamespacedName]int),
+		albGatewayReconciles:        make(map[types.NamespacedName]int),
+		nlbGatewayReconciles:        make(map[types.NamespacedName]int),
+		globalAcceleratorReconciles: make(map[types.NamespacedName]int),
+		mutex:                       sync.Mutex{},
 	}
 }
 
@@ -61,6 +63,12 @@ func (c *ReconcileCounters) IncrementALBGateway(namespaceName types.NamespacedNa
 	defer c.mutex.Unlock()
 	c.albGatewayReconciles[namespaceName]++
 }
+
+func (c *ReconcileCounters) IncrementAGA(namespaceName types.NamespacedName) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.globalAcceleratorReconciles[namespaceName]++
+}
 func (c *ReconcileCounters) GetTopReconciles(n int) map[string][]ResourceReconcileCount {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
@@ -85,6 +93,7 @@ func (c *ReconcileCounters) GetTopReconciles(n int) map[string][]ResourceReconci
 	topReconciles["targetgroupbinding"] = getTopN(c.tgbReconciles)
 	topReconciles["nlbgateway"] = getTopN(c.nlbGatewayReconciles)
 	topReconciles["albgateway"] = getTopN(c.albGatewayReconciles)
+	topReconciles["globalaccelerator"] = getTopN(c.globalAcceleratorReconciles)
 
 	return topReconciles
 }
@@ -97,4 +106,5 @@ func (c *ReconcileCounters) ResetCounter() {
 	c.tgbReconciles = make(map[types.NamespacedName]int)
 	c.nlbGatewayReconciles = make(map[types.NamespacedName]int)
 	c.albGatewayReconciles = make(map[types.NamespacedName]int)
+	c.globalAcceleratorReconciles = make(map[types.NamespacedName]int)
 }

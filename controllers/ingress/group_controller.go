@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
@@ -305,7 +304,7 @@ func (r *groupReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager
 	if err != nil {
 		return err
 	}
-	ingressClassResourceAvailable := isResourceKindAvailable(resList, ingressClassKind)
+	ingressClassResourceAvailable := k8s.IsResourceKindAvailable(resList, ingressClassKind)
 	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer(), ingressClassResourceAvailable); err != nil {
 		return err
 	}
@@ -401,15 +400,6 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 	return nil
 }
 
-// isResourceKindAvailable checks whether specific kind is available.
-func isResourceKindAvailable(resList *metav1.APIResourceList, kind string) bool {
-	for _, res := range resList.APIResources {
-		if res.Kind == kind {
-			return true
-		}
-	}
-	return false
-}
 
 func isIngressStatusEqual(a, b []networking.IngressLoadBalancerIngress) bool {
 	if len(a) != len(b) {
