@@ -53,6 +53,8 @@ type SubnetsResolveOptions struct {
 	// The Load Balancer Scheme.
 	// By default, it's internet-facing.
 	LBScheme elbv2model.LoadBalancerScheme
+	// Subnets specified with --default-subnets
+	DefaultSubnets []string
 }
 
 // ApplyOptions applies slice of SubnetsResolveOption.
@@ -83,6 +85,13 @@ func WithSubnetsResolveLBType(lbType elbv2model.LoadBalancerType) SubnetsResolve
 func WithSubnetsResolveLBScheme(lbScheme elbv2model.LoadBalancerScheme) SubnetsResolveOption {
 	return func(opts *SubnetsResolveOptions) {
 		opts.LBScheme = lbScheme
+	}
+}
+
+// WithDefaultSubnets generates an option that configures DefaultSubnets.
+func WithDefaultSubnets(defaultSubnets []string) SubnetsResolveOption {
+	return func(opts *SubnetsResolveOptions) {
+		opts.DefaultSubnets = defaultSubnets
 	}
 }
 
@@ -415,7 +424,7 @@ func (r *defaultSubnetsResolver) validateSpecifiedSubnets(ctx context.Context, s
 // chooseAndValidateSubnetsPerAZ will choose one subnet per AZ from eligible subnets and then validate against chosen subnets.
 func (r *defaultSubnetsResolver) chooseAndValidateSubnetsPerAZ(ctx context.Context, subnets []ec2types.Subnet, resolveOpts SubnetsResolveOptions) ([]ec2types.Subnet, error) {
 	categorizedSubnets := r.categorizeSubnetsByEligibility(subnets)
-	chosenSubnets := r.chooseSubnetsPerAZ(categorizedSubnets.eligible)
+	chosenSubnets := r.chooseSubnetsPerAZ(categorizedSubnets.eligible, resolveOpts.DefaultSubnets)
 	if len(chosenSubnets) == 0 {
 		return nil, fmt.Errorf("unable to resolve at least one subnet. Evaluated %d subnets: %d are tagged for other clusters, and %d have insufficient available IP addresses",
 			len(subnets), len(categorizedSubnets.ineligibleClusterTag), len(categorizedSubnets.insufficientIPs))
@@ -455,7 +464,15 @@ func (r *defaultSubnetsResolver) categorizeSubnetsByEligibility(subnets []ec2typ
 
 // chooseSubnetsPerAZ will choose one subnet per AZ.
 // * subnets with current cluster tag will be prioritized.
-func (r *defaultSubnetsResolver) chooseSubnetsPerAZ(subnets []ec2types.Subnet) []ec2types.Subnet {
+func (r *defaultSubnetsResolver) chooseSubnetsPerAZ(subnets []ec2types.Subnet, defaultSubnets []string) []ec2types.Subnet {
+
+	prioritySubnetMap := make(map[string]int)
+
+	if len(defaultSubnets) > 0 {
+		for i, subnetID := range defaultSubnets {
+			prioritySubnetMap[subnetID] = i
+		}
+	}
 	subnetsByAZ := mapSDKSubnetsByAZ(subnets)
 	chosenSubnets := make([]ec2types.Subnet, 0, len(subnetsByAZ))
 	for az, azSubnets := range subnetsByAZ {
@@ -470,9 +487,24 @@ func (r *defaultSubnetsResolver) chooseSubnetsPerAZ(subnets []ec2types.Subnet) [
 				} else if (!subnetIHasCurrentClusterTag) && subnetJHasCurrentClusterTag {
 					return false
 				}
+
+				// When azSubnets are specified in --default-subnets, the azSubnets list will be sorted according to this order.
+				// Any azSubnets not specified in --default-subnets will be sorted in lexicographical order and placed after the prioritized azSubnets.
+				iVal, iExists := prioritySubnetMap[awssdk.ToString(azSubnets[i].SubnetId)]
+				jVal, jExists := prioritySubnetMap[awssdk.ToString(azSubnets[j].SubnetId)]
+
+				if iExists && jExists {
+					return iVal < jVal
+				}
+				if iExists {
+					return true
+				}
+				if jExists {
+					return false
+				}
 				return awssdk.ToString(azSubnets[i].SubnetId) < awssdk.ToString(azSubnets[j].SubnetId)
 			})
-			r.logger.V(1).Info("multiple subnets in the same AvailabilityZone", "AvailabilityZone", az,
+			r.logger.V(1).Info("multiple azSubnets in the same AvailabilityZone", "AvailabilityZone", az,
 				"chosen", azSubnets[0].SubnetId, "ignored", extractSubnetIDs(azSubnets[1:]))
 			chosenSubnets = append(chosenSubnets, azSubnets[0])
 		}
