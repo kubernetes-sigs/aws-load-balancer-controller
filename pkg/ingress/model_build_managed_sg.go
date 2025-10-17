@@ -9,6 +9,7 @@ import (
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
@@ -64,6 +65,10 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupTags(_ context.Context)
 	ingGroupTags, err := t.buildIngressGroupResourceTags(t.ingGroup.Members)
 	if err != nil {
 		return nil, err
+	}
+
+	if t.featureGates.Enabled(config.EnableDefaultTagsLowPriority) {
+		return algorithm.MergeStringMap(ingGroupTags, t.defaultTags), nil
 	}
 	return algorithm.MergeStringMap(t.defaultTags, ingGroupTags), nil
 }

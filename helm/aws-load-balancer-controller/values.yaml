@@ -377,6 +377,7 @@ controllerConfig:
   # LBCapacityReservation: true
   # AGAController: true
   # EnhancedDefaultBehavior: false
+  # EnableDefaultTagsLowPriority: false
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope

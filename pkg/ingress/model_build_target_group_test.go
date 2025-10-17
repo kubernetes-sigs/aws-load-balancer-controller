@@ -2,6 +2,8 @@ package ingress
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -12,8 +14,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
 )
 
 func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
@@ -362,6 +364,7 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 				defaultTags:         tt.fields.defaultTags,
 				externalManagedTags: tt.fields.externalManagedTags,
 				annotationParser:    annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				featureGates:        config.NewFeatureGates(),
 			}
 			got, err := task.buildTargetGroupTags(context.Background(), tt.args.ing, tt.args.svc)
 			if tt.wantErr != nil {
@@ -369,6 +372,121 @@ func Test_defaultModelBuildTask_buildTargetGroupTags(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildTargetGroupTags_FeatureGate(t *testing.T) {
+	type fields struct {
+		defaultTags         map[string]string
+		enabledFeatureGates func() config.FeatureGates
+	}
+	type args struct {
+		ing ClassifiedIngress
+		svc *corev1.Service
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    map[string]string
+		wantErr error
+	}{
+		{
+			name: "default tags take priority when feature gate disabled",
+			fields: fields{
+				defaultTags: map[string]string{
+					"k1": "v10",
+					"k2": "v20",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Disable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "awesome-ns",
+							Name:      "ing-1",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2,k3=v3",
+							},
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "svc-1",
+					},
+				},
+			},
+			want: map[string]string{
+				"k1": "v10",
+				"k2": "v20",
+				"k3": "v3",
+			},
+		},
+		{
+			name: "annotation tags take priority when feature gate enabled",
+			fields: fields{
+				defaultTags: map[string]string{
+					"k1": "v10",
+					"k2": "v20",
+				},
+				enabledFeatureGates: func() config.FeatureGates {
+					featureGates := config.NewFeatureGates()
+					featureGates.Enable(config.EnableDefaultTagsLowPriority)
+					return featureGates
+				},
+			},
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Namespace: "awesome-ns",
+							Name:      "ing-1",
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/tags": "k1=v1,k2=v2,k3=v3",
+							},
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Name:      "svc-1",
+					},
+				},
+			},
+			want: map[string]string{
+				"k1": "v1",
+				"k2": "v2",
+				"k3": "v3",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				defaultTags:      tt.fields.defaultTags,
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				featureGates:     tt.fields.enabledFeatureGates(),
+			}
+			got, err := task.buildTargetGroupTags(context.Background(), tt.args.ing, tt.args.svc)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+			for key, value := range tt.want {
+				assert.Contains(t, got, key)
+				assert.Equal(t, value, got[key])
 			}
 		})
 	}

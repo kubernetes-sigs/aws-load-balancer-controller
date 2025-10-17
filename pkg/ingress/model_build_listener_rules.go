@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	networking "k8s.io/api/networking/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -385,6 +386,9 @@ func (t *defaultModelBuildTask) buildListenerRuleTags(_ context.Context, ing Cla
 		return nil, err
 	}
 
+	if t.featureGates.Enabled(config.EnableDefaultTagsLowPriority) {
+		return algorithm.MergeStringMap(ingTags, t.defaultTags), nil
+	}
 	return algorithm.MergeStringMap(t.defaultTags, ingTags), nil
 }
 
