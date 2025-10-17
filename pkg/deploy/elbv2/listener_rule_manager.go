@@ -20,9 +20,9 @@ import (
 
 // ListenerRuleManager is responsible for create/update/delete ListenerRule resources.
 type ListenerRuleManager interface {
-	Create(ctx context.Context, resLR *elbv2model.ListenerRule, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) (elbv2model.ListenerRuleStatus, error)
+	Create(ctx context.Context, resLR *elbv2model.ListenerRule, desiredRuleConfig *resLRDesiredRuleConfig) (elbv2model.ListenerRuleStatus, error)
 
-	UpdateRules(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) (elbv2model.ListenerRuleStatus, error)
+	UpdateRules(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredRuleConfig *resLRDesiredRuleConfig) (elbv2model.ListenerRuleStatus, error)
 
 	UpdateRulesTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error)
 
@@ -59,8 +59,8 @@ type defaultListenerRuleManager struct {
 	waitLSExistenceTimeout      time.Duration
 }
 
-func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2model.ListenerRule, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) (elbv2model.ListenerRuleStatus, error) {
-	req, err := buildSDKCreateListenerRuleInput(resLR.Spec, desiredActionsAndConditions, m.featureGates)
+func (m *defaultListenerRuleManager) Create(ctx context.Context, resLR *elbv2model.ListenerRule, desiredRuleConfig *resLRDesiredRuleConfig) (elbv2model.ListenerRuleStatus, error) {
+	req, err := buildSDKCreateListenerRuleInput(resLR.Spec, desiredRuleConfig, m.featureGates)
 	if err != nil {
 		return elbv2model.ListenerRuleStatus{}, err
 	}
@@ -104,8 +104,8 @@ func (m *defaultListenerRuleManager) UpdateRulesTags(ctx context.Context, resLR 
 	return buildResListenerRuleStatus(sdkLR), nil
 }
 
-func (m *defaultListenerRuleManager) UpdateRules(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) (elbv2model.ListenerRuleStatus, error) {
-	if err := m.updateSDKListenerRuleWithSettings(ctx, resLR, sdkLR, desiredActionsAndConditions); err != nil {
+func (m *defaultListenerRuleManager) UpdateRules(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredRuleConfig *resLRDesiredRuleConfig) (elbv2model.ListenerRuleStatus, error) {
+	if err := m.updateSDKListenerRuleWithSettings(ctx, resLR, sdkLR, desiredRuleConfig); err != nil {
 		return elbv2model.ListenerRuleStatus{}, err
 	}
 	return buildResListenerRuleStatus(sdkLR), nil
@@ -144,11 +144,12 @@ func (m *defaultListenerRuleManager) updateSDKListenerRuleWithTags(ctx context.C
 		WithIgnoredTagKeys(m.externalManagedTags))
 }
 
-func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair) error {
-	desiredActions := desiredActionsAndConditions.desiredActions
-	desiredConditions := desiredActionsAndConditions.desiredConditions
+func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredRuleConfig *resLRDesiredRuleConfig) error {
+	desiredActions := desiredRuleConfig.desiredActions
+	desiredConditions := desiredRuleConfig.desiredConditions
+	desiredTransforms := desiredRuleConfig.desiredTransforms
 
-	req := buildSDKModifyListenerRuleInput(resLR.Spec, desiredActions, desiredConditions)
+	req := buildSDKModifyListenerRuleInput(resLR.Spec, desiredActions, desiredConditions, desiredTransforms)
 	req.RuleArn = sdkLR.ListenerRule.RuleArn
 	m.logger.Info("modifying listener rule",
 		"stackID", resLR.Stack().StackID(),
@@ -164,7 +165,7 @@ func (m *defaultListenerRuleManager) updateSDKListenerRuleWithSettings(ctx conte
 	return nil
 }
 
-func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, desiredActionsAndConditions *resLRDesiredActionsAndConditionsPair, featureGates config.FeatureGates) (*elbv2sdk.CreateRuleInput, error) {
+func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, desiredRuleConfig *resLRDesiredRuleConfig, featureGates config.FeatureGates) (*elbv2sdk.CreateRuleInput, error) {
 	ctx := context.Background()
 	lsARN, err := lrSpec.ListenerARN.Resolve(ctx)
 	if err != nil {
@@ -173,8 +174,8 @@ func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, desired
 	sdkObj := &elbv2sdk.CreateRuleInput{}
 	sdkObj.ListenerArn = awssdk.String(lsARN)
 	sdkObj.Priority = awssdk.Int32(lrSpec.Priority)
-	if desiredActionsAndConditions != nil && desiredActionsAndConditions.desiredActions != nil {
-		sdkObj.Actions = desiredActionsAndConditions.desiredActions
+	if desiredRuleConfig != nil && desiredRuleConfig.desiredActions != nil {
+		sdkObj.Actions = desiredRuleConfig.desiredActions
 	} else {
 		actions, err := buildSDKActions(lrSpec.Actions, featureGates)
 		if err != nil {
@@ -182,18 +183,35 @@ func buildSDKCreateListenerRuleInput(lrSpec elbv2model.ListenerRuleSpec, desired
 		}
 		sdkObj.Actions = actions
 	}
-	if desiredActionsAndConditions != nil && desiredActionsAndConditions.desiredConditions != nil {
-		sdkObj.Conditions = desiredActionsAndConditions.desiredConditions
+	if desiredRuleConfig != nil && desiredRuleConfig.desiredConditions != nil {
+		sdkObj.Conditions = desiredRuleConfig.desiredConditions
 	} else {
 		sdkObj.Conditions = buildSDKRuleConditions(lrSpec.Conditions)
+	}
+	if desiredRuleConfig != nil && desiredRuleConfig.desiredTransforms != nil {
+		sdkObj.Transforms = desiredRuleConfig.desiredTransforms
+	} else if len(lrSpec.Transforms) > 0 {
+		sdkObj.Transforms = buildSDKTransforms(lrSpec.Transforms)
 	}
 	return sdkObj, nil
 }
 
-func buildSDKModifyListenerRuleInput(_ elbv2model.ListenerRuleSpec, desiredActions []elbv2types.Action, desiredConditions []elbv2types.RuleCondition) *elbv2sdk.ModifyRuleInput {
+func buildSDKModifyListenerRuleInput(_ elbv2model.ListenerRuleSpec, desiredActions []elbv2types.Action, desiredConditions []elbv2types.RuleCondition, desiredTransforms []elbv2types.RuleTransform) *elbv2sdk.ModifyRuleInput {
 	sdkObj := &elbv2sdk.ModifyRuleInput{}
 	sdkObj.Actions = desiredActions
 	sdkObj.Conditions = desiredConditions
+
+	// ELB ModifyRule API treats empty `actions`/`conditions`/`transforms` list as null, meaning "do not modify the existing property"
+	// Since actions and conditions are required, this is fine for actions and conditions
+	// But since transforms are optional, we need to set an explicit `resetTransforms` flag when we actually want to delete all existing transforms
+	// So we conditionally set `transforms` and `resetTransforms`
+	if len(desiredTransforms) > 0 {
+		sdkObj.Transforms = desiredTransforms
+	} else {
+		resetTransforms := true
+		sdkObj.ResetTransforms = &resetTransforms
+	}
+
 	return sdkObj
 }
 

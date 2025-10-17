@@ -62,7 +62,9 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/auth-session-cookie](#auth-session-cookie)                                 | string                                             |AWSELBAuthSessionCookie| Ingress,Service | N/A           |
 | [alb.ingress.kubernetes.io/auth-session-timeout](#auth-session-timeout)                               | integer                                            |'604800'| Ingress,Service | N/A           |
 | [alb.ingress.kubernetes.io/actions.${action-name}](#actions)                                          | json                                               |N/A| Ingress         | N/A           |
+| [alb.ingress.kubernetes.io/transforms.${transforms-name}](#transforms)                                | json                                               |N/A| Ingress         | N/A           |
 | [alb.ingress.kubernetes.io/conditions.${conditions-name}](#conditions)                                | json                                               |N/A| Ingress         | N/A           |
+| [alb.ingress.kubernetes.io/use-regex-path-match](#use-regex-path-match)                               | boolean                                            |N/A| Ingress         | false         |
 | [alb.ingress.kubernetes.io/target-node-labels](#target-node-labels)                                   | stringMap                                          |N/A| Ingress,Service | N/A           |
 | [alb.ingress.kubernetes.io/mutual-authentication](#mutual-authentication)                             | json                                               |N/A| Ingress         | Exclusive     |
 | [alb.ingress.kubernetes.io/multi-cluster-target-group](#multi-cluster-target-group)                   | boolean                                            |N/A| Ingress, Service | N/A           |
@@ -362,10 +364,66 @@ Traffic Routing can be controlled with following annotations:
                           name: use-annotation
         ```
 
+- <a name="transforms">`alb.ingress.kubernetes.io/transforms.${transforms-name}`</a> Provides a method for specifying transforms on Ingress spec.
+
+    The `transforms-name` in the annotation must match the serviceName in the Ingress rules.
+
+    !!!example "URL rewrite"
+
+        Example transform to remove the leading `/api/` from request paths:
+
+        ```yaml
+        alb.ingress.kubernetes.io/transforms.my-service: >
+            [
+                {
+                    "type": "url-rewrite",
+                    "urlRewriteConfig": {
+                        "rewrites": [
+                            {
+                                "regex": "^\\/api\\/(.+)$",
+                                "replace": "/$1"
+                            }
+                        ]
+                    }
+                }
+            ]
+        ```
+
+    !!!example "Host header rewrite"
+
+        Example transform to replace `example.com` with `example.org` from request host headers:
+
+        ```yaml
+        alb.ingress.kubernetes.io/transforms.my-service: >
+            [
+                {
+                    "type": "host-header-rewrite",
+                    "hostHeaderRewriteConfig": {
+                        "rewrites": [
+                            {
+                                "regex": "^(.+)\\.example\\.com$",
+                                "replace": "$1.example.org"
+                            }
+                        ]
+                    }
+                }
+            ]
+        ```
+
 - <a name="conditions">`alb.ingress.kubernetes.io/conditions.${conditions-name}`</a> Provides a method for specifying routing conditions **in addition to original host/path condition on Ingress spec**.
 
     The `conditions-name` in the annotation must match the serviceName in the Ingress rules.
     It can be a either real serviceName or an annotation based action name when servicePort is `use-annotation`.
+
+    Condition values can be specified using *either* `values` or `regexValues`:
+
+     - `values`: Wildcard syntax, where `*` matches 0 or more characters, and `?` matches exactly 1 character.
+
+        `values` is supported for all condition types: `host-header`, `http-header`, `http-request-method`, `path-pattern`, and `source-ip`.
+
+     - `regexValues`: Regex syntax.
+
+        `regexValues` is supported for the following condition types: `host-header`, `http-header`, and `path-pattern`.
 
     !!!warning "limitations"
         General ALB limitations applies:
@@ -378,7 +436,7 @@ Traffic Routing can be controlled with following annotations:
 
         Refer [ALB documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#rule-condition-types) for more details.
 
-    !!!example
+    !!!example "Examples using `values`"
         - rule-path1:
             - Host is www.example.com OR anno.example.com
             - Path is /path1
@@ -504,7 +562,7 @@ Traffic Routing can be controlled with following annotations:
     !!!note
         If you are using `alb.ingress.kubernetes.io/target-group-attributes` with `stickiness.enabled=true`, you should add `TargetGroupStickinessConfig` under `alb.ingress.kubernetes.io/actions.weighted-routing`
 
-    !!!example
+    !!!example "Example using target group stickiness config"
 
         ```yaml
             apiVersion: networking.k8s.io/v1
@@ -552,6 +610,79 @@ Traffic Routing can be controlled with following annotations:
                             port:
                             name: use-annotation
         ```
+    
+    !!!example "Examples using `regexValues`"
+
+        HTTP header condition using regex values:
+
+        ```yaml
+        alb.ingress.kubernetes.io/conditions.my-service: >
+            [{ "field": "http-header", "httpHeaderConfig": { "httpHeaderName": "User-Agent", "regexValues": [ ".+Chrome.+" ] } }]
+        ```
+
+        Path condition using regex values:
+
+        ```yaml
+        alb.ingress.kubernetes.io/conditions.my-service: >
+            [{ "field": "path-pattern", "pathPatternConfig": { "regexValues": [ "^/api/?(.*)$" ] } }]
+        ```
+
+        Host header condition using regex values:
+
+        ```yaml
+        alb.ingress.kubernetes.io/conditions.my-service: >
+            [{ "field": "host-header", "hostHeaderConfig": { "regexValues": [ "^(.+)\\.example\\.com" ] } }]
+        ```
+    
+    !!!warning "Considerations when using `regexValues`"
+
+        ALB does not support mixing `values` (wildcard syntax) and `regexValues` (regex syntax) for the same condition type.
+
+        In particular, when using the AWS Load Balancer Controller:
+
+         - By default, additional `path-pattern` conditions **must** use `values`.
+        
+            This is because the AWS Load Balancer Controller automatically adds `path-pattern` conditions using `values` according to your [Ingress specification](../spec/).
+            
+            To configure additional `path-pattern` conditions using `regexValues`, configure the [`alb.ingress.kubernetes.io/use-regex-path-match`](#use-regex-path-match) annotation. When this annotation is set to `"true"`, the AWS Load Balancer Controller can add `path-pattern` conditions with `regexValues`.
+        
+         - If your [Ingress specification](../spec/) includes a `host` rule, additional `host-header` conditions **must** use `values`.
+
+            To configure `host-header` conditions using `regexValues`, use the `alb.ingress.kubernetes.io/conditions.${conditions-name}` annotation instead of Ingress specification rules.
+
+        In other words:
+
+         - When [`alb.ingress.kubernetes.io/use-regex-path-match`](#use-regex-path-match) is `"false"` (default value), for HTTP paths using `pathType: ImplementationSpecific`, additional `path-pattern` conditions can **only** use `values`.
+         - When [`alb.ingress.kubernetes.io/use-regex-path-match`](#use-regex-path-match) is `"true"`, for HTTP paths using `pathType: ImplementationSpecific`, additional `path-pattern` conditions can **only** use `regexValues`.
+         - If a ingress rule `host` is specified, additional `host-header` conditions can only use `values`.
+
+
+- <a name="use-regex-path-match">`alb.ingress.kubernetes.io/use-regex-path-match`</a> Configure whether HTTP paths in your [Ingress specification](../spec/) should be evaluated using regex.
+
+    * This configuration only applies to HTTP paths using `pathType: ImplementationSpecific`. HTTP paths using `pathType: Exact` or `pathType: Prefix` are not affected by this annotation.
+    * A leading `/` must precede the regex. The leading `/` will be removed from the regex.
+
+    !!!example "Ingress rule path evaluated as regex"
+
+        Annotation:
+
+        ```yaml
+        alb.ingress.kubernetes.io/use-regex-path-match: "true"
+        ```
+
+        Ingress rule path:
+
+        ```yaml
+        -   path: "/^/api/(.+)$"
+            pathType: ImplementationSpecific
+            backend:
+                service:
+                name: service-2048
+                port:
+                    number: 80
+        ```
+
+        With this configuration, the rule condition regex value will be `^/api/(.+)$` as the leading `/` is removed from the regex.
 
 ## Access control
 Access control for LoadBalancer can be controlled with following annotations:

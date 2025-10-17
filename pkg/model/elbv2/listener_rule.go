@@ -55,16 +55,24 @@ const (
 
 // Information for a host header condition.
 type HostHeaderConditionConfig struct {
-	// One or more host names.
-	Values []string `json:"values"`
+	// One or more regex expressions for request host header.
+	// +optional
+	RegexValues []string `json:"regexValues,omitempty"`
+	// One or more value expressions for request host header.
+	// +optional
+	Values []string `json:"values,omitempty"`
 }
 
 // Information for an HTTP header condition.
 type HTTPHeaderConditionConfig struct {
 	// The name of the HTTP header field.
 	HTTPHeaderName string `json:"httpHeaderName"`
-	// One or more strings to compare against the value of the HTTP header.
-	Values []string `json:"values"`
+	// One or more regex matches for request HTTP headers.
+	// +optional
+	RegexValues []string `json:"regexValues,omitempty"`
+	// One or more value matches for request HTTP headers.
+	// +optional
+	Values []string `json:"values,omitempty"`
 }
 
 // Information for an HTTP method condition.
@@ -75,8 +83,12 @@ type HTTPRequestMethodConditionConfig struct {
 
 // Information about a path pattern condition.
 type PathPatternConditionConfig struct {
-	// One or more path patterns to compare against the request URL.
-	Values []string `json:"values"`
+	// One or more regex matches for request URL path.
+	// +optional
+	RegexValues []string `json:"regexValues,omitempty"`
+	// One or more value matches for request URL path.
+	// +optional
+	Values []string `json:"values,omitempty"`
 }
 
 // Information about a key/value pair.
@@ -125,6 +137,36 @@ type RuleCondition struct {
 	SourceIPConfig *SourceIPConditionConfig `json:"sourceIPConfig,omitempty"`
 }
 
+type TransformType string
+
+const (
+	TransformTypeUrlRewrite        TransformType = "url-rewrite"
+	TransformTypeHostHeaderRewrite TransformType = "host-header-rewrite"
+)
+
+type RewriteConfig struct {
+	// Regex expression
+	Regex string `json:"regex"`
+	// Replacement expression
+	Replace string `json:"replace"`
+}
+
+type RewriteConfigObject struct {
+	// Rewrites for the transform
+	Rewrites []RewriteConfig `json:"rewrites"`
+}
+
+type Transform struct {
+	// The type of transform
+	Type TransformType `json:"type"`
+	// Information for a host header rewrite.
+	// +optional
+	HostHeaderRewriteConfig *RewriteConfigObject `json:"hostHeaderRewriteConfig,omitempty"`
+	// Information for a URL rewrite.
+	// +optional
+	UrlRewriteConfig *RewriteConfigObject `json:"urlRewriteConfig,omitempty"`
+}
+
 // ListenerRuleSpec defines the desired state of ListenerRule
 type ListenerRuleSpec struct {
 	// The Amazon Resource Name (ARN) of the listener.
@@ -135,6 +177,9 @@ type ListenerRuleSpec struct {
 	Actions []Action `json:"actions"`
 	// The conditions.
 	Conditions []RuleCondition `json:"conditions"`
+	// The transforms.
+	// +optional
+	Transforms []Transform `json:"transforms,omitempty"`
 	// The tags.
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`

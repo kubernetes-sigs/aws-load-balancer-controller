@@ -478,6 +478,415 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			name: "all listener rules settings including transforms has match but not priority",
+			args: args{
+				resLRs: []*elbv2model.ListenerRule{
+					{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 3,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo1-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo1"},
+									},
+								},
+							},
+							Transforms: []elbv2model.Transform{
+								{
+									Type: elbv2model.TransformTypeUrlRewrite,
+									UrlRewriteConfig: &elbv2model.RewriteConfigObject{
+										Rewrites: []elbv2model.RewriteConfig{
+											{
+												Regex:   "/path1/(.*)",
+												Replace: "/newpath1/$1",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 2,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+							Transforms: []elbv2model.Transform{
+								{
+									Type: elbv2model.TransformTypeUrlRewrite,
+									UrlRewriteConfig: &elbv2model.RewriteConfigObject{
+										Rewrites: []elbv2model.RewriteConfig{
+											{
+												Regex:   "/path2/(.*)",
+												Replace: "/newpath2/$1",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 1,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo3-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo3"},
+									},
+								},
+							},
+							Transforms: []elbv2model.Transform{
+								{
+									Type: elbv2model.TransformTypeUrlRewrite,
+									UrlRewriteConfig: &elbv2model.RewriteConfigObject{
+										Rewrites: []elbv2model.RewriteConfig{
+											{
+												Regex:   "/path3/(.*)",
+												Replace: "/newpath3/$1",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				sdkLRs: []ListenerRuleWithTags{
+					{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-1"),
+							Priority: awssdk.String("1"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo1-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo1"},
+									},
+								},
+							},
+							Transforms: []elbv2types.RuleTransform{
+								{
+									Type: elbv2types.TransformTypeEnumUrlRewrite,
+									UrlRewriteConfig: &elbv2types.UrlRewriteConfig{
+										Rewrites: []elbv2types.RewriteConfig{
+											{
+												Regex:   awssdk.String("/path1/(.*)"),
+												Replace: awssdk.String("/newpath1/$1"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-2"),
+							Priority: awssdk.String("2"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo2-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo2"},
+									},
+								},
+							},
+							Transforms: []elbv2types.RuleTransform{
+								{
+									Type: elbv2types.TransformTypeEnumUrlRewrite,
+									UrlRewriteConfig: &elbv2types.UrlRewriteConfig{
+										Rewrites: []elbv2types.RewriteConfig{
+											{
+												Regex:   awssdk.String("/path2/(.*)"),
+												Replace: awssdk.String("/newpath2/$1"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-3"),
+							Priority: awssdk.String("3"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo3-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo3"},
+									},
+								},
+							},
+							Transforms: []elbv2types.RuleTransform{
+								{
+									Type: elbv2types.TransformTypeEnumUrlRewrite,
+									UrlRewriteConfig: &elbv2types.UrlRewriteConfig{
+										Rewrites: []elbv2types.RewriteConfig{
+											{
+												Regex:   awssdk.String("/path3/(.*)"),
+												Replace: awssdk.String("/newpath3/$1"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: []resAndSDKListenerRulePair{
+				{
+					resLR: &elbv2model.ListenerRule{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 3,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo1-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo1"},
+									},
+								},
+							},
+							Transforms: []elbv2model.Transform{
+								{
+									Type: elbv2model.TransformTypeUrlRewrite,
+									UrlRewriteConfig: &elbv2model.RewriteConfigObject{
+										Rewrites: []elbv2model.RewriteConfig{
+											{
+												Regex:   "/path1/(.*)",
+												Replace: "/newpath1/$1",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					sdkLR: ListenerRuleWithTags{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-1"),
+							Priority: awssdk.String("1"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo1-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo1"},
+									},
+								},
+							},
+							Transforms: []elbv2types.RuleTransform{
+								{
+									Type: elbv2types.TransformTypeEnumUrlRewrite,
+									UrlRewriteConfig: &elbv2types.UrlRewriteConfig{
+										Rewrites: []elbv2types.RewriteConfig{
+											{
+												Regex:   awssdk.String("/path1/(.*)"),
+												Replace: awssdk.String("/newpath1/$1"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					resLR: &elbv2model.ListenerRule{
+						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::ListenerRule", "id-1"),
+						Spec: elbv2model.ListenerRuleSpec{
+							Priority: 1,
+							Actions: []elbv2model.Action{
+								{
+									Type: "forward",
+									ForwardConfig: &elbv2model.ForwardActionConfig{
+										TargetGroups: []elbv2model.TargetGroupTuple{
+											{
+												TargetGroupARN: core.LiteralStringToken("foo3-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2model.RuleCondition{
+								{
+									Field: "path-pattern",
+									PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+										Values: []string{"/foo3"},
+									},
+								},
+							},
+							Transforms: []elbv2model.Transform{
+								{
+									Type: elbv2model.TransformTypeUrlRewrite,
+									UrlRewriteConfig: &elbv2model.RewriteConfigObject{
+										Rewrites: []elbv2model.RewriteConfig{
+											{
+												Regex:   "/path3/(.*)",
+												Replace: "/newpath3/$1",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					sdkLR: ListenerRuleWithTags{
+						ListenerRule: &elbv2types.Rule{
+							RuleArn:  awssdk.String("arn-3"),
+							Priority: awssdk.String("3"),
+							Actions: []elbv2types.Action{
+								{
+									Type: elbv2types.ActionTypeEnumForward,
+									ForwardConfig: &elbv2types.ForwardActionConfig{
+										TargetGroups: []elbv2types.TargetGroupTuple{
+											{
+												TargetGroupArn: awssdk.String("foo3-tg"),
+											},
+										},
+									},
+								},
+							},
+							Conditions: []elbv2types.RuleCondition{
+								{
+									Field: awssdk.String("path-pattern"),
+									PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+										Values: []string{"/foo3"},
+									},
+								},
+							},
+							Transforms: []elbv2types.RuleTransform{
+								{
+									Type: elbv2types.TransformTypeEnumUrlRewrite,
+									UrlRewriteConfig: &elbv2types.UrlRewriteConfig{
+										Rewrites: []elbv2types.RewriteConfig{
+											{
+												Regex:   awssdk.String("/path3/(.*)"),
+												Replace: awssdk.String("/newpath3/$1"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			want1:   nil,
+			want2:   nil,
+			want3:   nil,
+			wantErr: nil,
+		},
+		{
 			name: "some listener rules settings has match but not priority, some listener rules priority match but not settings",
 			args: args{
 				resLRs: []*elbv2model.ListenerRule{
@@ -1260,12 +1669,12 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 				elbv2Client:  elbv2Client,
 				featureGates: featureGates,
 			}
-			resLRDesiredActionsAndConditionsPairs := make(map[*elbv2model.ListenerRule]*resLRDesiredActionsAndConditionsPair, len(tt.args.resLRs))
+			resLRDesiredRuleConfigs := make(map[*elbv2model.ListenerRule]*resLRDesiredRuleConfig, len(tt.args.resLRs))
 			for _, resLR := range tt.args.resLRs {
-				resLRDesiredActionsAndConditionsPair, _ := buildResLRDesiredActionsAndConditionsPair(resLR, featureGates)
-				resLRDesiredActionsAndConditionsPairs[resLR] = resLRDesiredActionsAndConditionsPair
+				resLRDesiredRuleConfig, _ := buildResLRDesiredRuleConfig(resLR, featureGates)
+				resLRDesiredRuleConfigs[resLR] = resLRDesiredRuleConfig
 			}
-			got, got1, got2, got3, err := s.matchResAndSDKListenerRules(tt.args.resLRs, tt.args.sdkLRs, resLRDesiredActionsAndConditionsPairs)
+			got, got1, got2, got3, err := s.matchResAndSDKListenerRules(tt.args.resLRs, tt.args.sdkLRs, resLRDesiredRuleConfigs)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {
