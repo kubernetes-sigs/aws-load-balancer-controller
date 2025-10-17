@@ -25,6 +25,10 @@ import (
 //  * `service.k8s.aws/resource: resource-id` will be applied on all AWS resources provisioned for Service resources:
 //    * For LoadBalancer, `resource-id` will be `LoadBalancer`
 //    * For TargetGroup, `resource-id` will be `namespace/serviceName:servicePort`
+//  * `aga.k8s.aws/stack: stack-id` will be applied on all AWS resources provisioned for GlobalAccelerator resources:
+//    * `stack-id` will be `namespace/globalAcceleratorName`
+//  * `aga.k8s.aws/resource: resource-id` will be applied on all AWS resources provisioned for GlobalAccelerator resources:
+//    * For GlobalAccelerator, `resource-id` will be `GlobalAccelerator`
 //For K8s resources created by this controller, the labelling strategy is as follows:
 //  * For explicit IngressGroup, the following tags will be applied on all K8s resources:
 //    * `ingress.k8s.aws/stack: groupName`

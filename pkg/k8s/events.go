@@ -51,5 +51,6 @@ const (
 	GlobalAcceleratorEventReasonFailedRemoveFinalizer  = "FailedRemoveFinalizer"
 	GlobalAcceleratorEventReasonFailedUpdateStatus     = "FailedUpdateStatus"
 	GlobalAcceleratorEventReasonFailedCleanup          = "FailedCleanup"
+	GlobalAcceleratorEventReasonFailedBuildModel       = "FailedBuildModel"
 	GlobalAcceleratorEventReasonSuccessfullyReconciled = "SuccessfullyReconciled"
 )
