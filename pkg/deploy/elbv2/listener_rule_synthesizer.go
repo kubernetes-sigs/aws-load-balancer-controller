@@ -93,21 +93,6 @@ func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.
 		return err
 	}
 
-	s.logger.Info("unmatchedResLRs size", "size", len(unmatchedResLRs))
-	for _, resLR := range unmatchedResLRs {
-		s.logger.Info("Unmatched", "res lr", *resLR)
-	}
-
-	s.logger.Info("unmatchedSDKLRs size", "size", len(unmatchedSDKLRs))
-	for _, sdkLr := range unmatchedSDKLRs {
-		s.logger.Info("Unmatched", "res lr", *sdkLr.ListenerRule)
-	}
-
-	s.logger.Info("match priority size", "size", len(matchedResAndSDKLRsBySettings))
-	for k, v := range matchedResAndSDKLRsBySettings {
-		s.logger.Info("matched priority", "priority", k, "value", *v.sdkLR.ListenerRule)
-	}
-
 	// Re-prioritize matched listener rules.
 	if len(matchedResAndSDKLRsBySettings) > 0 {
 		err := s.lrManager.SetRulePriorities(ctx, matchedResAndSDKLRsBySettings, unmatchedSDKLRs)
@@ -261,6 +246,7 @@ func (s *listenerRuleSynthesizer) createAndDeleteRules(ctx context.Context, init
 				// either means outside forces are changing listener rules OR we have a bug.
 				if isTooManyRulesErr(err) && maxRules == -1 {
 					maxRules = ruleCounter
+					s.logger.V(1).Info("Enabling delete / create cycle")
 					continue
 				}
 				return err
