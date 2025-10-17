@@ -2813,6 +2813,7 @@ func Test_defaultPodENIInfoResolver_isPodSupportedByNodeENI(t *testing.T) {
 		})
 	}
 }
+
 // Add these test functions to pod_eni_info_resolver_test.go
 
 func Test_defaultPodENIInfoResolver_resolveViaCascadedLookup_Hybrid(t *testing.T) {
