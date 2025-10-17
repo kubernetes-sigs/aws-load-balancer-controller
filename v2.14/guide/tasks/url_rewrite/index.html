@@ -9,10 +9,10 @@
       
       
       
-        <link rel="prev" href="../targetgroupbinding/">
+        <link rel="prev" href="../ssl_redirect/">
       
       
-        <link rel="next" href="../../gateway/gateway/">
+        <link rel="next" href="../../use_cases/nlb_tls_termination/">
       
       
       <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
@@ -20,7 +20,7 @@
     
     
       
-        <title>Specification - AWS Load Balancer Controller</title>
+        <title>URL Rewrite - AWS Load Balancer Controller</title>
       
     
     
@@ -74,6 +74,11 @@
     <label class="md-overlay" for="__drawer"></label>
     <div data-md-component="skip">
       
+        
+        <a href="#url-rewrite" class="md-skip">
+          Skip to content
+        </a>
+      
     </div>
     <div data-md-component="announce">
       
@@ -116,7 +121,7 @@
           <div class="md-header__topic" data-md-component="header-topic">
             <span class="md-ellipsis">
               
-                Specification
+                URL Rewrite
               
             </span>
           </div>
@@ -902,8 +907,6 @@
                 
   
   
-    
-  
   
   
     
@@ -913,11 +916,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
         
           
           <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
@@ -931,7 +934,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_3">
             <span class="md-nav__icon md-icon"></span>
             TargetGroupBinding
@@ -945,7 +948,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../targetgroupbinding/" class="md-nav__link">
+      <a href="../../targetgroupbinding/targetgroupbinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -963,17 +966,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/spec/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -982,7 +978,6 @@
   
 
       </a>
-      
     </li>
   
 
@@ -1327,6 +1322,8 @@
                 
   
   
+    
+  
   
   
     
@@ -1336,11 +1333,11 @@
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" checked>
         
           
           <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
@@ -1354,7 +1351,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Tasks
@@ -1368,7 +1365,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tasks/cognito_authentication/" class="md-nav__link">
+      <a href="../cognito_authentication/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1389,7 +1386,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../tasks/ssl_redirect/" class="md-nav__link">
+      <a href="../ssl_redirect/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1407,10 +1404,30 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../tasks/url_rewrite/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    URL Rewrite
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   <span class="md-ellipsis">
@@ -1419,6 +1436,44 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#host-header-rewrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      Host header rewrite
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additional-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Additional resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1803,6 +1858,34 @@
   
   
   
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#host-header-rewrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      Host header rewrite
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#additional-resources" class="md-nav__link">
+    <span class="md-ellipsis">
+      Additional resources
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
   
 </nav>
                   </div>
@@ -1820,572 +1903,123 @@
   
 
 
-  <h1>Specification</h1>
-
-<div class="admonition question">
-<p class="admonition-title">EKS Auto Mode users</p>
-<p>If you are using EKS Auto Mode, please see the
-<a href="https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-alb.html#_considerations">EKS Auto Mode documentation</a>
-for key differences between the load balancing capability of EKS Auto Mode and the open source load balancer controller.</p>
-</div>
-<p>Packages:</p>
+<h1 id="url-rewrite">URL rewrite<a class="headerlink" href="#url-rewrite" title="Permanent link">&para;</a></h1>
+<p>URL rewrite enables request URLs to be transformed before the request reaches your backend services.</p>
+<p>Consider the following scenario:</p>
 <ul>
-<li>
-<a href="#elbv2.k8s.aws%2fv1beta1">elbv2.k8s.aws/v1beta1</a>
-</li>
+<li>An ingress exposes two services:</li>
+<li>An API service exposed at path prefix <code>/api/</code>.</li>
+<li>A users service exposed at path prefix <code>/users/</code>.</li>
+<li>These service <strong>do not expect</strong> the <code>/api/</code> or <code>/users/</code> prefixes in the request path.</li>
 </ul>
-<h2 id="elbv2.k8s.aws/v1beta1">elbv2.k8s.aws/v1beta1</h2>
-<p>
-<p>Package v1beta1 contains API Schema definitions for the elbv2 v1beta1 API group</p>
-</p>
-<p>Resource Types:</p>
-<ul><li>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBinding">TargetGroupBinding</a>
-</li></ul>
-<h3 id="elbv2.k8s.aws/v1beta1.TargetGroupBinding">TargetGroupBinding
-</h3>
-<p>
-<p>TargetGroupBinding is the Schema for the TargetGroupBinding API</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>apiVersion</code></br>
-string</td>
-<td>
-<code>
-elbv2.k8s.aws/v1beta1
-</code>
-</td>
-</tr>
-<tr>
-<td>
-<code>kind</code></br>
-string
-</td>
-<td><code>TargetGroupBinding</code></td>
-</tr>
-<tr>
-<td>
-<code>metadata</code></br>
-<em>
-<a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.16/#objectmeta-v1-meta">
-Kubernetes meta/v1.ObjectMeta
-</a>
-</em>
-</td>
-<td>
-<table>
-<tr><td><code>annotations</code></td><td>
+<p>For this scenario, URL rewrite would be used to remove the leading <code>/api/</code> and <code>/users/</code> from the request paths.</p>
+<p>Example ingress manifest:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/certificate-arn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arn:aws:acm:us-west-2:xxxx:certificate/xxxxxx</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/listen-ports</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;[{&quot;HTTP&quot;:</span><span class="nv"> </span><span class="s">80},</span><span class="nv"> </span><span class="s">{&quot;HTTPS&quot;:443}]&#39;</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/ssl-redirect</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;443&quot;</span>
 
-<tr><td colspan=2>
-Refer to the Kubernetes API documentation for the other fields of the
-<code>metadata</code> field.
-</td></tr>
-</table></td></tr>
+<span class="w">    </span><span class="c1"># Add transform to users-service to remove &quot;/users/&quot; prefix from paths</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/transforms.users-service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[</span>
+<span class="w">        </span><span class="no">{</span>
+<span class="w">          </span><span class="no">&quot;type&quot;: &quot;url-rewrite&quot;,</span>
+<span class="w">          </span><span class="no">&quot;urlRewriteConfig&quot;: {</span>
+<span class="w">            </span><span class="no">&quot;rewrites&quot;: [{</span>
+<span class="w">              </span><span class="no">&quot;regex&quot;: &quot;^/users/(.+)$&quot;,</span>
+<span class="w">              </span><span class="no">&quot;replace&quot;: &quot;/$1&quot;</span>
+<span class="w">            </span><span class="no">}]</span>
+<span class="w">          </span><span class="no">}</span>
+<span class="w">        </span><span class="no">}</span>
+<span class="w">      </span><span class="no">]</span>
+<span class="w">    </span><span class="c1"># Add transform to api-service to remove &quot;/api/&quot; prefix from paths</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/transforms.api-service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[</span>
+<span class="w">        </span><span class="no">{</span>
+<span class="w">          </span><span class="no">&quot;type&quot;: &quot;url-rewrite&quot;,</span>
+<span class="w">          </span><span class="no">&quot;urlRewriteConfig&quot;: {</span>
+<span class="w">            </span><span class="no">&quot;rewrites&quot;: [{</span>
+<span class="w">              </span><span class="no">&quot;regex&quot;: &quot;^/api/(.+)$&quot;,</span>
+<span class="w">              </span><span class="no">&quot;replace&quot;: &quot;/$1&quot;</span>
+<span class="w">            </span><span class="no">}]</span>
+<span class="w">          </span><span class="no">}</span>
+<span class="w">        </span><span class="no">}</span>
+<span class="w">      </span><span class="no">]</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">ingressClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alb</span>
+<span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">http</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">paths</span><span class="p">:</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/users/</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">users-service</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/api/</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api-service</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/*</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ImplementationSpecific</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default-service</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+</code></pre></div>
+<h2 id="host-header-rewrite">Host header rewrite<a class="headerlink" href="#host-header-rewrite" title="Permanent link">&para;</a></h2>
+<p>To rewrite from <code>api.example.com</code> to <code>example.com</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">default</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ingress</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/certificate-arn</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">arn:aws:acm:us-west-2:xxxx:certificate/xxxxxx</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/listen-ports</span><span class="p">:</span><span class="w"> </span><span class="s">&#39;[{&quot;HTTP&quot;:</span><span class="nv"> </span><span class="s">80},</span><span class="nv"> </span><span class="s">{&quot;HTTPS&quot;:443}]&#39;</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/ssl-redirect</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;443&quot;</span>
 
-
-
-</td>
-</tr>
-
-<tr>
-<td>
-<code>spec</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">
-TargetGroupBindingSpec
-</a>
-</em>
-</td>
-<td>
-<br/>
-<br/>
-<table>
-<tr>
-<td>
-<code>targetGroupARN</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>targetGroupARN is the Amazon Resource Name (ARN) for the TargetGroup.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>targetType</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetType">
-TargetType
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>serviceRef</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.ServiceReference">
-ServiceReference
-</a>
-</em>
-</td>
-<td>
-<p>serviceRef is a reference to a Kubernetes Service and ServicePort.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>networking</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingNetworking">
-TargetGroupBindingNetworking
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>networking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.</p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<code>status</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingStatus">
-TargetGroupBindingStatus
-</a>
-</em>
-</td>
-<td>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.IPBlock">IPBlock
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.NetworkingPeer">NetworkingPeer</a>)
-</p>
-<p>
-<p>IPBlock defines source/destination IPBlock in networking rules.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>cidr</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>CIDR is the network CIDR.
-Both IPV4 or IPV6 CIDR are accepted.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.NetworkingIngressRule">NetworkingIngressRule
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingNetworking">TargetGroupBindingNetworking</a>)
-</p>
-<p>
-<p>NetworkingIngressRule defines a particular set of traffic that is allowed to access TargetGroup&rsquo;s targets.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>from</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.NetworkingPeer">
-[]NetworkingPeer
-</a>
-</em>
-</td>
-<td>
-<p>List of peers which should be able to access the targets in TargetGroup.
-At least one NetworkingPeer should be specified.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>ports</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.NetworkingPort">
-[]NetworkingPort
-</a>
-</em>
-</td>
-<td>
-<p>List of ports which should be made accessible on the targets in TargetGroup.
-If ports is empty or unspecified, it defaults to all ports with TCP.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.NetworkingPeer">NetworkingPeer
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.NetworkingIngressRule">NetworkingIngressRule</a>)
-</p>
-<p>
-<p>NetworkingPeer defines the source/destination peer for networking rules.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>ipBlock</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.IPBlock">
-IPBlock
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>IPBlock defines an IPBlock peer.
-If specified, none of the other fields can be set.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>securityGroup</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.SecurityGroup">
-SecurityGroup
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>SecurityGroup defines a SecurityGroup peer.
-If specified, none of the other fields can be set.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.NetworkingPort">NetworkingPort
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.NetworkingIngressRule">NetworkingIngressRule</a>)
-</p>
-<p>
-<p>NetworkingPort defines the port and protocol for networking rules.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>protocol</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.NetworkingProtocol">
-NetworkingProtocol
-</a>
-</em>
-</td>
-<td>
-<p>The protocol which traffic must match.
-If protocol is unspecified, it defaults to TCP.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>port</code></br>
-<em>
-k8s.io/apimachinery/pkg/util/intstr.IntOrString
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>The port which traffic must match.
-When NodePort endpoints(instance TargetType) is used, this must be a numerical port.
-When Port endpoints(ip TargetType) is used, this can be either numerical or named port on pods.
-if port is unspecified, it defaults to all ports.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.NetworkingProtocol">NetworkingProtocol
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.NetworkingPort">NetworkingPort</a>)
-</p>
-<p>
-<p>NetworkingProtocol defines the protocol for networking rules.</p>
-</p>
-<h3 id="elbv2.k8s.aws/v1beta1.SecurityGroup">SecurityGroup
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.NetworkingPeer">NetworkingPeer</a>)
-</p>
-<p>
-<p>SecurityGroup defines reference to an AWS EC2 SecurityGroup.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>groupID</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>GroupID is the EC2 SecurityGroupID.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.ServiceReference">ServiceReference
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">TargetGroupBindingSpec</a>)
-</p>
-<p>
-<p>ServiceReference defines reference to a Kubernetes Service and its ServicePort.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>name</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>Name is the name of the Service.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>port</code></br>
-<em>
-k8s.io/apimachinery/pkg/util/intstr.IntOrString
-</em>
-</td>
-<td>
-<p>Port is the port of the ServicePort.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.TargetGroupBindingNetworking">TargetGroupBindingNetworking
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">TargetGroupBindingSpec</a>)
-</p>
-<p>
-<p>TargetGroupBindingNetworking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>ingress</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.NetworkingIngressRule">
-[]NetworkingIngressRule
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>List of ingress rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">TargetGroupBindingSpec
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBinding">TargetGroupBinding</a>)
-</p>
-<p>
-<p>TargetGroupBindingSpec defines the desired state of TargetGroupBinding</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>targetGroupARN</code></br>
-<em>
-string
-</em>
-</td>
-<td>
-<p>targetGroupARN is the Amazon Resource Name (ARN) for the TargetGroup.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>targetType</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetType">
-TargetType
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>targetType is the TargetType of TargetGroup. If unspecified, it will be automatically inferred.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>serviceRef</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.ServiceReference">
-ServiceReference
-</a>
-</em>
-</td>
-<td>
-<p>serviceRef is a reference to a Kubernetes Service and ServicePort.</p>
-</td>
-</tr>
-<tr>
-<td>
-<code>networking</code></br>
-<em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingNetworking">
-TargetGroupBindingNetworking
-</a>
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>networking defines the networking rules to allow ELBV2 LoadBalancer to access targets in TargetGroup.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.TargetGroupBindingStatus">TargetGroupBindingStatus
-</h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBinding">TargetGroupBinding</a>)
-</p>
-<p>
-<p>TargetGroupBindingStatus defines the observed state of TargetGroupBinding</p>
-</p>
-<table>
-<thead>
-<tr>
-<th>Field</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>
-<code>observedGeneration</code></br>
-<em>
-int64
-</em>
-</td>
-<td>
-<em>(Optional)</em>
-<p>The generation observed by the TargetGroupBinding controller.</p>
-</td>
-</tr>
-</tbody>
-</table>
-<h3 id="elbv2.k8s.aws/v1beta1.TargetType">TargetType
-(<code>string</code> alias)</p></h3>
-<p>
-(<em>Appears on:</em>
-<a href="#elbv2.k8s.aws/v1beta1.TargetGroupBindingSpec">TargetGroupBindingSpec</a>)
-</p>
-<p>
-<p>TargetType is the targetType of your ELBV2 TargetGroup.</p>
+<span class="w">    </span><span class="c1"># add transform to api-service to replace &quot;api.example.com&quot; hostname with &quot;example.com&quot;</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/transforms.api-service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">      </span><span class="no">[</span>
+<span class="w">        </span><span class="no">{</span>
+<span class="w">          </span><span class="no">&quot;type&quot;: &quot;host-header-rewrite&quot;,</span>
+<span class="w">          </span><span class="no">&quot;hostHeaderRewriteConfig&quot;: {</span>
+<span class="w">            </span><span class="no">&quot;rewrites&quot;: [{</span>
+<span class="w">              </span><span class="no">&quot;regex&quot;: &quot;^api\\.example\\.com$&quot;,</span>
+<span class="w">              </span><span class="no">&quot;replace&quot;: &quot;example.com&quot;</span>
+<span class="w">            </span><span class="no">}]</span>
+<span class="w">          </span><span class="no">}</span>
+<span class="w">        </span><span class="no">}</span>
+<span class="w">      </span><span class="no">]</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">ingressClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alb</span>
+<span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">host</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api.example.com</span>
+<span class="w">      </span><span class="nt">http</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">paths</span><span class="p">:</span>
+<span class="w">          </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/*</span>
+<span class="w">            </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix</span>
+<span class="w">            </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">                </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">api-service</span>
+<span class="w">                </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">                  </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+</code></pre></div>
+<h2 id="additional-resources">Additional resources<a class="headerlink" href="#additional-resources" title="Permanent link">&para;</a></h2>
 <ul>
-<li>with <code>instance</code> TargetType, nodes with nodePort for your service will be registered as targets</li>
-<li>with <code>ip</code> TargetType, Pods with containerPort for your service will be registered as targets</li>
+<li><a href="../../ingress/annotations#transforms"><code>alb.ingress.kubernetes.io/transforms.${transforms-name}</code> annotation documentation</a></li>
 </ul>
-</p>
-<hr/>
-<p><em>
-Generated with <code>gen-crd-api-reference-docs</code>
-on git commit <code>21418f44</code>.
-</em></p>
 
 
 

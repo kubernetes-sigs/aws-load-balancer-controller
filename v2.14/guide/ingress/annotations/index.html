@@ -1434,7 +1434,7 @@
             
   
   <span class="md-ellipsis">
-    Tasks
+    Global Accelerator
   </span>
   
 
@@ -1443,6 +1443,73 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            Global Accelerator
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tasks
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Tasks
           </label>
@@ -1490,6 +1557,27 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/url_rewrite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    URL Rewrite
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1515,10 +1603,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
         
           
-          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1529,8 +1617,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
             <span class="md-nav__icon md-icon"></span>
             Use Cases
           </label>
@@ -1666,10 +1754,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
         
           
-          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1680,8 +1768,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
             <span class="md-nav__icon md-icon"></span>
             Metrics
           </label>
@@ -2332,11 +2420,25 @@ for key differences between the load balancing capability of EKS Auto Mode and t
 <td>N/A</td>
 </tr>
 <tr>
+<td><a href="#transforms">alb.ingress.kubernetes.io/transforms.${transforms-name}</a></td>
+<td>json</td>
+<td>N/A</td>
+<td>Ingress</td>
+<td>N/A</td>
+</tr>
+<tr>
 <td><a href="#conditions">alb.ingress.kubernetes.io/conditions.${conditions-name}</a></td>
 <td>json</td>
 <td>N/A</td>
 <td>Ingress</td>
 <td>N/A</td>
+</tr>
+<tr>
+<td><a href="#use-regex-path-match">alb.ingress.kubernetes.io/use-regex-path-match</a></td>
+<td>boolean</td>
+<td>N/A</td>
+<td>Ingress</td>
+<td>false</td>
 </tr>
 <tr>
 <td><a href="#target-node-labels">alb.ingress.kubernetes.io/target-node-labels</a></td>
@@ -2803,9 +2905,62 @@ other Kubernetes users may create/modify their Ingresses to belong to the same I
 </div>
 </li>
 <li>
+<p><a name="transforms"><code>alb.ingress.kubernetes.io/transforms.${transforms-name}</code></a> Provides a method for specifying transforms on Ingress spec.</p>
+<p>The <code>transforms-name</code> in the annotation must match the serviceName in the Ingress rules.</p>
+<div class="admonition example">
+<p class="admonition-title">URL rewrite</p>
+<p>Example transform to remove the leading <code>/api/</code> from request paths:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">alb.ingress.kubernetes.io/transforms.my-service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">    </span><span class="no">[</span>
+<span class="w">        </span><span class="no">{</span>
+<span class="w">            </span><span class="no">&quot;type&quot;: &quot;url-rewrite&quot;,</span>
+<span class="w">            </span><span class="no">&quot;urlRewriteConfig&quot;: {</span>
+<span class="w">                </span><span class="no">&quot;rewrites&quot;: [</span>
+<span class="w">                    </span><span class="no">{</span>
+<span class="w">                        </span><span class="no">&quot;regex&quot;: &quot;^\\/api\\/(.+)$&quot;,</span>
+<span class="w">                        </span><span class="no">&quot;replace&quot;: &quot;/$1&quot;</span>
+<span class="w">                    </span><span class="no">}</span>
+<span class="w">                </span><span class="no">]</span>
+<span class="w">            </span><span class="no">}</span>
+<span class="w">        </span><span class="no">}</span>
+<span class="w">    </span><span class="no">]</span>
+</code></pre></div>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Host header rewrite</p>
+<p>Example transform to replace <code>example.com</code> with <code>example.org</code> from request host headers:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">alb.ingress.kubernetes.io/transforms.my-service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">    </span><span class="no">[</span>
+<span class="w">        </span><span class="no">{</span>
+<span class="w">            </span><span class="no">&quot;type&quot;: &quot;host-header-rewrite&quot;,</span>
+<span class="w">            </span><span class="no">&quot;hostHeaderRewriteConfig&quot;: {</span>
+<span class="w">                </span><span class="no">&quot;rewrites&quot;: [</span>
+<span class="w">                    </span><span class="no">{</span>
+<span class="w">                        </span><span class="no">&quot;regex&quot;: &quot;^(.+)\\.example\\.com$&quot;,</span>
+<span class="w">                        </span><span class="no">&quot;replace&quot;: &quot;$1.example.org&quot;</span>
+<span class="w">                    </span><span class="no">}</span>
+<span class="w">                </span><span class="no">]</span>
+<span class="w">            </span><span class="no">}</span>
+<span class="w">        </span><span class="no">}</span>
+<span class="w">    </span><span class="no">]</span>
+</code></pre></div>
+</div>
+</li>
+<li>
 <p><a name="conditions"><code>alb.ingress.kubernetes.io/conditions.${conditions-name}</code></a> Provides a method for specifying routing conditions <strong>in addition to original host/path condition on Ingress spec</strong>.</p>
 <p>The <code>conditions-name</code> in the annotation must match the serviceName in the Ingress rules.
 It can be a either real serviceName or an annotation based action name when servicePort is <code>use-annotation</code>.</p>
+<p>Condition values can be specified using <em>either</em> <code>values</code> or <code>regexValues</code>:</p>
+<ul>
+<li>
+<p><code>values</code>: Wildcard syntax, where <code>*</code> matches 0 or more characters, and <code>?</code> matches exactly 1 character.</p>
+<p><code>values</code> is supported for all condition types: <code>host-header</code>, <code>http-header</code>, <code>http-request-method</code>, <code>path-pattern</code>, and <code>source-ip</code>.</p>
+</li>
+<li>
+<p><code>regexValues</code>: Regex syntax.</p>
+<p><code>regexValues</code> is supported for the following condition types: <code>host-header</code>, <code>http-header</code>, and <code>path-pattern</code>.</p>
+</li>
+</ul>
 <div class="admonition warning">
 <p class="admonition-title">limitations</p>
 <p>General ALB limitations applies:</p>
@@ -2823,7 +2978,7 @@ It can be a either real serviceName or an annotation based action name when serv
 <p>Refer <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#rule-condition-types">ALB documentation</a> for more details.</p>
 </div>
 <div class="admonition example">
-<p class="admonition-title">Example</p>
+<p class="admonition-title">Examples using <code>values</code></p>
 <ul>
 <li>rule-path1:<ul>
 <li>Host is www.example.com OR anno.example.com</li>
@@ -2965,7 +3120,7 @@ It can be a either real serviceName or an annotation based action name when serv
 <p>If you are using <code>alb.ingress.kubernetes.io/target-group-attributes</code> with <code>stickiness.enabled=true</code>, you should add <code>TargetGroupStickinessConfig</code> under <code>alb.ingress.kubernetes.io/actions.weighted-routing</code></p>
 </div>
 <div class="admonition example">
-<p class="admonition-title">Example</p>
+<p class="admonition-title">Example using target group stickiness config</p>
 <div class="highlight"><pre><span></span><code><span class="w">    </span><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
 <span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
 <span class="w">    </span><span class="nt">metadata</span><span class="p">:</span>
@@ -3011,6 +3166,66 @@ It can be a either real serviceName or an annotation based action name when serv
 <span class="w">                    </span><span class="nt">port</span><span class="p">:</span>
 <span class="w">                    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
 </code></pre></div>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Examples using <code>regexValues</code></p>
+<p>HTTP header condition using regex values:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">alb.ingress.kubernetes.io/conditions.my-service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">    </span><span class="no">[{ &quot;field&quot;: &quot;http-header&quot;, &quot;httpHeaderConfig&quot;: { &quot;httpHeaderName&quot;: &quot;User-Agent&quot;, &quot;regexValues&quot;: [ &quot;.+Chrome.+&quot; ] } }]</span>
+</code></pre></div>
+<p>Path condition using regex values:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">alb.ingress.kubernetes.io/conditions.my-service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">    </span><span class="no">[{ &quot;field&quot;: &quot;path-pattern&quot;, &quot;pathPatternConfig&quot;: { &quot;regexValues&quot;: [ &quot;^/api/?(.*)$&quot; ] } }]</span>
+</code></pre></div>
+<p>Host header condition using regex values:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">alb.ingress.kubernetes.io/conditions.my-service</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">&gt;</span>
+<span class="w">    </span><span class="no">[{ &quot;field&quot;: &quot;host-header&quot;, &quot;hostHeaderConfig&quot;: { &quot;regexValues&quot;: [ &quot;^(.+)\\.example\\.com&quot; ] } }]</span>
+</code></pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Considerations when using <code>regexValues</code></p>
+<p>ALB does not support mixing <code>values</code> (wildcard syntax) and <code>regexValues</code> (regex syntax) for the same condition type.</p>
+<p>In particular, when using the AWS Load Balancer Controller:</p>
+<ul>
+<li>
+<p>By default, additional <code>path-pattern</code> conditions <strong>must</strong> use <code>values</code>.</p>
+<p>This is because the AWS Load Balancer Controller automatically adds <code>path-pattern</code> conditions using <code>values</code> according to your <a href="../spec/">Ingress specification</a>.</p>
+<p>To configure additional <code>path-pattern</code> conditions using <code>regexValues</code>, configure the <a href="#use-regex-path-match"><code>alb.ingress.kubernetes.io/use-regex-path-match</code></a> annotation. When this annotation is set to <code>"true"</code>, the AWS Load Balancer Controller can add <code>path-pattern</code> conditions with <code>regexValues</code>.</p>
+</li>
+<li>
+<p>If your <a href="../spec/">Ingress specification</a> includes a <code>host</code> rule, additional <code>host-header</code> conditions <strong>must</strong> use <code>values</code>.</p>
+<p>To configure <code>host-header</code> conditions using <code>regexValues</code>, use the <code>alb.ingress.kubernetes.io/conditions.${conditions-name}</code> annotation instead of Ingress specification rules.</p>
+</li>
+</ul>
+<p>In other words:</p>
+<ul>
+<li>When <a href="#use-regex-path-match"><code>alb.ingress.kubernetes.io/use-regex-path-match</code></a> is <code>"false"</code> (default value), for HTTP paths using <code>pathType: ImplementationSpecific</code>, additional <code>path-pattern</code> conditions can <strong>only</strong> use <code>values</code>.</li>
+<li>When <a href="#use-regex-path-match"><code>alb.ingress.kubernetes.io/use-regex-path-match</code></a> is <code>"true"</code>, for HTTP paths using <code>pathType: ImplementationSpecific</code>, additional <code>path-pattern</code> conditions can <strong>only</strong> use <code>regexValues</code>.</li>
+<li>If a ingress rule <code>host</code> is specified, additional <code>host-header</code> conditions can only use <code>values</code>.</li>
+</ul>
+</div>
+</li>
+<li>
+<p><a name="use-regex-path-match"><code>alb.ingress.kubernetes.io/use-regex-path-match</code></a> Configure whether HTTP paths in your <a href="../spec/">Ingress specification</a> should be evaluated using regex.</p>
+<ul>
+<li>This configuration only applies to HTTP paths using <code>pathType: ImplementationSpecific</code>. HTTP paths using <code>pathType: Exact</code> or <code>pathType: Prefix</code> are not affected by this annotation.</li>
+<li>A leading <code>/</code> must precede the regex. The leading <code>/</code> will be removed from the regex.</li>
+</ul>
+<div class="admonition example">
+<p class="admonition-title">Ingress rule path evaluated as regex</p>
+<p>Annotation:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">alb.ingress.kubernetes.io/use-regex-path-match</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;true&quot;</span>
+</code></pre></div>
+<p>Ingress rule path:</p>
+<div class="highlight"><pre><span></span><code><span class="p p-Indicator">-</span><span class="w">   </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;/^/api/(.+)$&quot;</span>
+<span class="w">    </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ImplementationSpecific</span>
+<span class="w">    </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">service-2048</span>
+<span class="w">        </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+</code></pre></div>
+<p>With this configuration, the rule condition regex value will be <code>^/api/(.+)$</code> as the leading <code>/</code> is removed from the regex.</p>
 </div>
 </li>
 </ul>
@@ -3475,6 +3690,13 @@ Target Groups shared with multiple clusters, it's recommended to use an out-of-b
 <li>Server header enablement attribute
     <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/listener-attributes.HTTP-80: routing.http.response.server.enabled=true
 </code></pre></div></li>
+<li>Add Access-Control-Allow-Headers header value (with comma)
+    <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/listener-attributes.HTTPS-443: &quot;routing.http.response.access_control_allow_headers.header_value=exampleValue\\,anotherExampleValue&quot;
+</code></pre></div>
+    or
+    <div class="highlight"><pre><span></span><code>alb.ingress.kubernetes.io/listener-attributes.HTTPS-443: routing.http.response.access_control_allow_headers.header_value=exampleValue\,anotherExampleValue
+</code></pre></div>
+    both result Access-Control-Allow-Headers header value: exampleValue,anotherExampleValue</li>
 </ul>
 </div>
 </li>
@@ -3570,6 +3792,9 @@ To disable WAFv2, explicitly set the annotation value to 'none'.</p>
 </li>
 <li>
 <p><a name="wafv2-acl-name"><code>alb.ingress.kubernetes.io/wafv2-acl-name</code></a> specifies Name of the Amazon WAFv2 web ACL.</p>
+<div class="admonition note">
+<p>The controller role must allow access to <code>wafv2:ListWebACLs</code> </p>
+</div>
 <div class="admonition warning">
 <p>Only Regional WAFv2 is supported.</p>
 </div>

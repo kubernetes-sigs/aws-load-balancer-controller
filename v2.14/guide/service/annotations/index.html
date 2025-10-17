@@ -1421,7 +1421,7 @@
             
   
   <span class="md-ellipsis">
-    Tasks
+    Global Accelerator
   </span>
   
 
@@ -1430,6 +1430,73 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            Global Accelerator
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tasks
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Tasks
           </label>
@@ -1477,6 +1544,27 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/url_rewrite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    URL Rewrite
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1502,10 +1590,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
         
           
-          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1516,8 +1604,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
             <span class="md-nav__icon md-icon"></span>
             Use Cases
           </label>
@@ -1653,10 +1741,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
         
           
-          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1667,8 +1755,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
             <span class="md-nav__icon md-icon"></span>
             Metrics
           </label>
@@ -2148,7 +2236,7 @@ for key differences between the load balancing capability of EKS Auto Mode and t
 </tr>
 <tr>
 <td><a href="#healthcheck-port">service.beta.kubernetes.io/aws-load-balancer-healthcheck-port </a></td>
-<td>integer | traffic-port</td>
+<td>integer | traffic-port | named-service-port</td>
 <td>traffic-port</td>
 <td></td>
 </tr>
@@ -2745,9 +2833,16 @@ Target Groups shared with multiple clusters, it's recommended to use an out-of-b
 <li>
 <p><a name="healthcheck-port"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port</code></a> specifies the TCP port to use for target group health check.</p>
 <div class="admonition note">
-<p class="admonition-title">default value</p>
+<p class="admonition-title">accepted values</p>
 <ul>
-<li>if you do not specify the health check port, the default value will be <code>spec.healthCheckNodePort</code> when <code>externalTrafficPolicy=local</code> or <code>traffic-port</code> otherwise.</li>
+<li><code>traffic-port</code> - use the same port as the target group traffic (default when <code>externalTrafficPolicy=Cluster</code>)</li>
+<li>Integer string (e.g., <code>"80"</code>) - use this specific port number</li>
+<li>Service port name (e.g., <code>"http"</code>) - resolves based on target type:<ul>
+<li><strong>Instance targets</strong>: uses the Service port's <code>NodePort</code></li>
+<li><strong>IP targets</strong>: uses the Service port's <code>targetPort</code> (must be numeric, not a named port)</li>
+</ul>
+</li>
+<li><strong>Default</strong>: <code>spec.healthCheckNodePort</code> when <code>externalTrafficPolicy=Local</code>, otherwise <code>traffic-port</code></li>
 </ul>
 </div>
 <div class="admonition example">
@@ -2758,6 +2853,9 @@ Target Groups shared with multiple clusters, it's recommended to use an out-of-b
 </code></pre></div></li>
 <li>set the health check port to port <code>80</code>
     <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: &quot;80&quot;
+</code></pre></div></li>
+<li>set the health check port to a named Service port
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: &quot;http&quot;
 </code></pre></div></li>
 </ul>
 </div>
