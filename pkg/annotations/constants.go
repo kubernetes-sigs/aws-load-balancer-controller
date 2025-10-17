@@ -125,4 +125,5 @@ const (
 	SvcLBSuffixEnableIcmpForPathMtuDiscovery             = "aws-load-balancer-enable-icmp-for-path-mtu-discovery"
 	SvcLBSuffixEnableTCPUDPListener                      = "aws-load-balancer-enable-tcp-udp-listener"
 	SvcLBSuffixDisableNLBSG                              = "aws-load-balancer-disable-nlb-sg"
+	SvcLBSuffixOutboundCIDRs                             = "aws-load-balancer-outbound-cidrs"
 )
