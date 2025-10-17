@@ -4,8 +4,10 @@ import (
 	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
@@ -81,6 +83,7 @@ func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.
 		}
 		resLRDesiredRuleConfigs[resLR] = resLRDesiredRuleConfig
 	}
+
 	// matchedResAndSDKLRsBySettings : A slice of matched resLR and SDKLR rule pairs that have matching settings like actions and conditions. These needs to be only reprioratized to their corresponding priorities
 	// matchedResAndSDKLRsByPriority :  A slice of matched resLR and SDKLR rule pairs that have matching priorities but not settings like actions and conditions. These needs to be modified in place to avoid any 503 errors
 	// unmatchedResLRs : A slice of resLR that do not have a corresponding match in the sdkLRs. These rules need to be created on the load balancer.
@@ -89,6 +92,22 @@ func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.
 	if err != nil {
 		return err
 	}
+
+	s.logger.Info("unmatchedResLRs size", "size", len(unmatchedResLRs))
+	for _, resLR := range unmatchedResLRs {
+		s.logger.Info("Unmatched", "res lr", *resLR)
+	}
+
+	s.logger.Info("unmatchedSDKLRs size", "size", len(unmatchedSDKLRs))
+	for _, sdkLr := range unmatchedSDKLRs {
+		s.logger.Info("Unmatched", "res lr", *sdkLr.ListenerRule)
+	}
+
+	s.logger.Info("match priority size", "size", len(matchedResAndSDKLRsBySettings))
+	for k, v := range matchedResAndSDKLRsBySettings {
+		s.logger.Info("matched priority", "priority", k, "value", *v.sdkLR.ListenerRule)
+	}
+
 	// Re-prioritize matched listener rules.
 	if len(matchedResAndSDKLRsBySettings) > 0 {
 		err := s.lrManager.SetRulePriorities(ctx, matchedResAndSDKLRsBySettings, unmatchedSDKLRs)
@@ -104,20 +123,12 @@ func (s *listenerRuleSynthesizer) synthesizeListenerRulesOnListener(ctx context.
 		}
 		resAndSDKLR.resLR.SetStatus(lsStatus)
 	}
-	// Create all the new rules on the LB
-	for _, resLR := range unmatchedResLRs {
-		lrStatus, err := s.lrManager.Create(ctx, resLR, resLRDesiredRuleConfigs[resLR])
-		if err != nil {
-			return err
-		}
-		resLR.SetStatus(lrStatus)
+
+	err = s.createAndDeleteRules(ctx, len(sdkLRs), resLRDesiredRuleConfigs, unmatchedResLRs, unmatchedSDKLRs)
+	if err != nil {
+		return err
 	}
-	// Delete all unmatched sdk LRs which were pushed down as new rules are either modified or created at higher priority
-	for _, sdkLR := range unmatchedSDKLRs {
-		if err := s.lrManager.Delete(ctx, sdkLR); err != nil {
-			return err
-		}
-	}
+
 	// Update existing listener rules on the load balancer for their tags
 	for _, resAndSDKLR := range matchedResAndSDKLRsBySettings {
 		lsStatus, err := s.lrManager.UpdateRulesTags(ctx, resAndSDKLR.resLR, resAndSDKLR.sdkLR)
@@ -212,6 +223,72 @@ func (s *listenerRuleSynthesizer) matchResAndSDKListenerRules(resLRs []*elbv2mod
 	return matchedResAndSDKLRsBySettings, matchedResAndSDKLRsByPriority, resLRsToCreate, sdkLRsToDelete, nil
 }
 
+func (s *listenerRuleSynthesizer) createAndDeleteRules(ctx context.Context, initialRuleCount int, resLRDesiredActionsAndConditionsPairs map[*elbv2model.ListenerRule]*resLRDesiredRuleConfig, unmatchedResLRs []*elbv2model.ListenerRule, unmatchedSDKLRs []ListenerRuleWithTags) error {
+
+	/*
+			The Basic idea of the state machine is that we try to create all rules before attempting any deletions. By doing this,
+		    we give customers maximum availability which ensures that all customer rules are accounted for at all times on the ELB listener.
+			In edge cases, where we have exceeded the maximum rules on a listener, we need to delete rules before adding anymore rules.
+		    To give these users maximum availability, we flip-flop between removing / adding rules.
+	*/
+
+	// Track where we are in creating / deleting rules
+
+	// resLRIndex is the creation index
+	var resLRIndex int
+
+	// sdkLRIndex is the deletion index
+	var sdkLRIndex int
+
+	// ruleCounter tracks the number of rules (to our best knowledge) attached to a listener. This number may drift if
+	// external entities are modifying the listener too (generally we say this leads to undefined behavior)
+	ruleCounter := initialRuleCount
+
+	// maxRules is the number we calculate locally which is the users' maximum allowed rules on a listener. As this is
+	// a modifiable limit, we can't hardcode any value. -1 is used as a sentinel value.
+	maxRules := -1
+
+	// We should loop while we have stuff to create or delete.
+	for len(unmatchedResLRs) > resLRIndex || len(unmatchedSDKLRs) > sdkLRIndex {
+
+		if len(unmatchedResLRs) > resLRIndex && ruleCounter != maxRules {
+			// We should prioritize the creation of rules. If we've reached the maximum number of rules on the listener,
+			// we need to perform a deletion instead.
+			resLR := unmatchedResLRs[resLRIndex]
+			lrStatus, err := s.lrManager.Create(ctx, resLR, resLRDesiredActionsAndConditionsPairs[resLR])
+			if err != nil {
+				// Detect too many rules error, we want this exception to only trigger once.  triggering multiple times
+				// either means outside forces are changing listener rules OR we have a bug.
+				if isTooManyRulesErr(err) && maxRules == -1 {
+					maxRules = ruleCounter
+					continue
+				}
+				return err
+			}
+			// If we get here, the creation succeeded. We must advance the creation index and update the current number of rules
+			// on the listener.
+			resLR.SetStatus(lrStatus)
+			ruleCounter++
+			resLRIndex++
+		} else if len(unmatchedSDKLRs) > sdkLRIndex {
+			// Deletion is priority #2 to creation.
+			sdkLR := unmatchedSDKLRs[sdkLRIndex]
+			if err := s.lrManager.Delete(ctx, sdkLR); err != nil {
+				return err
+			}
+			// Getting here means the deletion was successful. We need to advance the deletion index and update the current number of rules
+			// on the listener.
+			ruleCounter--
+			sdkLRIndex++
+		} else {
+			// Getting here means that the user has requested more rules than what is allowed on their listener.
+			return errors.New("Unable to synthesize listener rules, there's too many attached.")
+		}
+
+	}
+	return nil
+}
+
 func mapResListenerRuleByPriority(resLRs []*elbv2model.ListenerRule) map[int32]*elbv2model.ListenerRule {
 	resLRByPriority := make(map[int32]*elbv2model.ListenerRule, len(resLRs))
 	for _, resLR := range resLRs {
@@ -240,4 +317,13 @@ func mapResListenerRuleByListenerARN(resLRs []*elbv2model.ListenerRule) (map[str
 		resLRsByLSARN[lsARN] = append(resLRsByLSARN[lsARN], lr)
 	}
 	return resLRsByLSARN, nil
+}
+
+func isTooManyRulesErr(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		code := apiErr.ErrorCode()
+		return code == "TooManyRules"
+	}
+	return false
 }
