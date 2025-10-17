@@ -28,6 +28,7 @@ const (
 
 	labelEKSComputeType       = "eks.amazonaws.com/compute-type"
 	labelSageMakerComputeType = "sagemaker.amazonaws.com/compute-type"
+	hybridNetworkInterfaceID  = "hybrid-no-eni"
 )
 
 // PodENIInfoResolver is responsible for resolve the AWS VPC ENI that supports pod network.
@@ -173,6 +174,18 @@ func (r *defaultPodENIInfoResolver) resolvePodsViaCascadedLookup(ctx context.Con
 		if len(eniInfoByPodKeySageMakerHyperPod) > 0 {
 			for podKey, eniInfo := range eniInfoByPodKeySageMakerHyperPod {
 				eniInfoByPodKey[podKey] = eniInfo
+			}
+		}
+	}
+	// Hybrid pods don't have ENIs - they're connected via Direct Connect
+	// We'll handle them specially in the networking manager
+	if len(podsByComputeType.hybridPods) > 0 {
+		// Return empty ENI info for hybrid pods - they'll be handled specially
+		for _, pod := range podsByComputeType.hybridPods {
+			eniInfoByPodKey[pod.Key] = ENIInfo{
+				// Use a special identifier to mark this as a hybrid pod
+				NetworkInterfaceID: hybridNetworkInterfaceID,
+				SecurityGroups:     []string{},
 			}
 		}
 	}
@@ -401,14 +414,15 @@ func (r *defaultPodENIInfoResolver) isPodSupportedByNodeENI(pod k8s.PodInfo, nod
 	return false
 }
 
-// PodsByComputeType groups pods based on their compute type (EC2, Fargate, SageMaker HyperPod)
+// PodsByComputeType groups pods based on their compute type (EC2, Fargate, SageMaker HyperPod, Hybrid)
 type PodsByComputeType struct {
 	ec2Pods               []k8s.PodInfo
 	fargatePods           []k8s.PodInfo
 	sageMakerHyperPodPods []k8s.PodInfo
+	hybridPods            []k8s.PodInfo
 }
 
-// classifyPodsByComputeType classifies in to ec2, fargate and sagemaker-hyperpod groups
+// classifyPodsByComputeType classifies in to ec2, fargate, sagemaker-hyperpod and hybrid groups
 func (r *defaultPodENIInfoResolver) classifyPodsByComputeType(ctx context.Context, pods []k8s.PodInfo) (PodsByComputeType, error) {
 	var podsByComputeType PodsByComputeType
 	nodeNameByComputeType := make(map[string]string)
@@ -418,9 +432,12 @@ func (r *defaultPodENIInfoResolver) classifyPodsByComputeType(ctx context.Contex
 				podsByComputeType.fargatePods = append(podsByComputeType.fargatePods, pod)
 			} else if nodeNameByComputeType[pod.NodeName] == "sagemaker-hyperpod" {
 				podsByComputeType.sageMakerHyperPodPods = append(podsByComputeType.sageMakerHyperPodPods, pod)
+			} else if nodeNameByComputeType[pod.NodeName] == "hybrid" {
+				podsByComputeType.hybridPods = append(podsByComputeType.hybridPods, pod)
 			} else {
 				podsByComputeType.ec2Pods = append(podsByComputeType.ec2Pods, pod)
 			}
+			continue // Skip the rest of the loop iteration since we already processed this pod
 		}
 
 		nodeKey := types.NamespacedName{Name: pod.NodeName}
@@ -434,6 +451,9 @@ func (r *defaultPodENIInfoResolver) classifyPodsByComputeType(ctx context.Contex
 		} else if node.Labels[labelSageMakerComputeType] == "hyperpod" {
 			podsByComputeType.sageMakerHyperPodPods = append(podsByComputeType.sageMakerHyperPodPods, pod)
 			nodeNameByComputeType[pod.NodeName] = "sagemaker-hyperpod"
+		} else if node.Labels[labelEKSComputeType] == "hybrid" {
+			podsByComputeType.hybridPods = append(podsByComputeType.hybridPods, pod)
+			nodeNameByComputeType[pod.NodeName] = "hybrid"
 		} else {
 			podsByComputeType.ec2Pods = append(podsByComputeType.ec2Pods, pod)
 			nodeNameByComputeType[pod.NodeName] = "ec2"

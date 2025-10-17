@@ -46,6 +46,9 @@ func (p *defaultNodeInfoProvider) FetchNodeInstances(ctx context.Context, nodes 
 	}
 	nodeKeysByInstanceID := make(map[string][]types.NamespacedName, len(nodes))
 	for _, node := range nodes {
+		if node.Labels["eks.amazonaws.com/compute-type"] == "hybrid" {
+			continue
+		}
 		instanceID, err := k8s.ExtractNodeInstanceID(node)
 		if err != nil {
 			return nil, err
@@ -53,6 +56,12 @@ func (p *defaultNodeInfoProvider) FetchNodeInstances(ctx context.Context, nodes 
 		nodeKey := k8s.NamespacedName(node)
 		nodeKeysByInstanceID[instanceID] = append(nodeKeysByInstanceID[instanceID], nodeKey)
 	}
+
+	// If no EC2 instances to fetch, return empty result
+	if len(nodeKeysByInstanceID) == 0 {
+		return make(map[types.NamespacedName]*ec2types.Instance), nil
+	}
+
 	instanceIDs := sets.StringKeySet(nodeKeysByInstanceID).List()
 	req := &ec2sdk.DescribeInstancesInput{
 		InstanceIds: instanceIDs,
