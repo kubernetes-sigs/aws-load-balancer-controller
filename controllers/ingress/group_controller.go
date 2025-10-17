@@ -400,7 +400,6 @@ func (r *groupReconciler) setupWatches(_ context.Context, c controller.Controlle
 	return nil
 }
 
-
 func isIngressStatusEqual(a, b []networking.IngressLoadBalancerIngress) bool {
 	if len(a) != len(b) {
 		return false
