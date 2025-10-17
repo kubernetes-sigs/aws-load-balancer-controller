@@ -1,8 +1,10 @@
 package elbv2
 
 import (
+	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/smithy-go"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -1686,4 +1688,410 @@ func Test_matchResAndSDKListenerRules(t *testing.T) {
 			}
 		})
 	}
+}
+
+type mockLROperation int
+
+const (
+	createLR mockLROperation = iota
+	deleteLR
+)
+
+type mockLRCall struct {
+	arn string
+	op  mockLROperation
+}
+
+func Test_CreateAndDeleteRules(t *testing.T) {
+	testCases := []struct {
+		name             string
+		initialRuleCount int
+		maxRuleCount     int
+		unmatchedResLRs  []*elbv2model.ListenerRule
+		unmatchedSDKLRs  []ListenerRuleWithTags
+		expectErr        bool
+		expectedCalls    []mockLRCall
+	}{
+		{
+			name: "no rules",
+		},
+		{
+			name:             "just creation",
+			initialRuleCount: 0,
+			maxRuleCount:     100,
+			unmatchedResLRs: []*elbv2model.ListenerRule{
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-1"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-2"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-3"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-4"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-5"),
+					},
+				},
+			},
+			expectedCalls: []mockLRCall{{arn: "arn-1", op: createLR}, {arn: "arn-2", op: createLR}, {arn: "arn-3", op: createLR}, {arn: "arn-4", op: createLR}, {arn: "arn-5", op: createLR}},
+		},
+		{
+			name:             "just deletes",
+			initialRuleCount: 0,
+			maxRuleCount:     100,
+			unmatchedSDKLRs: []ListenerRuleWithTags{
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-1"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-2"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-3"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-4"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-5"),
+					},
+				},
+			},
+			expectedCalls: []mockLRCall{{arn: "arn-1", op: deleteLR}, {arn: "arn-2", op: deleteLR}, {arn: "arn-3", op: deleteLR}, {arn: "arn-4", op: deleteLR}, {arn: "arn-5", op: deleteLR}},
+		},
+		{
+			name:             "just creation -- at limit",
+			initialRuleCount: 2,
+			maxRuleCount:     2,
+			unmatchedResLRs: []*elbv2model.ListenerRule{
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-1"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-2"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-3"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-4"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-5"),
+					},
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name:             "just deletes -- at max limit",
+			initialRuleCount: 2,
+			maxRuleCount:     2,
+			unmatchedSDKLRs: []ListenerRuleWithTags{
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-1"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-2"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-3"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-4"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-5"),
+					},
+				},
+			},
+			expectedCalls: []mockLRCall{{arn: "arn-1", op: deleteLR}, {arn: "arn-2", op: deleteLR}, {arn: "arn-3", op: deleteLR}, {arn: "arn-4", op: deleteLR}, {arn: "arn-5", op: deleteLR}},
+		},
+		{
+			name:             "mix of deletes and creates",
+			initialRuleCount: 0,
+			maxRuleCount:     100,
+			unmatchedSDKLRs: []ListenerRuleWithTags{
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-1"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-2"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-3"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-4"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-5"),
+					},
+				},
+			},
+			unmatchedResLRs: []*elbv2model.ListenerRule{
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-6"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-7"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-8"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-9"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-10"),
+					},
+				},
+			},
+			expectedCalls: []mockLRCall{{arn: "arn-6", op: createLR}, {arn: "arn-7", op: createLR}, {arn: "arn-8", op: createLR}, {arn: "arn-9", op: createLR}, {arn: "arn-10", op: createLR}, {arn: "arn-1", op: deleteLR}, {arn: "arn-2", op: deleteLR}, {arn: "arn-3", op: deleteLR}, {arn: "arn-4", op: deleteLR}, {arn: "arn-5", op: deleteLR}},
+		},
+		{
+			name:             "mix of deletes and creates -- already at limit",
+			initialRuleCount: 100,
+			maxRuleCount:     100,
+			unmatchedSDKLRs: []ListenerRuleWithTags{
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-1"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-2"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-3"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-4"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-5"),
+					},
+				},
+			},
+			unmatchedResLRs: []*elbv2model.ListenerRule{
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-6"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-7"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-8"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-9"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-10"),
+					},
+				},
+			},
+			expectedCalls: []mockLRCall{{arn: "arn-1", op: deleteLR}, {arn: "arn-6", op: createLR}, {arn: "arn-2", op: deleteLR}, {arn: "arn-7", op: createLR}, {arn: "arn-3", op: deleteLR}, {arn: "arn-8", op: createLR}, {arn: "arn-4", op: deleteLR}, {arn: "arn-9", op: createLR}, {arn: "arn-5", op: deleteLR}, {arn: "arn-10", op: createLR}},
+		},
+		{
+			name:             "mix of deletes and creates -- limit reached part way between creations",
+			initialRuleCount: 97,
+			maxRuleCount:     100,
+			unmatchedSDKLRs: []ListenerRuleWithTags{
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-1"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-2"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-3"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-4"),
+					},
+				},
+				{
+					ListenerRule: &elbv2types.Rule{
+						RuleArn: awssdk.String("arn-5"),
+					},
+				},
+			},
+			unmatchedResLRs: []*elbv2model.ListenerRule{
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-6"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-7"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-8"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-9"),
+					},
+				},
+				{
+					Spec: elbv2model.ListenerRuleSpec{
+						ListenerARN: core.LiteralStringToken("arn-10"),
+					},
+				},
+			},
+			expectedCalls: []mockLRCall{{arn: "arn-6", op: createLR}, {arn: "arn-7", op: createLR}, {arn: "arn-8", op: createLR}, {arn: "arn-1", op: deleteLR}, {arn: "arn-9", op: createLR}, {arn: "arn-2", op: deleteLR}, {arn: "arn-10", op: createLR}, {arn: "arn-3", op: deleteLR}, {arn: "arn-4", op: deleteLR}, {arn: "arn-5", op: deleteLR}},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mLRManager := &mockListenerRuleManager{
+				ruleCount:    tc.initialRuleCount,
+				maxRuleCount: tc.maxRuleCount,
+			}
+			s := &listenerRuleSynthesizer{
+				lrManager: mLRManager,
+			}
+
+			err := s.createAndDeleteRules(context.Background(), tc.initialRuleCount, map[*elbv2model.ListenerRule]*resLRDesiredRuleConfig{}, tc.unmatchedResLRs, tc.unmatchedSDKLRs)
+
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedCalls, mLRManager.calls)
+			}
+		})
+	}
+}
+
+type mockListenerRuleManager struct {
+	ruleCount    int
+	maxRuleCount int
+	createErr    error
+	deleteErr    error
+	calls        []mockLRCall
+}
+
+func (m *mockListenerRuleManager) Create(ctx context.Context, resLR *elbv2model.ListenerRule, desiredActionsAndConditions *resLRDesiredRuleConfig) (elbv2model.ListenerRuleStatus, error) {
+	if m.ruleCount == m.maxRuleCount {
+		return elbv2model.ListenerRuleStatus{}, &smithy.GenericAPIError{Code: "TooManyRules", Message: "some message"}
+	}
+	arn, _ := resLR.Spec.ListenerARN.Resolve(ctx)
+	m.calls = append(m.calls, mockLRCall{
+		arn: arn,
+		op:  createLR,
+	})
+	m.ruleCount++
+	return elbv2model.ListenerRuleStatus{}, m.createErr
+}
+
+func (m *mockListenerRuleManager) Delete(ctx context.Context, sdkLR ListenerRuleWithTags) error {
+	m.calls = append(m.calls, mockLRCall{
+		arn: *sdkLR.ListenerRule.RuleArn,
+		op:  deleteLR,
+	})
+	m.ruleCount--
+	return m.deleteErr
+}
+
+func (m *mockListenerRuleManager) UpdateRules(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags, desiredActionsAndConditions *resLRDesiredRuleConfig) (elbv2model.ListenerRuleStatus, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockListenerRuleManager) UpdateRulesTags(ctx context.Context, resLR *elbv2model.ListenerRule, sdkLR ListenerRuleWithTags) (elbv2model.ListenerRuleStatus, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (m *mockListenerRuleManager) SetRulePriorities(ctx context.Context, matchedResAndSDKLRsBySettings []resAndSDKListenerRulePair, unmatchedSDKLRs []ListenerRuleWithTags) error {
+	//TODO implement me
+	panic("implement me")
 }
