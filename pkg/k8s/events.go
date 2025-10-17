@@ -45,4 +45,11 @@ const (
 	// Load Balancer Configuration events
 	LoadBalancerConfigurationEventReasonFailedAddFinalizer    = "FailedAddFinalizer"
 	LoadBalancerConfigurationEventReasonFailedRemoveFinalizer = "FailedRemoveFinalizer"
+
+	// GlobalAccelerator events
+	GlobalAcceleratorEventReasonFailedAddFinalizer     = "FailedAddFinalizer"
+	GlobalAcceleratorEventReasonFailedRemoveFinalizer  = "FailedRemoveFinalizer"
+	GlobalAcceleratorEventReasonFailedUpdateStatus     = "FailedUpdateStatus"
+	GlobalAcceleratorEventReasonFailedCleanup          = "FailedCleanup"
+	GlobalAcceleratorEventReasonSuccessfullyReconciled = "SuccessfullyReconciled"
 )

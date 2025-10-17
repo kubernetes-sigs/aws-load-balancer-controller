@@ -2,8 +2,6 @@ package ingress
 
 import (
 	"context"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
@@ -11,6 +9,7 @@ import (
 	shieldmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/shield"
 	wafregionalmodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafregional"
 	wafv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/wafv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
 
 const (

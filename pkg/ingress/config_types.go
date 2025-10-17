@@ -217,13 +217,20 @@ const (
 
 // Information for a host header condition.
 type HostHeaderConditionConfig struct {
-	// One or more host names.
-	Values []string `json:"values"`
+	// One or more regex expressions for request host header.
+	// +optional
+	RegexValues []string `json:"regexValues,omitempty"`
+	// One or more value expressions for request host header.
+	// +optional
+	Values []string `json:"values,omitempty"`
 }
 
 func (c *HostHeaderConditionConfig) validate() error {
-	if len(c.Values) == 0 {
-		return errors.New("values cannot be empty")
+	if len(c.Values) == 0 && len(c.RegexValues) == 0 {
+		return errors.New("values or regexValues must be specified")
+	}
+	if len(c.Values) != 0 && len(c.RegexValues) != 0 {
+		return errors.New("precisely one of values and regexValues can be specified")
 	}
 	return nil
 }
@@ -232,13 +239,20 @@ func (c *HostHeaderConditionConfig) validate() error {
 type HTTPHeaderConditionConfig struct {
 	// The name of the HTTP header field.
 	HTTPHeaderName string `json:"httpHeaderName"`
-	// One or more strings to compare against the value of the HTTP header.
-	Values []string `json:"values"`
+	// One or more regex matches for request HTTP headers.
+	// +optional
+	RegexValues []string `json:"regexValues,omitempty"`
+	// One or more value matches for request HTTP headers.
+	// +optional
+	Values []string `json:"values,omitempty"`
 }
 
 func (c *HTTPHeaderConditionConfig) validate() error {
-	if len(c.Values) == 0 {
-		return errors.New("values cannot be empty")
+	if len(c.Values) == 0 && len(c.RegexValues) == 0 {
+		return errors.New("values or regexValues must be specified")
+	}
+	if len(c.Values) != 0 && len(c.RegexValues) != 0 {
+		return errors.New("precisely one of values and regexValues can be specified")
 	}
 	return nil
 }
@@ -258,13 +272,20 @@ func (c *HTTPRequestMethodConditionConfig) validate() error {
 
 // Information about a path pattern condition.
 type PathPatternConditionConfig struct {
-	// One or more path patterns to compare against the request URL.
-	Values []string `json:"values"`
+	// One or more regex matches for request URL path.
+	// +optional
+	RegexValues []string `json:"regexValues,omitempty"`
+	// One or more value matches for request URL path.
+	// +optional
+	Values []string `json:"values,omitempty"`
 }
 
 func (c *PathPatternConditionConfig) validate() error {
-	if len(c.Values) == 0 {
-		return errors.New("values cannot be empty")
+	if len(c.Values) == 0 && len(c.RegexValues) == 0 {
+		return errors.New("values or regexValues must be specified")
+	}
+	if len(c.Values) != 0 && len(c.RegexValues) != 0 {
+		return errors.New("precisely one of values and regexValues can be specified")
 	}
 	return nil
 }
@@ -426,4 +447,56 @@ type AuthIDPConfigOIDC struct {
 	// The query parameters (up to 10) to include in the redirect request to the authorization endpoint.
 	// +optional
 	AuthenticationRequestExtraParams map[string]string `json:"authenticationRequestExtraParams,omitempty"`
+}
+
+type TransformType string
+
+const (
+	TransformTypeUrlRewrite        TransformType = "url-rewrite"
+	TransformTypeHostHeaderRewrite TransformType = "host-header-rewrite"
+)
+
+type RewriteConfig struct {
+	// Regex expression
+	Regex string `json:"regex"`
+	// Replacement expression
+	Replace string `json:"replace"`
+}
+
+type RewriteConfigObject struct {
+	// Rewrites for the transform
+	Rewrites []RewriteConfig `json:"rewrites"`
+}
+
+type Transform struct {
+	// The type of transform
+	Type TransformType `json:"type"`
+	// Information for a host header rewrite.
+	// +optional
+	HostHeaderRewriteConfig *RewriteConfigObject `json:"hostHeaderRewriteConfig,omitempty"`
+	// Information for a URL rewrite.
+	// +optional
+	UrlRewriteConfig *RewriteConfigObject `json:"urlRewriteConfig,omitempty"`
+}
+
+func (t *Transform) Validate() error {
+	switch t.Type {
+	case TransformTypeHostHeaderRewrite:
+		if t.HostHeaderRewriteConfig == nil {
+			return errors.New("missing hostHeaderRewriteConfig")
+		}
+		if len(t.HostHeaderRewriteConfig.Rewrites) == 0 {
+			return errors.New("hostHeaderRewriteConfig.rewrites cannot be empty")
+		}
+	case TransformTypeUrlRewrite:
+		if t.UrlRewriteConfig == nil {
+			return errors.New("missing urlRewriteConfig")
+		}
+		if len(t.UrlRewriteConfig.Rewrites) == 0 {
+			return errors.New("urlRewriteConfig.rewrites cannot be empty")
+		}
+	default:
+		return errors.Errorf("unknown transform type: %v", t.Type)
+	}
+	return nil
 }

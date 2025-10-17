@@ -4,6 +4,7 @@ import (
 	"context"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	wafv2sdk "github.com/aws/aws-sdk-go-v2/service/wafv2"
+	wafv2types "github.com/aws/aws-sdk-go-v2/service/wafv2/types"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"reflect"
 	"strconv"
@@ -191,6 +192,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		tgByResID:                  make(map[string]*elbv2model.TargetGroup),
 		backendServices:            make(map[types.NamespacedName]*corev1.Service),
 		targetGroupNameToArnMapper: b.targetGroupNameToArnMapper,
+		webACLNameToArnMapper:      b.webACLNameToArnMapper,
 	}
 	if err := task.run(ctx); err != nil {
 		return nil, nil, nil, false, nil, nil, err
@@ -560,6 +562,7 @@ func newWebACLNameToArnMapper(wafv2Client services.WAFv2, ttl time.Duration) *we
 		wafv2Client: wafv2Client,
 		cache:       cache.NewExpiring(),
 		cacheTTL:    ttl,
+		cacheMutex:  sync.RWMutex{},
 	}
 }
 
@@ -609,15 +612,30 @@ func (w *webACLNameToArnMapper) getArnByName(ctx context.Context, webACLName str
 	if rawCacheItem, exists := w.cache.Get(webACLName); exists {
 		return rawCacheItem.(string), nil
 	}
-	req := &wafv2sdk.GetWebACLInput{
-		Name: awssdk.String(webACLName),
-	}
 
-	webACL, err := w.wafv2Client.GetWebACLWithContext(ctx, req)
-	if err != nil {
-		return "", err
+	firstRun := true
+	var next *string
+
+	for firstRun || next != nil {
+		req := &wafv2sdk.ListWebACLsInput{
+			Scope:      wafv2types.ScopeRegional,
+			NextMarker: next,
+		}
+
+		output, err := w.wafv2Client.ListWebACLsWithContext(ctx, req)
+		if err != nil {
+			return "", err
+		}
+
+		for _, o := range output.WebACLs {
+			if o.Name != nil && *o.Name == webACLName {
+				arn := *o.ARN
+				w.cache.Set(webACLName, arn, w.cacheTTL)
+				return arn, nil
+			}
+		}
+		firstRun = false
+		next = output.NextMarker
 	}
-	arn := webACL.WebACL.ARN
-	w.cache.Set(webACLName, arn, w.cacheTTL)
-	return *arn, nil
+	return "", errors.New("Unable to find web acl named " + webACLName)
 }

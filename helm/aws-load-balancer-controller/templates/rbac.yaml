@@ -119,6 +119,15 @@ rules:
 - apiGroups: ["gateway.networking.k8s.io"]
   resources: [grpcroutes/status, httproutes/status, tcproutes/status, tlsroutes/status, udproutes/status]
   verbs: [get, patch, update]
+- apiGroups: ["aga.k8s.aws"]
+  resources: [globalaccelerators]
+  verbs: [get, list, patch, watch]
+- apiGroups: ["aga.k8s.aws"]
+  resources: [globalaccelerators/finalizers]
+  verbs: [patch, update]
+- apiGroups: ["aga.k8s.aws"]
+  resources: [globalaccelerators/status]
+  verbs: [patch, update]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

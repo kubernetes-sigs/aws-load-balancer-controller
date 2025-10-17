@@ -21,3 +21,13 @@ func ToSliceOfNamespacedNames[T metav1.ObjectMetaAccessor](s []T) []types.Namesp
 	}
 	return result
 }
+
+// IsResourceKindAvailable checks whether specific kind is available.
+func IsResourceKindAvailable(resList *metav1.APIResourceList, kind string) bool {
+	for _, res := range resList.APIResources {
+		if res.Kind == kind {
+			return true
+		}
+	}
+	return false
+}

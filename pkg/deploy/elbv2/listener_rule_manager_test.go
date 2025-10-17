@@ -420,3 +420,205 @@ func Test_buildSDKSetRulePrioritiesInput(t *testing.T) {
 		})
 	}
 }
+
+func Test_buildSDKModifyListenerRuleInput(t *testing.T) {
+	type args struct {
+		lrSpec            elbv2model.ListenerRuleSpec
+		desiredActions    []elbv2types.Action
+		desiredConditions []elbv2types.RuleCondition
+		desiredTransforms []elbv2types.RuleTransform
+	}
+	tests := []struct {
+		name string
+		args args
+		want *elbv2sdk.ModifyRuleInput
+	}{
+		{
+			name: "Rule without transforms - ResetTransforms should be set",
+			args: args{
+				lrSpec: elbv2model.ListenerRuleSpec{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "forward",
+							ForwardConfig: &elbv2model.ForwardActionConfig{
+								TargetGroups: []elbv2model.TargetGroupTuple{
+									{
+										TargetGroupARN: core.LiteralStringToken("tg-arn"),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/path"},
+							},
+						},
+					},
+				},
+				desiredActions: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnumForward,
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-arn"),
+								},
+							},
+						},
+					},
+				},
+				desiredConditions: []elbv2types.RuleCondition{
+					{
+						Field: awssdk.String("path-pattern"),
+						PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+							Values: []string{"/path"},
+						},
+					},
+				},
+				desiredTransforms: []elbv2types.RuleTransform{},
+			},
+			want: &elbv2sdk.ModifyRuleInput{
+				Actions: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnumForward,
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-arn"),
+								},
+							},
+						},
+					},
+				},
+				Conditions: []elbv2types.RuleCondition{
+					{
+						Field: awssdk.String("path-pattern"),
+						PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+							Values: []string{"/path"},
+						},
+					},
+				},
+				ResetTransforms: awssdk.Bool(true),
+			},
+		},
+		{
+			name: "Rule with transforms - Transforms should be set",
+			args: args{
+				lrSpec: elbv2model.ListenerRuleSpec{
+					Priority: 1,
+					Actions: []elbv2model.Action{
+						{
+							Type: "forward",
+							ForwardConfig: &elbv2model.ForwardActionConfig{
+								TargetGroups: []elbv2model.TargetGroupTuple{
+									{
+										TargetGroupARN: core.LiteralStringToken("tg-arn"),
+									},
+								},
+							},
+						},
+					},
+					Conditions: []elbv2model.RuleCondition{
+						{
+							Field: "path-pattern",
+							PathPatternConfig: &elbv2model.PathPatternConditionConfig{
+								Values: []string{"/path"},
+							},
+						},
+					},
+					Transforms: []elbv2model.Transform{
+						{
+							Type: elbv2model.TransformTypeUrlRewrite,
+							UrlRewriteConfig: &elbv2model.RewriteConfigObject{
+								Rewrites: []elbv2model.RewriteConfig{
+									{
+										Regex:   "/path/(.*)",
+										Replace: "/newpath/$1",
+									},
+								},
+							},
+						},
+					},
+				},
+				desiredActions: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnumForward,
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-arn"),
+								},
+							},
+						},
+					},
+				},
+				desiredConditions: []elbv2types.RuleCondition{
+					{
+						Field: awssdk.String("path-pattern"),
+						PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+							Values: []string{"/path"},
+						},
+					},
+				},
+				desiredTransforms: []elbv2types.RuleTransform{
+					{
+						Type: elbv2types.TransformTypeEnumUrlRewrite,
+						UrlRewriteConfig: &elbv2types.UrlRewriteConfig{
+							Rewrites: []elbv2types.RewriteConfig{
+								{
+									Regex:   awssdk.String("/path/(.*)"),
+									Replace: awssdk.String("/newpath/$1"),
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &elbv2sdk.ModifyRuleInput{
+				Actions: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnumForward,
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("tg-arn"),
+								},
+							},
+						},
+					},
+				},
+				Conditions: []elbv2types.RuleCondition{
+					{
+						Field: awssdk.String("path-pattern"),
+						PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+							Values: []string{"/path"},
+						},
+					},
+				},
+				Transforms: []elbv2types.RuleTransform{
+					{
+						Type: elbv2types.TransformTypeEnumUrlRewrite,
+						UrlRewriteConfig: &elbv2types.UrlRewriteConfig{
+							Rewrites: []elbv2types.RewriteConfig{
+								{
+									Regex:   awssdk.String("/path/(.*)"),
+									Replace: awssdk.String("/newpath/$1"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildSDKModifyListenerRuleInput(tt.args.lrSpec, tt.args.desiredActions, tt.args.desiredConditions, tt.args.desiredTransforms)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

@@ -31,6 +31,7 @@ const (
 // Also, when magic string `use-annotation` is specified as backend, the actions will be parsed from annotations as well.
 type EnhancedBackend struct {
 	Conditions []RuleCondition
+	Transforms []Transform
 	Action     Action
 	AuthConfig AuthConfig
 }
@@ -119,6 +120,11 @@ func (b *defaultEnhancedBackendBuilder) Build(ctx context.Context, ing *networki
 		return EnhancedBackend{}, err
 	}
 
+	transforms, err := b.buildTransforms(ctx, ing.Annotations, backend.Service.Name)
+	if err != nil {
+		return EnhancedBackend{}, err
+	}
+
 	var action Action
 	if backend.Service.Port.Name == magicServicePortUseAnnotation {
 		action, err = b.buildActionViaAnnotation(ctx, ing.Annotations, backend.Service.Name)
@@ -147,6 +153,7 @@ func (b *defaultEnhancedBackendBuilder) Build(ctx context.Context, ing *networki
 
 	return EnhancedBackend{
 		Conditions: conditions,
+		Transforms: transforms,
 		Action:     action,
 		AuthConfig: authCfg,
 	}, nil
@@ -165,6 +172,21 @@ func (b *defaultEnhancedBackendBuilder) buildConditions(_ context.Context, ingAn
 		}
 	}
 	return conditions, nil
+}
+
+func (b *defaultEnhancedBackendBuilder) buildTransforms(_ context.Context, ingAnnotation map[string]string, svcName string) ([]Transform, error) {
+	var transforms []Transform
+	annotationKey := fmt.Sprintf("transforms.%v", svcName)
+	_, err := b.annotationParser.ParseJSONAnnotation(annotationKey, &transforms, ingAnnotation)
+	if err != nil {
+		return nil, err
+	}
+	for _, transform := range transforms {
+		if err := transform.Validate(); err != nil {
+			return nil, err
+		}
+	}
+	return transforms, nil
 }
 
 // buildActionViaAnnotation will build the backend action specified via actions annotation.

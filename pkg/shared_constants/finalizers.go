@@ -27,4 +27,7 @@ const (
 
 	// ListenerRuleConfigurationFinalizer the finalizer we attach to a listener rule configuration resource
 	ListenerRuleConfigurationFinalizer = "gateway.k8s.aws/listenerruleconfigurations"
+
+	// GlobalAcceleratorFinalizer the finalizer we attach to a global accelerator resource
+	GlobalAcceleratorFinalizer = "aga.k8s.aws/resources"
 )
