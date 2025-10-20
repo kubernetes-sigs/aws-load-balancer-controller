@@ -177,4 +177,10 @@ func (merger *loadBalancerConfigMergerImpl) performTakeOneMerges(merged *elbv2gw
 	} else {
 		merged.ShieldAdvanced = lowPriority.Spec.ShieldAdvanced
 	}
+
+	if highPriority.Spec.DisableSecurityGroup != nil {
+		merged.DisableSecurityGroup = highPriority.Spec.DisableSecurityGroup
+	} else {
+		merged.DisableSecurityGroup = lowPriority.Spec.DisableSecurityGroup
+	}
 }

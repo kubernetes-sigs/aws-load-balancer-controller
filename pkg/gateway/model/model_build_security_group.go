@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"regexp"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
@@ -39,7 +38,7 @@ type securityGroupOutput struct {
 }
 
 type securityGroupBuilder interface {
-	buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error)
+	buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error)
 }
 
 type securityGroupBuilderImpl struct {
@@ -47,12 +46,13 @@ type securityGroupBuilderImpl struct {
 	clusterName       string
 	sgResolver        networking.SecurityGroupResolver
 	backendSGProvider networking.BackendSGProvider
+	loadBalancerType  elbv2model.LoadBalancerType
 
 	enableBackendSG bool
 	logger          logr.Logger
 }
 
-func newSecurityGroupBuilder(tagHelper tagHelper, clusterName string, enableBackendSG bool, sgResolver networking.SecurityGroupResolver, backendSGProvider networking.BackendSGProvider, logger logr.Logger) securityGroupBuilder {
+func newSecurityGroupBuilder(tagHelper tagHelper, clusterName string, loadBalancerType elbv2model.LoadBalancerType, enableBackendSG bool, sgResolver networking.SecurityGroupResolver, backendSGProvider networking.BackendSGProvider, logger logr.Logger) securityGroupBuilder {
 	return &securityGroupBuilderImpl{
 		tagHelper:         tagHelper,
 		clusterName:       clusterName,
@@ -60,23 +60,28 @@ func newSecurityGroupBuilder(tagHelper tagHelper, clusterName string, enableBack
 		enableBackendSG:   enableBackendSG,
 		sgResolver:        sgResolver,
 		backendSGProvider: backendSGProvider,
+		loadBalancerType:  loadBalancerType,
 	}
 }
 
-func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
+func (builder *securityGroupBuilderImpl) buildSecurityGroups(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
 	var sgNameOrIds []string
 	if lbConf.Spec.SecurityGroups != nil {
 		sgNameOrIds = *lbConf.Spec.SecurityGroups
 	}
 
+	if lbConf.Spec.DisableSecurityGroup != nil && *lbConf.Spec.DisableSecurityGroup && builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
+		return securityGroupOutput{}, nil
+	}
+
 	if len(sgNameOrIds) == 0 {
-		return builder.handleManagedSecurityGroup(ctx, stack, lbConf, gw, routes, ipAddressType)
+		return builder.handleManagedSecurityGroup(ctx, stack, lbConf, gw, ipAddressType)
 	}
 
 	return builder.handleExplicitSecurityGroups(ctx, lbConf, gw, sgNameOrIds)
 }
 
-func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
+func (builder *securityGroupBuilderImpl) handleManagedSecurityGroup(ctx context.Context, stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) (securityGroupOutput, error) {
 	var lbSGTokens []core.StringToken
 	managedSG, err := builder.buildManagedSecurityGroup(stack, lbConf, gw, ipAddressType)
 	if err != nil {

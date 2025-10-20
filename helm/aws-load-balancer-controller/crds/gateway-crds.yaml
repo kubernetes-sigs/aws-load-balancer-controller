@@ -449,6 +449,12 @@ spec:
                   customerOwnedIpv4Pool [Application LoadBalancer]
                   is the ID of the customer-owned address for Application Load Balancers on Outposts pool.
                 type: string
+              disableSecurityGroup:
+                description: |-
+                  disableSecurityGroup provisions a load balancer with no security groups.
+                  Allows an NLB to be provisioned with no security groups.
+                  [Network Load Balancer]
+                type: boolean
               enableICMP:
                 description: |-
                   EnableICMP [Network LoadBalancer]

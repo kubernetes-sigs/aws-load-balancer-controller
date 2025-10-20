@@ -670,6 +670,11 @@ func (in *LoadBalancerConfigurationSpec) DeepCopyInto(out *LoadBalancerConfigura
 			}
 		}
 	}
+	if in.DisableSecurityGroup != nil {
+		in, out := &in.DisableSecurityGroup, &out.DisableSecurityGroup
+		*out = new(bool)
+		**out = **in
+	}
 	if in.SecurityGroups != nil {
 		in, out := &in.SecurityGroups, &out.SecurityGroups
 		*out = new([]string)
