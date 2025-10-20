@@ -12,9 +12,9 @@ metadata:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 webhooks:
 - clientConfig:
-    {{ if not $.Values.enableCertManager -}}
+    {{- if not $.Values.enableCertManager }}
     caBundle: {{ $tls.caCert }}
-    {{ end }}
+    {{- end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -58,9 +58,9 @@ webhooks:
   sideEffects: None
 {{- if .Values.enableServiceMutatorWebhook }}
 - clientConfig:
-    {{ if not $.Values.enableCertManager -}}
+    {{- if not $.Values.enableCertManager }}
     caBundle: {{ $tls.caCert }}
-    {{ end }}
+    {{- end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -95,9 +95,9 @@ webhooks:
   sideEffects: None
 {{- end }}
 - clientConfig:
-    {{ if not $.Values.enableCertManager -}}
+    {{- if not $.Values.enableCertManager }}
     caBundle: {{ $tls.caCert }}
-    {{ end }}
+    {{- end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -130,9 +130,9 @@ metadata:
     {{- include "aws-load-balancer-controller.labels" . | nindent 4 }}
 webhooks:
 - clientConfig:
-    {{ if not $.Values.enableCertManager -}}
+    {{- if not $.Values.enableCertManager }}
     caBundle: {{ $tls.caCert }}
-    {{ end }}
+    {{- end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -159,9 +159,9 @@ webhooks:
     - ingressclassparams
   sideEffects: None
 - clientConfig:
-    {{ if not $.Values.enableCertManager -}}
+    {{- if not $.Values.enableCertManager }}
     caBundle: {{ $tls.caCert }}
-    {{ end }}
+    {{- end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -183,9 +183,9 @@ webhooks:
   sideEffects: None
 {{- if not $.Values.webhookConfig.disableIngressValidation }}
 - clientConfig:
-    {{ if not $.Values.enableCertManager -}}
+    {{- if not $.Values.enableCertManager }}
     caBundle: {{ $tls.caCert }}
-    {{ end }}
+    {{- end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}
@@ -222,6 +222,9 @@ data:
   tls.crt: {{ $tls.clientCert }}
   tls.key: {{ $tls.clientKey }}
 {{- else }}
+{{- $secretName := (include "aws-load-balancer-controller.webhookCertSecret" .) -}}
+{{- $secret := lookup "v1" "Secret" .Release.Namespace $secretName -}}
+{{- if not (and .Values.keepTLSSecret $secret) }}
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
@@ -234,12 +237,16 @@ spec:
   - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc
   - {{ template "aws-load-balancer-controller.webhookService" . }}.{{ .Release.Namespace }}.svc.{{ .Values.cluster.dnsDomain }}
   issuerRef:
+    {{- if .Values.certManager.issuerRef }}
+    {{- toYaml .Values.certManager.issuerRef | nindent 4 }}
+    {{- else }}
     kind: Issuer
-    name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
+    name: {{ template "aws-load-balancer-controller.namePrefix" . }}-root-issuer
+    {{- end }}
   secretName: {{ template "aws-load-balancer-controller.webhookCertSecret" . }}
   {{- with .Values.certManager -}}
   {{ if .duration }}
-  duration: {{ .duration }}
+  duration: {{ .duration | default "8760h0m0s" | quote }}
   {{- end }}
   {{- if .renewBefore }}
   renewBefore: {{ .renewBefore }}
@@ -248,14 +255,5 @@ spec:
   revisionHistoryLimit: {{ .revisionHistoryLimit }}
   {{- end }}
   {{- end }}
----
-apiVersion: cert-manager.io/v1
-kind: Issuer
-metadata:
-  name: {{ template "aws-load-balancer-controller.namePrefix" . }}-selfsigned-issuer
-  namespace: {{ .Release.Namespace }}
-  labels:
-{{ include "aws-load-balancer-controller.labels" . | indent 4 }}
-spec:
-  selfSigned: {}
+{{- end }}
 {{- end }}
