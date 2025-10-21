@@ -277,7 +277,6 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 			r.logger.Error(err, "Failed to process gateway delete")
 			return err
 		}
-		r.serviceReferenceCounter.UpdateRelations([]types.NamespacedName{}, k8s.NamespacedName(gw), true)
 		return nil
 	}
 	r.serviceReferenceCounter.UpdateRelations(getServicesFromRoutes(allRoutes), k8s.NamespacedName(gw), false)
@@ -313,6 +312,7 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 		if err := r.backendSGProvider.Release(ctx, networking.ResourceTypeGateway, []types.NamespacedName{k8s.NamespacedName(gw)}); err != nil {
 			return err
 		}
+		r.serviceReferenceCounter.UpdateRelations([]types.NamespacedName{}, k8s.NamespacedName(gw), true)
 		// remove gateway finalizer
 		if err := r.finalizerManager.RemoveFinalizers(ctx, gw, r.finalizer); err != nil {
 			r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove gateway finalizer due to %v", err))

@@ -1,6 +1,7 @@
 package referencecounter
 
 import (
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sync"
@@ -13,7 +14,8 @@ type ServiceReferenceCounter interface {
 }
 
 type serviceReferenceCounter struct {
-	mutex sync.RWMutex
+	logger logr.Logger
+	mutex  sync.RWMutex
 	// key: gateway, value: set of svc
 	relations map[types.NamespacedName]sets.Set[types.NamespacedName]
 	refCount  map[types.NamespacedName]int
@@ -65,10 +67,11 @@ func (t *serviceReferenceCounter) updateRefCount(svcs sets.Set[types.NamespacedN
 func (t *serviceReferenceCounter) IsEligibleForRemoval(svcName types.NamespacedName, expectedGateways []types.NamespacedName) bool {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	_, ok := t.refCount[svcName]
+	v, ok := t.refCount[svcName]
 	// If we have a ref count for this service, we can't remove it.
 	// updateRefCount should always remove 0 entry services.
 	if ok {
+		t.logger.Info("Got a ref count!", "ref", v)
 		return false
 	}
 
@@ -76,6 +79,7 @@ func (t *serviceReferenceCounter) IsEligibleForRemoval(svcName types.NamespacedN
 	// when the cache is not warm.
 	for _, gw := range expectedGateways {
 		if _, exists := t.relations[gw]; !exists {
+			t.logger.Info("Missing relation", "gateway", gw)
 			return false
 		}
 	}

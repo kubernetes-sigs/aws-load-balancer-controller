@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
@@ -98,7 +99,14 @@ func (r *targetgroupConfigurationReconciler) handleDelete(tgConf *elbv2gw.Target
 		}
 
 		for _, gw := range partial {
-			allGateways = append(allGateways, k8s.NamespacedName(gw))
+
+			if gw.Status.Conditions != nil {
+				for _, cond := range gw.Status.Conditions {
+					if cond.Type == string(gwv1.GatewayReasonAccepted) && cond.Status == metav1.ConditionTrue {
+						allGateways = append(allGateways, k8s.NamespacedName(gw))
+					}
+				}
+			}
 		}
 	}
 
