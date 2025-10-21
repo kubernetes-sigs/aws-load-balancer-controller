@@ -19,7 +19,7 @@ const (
 )
 
 const (
-	TargetGroupARNBackend string = "TargetGroupARN"
+	TargetGroupNameBackend string = "TargetGroupName"
 )
 
 // RouteKind to Route Loader. These functions will pull data directly from the kube api or local cache.

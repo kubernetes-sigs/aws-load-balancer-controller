@@ -31,7 +31,6 @@ type ServiceBackendConfig struct {
 	Service               *corev1.Service
 	ELBV2TargetGroupProps *elbv2gw.TargetGroupProps
 	ServicePort           *corev1.ServicePort
-	TypeSpecificBackend   interface{}
 }
 
 type LiteralTargetGroupConfig struct {
@@ -51,11 +50,11 @@ type attachedRuleAccumulator[RuleType any] interface {
 }
 
 type attachedRuleAccumulatorImpl[RuleType any] struct {
-	backendLoader            func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
+	backendLoader            func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error)
 	listenerRuleConfigLoader func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error)
 }
 
-func newAttachedRuleAccumulator[RuleType any](backendLoader func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error),
+func newAttachedRuleAccumulator[RuleType any](backendLoader func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error),
 	listenerRuleConfigLoader func(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, listenerRuleConfigRefs []gwv1.LocalObjectReference) (*elbv2gw.ListenerRuleConfiguration, error, error)) attachedRuleAccumulator[RuleType] {
 	return &attachedRuleAccumulatorImpl[RuleType]{
 		backendLoader:            backendLoader,
@@ -85,7 +84,7 @@ func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Co
 		// If ListenerRuleConfig is loaded properly without any warning errors, then only load backends, else it should be treated as no valid backend to send with fixed 503 response
 		if lrcWarningErr == nil {
 			for _, backend := range backendRefIterator(rule) {
-				convertedBackend, warningErr, fatalErr := ara.backendLoader(ctx, k8sClient, backend, backend, route.GetRouteNamespacedName(), route.GetRouteKind())
+				convertedBackend, warningErr, fatalErr := ara.backendLoader(ctx, k8sClient, backend, route.GetRouteNamespacedName(), route.GetRouteKind())
 				if warningErr != nil {
 					allErrors = append(allErrors, routeLoadError{
 						Err: warningErr,
@@ -114,7 +113,7 @@ func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Co
 // warning error -> continue with reconcile cycle.
 // fatal error -> stop reconcile cycle (probably k8s api outage)
 // commonBackendLoader this function will load the services and target group configurations associated with this gateway backend.
-func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
+func commonBackendLoader(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
 
 	var serviceBackend *ServiceBackendConfig
 	var literalTargetGroup *LiteralTargetGroupConfig
@@ -122,8 +121,8 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 	var fatal error
 	// We only support references of type service.
 	if backendRef.Kind == nil || *backendRef.Kind == "Service" {
-		serviceBackend, warn, fatal = serviceLoader(ctx, k8sClient, typeSpecificBackend, routeIdentifier, routeKind, backendRef)
-	} else if string(*backendRef.Kind) == TargetGroupARNBackend {
+		serviceBackend, warn, fatal = serviceLoader(ctx, k8sClient, routeIdentifier, routeKind, backendRef)
+	} else if string(*backendRef.Kind) == TargetGroupNameBackend {
 		literalTargetGroup, warn, fatal = literalTargetGroupLoader(backendRef)
 	}
 
@@ -157,12 +156,13 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		return nil, nil, errors.Errorf("Weight [%d] must be less than or equal to %d", weight, maxWeight)
 	}
 	return &Backend{
-		ServiceBackend: serviceBackend,
-		Weight:         weight,
+		ServiceBackend:     serviceBackend,
+		LiteralTargetGroup: literalTargetGroup,
+		Weight:             weight,
 	}, nil, nil
 }
 
-func serviceLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef) (*ServiceBackendConfig, error, error) {
+func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef) (*ServiceBackendConfig, error, error) {
 	if backendRef.Port == nil {
 		initialErrorMessage := "Port is required"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
@@ -273,7 +273,6 @@ func serviceLoader(ctx context.Context, k8sClient client.Client, typeSpecificBac
 	return &ServiceBackendConfig{
 		Service:               svc,
 		ServicePort:           servicePort,
-		TypeSpecificBackend:   typeSpecificBackend,
 		ELBV2TargetGroupProps: tgProps,
 	}, nil, nil
 }

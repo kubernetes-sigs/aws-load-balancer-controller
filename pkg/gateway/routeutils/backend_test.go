@@ -16,7 +16,7 @@ import (
 	"testing"
 )
 
-func TestCommonBackendLoader(t *testing.T) {
+func TestCommonBackendLoader_Service(t *testing.T) {
 
 	kind := HTTPRouteKind
 
@@ -372,7 +372,7 @@ func TestCommonBackendLoader(t *testing.T) {
 				assert.NoError(t, err, fmt.Sprintf("%+v", g))
 			}
 
-			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.backendRef, tc.routeIdentifier, kind)
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, kind)
 
 			if tc.expectWarning {
 				assert.Error(t, warningErr)
@@ -393,7 +393,6 @@ func TestCommonBackendLoader(t *testing.T) {
 			assert.Equal(t, tc.storedService, result.ServiceBackend.Service)
 			assert.Equal(t, tc.weight, result.Weight)
 			assert.Equal(t, tc.servicePort, result.ServiceBackend.ServicePort.Port)
-			assert.Equal(t, tc.backendRef, result.ServiceBackend.TypeSpecificBackend)
 
 			if tc.expectedTargetGroup == nil {
 				assert.Nil(t, result.ServiceBackend.ELBV2TargetGroupProps)
