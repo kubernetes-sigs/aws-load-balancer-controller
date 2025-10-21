@@ -100,8 +100,8 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (*elbv2model.TargetGroup, error) {
 
-	targetGroupProps := backend.ELBV2TargetGroupProps
-	tgResID := t.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.Service), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backend.ServicePort.TargetPort)
+	targetGroupProps := backend.ServiceBackend.ELBV2TargetGroupProps
+	tgResID := t.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backend.ServiceBackend.Service), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backend.ServiceBackend.ServicePort.TargetPort)
 	if tg, exists := t.tgByResID[tgResID]; exists {
 		return tg, nil
 	}
@@ -126,9 +126,9 @@ func (t *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backend routeutils.Backend, backendSGIDToken core.StringToken) elbv2modelk8s.TargetGroupBindingResourceSpec {
 	targetType := elbv2api.TargetType(tgSpec.TargetType)
-	targetPort := backend.ServicePort.TargetPort
+	targetPort := backend.ServiceBackend.ServicePort.TargetPort
 	if targetType == elbv2api.TargetTypeInstance {
-		targetPort = intstr.FromInt32(backend.ServicePort.NodePort)
+		targetPort = intstr.FromInt32(backend.ServiceBackend.ServicePort.NodePort)
 	}
 	tgbNetworking := builder.buildTargetGroupBindingNetworking(targetPort, *tgSpec.HealthCheckConfig.Port, tgSpec.Protocol, backendSGIDToken)
 
@@ -154,7 +154,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 	return elbv2modelk8s.TargetGroupBindingResourceSpec{
 		Template: elbv2modelk8s.TargetGroupBindingTemplate{
 			ObjectMeta: metav1.ObjectMeta{
-				Namespace:   backend.Service.Namespace,
+				Namespace:   backend.ServiceBackend.Service.Namespace,
 				Name:        tgSpec.Name,
 				Annotations: annotations,
 				Labels:      labels,
@@ -163,8 +163,8 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 				TargetGroupARN: nil, // This should get filled in later!
 				TargetType:     &targetType,
 				ServiceRef: elbv2api.ServiceReference{
-					Name: backend.Service.Name,
-					Port: intstr.FromInt32(backend.ServicePort.Port),
+					Name: backend.ServiceBackend.Service.Name,
+					Port: intstr.FromInt32(backend.ServiceBackend.ServicePort.Port),
 				},
 				Networking:              tgbNetworking,
 				NodeSelector:            nodeSelector,
@@ -274,7 +274,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	tgAttributesMap := builder.buildTargetGroupAttributes(targetGroupProps)
-	ipAddressType, err := builder.buildTargetGroupIPAddressType(backend.Service, lbIPType)
+	ipAddressType, err := builder.buildTargetGroupIPAddressType(backend.ServiceBackend.Service, lbIPType)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
@@ -283,8 +283,8 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	tgPort := builder.buildTargetGroupPort(targetType, *backend.ServicePort)
-	name := builder.buildTargetGroupName(targetGroupProps, k8s.NamespacedName(gw), route.GetRouteNamespacedName(), route.GetRouteKind(), k8s.NamespacedName(backend.Service), tgPort, targetType, tgProtocol, tgProtocolVersion)
+	tgPort := builder.buildTargetGroupPort(targetType, *backend.ServiceBackend.ServicePort)
+	name := builder.buildTargetGroupName(targetGroupProps, k8s.NamespacedName(gw), route.GetRouteNamespacedName(), route.GetRouteKind(), k8s.NamespacedName(backend.ServiceBackend.Service), tgPort, targetType, tgProtocol, tgProtocolVersion)
 
 	if tgPort == 0 {
 		if targetType == elbv2model.TargetTypeIP {
@@ -467,11 +467,11 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetG
 	// add ServiceExternalTrafficPolicyLocal support
 	var isServiceExternalTrafficPolicyTypeLocal = false
 	if targetType == elbv2model.TargetTypeInstance &&
-		backend.Service.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal &&
+		backend.ServiceBackend.Service.Spec.ExternalTrafficPolicy == corev1.ServiceExternalTrafficPolicyTypeLocal &&
 		builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
 		isServiceExternalTrafficPolicyTypeLocal = true
 	}
-	healthCheckPort, err := builder.buildTargetGroupHealthCheckPort(targetGroupProps, targetType, backend.Service, isServiceExternalTrafficPolicyTypeLocal)
+	healthCheckPort, err := builder.buildTargetGroupHealthCheckPort(targetGroupProps, targetType, backend.ServiceBackend.Service, isServiceExternalTrafficPolicyTypeLocal)
 	if err != nil {
 		return elbv2model.TargetGroupHealthCheckConfig{}, err
 	}

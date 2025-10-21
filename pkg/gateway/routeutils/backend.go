@@ -27,13 +27,22 @@ var (
 	tgConfigConstructor = gateway.NewTargetGroupConfigConstructor()
 )
 
-// Backend an abstraction on the Gateway Backend, meant to hide the underlying backend type from consumers (unless they really want to see it :))
-type Backend struct {
+type ServiceBackendConfig struct {
 	Service               *corev1.Service
 	ELBV2TargetGroupProps *elbv2gw.TargetGroupProps
 	ServicePort           *corev1.ServicePort
 	TypeSpecificBackend   interface{}
-	Weight                int
+}
+
+type LiteralTargetGroupConfig struct {
+	ARN string
+}
+
+// Backend an abstraction on the Gateway Backend, meant to hide the underlying backend type from consumers (unless they really want to see it :))
+type Backend struct {
+	ServiceBackend     *ServiceBackendConfig
+	LiteralTargetGroup *LiteralTargetGroupConfig
+	Weight             int
 }
 
 type attachedRuleAccumulator[RuleType any] interface {
@@ -106,13 +115,49 @@ func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Co
 // commonBackendLoader this function will load the services and target group configurations associated with this gateway backend.
 func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
 
+	var serviceBackend *ServiceBackendConfig
 	// We only support references of type service.
-	if backendRef.Kind != nil && *backendRef.Kind != "Service" {
+	if backendRef.Kind == nil || *backendRef.Kind != "Service" {
+		var warn error
+		var fatal error
+		serviceBackend, warn, fatal = serviceLoader(ctx, k8sClient, typeSpecificBackend, routeIdentifier, routeKind, backendRef)
+		if warn != nil || fatal != nil {
+			return nil, warn, fatal
+		}
+	}
+
+	if serviceBackend == nil {
 		initialErrorMessage := "Backend Ref must be of kind 'Service'"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
 		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonInvalidKind, &wrappedGatewayErrorMessage, nil), nil
 	}
 
+	// Weight specifies the proportion of requests forwarded to the referenced
+	// backend. This is computed as weight/(sum of all weights in this
+	// BackendRefs list). For non-zero values, there may be some epsilon from
+	// the exact proportion defined here depending on the precision an
+	// implementation supports. Weight is not a percentage and the sum of
+	// weights does not need to equal 100.
+	//
+	// If only one backend is specified, and it has a weight greater than 0, 100%
+	// of the traffic is forwarded to that backend. If weight is set to 0, no
+	// traffic should be forwarded for this entry. If unspecified, weight
+	// defaults to 1.
+	weight := 1
+	if backendRef.Weight != nil {
+		weight = int(*backendRef.Weight)
+	}
+
+	if weight > maxWeight {
+		return nil, nil, errors.Errorf("Weight [%d] must be less than or equal to %d", weight, maxWeight)
+	}
+	return &Backend{
+		ServiceBackend: serviceBackend,
+		Weight:         weight,
+	}, nil, nil
+}
+
+func serviceLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef) (*ServiceBackendConfig, error, error) {
 	if backendRef.Port == nil {
 		initialErrorMessage := "Port is required"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
@@ -220,29 +265,9 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpeci
 		}
 	}
 
-	// Weight specifies the proportion of requests forwarded to the referenced
-	// backend. This is computed as weight/(sum of all weights in this
-	// BackendRefs list). For non-zero values, there may be some epsilon from
-	// the exact proportion defined here depending on the precision an
-	// implementation supports. Weight is not a percentage and the sum of
-	// weights does not need to equal 100.
-	//
-	// If only one backend is specified, and it has a weight greater than 0, 100%
-	// of the traffic is forwarded to that backend. If weight is set to 0, no
-	// traffic should be forwarded for this entry. If unspecified, weight
-	// defaults to 1.
-	weight := 1
-	if backendRef.Weight != nil {
-		weight = int(*backendRef.Weight)
-	}
-
-	if weight > maxWeight {
-		return nil, nil, errors.Errorf("Weight [%d] must be less than or equal to %d", weight, maxWeight)
-	}
-	return &Backend{
+	return &ServiceBackendConfig{
 		Service:               svc,
 		ServicePort:           servicePort,
-		Weight:                weight,
 		TypeSpecificBackend:   typeSpecificBackend,
 		ELBV2TargetGroupProps: tgProps,
 	}, nil, nil
