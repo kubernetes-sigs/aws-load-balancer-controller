@@ -29,7 +29,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 		defaultTargetType        string
 		gateway                  *gwv1.Gateway
 		route                    *routeutils.MockRoute
-		backend                  routeutils.Backend
+		backend                  routeutils.ServiceBackendConfig
 		tagErr                   error
 		expectErr                bool
 		expectedTgSpec           elbv2model.TargetGroupSpec
@@ -51,23 +51,21 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
-						NodePort: 8080,
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
+					NodePort: 8080,
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
@@ -108,23 +106,21 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
-						NodePort: 8080,
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
+					NodePort: 8080,
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
@@ -170,23 +166,21 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
-						NodePort: 8080,
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
+					NodePort: 8080,
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
@@ -227,23 +221,21 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
-						NodePort: 8080,
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
+					NodePort: 8080,
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
@@ -289,21 +281,19 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
 				},
 			},
@@ -319,9 +309,9 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType, nil)
 
-			out, err := builder.buildTargetGroupSpec(tc.gateway, tc.route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
+			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(tc.gateway, tc.route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return
@@ -346,7 +336,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 		defaultTargetType        string
 		gateway                  *gwv1.Gateway
 		route                    *routeutils.MockRoute
-		backend                  routeutils.Backend
+		backend                  routeutils.ServiceBackendConfig
 		tagErr                   error
 		expectErr                bool
 		expectedTgSpec           elbv2model.TargetGroupSpec
@@ -369,23 +359,21 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
-						NodePort: 8080,
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
+					NodePort: 8080,
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
@@ -446,23 +434,21 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
-						NodePort: 8080,
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
+					NodePort: 8080,
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
@@ -528,23 +514,21 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
-						NodePort: 8080,
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
+					NodePort: 8080,
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
@@ -605,23 +589,21 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
-						NodePort: 8080,
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
+					NodePort: 8080,
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
@@ -697,23 +679,21 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.Backend{
-				ServiceBackend: &routeutils.ServiceBackendConfig{
-					Service: &corev1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Namespace: "my-svc-ns",
-							Name:      "my-svc",
-						},
+			backend: routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "my-svc-ns",
+						Name:      "my-svc",
 					},
-					ServicePort: &corev1.ServicePort{
-						Protocol: corev1.ProtocolTCP,
-						Port:     80,
-						TargetPort: intstr.IntOrString{
-							IntVal: 80,
-							Type:   intstr.Int,
-						},
-						NodePort: 8080,
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
 					},
+					NodePort: 8080,
 				},
 			},
 			expectedTgSpec: elbv2model.TargetGroupSpec{
@@ -776,9 +756,9 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType, nil)
 
-			out := builder.buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, tc.backend, nil)
+			out := builder.(*targetGroupBuilderImpl).buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, tc.backend, nil)
 
 			assert.Equal(t, tc.expectedTgBindingSpec, out)
 		})

@@ -35,7 +35,8 @@ type ServiceBackendConfig struct {
 }
 
 type LiteralTargetGroupConfig struct {
-	ARN string
+	// GW API limits names to 253 characters, while a TG ARN might be 256, so just using the name.
+	Name string
 }
 
 // Backend an abstraction on the Gateway Backend, meant to hide the underlying backend type from consumers (unless they really want to see it :))
@@ -116,18 +117,22 @@ func (ara *attachedRuleAccumulatorImpl[RuleType]) accumulateRules(ctx context.Co
 func commonBackendLoader(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
 
 	var serviceBackend *ServiceBackendConfig
+	var literalTargetGroup *LiteralTargetGroupConfig
+	var warn error
+	var fatal error
 	// We only support references of type service.
-	if backendRef.Kind == nil || *backendRef.Kind != "Service" {
-		var warn error
-		var fatal error
+	if backendRef.Kind == nil || *backendRef.Kind == "Service" {
 		serviceBackend, warn, fatal = serviceLoader(ctx, k8sClient, typeSpecificBackend, routeIdentifier, routeKind, backendRef)
-		if warn != nil || fatal != nil {
-			return nil, warn, fatal
-		}
+	} else if string(*backendRef.Kind) == TargetGroupARNBackend {
+		literalTargetGroup, warn, fatal = literalTargetGroupLoader(backendRef)
 	}
 
-	if serviceBackend == nil {
-		initialErrorMessage := "Backend Ref must be of kind 'Service'"
+	if warn != nil || fatal != nil {
+		return nil, warn, fatal
+	}
+
+	if serviceBackend == nil && literalTargetGroup == nil {
+		initialErrorMessage := "Unknown backend reference kind"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
 		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonInvalidKind, &wrappedGatewayErrorMessage, nil), nil
 	}
@@ -270,6 +275,12 @@ func serviceLoader(ctx context.Context, k8sClient client.Client, typeSpecificBac
 		ServicePort:           servicePort,
 		TypeSpecificBackend:   typeSpecificBackend,
 		ELBV2TargetGroupProps: tgProps,
+	}, nil, nil
+}
+
+func literalTargetGroupLoader(backendRef gwv1.BackendRef) (*LiteralTargetGroupConfig, error, error) {
+	return &LiteralTargetGroupConfig{
+		Name: string(backendRef.Name),
 	}, nil, nil
 }
 
