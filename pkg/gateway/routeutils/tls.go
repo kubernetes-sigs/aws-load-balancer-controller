@@ -41,10 +41,6 @@ func (t *convertedTLSRouteRule) GetRawRouteRule() interface{} {
 	return t.rule
 }
 
-func (t *convertedTLSRouteRule) GetSectionName() *gwv1.SectionName {
-	return t.rule.Name
-}
-
 func (t *convertedTLSRouteRule) GetBackends() []Backend {
 	return t.backends
 }

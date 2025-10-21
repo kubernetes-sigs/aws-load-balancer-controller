@@ -41,10 +41,6 @@ func (t *convertedUDPRouteRule) GetRawRouteRule() interface{} {
 	return t.rule
 }
 
-func (t *convertedUDPRouteRule) GetSectionName() *gwv1.SectionName {
-	return t.rule.Name
-}
-
 func (t *convertedUDPRouteRule) GetBackends() []Backend {
 	return t.backends
 }

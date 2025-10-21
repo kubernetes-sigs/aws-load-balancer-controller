@@ -953,11 +953,6 @@ func (m *mockRouteRule) GetRawRouteRule() interface{} {
 	panic("implement me")
 }
 
-func (m *mockRouteRule) GetSectionName() *gwv1.SectionName {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (m *mockRouteRule) GetBackends() []Backend {
 	//TODO implement me
 	panic("implement me")

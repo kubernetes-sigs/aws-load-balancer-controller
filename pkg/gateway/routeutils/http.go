@@ -40,10 +40,6 @@ func (t *convertedHTTPRouteRule) GetRawRouteRule() interface{} {
 	return t.rule
 }
 
-func (t *convertedHTTPRouteRule) GetSectionName() *gwv1.SectionName {
-	return t.rule.Name
-}
-
 func (t *convertedHTTPRouteRule) GetBackends() []Backend {
 	return t.backends
 }

@@ -17,11 +17,6 @@ func (m *MockRule) GetRawRouteRule() interface{} {
 	return m.RawRule
 }
 
-func (m *MockRule) GetSectionName() *gwv1.SectionName {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (m *MockRule) GetBackends() []Backend {
 	return m.BackendRefs
 }
