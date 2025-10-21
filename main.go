@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
@@ -110,6 +111,7 @@ type gatewayControllerConfig struct {
 	serviceReferenceCounter referencecounter.ServiceReferenceCounter
 	networkingManager       networking.NetworkingManager
 	targetGroupCollector    awsmetrics.TargetGroupCollector
+	targetGroupARNMapper    shared_utils.TargetGroupARNMapper
 }
 
 func main() {
@@ -187,6 +189,8 @@ func main() {
 
 	networkingManager := networking.NewDefaultNetworkingManager(mgr.GetClient(), podENIResolver, nodeENIResolver, sgManager, sgReconciler, cloud.VpcID(), controllerCFG.ClusterName, controllerCFG.ServiceTargetENISGTags, ctrl.Log, controllerCFG.DisableRestrictedSGRules)
 
+	tgArnMapper := shared_utils.NewTargetGroupNameToArnMapper(cloud.ELBV2())
+
 	tgbResManager := targetgroupbinding.NewDefaultResourceManager(mgr.GetClient(), cloud.ELBV2(),
 		podInfoRepo, networkingManager, vpcInfoProvider, multiClusterManager, lbcMetricsCollector,
 		cloud.VpcID(), controllerCFG.FeatureGates.Enabled(config.EndpointsFailOpen), controllerCFG.EnableEndpointSlices,
@@ -198,7 +202,7 @@ func main() {
 	ingGroupReconciler := ingress.NewGroupReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("ingress"),
 		finalizerManager, sgManager, networkingManager, sgReconciler, subnetResolver, elbv2TaggingManager,
 		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("ingress"), lbcMetricsCollector, reconcileCounters,
-		targetGroupCollector)
+		targetGroupCollector, tgArnMapper)
 	svcReconciler := service.NewServiceReconciler(cloud, mgr.GetClient(), mgr.GetEventRecorderFor("service"),
 		finalizerManager, networkingManager, sgManager, sgReconciler, subnetResolver, vpcInfoProvider, elbv2TaggingManager,
 		controllerCFG, backendSGProvider, sgResolver, ctrl.Log.WithName("controllers").WithName("service"), lbcMetricsCollector, reconcileCounters,
@@ -268,6 +272,7 @@ func main() {
 			networkingManager:       networkingManager,
 			serviceReferenceCounter: serviceReferenceCounter,
 			targetGroupCollector:    targetGroupCollector,
+			targetGroupARNMapper:    tgArnMapper,
 		}
 
 		enabledControllers := sets.Set[string]{}
@@ -473,6 +478,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.metricsCollector,
 			cfg.reconcileCounters,
 			cfg.targetGroupCollector,
+			cfg.targetGroupARNMapper,
 		)
 	case gateway_constants.ALBGatewayController:
 		reconciler = gateway.NewALBGatewayReconciler(
@@ -495,6 +501,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.metricsCollector,
 			cfg.reconcileCounters,
 			cfg.targetGroupCollector,
+			cfg.targetGroupARNMapper,
 		)
 	default:
 		return fmt.Errorf("unknown controller type: %s", controllerType)

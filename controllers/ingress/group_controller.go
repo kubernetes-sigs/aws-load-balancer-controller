@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -53,7 +54,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 	networkingManager networkingpkg.NetworkingManager, networkingSGReconciler networkingpkg.SecurityGroupReconciler, subnetsResolver networkingpkg.SubnetsResolver,
 	elbv2TaggingManager elbv2deploy.TaggingManager, controllerConfig config.ControllerConfig, backendSGProvider networkingpkg.BackendSGProvider,
 	sgResolver networkingpkg.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters,
-	targetGroupCollector awsmetrics.TargetGroupCollector) *groupReconciler {
+	targetGroupCollector awsmetrics.TargetGroupCollector, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) *groupReconciler {
 
 	annotationParser := annotations.NewSuffixAnnotationParser(annotations.AnnotationPrefixIngress)
 	authConfigBuilder := ingress.NewDefaultAuthConfigBuilder(annotationParser)
@@ -66,7 +67,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 		authConfigBuilder, enhancedBackendBuilder, trackingProvider, elbv2TaggingManager, controllerConfig.FeatureGates,
 		cloud.VpcID(), controllerConfig.ClusterName, controllerConfig.DefaultTags, controllerConfig.ExternalManagedTags,
 		controllerConfig.DefaultSSLPolicy, controllerConfig.DefaultTargetType, controllerConfig.DefaultLoadBalancerScheme, backendSGProvider, sgResolver,
-		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), logger, metricsCollector)
+		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), targetGroupNameToArnMapper, logger, metricsCollector)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
 		controllerConfig, ingressTagPrefix, logger, metricsCollector, controllerName, controllerConfig.FeatureGates.Enabled(config.EnhancedDefaultBehavior), targetGroupCollector)

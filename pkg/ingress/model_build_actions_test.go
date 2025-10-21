@@ -15,8 +15,10 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"testing"
+	"time"
 )
 
 func Test_defaultModelBuildTask_buildAuthenticateOIDCAction(t *testing.T) {
@@ -435,11 +437,11 @@ func Test_defaultModelBuildTask_buildForwardActionWithTargetGroupName(t *testing
 			}
 			task := &defaultModelBuildTask{
 				elbv2Client:                elbv2Client,
-				targetGroupNameToArnMapper: newTargetGroupNameToArnMapper(elbv2Client, defaultTargetGroupNameToARNCacheTTL),
+				targetGroupNameToArnMapper: shared_utils.NewTargetGroupNameToArnMapper(elbv2Client),
 			}
 
 			for targetGroupName, cachedArn := range tt.args.cache {
-				task.targetGroupNameToArnMapper.cache.Set(targetGroupName, cachedArn, defaultTargetGroupNameToARNCacheTTL)
+				task.targetGroupNameToArnMapper.GetCache().Set(targetGroupName, cachedArn, 10*time.Minute)
 			}
 
 			got, err := task.buildForwardAction(context.Background(), tt.args.ingress, Action{
@@ -448,9 +450,9 @@ func Test_defaultModelBuildTask_buildForwardActionWithTargetGroupName(t *testing
 			})
 			assert.Equal(t, tt.want, got)
 			assert.Equal(t, tt.wantErr, err)
-			assert.Equal(t, len(tt.wantCache), task.targetGroupNameToArnMapper.cache.Len())
+			assert.Equal(t, len(tt.wantCache), task.targetGroupNameToArnMapper.GetCache().Len())
 			for targetGroupName, expectedArn := range tt.wantCache {
-				rawCacheItem, exists := task.targetGroupNameToArnMapper.cache.Get(targetGroupName)
+				rawCacheItem, exists := task.targetGroupNameToArnMapper.GetCache().Get(targetGroupName)
 				assert.True(t, exists)
 				cachedArn := rawCacheItem.(string)
 				assert.Equal(t, expectedArn, cachedArn)
