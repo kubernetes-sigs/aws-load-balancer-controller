@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
@@ -30,6 +31,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 	tests := []struct {
 		name    string
 		gateway *gwv1.Gateway
+		routes  map[int32][]routeutils.RouteDescriptor
 		want    map[int32]*gwListenerConfig
 		wantErr bool
 	}{
@@ -49,7 +51,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 			want: map[int32]*gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
-					hostnames: []string{},
+					hostnames: sets.New[string](),
 				},
 			},
 			wantErr: false,
@@ -70,7 +72,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 			want: map[int32]*gwListenerConfig{
 				443: {
 					protocol:  elbv2model.ProtocolTCP,
-					hostnames: []string{},
+					hostnames: sets.New[string](),
 				},
 			},
 			wantErr: false,
@@ -101,15 +103,15 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 			want: map[int32]*gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
-					hostnames: []string{},
+					hostnames: sets.New[string](),
 				},
 				443: {
 					protocol:  elbv2model.ProtocolHTTPS,
-					hostnames: []string{},
+					hostnames: sets.New[string](),
 				},
 				8080: {
 					protocol:  elbv2model.ProtocolHTTP,
-					hostnames: []string{},
+					hostnames: sets.New[string](),
 				},
 			},
 			wantErr: false,
@@ -137,11 +139,11 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 			want: map[int32]*gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
-					hostnames: []string{"foo.example.com"},
+					hostnames: sets.New[string]("foo.example.com"),
 				},
 				443: {
 					protocol:  elbv2model.ProtocolHTTPS,
-					hostnames: []string{"foo.example.com"},
+					hostnames: sets.New[string]("foo.example.com"),
 				},
 			},
 			wantErr: false,
@@ -190,7 +192,141 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 			want: map[int32]*gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
-					hostnames: []string{"foo.example.com", "bar.example.com"},
+					hostnames: sets.New[string]("foo.example.com", "bar.example.com"),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "multiple hostnames for same port",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http-1",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+							Hostname: &fooHostname,
+						},
+						{
+							Name:     "http-2",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+							Hostname: &barHostname,
+						},
+					},
+				},
+			},
+			want: map[int32]*gwListenerConfig{
+				80: {
+					protocol:  elbv2model.ProtocolHTTP,
+					hostnames: sets.New[string]("foo.example.com", "bar.example.com"),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "host name on listener and route",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http-1",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+							Hostname: &fooHostname,
+						},
+					},
+				},
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Hostnames: []string{"r1.com", "r2.com", "r3.com"},
+					},
+					&routeutils.MockRoute{
+						Hostnames: []string{"r4.com", "r5.com", "r6.com"},
+					},
+				},
+			},
+			want: map[int32]*gwListenerConfig{
+				80: {
+					protocol:  elbv2model.ProtocolHTTP,
+					hostnames: sets.New[string]("foo.example.com", "r1.com", "r2.com", "r3.com", "r4.com", "r5.com", "r6.com"),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "duplicate host name should be de-duped",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http-1",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+							Hostname: &fooHostname,
+						},
+					},
+				},
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Hostnames: []string{"r1.com", "r2.com", "r3.com"},
+					},
+					&routeutils.MockRoute{
+						Hostnames: []string{"r1.com", "r2.com", "r3.com"},
+					},
+				},
+				100: {
+					&routeutils.MockRoute{
+						Hostnames: []string{"this should be ignored"},
+					},
+				},
+			},
+			want: map[int32]*gwListenerConfig{
+				80: {
+					protocol:  elbv2model.ProtocolHTTP,
+					hostnames: sets.New[string]("foo.example.com", "r1.com", "r2.com", "r3.com"),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "route with no host name should be accepted",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "http-1",
+							Port:     80,
+							Protocol: gwv1.HTTPProtocolType,
+							Hostname: &fooHostname,
+						},
+					},
+				},
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{
+						Hostnames: []string{"r1.com", "r2.com", "r3.com"},
+					},
+					&routeutils.MockRoute{
+						Hostnames: []string{},
+					},
+				},
+				100: {
+					&routeutils.MockRoute{
+						Hostnames: []string{"this should be ignored"},
+					},
+				},
+			},
+			want: map[int32]*gwListenerConfig{
+				80: {
+					protocol:  elbv2model.ProtocolHTTP,
+					hostnames: sets.New[string]("foo.example.com", "r1.com", "r2.com", "r3.com"),
 				},
 			},
 			wantErr: false,
@@ -199,7 +335,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := mapGatewayListenerConfigsByPort(tt.gateway)
+			got, err := mapGatewayListenerConfigsByPort(tt.gateway, tt.routes)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -390,7 +526,7 @@ func TestBuildCertificates(t *testing.T) {
 			port: 443,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"my-host-1", "my-host-2"},
+				hostnames: sets.New[string]("my-host-1", "my-host-2"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				DefaultCertificate: awssdk.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
@@ -417,7 +553,7 @@ func TestBuildCertificates(t *testing.T) {
 			port: 443,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolTLS,
-				hostnames: []string{"my-host-1", "my-host-2"},
+				hostnames: sets.New[string]("my-host-1", "my-host-2"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				Certificates: []*string{
@@ -450,7 +586,7 @@ func TestBuildCertificates(t *testing.T) {
 			port: 443,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"my-host-1", "my-host-2"},
+				hostnames: sets.New[string]("my-host-1", "my-host-2"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				DefaultCertificate: awssdk.String("arn:aws:acm:region:123456789012:certificate/default-cert"),
@@ -487,7 +623,7 @@ func TestBuildCertificates(t *testing.T) {
 			port: 443,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolTLS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				ProtocolPort: "TLS:443",
@@ -521,7 +657,7 @@ func TestBuildCertificates(t *testing.T) {
 			port: 443,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolTLS,
-				hostnames: []string{"example.com", "*.example.org"},
+				hostnames: sets.New[string]("example.com", "*.example.org"),
 			},
 			lbLsCfg: nil,
 			setupMocks: func(mockCertDiscovery *certs.MockCertDiscovery) {
@@ -558,7 +694,7 @@ func TestBuildCertificates(t *testing.T) {
 			port: 443,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				ProtocolPort: "HTTPS:443",
@@ -587,7 +723,7 @@ func TestBuildCertificates(t *testing.T) {
 			port: 443,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTP,
-				hostnames: []string{},
+				hostnames: sets.New[string](),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				ProtocolPort: "HTTP:80",
@@ -610,7 +746,7 @@ func TestBuildCertificates(t *testing.T) {
 			port: 443,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{},
+				hostnames: sets.New[string](),
 			},
 			lbLsCfg: nil,
 			want:    []elbv2model.Certificate{},
@@ -681,7 +817,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTP,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTP,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{},
 			want:    nil,
@@ -692,7 +828,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTPS,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: nil,
 			want:    nil,
@@ -703,7 +839,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTPS,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				MutualAuthentication: nil,
@@ -716,7 +852,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTPS,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
@@ -744,7 +880,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTPS,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
@@ -765,7 +901,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTPS,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
@@ -788,7 +924,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTPS,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
@@ -811,7 +947,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTPS,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
@@ -831,7 +967,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTPS,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
@@ -851,7 +987,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 			protocol: elbv2model.ProtocolHTTPS,
 			gwLsCfg: &gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
-				hostnames: []string{"example.com"},
+				hostnames: sets.New[string]("example.com"),
 			},
 			lbLsCfg: &elbv2gw.ListenerConfiguration{
 				MutualAuthentication: &elbv2gw.MutualAuthenticationAttributes{
