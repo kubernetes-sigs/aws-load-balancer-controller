@@ -27,7 +27,7 @@ import (
 // TODO: Add more relevant info like TLS settings and hostnames later wherever applicable
 type gwListenerConfig struct {
 	protocol  elbv2model.Protocol
-	hostnames []string
+	hostnames sets.Set[string]
 }
 
 type listenerBuilder interface {
@@ -51,7 +51,7 @@ type listenerBuilderImpl struct {
 }
 
 func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
-	gwLsCfgs, err := mapGatewayListenerConfigsByPort(gw)
+	gwLsCfgs, err := mapGatewayListenerConfigsByPort(gw, routes)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +327,7 @@ func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gw *gwv1.Gat
 		if len(gwLsCfg.hostnames) == 0 {
 			return []elbv2model.Certificate{}, errors.Errorf("No hostnames found for TLS cert discovery for listener on gateway %s with protocol:port %s:%v", k8s.NamespacedName(gw), gwLsCfg.protocol, port)
 		}
-		discoveredCerts, err := l.buildInferredTLSCertARNs(ctx, gwLsCfg.hostnames)
+		discoveredCerts, err := l.buildInferredTLSCertARNs(ctx, gwLsCfg.hostnames.UnsortedList())
 		if err != nil {
 			l.logger.Error(err, "Unable to discover certs for listener on gateway %s with protocol:port %s:%v\", k8s.NamespacedName(gw), gwLsCfg.protocol, port")
 			return []elbv2model.Certificate{}, err
@@ -488,7 +488,7 @@ func buildListenerALPNPolicy(listenerProtocol elbv2model.Protocol, lbLsCfg *elbv
 }
 
 // mapGatewayListenerConfigsByPort creates a mapping of ports to listener configurations from the Gateway listeners.
-func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway) (map[int32]*gwListenerConfig, error) {
+func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor) (map[int32]*gwListenerConfig, error) {
 	gwListenerConfigs := make(map[int32]*gwListenerConfig)
 	for _, listener := range gw.Spec.Listeners {
 		port := int32(listener.Port)
@@ -499,14 +499,24 @@ func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway) (map[int32]*gwListenerCon
 		if gwListenerConfigs[port] == nil {
 			gwListenerConfigs[port] = &gwListenerConfig{
 				protocol:  elbv2model.Protocol(protocol),
-				hostnames: []string{},
+				hostnames: sets.New[string](),
 			}
 		}
-		hostnames := gwListenerConfigs[port].hostnames
+
 		if listener.Hostname != nil {
-			hostnames = append(hostnames, string(*listener.Hostname))
-			gwListenerConfigs[port].hostnames = hostnames
+			gwListenerConfigs[port].hostnames.Insert(string(*listener.Hostname))
 		}
+
+		listenerRoutes := routes[port]
+
+		if listenerRoutes != nil {
+			for _, route := range listenerRoutes {
+				for _, routeHostname := range route.GetHostnames() {
+					gwListenerConfigs[port].hostnames.Insert(string(routeHostname))
+				}
+			}
+		}
+
 	}
 	return gwListenerConfigs, nil
 }
