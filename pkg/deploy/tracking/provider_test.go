@@ -23,6 +23,16 @@ func Test_defaultProvider_ResourceIDTagKey(t *testing.T) {
 			provider: NewDefaultProvider("service.k8s.aws", "cluster-name"),
 			want:     "service.k8s.aws/resource",
 		},
+		{
+			name:     "resourceTagKey for AGA",
+			provider: NewDefaultProvider("aga.k8s.aws", "cluster-name"),
+			want:     "aga.k8s.aws/resource",
+		},
+		{
+			name:     "resourceTagKey for Gateway",
+			provider: NewDefaultProvider("gateway.k8s.aws", "cluster-name"),
+			want:     "gateway.k8s.aws/resource",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -69,6 +79,24 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 				"service.k8s.aws/stack":           "namespace/serviceName",
 			},
 		},
+		{
+			name:     "stackTags for AGA",
+			provider: NewDefaultProvider("aga.k8s.aws", "cluster-name"),
+			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "globalAcceleratorName"})},
+			want: map[string]string{
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"aga.k8s.aws/stack":               "namespace/globalAcceleratorName",
+			},
+		},
+		{
+			name:     "stackTags for Gateway",
+			provider: NewDefaultProvider("gateway.k8s.aws", "cluster-name"),
+			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "gatewayName"})},
+			want: map[string]string{
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"gateway.k8s.aws/stack":           "namespace/gatewayName",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -79,8 +107,17 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 }
 
 func Test_defaultProvider_ResourceTags(t *testing.T) {
-	stack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "ingressName"})
-	fakeRes := core.NewFakeResource(stack, "fake", "fake-id", core.FakeResourceSpec{}, nil)
+	ingressStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "ingressName"})
+	ingressFakeRes := core.NewFakeResource(ingressStack, "fake", "fake-id", core.FakeResourceSpec{}, nil)
+	
+	serviceStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})
+	serviceFakeRes := core.NewFakeResource(serviceStack, "fake", "service-id", core.FakeResourceSpec{}, nil)
+	
+	agaStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "globalAcceleratorName"})
+	agaFakeRes := core.NewFakeResource(agaStack, "fake", "accelerator-id", core.FakeResourceSpec{}, nil)
+	
+	gatewayStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "gatewayName"})
+	gatewayFakeRes := core.NewFakeResource(gatewayStack, "fake", "gateway-id", core.FakeResourceSpec{}, nil)
 
 	type args struct {
 		stack          core.Stack
@@ -97,13 +134,52 @@ func Test_defaultProvider_ResourceTags(t *testing.T) {
 			name:     "resourceTags for Ingress",
 			provider: NewDefaultProvider("ingress.k8s.aws", "cluster-name"),
 			args: args{
-				stack: stack,
-				res:   fakeRes,
+				stack: ingressStack,
+				res:   ingressFakeRes,
 			},
 			want: map[string]string{
 				shared_constants.TagKeyK8sCluster: "cluster-name",
 				"ingress.k8s.aws/stack":           "namespace/ingressName",
 				"ingress.k8s.aws/resource":        "fake-id",
+			},
+		},
+		{
+			name:     "resourceTags for Service",
+			provider: NewDefaultProvider("service.k8s.aws", "cluster-name"),
+			args: args{
+				stack: serviceStack,
+				res:   serviceFakeRes,
+			},
+			want: map[string]string{
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"service.k8s.aws/stack":           "namespace/serviceName",
+				"service.k8s.aws/resource":        "service-id",
+			},
+		},
+		{
+			name:     "resourceTags for AGA",
+			provider: NewDefaultProvider("aga.k8s.aws", "cluster-name"),
+			args: args{
+				stack: agaStack,
+				res:   agaFakeRes,
+			},
+			want: map[string]string{
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"aga.k8s.aws/stack":               "namespace/globalAcceleratorName",
+				"aga.k8s.aws/resource":            "accelerator-id",
+			},
+		},
+		{
+			name:     "resourceTags for Gateway",
+			provider: NewDefaultProvider("gateway.k8s.aws", "cluster-name"),
+			args: args{
+				stack: gatewayStack,
+				res:   gatewayFakeRes,
+			},
+			want: map[string]string{
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"gateway.k8s.aws/stack":           "namespace/gatewayName",
+				"gateway.k8s.aws/resource":        "gateway-id",
 			},
 		},
 	}
@@ -151,6 +227,24 @@ func Test_defaultProvider_StackLabels(t *testing.T) {
 				"service.k8s.aws/stack-name":      "serviceName",
 			},
 		},
+		{
+			name:     "stackLabels for AGA",
+			provider: NewDefaultProvider("aga.k8s.aws", "cluster-name"),
+			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "globalAcceleratorName"})},
+			want: map[string]string{
+				"aga.k8s.aws/stack-namespace": "namespace",
+				"aga.k8s.aws/stack-name":      "globalAcceleratorName",
+			},
+		},
+		{
+			name:     "stackLabels for Gateway",
+			provider: NewDefaultProvider("gateway.k8s.aws", "cluster-name"),
+			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "gatewayName"})},
+			want: map[string]string{
+				"gateway.k8s.aws/stack-namespace": "namespace",
+				"gateway.k8s.aws/stack-name":      "gatewayName",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -195,6 +289,24 @@ func Test_defaultProvider_StackTagsLegacy(t *testing.T) {
 			want: map[string]string{
 				"ingress.k8s.aws/cluster": "cluster-name",
 				"service.k8s.aws/stack":   "namespace/serviceName",
+			},
+		},
+		{
+			name:     "stackTags for AGA",
+			provider: NewDefaultProvider("aga.k8s.aws", "cluster-name"),
+			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "globalAcceleratorName"})},
+			want: map[string]string{
+				"ingress.k8s.aws/cluster": "cluster-name",
+				"aga.k8s.aws/stack":       "namespace/globalAcceleratorName",
+			},
+		},
+		{
+			name:     "stackTags for Gateway",
+			provider: NewDefaultProvider("gateway.k8s.aws", "cluster-name"),
+			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "gatewayName"})},
+			want: map[string]string{
+				"ingress.k8s.aws/cluster": "cluster-name",
+				"gateway.k8s.aws/stack":   "namespace/gatewayName",
 			},
 		},
 	}

@@ -31,16 +31,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	metricsutil "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/util"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 )
 
 const (
 	controllerName = "globalAccelerator"
+	agaTagPrefix   = "aga.k8s.aws"
 
 	// the groupVersion of used GlobalAccelerator resource.
 	agaResourcesGroupVersion = "aga.k8s.aws/v1beta1"
@@ -49,23 +55,45 @@ const (
 	// Metric stage constants
 	MetricStageFetchGlobalAccelerator     = "fetch_globalAccelerator"
 	MetricStageAddFinalizers              = "add_finalizers"
+	MetricStageBuildModel                 = "build_model"
 	MetricStageReconcileGlobalAccelerator = "reconcile_globalaccelerator"
 
 	// Metric error constants
 	MetricErrorAddFinalizers              = "add_finalizers_error"
 	MetricErrorRemoveFinalizers           = "remove_finalizers_error"
+	MetricErrorBuildModel                 = "build_model_error"
 	MetricErrorReconcileGlobalAccelerator = "reconcile_globalaccelerator_error"
 )
 
 // NewGlobalAcceleratorReconciler constructs new globalAcceleratorReconciler
-func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, finalizerManager k8s.FinalizerManager,
-	config config.ControllerConfig, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) *globalAcceleratorReconciler {
+func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, finalizerManager k8s.FinalizerManager, config config.ControllerConfig, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) *globalAcceleratorReconciler {
+
+	// Create tracking provider
+	trackingProvider := tracking.NewDefaultProvider(agaTagPrefix, config.ClusterName)
+
+	// Create model builder
+	agaModelBuilder := aga.NewDefaultModelBuilder(
+		k8sClient,
+		eventRecorder,
+		trackingProvider,
+		config.FeatureGates,
+		config.ClusterName,
+		config.DefaultTags,
+		config.ExternalManagedTags,
+		logger.WithName("aga-model-builder"),
+		metricsCollector,
+	)
+
+	// Create stack marshaller
+	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
 	return &globalAcceleratorReconciler{
 		k8sClient:        k8sClient,
 		eventRecorder:    eventRecorder,
 		finalizerManager: finalizerManager,
 		logger:           logger,
+		modelBuilder:     agaModelBuilder,
+		stackMarshaller:  stackMarshaller,
 		metricsCollector: metricsCollector,
 		reconcileTracker: reconcileCounters.IncrementAGA,
 
@@ -78,6 +106,8 @@ type globalAcceleratorReconciler struct {
 	k8sClient        client.Client
 	eventRecorder    record.EventRecorder
 	finalizerManager k8s.FinalizerManager
+	modelBuilder     aga.ModelBuilder
+	stackMarshaller  deploy.StackMarshaller
 	logger           logr.Logger
 	metricsCollector lbcmetrics.MetricCollector
 	reconcileTracker func(namespaceName types.NamespacedName)
@@ -157,10 +187,42 @@ func (r *globalAcceleratorReconciler) cleanupGlobalAccelerator(ctx context.Conte
 	return nil
 }
 
+func (r *globalAcceleratorReconciler) buildModel(ctx context.Context, ga *agaapi.GlobalAccelerator) (core.Stack, *agamodel.Accelerator, error) {
+	stack, accelerator, err := r.modelBuilder.Build(ctx, ga)
+	if err != nil {
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
+		return nil, nil, err
+	}
+	stackJSON, err := r.stackMarshaller.Marshal(stack)
+	if err != nil {
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
+		return nil, nil, err
+	}
+	r.logger.Info("successfully built model", "model", stackJSON)
+	return stack, accelerator, nil
+}
+
 func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx context.Context, ga *agaapi.GlobalAccelerator) error {
-	// TODO: Implement the actual AWS Global Accelerator resource management
-	// This is a placeholder implementation
 	r.logger.Info("Reconciling GlobalAccelerator resources", "name", ga.Name, "namespace", ga.Namespace)
+	var stack core.Stack
+	var accelerator *agamodel.Accelerator
+	var err error
+	buildModelFn := func() {
+		stack, accelerator, err = r.buildModel(ctx, ga)
+	}
+	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, MetricStageBuildModel, buildModelFn)
+	if err != nil {
+		return ctrlerrors.NewErrorWithMetrics(controllerName, MetricErrorBuildModel, err, r.metricsCollector)
+	}
+
+	// Log the built model for debugging
+	r.logger.Info("Built model successfully", "accelerator", accelerator.ID(), "stackID", stack.StackID())
+
+	// TODO: Implement the deploy phase
+	// This would include:
+	// 1. Deploy the stack to create/update AWS Global Accelerator resources
+	// 2. Update the GlobalAccelerator status with the created resources
+	// 3. Handle any deployment errors and update status accordingly
 
 	return nil
 }
