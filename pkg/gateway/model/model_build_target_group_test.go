@@ -1,7 +1,9 @@
 package model
 
 import (
+	"context"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,6 +17,7 @@ import (
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"testing"
 )
@@ -2069,6 +2072,30 @@ func Test_buildTargetGroupBindingMultiClusterFlag(t *testing.T) {
 	assert.False(t, builder.buildTargetGroupBindingMultiClusterFlag(props))
 	props.EnableMultiCluster = awssdk.Bool(true)
 	assert.True(t, builder.buildTargetGroupBindingMultiClusterFlag(props))
+}
+
+func Test_buildTargetGroupFromStaticName(t *testing.T) {
+
+	mockMapper := &shared_utils.MockTargetGroupARNMapper{
+		ARN:   "my-arn",
+		Error: nil,
+	}
+	impl := targetGroupBuilderImpl{
+		targetGroupNameToArnMapper: mockMapper,
+	}
+
+	cfg := routeutils.LiteralTargetGroupConfig{Name: "foo"}
+
+	result, err := impl.buildTargetGroupFromStaticName(cfg)
+	assert.Nil(t, err)
+
+	resultArn, _ := result.Resolve(context.Background())
+	assert.Equal(t, "my-arn", resultArn)
+
+	mockMapper.Error = errors.New("bad")
+
+	_, err = impl.buildTargetGroupFromStaticName(cfg)
+	assert.Error(t, err)
 }
 
 func protocolPtr(protocol elbv2gw.Protocol) *elbv2gw.Protocol {

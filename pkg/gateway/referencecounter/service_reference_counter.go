@@ -67,11 +67,10 @@ func (t *serviceReferenceCounter) updateRefCount(svcs sets.Set[types.NamespacedN
 func (t *serviceReferenceCounter) IsEligibleForRemoval(svcName types.NamespacedName, expectedGateways []types.NamespacedName) bool {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
-	v, ok := t.refCount[svcName]
+	_, ok := t.refCount[svcName]
 	// If we have a ref count for this service, we can't remove it.
 	// updateRefCount should always remove 0 entry services.
 	if ok {
-		t.logger.Info("Got a ref count!", "ref", v)
 		return false
 	}
 
@@ -79,7 +78,6 @@ func (t *serviceReferenceCounter) IsEligibleForRemoval(svcName types.NamespacedN
 	// when the cache is not warm.
 	for _, gw := range expectedGateways {
 		if _, exists := t.relations[gw]; !exists {
-			t.logger.Info("Missing relation", "gateway", gw)
 			return false
 		}
 	}

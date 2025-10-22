@@ -403,6 +403,61 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 	}
 }
 
+func TestCommonBackendLoader_TargetGroupName(t *testing.T) {
+	testCases := []struct {
+		name            string
+		expectWarning   bool
+		expectFatal     bool
+		backendRef      gwv1.BackendRef
+		routeIdentifier types.NamespacedName
+		expected        *LiteralTargetGroupConfig
+	}{
+		{
+			name:          "invalid backend kind",
+			expectWarning: true,
+			backendRef: gwv1.BackendRef{
+				BackendObjectReference: gwv1.BackendObjectReference{
+					Kind: (*gwv1.Kind)(awssdk.String("invalid")),
+				},
+			},
+		},
+		{
+			name: "valid name",
+			backendRef: gwv1.BackendRef{
+				BackendObjectReference: gwv1.BackendObjectReference{
+					Kind: (*gwv1.Kind)(awssdk.String(TargetGroupNameBackend)),
+					Name: "foo",
+				},
+			},
+			expected: &LiteralTargetGroupConfig{
+				Name: "foo",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			k8sClient := testutils.GenerateTestClient()
+
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, HTTPRouteKind)
+
+			if tc.expectWarning {
+				assert.Error(t, warningErr)
+				assert.NoError(t, fatalErr)
+			} else if tc.expectFatal {
+				assert.Error(t, fatalErr)
+				assert.NoError(t, warningErr)
+			} else {
+				assert.NoError(t, warningErr)
+				assert.NoError(t, fatalErr)
+
+				assert.Nil(t, result.ServiceBackend)
+				assert.Equal(t, tc.expected, result.LiteralTargetGroup)
+			}
+		})
+	}
+}
+
 func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 	testCases := []struct {
 		name                         string

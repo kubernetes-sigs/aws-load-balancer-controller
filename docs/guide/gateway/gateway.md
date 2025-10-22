@@ -130,4 +130,34 @@ the target group will not be materialized on any ALBs that the route attaches to
 An [503 Fixed Response](https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_FixedResponseActionConfig.html)
 will be added to any Listener Rules that would have referenced the invalid backend.
 
+## Specify out-of-band Target Groups
+
+Use an existing AWS Target Group with a Gateway-managed Load Balancer.
+This lets you integrate or migrate legacy applications that are already
+registered with an AWS Target Group outside the controller's lifecycle.
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: tcproute
+  namespace: example-ns
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: nlb-gw
+    sectionName: tls
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: TargetGroupName
+      name: test-gw-import123
+      weight: 1
+```
+
+This support exists for all route types managed by the controller.
+
+
+
 
