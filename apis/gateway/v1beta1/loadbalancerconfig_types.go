@@ -233,6 +233,11 @@ type LoadBalancerConfigurationSpec struct {
 	// +optional
 	ListenerConfigurations *[]ListenerConfiguration `json:"listenerConfigurations,omitempty"`
 
+	// disableSecurityGroup provisions a load balancer with no security groups.
+	// Allows an NLB to be provisioned with no security groups.
+	// [Network Load Balancer]
+	DisableSecurityGroup *bool `json:"disableSecurityGroup,omitempty"`
+
 	// securityGroups an optional list of security group ids or names to apply to the LB
 	// +optional
 	SecurityGroups *[]string `json:"securityGroups,omitempty"`

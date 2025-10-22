@@ -28,4 +28,5 @@ scripts/aws_sdk_model_override/*
 /gomock_reflect*
 config/crd/bases/gateway.k8s.aws_listenerruleconfigurations.yaml
 config/crd/bases/gateway.k8s.aws_loadbalancerconfigurations.yaml
+config/crd/bases/aga.k8s.aws_globalaccelerators.yaml
 config/crd/bases/gateway.k8s.aws_targetgroupconfigurations.yaml

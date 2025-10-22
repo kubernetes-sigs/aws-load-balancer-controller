@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	ec2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/ec2"
@@ -36,6 +35,7 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 	testCases := []struct {
 		name            string
 		lbConf          elbv2gw.LoadBalancerConfiguration
+		lbType          elbv2model.LoadBalancerType
 		ipAddressType   elbv2model.IPAddressType
 		expectedTags    map[string]string
 		tagErr          error
@@ -59,6 +59,38 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 					},
 				},
 			},
+			resolveSg: &resolveSgCall{
+				securityGroups: []string{
+					"sg1",
+					"sg2",
+				},
+			},
+			expectedSgTokens: []coremodel.StringToken{
+				coremodel.LiteralStringToken("sg1"),
+				coremodel.LiteralStringToken("sg2"),
+			},
+		},
+		{
+			name: "sg disabled - nlb",
+			lbConf: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					DisableSecurityGroup: awssdk.Bool(true),
+				},
+			},
+			lbType: elbv2model.LoadBalancerTypeNetwork,
+		},
+		{
+			name: "sg disabled - alb",
+			lbConf: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					DisableSecurityGroup: awssdk.Bool(true),
+					SecurityGroups: &[]string{
+						"sg1",
+						"sg2",
+					},
+				},
+			},
+			lbType: elbv2model.LoadBalancerTypeApplication,
 			resolveSg: &resolveSgCall{
 				securityGroups: []string{
 					"sg1",
@@ -186,9 +218,9 @@ func Test_BuildSecurityGroups_Specified(t *testing.T) {
 			}
 
 			stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
-			builder := newSecurityGroupBuilder(mockTagger, clusterName, tc.enableBackendSg, mockSgResolver, mockSgProvider, logr.Discard())
+			builder := newSecurityGroupBuilder(mockTagger, clusterName, tc.lbType, tc.enableBackendSg, mockSgResolver, mockSgProvider, logr.Discard())
 
-			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, make(map[int32][]routeutils.RouteDescriptor), tc.ipAddressType)
+			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, tc.ipAddressType)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -291,9 +323,9 @@ func Test_BuildSecurityGroups_Allocate(t *testing.T) {
 			}
 
 			stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
-			builder := newSecurityGroupBuilder(mockTagger, clusterName, tc.enableBackendSg, mockSgResolver, mockSgProvider, logr.Discard())
+			builder := newSecurityGroupBuilder(mockTagger, clusterName, elbv2model.LoadBalancerTypeApplication, tc.enableBackendSg, mockSgResolver, mockSgProvider, logr.Discard())
 
-			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, make(map[int32][]routeutils.RouteDescriptor), tc.ipAddressType)
+			out, err := builder.buildSecurityGroups(context.Background(), stack, tc.lbConf, gw, tc.ipAddressType)
 
 			if tc.expectErr {
 				assert.Error(t, err)

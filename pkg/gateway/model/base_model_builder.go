@@ -45,7 +45,7 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 
 	gwTagHelper := newTagHelper(sets.New(lbcConfig.ExternalManagedTags...), lbcConfig.DefaultTags, featureGates.Enabled(config.EnableDefaultTagsLowPriority))
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
-	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, enableBackendSG, sgResolver, backendSGProvider, logger)
+	sgBuilder := newSecurityGroupBuilder(gwTagHelper, clusterName, loadBalancerType, enableBackendSG, sgResolver, backendSGProvider, logger)
 	lbBuilder := newLoadBalancerBuilder(loadBalancerType, gwTagHelper, clusterName)
 	tgConfigConstructor := config2.NewTargetGroupConfigConstructor()
 
@@ -163,7 +163,7 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	/* Security Groups */
 
-	securityGroups, err := baseBuilder.securityGroupBuilder.buildSecurityGroups(ctx, stack, lbConf, gw, routes, ipAddressType)
+	securityGroups, err := baseBuilder.securityGroupBuilder.buildSecurityGroups(ctx, stack, lbConf, gw, ipAddressType)
 
 	if err != nil {
 		return nil, nil, nil, false, nil, err
