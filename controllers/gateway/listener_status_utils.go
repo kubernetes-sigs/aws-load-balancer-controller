@@ -11,7 +11,7 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
-func buildListenerStatus(controllerName string, gateway gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32, validateListenerResults *routeutils.ListenerValidationResults) []gwv1.ListenerStatus {
+func buildListenerStatus(controllerName string, gateway gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32, validateListenerResults *routeutils.ListenerValidationResults, isProgrammed bool) []gwv1.ListenerStatus {
 	var listenerStatuses []gwv1.ListenerStatus
 
 	// if validateListenerResults is nil, getListenerConditions will build condition with accepted condition
@@ -19,10 +19,10 @@ func buildListenerStatus(controllerName string, gateway gwv1.Gateway, attachedRo
 		supportedKinds, _ := routeutils.GetSupportedKinds(controllerName, listener)
 		var condition []metav1.Condition
 		if validateListenerResults == nil {
-			condition = getListenerConditions(gateway, nil)
+			condition = getListenerConditions(gateway, nil, isProgrammed)
 		} else {
 			listenerValidationResult := validateListenerResults.Results[listener.Name]
-			condition = getListenerConditions(gateway, &listenerValidationResult)
+			condition = getListenerConditions(gateway, &listenerValidationResult, isProgrammed)
 		}
 
 		listenerStatus := gwv1.ListenerStatus{
@@ -36,27 +36,80 @@ func buildListenerStatus(controllerName string, gateway gwv1.Gateway, attachedRo
 	return listenerStatuses
 }
 
-func getListenerConditions(gw gwv1.Gateway, listenerValidationResult *routeutils.ListenerValidationResult) []metav1.Condition {
+func getListenerConditions(gw gwv1.Gateway, listenerValidationResult *routeutils.ListenerValidationResult, isProgrammed bool) []metav1.Condition {
 	var conditions []metav1.Condition
 
-	// Determine condition type based on reason
-	if listenerValidationResult == nil {
-		return append(conditions, buildAcceptedCondition(gw, gwv1.ListenerReasonAccepted, gateway_constants.ListenerAcceptedMessage))
+	// Default
+	listenerReason := gwv1.ListenerReasonAccepted
+	listenerErrMessage := gateway_constants.ListenerAcceptedMessage
+
+	if listenerValidationResult != nil {
+		listenerReason = listenerValidationResult.Reason
+		listenerErrMessage = listenerValidationResult.Message
 	}
-	listenerReason := listenerValidationResult.Reason
-	listenerErrMessage := listenerValidationResult.Message
+
+	// Build Conflict Conditions
 	switch listenerReason {
 	case gwv1.ListenerReasonHostnameConflict, gwv1.ListenerReasonProtocolConflict:
 		conditions = append(conditions, buildConflictedCondition(gw, listenerReason, listenerErrMessage))
+	default:
+		conditions = append(conditions, buildConflictedCondition(gw, gwv1.ListenerReasonNoConflicts, gateway_constants.ListenerNoConflictMessage))
+	}
+
+	// Build Accepted Conditions
+	switch listenerReason {
 	case gwv1.ListenerReasonPortUnavailable, gwv1.ListenerReasonUnsupportedProtocol:
 		conditions = append(conditions, buildAcceptedCondition(gw, listenerReason, listenerErrMessage))
-	case gwv1.ListenerReasonInvalidRouteKinds, gwv1.ListenerReasonRefNotPermitted:
-		conditions = append(conditions, buildResolvedRefsCondition(gw, listenerReason, listenerErrMessage))
 	default:
 		conditions = append(conditions, buildAcceptedCondition(gw, gwv1.ListenerReasonAccepted, gateway_constants.ListenerAcceptedMessage))
 	}
 
+	// Build ResolvedRefs Conditions
+	switch listenerReason {
+	case gwv1.ListenerReasonInvalidRouteKinds, gwv1.ListenerReasonRefNotPermitted:
+		conditions = append(conditions, buildResolvedRefsCondition(gw, listenerReason, listenerErrMessage))
+	default:
+		conditions = append(conditions, buildResolvedRefsCondition(gw, gwv1.ListenerReasonResolvedRefs, gateway_constants.ListenerResolvedRefMessage))
+	}
+
+	// Build Programmed Conditions
+	isAccepted := listenerReason == gwv1.ListenerReasonAccepted
+	conditions = append(conditions, buildProgrammedCondition(gw, isProgrammed, isAccepted))
+
 	return conditions
+}
+
+func buildProgrammedCondition(gw gwv1.Gateway, isProgrammed bool, isAccepted bool) metav1.Condition {
+	if !isAccepted {
+		return metav1.Condition{
+			Type:               string(gwv1.ListenerConditionProgrammed),
+			Status:             metav1.ConditionFalse,
+			Reason:             string(gwv1.ListenerReasonInvalid),
+			Message:            gateway_constants.ListenerNotAcceptedMessage,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			ObservedGeneration: gw.GetGeneration(),
+		}
+	}
+
+	if isProgrammed {
+		return metav1.Condition{
+			Type:               string(gwv1.ListenerConditionProgrammed),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gwv1.ListenerReasonProgrammed),
+			Message:            gateway_constants.ListenerProgrammedMessage,
+			LastTransitionTime: metav1.NewTime(time.Now()),
+			ObservedGeneration: gw.GetGeneration(),
+		}
+	}
+
+	return metav1.Condition{
+		Type:               string(gwv1.ListenerConditionProgrammed),
+		Status:             metav1.ConditionFalse,
+		Reason:             string(gwv1.ListenerReasonPending),
+		Message:            gateway_constants.ListenerPendingProgrammedMessage,
+		LastTransitionTime: metav1.NewTime(time.Now()),
+		ObservedGeneration: gw.GetGeneration(),
+	}
 }
 
 func buildAcceptedCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
@@ -77,7 +130,7 @@ func buildAcceptedCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReason
 
 func buildConflictedCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
 	status := metav1.ConditionTrue
-	if reason != gwv1.ListenerReasonAccepted {
+	if reason != gwv1.ListenerReasonNoConflicts {
 		status = metav1.ConditionFalse
 	}
 	return metav1.Condition{
@@ -92,7 +145,7 @@ func buildConflictedCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReas
 
 func buildResolvedRefsCondition(gw gwv1.Gateway, reason gwv1.ListenerConditionReason, message string) metav1.Condition {
 	status := metav1.ConditionTrue
-	if reason != gwv1.ListenerReasonAccepted {
+	if reason != gwv1.ListenerReasonResolvedRefs {
 		status = metav1.ConditionFalse
 	}
 	return metav1.Condition{
@@ -131,6 +184,13 @@ func isListenerStatusIdentical(listenerStatus []gwv1.ListenerStatus, listenerSta
 		if len(listenerStatus[i].Conditions) != len(listenerStatusOld[i].Conditions) {
 			return false
 		}
+		// Sort conditions by Type before comparison
+		sort.Slice(listenerStatus[i].Conditions, func(j, k int) bool {
+			return listenerStatus[i].Conditions[j].Type < listenerStatus[i].Conditions[k].Type
+		})
+		sort.Slice(listenerStatusOld[i].Conditions, func(j, k int) bool {
+			return listenerStatusOld[i].Conditions[j].Type < listenerStatusOld[i].Conditions[k].Type
+		})
 		for j := range listenerStatus[i].Conditions {
 			if listenerStatus[i].Conditions[j].Type != listenerStatusOld[i].Conditions[j].Type {
 				return false

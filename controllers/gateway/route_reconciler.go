@@ -435,11 +435,12 @@ func areConditionsEqual(oldConditions, newConditions []metav1.Condition) bool {
 			return false
 		}
 
-		// Compare condition fields, ignore LastTransitionTime and ObservedGeneration
+		// Compare condition fields, ignore LastTransitionTime
 		if oldCondition.Type != newCondition.Type ||
 			oldCondition.Status != newCondition.Status ||
 			oldCondition.Reason != newCondition.Reason ||
-			oldCondition.Message != newCondition.Message {
+			oldCondition.Message != newCondition.Message ||
+			oldCondition.ObservedGeneration != newCondition.ObservedGeneration {
 			return false
 		}
 	}

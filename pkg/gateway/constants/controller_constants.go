@@ -76,6 +76,12 @@ const (
 
 // constant for status update
 const (
-	GatewayAcceptedFalseMessage = "Gateway is not accepted because there is an invalid listener."
-	ListenerAcceptedMessage     = "Listener is accepted"
+	GatewayAcceptedFalseMessage      = "Gateway is not accepted because there is an invalid listener."
+	GatewayProgrammedPendingMessage  = "Waiting for load balancer to be active."
+	ListenerAcceptedMessage          = "Listener is accepted."
+	ListenerNotAcceptedMessage       = "Listener is not accepted."
+	ListenerNoConflictMessage        = "Listener has no conflict."
+	ListenerProgrammedMessage        = "Listener is programmed."
+	ListenerResolvedRefMessage       = "Listener has all refs resolved."
+	ListenerPendingProgrammedMessage = "Listener is pending to be programmed."
 )

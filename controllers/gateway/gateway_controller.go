@@ -3,8 +3,9 @@ package gateway
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"time"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
@@ -390,9 +391,12 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 
 	var needPatch bool
 	var requeueNeeded bool
-	if isGatewayProgrammed(*lbStatus) {
+	isProgrammed := isGatewayProgrammed(*lbStatus)
+	if isProgrammed {
 		needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionProgrammed), metav1.ConditionTrue, string(gwv1.GatewayConditionProgrammed), lbStatus.LoadBalancerARN)
 	} else {
+		// Set Programmed to Unknown while ALB is provisioning
+		needPatch = r.gatewayConditionUpdater(gw, string(gwv1.GatewayConditionProgrammed), metav1.ConditionUnknown, string(gwv1.GatewayReasonPending), gateway_constants.GatewayProgrammedPendingMessage)
 		requeueNeeded = true
 	}
 
@@ -410,7 +414,7 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	// update listeners status
-	ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, nil)
+	ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, nil, isProgrammed)
 	if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 		gw.Status.Listeners = ListenerStatuses
 		needPatch = true
@@ -438,7 +442,7 @@ func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *
 	if loadResults != nil {
 		listenerValidationResults := loadResults.ValidationResults
 		attachedRoutesMap := loadResults.AttachedRoutesMap
-		ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, &listenerValidationResults)
+		ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, &listenerValidationResults, false)
 		if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 			gw.Status.Listeners = ListenerStatuses
 			needPatch = true
