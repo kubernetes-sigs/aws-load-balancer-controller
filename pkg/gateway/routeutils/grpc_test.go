@@ -129,7 +129,7 @@ func Test_ListGRPCRoutes(t *testing.T) {
 
 func Test_GRPC_LoadAttachedRules(t *testing.T) {
 	weight := 0
-	mockBackendLoader := func(ctx context.Context, k8sClient client.Client, typeSpecificBackend interface{}, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
+	mockBackendLoader := func(ctx context.Context, k8sClient client.Client, backendRef gwv1.BackendRef, routeIdentifier types.NamespacedName, routeKind RouteKind) (*Backend, error, error) {
 		weight++
 		return &Backend{
 			Weight: weight,

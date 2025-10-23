@@ -15,7 +15,7 @@ type MockTargetGroupBuilder struct {
 	buildErr error
 }
 
-func (m *MockTargetGroupBuilder) buildTargetGroup(stack core.Stack, gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (*elbv2model.TargetGroup, error) {
+func (m *MockTargetGroupBuilder) buildTargetGroup(stack core.Stack, gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (core.StringToken, error) {
 	var tg *elbv2model.TargetGroup
 
 	if len(m.tgs) > 0 {
@@ -23,7 +23,11 @@ func (m *MockTargetGroupBuilder) buildTargetGroup(stack core.Stack, gw *gwv1.Gat
 		m.tgs = m.tgs[1:]
 	}
 
-	return tg, m.buildErr
+	var arn core.StringToken
+	if tg != nil {
+		arn = tg.TargetGroupARN()
+	}
+	return arn, m.buildErr
 }
 
 func (m *MockTargetGroupBuilder) buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, backend routeutils.Backend, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error) {

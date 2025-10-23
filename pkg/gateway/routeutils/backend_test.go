@@ -16,7 +16,7 @@ import (
 	"testing"
 )
 
-func TestCommonBackendLoader(t *testing.T) {
+func TestCommonBackendLoader_Service(t *testing.T) {
 
 	kind := HTTPRouteKind
 
@@ -372,7 +372,7 @@ func TestCommonBackendLoader(t *testing.T) {
 				assert.NoError(t, err, fmt.Sprintf("%+v", g))
 			}
 
-			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.backendRef, tc.routeIdentifier, kind)
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, kind)
 
 			if tc.expectWarning {
 				assert.Error(t, warningErr)
@@ -390,15 +390,69 @@ func TestCommonBackendLoader(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tc.storedService, result.Service)
+			assert.Equal(t, tc.storedService, result.ServiceBackend.Service)
 			assert.Equal(t, tc.weight, result.Weight)
-			assert.Equal(t, tc.servicePort, result.ServicePort.Port)
-			assert.Equal(t, tc.backendRef, result.TypeSpecificBackend)
+			assert.Equal(t, tc.servicePort, result.ServiceBackend.ServicePort.Port)
 
 			if tc.expectedTargetGroup == nil {
-				assert.Nil(t, result.ELBV2TargetGroupProps)
+				assert.Nil(t, result.ServiceBackend.ELBV2TargetGroupProps)
 			} else {
-				assert.Equal(t, tc.expectedTargetGroup, result.ELBV2TargetGroupProps)
+				assert.Equal(t, tc.expectedTargetGroup, result.ServiceBackend.ELBV2TargetGroupProps)
+			}
+		})
+	}
+}
+
+func TestCommonBackendLoader_TargetGroupName(t *testing.T) {
+	testCases := []struct {
+		name            string
+		expectWarning   bool
+		expectFatal     bool
+		backendRef      gwv1.BackendRef
+		routeIdentifier types.NamespacedName
+		expected        *LiteralTargetGroupConfig
+	}{
+		{
+			name:          "invalid backend kind",
+			expectWarning: true,
+			backendRef: gwv1.BackendRef{
+				BackendObjectReference: gwv1.BackendObjectReference{
+					Kind: (*gwv1.Kind)(awssdk.String("invalid")),
+				},
+			},
+		},
+		{
+			name: "valid name",
+			backendRef: gwv1.BackendRef{
+				BackendObjectReference: gwv1.BackendObjectReference{
+					Kind: (*gwv1.Kind)(awssdk.String(TargetGroupNameBackend)),
+					Name: "foo",
+				},
+			},
+			expected: &LiteralTargetGroupConfig{
+				Name: "foo",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			k8sClient := testutils.GenerateTestClient()
+
+			result, warningErr, fatalErr := commonBackendLoader(context.Background(), k8sClient, tc.backendRef, tc.routeIdentifier, HTTPRouteKind)
+
+			if tc.expectWarning {
+				assert.Error(t, warningErr)
+				assert.NoError(t, fatalErr)
+			} else if tc.expectFatal {
+				assert.Error(t, fatalErr)
+				assert.NoError(t, warningErr)
+			} else {
+				assert.NoError(t, warningErr)
+				assert.NoError(t, fatalErr)
+
+				assert.Nil(t, result.ServiceBackend)
+				assert.Equal(t, tc.expected, result.LiteralTargetGroup)
 			}
 		})
 	}

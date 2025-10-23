@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sort"
 	"strconv"
 	"strings"
@@ -15,7 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -171,7 +171,9 @@ func getServicesFromRoutes(listenerRouteMap map[int32][]routeutils.RouteDescript
 		for _, route := range routes {
 			for _, rr := range route.GetAttachedRules() {
 				for _, be := range rr.GetBackends() {
-					res.Insert(k8s.NamespacedName(be.Service))
+					if be.ServiceBackend != nil {
+						res.Insert(k8s.NamespacedName(be.ServiceBackend.Service))
+					}
 				}
 			}
 		}

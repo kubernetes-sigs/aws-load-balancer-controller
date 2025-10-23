@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"time"
 
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -56,13 +57,13 @@ const (
 var _ Reconciler = &gatewayReconciler{}
 
 // NewNLBGatewayReconciler constructs a gateway reconciler to handle specifically for NLB gateways
-func NewNLBGatewayReconciler(routeLoader routeutils.Loader, referenceCounter referencecounter.ServiceReferenceCounter, cloud services.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder, controllerConfig config.ControllerConfig, finalizerManager k8s.FinalizerManager, networkingManager networking.NetworkingManager, networkingSGReconciler networking.SecurityGroupReconciler, networkingSGManager networking.SecurityGroupManager, elbv2TaggingManager elbv2deploy.TaggingManager, subnetResolver networking.SubnetsResolver, vpcInfoProvider networking.VPCInfoProvider, backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters, targetGroupCollector awsmetrics.TargetGroupCollector) Reconciler {
-	return newGatewayReconciler(constants.NLBGatewayController, elbv2model.LoadBalancerTypeNetwork, controllerConfig.NLBGatewayMaxConcurrentReconciles, constants.NLBGatewayTagPrefix, shared_constants.NLBGatewayFinalizer, routeLoader, referenceCounter, routeutils.L4RouteFilter, cloud, k8sClient, eventRecorder, controllerConfig, finalizerManager, networkingSGReconciler, networkingManager, networkingSGManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, nlbAddons, logger, metricsCollector, reconcileCounters.IncrementNLBGateway, targetGroupCollector)
+func NewNLBGatewayReconciler(routeLoader routeutils.Loader, referenceCounter referencecounter.ServiceReferenceCounter, cloud services.Cloud, k8sClient client.Client, eventRecorder record.EventRecorder, controllerConfig config.ControllerConfig, finalizerManager k8s.FinalizerManager, networkingManager networking.NetworkingManager, networkingSGReconciler networking.SecurityGroupReconciler, networkingSGManager networking.SecurityGroupManager, elbv2TaggingManager elbv2deploy.TaggingManager, subnetResolver networking.SubnetsResolver, vpcInfoProvider networking.VPCInfoProvider, backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters, targetGroupCollector awsmetrics.TargetGroupCollector, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) Reconciler {
+	return newGatewayReconciler(constants.NLBGatewayController, elbv2model.LoadBalancerTypeNetwork, controllerConfig.NLBGatewayMaxConcurrentReconciles, constants.NLBGatewayTagPrefix, shared_constants.NLBGatewayFinalizer, routeLoader, referenceCounter, routeutils.L4RouteFilter, cloud, k8sClient, eventRecorder, controllerConfig, finalizerManager, networkingSGReconciler, networkingManager, networkingSGManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, nlbAddons, targetGroupNameToArnMapper, logger, metricsCollector, reconcileCounters.IncrementNLBGateway, targetGroupCollector)
 }
 
 // NewALBGatewayReconciler constructs a gateway reconciler to handle specifically for ALB gateways
-func NewALBGatewayReconciler(routeLoader routeutils.Loader, cloud services.Cloud, k8sClient client.Client, referenceCounter referencecounter.ServiceReferenceCounter, eventRecorder record.EventRecorder, controllerConfig config.ControllerConfig, finalizerManager k8s.FinalizerManager, networkingManager networking.NetworkingManager, networkingSGReconciler networking.SecurityGroupReconciler, networkingSGManager networking.SecurityGroupManager, elbv2TaggingManager elbv2deploy.TaggingManager, subnetResolver networking.SubnetsResolver, vpcInfoProvider networking.VPCInfoProvider, backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters, targetGroupCollector awsmetrics.TargetGroupCollector) Reconciler {
-	return newGatewayReconciler(constants.ALBGatewayController, elbv2model.LoadBalancerTypeApplication, controllerConfig.ALBGatewayMaxConcurrentReconciles, constants.ALBGatewayTagPrefix, shared_constants.ALBGatewayFinalizer, routeLoader, referenceCounter, routeutils.L7RouteFilter, cloud, k8sClient, eventRecorder, controllerConfig, finalizerManager, networkingSGReconciler, networkingManager, networkingSGManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, albAddons, logger, metricsCollector, reconcileCounters.IncrementALBGateway, targetGroupCollector)
+func NewALBGatewayReconciler(routeLoader routeutils.Loader, cloud services.Cloud, k8sClient client.Client, referenceCounter referencecounter.ServiceReferenceCounter, eventRecorder record.EventRecorder, controllerConfig config.ControllerConfig, finalizerManager k8s.FinalizerManager, networkingManager networking.NetworkingManager, networkingSGReconciler networking.SecurityGroupReconciler, networkingSGManager networking.SecurityGroupManager, elbv2TaggingManager elbv2deploy.TaggingManager, subnetResolver networking.SubnetsResolver, vpcInfoProvider networking.VPCInfoProvider, backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters, targetGroupCollector awsmetrics.TargetGroupCollector, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) Reconciler {
+	return newGatewayReconciler(constants.ALBGatewayController, elbv2model.LoadBalancerTypeApplication, controllerConfig.ALBGatewayMaxConcurrentReconciles, constants.ALBGatewayTagPrefix, shared_constants.ALBGatewayFinalizer, routeLoader, referenceCounter, routeutils.L7RouteFilter, cloud, k8sClient, eventRecorder, controllerConfig, finalizerManager, networkingSGReconciler, networkingManager, networkingSGManager, elbv2TaggingManager, subnetResolver, vpcInfoProvider, backendSGProvider, sgResolver, albAddons, targetGroupNameToArnMapper, logger, metricsCollector, reconcileCounters.IncrementALBGateway, targetGroupCollector)
 }
 
 // newGatewayReconciler constructs a reconciler that responds to gateway object changes
@@ -72,7 +73,7 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 	finalizerManager k8s.FinalizerManager, networkingSGReconciler networking.SecurityGroupReconciler,
 	networkingManager networking.NetworkingManager, networkingSGManager networking.SecurityGroupManager, elbv2TaggingManager elbv2deploy.TaggingManager,
 	subnetResolver networking.SubnetsResolver, vpcInfoProvider networking.VPCInfoProvider, backendSGProvider networking.BackendSGProvider,
-	sgResolver networking.SecurityGroupResolver, supportedAddons []addon.Addon, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector,
+	sgResolver networking.SecurityGroupResolver, supportedAddons []addon.Addon, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector,
 	reconcileTracker func(namespaceName types.NamespacedName), targetGroupCollector awsmetrics.TargetGroupCollector) Reconciler {
 
 	trackingProvider := tracking.NewDefaultProvider(gatewayTagPrefix, controllerConfig.ClusterName)
@@ -84,49 +85,51 @@ func newGatewayReconciler(controllerName string, lbType elbv2model.LoadBalancerT
 	cfgResolver := newGatewayConfigResolver()
 
 	return &gatewayReconciler{
-		controllerName:          controllerName,
-		lbType:                  lbType,
-		maxConcurrentReconciles: maxConcurrentReconciles,
-		finalizer:               finalizer,
-		gatewayLoader:           routeLoader,
-		routeFilter:             routeFilter,
-		k8sClient:               k8sClient,
-		modelBuilder:            modelBuilder,
-		backendSGProvider:       backendSGProvider,
-		stackMarshaller:         stackMarshaller,
-		stackDeployer:           stackDeployer,
-		finalizerManager:        finalizerManager,
-		eventRecorder:           eventRecorder,
-		logger:                  logger,
-		metricsCollector:        metricsCollector,
-		reconcileTracker:        reconcileTracker,
-		cfgResolver:             cfgResolver,
-		serviceReferenceCounter: serviceReferenceCounter,
-		gatewayConditionUpdater: prepareGatewayConditionUpdate,
+		controllerName:             controllerName,
+		lbType:                     lbType,
+		maxConcurrentReconciles:    maxConcurrentReconciles,
+		finalizer:                  finalizer,
+		gatewayLoader:              routeLoader,
+		routeFilter:                routeFilter,
+		k8sClient:                  k8sClient,
+		modelBuilder:               modelBuilder,
+		backendSGProvider:          backendSGProvider,
+		stackMarshaller:            stackMarshaller,
+		stackDeployer:              stackDeployer,
+		finalizerManager:           finalizerManager,
+		eventRecorder:              eventRecorder,
+		logger:                     logger,
+		metricsCollector:           metricsCollector,
+		reconcileTracker:           reconcileTracker,
+		cfgResolver:                cfgResolver,
+		serviceReferenceCounter:    serviceReferenceCounter,
+		gatewayConditionUpdater:    prepareGatewayConditionUpdate,
+		targetGroupNameToArnMapper: targetGroupNameToArnMapper,
 	}
 }
 
 // gatewayReconciler reconciles a Gateway.
 type gatewayReconciler struct {
-	controllerName          string
-	lbType                  elbv2model.LoadBalancerType
-	finalizer               string
-	maxConcurrentReconciles int
-	gatewayLoader           routeutils.Loader
-	routeFilter             routeutils.LoadRouteFilter
-	k8sClient               client.Client
-	modelBuilder            gatewaymodel.Builder
-	backendSGProvider       networking.BackendSGProvider
-	secretsManager          k8s.SecretsManager
-	stackMarshaller         deploy.StackMarshaller
-	stackDeployer           deploy.StackDeployer
-	finalizerManager        k8s.FinalizerManager
-	eventRecorder           record.EventRecorder
-	logger                  logr.Logger
-	metricsCollector        lbcmetrics.MetricCollector
-	reconcileTracker        func(namespaceName types.NamespacedName)
-	serviceReferenceCounter referencecounter.ServiceReferenceCounter
-	gatewayConditionUpdater func(gw *gwv1.Gateway, targetConditionType string, newStatus metav1.ConditionStatus, reason string, message string) bool
+	controllerName             string
+	lbType                     elbv2model.LoadBalancerType
+	finalizer                  string
+	maxConcurrentReconciles    int
+	gatewayLoader              routeutils.Loader
+	routeFilter                routeutils.LoadRouteFilter
+	k8sClient                  client.Client
+	modelBuilder               gatewaymodel.Builder
+	backendSGProvider          networking.BackendSGProvider
+	secretsManager             k8s.SecretsManager
+	stackMarshaller            deploy.StackMarshaller
+	stackDeployer              deploy.StackDeployer
+	finalizerManager           k8s.FinalizerManager
+	eventRecorder              record.EventRecorder
+	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
+	logger                     logr.Logger
+	metricsCollector           lbcmetrics.MetricCollector
+	reconcileTracker           func(namespaceName types.NamespacedName)
+	serviceReferenceCounter    referencecounter.ServiceReferenceCounter
+	gatewayConditionUpdater    func(gw *gwv1.Gateway, targetConditionType string, newStatus metav1.ConditionStatus, reason string, message string) bool
 
 	cfgResolver gatewayConfigResolver
 }
@@ -274,7 +277,6 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 			r.logger.Error(err, "Failed to process gateway delete")
 			return err
 		}
-		r.serviceReferenceCounter.UpdateRelations([]types.NamespacedName{}, k8s.NamespacedName(gw), true)
 		return nil
 	}
 	r.serviceReferenceCounter.UpdateRelations(getServicesFromRoutes(allRoutes), k8s.NamespacedName(gw), false)
@@ -310,6 +312,7 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 		if err := r.backendSGProvider.Release(ctx, networking.ResourceTypeGateway, []types.NamespacedName{k8s.NamespacedName(gw)}); err != nil {
 			return err
 		}
+		r.serviceReferenceCounter.UpdateRelations([]types.NamespacedName{}, k8s.NamespacedName(gw), true)
 		// remove gateway finalizer
 		if err := r.finalizerManager.RemoveFinalizers(ctx, gw, r.finalizer); err != nil {
 			r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedRemoveFinalizer, fmt.Sprintf("Failed remove gateway finalizer due to %v", err))
@@ -363,7 +366,7 @@ func (r *gatewayReconciler) deployModel(ctx context.Context, gw *gwv1.Gateway, s
 }
 
 func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cfg elbv2gw.LoadBalancerConfiguration, listenerToRoute map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
-	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute, currentAddonConfig, r.secretsManager)
+	stack, lb, newAddOnConfig, backendSGRequired, secrets, err := r.modelBuilder.Build(ctx, gw, cfg, listenerToRoute, currentAddonConfig, r.secretsManager, r.targetGroupNameToArnMapper)
 	if err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, nil, false, nil, err

@@ -38,16 +38,17 @@ type listenerBuilder interface {
 }
 
 type listenerBuilderImpl struct {
-	elbv2Client      services.ELBV2
-	k8sClient        client.Client
-	loadBalancerType elbv2model.LoadBalancerType
-	clusterName      string
-	tagHelper        tagHelper
-	tgBuilder        targetGroupBuilder
-	defaultSSLPolicy string
-	secretsManager   k8s.SecretsManager
-	certDiscovery    certs.CertDiscovery
-	logger           logr.Logger
+	elbv2Client                services.ELBV2
+	k8sClient                  client.Client
+	loadBalancerType           elbv2model.LoadBalancerType
+	clusterName                string
+	tagHelper                  tagHelper
+	tgBuilder                  targetGroupBuilder
+	defaultSSLPolicy           string
+	secretsManager             k8s.SecretsManager
+	certDiscovery              certs.CertDiscovery
+	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
+	logger                     logr.Logger
 }
 
 func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
@@ -179,11 +180,11 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 		return nil, nil
 	}
 
-	targetGroup, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, lb.Spec.IPAddressType, routeDescriptor, backend, securityGroups.backendSecurityGroupToken)
+	arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, lb.Spec.IPAddressType, routeDescriptor, backend, securityGroups.backendSecurityGroupToken)
 	if tgErr != nil {
 		return &elbv2model.ListenerSpec{}, tgErr
 	}
-	listenerSpec.DefaultActions = buildL4ListenerDefaultActions(targetGroup)
+	listenerSpec.DefaultActions = buildL4ListenerDefaultActions(arn)
 	return listenerSpec, nil
 }
 
@@ -224,14 +225,14 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		}
 		targetGroupTuples := make([]elbv2model.TargetGroupTuple, 0, len(rule.GetBackends()))
 		for _, backend := range rule.GetBackends() {
-			targetGroup, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, ipAddressType, route, backend, securityGroups.backendSecurityGroupToken)
+			arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, ipAddressType, route, backend, securityGroups.backendSecurityGroupToken)
 			if tgErr != nil {
 				return nil, tgErr
 			}
 			// weighted target group support
 			weight := int32(backend.Weight)
 			targetGroupTuples = append(targetGroupTuples, elbv2model.TargetGroupTuple{
-				TargetGroupARN: targetGroup.TargetGroupARN(),
+				TargetGroupARN: arn,
 				Weight:         &weight,
 			})
 		}
@@ -393,14 +394,14 @@ func buildL7ListenerNoBackendActions() elbv2model.Action {
 	return action503
 }
 
-func buildL4ListenerDefaultActions(targetGroup *elbv2model.TargetGroup) []elbv2model.Action {
+func buildL4ListenerDefaultActions(arn core.StringToken) []elbv2model.Action {
 	return []elbv2model.Action{
 		{
 			Type: elbv2model.ActionTypeForward,
 			ForwardConfig: &elbv2model.ForwardActionConfig{
 				TargetGroups: []elbv2model.TargetGroupTuple{
 					{
-						TargetGroupARN: targetGroup.TargetGroupARN(),
+						TargetGroupARN: arn,
 					},
 				},
 			},

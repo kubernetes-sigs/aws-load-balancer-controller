@@ -1151,9 +1151,11 @@ func Test_BuildListenerRules(t *testing.T) {
 								},
 								BackendRefs: []routeutils.Backend{
 									{
-										Service:     &corev1.Service{},
-										ServicePort: &corev1.ServicePort{Name: "svcport"},
-										Weight:      1,
+										ServiceBackend: &routeutils.ServiceBackendConfig{
+											Service:     &corev1.Service{},
+											ServicePort: &corev1.ServicePort{Name: "svcport"},
+										},
+										Weight: 1,
 									},
 								},
 							},
@@ -1225,9 +1227,11 @@ func Test_BuildListenerRules(t *testing.T) {
 								},
 								BackendRefs: []routeutils.Backend{
 									{
-										Service:     &corev1.Service{},
-										ServicePort: &corev1.ServicePort{Name: "svcport"},
-										Weight:      1,
+										ServiceBackend: &routeutils.ServiceBackendConfig{
+											Service:     &corev1.Service{},
+											ServicePort: &corev1.ServicePort{Name: "svcport"},
+										},
+										Weight: 1,
 									},
 								},
 							},
@@ -1286,9 +1290,11 @@ func Test_BuildListenerRules(t *testing.T) {
 								},
 								BackendRefs: []routeutils.Backend{
 									{
-										Service:     &corev1.Service{},
-										ServicePort: &corev1.ServicePort{Name: "svcport"},
-										Weight:      1,
+										ServiceBackend: &routeutils.ServiceBackendConfig{
+											Service:     &corev1.Service{},
+											ServicePort: &corev1.ServicePort{Name: "svcport"},
+										},
+										Weight: 1,
 									},
 								},
 								ListenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
@@ -1362,9 +1368,11 @@ func Test_BuildListenerRules(t *testing.T) {
 								},
 								BackendRefs: []routeutils.Backend{
 									{
-										Service:     &corev1.Service{},
-										ServicePort: &corev1.ServicePort{Name: "svcport"},
-										Weight:      1,
+										ServiceBackend: &routeutils.ServiceBackendConfig{
+											Service:     &corev1.Service{},
+											ServicePort: &corev1.ServicePort{Name: "svcport"},
+										},
+										Weight: 1,
 									},
 								},
 								ListenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{

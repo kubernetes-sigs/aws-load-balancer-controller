@@ -1,6 +1,7 @@
 package referencecounter
 
 import (
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sync"
@@ -13,7 +14,8 @@ type ServiceReferenceCounter interface {
 }
 
 type serviceReferenceCounter struct {
-	mutex sync.RWMutex
+	logger logr.Logger
+	mutex  sync.RWMutex
 	// key: gateway, value: set of svc
 	relations map[types.NamespacedName]sets.Set[types.NamespacedName]
 	refCount  map[types.NamespacedName]int

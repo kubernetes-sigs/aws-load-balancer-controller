@@ -107,7 +107,7 @@ func (t *defaultModelBuildTask) buildForwardAction(ctx context.Context, ing Clas
 		if tgt.TargetGroupARN != nil {
 			tgARN = core.LiteralStringToken(*tgt.TargetGroupARN)
 		} else if tgt.TargetGroupName != nil {
-			targetGroupARN, err := t.targetGroupNameToArnMapper.getArnByName(ctx, *tgt.TargetGroupName)
+			targetGroupARN, err := t.targetGroupNameToArnMapper.GetArnByName(ctx, *tgt.TargetGroupName)
 			if err != nil {
 				return elbv2model.Action{}, fmt.Errorf("searching TargetGroup with name %s: %w", *tgt.TargetGroupName, err)
 			}

@@ -40,10 +40,6 @@ func convertGRPCRouteRule(rule *gwv1.GRPCRouteRule, backends []Backend, listener
 	}
 }
 
-func (t *convertedGRPCRouteRule) GetSectionName() *gwv1.SectionName {
-	return t.rule.Name
-}
-
 func (t *convertedGRPCRouteRule) GetBackends() []Backend {
 	return t.backends
 }
