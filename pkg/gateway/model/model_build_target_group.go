@@ -33,7 +33,7 @@ type buildTargetGroupOutput struct {
 
 type targetGroupBuilder interface {
 	buildTargetGroup(stack core.Stack,
-		gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (core.StringToken, error)
+		gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error)
 }
 
 type targetGroupBuilderImpl struct {
@@ -42,11 +42,11 @@ type targetGroupBuilderImpl struct {
 	clusterName string
 	vpcID       string
 
-	tagHelper                tagHelper
-	tgByResID                map[string]*elbv2model.TargetGroup
-	tgPropertiesConstructor  gateway.TargetGroupConfigConstructor
-	disableRestrictedSGRules bool
+	tagHelper               tagHelper
+	tgByResID               map[string]*elbv2model.TargetGroup
+	tgPropertiesConstructor gateway.TargetGroupConfigConstructor
 
+	tgbNetworkBuilder          targetGroupBindingNetworkBuilder
 	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
 
 	defaultTargetType elbv2model.TargetType
@@ -71,16 +71,16 @@ type targetGroupBuilderImpl struct {
 	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int32
 }
 
-func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper, loadBalancerType elbv2model.LoadBalancerType, tgPropertiesConstructor gateway.TargetGroupConfigConstructor, disableRestrictedSGRules bool, defaultTargetType string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) targetGroupBuilder {
+func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper, loadBalancerType elbv2model.LoadBalancerType, tgbNetworkBuilder targetGroupBindingNetworkBuilder, tgPropertiesConstructor gateway.TargetGroupConfigConstructor, defaultTargetType string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) targetGroupBuilder {
 	return &targetGroupBuilderImpl{
 		loadBalancerType:                          loadBalancerType,
 		clusterName:                               clusterName,
 		vpcID:                                     vpcId,
+		tgbNetworkBuilder:                         tgbNetworkBuilder,
 		tgPropertiesConstructor:                   tgPropertiesConstructor,
 		targetGroupNameToArnMapper:                targetGroupNameToArnMapper,
 		tgByResID:                                 make(map[string]*elbv2model.TargetGroup),
 		tagHelper:                                 tagHelper,
-		disableRestrictedSGRules:                  disableRestrictedSGRules,
 		defaultTargetType:                         elbv2model.TargetType(defaultTargetType),
 		defaultHealthCheckMatcherHTTPCode:         "200-399",
 		defaultHealthCheckMatcherGRPCCode:         "12",
@@ -101,10 +101,10 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
-	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend, backendSGIDToken core.StringToken) (core.StringToken, error) {
+	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
 
 	if backend.ServiceBackend != nil {
-		tg, err := builder.buildTargetGroupFromService(stack, gw, lbConfig, lbIPType, routeDescriptor, *backend.ServiceBackend, backendSGIDToken)
+		tg, err := builder.buildTargetGroupFromService(stack, gw, lbConfig, lbIPType, routeDescriptor, *backend.ServiceBackend)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +120,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupFromService(stack core.Stack,
-	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backendConfig routeutils.ServiceBackendConfig, backendSGIDToken core.StringToken) (*elbv2model.TargetGroup, error) {
+	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backendConfig routeutils.ServiceBackendConfig) (*elbv2model.TargetGroup, error) {
 	targetGroupProps := backendConfig.ELBV2TargetGroupProps
 	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backendConfig.Service), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backendConfig.ServicePort.TargetPort)
 	if tg, exists := builder.tgByResID[tgResID]; exists {
@@ -132,7 +132,11 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupFromService(stack core.St
 		return nil, err
 	}
 	nodeSelector := builder.buildTargetGroupBindingNodeSelector(targetGroupProps, tgSpec.TargetType)
-	bindingSpec := builder.buildTargetGroupBindingSpec(gw, targetGroupProps, tgSpec, nodeSelector, backendConfig, backendSGIDToken)
+	bindingSpec, err := builder.buildTargetGroupBindingSpec(gw, targetGroupProps, tgSpec, nodeSelector, backendConfig)
+
+	if err != nil {
+		return nil, err
+	}
 
 	tgOut := buildTargetGroupOutput{
 		targetGroupSpec: tgSpec,
@@ -156,13 +160,16 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupFromStaticName(cfg routeu
 	return core.LiteralStringToken(tgArn), nil
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backendConfig routeutils.ServiceBackendConfig, backendSGIDToken core.StringToken) elbv2modelk8s.TargetGroupBindingResourceSpec {
+func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gateway, tgProps *elbv2gw.TargetGroupProps, tgSpec elbv2model.TargetGroupSpec, nodeSelector *metav1.LabelSelector, backendConfig routeutils.ServiceBackendConfig) (elbv2modelk8s.TargetGroupBindingResourceSpec, error) {
 	targetType := elbv2api.TargetType(tgSpec.TargetType)
 	targetPort := backendConfig.ServicePort.TargetPort
 	if targetType == elbv2api.TargetTypeInstance {
 		targetPort = intstr.FromInt32(backendConfig.ServicePort.NodePort)
 	}
-	tgbNetworking := builder.buildTargetGroupBindingNetworking(targetPort, *tgSpec.HealthCheckConfig.Port, tgSpec.Protocol, backendSGIDToken)
+	tgbNetworking, err := builder.tgbNetworkBuilder.buildTargetGroupBindingNetworking(tgSpec, targetPort)
+	if err != nil {
+		return elbv2modelk8s.TargetGroupBindingResourceSpec{}, err
+	}
 
 	multiClusterEnabled := builder.buildTargetGroupBindingMultiClusterFlag(tgProps)
 
@@ -206,91 +213,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 				TargetGroupProtocol:     &tgSpec.Protocol,
 			},
 		},
-	}
-}
-
-func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNetworking(targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, tgProtocol elbv2model.Protocol, backendSGIDToken core.StringToken) *elbv2modelk8s.TargetGroupBindingNetworking {
-	if backendSGIDToken == nil {
-		return nil
-	}
-	protocolTCP := elbv2api.NetworkingProtocolTCP
-	protocolUDP := elbv2api.NetworkingProtocolUDP
-
-	udpSupported := tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolTCP_UDP
-
-	if builder.disableRestrictedSGRules {
-		ports := []elbv2api.NetworkingPort{
-			{
-				Protocol: &protocolTCP,
-				Port:     nil,
-			},
-		}
-
-		if udpSupported {
-			ports = append(ports, elbv2api.NetworkingPort{
-				Protocol: &protocolUDP,
-				Port:     nil,
-			})
-		}
-
-		return &elbv2modelk8s.TargetGroupBindingNetworking{
-			Ingress: []elbv2modelk8s.NetworkingIngressRule{
-				{
-					From: []elbv2modelk8s.NetworkingPeer{
-						{
-							SecurityGroup: &elbv2modelk8s.SecurityGroup{
-								GroupID: backendSGIDToken,
-							},
-						},
-					},
-					Ports: ports,
-				},
-			},
-		}
-	}
-
-	var networkingPorts []elbv2api.NetworkingPort
-
-	protocolToUse := &protocolTCP
-	if udpSupported {
-		protocolToUse = &protocolUDP
-	}
-
-	networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
-		Protocol: protocolToUse,
-		Port:     &targetPort,
-	})
-
-	if udpSupported || (healthCheckPort.Type == intstr.Int && healthCheckPort.IntValue() != targetPort.IntValue()) {
-		var hcPortToUse intstr.IntOrString
-		if healthCheckPort.Type == intstr.String {
-			hcPortToUse = targetPort
-		} else {
-			hcPortToUse = healthCheckPort
-		}
-
-		networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
-			Protocol: &protocolTCP,
-			Port:     &hcPortToUse,
-		})
-	}
-
-	var networkingRules []elbv2modelk8s.NetworkingIngressRule
-	for _, port := range networkingPorts {
-		networkingRules = append(networkingRules, elbv2modelk8s.NetworkingIngressRule{
-			From: []elbv2modelk8s.NetworkingPeer{
-				{
-					SecurityGroup: &elbv2modelk8s.SecurityGroup{
-						GroupID: backendSGIDToken,
-					},
-				},
-			},
-			Ports: []elbv2api.NetworkingPort{port},
-		})
-	}
-	return &elbv2modelk8s.TargetGroupBindingNetworking{
-		Ingress: networkingRules,
-	}
+	}, nil
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, backendConfig routeutils.ServiceBackendConfig, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error) {

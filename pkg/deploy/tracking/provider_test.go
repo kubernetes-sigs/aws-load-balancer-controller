@@ -109,13 +109,13 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 func Test_defaultProvider_ResourceTags(t *testing.T) {
 	ingressStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "ingressName"})
 	ingressFakeRes := core.NewFakeResource(ingressStack, "fake", "fake-id", core.FakeResourceSpec{}, nil)
-	
+
 	serviceStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "serviceName"})
 	serviceFakeRes := core.NewFakeResource(serviceStack, "fake", "service-id", core.FakeResourceSpec{}, nil)
-	
+
 	agaStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "globalAcceleratorName"})
 	agaFakeRes := core.NewFakeResource(agaStack, "fake", "accelerator-id", core.FakeResourceSpec{}, nil)
-	
+
 	gatewayStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "gatewayName"})
 	gatewayFakeRes := core.NewFakeResource(gatewayStack, "fake", "gateway-id", core.FakeResourceSpec{}, nil)
 

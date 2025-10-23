@@ -13,7 +13,6 @@ import (
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
@@ -312,7 +311,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType, nil)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, &mockTargetGroupBindingNetworkingBuilder{}, gateway.NewTargetGroupConfigConstructor(), tc.defaultTargetType, nil)
 
 			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(tc.gateway, tc.route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
 			if tc.expectErr {
@@ -332,25 +331,23 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 	tcpProtocol := elbv2model.ProtocolTCP
 	httpProtocol := elbv2model.ProtocolHTTP
 	testCases := []struct {
-		name                     string
-		tags                     map[string]string
-		lbType                   elbv2model.LoadBalancerType
-		disableRestrictedSGRules bool
-		defaultTargetType        string
-		gateway                  *gwv1.Gateway
-		route                    *routeutils.MockRoute
-		backend                  routeutils.ServiceBackendConfig
-		tagErr                   error
-		expectErr                bool
-		expectedTgSpec           elbv2model.TargetGroupSpec
-		expectedTgBindingSpec    elbv2modelk8s.TargetGroupBindingResourceSpec
+		name                  string
+		tags                  map[string]string
+		lbType                elbv2model.LoadBalancerType
+		defaultTargetType     string
+		gateway               *gwv1.Gateway
+		route                 *routeutils.MockRoute
+		backend               routeutils.ServiceBackendConfig
+		tagErr                error
+		expectErr             bool
+		expectedTgSpec        elbv2model.TargetGroupSpec
+		expectedTgBindingSpec elbv2modelk8s.TargetGroupBindingResourceSpec
 	}{
 		{
-			name:                     "no tg config - instance - nlb",
-			tags:                     make(map[string]string),
-			lbType:                   elbv2model.LoadBalancerTypeNetwork,
-			disableRestrictedSGRules: false,
-			defaultTargetType:        string(elbv2model.TargetTypeInstance),
+			name:              "no tg config - instance - nlb",
+			tags:              make(map[string]string),
+			lbType:            elbv2model.LoadBalancerTypeNetwork,
+			defaultTargetType: string(elbv2model.TargetTypeInstance),
 			gateway: &gwv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "my-gw-ns",
@@ -421,11 +418,10 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 			},
 		},
 		{
-			name:                     "no tg config - instance - alb",
-			tags:                     make(map[string]string),
-			lbType:                   elbv2model.LoadBalancerTypeApplication,
-			disableRestrictedSGRules: false,
-			defaultTargetType:        string(elbv2model.TargetTypeInstance),
+			name:              "no tg config - instance - alb",
+			tags:              make(map[string]string),
+			lbType:            elbv2model.LoadBalancerTypeApplication,
+			defaultTargetType: string(elbv2model.TargetTypeInstance),
 			gateway: &gwv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "my-gw-ns",
@@ -501,11 +497,10 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 			},
 		},
 		{
-			name:                     "no tg config - ip - nlb",
-			tags:                     make(map[string]string),
-			lbType:                   elbv2model.LoadBalancerTypeNetwork,
-			disableRestrictedSGRules: false,
-			defaultTargetType:        string(elbv2model.TargetTypeIP),
+			name:              "no tg config - ip - nlb",
+			tags:              make(map[string]string),
+			lbType:            elbv2model.LoadBalancerTypeNetwork,
+			defaultTargetType: string(elbv2model.TargetTypeIP),
 			gateway: &gwv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "my-gw-ns",
@@ -576,11 +571,10 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 			},
 		},
 		{
-			name:                     "no tg config - ip - alb",
-			tags:                     make(map[string]string),
-			lbType:                   elbv2model.LoadBalancerTypeApplication,
-			disableRestrictedSGRules: false,
-			defaultTargetType:        string(elbv2model.TargetTypeIP),
+			name:              "no tg config - ip - alb",
+			tags:              make(map[string]string),
+			lbType:            elbv2model.LoadBalancerTypeApplication,
+			defaultTargetType: string(elbv2model.TargetTypeIP),
 			gateway: &gwv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "my-gw-ns",
@@ -656,11 +650,10 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 			},
 		},
 		{
-			name:                     "no tg config - ip - alb - add infra annotations / labels",
-			tags:                     make(map[string]string),
-			lbType:                   elbv2model.LoadBalancerTypeApplication,
-			disableRestrictedSGRules: false,
-			defaultTargetType:        string(elbv2model.TargetTypeIP),
+			name:              "no tg config - ip - alb - add infra annotations / labels",
+			tags:              make(map[string]string),
+			lbType:            elbv2model.LoadBalancerTypeApplication,
+			defaultTargetType: string(elbv2model.TargetTypeIP),
 			gateway: &gwv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "my-gw-ns",
@@ -759,312 +752,12 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, gateway.NewTargetGroupConfigConstructor(), tc.disableRestrictedSGRules, tc.defaultTargetType, nil)
+			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, &mockTargetGroupBindingNetworkingBuilder{}, gateway.NewTargetGroupConfigConstructor(), tc.defaultTargetType, nil)
 
-			out := builder.(*targetGroupBuilderImpl).buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, tc.backend, nil)
+			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, tc.backend)
 
 			assert.Equal(t, tc.expectedTgBindingSpec, out)
-		})
-	}
-}
-
-func Test_buildTargetGroupBindingNetworking(t *testing.T) {
-	protocolTCP := elbv2api.NetworkingProtocolTCP
-	protocolUDP := elbv2api.NetworkingProtocolUDP
-
-	intstr80 := intstr.FromInt32(80)
-	intstr85 := intstr.FromInt32(85)
-	intstrTrafficPort := intstr.FromString(shared_constants.HealthCheckPortTrafficPort)
-
-	testCases := []struct {
-		name                     string
-		disableRestrictedSGRules bool
-
-		targetPort       intstr.IntOrString
-		healthCheckPort  intstr.IntOrString
-		tgProtocol       elbv2model.Protocol
-		backendSGIDToken core.StringToken
-
-		expected *elbv2modelk8s.TargetGroupBindingNetworking
-	}{
-		{
-			name:                     "disable restricted sg rules",
-			disableRestrictedSGRules: true,
-			backendSGIDToken:         core.LiteralStringToken("foo"),
-			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
-				Ingress: []elbv2modelk8s.NetworkingIngressRule{
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolTCP,
-								Port:     nil,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:                     "disable restricted sg rules - with udp",
-			disableRestrictedSGRules: true,
-			backendSGIDToken:         core.LiteralStringToken("foo"),
-			tgProtocol:               elbv2model.ProtocolUDP,
-			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
-				Ingress: []elbv2modelk8s.NetworkingIngressRule{
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolTCP,
-								Port:     nil,
-							},
-							{
-								Protocol: &protocolUDP,
-								Port:     nil,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:             "use restricted sg rules - int hc port",
-			backendSGIDToken: core.LiteralStringToken("foo"),
-			tgProtocol:       elbv2model.ProtocolTCP,
-			targetPort:       intstr80,
-			healthCheckPort:  intstr80,
-			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
-				Ingress: []elbv2modelk8s.NetworkingIngressRule{
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolTCP,
-								Port:     &intstr80,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:             "use restricted sg rules - int hc port - udp traffic",
-			backendSGIDToken: core.LiteralStringToken("foo"),
-			tgProtocol:       elbv2model.ProtocolUDP,
-			targetPort:       intstr80,
-			healthCheckPort:  intstr80,
-			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
-				Ingress: []elbv2modelk8s.NetworkingIngressRule{
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolUDP,
-								Port:     &intstr80,
-							},
-						},
-					},
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolTCP,
-								Port:     &intstr80,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:             "use restricted sg rules - str hc port",
-			backendSGIDToken: core.LiteralStringToken("foo"),
-			tgProtocol:       elbv2model.ProtocolHTTP,
-			targetPort:       intstr80,
-			healthCheckPort:  intstrTrafficPort,
-			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
-				Ingress: []elbv2modelk8s.NetworkingIngressRule{
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolTCP,
-								Port:     &intstr80,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:             "use restricted sg rules - str hc port - udp",
-			backendSGIDToken: core.LiteralStringToken("foo"),
-			tgProtocol:       elbv2model.ProtocolUDP,
-			targetPort:       intstr80,
-			healthCheckPort:  intstrTrafficPort,
-			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
-				Ingress: []elbv2modelk8s.NetworkingIngressRule{
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolUDP,
-								Port:     &intstr80,
-							},
-						},
-					},
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolTCP,
-								Port:     &intstr80,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:             "use restricted sg rules - diff hc port",
-			backendSGIDToken: core.LiteralStringToken("foo"),
-			tgProtocol:       elbv2model.ProtocolHTTP,
-			targetPort:       intstr80,
-			healthCheckPort:  intstr85,
-			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
-				Ingress: []elbv2modelk8s.NetworkingIngressRule{
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolTCP,
-								Port:     &intstr80,
-							},
-						},
-					},
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolTCP,
-								Port:     &intstr85,
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:             "use restricted sg rules - str hc port - udp",
-			backendSGIDToken: core.LiteralStringToken("foo"),
-			tgProtocol:       elbv2model.ProtocolUDP,
-			targetPort:       intstr80,
-			healthCheckPort:  intstr85,
-			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
-				Ingress: []elbv2modelk8s.NetworkingIngressRule{
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolUDP,
-								Port:     &intstr80,
-							},
-						},
-					},
-					{
-						From: []elbv2modelk8s.NetworkingPeer{
-							{
-								SecurityGroup: &elbv2modelk8s.SecurityGroup{
-									GroupID: core.LiteralStringToken("foo"),
-								},
-							},
-						},
-						Ports: []elbv2api.NetworkingPort{
-							{
-								Protocol: &protocolTCP,
-								Port:     &intstr85,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			builder := &targetGroupBuilderImpl{
-				disableRestrictedSGRules: tc.disableRestrictedSGRules,
-			}
-
-			result := builder.buildTargetGroupBindingNetworking(tc.targetPort, tc.healthCheckPort, tc.tgProtocol, tc.backendSGIDToken)
-			assert.Equal(t, tc.expected, result)
+			assert.NoError(t, err)
 		})
 	}
 }
