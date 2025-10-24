@@ -37,6 +37,9 @@ type EC2 interface {
 	DescribeAvailabilityZonesWithContext(ctx context.Context, input *ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error)
 	DescribeVpcsWithContext(ctx context.Context, input *ec2.DescribeVpcsInput) (*ec2.DescribeVpcsOutput, error)
 	DescribeInstancesWithContext(ctx context.Context, input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
+
+	// DescribeAddressesAsList wraps the DescribeAddresses API, aggregates results into a list.
+	DescribeAddressesAsList(ctx context.Context, input *ec2.DescribeAddressesInput) ([]types.Address, error)
 }
 
 // NewEC2 constructs new EC2 implementation.
@@ -48,6 +51,18 @@ func NewEC2(awsClientsProvider provider.AWSClientsProvider) EC2 {
 
 type ec2Client struct {
 	awsClientsProvider provider.AWSClientsProvider
+}
+
+func (c *ec2Client) DescribeAddressesAsList(ctx context.Context, input *ec2.DescribeAddressesInput) ([]types.Address, error) {
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "DescribeAddresses")
+	if err != nil {
+		return nil, err
+	}
+	output, err := client.DescribeAddresses(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	return output.Addresses, nil
 }
 
 func (c *ec2Client) DescribeInstancesWithContext(ctx context.Context, input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error) {
