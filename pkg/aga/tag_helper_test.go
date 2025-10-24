@@ -235,13 +235,13 @@ func Test_tagHelperImpl_validateTagCollisionWithExternalManagedTags(t *testing.T
 			// Error message will contain one of the colliding tags
 		},
 		{
-			name: "no collision - empty tags",
-			tags: map[string]string{},
+			name:                "no collision - empty tags",
+			tags:                map[string]string{},
 			externalManagedTags: []string{"ExternalTag", "ManagedByTeam"},
 			wantErr:             false,
 		},
 		{
-			name: "no collision - nil tags",
+			name:                "no collision - nil tags",
 			tags:                nil,
 			externalManagedTags: []string{"ExternalTag", "ManagedByTeam"},
 			wantErr:             false,
@@ -252,7 +252,7 @@ func Test_tagHelperImpl_validateTagCollisionWithExternalManagedTags(t *testing.T
 				"externaltag": "external-value", // lowercase
 			},
 			externalManagedTags: []string{"ExternalTag"}, // uppercase
-			wantErr:             false,                    // Should not collide due to case sensitivity
+			wantErr:             false,                   // Should not collide due to case sensitivity
 		},
 	}
 
@@ -324,11 +324,11 @@ func Test_newTagHelper(t *testing.T) {
 			helper := newTagHelper(externalManagedTagsSet, tt.defaultTags)
 
 			assert.NotNil(t, helper)
-			
+
 			// Verify the helper is of the correct type
 			helperImpl, ok := helper.(*tagHelperImpl)
 			assert.True(t, ok)
-			
+
 			// Verify the fields are set correctly
 			assert.Equal(t, externalManagedTagsSet, helperImpl.externalManagedTags)
 			assert.Equal(t, tt.defaultTags, helperImpl.defaultTags)

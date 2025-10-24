@@ -126,8 +126,6 @@ type baseModelBuilder struct {
 
 func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway, lbConf elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor, currentAddonConfig []addon.Addon, secretsManager k8s.SecretsManager, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) (core.Stack, *elbv2model.LoadBalancer, []addon.AddonMetadata, bool, []types.NamespacedName, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(gw)))
-	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, baseBuilder.tgPropertiesConstructor, baseBuilder.disableRestrictedSGRules, baseBuilder.defaultTargetType, targetGroupNameToArnMapper)
-	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.acmClient, baseBuilder.k8sClient, baseBuilder.allowedCAARNs, secretsManager, baseBuilder.logger)
 	var isPreDelete bool
 	if gw.DeletionTimestamp != nil && !gw.DeletionTimestamp.IsZero() {
 		if baseBuilder.isDeleteProtected(lbConf) {
@@ -189,7 +187,11 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	lb := elbv2model.NewLoadBalancer(stack, shared_constants.ResourceIDLoadBalancer, spec)
 
-	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, securityGroups, gw, routes, lbConf)
+	tgbNetworkingBuilder := newTargetGroupBindingNetworkBuilder(baseBuilder.disableRestrictedSGRules, baseBuilder.vpcID, spec.Scheme, lbConf.Spec.SourceRanges, securityGroups, subnets.ec2Result, baseBuilder.vpcInfoProvider)
+	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, tgbNetworkingBuilder, baseBuilder.tgPropertiesConstructor, baseBuilder.defaultTargetType, targetGroupNameToArnMapper)
+	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.acmClient, baseBuilder.k8sClient, baseBuilder.allowedCAARNs, secretsManager, baseBuilder.logger)
+
+	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, gw, routes, lbConf)
 	if err != nil {
 		return nil, nil, nil, false, nil, err
 	}

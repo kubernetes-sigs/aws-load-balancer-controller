@@ -1059,7 +1059,6 @@ func Test_BuildListenerRules(t *testing.T) {
 	autheticateBehavior := elbv2gw.AuthenticateCognitoActionConditionalBehaviorEnumAuthenticate
 	testCases := []struct {
 		name             string
-		sgOutput         securityGroupOutput
 		ipAddressType    elbv2model.IPAddressType
 		port             int32
 		listenerProtocol elbv2model.Protocol
@@ -1074,9 +1073,6 @@ func Test_BuildListenerRules(t *testing.T) {
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTP,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
-			sgOutput: securityGroupOutput{
-				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
-			},
 			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
@@ -1128,9 +1124,6 @@ func Test_BuildListenerRules(t *testing.T) {
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTP,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
-			sgOutput: securityGroupOutput{
-				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
-			},
 			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
@@ -1195,9 +1188,6 @@ func Test_BuildListenerRules(t *testing.T) {
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTP,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
-			sgOutput: securityGroupOutput{
-				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
-			},
 			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
@@ -1267,9 +1257,6 @@ func Test_BuildListenerRules(t *testing.T) {
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTP,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
-			sgOutput: securityGroupOutput{
-				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
-			},
 			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
@@ -1345,9 +1332,6 @@ func Test_BuildListenerRules(t *testing.T) {
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTPS,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
-			sgOutput: securityGroupOutput{
-				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
-			},
 			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
@@ -1449,9 +1433,6 @@ func Test_BuildListenerRules(t *testing.T) {
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTPS,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
-			sgOutput: securityGroupOutput{
-				backendSecurityGroupToken: coremodel.LiteralStringToken("sg-B"),
-			},
 			routes: map[int32][]routeutils.RouteDescriptor{
 				80: {
 					&routeutils.MockRoute{
@@ -1546,7 +1527,7 @@ func Test_BuildListenerRules(t *testing.T) {
 				err:  tc.tagErr,
 			}
 
-			mockTgBuilder := &MockTargetGroupBuilder{
+			mockTgBuilder := &mockTargetGroupBuilder{
 				tgs: []*elbv2model.TargetGroup{
 					{
 						ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::TargetGroup", "id-1"),
@@ -1563,7 +1544,7 @@ func Test_BuildListenerRules(t *testing.T) {
 				Spec: elbv2model.ListenerSpec{
 					Protocol: tc.listenerProtocol,
 				},
-			}, tc.ipAddressType, tc.sgOutput, &gwv1.Gateway{}, tc.port, elbv2gw.LoadBalancerConfiguration{}, tc.routes)
+			}, tc.ipAddressType, &gwv1.Gateway{}, tc.port, elbv2gw.LoadBalancerConfiguration{}, tc.routes)
 			assert.NoError(t, err)
 
 			var resLRs []*elbv2model.ListenerRule

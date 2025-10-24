@@ -31,10 +31,7 @@ type gwListenerConfig struct {
 }
 
 type listenerBuilder interface {
-	buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbConf elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error)
-	buildListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error)
-	buildL7ListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error)
-	buildL4ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, routes []routeutils.RouteDescriptor, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error)
+	buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbConf elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error)
 }
 
 type listenerBuilderImpl struct {
@@ -51,7 +48,7 @@ type listenerBuilderImpl struct {
 	logger                     logr.Logger
 }
 
-func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
+func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration) ([]types.NamespacedName, error) {
 	gwLsCfgs, err := mapGatewayListenerConfigsByPort(gw, routes)
 	if err != nil {
 		return nil, err
@@ -63,7 +60,7 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 	if len(gwLsPorts.Intersection(portsWithRoutes).List()) != 0 {
 		lbLsCfgs := mapLoadBalancerListenerConfigsByPort(lbCfg)
 		for _, port := range gwLsPorts.Intersection(portsWithRoutes).List() {
-			ls, err := l.buildListener(ctx, stack, lb, securityGroups, gw, port, routes[port], lbCfg, gwLsCfgs[port], lbLsCfgs[port])
+			ls, err := l.buildListener(ctx, stack, lb, gw, port, routes[port], lbCfg, gwLsCfgs[port], lbLsCfgs[port])
 			if err != nil {
 				return nil, err
 			}
@@ -74,7 +71,7 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 
 			// build rules only for L7 gateways
 			if l.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
-				secretKeys, err := l.buildListenerRules(ctx, stack, ls, lb.Spec.IPAddressType, securityGroups, gw, port, lbCfg, routes)
+				secretKeys, err := l.buildListenerRules(ctx, stack, ls, lb.Spec.IPAddressType, gw, port, lbCfg, routes)
 				if err != nil {
 					return nil, err
 				}
@@ -86,14 +83,14 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 	return secrets, nil
 }
 
-func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, port int32, routes []routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.Listener, error) {
+func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, routes []routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.Listener, error) {
 	var listenerSpec *elbv2model.ListenerSpec
 
 	var err error
 	if l.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
 		listenerSpec, err = l.buildL7ListenerSpec(ctx, lb, gw, lbCfg, port, gwLsCfg, lbLsCfg)
 	} else {
-		listenerSpec, err = l.buildL4ListenerSpec(ctx, stack, lb, securityGroups, gw, lbCfg, port, routes, gwLsCfg, lbLsCfg)
+		listenerSpec, err = l.buildL4ListenerSpec(ctx, stack, lb, gw, lbCfg, port, routes, gwLsCfg, lbLsCfg)
 	}
 	if err != nil {
 		return nil, err
@@ -150,7 +147,7 @@ func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, lb *elbv2m
 	return listenerSpec, nil
 }
 
-func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, securityGroups securityGroupOutput, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, routes []routeutils.RouteDescriptor, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
+func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, routes []routeutils.RouteDescriptor, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
 	listenerSpec, err := l.buildListenerSpec(ctx, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
@@ -180,7 +177,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 		return nil, nil
 	}
 
-	arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, lb.Spec.IPAddressType, routeDescriptor, backend, securityGroups.backendSecurityGroupToken)
+	arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, lb.Spec.IPAddressType, routeDescriptor, backend)
 	if tgErr != nil {
 		return &elbv2model.ListenerSpec{}, tgErr
 	}
@@ -188,7 +185,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 	return listenerSpec, nil
 }
 
-func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.Stack, ls *elbv2model.Listener, ipAddressType elbv2model.IPAddressType, securityGroups securityGroupOutput, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) ([]types.NamespacedName, error) {
+func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.Stack, ls *elbv2model.Listener, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) ([]types.NamespacedName, error) {
 	// sort all rules based on precedence
 	rulesWithPrecedenceOrder := routeutils.SortAllRulesByPrecedence(routes[port])
 	secrets := make([]types.NamespacedName, 0)
@@ -225,7 +222,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		}
 		targetGroupTuples := make([]elbv2model.TargetGroupTuple, 0, len(rule.GetBackends()))
 		for _, backend := range rule.GetBackends() {
-			arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, ipAddressType, route, backend, securityGroups.backendSecurityGroupToken)
+			arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lbCfg, ipAddressType, route, backend)
 			if tgErr != nil {
 				return nil, tgErr
 			}

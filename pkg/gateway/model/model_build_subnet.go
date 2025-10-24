@@ -17,6 +17,7 @@ import (
 
 type buildLoadBalancerSubnetsOutput struct {
 	subnets              []elbv2model.SubnetMapping
+	ec2Result            []ec2types.Subnet
 	sourceIPv6NatEnabled bool
 }
 
@@ -97,6 +98,7 @@ func (subnetBuilder *subnetModelBuilderImpl) buildLoadBalancerSubnets(ctx contex
 
 	return buildLoadBalancerSubnetsOutput{
 		subnets:              result,
+		ec2Result:            resolvedEC2Subnets,
 		sourceIPv6NatEnabled: sourceNATEnabled,
 	}, nil
 }
