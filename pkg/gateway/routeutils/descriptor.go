@@ -21,6 +21,8 @@ type routeMetadataDescriptor interface {
 	GetRouteListenerRuleConfigRefs() []gwv1.LocalObjectReference
 	GetRouteGeneration() int64
 	GetRouteCreateTimestamp() time.Time
+	GetCompatibleHostnames() []gwv1.Hostname
+	SetCompatibleHostnames([]gwv1.Hostname)
 }
 
 type routeLoadError struct {

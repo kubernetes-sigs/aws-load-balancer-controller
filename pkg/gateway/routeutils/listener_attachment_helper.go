@@ -54,7 +54,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 	}
 
 	// check hostname
-	if (route.GetRouteKind() == HTTPRouteKind || route.GetRouteKind() == GRPCRouteKind || route.GetRouteKind() == TLSRouteKind) && route.GetHostnames() != nil {
+	if route.GetRouteKind() == HTTPRouteKind || route.GetRouteKind() == GRPCRouteKind || route.GetRouteKind() == TLSRouteKind {
 		hostnameOK, err := attachmentHelper.hostnameCheck(listener, route)
 		if err != nil {
 			return false, nil, err
@@ -171,8 +171,17 @@ func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Li
 }
 
 func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
-	// A route can attach to listener if it does not have hostname or listener does not have hostname
-	if listener.Hostname == nil || len(route.GetHostnames()) == 0 {
+	// If route has no hostnames but listener does, use listener hostname
+	if len(route.GetHostnames()) == 0 {
+		if listener.Hostname != nil {
+			existing := route.GetCompatibleHostnames()
+			route.SetCompatibleHostnames(append(existing, *listener.Hostname))
+		}
+		return true, nil
+	}
+
+	// If listener has no hostname, route can attach
+	if listener.Hostname == nil {
 		return true, nil
 	}
 
@@ -188,6 +197,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv
 		return false, nil
 	}
 
+	compatibleHostnames := []gwv1.Hostname{}
 	for _, hostname := range route.GetHostnames() {
 		// validate route hostname, skip invalid hostname
 		isHostnameValid, err := IsHostNameInValidFormat(string(hostname))
@@ -196,12 +206,19 @@ func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv
 			continue
 		}
 
-		// check if two hostnames have overlap (compatible)
-		if isHostnameCompatible(string(hostname), string(*listener.Hostname)) {
-			return true, nil
+		// check if two hostnames have overlap (compatible) and get the more specific one
+		if compatible, ok := getCompatibleHostname(string(hostname), string(*listener.Hostname)); ok {
+			compatibleHostnames = append(compatibleHostnames, gwv1.Hostname(compatible))
 		}
 	}
-	return false, nil
+
+	if len(compatibleHostnames) == 0 {
+		return false, nil
+	}
+
+	// Store computed compatible hostnames in route
+	route.SetCompatibleHostnames(compatibleHostnames)
+	return true, nil
 }
 
 func (attachmentHelper *listenerAttachmentHelperImpl) crossServingHostnameUniquenessCheck(route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, string) {

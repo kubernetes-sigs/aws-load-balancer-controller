@@ -2,6 +2,8 @@ package routeutils
 
 import (
 	"context"
+	"testing"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -9,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 type mockNamespaceSelector struct {
@@ -545,6 +546,112 @@ func Test_hostnameCheck(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_hostnameIntersection(t *testing.T) {
+	tests := []struct {
+		name                        string
+		listenerHostname            *gwv1.Hostname
+		routeHostnames              []gwv1.Hostname
+		expectedAttachment          bool
+		expectedCompatibleHostnames []gwv1.Hostname
+		expectEmpty                 bool
+	}{
+		{
+			name:                        "Scenario 1: Route has NO hostnames - inherits listener hostname",
+			listenerHostname:            ptr(gwv1.Hostname("bar.com")),
+			routeHostnames:              []gwv1.Hostname{},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"bar.com"},
+		},
+		{
+			name:               "Scenario 2: Listener has NO hostname",
+			listenerHostname:   nil,
+			routeHostnames:     []gwv1.Hostname{"foo.com"},
+			expectedAttachment: true,
+			expectEmpty:        true,
+		},
+		{
+			name:               "Scenario 3: Both have NO hostnames",
+			listenerHostname:   nil,
+			routeHostnames:     []gwv1.Hostname{},
+			expectedAttachment: true,
+			expectEmpty:        true,
+		},
+		{
+			name:                        "Scenario 4: Exact match",
+			listenerHostname:            ptr(gwv1.Hostname("bar.com")),
+			routeHostnames:              []gwv1.Hostname{"bar.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"bar.com"},
+		},
+		{
+			name:                        "Scenario 5: Listener wildcard matches route",
+			listenerHostname:            ptr(gwv1.Hostname("*.bar.com")),
+			routeHostnames:              []gwv1.Hostname{"foo.bar.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"foo.bar.com"},
+		},
+		{
+			name:                        "Scenario 6: Route wildcard matches listener",
+			listenerHostname:            ptr(gwv1.Hostname("foo.bar.com")),
+			routeHostnames:              []gwv1.Hostname{"*.bar.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"foo.bar.com"},
+		},
+		{
+			name:                        "Scenario 7: Both wildcards, compatible",
+			listenerHostname:            ptr(gwv1.Hostname("*.bar.com")),
+			routeHostnames:              []gwv1.Hostname{"*.bar.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"*.bar.com"},
+		},
+		{
+			name:               "Scenario 8: No overlap - rejected",
+			listenerHostname:   ptr(gwv1.Hostname("bar.com")),
+			routeHostnames:     []gwv1.Hostname{"foo.com"},
+			expectedAttachment: false,
+			expectEmpty:        true,
+		},
+		{
+			name:                        "Scenario 9: Multiple route hostnames, partial match",
+			listenerHostname:            ptr(gwv1.Hostname("*.bar.com")),
+			routeHostnames:              []gwv1.Hostname{"foo.bar.com", "baz.bar.com", "unrelated.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"foo.bar.com", "baz.bar.com"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			helper := &listenerAttachmentHelperImpl{
+				logger: logr.Discard(),
+			}
+
+			listener := gwv1.Listener{
+				Hostname: tt.listenerHostname,
+			}
+
+			route := &mockRoute{
+				hostnames: tt.routeHostnames,
+			}
+
+			result, err := helper.hostnameCheck(listener, route)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedAttachment, result)
+
+			if tt.expectEmpty {
+				assert.Empty(t, route.GetCompatibleHostnames())
+			} else {
+				assert.Equal(t, tt.expectedCompatibleHostnames, route.GetCompatibleHostnames())
+			}
+		})
+	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func Test_crossServingHostnameUniquenessCheck(t *testing.T) {

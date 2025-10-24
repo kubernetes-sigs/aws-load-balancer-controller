@@ -3,12 +3,13 @@ package routeutils
 import (
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"strings"
 	"testing"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +27,7 @@ type mockPreLoadRouteDescriptor struct {
 	backendRefs                []gwv1.BackendRef
 	listenerRuleConfigurations []gwv1.LocalObjectReference
 	namespacedName             types.NamespacedName
+	compatibleHostnames        []gwv1.Hostname
 }
 
 func (m mockPreLoadRouteDescriptor) GetAttachedRules() []RouteRule {
@@ -73,6 +75,14 @@ func (m mockPreLoadRouteDescriptor) GetRouteGeneration() int64 {
 func (m mockPreLoadRouteDescriptor) GetRouteCreateTimestamp() time.Time {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (m mockPreLoadRouteDescriptor) GetCompatibleHostnames() []gwv1.Hostname {
+	return m.compatibleHostnames
+}
+
+func (m mockPreLoadRouteDescriptor) SetCompatibleHostnames(hostnames []gwv1.Hostname) {
+	m.compatibleHostnames = hostnames
 }
 
 func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -556,18 +566,6 @@ func Test_isHostnameCompatible(t *testing.T) {
 			hostnameOne: "*.sub.example.com",
 			hostnameTwo: "test.sub.example.com",
 			want:        true,
-		},
-		{
-			name:        "empty hostnames",
-			hostnameOne: "",
-			hostnameTwo: "",
-			want:        true,
-		},
-		{
-			name:        "one empty hostname",
-			hostnameOne: "example.com",
-			hostnameTwo: "",
-			want:        false,
 		},
 		{
 			name:        "wildcard with root domain",

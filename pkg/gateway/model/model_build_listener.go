@@ -509,8 +509,17 @@ func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway, routes map[int32][]routeu
 
 		if listenerRoutes != nil {
 			for _, route := range listenerRoutes {
-				for _, routeHostname := range route.GetHostnames() {
-					gwListenerConfigs[port].hostnames.Insert(string(routeHostname))
+				// Use compatible hostnames (intersection) instead of raw route hostnames
+				compatibleHostnames := route.GetCompatibleHostnames()
+				if len(compatibleHostnames) > 0 {
+					for _, hostname := range compatibleHostnames {
+						gwListenerConfigs[port].hostnames.Insert(string(hostname))
+					}
+				} else {
+					// Fallback to route hostnames if no compatible hostnames
+					for _, routeHostname := range route.GetHostnames() {
+						gwListenerConfigs[port].hostnames.Insert(string(routeHostname))
+					}
 				}
 			}
 		}

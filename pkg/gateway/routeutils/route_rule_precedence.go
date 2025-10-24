@@ -2,10 +2,11 @@ package routeutils
 
 import (
 	"math"
-	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sort"
 	"strings"
 	"time"
+
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type RulePrecedence struct {
@@ -260,10 +261,17 @@ func compareCommonTieBreakers(ruleOne RulePrecedence, ruleTwo RulePrecedence) bo
 func getCommonRouteInfo(route RouteDescriptor) CommonRulePrecedence {
 	routeNamespacedName := route.GetRouteNamespacedName().String()
 	routeCreateTimestamp := route.GetRouteCreateTimestamp()
-	// get hostname in string array format
-	hostnames := make([]string, len(route.GetHostnames()))
-	for i, hostname := range route.GetHostnames() {
-		hostnames[i] = string(hostname)
+	// Use compatible hostnames computed during route attachment
+	compatibleHostnames := route.GetCompatibleHostnames()
+	hostnames := make([]string, len(compatibleHostnames))
+	for i, h := range compatibleHostnames {
+		hostnames[i] = string(h)
+	}
+	// If no compatible hostnames, use route hostnames
+	if len(hostnames) == 0 {
+		for _, h := range route.GetHostnames() {
+			hostnames = append(hostnames, string(h))
+		}
 	}
 	return CommonRulePrecedence{
 		RouteDescriptor:      route,

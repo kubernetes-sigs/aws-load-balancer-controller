@@ -52,9 +52,10 @@ func (t *convertedTCPRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleCon
 /* Route Description */
 
 type tcpRouteDescription struct {
-	route           *gwalpha2.TCPRoute
-	rules           []RouteRule
-	ruleAccumulator attachedRuleAccumulator[gwalpha2.TCPRouteRule]
+	route               *gwalpha2.TCPRoute
+	rules               []RouteRule
+	ruleAccumulator     attachedRuleAccumulator[gwalpha2.TCPRouteRule]
+	compatibleHostnames []gwv1.Hostname
 }
 
 func (tcpRoute *tcpRouteDescription) GetAttachedRules() []RouteRule {
@@ -117,6 +118,14 @@ func (tcpRoute *tcpRouteDescription) GetRouteGeneration() int64 {
 
 func (tcpRoute *tcpRouteDescription) GetRouteCreateTimestamp() time.Time {
 	return tcpRoute.route.CreationTimestamp.Time
+}
+
+func (tcpRoute *tcpRouteDescription) GetCompatibleHostnames() []gwv1.Hostname {
+	return tcpRoute.compatibleHostnames
+}
+
+func (tcpRoute *tcpRouteDescription) SetCompatibleHostnames(hostnames []gwv1.Hostname) {
+	tcpRoute.compatibleHostnames = hostnames
 }
 
 var _ RouteDescriptor = &tcpRouteDescription{}

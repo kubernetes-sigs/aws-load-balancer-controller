@@ -51,9 +51,10 @@ func (t *convertedGRPCRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleCo
 /* Route Description */
 
 type grpcRouteDescription struct {
-	route           *gwv1.GRPCRoute
-	rules           []RouteRule
-	ruleAccumulator attachedRuleAccumulator[gwv1.GRPCRouteRule]
+	route               *gwv1.GRPCRoute
+	rules               []RouteRule
+	ruleAccumulator     attachedRuleAccumulator[gwv1.GRPCRouteRule]
+	compatibleHostnames []gwv1.Hostname
 }
 
 func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -141,6 +142,14 @@ func (grpcRoute *grpcRouteDescription) GetRouteGeneration() int64 {
 
 func (grpcRoute *grpcRouteDescription) GetRouteCreateTimestamp() time.Time {
 	return grpcRoute.route.CreationTimestamp.Time
+}
+
+func (grpcRoute *grpcRouteDescription) GetCompatibleHostnames() []gwv1.Hostname {
+	return grpcRoute.compatibleHostnames
+}
+
+func (grpcRoute *grpcRouteDescription) SetCompatibleHostnames(hostnames []gwv1.Hostname) {
+	grpcRoute.compatibleHostnames = hostnames
 }
 
 var _ RouteDescriptor = &grpcRouteDescription{}
