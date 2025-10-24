@@ -7,7 +7,15 @@ type mockTagHelper struct {
 	err  error
 }
 
-func (m *mockTagHelper) getGatewayTags(lbConf elbv2gw.LoadBalancerConfiguration) (map[string]string, error) {
+func (m *mockTagHelper) getLoadBalancerTags(lbConf elbv2gw.LoadBalancerConfiguration) (map[string]string, error) {
+	return m.tags, m.err
+}
+
+func (m *mockTagHelper) getTargetGroupTags(tgProps *elbv2gw.TargetGroupProps) (map[string]string, error) {
+	return m.tags, m.err
+}
+
+func (m *mockTagHelper) getListenerRuleTags(lrConf *elbv2gw.ListenerRuleConfiguration) (map[string]string, error) {
 	return m.tags, m.err
 }
 

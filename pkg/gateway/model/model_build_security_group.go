@@ -150,7 +150,7 @@ func (builder *securityGroupBuilderImpl) getBackendSecurityGroup(ctx context.Con
 
 func (builder *securityGroupBuilderImpl) buildManagedSecurityGroup(stack core.Stack, lbConf elbv2gw.LoadBalancerConfiguration, gw *gwv1.Gateway, ipAddressType elbv2model.IPAddressType) (*ec2model.SecurityGroup, error) {
 	name := builder.buildManagedSecurityGroupName(gw)
-	tags, err := builder.tagHelper.getGatewayTags(lbConf)
+	tags, err := builder.tagHelper.getLoadBalancerTags(lbConf)
 	if err != nil {
 		return nil, err
 	}
