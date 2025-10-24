@@ -234,7 +234,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 		return elbv2model.TargetGroupSpec{}, err
 	}
 
-	tags, err := builder.tagHelper.getGatewayTags(lbConfig)
+	tags, err := builder.tagHelper.getTargetGroupTags(targetGroupProps)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}

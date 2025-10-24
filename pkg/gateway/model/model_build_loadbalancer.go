@@ -38,7 +38,7 @@ func (lbModelBuilder *loadBalancerBuilderImpl) buildLoadBalancerSpec(scheme elbv
 		return elbv2model.LoadBalancerSpec{}, err
 	}
 
-	tags, err := lbModelBuilder.tagHelper.getGatewayTags(lbConf)
+	tags, err := lbModelBuilder.tagHelper.getLoadBalancerTags(lbConf)
 	if err != nil {
 		return elbv2model.LoadBalancerSpec{}, err
 	}

@@ -105,7 +105,7 @@ func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack
 }
 
 func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
-	tags, err := l.buildListenerTags(gw, port, lbCfg, lbLsCfg)
+	tags, err := l.buildListenerTags(lbCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
 	}
@@ -264,7 +264,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 			actions = append(actions, *ruleRoutingAction)
 		}
 
-		tags, tagsErr := l.tagHelper.getGatewayTags(lbCfg)
+		tags, tagsErr := l.tagHelper.getListenerRuleTags(rule.GetListenerRuleConfig())
 		if tagsErr != nil {
 			return nil, tagsErr
 		}
@@ -292,9 +292,9 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 	return secrets, nil
 }
 
-func (l listenerBuilderImpl) buildListenerTags(gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, lbLsCfg *elbv2gw.ListenerConfiguration) (map[string]string, error) {
-	// TODO Add proper gateway tags for listener
-	return l.tagHelper.getGatewayTags(lbCfg)
+func (l listenerBuilderImpl) buildListenerTags(lbCfg elbv2gw.LoadBalancerConfiguration) (map[string]string, error) {
+	// We dont have tags at listener level cfg. Hence we add all the load balancer level tags to listeners.
+	return l.tagHelper.getLoadBalancerTags(lbCfg)
 }
 
 func buildListenerAttributes(lsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model.ListenerAttribute, error) {
