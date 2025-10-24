@@ -3,12 +3,13 @@ package gateway
 import (
 	"context"
 	"fmt"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,8 +123,19 @@ func prepareGatewayConditionUpdate(gw *gwv1.Gateway, targetConditionType string,
 			gw.Status.Conditions[indxToUpdate].Reason = reason
 			return true
 		}
+		return false
 	}
-	return false
+
+	// Condition doesn't exist, create it
+	gw.Status.Conditions = append(gw.Status.Conditions, metav1.Condition{
+		Type:               targetConditionType,
+		Status:             newStatus,
+		Reason:             reason,
+		Message:            truncatedMessage,
+		LastTransitionTime: metav1.NewTime(time.Now()),
+		ObservedGeneration: gw.Generation,
+	})
+	return true
 }
 
 func truncateMessage(s string) string {

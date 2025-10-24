@@ -1,6 +1,9 @@
 package gateway
 
 import (
+	"testing"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -11,8 +14,6 @@ import (
 	testclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
-	"time"
 )
 
 func TestDeferredReconcilerConstructor(t *testing.T) {
@@ -671,7 +672,7 @@ func Test_areConditionsEqual(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "different conditions on ObservedGeneration - true",
+			name: "different conditions on ObservedGeneration - false",
 			oldCon: []metav1.Condition{
 				{
 					Type:               string(gwv1.RouteConditionAccepted),
@@ -694,7 +695,7 @@ func Test_areConditionsEqual(t *testing.T) {
 					Status: metav1.ConditionTrue,
 				},
 			},
-			expected: true,
+			expected: false,
 		},
 	}
 

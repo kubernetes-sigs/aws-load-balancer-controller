@@ -486,6 +486,13 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 							Reason:             "other reason2",
 							Message:            "other message2",
 						},
+						{
+							Type:               string(gwv1.GatewayConditionAccepted),
+							Status:             metav1.ConditionTrue,
+							ObservedGeneration: 0,
+							Reason:             "other reason",
+							Message:            "other message",
+						},
 					},
 				},
 			},
@@ -493,6 +500,7 @@ func Test_prepareGatewayConditionUpdate(t *testing.T) {
 			newStatus:           metav1.ConditionTrue,
 			reason:              "other reason",
 			message:             "other message",
+			expected:            true,
 		},
 		{
 			name: "target condition found",

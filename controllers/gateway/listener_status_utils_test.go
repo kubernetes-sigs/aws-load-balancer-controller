@@ -15,16 +15,17 @@ func Test_buildListenerStatus(t *testing.T) {
 	tests := []struct {
 		name                    string
 		controllerName          string
-		gateway                 *gwv1.Gateway
+		gateway                 gwv1.Gateway
 		attachedRoutesMap       map[gwv1.SectionName]int32
 		validateListenerResults *routeutils.ListenerValidationResults
-		expectedCount           int
-		expectedError           bool
+		isProgrammed            bool
+		expectedListenerCount   int
 	}{
 		{
 			name:           "nil validation results",
-			controllerName: "test-controller",
-			gateway: &gwv1.Gateway{
+			controllerName: "gateway.k8s.aws/alb",
+			gateway: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
 				Spec: gwv1.GatewaySpec{
 					Listeners: []gwv1.Listener{
 						{
@@ -38,12 +39,14 @@ func Test_buildListenerStatus(t *testing.T) {
 			},
 			attachedRoutesMap:       map[gwv1.SectionName]int32{"listener1": 2},
 			validateListenerResults: nil,
-			expectedCount:           1,
+			isProgrammed:            true,
+			expectedListenerCount:   1,
 		},
 		{
 			name:           "with validation results",
-			controllerName: "test-controller",
-			gateway: &gwv1.Gateway{
+			controllerName: "gateway.k8s.aws/alb",
+			gateway: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 2},
 				Spec: gwv1.GatewaySpec{
 					Listeners: []gwv1.Listener{
 						{
@@ -52,49 +55,46 @@ func Test_buildListenerStatus(t *testing.T) {
 							Protocol:      gwv1.HTTPProtocolType,
 							AllowedRoutes: &gwv1.AllowedRoutes{},
 						},
-						{
-							Name:          "listener2",
-							Port:          443,
-							Protocol:      gwv1.HTTPSProtocolType,
-							AllowedRoutes: &gwv1.AllowedRoutes{},
-						},
 					},
 				},
 			},
-			attachedRoutesMap: map[gwv1.SectionName]int32{"listener1": 2, "listener2": 1},
+			attachedRoutesMap: map[gwv1.SectionName]int32{"listener1": 1},
 			validateListenerResults: &routeutils.ListenerValidationResults{
 				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
-					"listener1": {Reason: gwv1.ListenerReasonAccepted, Message: "sample-message"},
-					"listener2": {Reason: gwv1.ListenerReasonPortUnavailable, Message: "Port unavailable"},
+					"listener1": {Reason: gwv1.ListenerReasonAccepted, Message: "accepted"},
 				},
 			},
-			expectedCount: 2,
+			isProgrammed:          false,
+			expectedListenerCount: 1,
 		},
 		{
 			name:           "empty listeners",
-			controllerName: "test-controller",
-			gateway: &gwv1.Gateway{
+			controllerName: "gateway.k8s.aws/nlb",
+			gateway: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 3},
 				Spec: gwv1.GatewaySpec{
 					Listeners: []gwv1.Listener{},
 				},
 			},
 			attachedRoutesMap:       map[gwv1.SectionName]int32{},
 			validateListenerResults: nil,
-			expectedCount:           0,
+			isProgrammed:            true,
+			expectedListenerCount:   0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildListenerStatus(tt.controllerName, *tt.gateway, tt.attachedRoutesMap, tt.validateListenerResults)
+			result := buildListenerStatus(tt.controllerName, tt.gateway, tt.attachedRoutesMap, tt.validateListenerResults, tt.isProgrammed)
 
-			assert.Len(t, result, tt.expectedCount)
+			assert.Len(t, result, tt.expectedListenerCount)
 
 			for i, listener := range tt.gateway.Spec.Listeners {
 				assert.Equal(t, listener.Name, result[i].Name)
 				assert.Equal(t, tt.attachedRoutesMap[listener.Name], result[i].AttachedRoutes)
+				assert.NotEmpty(t, result[i].SupportedKinds)
+				assert.Len(t, result[i].Conditions, 4)
 			}
-
 		})
 	}
 }
@@ -103,99 +103,242 @@ func Test_getListenerConditions(t *testing.T) {
 	tests := []struct {
 		name                     string
 		listenerValidationResult *routeutils.ListenerValidationResult
-		expectedConditionType    string
-		expectedStatus           metav1.ConditionStatus
-		expectedReason           string
+		isProgrammed             bool
+		expectedConditionCount   int
+		expectedConflictReason   string
+		expectedAcceptedReason   string
+		expectedResolvedReason   string
+		expectedProgrammedReason string
 		gw                       gwv1.Gateway
 	}{
 		{
-			name:                     "nil validation result",
+			name:                     "nil validation result with programmed true",
 			listenerValidationResult: nil,
-			expectedConditionType:    string(gwv1.ListenerConditionAccepted),
-			expectedStatus:           metav1.ConditionTrue,
-			expectedReason:           string(gwv1.ListenerReasonAccepted),
+			isProgrammed:             true,
+			expectedConditionCount:   4,
+			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
+			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
+			expectedProgrammedReason: string(gwv1.ListenerReasonProgrammed),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+			},
 		},
 		{
-			name: "hostname conflict",
+			name:                     "nil validation result with programmed false",
+			listenerValidationResult: nil,
+			isProgrammed:             false,
+			expectedConditionCount:   4,
+			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
+			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
+			expectedProgrammedReason: string(gwv1.ListenerReasonPending),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 2},
+			},
+		},
+		{
+			name: "validation result with hostname conflict and programmed false",
 			listenerValidationResult: &routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonHostnameConflict,
 				Message: "Hostname conflict",
 			},
-			expectedConditionType: string(gwv1.ListenerConditionConflicted),
-			expectedStatus:        metav1.ConditionFalse,
-			expectedReason:        string(gwv1.ListenerReasonHostnameConflict),
+			isProgrammed:             false,
+			expectedConditionCount:   4,
+			expectedConflictReason:   string(gwv1.ListenerReasonHostnameConflict),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
+			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
+			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 3},
+			},
 		},
 		{
-			name: "protocol conflict",
+			name: "validation result with protocol conflict",
 			listenerValidationResult: &routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonProtocolConflict,
 				Message: "Protocol conflict",
 			},
-			expectedConditionType: string(gwv1.ListenerConditionConflicted),
-			expectedStatus:        metav1.ConditionFalse,
-			expectedReason:        string(gwv1.ListenerReasonProtocolConflict),
+			isProgrammed:             false,
+			expectedConditionCount:   4,
+			expectedConflictReason:   string(gwv1.ListenerReasonProtocolConflict),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
+			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
+			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 4},
+			},
 		},
 		{
-			name: "port unavailable",
+			name: "validation result with port unavailable",
 			listenerValidationResult: &routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonPortUnavailable,
 				Message: "Port unavailable",
 			},
-			expectedConditionType: string(gwv1.ListenerConditionAccepted),
-			expectedStatus:        metav1.ConditionFalse,
-			expectedReason:        string(gwv1.ListenerReasonPortUnavailable),
+			isProgrammed:             false,
+			expectedConditionCount:   4,
+			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonPortUnavailable),
+			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
+			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 5},
+			},
 		},
 		{
-			name: "unsupported protocol",
+			name: "validation result with unsupported protocol",
 			listenerValidationResult: &routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonUnsupportedProtocol,
 				Message: "Unsupported protocol",
 			},
-			expectedConditionType: string(gwv1.ListenerConditionAccepted),
-			expectedStatus:        metav1.ConditionFalse,
-			expectedReason:        string(gwv1.ListenerReasonUnsupportedProtocol),
+			isProgrammed:             false,
+			expectedConditionCount:   4,
+			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonUnsupportedProtocol),
+			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
+			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 6},
+			},
 		},
 		{
-			name: "invalid route kinds",
+			name: "validation result with invalid route kinds",
 			listenerValidationResult: &routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonInvalidRouteKinds,
 				Message: "Invalid route kinds",
 			},
-			expectedConditionType: string(gwv1.ListenerConditionResolvedRefs),
-			expectedStatus:        metav1.ConditionFalse,
-			expectedReason:        string(gwv1.ListenerReasonInvalidRouteKinds),
+			isProgrammed:             false,
+			expectedConditionCount:   4,
+			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
+			expectedResolvedReason:   string(gwv1.ListenerReasonInvalidRouteKinds),
+			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 7},
+			},
 		},
 		{
-			name: "ref not permitted",
+			name: "validation result with ref not permitted",
 			listenerValidationResult: &routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonRefNotPermitted,
 				Message: "Ref not permitted",
 			},
-			expectedConditionType: string(gwv1.ListenerConditionResolvedRefs),
-			expectedStatus:        metav1.ConditionFalse,
-			expectedReason:        string(gwv1.ListenerReasonRefNotPermitted),
-		},
-		{
-			name: "unknown reason defaults to accepted",
-			listenerValidationResult: &routeutils.ListenerValidationResult{
-				Reason:  "UnknownReason",
-				Message: "Unknown",
+			isProgrammed:             false,
+			expectedConditionCount:   4,
+			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
+			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
+			expectedResolvedReason:   string(gwv1.ListenerReasonRefNotPermitted),
+			expectedProgrammedReason: string(gwv1.ListenerReasonInvalid),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{Generation: 8},
 			},
-			expectedConditionType: string(gwv1.ListenerConditionAccepted),
-			expectedStatus:        metav1.ConditionTrue,
-			expectedReason:        string(gwv1.ListenerReasonAccepted),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			conditions := getListenerConditions(tt.gw, tt.listenerValidationResult)
+			conditions := getListenerConditions(tt.gw, tt.listenerValidationResult, tt.isProgrammed)
 
-			assert.Len(t, conditions, 1)
-			condition := conditions[0]
-			assert.Equal(t, tt.expectedConditionType, condition.Type)
+			assert.Len(t, conditions, tt.expectedConditionCount)
+
+			// Find each condition type and verify
+			conditionMap := make(map[string]metav1.Condition)
+			for _, condition := range conditions {
+				conditionMap[condition.Type] = condition
+			}
+
+			// Verify Conflicted condition
+			conflictCondition := conditionMap[string(gwv1.ListenerConditionConflicted)]
+			assert.Equal(t, tt.expectedConflictReason, conflictCondition.Reason)
+
+			// Verify Accepted condition
+			acceptedCondition := conditionMap[string(gwv1.ListenerConditionAccepted)]
+			assert.Equal(t, tt.expectedAcceptedReason, acceptedCondition.Reason)
+
+			// Verify ResolvedRefs condition
+			resolvedCondition := conditionMap[string(gwv1.ListenerConditionResolvedRefs)]
+			assert.Equal(t, tt.expectedResolvedReason, resolvedCondition.Reason)
+
+			// Verify Programmed condition
+			programmedCondition := conditionMap[string(gwv1.ListenerConditionProgrammed)]
+			assert.Equal(t, tt.expectedProgrammedReason, programmedCondition.Reason)
+
+			// Verify all conditions have proper ObservedGeneration
+			for _, condition := range conditions {
+				assert.Equal(t, tt.gw.GetGeneration(), condition.ObservedGeneration)
+				assert.NotZero(t, condition.LastTransitionTime)
+			}
+		})
+	}
+}
+
+func Test_buildProgrammedCondition(t *testing.T) {
+	tests := []struct {
+		name           string
+		isProgrammed   bool
+		isAccepted     bool
+		expectedStatus metav1.ConditionStatus
+		expectedReason string
+		gw             gwv1.Gateway
+	}{
+		{
+			name:           "not accepted - should return false with invalid reason",
+			isProgrammed:   true,
+			isAccepted:     false,
+			expectedStatus: metav1.ConditionFalse,
+			expectedReason: string(gwv1.ListenerReasonInvalid),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 5,
+				},
+			},
+		},
+		{
+			name:           "accepted and programmed - should return true with programmed reason",
+			isProgrammed:   true,
+			isAccepted:     true,
+			expectedStatus: metav1.ConditionTrue,
+			expectedReason: string(gwv1.ListenerReasonProgrammed),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 3,
+				},
+			},
+		},
+		{
+			name:           "accepted but not programmed - should return false with pending reason",
+			isProgrammed:   false,
+			isAccepted:     true,
+			expectedStatus: metav1.ConditionFalse,
+			expectedReason: string(gwv1.ListenerReasonPending),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 1,
+				},
+			},
+		},
+		{
+			name:           "not accepted and not programmed - should return false with invalid reason",
+			isProgrammed:   false,
+			isAccepted:     false,
+			expectedStatus: metav1.ConditionFalse,
+			expectedReason: string(gwv1.ListenerReasonInvalid),
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Generation: 2,
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			condition := buildProgrammedCondition(tt.gw, tt.isProgrammed, tt.isAccepted)
+
+			assert.Equal(t, string(gwv1.ListenerConditionProgrammed), condition.Type)
 			assert.Equal(t, tt.expectedStatus, condition.Status)
 			assert.Equal(t, tt.expectedReason, condition.Reason)
+			assert.Equal(t, tt.gw.GetGeneration(), condition.ObservedGeneration)
 			assert.NotZero(t, condition.LastTransitionTime)
 		})
 	}
@@ -247,7 +390,7 @@ func Test_buildConflictedCondition(t *testing.T) {
 	}{
 		{
 			name:           "accepted reason",
-			reason:         gwv1.ListenerReasonAccepted,
+			reason:         gwv1.ListenerReasonNoConflicts,
 			message:        "Accepted",
 			expectedStatus: metav1.ConditionTrue,
 		},
@@ -282,7 +425,7 @@ func Test_buildResolvedRefsCondition(t *testing.T) {
 	}{
 		{
 			name:           "accepted reason",
-			reason:         gwv1.ListenerReasonAccepted,
+			reason:         gwv1.ListenerReasonResolvedRefs,
 			message:        "Accepted",
 			expectedStatus: metav1.ConditionTrue,
 		},
@@ -492,6 +635,210 @@ func Test_isListenerStatusIdentical(t *testing.T) {
 						Reason:             "test-reason",
 						LastTransitionTime: fixedTime,
 					}},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "multiple types in conditions - same content but different order",
+			listenerStatus: []gwv1.ListenerStatus{{
+				Name: "test1",
+				Conditions: []metav1.Condition{
+					{
+						Type:               "Accepted",
+						Status:             metav1.ConditionTrue,
+						Reason:             "test-reason",
+						Message:            "sample-message",
+						LastTransitionTime: fixedTime,
+						ObservedGeneration: 5,
+					},
+					{
+						Type:               "ResolvedRefs",
+						Status:             metav1.ConditionTrue,
+						Reason:             "test-reason",
+						Message:            "sample-message",
+						LastTransitionTime: fixedTime,
+						ObservedGeneration: 5,
+					},
+					{
+						Type:               "Programmed",
+						Status:             metav1.ConditionTrue,
+						Reason:             "test-reason",
+						Message:            "sample-message",
+						LastTransitionTime: fixedTime,
+						ObservedGeneration: 5,
+					},
+				},
+			}},
+			listenerStatusOld: []gwv1.ListenerStatus{{
+				Name: "test1",
+				Conditions: []metav1.Condition{
+					{
+						Type:               "Programmed",
+						Message:            "sample-message",
+						LastTransitionTime: fixedTime,
+						ObservedGeneration: 5,
+						Status:             metav1.ConditionTrue,
+						Reason:             "test-reason",
+					},
+					{
+						Type:               "Accepted",
+						LastTransitionTime: fixedTime,
+						Status:             metav1.ConditionTrue,
+						Reason:             "test-reason",
+						Message:            "sample-message",
+						ObservedGeneration: 5,
+					},
+					{
+						Type:               "ResolvedRefs",
+						LastTransitionTime: fixedTime,
+						ObservedGeneration: 5,
+						Status:             metav1.ConditionTrue,
+						Reason:             "test-reason",
+						Message:            "sample-message",
+					},
+				},
+			}},
+			expected: true,
+		},
+		{
+			name: "multiple conditions in one listener with different length",
+			listenerStatus: []gwv1.ListenerStatus{
+				{
+					Name:           "test1",
+					AttachedRoutes: 2,
+					Conditions: []metav1.Condition{
+						{
+							ObservedGeneration: 5,
+							Type:               "Accepted",
+							Status:             metav1.ConditionTrue,
+							Reason:             "test-reason",
+							Message:            "sample-message",
+							LastTransitionTime: fixedTime,
+						},
+						{
+							ObservedGeneration: 5,
+							Type:               "ResolvedRefs",
+							Status:             metav1.ConditionTrue,
+							Reason:             "test-reason",
+							Message:            "sample-message",
+							LastTransitionTime: fixedTime,
+						},
+					},
+				},
+				{
+					Name:           "test2",
+					AttachedRoutes: 5,
+					Conditions: []metav1.Condition{{
+						Type:               "Accepted",
+						Status:             metav1.ConditionFalse,
+						Reason:             "test-reason",
+						Message:            "test-message",
+						LastTransitionTime: fixedTime,
+						ObservedGeneration: 5,
+					}},
+				},
+			},
+			listenerStatusOld: []gwv1.ListenerStatus{
+				{
+					Name:           "test2",
+					AttachedRoutes: 5,
+					Conditions: []metav1.Condition{{
+						Type:               "Accepted",
+						ObservedGeneration: 5,
+						Status:             metav1.ConditionFalse,
+						Reason:             "test-reason",
+						Message:            "test-message",
+						LastTransitionTime: fixedTime,
+					}},
+				},
+				{
+					Name:           "test1",
+					AttachedRoutes: 2,
+					Conditions: []metav1.Condition{{
+						Status:             metav1.ConditionTrue,
+						Message:            "sample-message",
+						ObservedGeneration: 5,
+						Type:               "Accepted",
+						Reason:             "test-reason",
+						LastTransitionTime: fixedTime,
+					}},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "multiple conditions in one listener with same length different order",
+			listenerStatus: []gwv1.ListenerStatus{
+				{
+					Name:           "test1",
+					AttachedRoutes: 2,
+					Conditions: []metav1.Condition{
+						{
+							ObservedGeneration: 5,
+							Type:               "Accepted",
+							Status:             metav1.ConditionTrue,
+							Reason:             "test-reason",
+							Message:            "sample-message",
+							LastTransitionTime: fixedTime,
+						},
+						{
+							ObservedGeneration: 5,
+							Type:               "ResolvedRefs",
+							Status:             metav1.ConditionTrue,
+							Reason:             "test-reason",
+							Message:            "sample-message",
+							LastTransitionTime: fixedTime,
+						},
+					},
+				},
+				{
+					Name:           "test2",
+					AttachedRoutes: 5,
+					Conditions: []metav1.Condition{{
+						Type:               "Accepted",
+						Status:             metav1.ConditionFalse,
+						Reason:             "test-reason",
+						Message:            "test-message",
+						LastTransitionTime: fixedTime,
+						ObservedGeneration: 5,
+					}},
+				},
+			},
+			listenerStatusOld: []gwv1.ListenerStatus{
+				{
+					Name:           "test2",
+					AttachedRoutes: 5,
+					Conditions: []metav1.Condition{{
+						Type:               "Accepted",
+						ObservedGeneration: 5,
+						Status:             metav1.ConditionFalse,
+						Reason:             "test-reason",
+						Message:            "test-message",
+						LastTransitionTime: fixedTime,
+					}},
+				},
+				{
+					Name:           "test1",
+					AttachedRoutes: 2,
+					Conditions: []metav1.Condition{
+						{
+							ObservedGeneration: 5,
+							Type:               "ResolvedRefs",
+							Status:             metav1.ConditionTrue,
+							Reason:             "test-reason",
+							Message:            "sample-message",
+							LastTransitionTime: fixedTime,
+						},
+						{
+							Status:             metav1.ConditionTrue,
+							Message:            "sample-message",
+							ObservedGeneration: 5,
+							Type:               "Accepted",
+							Reason:             "test-reason",
+							LastTransitionTime: fixedTime,
+						},
+					},
 				},
 			},
 			expected: true,
