@@ -8,6 +8,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -342,6 +343,116 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_buildListenerTags(t *testing.T) {
+	tests := []struct {
+		name                string
+		lbCfg               elbv2gw.LoadBalancerConfiguration
+		defaultTags         map[string]string
+		externalManagedTags []string
+		expectedTags        map[string]string
+		expectedErr         error
+	}{
+		{
+			name: "successful tag retrieval with default tags",
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-lb",
+					Namespace: "test-namespace",
+				},
+			},
+			defaultTags: map[string]string{
+				"Environment": "test",
+			},
+			externalManagedTags: []string{},
+			expectedTags: map[string]string{
+				"Environment": "test",
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "empty tags returned",
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-lb-empty",
+					Namespace: "test-namespace",
+				},
+			},
+			defaultTags:         map[string]string{},
+			externalManagedTags: []string{},
+			expectedTags:        map[string]string{},
+			expectedErr:         nil,
+		},
+		{
+			name: "tags with user-specified tags",
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-lb-user-tags",
+					Namespace: "test-namespace",
+				},
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					Tags: &map[string]string{
+						"Application": "my-app",
+						"Owner":       "team-a",
+					},
+				},
+			},
+			defaultTags: map[string]string{
+				"Environment": "test",
+			},
+			externalManagedTags: []string{},
+			expectedTags: map[string]string{
+				"Environment": "test",
+				"Application": "my-app",
+				"Owner":       "team-a",
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "external managed tags specified by user should cause error",
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-lb-error",
+					Namespace: "test-namespace",
+				},
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					Tags: &map[string]string{
+						"Application":   "my-app",
+						"ExternalTag":   "external-value",
+						"ManagedByTeam": "platform-team",
+					},
+				},
+			},
+			defaultTags: map[string]string{
+				"Environment": "test",
+			},
+			externalManagedTags: []string{"ExternalTag", "ManagedByTeam"},
+			expectedTags:        nil,
+			expectedErr:         errors.New("external managed tag key ExternalTag cannot be specified"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tagHelper := newTagHelper(sets.New(tt.externalManagedTags...), tt.defaultTags, false)
+
+			builder := &listenerBuilderImpl{
+				tagHelper: tagHelper,
+			}
+
+			got, err := builder.buildListenerTags(tt.lbCfg)
+
+			if tt.expectedErr != nil {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectedErr.Error())
+				assert.Nil(t, got)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expectedTags, got)
+			}
 		})
 	}
 }

@@ -329,7 +329,9 @@ func Test_defaultAcceleratorBuilder_buildAcceleratorTags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := NewAcceleratorBuilder(trackingProvider, tt.clusterName, tt.defaultTags, tt.externalManagedTags)
+			// Use true for "user tags override default tags" test case
+			additionalTagsOverrideDefaultTags := tt.name == "user tags override default tags"
+			builder := NewAcceleratorBuilder(trackingProvider, tt.clusterName, tt.defaultTags, tt.externalManagedTags, additionalTagsOverrideDefaultTags)
 			b := builder.(*defaultAcceleratorBuilder)
 
 			stack := core.NewDefaultStack(core.StackID{Namespace: "test", Name: "test"})
@@ -495,7 +497,7 @@ func Test_defaultAcceleratorBuilder_Build(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := NewAcceleratorBuilder(trackingProvider, tt.clusterName, tt.defaultTags, tt.externalManagedTags)
+			builder := NewAcceleratorBuilder(trackingProvider, tt.clusterName, tt.defaultTags, tt.externalManagedTags, false)
 
 			got, err := builder.Build(context.Background(), stack, tt.ga)
 
