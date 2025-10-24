@@ -35,9 +35,9 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 		lbARN          string
 	)
 	BeforeEach(func() {
-		//if !tf.Options.EnableGatewayTests {
-		Skip("Skipping gateway tests")
-		//}
+		if !tf.Options.EnableGatewayTests {
+			Skip("Skipping gateway tests")
+		}
 		ctx = context.Background()
 		stack = ALBTestStack{}
 		auxiliaryStack = nil

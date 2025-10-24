@@ -187,7 +187,7 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 
 	lb := elbv2model.NewLoadBalancer(stack, shared_constants.ResourceIDLoadBalancer, spec)
 
-	tgbNetworkingBuilder := newTargetGroupBindingNetworkBuilder(baseBuilder.disableRestrictedSGRules, baseBuilder.vpcID, lbConf, spec, securityGroups, subnets.ec2Result, baseBuilder.vpcInfoProvider)
+	tgbNetworkingBuilder := newTargetGroupBindingNetworkBuilder(baseBuilder.disableRestrictedSGRules, baseBuilder.vpcID, spec.Scheme, lbConf.Spec.SourceRanges, securityGroups, subnets.ec2Result, baseBuilder.vpcInfoProvider)
 	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, tgbNetworkingBuilder, baseBuilder.tgPropertiesConstructor, baseBuilder.defaultTargetType, targetGroupNameToArnMapper)
 	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.acmClient, baseBuilder.k8sClient, baseBuilder.allowedCAARNs, secretsManager, baseBuilder.logger)
 

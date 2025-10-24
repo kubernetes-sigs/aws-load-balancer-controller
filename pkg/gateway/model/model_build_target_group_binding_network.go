@@ -7,7 +7,6 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
@@ -25,16 +24,16 @@ type targetGroupBindingNetworkBuilderImpl struct {
 	vpcID                    string
 	sgOutput                 securityGroupOutput
 	loadBalancerSubnets      []ec2types.Subnet
-	lbSpec                   elbv2model.LoadBalancerSpec
-	lbConfig                 elbv2gw.LoadBalancerConfiguration
+	lbScheme                 elbv2model.LoadBalancerScheme
+	lbSourceRanges           *[]string
 	vpcInfoProvider          networking.VPCInfoProvider
 }
 
-func newTargetGroupBindingNetworkBuilder(disableRestrictedSGRules bool, vpcID string, lbConfig elbv2gw.LoadBalancerConfiguration, lbSpec elbv2model.LoadBalancerSpec, sgOutput securityGroupOutput, loadBalancerSubnets []ec2types.Subnet, vpcInfoProvider networking.VPCInfoProvider) targetGroupBindingNetworkBuilder {
+func newTargetGroupBindingNetworkBuilder(disableRestrictedSGRules bool, vpcID string, lbScheme elbv2model.LoadBalancerScheme, lbSourceRanges *[]string, sgOutput securityGroupOutput, loadBalancerSubnets []ec2types.Subnet, vpcInfoProvider networking.VPCInfoProvider) targetGroupBindingNetworkBuilder {
 	return &targetGroupBindingNetworkBuilderImpl{
 		disableRestrictedSGRules: disableRestrictedSGRules,
-		lbConfig:                 lbConfig,
-		lbSpec:                   lbSpec,
+		lbScheme:                 lbScheme,
+		lbSourceRanges:           lbSourceRanges,
 		vpcID:                    vpcID,
 		sgOutput:                 sgOutput,
 		loadBalancerSubnets:      loadBalancerSubnets,
@@ -44,12 +43,12 @@ func newTargetGroupBindingNetworkBuilder(disableRestrictedSGRules bool, vpcID st
 
 func (builder *targetGroupBindingNetworkBuilderImpl) buildTargetGroupBindingNetworking(targetGroupSpec elbv2model.TargetGroupSpec, targetPort intstr.IntOrString) (*elbv2modelk8s.TargetGroupBindingNetworking, error) {
 	if len(builder.sgOutput.securityGroupTokens) == 0 {
-		return builder.oldF(targetPort, targetGroupSpec)
+		return builder.nlbNoSecurityGroups(targetPort, targetGroupSpec)
 	}
-	return builder.newF(targetPort, *targetGroupSpec.HealthCheckConfig.Port, targetGroupSpec.Protocol), nil
+	return builder.standardBuilder(targetPort, *targetGroupSpec.HealthCheckConfig.Port, targetGroupSpec.Protocol), nil
 }
 
-func (builder *targetGroupBindingNetworkBuilderImpl) newF(targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, tgProtocol elbv2model.Protocol) *elbv2modelk8s.TargetGroupBindingNetworking {
+func (builder *targetGroupBindingNetworkBuilderImpl) standardBuilder(targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, tgProtocol elbv2model.Protocol) *elbv2modelk8s.TargetGroupBindingNetworking {
 	if builder.sgOutput.backendSecurityGroupToken == nil {
 		return nil
 	}
@@ -133,7 +132,7 @@ func (builder *targetGroupBindingNetworkBuilderImpl) newF(targetPort intstr.IntO
 	}
 }
 
-func (builder *targetGroupBindingNetworkBuilderImpl) oldF(targetPort intstr.IntOrString, tgSpec elbv2model.TargetGroupSpec) (*elbv2modelk8s.TargetGroupBindingNetworking, error) {
+func (builder *targetGroupBindingNetworkBuilderImpl) nlbNoSecurityGroups(targetPort intstr.IntOrString, tgSpec elbv2model.TargetGroupSpec) (*elbv2modelk8s.TargetGroupBindingNetworking, error) {
 	healthCheckProtocol := elbv2api.NetworkingProtocolTCP
 	healthCheckPort := *tgSpec.HealthCheckConfig.Port
 	var err error
@@ -146,8 +145,8 @@ func (builder *targetGroupBindingNetworkBuilderImpl) oldF(targetPort intstr.IntO
 	isPreserveClientIP := builder.getPreserveClientIP(tgSpec)
 
 	if isPreserveClientIP {
-		if builder.lbConfig.Spec.SourceRanges != nil {
-			trafficSource = *builder.lbConfig.Spec.SourceRanges
+		if builder.lbSourceRanges != nil {
+			trafficSource = *builder.lbSourceRanges
 		} else {
 			trafficSource = []string{}
 		}
@@ -243,7 +242,7 @@ func (builder *targetGroupBindingNetworkBuilderImpl) getDefaultIPSourceRanges(pr
 	if tgSpec.IPAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
 		defaultSourceRanges = []string{"::/0"}
 	}
-	if (preserveClientIP) && builder.lbSpec.Scheme == elbv2model.LoadBalancerSchemeInternal {
+	if (preserveClientIP) && builder.lbScheme == elbv2model.LoadBalancerSchemeInternal {
 		vpcInfo, err := builder.vpcInfoProvider.FetchVPCInfo(context.Background(), builder.vpcID, networking.FetchVPCInfoWithoutCache())
 		if err != nil {
 			return nil, err
