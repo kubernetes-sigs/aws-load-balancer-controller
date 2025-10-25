@@ -272,6 +272,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		albRules = append(albRules, elbv2model.Rule{
 			Conditions: conditionsList,
 			Actions:    actions,
+			Transforms: routeutils.BuildRoutingRuleTransforms(route, ruleWithPrecedence),
 			Tags:       tags,
 		})
 
@@ -285,6 +286,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 			Priority:    priority,
 			Conditions:  rule.Conditions,
 			Actions:     rule.Actions,
+			Transforms:  rule.Transforms,
 			Tags:        rule.Tags,
 		})
 		priority += 1
