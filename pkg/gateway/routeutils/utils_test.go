@@ -608,3 +608,81 @@ func Test_isHostnameCompatible(t *testing.T) {
 		})
 	}
 }
+
+func Test_getCompatibleHostname(t *testing.T) {
+	tests := []struct {
+		name         string
+		hostnameOne  string
+		hostnameTwo  string
+		wantHostname string
+		wantOk       bool
+	}{
+		{
+			name:         "exact match",
+			hostnameOne:  "example.com",
+			hostnameTwo:  "example.com",
+			wantHostname: "example.com",
+			wantOk:       true,
+		},
+		{
+			name:         "wildcard in first, specific in second",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "api.example.com",
+			wantHostname: "api.example.com",
+			wantOk:       true,
+		},
+		{
+			name:         "wildcard in second, specific in first",
+			hostnameOne:  "api.example.com",
+			hostnameTwo:  "*.example.com",
+			wantHostname: "api.example.com",
+			wantOk:       true,
+		},
+		{
+			name:         "incompatible hostnames",
+			hostnameOne:  "example.com",
+			hostnameTwo:  "different.com",
+			wantHostname: "",
+			wantOk:       false,
+		},
+		{
+			name:         "wildcard does not match",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "api.different.com",
+			wantHostname: "",
+			wantOk:       false,
+		},
+		{
+			name:         "both wildcards same domain",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "*.example.com",
+			wantHostname: "*.example.com",
+			wantOk:       true,
+		},
+		{
+			name:         "both wildcards different domains",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "*.different.com",
+			wantHostname: "",
+			wantOk:       false,
+		},
+		{
+			name:         "nested subdomain with wildcard",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "sub.api.example.com",
+			wantHostname: "sub.api.example.com",
+			wantOk:       true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotHostname, gotOk := getCompatibleHostname(tt.hostnameOne, tt.hostnameTwo)
+			if gotHostname != tt.wantHostname {
+				t.Errorf("getCompatibleHostname() hostname = %v, want %v", gotHostname, tt.wantHostname)
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("getCompatibleHostname() ok = %v, want %v", gotOk, tt.wantOk)
+			}
+		})
+	}
+}
