@@ -58,7 +58,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ga *agaapi.GlobalAccele
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(ga)))
 
 	// Create fresh builder instances for each reconciliation
-	acceleratorBuilder := NewAcceleratorBuilder(b.trackingProvider, b.clusterName, b.defaultTags, b.externalManagedTags)
+	acceleratorBuilder := NewAcceleratorBuilder(b.trackingProvider, b.clusterName, b.defaultTags, b.externalManagedTags, b.featureGates.Enabled(config.EnableDefaultTagsLowPriority))
 	// TODO
 	// listenerBuilder := NewListenerBuilder()
 	// endpointGroupBuilder := NewEndpointGroupBuilder()

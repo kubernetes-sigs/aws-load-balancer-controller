@@ -1791,6 +1791,115 @@ func Test_buildTargetGroupFromStaticName(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func Test_buildTargetGroupTags(t *testing.T) {
+	testCases := []struct {
+		name         string
+		defaultTags  map[string]string
+		userTags     *map[string]string
+		expectErr    bool
+		expectedTags map[string]string
+	}{
+		{
+			name: "successful tag retrieval with default tags",
+			defaultTags: map[string]string{
+				"Environment": "test",
+			},
+			expectedTags: map[string]string{
+				"Environment": "test",
+			},
+		},
+		{
+			name:         "empty tags",
+			defaultTags:  map[string]string{},
+			expectedTags: map[string]string{},
+		},
+		{
+			name: "user-specified tags",
+			defaultTags: map[string]string{
+				"Environment": "test",
+			},
+			userTags: &map[string]string{
+				"CustomTag": "CustomValue",
+				"Team":      "backend",
+			},
+			expectedTags: map[string]string{
+				"Environment": "test",
+				"CustomTag":   "CustomValue",
+				"Team":        "backend",
+			},
+		},
+		{
+			name: "user tags override default tags",
+			defaultTags: map[string]string{
+				"Environment": "test",
+			},
+			userTags: &map[string]string{
+				"Environment": "production",
+			},
+			expectedTags: map[string]string{
+				"Environment": "production", // User tag overrides default
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a real tag helper without tracking provider
+			tagger := newTagHelper(nil, tc.defaultTags, tc.name == "user tags override default tags")
+
+			builder := newTargetGroupBuilder("test-cluster", "vpc-xxx", tagger, elbv2model.LoadBalancerTypeApplication, &mockTargetGroupBindingNetworkingBuilder{}, gateway.NewTargetGroupConfigConstructor(), string(elbv2model.TargetTypeIP), nil)
+
+			gateway := &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-namespace",
+					Name:      "test-gateway",
+				},
+			}
+
+			route := &routeutils.MockRoute{
+				Kind:      routeutils.HTTPRouteKind,
+				Name:      "test-route",
+				Namespace: "test-namespace",
+			}
+
+			backend := routeutils.ServiceBackendConfig{
+				Service: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "test-namespace",
+						Name:      "test-service",
+					},
+				},
+				ServicePort: &corev1.ServicePort{
+					Protocol: corev1.ProtocolTCP,
+					Port:     80,
+					TargetPort: intstr.IntOrString{
+						IntVal: 80,
+						Type:   intstr.Int,
+					},
+				},
+			}
+
+			// Create target group props with user tags if specified
+			var tgProps *elbv2gw.TargetGroupProps
+			if tc.userTags != nil {
+				tgProps = &elbv2gw.TargetGroupProps{
+					Tags: tc.userTags,
+				}
+			}
+
+			tgSpec, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(gateway, route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, backend, tgProps)
+
+			if tc.expectErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expectedTags, tgSpec.Tags)
+		})
+	}
+}
+
 func protocolPtr(protocol elbv2gw.Protocol) *elbv2gw.Protocol {
 	return &protocol
 }

@@ -23,9 +23,9 @@ type acceleratorBuilder interface {
 }
 
 // NewAcceleratorBuilder constructs new acceleratorBuilder
-func NewAcceleratorBuilder(trackingProvider tracking.Provider, clusterName string, defaultTags map[string]string, externalManagedTags []string) acceleratorBuilder {
+func NewAcceleratorBuilder(trackingProvider tracking.Provider, clusterName string, defaultTags map[string]string, externalManagedTags []string, additionalTagsOverrideDefaultTags bool) acceleratorBuilder {
 	externalManagedTagsSet := sets.New(externalManagedTags...)
-	tagHelper := newTagHelper(externalManagedTagsSet, defaultTags)
+	tagHelper := newTagHelper(externalManagedTagsSet, defaultTags, additionalTagsOverrideDefaultTags)
 
 	return &defaultAcceleratorBuilder{
 		trackingProvider: trackingProvider,
@@ -121,7 +121,7 @@ func (b *defaultAcceleratorBuilder) buildAcceleratorIPAddressType(_ context.Cont
 
 func (b *defaultAcceleratorBuilder) buildAcceleratorTags(_ context.Context, stack core.Stack, ga *agaapi.GlobalAccelerator) (map[string]string, error) {
 	// Get tags from tag helper (includes default tags and user-specified tags)
-	tags, err := b.tagHelper.getAcceleratorTags(ga)
+	tags, err := b.tagHelper.getAcceleratorTags(*ga)
 	if err != nil {
 		return nil, err
 	}
