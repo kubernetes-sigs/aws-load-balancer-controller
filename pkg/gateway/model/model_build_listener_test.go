@@ -471,16 +471,19 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 
 	// Test cases
 	tests := []struct {
-		name  string
-		lbCfg elbv2gw.LoadBalancerConfiguration
-		want  map[int32]*elbv2gw.ListenerConfiguration
+		name      string
+		lbCfg     elbv2gw.LoadBalancerConfiguration
+		listeners []gwv1.Listener
+		want      map[int32]*elbv2gw.ListenerConfiguration
 	}{
 		{
-			name: "nil configuration",
-			want: map[int32]*elbv2gw.ListenerConfiguration{},
+			name:      "nil configuration",
+			listeners: []gwv1.Listener{},
+			want:      map[int32]*elbv2gw.ListenerConfiguration{},
 		},
 		{
-			name: "nil listener configurations",
+			name:      "nil listener configurations",
+			listeners: []gwv1.Listener{},
 			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: nil,
@@ -489,7 +492,8 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 			want: map[int32]*elbv2gw.ListenerConfiguration{},
 		},
 		{
-			name: "empty listener configurations",
+			name:      "empty listener configurations",
+			listeners: []gwv1.Listener{},
 			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: createListenerConfigs(),
@@ -499,6 +503,12 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 		},
 		{
 			name: "single HTTP listener",
+			listeners: []gwv1.Listener{
+				{
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+				},
+			},
 			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: createListenerConfigs("HTTP:80"),
@@ -512,6 +522,20 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 		},
 		{
 			name: "multiple valid listeners",
+			listeners: []gwv1.Listener{
+				{
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+				},
+				{
+					Protocol: gwv1.HTTPSProtocolType,
+					Port:     443,
+				},
+				{
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     8080,
+				},
+			},
 			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: createListenerConfigs(
@@ -533,11 +557,49 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "conflicting listener protocols",
+			listeners: []gwv1.Listener{
+				{
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     80,
+				},
+				{
+					Protocol: gwv1.HTTPSProtocolType,
+					Port:     443,
+				},
+				{
+					Protocol: gwv1.HTTPProtocolType,
+					Port:     8080,
+				},
+			},
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					ListenerConfigurations: createListenerConfigs(
+						"HTTP:80",
+						"TCP:80",
+						"HTTPS:443",
+						"HTTP:8080",
+					),
+				},
+			},
+			want: map[int32]*elbv2gw.ListenerConfiguration{
+				80: {
+					ProtocolPort: "HTTP:80",
+				},
+				443: {
+					ProtocolPort: "HTTPS:443",
+				},
+				8080: {
+					ProtocolPort: "HTTP:8080",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mapLoadBalancerListenerConfigsByPort(tt.lbCfg)
+			got := mapLoadBalancerListenerConfigsByPort(tt.lbCfg, tt.listeners)
 
 			assert.Equal(t, tt.want, got)
 		})
