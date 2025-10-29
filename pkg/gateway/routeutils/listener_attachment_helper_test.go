@@ -558,6 +558,13 @@ func Test_hostnameIntersection(t *testing.T) {
 		expectEmpty                 bool
 	}{
 		{
+			name:                        "Route has nil hostnames - inherits listener hostname",
+			listenerHostname:            ptr(gwv1.Hostname("bar.com")),
+			routeHostnames:              nil,
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"bar.com"},
+		},
+		{
 			name:                        "Route has NO hostnames - inherits listener hostname",
 			listenerHostname:            ptr(gwv1.Hostname("bar.com")),
 			routeHostnames:              []gwv1.Hostname{},

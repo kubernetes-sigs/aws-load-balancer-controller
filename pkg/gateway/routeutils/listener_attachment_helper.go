@@ -175,7 +175,7 @@ func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Li
 
 func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv1.Listener, route preLoadRouteDescriptor) ([]gwv1.Hostname, bool, error) {
 	// If route has no hostnames but listener does, use listener hostname
-	if len(route.GetHostnames()) == 0 {
+	if route.GetHostnames() == nil || len(route.GetHostnames()) == 0 {
 		if listener.Hostname != nil {
 			return []gwv1.Hostname{*listener.Hostname}, true, nil
 		}
