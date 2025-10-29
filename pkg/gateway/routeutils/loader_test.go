@@ -22,9 +22,9 @@ type mockMapper struct {
 	routeStatusUpdates []RouteData
 }
 
-func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, []RouteData, error) {
+func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[types.NamespacedName][]gwv1.Hostname, []RouteData, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
-	return m.mapToReturn, m.routeStatusUpdates, nil
+	return m.mapToReturn, make(map[int32]map[types.NamespacedName][]gwv1.Hostname), m.routeStatusUpdates, nil
 }
 
 var _ RouteDescriptor = &mockRoute{}

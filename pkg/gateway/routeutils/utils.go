@@ -127,8 +127,13 @@ func isHostnameCompatible(hostnameOne, hostnameTwo string) bool {
 	return isCompatible
 }
 
-// getCompatibleHostname returns the more specific hostname if two hostnames are compatible
-// Returns the compatible hostname and true if compatible, empty string and false otherwise
+// getCompatibleHostname returns the more specific hostname if two hostnames are compatible.
+// Two hostnames are compatible if:
+//  1. They are exactly the same (e.g., "example.com" and "example.com")
+//  2. One is a wildcard that matches the other (e.g., "*.example.com" matches "api.example.com")
+// When compatible, returns the more specific hostname (non-wildcard) and true.
+// When incompatible (e.g., "api.example.com" vs "web.example.com"), returns empty string and false.
+// This is used to match Gateway listener hostnames with Route hostnames for traffic routing.
 func getCompatibleHostname(hostnameOne, hostnameTwo string) (string, bool) {
 	// exact match
 	if hostnameOne == hostnameTwo {

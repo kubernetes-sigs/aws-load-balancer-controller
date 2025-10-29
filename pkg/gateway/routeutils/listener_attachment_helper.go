@@ -15,7 +15,7 @@ import (
 // listenerAttachmentHelper is an internal utility interface that can be used to determine if a listener will allow
 // a route to attach to it.
 type listenerAttachmentHelper interface {
-	listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, *RouteData, error)
+	listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) ([]gwv1.Hostname, bool, *RouteData, error)
 }
 
 var _ listenerAttachmentHelper = &listenerAttachmentHelperImpl{}
@@ -35,33 +35,36 @@ func newListenerAttachmentHelper(k8sClient client.Client, logger logr.Logger) li
 
 // listenerAllowsAttachment utility method to determine if a listener will allow a route to connect using
 // Gateway API rules to determine compatibility between lister and route.
-func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, *RouteData, error) {
+// Returns: (compatibleHostnames, allowed, failedRouteData, error)
+func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) ([]gwv1.Hostname, bool, *RouteData, error) {
 	// check namespace
 	namespaceOK, err := attachmentHelper.namespaceCheck(ctx, gw, listener, route)
 	if err != nil {
-		return false, nil, err
+		return nil, false, nil, err
 	}
 	if !namespaceOK {
 		rd := GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), RouteStatusInfoRejectedMessageNamespaceNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw)
-		return false, &rd, nil
+		return nil, false, &rd, nil
 	}
 
 	// check kind
 	kindOK := attachmentHelper.kindCheck(listener, route)
 	if !kindOK {
 		rd := GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), RouteStatusInfoRejectedMessageKindNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw)
-		return false, &rd, nil
+		return nil, false, &rd, nil
 	}
 
-	// check hostname
+	// check hostname and get compatible hostnames
+	var compatibleHostnames []gwv1.Hostname
 	if route.GetRouteKind() == HTTPRouteKind || route.GetRouteKind() == GRPCRouteKind || route.GetRouteKind() == TLSRouteKind {
-		hostnameOK, err := attachmentHelper.hostnameCheck(listener, route)
+		var hostnameOK bool
+		compatibleHostnames, hostnameOK, err = attachmentHelper.hostnameCheck(listener, route)
 		if err != nil {
-			return false, nil, err
+			return nil, false, nil, err
 		}
 		if !hostnameOK {
 			rd := GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingListenerHostname), RouteStatusInfoRejectedMessageNoMatchingHostname, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw)
-			return false, &rd, nil
+			return nil, false, &rd, nil
 		}
 	}
 
@@ -71,11 +74,11 @@ func (attachmentHelper *listenerAttachmentHelperImpl) listenerAllowsAttachment(c
 		if !hostnameUniquenessOK {
 			message := fmt.Sprintf("HTTPRoute and GRPCRoute have overlap hostname, attachment is rejected. Conflict route: %s", conflictRoute)
 			rd := GenerateRouteData(false, true, string(gwv1.RouteReasonNotAllowedByListeners), message, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw)
-			return false, &rd, nil
+			return nil, false, &rd, nil
 		}
 	}
 
-	return true, nil, nil
+	return compatibleHostnames, true, nil, nil
 }
 
 // namespaceCheck namespace check implements the Gateway API spec for namespace matching between listener
@@ -170,19 +173,18 @@ func (attachmentHelper *listenerAttachmentHelperImpl) kindCheck(listener gwv1.Li
 	return true
 }
 
-func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv1.Listener, route preLoadRouteDescriptor) (bool, error) {
+func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv1.Listener, route preLoadRouteDescriptor) ([]gwv1.Hostname, bool, error) {
 	// If route has no hostnames but listener does, use listener hostname
 	if len(route.GetHostnames()) == 0 {
 		if listener.Hostname != nil {
-			existing := route.GetCompatibleHostnames()
-			route.SetCompatibleHostnames(append(existing, *listener.Hostname))
+			return []gwv1.Hostname{*listener.Hostname}, true, nil
 		}
-		return true, nil
+		return nil, true, nil
 	}
 
 	// If listener has no hostname, route can attach
 	if listener.Hostname == nil {
-		return true, nil
+		return nil, true, nil
 	}
 
 	// validate listener hostname, return if listener hostname is not valid
@@ -190,11 +192,11 @@ func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv
 	if err != nil {
 		attachmentHelper.logger.Error(err, "listener hostname is not valid", "listener", listener.Name, "hostname", *listener.Hostname)
 		initialErrorMessage := fmt.Sprintf("listener hostname %s is not valid (listener name %s)", listener.Name, *listener.Hostname)
-		return false, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue, nil, nil)
+		return nil, false, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue, nil, nil)
 	}
 
 	if !isListenerHostnameValid {
-		return false, nil
+		return nil, false, nil
 	}
 
 	compatibleHostnames := []gwv1.Hostname{}
@@ -213,12 +215,11 @@ func (attachmentHelper *listenerAttachmentHelperImpl) hostnameCheck(listener gwv
 	}
 
 	if len(compatibleHostnames) == 0 {
-		return false, nil
+		return nil, false, nil
 	}
 
-	// Store computed compatible hostnames in route
-	route.SetCompatibleHostnames(compatibleHostnames)
-	return true, nil
+	// Return computed compatible hostnames without storing in route
+	return compatibleHostnames, true, nil
 }
 
 func (attachmentHelper *listenerAttachmentHelperImpl) crossServingHostnameUniquenessCheck(route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, string) {

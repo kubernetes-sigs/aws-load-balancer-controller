@@ -88,7 +88,7 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			}
 			hostnameFromHttpRoute := map[types.NamespacedName][]gwv1.Hostname{}
 			hostnameFromGrpcRoute := map[types.NamespacedName][]gwv1.Hostname{}
-			result, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
+			_, result, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
 			}, route, hostnameFromHttpRoute, hostnameFromGrpcRoute)
 			assert.NoError(t, err)
@@ -536,7 +536,7 @@ func Test_hostnameCheck(t *testing.T) {
 				logger: logr.Discard(),
 			}
 
-			result, err := helper.hostnameCheck(tt.listener, tt.route)
+			_, result, err := helper.hostnameCheck(tt.listener, tt.route)
 
 			assert.Equal(t, tt.expectedResult, result)
 			if tt.expectedError {
@@ -636,15 +636,15 @@ func Test_hostnameIntersection(t *testing.T) {
 				hostnames: tt.routeHostnames,
 			}
 
-			result, err := helper.hostnameCheck(listener, route)
+			compatibleHostnames, result, err := helper.hostnameCheck(listener, route)
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedAttachment, result)
 
 			if tt.expectEmpty {
-				assert.Empty(t, route.GetCompatibleHostnames())
+				assert.Empty(t, compatibleHostnames)
 			} else {
-				assert.Equal(t, tt.expectedCompatibleHostnames, route.GetCompatibleHostnames())
+				assert.Equal(t, tt.expectedCompatibleHostnames, compatibleHostnames)
 			}
 		})
 	}
