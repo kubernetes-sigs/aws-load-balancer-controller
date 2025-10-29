@@ -77,12 +77,14 @@ func (m mockPreLoadRouteDescriptor) GetRouteCreateTimestamp() time.Time {
 	panic("implement me")
 }
 
-func (m mockPreLoadRouteDescriptor) GetCompatibleHostnames() []gwv1.Hostname {
-	return m.compatibleHostnames
+func (m mockPreLoadRouteDescriptor) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
+	return map[int32][]gwv1.Hostname{80: m.compatibleHostnames}
 }
 
-func (m mockPreLoadRouteDescriptor) SetCompatibleHostnames(hostnames []gwv1.Hostname) {
-	m.compatibleHostnames = hostnames
+func (m mockPreLoadRouteDescriptor) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+	if hostnamesByPort[80] != nil {
+		m.compatibleHostnames = hostnamesByPort[80]
+	}
 }
 
 func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {

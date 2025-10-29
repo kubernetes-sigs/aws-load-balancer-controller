@@ -52,10 +52,10 @@ func (t *convertedUDPRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleCon
 /* Route Description */
 
 type udpRouteDescription struct {
-	route               *gwalpha2.UDPRoute
-	rules               []RouteRule
-	ruleAccumulator     attachedRuleAccumulator[gwalpha2.UDPRouteRule]
-	compatibleHostnames []gwv1.Hostname
+	route                     *gwalpha2.UDPRoute
+	rules                     []RouteRule
+	ruleAccumulator           attachedRuleAccumulator[gwalpha2.UDPRouteRule]
+	compatibleHostnamesByPort map[int32][]gwv1.Hostname
 }
 
 func (udpRoute *udpRouteDescription) GetAttachedRules() []RouteRule {
@@ -119,12 +119,12 @@ func (udpRoute *udpRouteDescription) GetRouteCreateTimestamp() time.Time {
 	return udpRoute.route.CreationTimestamp.Time
 }
 
-func (udpRoute *udpRouteDescription) GetCompatibleHostnames() []gwv1.Hostname {
-	return udpRoute.compatibleHostnames
+func (udpRoute *udpRouteDescription) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
+	return udpRoute.compatibleHostnamesByPort
 }
 
-func (udpRoute *udpRouteDescription) SetCompatibleHostnames(hostnames []gwv1.Hostname) {
-	udpRoute.compatibleHostnames = hostnames
+func (udpRoute *udpRouteDescription) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+	udpRoute.compatibleHostnamesByPort = hostnamesByPort
 }
 
 var _ RouteDescriptor = &udpRouteDescription{}

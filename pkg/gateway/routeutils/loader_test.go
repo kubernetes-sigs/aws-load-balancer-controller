@@ -30,19 +30,19 @@ func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gatewa
 var _ RouteDescriptor = &mockRoute{}
 
 type mockRoute struct {
-	namespacedName      types.NamespacedName
-	routeKind           RouteKind
-	generation          int64
-	hostnames           []gwv1.Hostname
-	CompatibleHostnames []gwv1.Hostname
+	namespacedName            types.NamespacedName
+	routeKind                 RouteKind
+	generation                int64
+	hostnames                 []gwv1.Hostname
+	CompatibleHostnamesByPort map[int32][]gwv1.Hostname
 }
 
-func (m *mockRoute) GetCompatibleHostnames() []gwv1.Hostname {
-	return m.CompatibleHostnames
+func (m *mockRoute) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
+	return m.CompatibleHostnamesByPort
 }
 
-func (m *mockRoute) SetCompatibleHostnames(hostnames []gwv1.Hostname) {
-	m.CompatibleHostnames = hostnames
+func (m *mockRoute) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+	m.CompatibleHostnamesByPort = hostnamesByPort
 }
 
 func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {

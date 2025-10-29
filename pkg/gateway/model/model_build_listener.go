@@ -187,7 +187,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 
 func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.Stack, ls *elbv2model.Listener, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, routes map[int32][]routeutils.RouteDescriptor) ([]types.NamespacedName, error) {
 	// sort all rules based on precedence
-	rulesWithPrecedenceOrder := routeutils.SortAllRulesByPrecedence(routes[port])
+	rulesWithPrecedenceOrder := routeutils.SortAllRulesByPrecedence(routes[port], port)
 	secrets := make([]types.NamespacedName, 0)
 	var albRules []elbv2model.Rule
 	for _, ruleWithPrecedence := range rulesWithPrecedenceOrder {
@@ -510,9 +510,9 @@ func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway, routes map[int32][]routeu
 		if listenerRoutes != nil {
 			for _, route := range listenerRoutes {
 				// Use compatible hostnames (intersection) instead of raw route hostnames
-				compatibleHostnames := route.GetCompatibleHostnames()
-				if len(compatibleHostnames) > 0 {
-					for _, hostname := range compatibleHostnames {
+				compatibleHostnamesByPort := route.GetCompatibleHostnamesByPort()[port]
+				if len(compatibleHostnamesByPort) > 0 {
+					for _, hostname := range compatibleHostnamesByPort {
 						gwListenerConfigs[port].hostnames.Insert(string(hostname))
 					}
 				} else {

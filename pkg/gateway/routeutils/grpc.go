@@ -51,10 +51,10 @@ func (t *convertedGRPCRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleCo
 /* Route Description */
 
 type grpcRouteDescription struct {
-	route               *gwv1.GRPCRoute
-	rules               []RouteRule
-	ruleAccumulator     attachedRuleAccumulator[gwv1.GRPCRouteRule]
-	compatibleHostnames []gwv1.Hostname
+	route                     *gwv1.GRPCRoute
+	rules                     []RouteRule
+	ruleAccumulator           attachedRuleAccumulator[gwv1.GRPCRouteRule]
+	compatibleHostnamesByPort map[int32][]gwv1.Hostname
 }
 
 func (grpcRoute *grpcRouteDescription) loadAttachedRules(ctx context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -144,12 +144,12 @@ func (grpcRoute *grpcRouteDescription) GetRouteCreateTimestamp() time.Time {
 	return grpcRoute.route.CreationTimestamp.Time
 }
 
-func (grpcRoute *grpcRouteDescription) GetCompatibleHostnames() []gwv1.Hostname {
-	return grpcRoute.compatibleHostnames
+func (grpcRoute *grpcRouteDescription) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
+	return grpcRoute.compatibleHostnamesByPort
 }
 
-func (grpcRoute *grpcRouteDescription) SetCompatibleHostnames(hostnames []gwv1.Hostname) {
-	grpcRoute.compatibleHostnames = hostnames
+func (grpcRoute *grpcRouteDescription) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+	grpcRoute.compatibleHostnamesByPort = hostnamesByPort
 }
 
 var _ RouteDescriptor = &grpcRouteDescription{}

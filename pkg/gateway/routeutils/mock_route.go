@@ -28,13 +28,13 @@ func (m *MockRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleConfiguration {
 var _ RouteRule = &MockRule{}
 
 type MockRoute struct {
-	Kind                RouteKind
-	Name                string
-	Namespace           string
-	Hostnames           []string
-	CreationTime        time.Time
-	Rules               []RouteRule
-	CompatibleHostnames []gwv1.Hostname
+	Kind                      RouteKind
+	Name                      string
+	Namespace                 string
+	Hostnames                 []string
+	CreationTime              time.Time
+	Rules                     []RouteRule
+	CompatibleHostnamesByPort map[int32][]gwv1.Hostname
 }
 
 func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
@@ -89,12 +89,12 @@ func (m *MockRoute) GetRouteCreateTimestamp() time.Time {
 	return m.CreationTime
 }
 
-func (m *MockRoute) GetCompatibleHostnames() []gwv1.Hostname {
-	return m.CompatibleHostnames
+func (m *MockRoute) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
+	return m.CompatibleHostnamesByPort
 }
 
-func (m *MockRoute) SetCompatibleHostnames(hostnames []gwv1.Hostname) {
-	m.CompatibleHostnames = hostnames
+func (m *MockRoute) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+	m.CompatibleHostnamesByPort = hostnamesByPort
 }
 
 var _ RouteDescriptor = &MockRoute{}

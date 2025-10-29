@@ -51,10 +51,10 @@ func (t *convertedHTTPRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleCo
 /* Route Description */
 
 type httpRouteDescription struct {
-	route               *gwv1.HTTPRoute
-	rules               []RouteRule
-	ruleAccumulator     attachedRuleAccumulator[gwv1.HTTPRouteRule]
-	compatibleHostnames []gwv1.Hostname
+	route                     *gwv1.HTTPRoute
+	rules                     []RouteRule
+	ruleAccumulator           attachedRuleAccumulator[gwv1.HTTPRouteRule]
+	compatibleHostnamesByPort map[int32][]gwv1.Hostname
 }
 
 func (httpRoute *httpRouteDescription) GetAttachedRules() []RouteRule {
@@ -137,12 +137,12 @@ func (httpRoute *httpRouteDescription) GetRouteCreateTimestamp() time.Time {
 	return httpRoute.route.CreationTimestamp.Time
 }
 
-func (httpRoute *httpRouteDescription) GetCompatibleHostnames() []gwv1.Hostname {
-	return httpRoute.compatibleHostnames
+func (httpRoute *httpRouteDescription) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
+	return httpRoute.compatibleHostnamesByPort
 }
 
-func (httpRoute *httpRouteDescription) SetCompatibleHostnames(hostnames []gwv1.Hostname) {
-	httpRoute.compatibleHostnames = hostnames
+func (httpRoute *httpRouteDescription) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+	httpRoute.compatibleHostnamesByPort = hostnamesByPort
 }
 
 func convertHTTPRoute(r gwv1.HTTPRoute) *httpRouteDescription {

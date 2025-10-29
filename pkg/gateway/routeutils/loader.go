@@ -182,15 +182,22 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 				}
 			}
 
-			// Set compatible hostnames for this port
-			if compatibleHostnamesByPort[int32(port)] != nil {
-				if hostnames, exists := compatibleHostnamesByPort[int32(port)][namespacedNameRoute]; exists {
-					generatedRoute.SetCompatibleHostnames(hostnames)
-				}
-			}
-
 			loadedRouteData[int32(port)] = append(loadedRouteData[int32(port)], generatedRoute)
 			resourceCache[cacheKey] = generatedRoute
+		}
+	}
+
+	// Set compatible hostnames by port for all routes
+	for _, route := range resourceCache {
+		hostnamesByPort := make(map[int32][]gwv1.Hostname)
+		routeKey := route.GetRouteNamespacedName()
+		for port, compatibleHostnames := range compatibleHostnamesByPort {
+			if hostnames, exists := compatibleHostnames[routeKey]; exists {
+				hostnamesByPort[port] = hostnames
+			}
+		}
+		if len(hostnamesByPort) > 0 {
+			route.SetCompatibleHostnamesByPort(hostnamesByPort)
 		}
 	}
 

@@ -46,13 +46,13 @@ type CommonRulePrecedence struct {
 	RouteCreateTimestamp time.Time
 }
 
-func SortAllRulesByPrecedence(routes []RouteDescriptor) []RulePrecedence {
+func SortAllRulesByPrecedence(routes []RouteDescriptor, port int32) []RulePrecedence {
 	var allRoutes []RulePrecedence
 	var httpRoutes []RulePrecedence
 	var grpcRoutes []RulePrecedence
 
 	for _, route := range routes {
-		routeInfo := getCommonRouteInfo(route)
+		routeInfo := getCommonRouteInfo(route, port)
 		for ruleIndex, rule := range route.GetAttachedRules() {
 			rawRule := rule.GetRawRouteRule()
 			switch r := rawRule.(type) {
@@ -258,14 +258,14 @@ func compareCommonTieBreakers(ruleOne RulePrecedence, ruleTwo RulePrecedence) bo
 	return ruleOne.CommonRulePrecedence.MatchIndexInRule < ruleTwo.CommonRulePrecedence.MatchIndexInRule
 }
 
-func getCommonRouteInfo(route RouteDescriptor) CommonRulePrecedence {
+func getCommonRouteInfo(route RouteDescriptor, port int32) CommonRulePrecedence {
 	routeNamespacedName := route.GetRouteNamespacedName().String()
 	routeCreateTimestamp := route.GetRouteCreateTimestamp()
 	// Use compatible hostnames computed during route attachment
-	compatibleHostnames := route.GetCompatibleHostnames()
-	hostnames := make([]string, len(compatibleHostnames))
-	for i, h := range compatibleHostnames {
-		hostnames[i] = string(h)
+	compatibleHostnamesByPort := route.GetCompatibleHostnamesByPort()[port]
+	hostnames := make([]string, 0)
+	for _, h := range compatibleHostnamesByPort {
+		hostnames = append(hostnames, string(h))
 	}
 	// If no compatible hostnames, use route hostnames
 	if len(hostnames) == 0 {
