@@ -93,7 +93,7 @@ func (m *MockRoute) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
 	return m.CompatibleHostnamesByPort
 }
 
-func (m *MockRoute) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+func (m *MockRoute) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	m.CompatibleHostnamesByPort = hostnamesByPort
 }
 

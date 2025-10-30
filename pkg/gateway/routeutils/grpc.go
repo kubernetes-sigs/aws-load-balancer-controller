@@ -148,7 +148,7 @@ func (grpcRoute *grpcRouteDescription) GetCompatibleHostnamesByPort() map[int32]
 	return grpcRoute.compatibleHostnamesByPort
 }
 
-func (grpcRoute *grpcRouteDescription) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+func (grpcRoute *grpcRouteDescription) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	grpcRoute.compatibleHostnamesByPort = hostnamesByPort
 }
 

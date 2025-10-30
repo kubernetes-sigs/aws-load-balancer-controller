@@ -141,7 +141,7 @@ func (httpRoute *httpRouteDescription) GetCompatibleHostnamesByPort() map[int32]
 	return httpRoute.compatibleHostnamesByPort
 }
 
-func (httpRoute *httpRouteDescription) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+func (httpRoute *httpRouteDescription) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	httpRoute.compatibleHostnamesByPort = hostnamesByPort
 }
 

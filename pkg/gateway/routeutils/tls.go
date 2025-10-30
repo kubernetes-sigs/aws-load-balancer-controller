@@ -124,7 +124,7 @@ func (tlsRoute *tlsRouteDescription) GetCompatibleHostnamesByPort() map[int32][]
 	return tlsRoute.compatibleHostnamesByPort
 }
 
-func (tlsRoute *tlsRouteDescription) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+func (tlsRoute *tlsRouteDescription) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	tlsRoute.compatibleHostnamesByPort = hostnamesByPort
 }
 

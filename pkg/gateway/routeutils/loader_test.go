@@ -41,7 +41,7 @@ func (m *mockRoute) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
 	return m.CompatibleHostnamesByPort
 }
 
-func (m *mockRoute) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+func (m *mockRoute) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	m.CompatibleHostnamesByPort = hostnamesByPort
 }
 

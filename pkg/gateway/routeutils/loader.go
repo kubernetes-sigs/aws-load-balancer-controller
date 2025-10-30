@@ -197,7 +197,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 			}
 		}
 		if len(hostnamesByPort) > 0 {
-			route.SetCompatibleHostnamesByPort(hostnamesByPort)
+			route.setCompatibleHostnamesByPort(hostnamesByPort)
 		}
 	}
 

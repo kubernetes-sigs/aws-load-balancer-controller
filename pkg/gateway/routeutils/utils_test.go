@@ -81,7 +81,7 @@ func (m mockPreLoadRouteDescriptor) GetCompatibleHostnamesByPort() map[int32][]g
 	return map[int32][]gwv1.Hostname{80: m.compatibleHostnames}
 }
 
-func (m mockPreLoadRouteDescriptor) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+func (m mockPreLoadRouteDescriptor) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	if hostnamesByPort[80] != nil {
 		m.compatibleHostnames = hostnamesByPort[80]
 	}

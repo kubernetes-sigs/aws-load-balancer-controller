@@ -124,7 +124,7 @@ func (tcpRoute *tcpRouteDescription) GetCompatibleHostnamesByPort() map[int32][]
 	return tcpRoute.compatibleHostnamesByPort
 }
 
-func (tcpRoute *tcpRouteDescription) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+func (tcpRoute *tcpRouteDescription) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	tcpRoute.compatibleHostnamesByPort = hostnamesByPort
 }
 

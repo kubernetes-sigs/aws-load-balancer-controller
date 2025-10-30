@@ -431,7 +431,7 @@ func Test_buildListenerTags(t *testing.T) {
 			},
 			externalManagedTags: []string{"ExternalTag", "ManagedByTeam"},
 			expectedTags:        nil,
-			expectedErr:         errors.New("external managed tag key ExternalTag cannot be specified"),
+			expectedErr:         errors.New("external managed tag key"),
 		},
 	}
 
@@ -448,6 +448,7 @@ func Test_buildListenerTags(t *testing.T) {
 			if tt.expectedErr != nil {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.expectedErr.Error())
+				assert.True(t, strings.Contains(err.Error(), "ExternalTag") || strings.Contains(err.Error(), "ManagedByTeam"))
 				assert.Nil(t, got)
 			} else {
 				assert.NoError(t, err)

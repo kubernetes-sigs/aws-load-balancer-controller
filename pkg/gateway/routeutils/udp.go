@@ -123,7 +123,7 @@ func (udpRoute *udpRouteDescription) GetCompatibleHostnamesByPort() map[int32][]
 	return udpRoute.compatibleHostnamesByPort
 }
 
-func (udpRoute *udpRouteDescription) SetCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+func (udpRoute *udpRouteDescription) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
 	udpRoute.compatibleHostnamesByPort = hostnamesByPort
 }
 

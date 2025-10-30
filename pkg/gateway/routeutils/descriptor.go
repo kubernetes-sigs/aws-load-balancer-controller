@@ -28,10 +28,9 @@ type routeMetadataDescriptor interface {
 	// When a route attaches to multiple listeners on the same port, hostnames are aggregated.
 	// When a route attaches to listeners on different ports, each port has its own hostname list.
 	GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname
-	// SetCompatibleHostnamesByPort sets the compatible hostnames for each listener port.
-	// This is called after route attachment validation to store the port-specific hostnames
-	// that should be used for routing rules and precedence sorting.
-	SetCompatibleHostnamesByPort(map[int32][]gwv1.Hostname)
+	// setCompatibleHostnamesByPort is a package-private method to set compatible hostnames.
+	// This is called by the loader after route attachment validation.
+	setCompatibleHostnamesByPort(map[int32][]gwv1.Hostname)
 }
 
 type routeLoadError struct {
