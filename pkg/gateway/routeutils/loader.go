@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -117,7 +118,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	// 2. Remove routes that aren't granted attachment by the listener.
 	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, statusUpdates, err := l.mapper.mapGatewayAndRoutes(ctx, gw, loadedRoutes)
+	mappedRoutes, compatibleHostnamesByPort, statusUpdates, err := l.mapper.mapGatewayAndRoutes(ctx, gw, loadedRoutes)
 
 	routeStatusUpdates = append(routeStatusUpdates, statusUpdates...)
 
@@ -129,7 +130,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 	attachedRouteMap := buildAttachedRouteMap(gw, mappedRoutes)
 
 	// 3. Load the underlying resource(s) for each route that is configured.
-	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mappedRoutes, gw)
+	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mappedRoutes, compatibleHostnamesByPort, gw)
 	routeStatusUpdates = append(routeStatusUpdates, childRouteLoadUpdates...)
 	if err != nil {
 		return nil, err
@@ -149,7 +150,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 }
 
 // loadChildResources responsible for loading all resources that a route descriptor references.
-func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor, gw gwv1.Gateway) (map[int32][]RouteDescriptor, []RouteData, error) {
+func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor, compatibleHostnamesByPort map[int32]map[types.NamespacedName][]gwv1.Hostname, gw gwv1.Gateway) (map[int32][]RouteDescriptor, []RouteData, error) {
 	// Cache to reduce duplicate route lookups.
 	// Kind -> [NamespacedName:Previously Loaded Descriptor]
 	resourceCache := make(map[string]RouteDescriptor)
@@ -180,8 +181,23 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 					}
 				}
 			}
+
 			loadedRouteData[int32(port)] = append(loadedRouteData[int32(port)], generatedRoute)
 			resourceCache[cacheKey] = generatedRoute
+		}
+	}
+
+	// Set compatible hostnames by port for all routes
+	for _, route := range resourceCache {
+		hostnamesByPort := make(map[int32][]gwv1.Hostname)
+		routeKey := route.GetRouteNamespacedName()
+		for port, compatibleHostnames := range compatibleHostnamesByPort {
+			if hostnames, exists := compatibleHostnames[routeKey]; exists {
+				hostnamesByPort[port] = hostnames
+			}
+		}
+		if len(hostnamesByPort) > 0 {
+			route.setCompatibleHostnamesByPort(hostnamesByPort)
 		}
 	}
 

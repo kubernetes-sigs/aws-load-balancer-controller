@@ -1,13 +1,14 @@
 package routeutils
 
 import (
+	"math"
+	"testing"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"math"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
-	"time"
 )
 
 var (
@@ -154,6 +155,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 		name   string
 		input  []RouteDescriptor
 		output []RulePrecedence
+		port   int32
 	}{
 		{
 			name:  "no routes",
@@ -396,7 +398,7 @@ func Test_SortAllRulesByPrecedence(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			result := SortAllRulesByPrecedence(tc.input)
+			result := SortAllRulesByPrecedence(tc.input, tc.port)
 			assert.Equal(t, tc.output, result)
 		})
 	}

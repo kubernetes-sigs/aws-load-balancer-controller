@@ -52,9 +52,10 @@ func (t *convertedTLSRouteRule) GetListenerRuleConfig() *elbv2gw.ListenerRuleCon
 /* Route Description */
 
 type tlsRouteDescription struct {
-	route           *gwalpha2.TLSRoute
-	rules           []RouteRule
-	ruleAccumulator attachedRuleAccumulator[gwalpha2.TLSRouteRule]
+	route                     *gwalpha2.TLSRoute
+	rules                     []RouteRule
+	ruleAccumulator           attachedRuleAccumulator[gwalpha2.TLSRouteRule]
+	compatibleHostnamesByPort map[int32][]gwv1.Hostname
 }
 
 func (tlsRoute *tlsRouteDescription) GetAttachedRules() []RouteRule {
@@ -117,6 +118,14 @@ func (tlsRoute *tlsRouteDescription) GetRouteListenerRuleConfigRefs() []gwv1.Loc
 
 func (tlsRoute *tlsRouteDescription) GetRouteCreateTimestamp() time.Time {
 	return tlsRoute.route.CreationTimestamp.Time
+}
+
+func (tlsRoute *tlsRouteDescription) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
+	return tlsRoute.compatibleHostnamesByPort
+}
+
+func (tlsRoute *tlsRouteDescription) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+	tlsRoute.compatibleHostnamesByPort = hostnamesByPort
 }
 
 var _ RouteDescriptor = &tlsRouteDescription{}

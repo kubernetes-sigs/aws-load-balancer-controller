@@ -2,6 +2,8 @@ package routeutils
 
 import (
 	"context"
+	"testing"
+
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -9,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 type mockNamespaceSelector struct {
@@ -87,7 +88,7 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			}
 			hostnameFromHttpRoute := map[types.NamespacedName][]gwv1.Hostname{}
 			hostnameFromGrpcRoute := map[types.NamespacedName][]gwv1.Hostname{}
-			result, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
+			_, result, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
 			}, route, hostnameFromHttpRoute, hostnameFromGrpcRoute)
 			assert.NoError(t, err)
@@ -535,7 +536,7 @@ func Test_hostnameCheck(t *testing.T) {
 				logger: logr.Discard(),
 			}
 
-			result, err := helper.hostnameCheck(tt.listener, tt.route)
+			_, result, err := helper.hostnameCheck(tt.listener, tt.route)
 
 			assert.Equal(t, tt.expectedResult, result)
 			if tt.expectedError {
@@ -545,6 +546,119 @@ func Test_hostnameCheck(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_hostnameIntersection(t *testing.T) {
+	tests := []struct {
+		name                        string
+		listenerHostname            *gwv1.Hostname
+		routeHostnames              []gwv1.Hostname
+		expectedAttachment          bool
+		expectedCompatibleHostnames []gwv1.Hostname
+		expectEmpty                 bool
+	}{
+		{
+			name:                        "Route has nil hostnames - inherits listener hostname",
+			listenerHostname:            ptr(gwv1.Hostname("bar.com")),
+			routeHostnames:              nil,
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"bar.com"},
+		},
+		{
+			name:                        "Route has NO hostnames - inherits listener hostname",
+			listenerHostname:            ptr(gwv1.Hostname("bar.com")),
+			routeHostnames:              []gwv1.Hostname{},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"bar.com"},
+		},
+		{
+			name:               "Listener has NO hostname",
+			listenerHostname:   nil,
+			routeHostnames:     []gwv1.Hostname{"foo.com"},
+			expectedAttachment: true,
+			expectEmpty:        true,
+		},
+		{
+			name:               "Both have NO hostnames",
+			listenerHostname:   nil,
+			routeHostnames:     []gwv1.Hostname{},
+			expectedAttachment: true,
+			expectEmpty:        true,
+		},
+		{
+			name:                        "Exact match",
+			listenerHostname:            ptr(gwv1.Hostname("bar.com")),
+			routeHostnames:              []gwv1.Hostname{"bar.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"bar.com"},
+		},
+		{
+			name:                        "Listener wildcard matches route",
+			listenerHostname:            ptr(gwv1.Hostname("*.bar.com")),
+			routeHostnames:              []gwv1.Hostname{"foo.bar.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"foo.bar.com"},
+		},
+		{
+			name:                        "Route wildcard matches listener",
+			listenerHostname:            ptr(gwv1.Hostname("foo.bar.com")),
+			routeHostnames:              []gwv1.Hostname{"*.bar.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"foo.bar.com"},
+		},
+		{
+			name:                        "Both wildcards, compatible",
+			listenerHostname:            ptr(gwv1.Hostname("*.bar.com")),
+			routeHostnames:              []gwv1.Hostname{"*.bar.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"*.bar.com"},
+		},
+		{
+			name:               "No overlap - rejected",
+			listenerHostname:   ptr(gwv1.Hostname("bar.com")),
+			routeHostnames:     []gwv1.Hostname{"foo.com"},
+			expectedAttachment: false,
+			expectEmpty:        true,
+		},
+		{
+			name:                        "Multiple route hostnames, partial match",
+			listenerHostname:            ptr(gwv1.Hostname("*.bar.com")),
+			routeHostnames:              []gwv1.Hostname{"foo.bar.com", "baz.bar.com", "unrelated.com"},
+			expectedAttachment:          true,
+			expectedCompatibleHostnames: []gwv1.Hostname{"foo.bar.com", "baz.bar.com"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			helper := &listenerAttachmentHelperImpl{
+				logger: logr.Discard(),
+			}
+
+			listener := gwv1.Listener{
+				Hostname: tt.listenerHostname,
+			}
+
+			route := &mockRoute{
+				hostnames: tt.routeHostnames,
+			}
+
+			compatibleHostnames, result, err := helper.hostnameCheck(listener, route)
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedAttachment, result)
+
+			if tt.expectEmpty {
+				assert.Empty(t, compatibleHostnames)
+			} else {
+				assert.Equal(t, tt.expectedCompatibleHostnames, compatibleHostnames)
+			}
+		})
+	}
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
 
 func Test_crossServingHostnameUniquenessCheck(t *testing.T) {

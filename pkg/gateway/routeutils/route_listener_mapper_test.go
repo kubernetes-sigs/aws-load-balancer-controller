@@ -20,9 +20,9 @@ func makeListenerAttachmentMapKey(listener gwv1.Listener, route preLoadRouteDesc
 	return fmt.Sprintf("%s-%d-%s-%s", listener.Name, listener.Port, nsn.Name, nsn.Namespace)
 }
 
-func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) (bool, *RouteData, error) {
+func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) ([]gwv1.Hostname, bool, *RouteData, error) {
 	k := makeListenerAttachmentMapKey(listener, route)
-	return m.attachmentMap[k], nil, nil
+	return nil, m.attachmentMap[k], nil, nil
 }
 
 type mockRouteAttachmentHelper struct {
@@ -313,7 +313,7 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 				},
 				logger: logr.Discard(),
 			}
-			result, statusUpdates, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)
+			result, _, statusUpdates, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)
 
 			if tc.expectErr {
 				assert.Error(t, err)

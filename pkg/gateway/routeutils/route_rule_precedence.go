@@ -2,10 +2,11 @@ package routeutils
 
 import (
 	"math"
-	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sort"
 	"strings"
 	"time"
+
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type RulePrecedence struct {
@@ -45,13 +46,13 @@ type CommonRulePrecedence struct {
 	RouteCreateTimestamp time.Time
 }
 
-func SortAllRulesByPrecedence(routes []RouteDescriptor) []RulePrecedence {
+func SortAllRulesByPrecedence(routes []RouteDescriptor, port int32) []RulePrecedence {
 	var allRoutes []RulePrecedence
 	var httpRoutes []RulePrecedence
 	var grpcRoutes []RulePrecedence
 
 	for _, route := range routes {
-		routeInfo := getCommonRouteInfo(route)
+		routeInfo := getCommonRouteInfo(route, port)
 		for ruleIndex, rule := range route.GetAttachedRules() {
 			rawRule := rule.GetRawRouteRule()
 			switch r := rawRule.(type) {
@@ -257,13 +258,20 @@ func compareCommonTieBreakers(ruleOne RulePrecedence, ruleTwo RulePrecedence) bo
 	return ruleOne.CommonRulePrecedence.MatchIndexInRule < ruleTwo.CommonRulePrecedence.MatchIndexInRule
 }
 
-func getCommonRouteInfo(route RouteDescriptor) CommonRulePrecedence {
+func getCommonRouteInfo(route RouteDescriptor, port int32) CommonRulePrecedence {
 	routeNamespacedName := route.GetRouteNamespacedName().String()
 	routeCreateTimestamp := route.GetRouteCreateTimestamp()
-	// get hostname in string array format
-	hostnames := make([]string, len(route.GetHostnames()))
-	for i, hostname := range route.GetHostnames() {
-		hostnames[i] = string(hostname)
+	// Use compatible hostnames computed during route attachment
+	compatibleHostnamesByPort := route.GetCompatibleHostnamesByPort()[port]
+	hostnames := make([]string, 0)
+	for _, h := range compatibleHostnamesByPort {
+		hostnames = append(hostnames, string(h))
+	}
+	// If no compatible hostnames, use route hostnames
+	if len(hostnames) == 0 {
+		for _, h := range route.GetHostnames() {
+			hostnames = append(hostnames, string(h))
+		}
 	}
 	return CommonRulePrecedence{
 		RouteDescriptor:      route,

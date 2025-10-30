@@ -2,6 +2,7 @@ package routeutils
 
 import (
 	"context"
+
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -11,7 +12,7 @@ import (
 // listenerToRouteMapper is an internal utility that will map a list of routes to the listeners of a gateway
 // if the gateway and/or route are incompatible, then the route is discarded.
 type listenerToRouteMapper interface {
-	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, []RouteData, error)
+	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[types.NamespacedName][]gwv1.Hostname, []RouteData, error)
 }
 
 var _ listenerToRouteMapper = &listenerToRouteMapperImpl{}
@@ -31,8 +32,10 @@ func newListenerToRouteMapper(k8sClient client.Client, logger logr.Logger) liste
 }
 
 // mapGatewayAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
-func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, []RouteData, error) {
+// Returns: (routesByPort, compatibleHostnamesByPort, failedRoutes, error)
+func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[types.NamespacedName][]gwv1.Hostname, []RouteData, error) {
 	result := make(map[int][]preLoadRouteDescriptor)
+	compatibleHostnamesByPort := make(map[int32]map[types.NamespacedName][]gwv1.Hostname)
 	failedRoutes := make([]RouteData, 0)
 
 	// First filter out any routes that are not intended for this Gateway.
@@ -58,9 +61,9 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 				continue
 			}
 
-			allowedAttachment, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
+			compatibleHostnames, allowedAttachment, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
 			if err != nil {
-				return nil, failedRoutes, err
+				return nil, nil, failedRoutes, err
 			}
 
 			if failedRouteData != nil {
@@ -70,9 +73,18 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 			ltr.logger.V(1).Info("listener allows attachment", "route", route.GetRouteNamespacedName(), "allowedAttachment", allowedAttachment)
 
 			if allowedAttachment {
-				result[int(listener.Port)] = append(result[int(listener.Port)], route)
+				port := int32(listener.Port)
+				result[int(port)] = append(result[int(port)], route)
+
+				// Store compatible hostnames per port per route
+				if compatibleHostnamesByPort[port] == nil {
+					compatibleHostnamesByPort[port] = make(map[types.NamespacedName][]gwv1.Hostname)
+				}
+				// Append hostnames for routes that attach to multiple listeners on the same port
+				routeKey := route.GetRouteNamespacedName()
+				compatibleHostnamesByPort[port][routeKey] = append(compatibleHostnamesByPort[port][routeKey], compatibleHostnames...)
 			}
 		}
 	}
-	return result, failedRoutes, nil
+	return result, compatibleHostnamesByPort, failedRoutes, nil
 }

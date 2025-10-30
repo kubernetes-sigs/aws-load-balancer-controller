@@ -3,11 +3,12 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strings"
 )
 
 // ListL4Routes retrieves all Layer 4 routes (TCP, UDP, TLS) from the cluster.
@@ -122,20 +123,35 @@ func IsHostNameInValidFormat(hostName string) (bool, error) {
 // isHostnameCompatible checks if given two hostnames are compatible with each other
 // this function is used to check if listener hostname and Route hostname match
 func isHostnameCompatible(hostnameOne, hostnameTwo string) bool {
+	_, isCompatible := getCompatibleHostname(hostnameOne, hostnameTwo)
+	return isCompatible
+}
+
+// getCompatibleHostname returns the more specific hostname if two hostnames are compatible.
+// Two hostnames are compatible if:
+//  1. They are exactly the same (e.g., "example.com" and "example.com")
+//  2. One is a wildcard that matches the other (e.g., "*.example.com" matches "api.example.com")
+//
+// When compatible, returns the more specific hostname (non-wildcard) and true.
+// When incompatible (e.g., "api.example.com" vs "web.example.com"), returns empty string and false.
+// This is used to match Gateway listener hostnames with Route hostnames for traffic routing.
+func getCompatibleHostname(hostnameOne, hostnameTwo string) (string, bool) {
 	// exact match
 	if hostnameOne == hostnameTwo {
-		return true
+		return hostnameOne, true
 	}
 
-	// suffix match - hostnameOne is a wildcard
+	// hostnameOne is wildcard, hostnameTwo matches - return hostnameTwo (more specific)
 	if strings.HasPrefix(hostnameOne, "*.") && strings.HasSuffix(hostnameTwo, hostnameOne[1:]) {
-		return true
+		return hostnameTwo, true
 	}
-	// suffix match - hostnameTwo is a wildcard
+
+	// hostnameTwo is wildcard, hostnameOne matches - return hostnameOne (more specific)
 	if strings.HasPrefix(hostnameTwo, "*.") && strings.HasSuffix(hostnameOne, hostnameTwo[1:]) {
-		return true
+		return hostnameOne, true
 	}
-	return false
+
+	return "", false
 }
 
 func generateInvalidMessageWithRouteDetails(initialMessage string, routeKind RouteKind, routeIdentifier types.NamespacedName) string {

@@ -22,18 +22,27 @@ type mockMapper struct {
 	routeStatusUpdates []RouteData
 }
 
-func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, []RouteData, error) {
+func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[types.NamespacedName][]gwv1.Hostname, []RouteData, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
-	return m.mapToReturn, m.routeStatusUpdates, nil
+	return m.mapToReturn, make(map[int32]map[types.NamespacedName][]gwv1.Hostname), m.routeStatusUpdates, nil
 }
 
 var _ RouteDescriptor = &mockRoute{}
 
 type mockRoute struct {
-	namespacedName types.NamespacedName
-	routeKind      RouteKind
-	generation     int64
-	hostnames      []gwv1.Hostname
+	namespacedName            types.NamespacedName
+	routeKind                 RouteKind
+	generation                int64
+	hostnames                 []gwv1.Hostname
+	CompatibleHostnamesByPort map[int32][]gwv1.Hostname
+}
+
+func (m *mockRoute) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
+	return m.CompatibleHostnamesByPort
+}
+
+func (m *mockRoute) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+	m.CompatibleHostnamesByPort = hostnamesByPort
 }
 
 func (m *mockRoute) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {

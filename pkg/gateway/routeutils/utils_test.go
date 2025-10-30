@@ -3,12 +3,13 @@ package routeutils
 import (
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
-	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"strings"
 	"testing"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/testutils"
+	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -26,6 +27,7 @@ type mockPreLoadRouteDescriptor struct {
 	backendRefs                []gwv1.BackendRef
 	listenerRuleConfigurations []gwv1.LocalObjectReference
 	namespacedName             types.NamespacedName
+	compatibleHostnames        []gwv1.Hostname
 }
 
 func (m mockPreLoadRouteDescriptor) GetAttachedRules() []RouteRule {
@@ -73,6 +75,16 @@ func (m mockPreLoadRouteDescriptor) GetRouteGeneration() int64 {
 func (m mockPreLoadRouteDescriptor) GetRouteCreateTimestamp() time.Time {
 	//TODO implement me
 	panic("implement me")
+}
+
+func (m mockPreLoadRouteDescriptor) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
+	return map[int32][]gwv1.Hostname{80: m.compatibleHostnames}
+}
+
+func (m mockPreLoadRouteDescriptor) setCompatibleHostnamesByPort(hostnamesByPort map[int32][]gwv1.Hostname) {
+	if hostnamesByPort[80] != nil {
+		m.compatibleHostnames = hostnamesByPort[80]
+	}
 }
 
 func (m mockPreLoadRouteDescriptor) loadAttachedRules(context context.Context, k8sClient client.Client) (RouteDescriptor, []routeLoadError) {
@@ -558,18 +570,6 @@ func Test_isHostnameCompatible(t *testing.T) {
 			want:        true,
 		},
 		{
-			name:        "empty hostnames",
-			hostnameOne: "",
-			hostnameTwo: "",
-			want:        true,
-		},
-		{
-			name:        "one empty hostname",
-			hostnameOne: "example.com",
-			hostnameTwo: "",
-			want:        false,
-		},
-		{
 			name:        "wildcard with root domain",
 			hostnameOne: "*.example.com",
 			hostnameTwo: "example.com",
@@ -606,6 +606,84 @@ func Test_isHostnameCompatible(t *testing.T) {
 			got := isHostnameCompatible(tt.hostnameOne, tt.hostnameTwo)
 			if got != tt.want {
 				t.Errorf("isHostnameCompatible() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getCompatibleHostname(t *testing.T) {
+	tests := []struct {
+		name         string
+		hostnameOne  string
+		hostnameTwo  string
+		wantHostname string
+		wantOk       bool
+	}{
+		{
+			name:         "exact match",
+			hostnameOne:  "example.com",
+			hostnameTwo:  "example.com",
+			wantHostname: "example.com",
+			wantOk:       true,
+		},
+		{
+			name:         "wildcard in first, specific in second",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "api.example.com",
+			wantHostname: "api.example.com",
+			wantOk:       true,
+		},
+		{
+			name:         "wildcard in second, specific in first",
+			hostnameOne:  "api.example.com",
+			hostnameTwo:  "*.example.com",
+			wantHostname: "api.example.com",
+			wantOk:       true,
+		},
+		{
+			name:         "incompatible hostnames",
+			hostnameOne:  "example.com",
+			hostnameTwo:  "different.com",
+			wantHostname: "",
+			wantOk:       false,
+		},
+		{
+			name:         "wildcard does not match",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "api.different.com",
+			wantHostname: "",
+			wantOk:       false,
+		},
+		{
+			name:         "both wildcards same domain",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "*.example.com",
+			wantHostname: "*.example.com",
+			wantOk:       true,
+		},
+		{
+			name:         "both wildcards different domains",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "*.different.com",
+			wantHostname: "",
+			wantOk:       false,
+		},
+		{
+			name:         "nested subdomain with wildcard",
+			hostnameOne:  "*.example.com",
+			hostnameTwo:  "sub.api.example.com",
+			wantHostname: "sub.api.example.com",
+			wantOk:       true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotHostname, gotOk := getCompatibleHostname(tt.hostnameOne, tt.hostnameTwo)
+			if gotHostname != tt.wantHostname {
+				t.Errorf("getCompatibleHostname() hostname = %v, want %v", gotHostname, tt.wantHostname)
+			}
+			if gotOk != tt.wantOk {
+				t.Errorf("getCompatibleHostname() ok = %v, want %v", gotOk, tt.wantOk)
 			}
 		})
 	}
