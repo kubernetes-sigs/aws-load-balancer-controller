@@ -58,7 +58,7 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 	portsWithRoutes := sets.Int32KeySet(routes)
 	// Materialise the listener only if listener has associated routes
 	if len(gwLsPorts.Intersection(portsWithRoutes).List()) != 0 {
-		lbLsCfgs := mapLoadBalancerListenerConfigsByPort(lbCfg)
+		lbLsCfgs := mapLoadBalancerListenerConfigsByPort(lbCfg, gw.Spec.Listeners)
 		for _, port := range gwLsPorts.Intersection(portsWithRoutes).List() {
 			ls, err := l.buildListener(ctx, stack, lb, gw, port, routes[port], lbCfg, gwLsCfgs[port], lbLsCfgs[port])
 			if err != nil {
@@ -327,7 +327,7 @@ func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gw *gwv1.Gat
 		}
 		discoveredCerts, err := l.buildInferredTLSCertARNs(ctx, gwLsCfg.hostnames.UnsortedList())
 		if err != nil {
-			l.logger.Error(err, "Unable to discover certs for listener on gateway %s with protocol:port %s:%v\", k8s.NamespacedName(gw), gwLsCfg.protocol, port")
+			l.logger.Error(err, fmt.Sprintf("Unable to discover certs for listener on gateway %s with protocol:port %s:%v", k8s.NamespacedName(gw), gwLsCfg.protocol, port))
 			return []elbv2model.Certificate{}, err
 		}
 		for _, cert := range discoveredCerts {
@@ -521,16 +521,30 @@ func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway, routes map[int32][]routeu
 
 // mapLoadBalancerListenerConfigsByPort creates a mapping of ports to their corresponding
 // listener configurations from the LoadBalancer configuration.
-func mapLoadBalancerListenerConfigsByPort(lbCfg elbv2gw.LoadBalancerConfiguration) map[int32]*elbv2gw.ListenerConfiguration {
+func mapLoadBalancerListenerConfigsByPort(lbCfg elbv2gw.LoadBalancerConfiguration, gatewayListeners []gwv1.Listener) map[int32]*elbv2gw.ListenerConfiguration {
+	configuredListeners := sets.NewString()
+
+	for _, configuredListener := range gatewayListeners {
+		configuredListeners.Insert(generateListenerPortKey(configuredListener))
+	}
+
 	lbLsCfgs := make(map[int32]*elbv2gw.ListenerConfiguration)
 	if lbCfg.Spec.ListenerConfigurations == nil {
 		return lbLsCfgs
 	}
 	for _, lsCfg := range *lbCfg.Spec.ListenerConfigurations {
-		port, _ := strconv.ParseInt(strings.Split(string(lsCfg.ProtocolPort), ":")[1], 10, 64)
-		lbLsCfgs[int32(port)] = &lsCfg
+		lowerValue := strings.ToLower(string(lsCfg.ProtocolPort))
+		if configuredListeners.Has(lowerValue) {
+			port, _ := strconv.ParseInt(strings.Split(string(lsCfg.ProtocolPort), ":")[1], 10, 64)
+			lbLsCfgs[int32(port)] = &lsCfg
+		}
+
 	}
 	return lbLsCfgs
+}
+
+func generateListenerPortKey(listener gwv1.Listener) string {
+	return fmt.Sprintf("%s:%d", strings.ToLower(string(listener.Protocol)), listener.Port)
 }
 
 func newListenerBuilder(loadBalancerType elbv2model.LoadBalancerType, tgBuilder targetGroupBuilder, tagHelper tagHelper, clusterName string, defaultSSLPolicy string, elbv2Client services.ELBV2, acmClient services.ACM, k8sClient client.Client, allowedCAARNs []string, secretsManager k8s.SecretsManager, logger logr.Logger) listenerBuilder {
