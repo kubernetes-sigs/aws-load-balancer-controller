@@ -35,7 +35,7 @@
 
 ## AWS Load Balancer Controller
 
-AWS Load Balancer Controller is a controller to help manage Elastic Load Balancers for a Kubernetes cluster.
+AWS Load Balancer Controller is a controller to help manage Elastic Load Balancers for a Kubernetes cluster. 
 
   - It satisfies Kubernetes [Ingress resources](https://kubernetes.io/docs/concepts/services-networking/ingress/) by provisioning [Application Load Balancers](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html).
   - It satisfies Kubernetes [Service resources](https://kubernetes.io/docs/concepts/services-networking/service/) by provisioning
