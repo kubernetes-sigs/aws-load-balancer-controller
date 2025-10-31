@@ -3,6 +3,8 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -27,15 +29,21 @@ var (
 	tgConfigConstructor = gateway.NewTargetGroupConfigConstructor()
 )
 
-type ServiceBackendConfig struct {
-	Service               *corev1.Service
-	ELBV2TargetGroupProps *elbv2gw.TargetGroupProps
-	ServicePort           *corev1.ServicePort
-}
-
-type LiteralTargetGroupConfig struct {
-	// GW API limits names to 253 characters, while a TG ARN might be 256, so just using the name.
-	Name string
+type TargetGroupConfigurator interface {
+	// GetTargetGroupProps returns the target group properties associated with this backend
+	GetTargetGroupProps() *elbv2gw.TargetGroupProps
+	// GetBackendNamespacedName returns the namespaced name associated with the underlying backend.
+	GetBackendNamespacedName() types.NamespacedName
+	// GetIdentifierPort returns the port used when constructing the resource ID for the resource stack.
+	GetIdentifierPort() intstr.IntOrString
+	// GetExternalTrafficPolicy returns the external traffic policy for this backend service, if not applicable returns "ServiceExternalTrafficPolicyCluster".
+	GetExternalTrafficPolicy() corev1.ServiceExternalTrafficPolicyType
+	// GetIPAddressType returns the Target Group IP address type
+	GetIPAddressType() elbv2model.TargetGroupIPAddressType
+	// GetTargetGroupPort returns the port to attach to the Target Group
+	GetTargetGroupPort(targetType elbv2model.TargetType) int32
+	// GetHealthCheckPort returns the port to send health check traffic
+	GetHealthCheckPort(targetType elbv2model.TargetType, isServiceExternalTrafficPolicyTypeLocal bool) (intstr.IntOrString, error)
 }
 
 // Backend an abstraction on the Gateway Backend, meant to hide the underlying backend type from consumers (unless they really want to see it :))
@@ -271,9 +279,9 @@ func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier
 	}
 
 	return &ServiceBackendConfig{
-		Service:               svc,
-		ServicePort:           servicePort,
-		ELBV2TargetGroupProps: tgProps,
+		service:          svc,
+		servicePort:      servicePort,
+		targetGroupProps: tgProps,
 	}, nil, nil
 }
 

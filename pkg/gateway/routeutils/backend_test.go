@@ -390,14 +390,14 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, tc.storedService, result.ServiceBackend.Service)
+			assert.Equal(t, tc.storedService, result.ServiceBackend.service)
 			assert.Equal(t, tc.weight, result.Weight)
-			assert.Equal(t, tc.servicePort, result.ServiceBackend.ServicePort.Port)
+			assert.Equal(t, tc.servicePort, result.ServiceBackend.servicePort.Port)
 
 			if tc.expectedTargetGroup == nil {
-				assert.Nil(t, result.ServiceBackend.ELBV2TargetGroupProps)
+				assert.Nil(t, result.ServiceBackend.targetGroupProps)
 			} else {
-				assert.Equal(t, tc.expectedTargetGroup, result.ServiceBackend.ELBV2TargetGroupProps)
+				assert.Equal(t, tc.expectedTargetGroup, result.ServiceBackend.targetGroupProps)
 			}
 		})
 	}

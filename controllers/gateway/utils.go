@@ -9,8 +9,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
-
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -184,7 +182,7 @@ func getServicesFromRoutes(listenerRouteMap map[int32][]routeutils.RouteDescript
 			for _, rr := range route.GetAttachedRules() {
 				for _, be := range rr.GetBackends() {
 					if be.ServiceBackend != nil {
-						res.Insert(k8s.NamespacedName(be.ServiceBackend.Service))
+						res.Insert(be.ServiceBackend.GetBackendNamespacedName())
 					}
 				}
 			}
