@@ -18,7 +18,7 @@ func FindIngressDNSName(ing *networking.Ingress) string {
 func FindIngressTwoDNSName(ing *networking.Ingress) (albDNS string, nlbDNS string) {
 	for _, ingSTS := range ing.Status.LoadBalancer.Ingress {
 		if ingSTS.Hostname != "" {
-			if strings.Contains(ingSTS.Hostname, "elb.amazonaws.com") {
+			if strings.Contains(ingSTS.Hostname, "elb.amazonaws") {
 				albDNS = ingSTS.Hostname
 			} else {
 				nlbDNS = ingSTS.Hostname
