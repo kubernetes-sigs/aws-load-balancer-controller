@@ -2,7 +2,6 @@ package model
 
 import (
 	"k8s.io/apimachinery/pkg/util/intstr"
-	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -16,7 +15,7 @@ type mockTargetGroupBuilder struct {
 }
 
 func (m *mockTargetGroupBuilder) buildTargetGroup(stack core.Stack,
-	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
+	gw *gwv1.Gateway, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
 	var tg *elbv2model.TargetGroup
 
 	if len(m.tgs) > 0 {

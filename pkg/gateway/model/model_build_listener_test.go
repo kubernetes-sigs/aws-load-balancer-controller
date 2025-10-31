@@ -1718,7 +1718,7 @@ func Test_BuildListenerRules(t *testing.T) {
 				Spec: elbv2model.ListenerSpec{
 					Protocol: tc.listenerProtocol,
 				},
-			}, tc.ipAddressType, &gwv1.Gateway{}, tc.port, elbv2gw.LoadBalancerConfiguration{}, tc.routes)
+			}, tc.ipAddressType, &gwv1.Gateway{}, tc.port, tc.routes)
 			assert.NoError(t, err)
 
 			var resLRs []*elbv2model.ListenerRule

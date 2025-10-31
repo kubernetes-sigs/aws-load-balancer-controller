@@ -33,7 +33,7 @@ type buildTargetGroupOutput struct {
 
 type targetGroupBuilder interface {
 	buildTargetGroup(stack core.Stack,
-		gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error)
+		gw *gwv1.Gateway, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error)
 }
 
 type targetGroupBuilderImpl struct {
@@ -101,10 +101,10 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
-	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
+	gw *gwv1.Gateway, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
 
 	if backend.ServiceBackend != nil {
-		tg, err := builder.buildTargetGroupFromService(stack, gw, lbConfig, lbIPType, routeDescriptor, *backend.ServiceBackend)
+		tg, err := builder.buildTargetGroupFromService(stack, gw, lbIPType, routeDescriptor, *backend.ServiceBackend)
 		if err != nil {
 			return nil, err
 		}
@@ -120,14 +120,14 @@ func (builder *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupFromService(stack core.Stack,
-	gw *gwv1.Gateway, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backendConfig routeutils.ServiceBackendConfig) (*elbv2model.TargetGroup, error) {
+	gw *gwv1.Gateway, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backendConfig routeutils.ServiceBackendConfig) (*elbv2model.TargetGroup, error) {
 	targetGroupProps := backendConfig.ELBV2TargetGroupProps
 	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), k8s.NamespacedName(backendConfig.Service), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backendConfig.ServicePort.TargetPort)
 	if tg, exists := builder.tgByResID[tgResID]; exists {
 		return tg, nil
 	}
 
-	tgSpec, err := builder.buildTargetGroupSpec(gw, routeDescriptor, lbConfig, lbIPType, backendConfig, targetGroupProps)
+	tgSpec, err := builder.buildTargetGroupSpec(gw, routeDescriptor, lbIPType, backendConfig, targetGroupProps)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 	}, nil
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, lbConfig elbv2gw.LoadBalancerConfiguration, lbIPType elbv2model.IPAddressType, backendConfig routeutils.ServiceBackendConfig, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error) {
+func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, lbIPType elbv2model.IPAddressType, backendConfig routeutils.ServiceBackendConfig, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error) {
 	targetType := builder.buildTargetGroupTargetType(targetGroupProps)
 	tgProtocol, err := builder.buildTargetGroupProtocol(targetGroupProps, route)
 	if err != nil {

@@ -313,7 +313,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 
 			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, &mockTargetGroupBindingNetworkingBuilder{}, gateway.NewTargetGroupConfigConstructor(), tc.defaultTargetType, nil)
 
-			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(tc.gateway, tc.route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
+			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(tc.gateway, tc.route, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return
@@ -1887,7 +1887,7 @@ func Test_buildTargetGroupTags(t *testing.T) {
 				}
 			}
 
-			tgSpec, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(gateway, route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, backend, tgProps)
+			tgSpec, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(gateway, route, elbv2model.IPAddressTypeIPV4, backend, tgProps)
 
 			if tc.expectErr {
 				assert.Error(t, err)
