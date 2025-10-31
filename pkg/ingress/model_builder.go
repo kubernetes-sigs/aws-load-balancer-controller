@@ -46,7 +46,7 @@ const (
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
 type ModelBuilder interface {
 	// build mode stack for a IngressGroup.
-	Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *core.FrontendNlbTargetGroupDesiredState, *elbv2model.LoadBalancer, error)
+	Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, error)
 }
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
@@ -135,9 +135,8 @@ type defaultModelBuilder struct {
 }
 
 // build mode stack for a IngressGroup.
-func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *core.FrontendNlbTargetGroupDesiredState, *elbv2model.LoadBalancer, error) {
+func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, error) {
 	stack := core.NewDefaultStack(core.StackID(ingGroup.ID))
-	frontendNlbTargetGroupDesiredState := core.NewFrontendNlbTargetGroupDesiredState()
 
 	task := &defaultModelBuildTask{
 		k8sClient:                  b.k8sClient,
@@ -165,9 +164,8 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		enableIPTargetType:         b.enableIPTargetType,
 		metricsCollector:           b.metricsCollector,
 
-		ingGroup:                           ingGroup,
-		stack:                              stack,
-		frontendNlbTargetGroupDesiredState: frontendNlbTargetGroupDesiredState,
+		ingGroup: ingGroup,
+		stack:    stack,
 
 		defaultTags:                               b.defaultTags,
 		externalManagedTags:                       b.externalManagedTags,
@@ -192,11 +190,14 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		backendServices:            make(map[types.NamespacedName]*corev1.Service),
 		targetGroupNameToArnMapper: b.targetGroupNameToArnMapper,
 		webACLNameToArnMapper:      b.webACLNameToArnMapper,
+		localFrontendNlbData:       make(map[string]*elbv2model.FrontendNlbTargetGroupState),
 	}
 	if err := task.run(ctx); err != nil {
-		return nil, nil, nil, false, nil, nil, err
+		return nil, nil, nil, false, nil, err
 	}
-	return task.stack, task.loadBalancer, task.secretKeys, task.backendSGAllocated, frontendNlbTargetGroupDesiredState, task.frontendNlb, nil
+
+	_ = elbv2model.NewFrontendNlbTargetGroupDesiredState(task.stack, task.localFrontendNlbData)
+	return task.stack, task.loadBalancer, task.secretKeys, task.backendSGAllocated, task.frontendNlb, nil
 }
 
 // the default model build task
@@ -248,14 +249,14 @@ type defaultModelBuildTask struct {
 	defaultHealthCheckMatcherHTTPCode         string
 	defaultHealthCheckMatcherGRPCCode         string
 
-	loadBalancer                       *elbv2model.LoadBalancer
-	tgByResID                          map[string]*elbv2model.TargetGroup
-	backendServices                    map[types.NamespacedName]*corev1.Service
-	secretKeys                         []types.NamespacedName
-	frontendNlb                        *elbv2model.LoadBalancer
-	frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
-	targetGroupNameToArnMapper         shared_utils.TargetGroupARNMapper
-	webACLNameToArnMapper              *webACLNameToArnMapper
+	loadBalancer               *elbv2model.LoadBalancer
+	tgByResID                  map[string]*elbv2model.TargetGroup
+	backendServices            map[types.NamespacedName]*corev1.Service
+	secretKeys                 []types.NamespacedName
+	frontendNlb                *elbv2model.LoadBalancer
+	localFrontendNlbData       map[string]*elbv2model.FrontendNlbTargetGroupState
+	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
+	webACLNameToArnMapper      *webACLNameToArnMapper
 
 	metricsCollector lbcmetrics.MetricCollector
 }

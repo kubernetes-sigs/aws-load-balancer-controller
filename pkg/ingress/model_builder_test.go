@@ -299,6 +299,11 @@ const baseStackJSON = `
                 }
             }
         },
+        "FrontendNLBTargetGroup": {
+			"FrontendNLBTargetGroup": {
+				"TargetGroups": {}
+			}
+        },
         "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
             "ns-1/ing-1-svc-1:http":{
                 "spec":{
@@ -798,6 +803,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				}
 			}
 		},
+        "FrontendNLBTargetGroup": {
+			"FrontendNLBTargetGroup": {
+				"TargetGroups": {}
+			}
+        },
 		"K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
 			"ns-1/ing-1-svc-1:http": {
 				"spec": {
@@ -1735,6 +1745,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			"ns-1/ing-1-svc-2:http": null,
 			"ns-1/ing-1-svc-3:https": null
 		},
+        "FrontendNLBTargetGroup": {
+			"FrontendNLBTargetGroup": {
+				"TargetGroups": {}
+			}
+        },
 		"K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
 			"ns-1/ing-1-svc-1:80": {
 				"spec": {
@@ -2603,6 +2618,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
                 }
             }
         },
+        "FrontendNLBTargetGroup": {
+			"FrontendNLBTargetGroup": {
+				"TargetGroups": {}
+			}
+        },
         "K8S::ElasticLoadBalancingV2::TargetGroupBinding":{
             "ns-1/ing-1-svc-1:http":{
                 "spec":{
@@ -3166,6 +3186,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 			"ns-1/ing-1-svc-1:http": null,
 			"ns-1/ing-1-svc-2:http": null
 		},
+        "FrontendNLBTargetGroup": {
+			"FrontendNLBTargetGroup": {
+				"TargetGroups": {}
+			}
+        },
 		"K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
 			"ns-1/ing-1-svc-1:http": null,
 			"ns-1/ing-1-svc-2:http": null,
@@ -3398,6 +3423,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				}
 			}
 		},
+        "FrontendNLBTargetGroup": {
+			"FrontendNLBTargetGroup": {
+				"TargetGroups": {}
+			}
+        },
 		"K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
 			"ns-1/ing-1-svc-1:http": null,
 			"ns-1/ing-1-svc-2:http": null,
@@ -3668,6 +3698,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				}
 			}
 		},
+        "FrontendNLBTargetGroup": {
+			"FrontendNLBTargetGroup": {
+				"TargetGroups": {}
+			}
+        },
 		"K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
 			"ns-1/ing-1-svc-1:http": null,
 			"ns-1/ing-1-svc-2:http": null,
@@ -3829,6 +3864,11 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				}
 			}
 		},
+        "FrontendNLBTargetGroup": {
+			"FrontendNLBTargetGroup": {
+				"TargetGroups": {}
+			}
+        },
 		"K8S::ElasticLoadBalancingV2::TargetGroupBinding": {
 			"ns-1/ing-1-svc-1:http": null,
 			"ns-1/ing-1-svc-2:http": null,
@@ -4793,7 +4833,7 @@ func Test_defaultModelBuilder_Build(t *testing.T) {
 				b.enableIPTargetType = *tt.enableIPTargetType
 			}
 
-			gotStack, _, _, _, _, _, err := b.Build(context.Background(), tt.args.ingGroup, b.metricsCollector)
+			gotStack, _, _, _, _, err := b.Build(context.Background(), tt.args.ingGroup, b.metricsCollector)
 			if tt.wantErr != "" {
 				assert.EqualError(t, err, tt.wantErr)
 			} else {

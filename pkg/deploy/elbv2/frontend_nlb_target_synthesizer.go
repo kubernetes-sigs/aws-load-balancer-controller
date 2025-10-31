@@ -21,7 +21,7 @@ type TargetGroupsResult struct {
 	Err          error
 }
 
-func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider tracking.Provider, taggingManager TaggingManager, frontendNlbTargetsManager FrontendNlbTargetsManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState, findSDKTargetGroups func() TargetGroupsResult) *frontendNlbTargetSynthesizer {
+func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider tracking.Provider, taggingManager TaggingManager, frontendNlbTargetsManager FrontendNlbTargetsManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, frontendNlbTargetGroupDesiredState *elbv2model.FrontendNlbTargetGroupDesiredState, findSDKTargetGroups func() TargetGroupsResult) *frontendNlbTargetSynthesizer {
 	return &frontendNlbTargetSynthesizer{
 		k8sClient:                          k8sClient,
 		trackingProvider:                   trackingProvider,
@@ -43,7 +43,7 @@ type frontendNlbTargetSynthesizer struct {
 	featureGates                       config.FeatureGates
 	logger                             logr.Logger
 	stack                              core.Stack
-	frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
+	frontendNlbTargetGroupDesiredState *elbv2model.FrontendNlbTargetGroupDesiredState
 	findSDKTargetGroups                func() TargetGroupsResult
 }
 
