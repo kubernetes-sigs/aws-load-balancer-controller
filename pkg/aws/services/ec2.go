@@ -33,7 +33,9 @@ type EC2 interface {
 	CreateSecurityGroupWithContext(ctx context.Context, input *ec2.CreateSecurityGroupInput) (*ec2.CreateSecurityGroupOutput, error)
 	DeleteSecurityGroupWithContext(ctx context.Context, input *ec2.DeleteSecurityGroupInput) (*ec2.DeleteSecurityGroupOutput, error)
 	AuthorizeSecurityGroupIngressWithContext(ctx context.Context, input *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error)
+	AuthorizeSecurityGroupEgressWithContext(ctx context.Context, input *ec2.AuthorizeSecurityGroupEgressInput) (*ec2.AuthorizeSecurityGroupEgressOutput, error)
 	RevokeSecurityGroupIngressWithContext(ctx context.Context, input *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error)
+	RevokeSecurityGroupEgressWithContext(ctx context.Context, input *ec2.RevokeSecurityGroupEgressInput) (*ec2.RevokeSecurityGroupEgressOutput, error)
 	DescribeAvailabilityZonesWithContext(ctx context.Context, input *ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error)
 	DescribeVpcsWithContext(ctx context.Context, input *ec2.DescribeVpcsInput) (*ec2.DescribeVpcsOutput, error)
 	DescribeInstancesWithContext(ctx context.Context, input *ec2.DescribeInstancesInput) (*ec2.DescribeInstancesOutput, error)
@@ -202,12 +204,28 @@ func (c *ec2Client) AuthorizeSecurityGroupIngressWithContext(ctx context.Context
 	return client.AuthorizeSecurityGroupIngress(ctx, input)
 }
 
+func (c *ec2Client) AuthorizeSecurityGroupEgressWithContext(ctx context.Context, input *ec2.AuthorizeSecurityGroupEgressInput) (*ec2.AuthorizeSecurityGroupEgressOutput, error) {
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "AuthorizeSecurityGroupIngress")
+	if err != nil {
+		return nil, err
+	}
+	return client.AuthorizeSecurityGroupEgress(ctx, input)
+}
+
 func (c *ec2Client) RevokeSecurityGroupIngressWithContext(ctx context.Context, input *ec2.RevokeSecurityGroupIngressInput) (*ec2.RevokeSecurityGroupIngressOutput, error) {
 	client, err := c.awsClientsProvider.GetEC2Client(ctx, "RevokeSecurityGroupIngress")
 	if err != nil {
 		return nil, err
 	}
 	return client.RevokeSecurityGroupIngress(ctx, input)
+}
+
+func (c *ec2Client) RevokeSecurityGroupEgressWithContext(ctx context.Context, input *ec2.RevokeSecurityGroupEgressInput) (*ec2.RevokeSecurityGroupEgressOutput, error) {
+	client, err := c.awsClientsProvider.GetEC2Client(ctx, "RevokeSecurityGroupEgress")
+	if err != nil {
+		return nil, err
+	}
+	return client.RevokeSecurityGroupEgress(ctx, input)
 }
 
 func (c *ec2Client) DescribeAvailabilityZonesWithContext(ctx context.Context, input *ec2.DescribeAvailabilityZonesInput) (*ec2.DescribeAvailabilityZonesOutput, error) {

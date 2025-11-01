@@ -36,6 +36,21 @@ func (m *MockEC2) EXPECT() *MockEC2MockRecorder {
 	return m.recorder
 }
 
+// AuthorizeSecurityGroupEgressWithContext mocks base method.
+func (m *MockEC2) AuthorizeSecurityGroupEgressWithContext(arg0 context.Context, arg1 *ec2.AuthorizeSecurityGroupEgressInput) (*ec2.AuthorizeSecurityGroupEgressOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AuthorizeSecurityGroupEgressWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*ec2.AuthorizeSecurityGroupEgressOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AuthorizeSecurityGroupEgressWithContext indicates an expected call of AuthorizeSecurityGroupEgressWithContext.
+func (mr *MockEC2MockRecorder) AuthorizeSecurityGroupEgressWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizeSecurityGroupEgressWithContext", reflect.TypeOf((*MockEC2)(nil).AuthorizeSecurityGroupEgressWithContext), arg0, arg1)
+}
+
 // AuthorizeSecurityGroupIngressWithContext mocks base method.
 func (m *MockEC2) AuthorizeSecurityGroupIngressWithContext(arg0 context.Context, arg1 *ec2.AuthorizeSecurityGroupIngressInput) (*ec2.AuthorizeSecurityGroupIngressOutput, error) {
 	m.ctrl.T.Helper()
@@ -244,6 +259,21 @@ func (m *MockEC2) DescribeVpcsWithContext(arg0 context.Context, arg1 *ec2.Descri
 func (mr *MockEC2MockRecorder) DescribeVpcsWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeVpcsWithContext", reflect.TypeOf((*MockEC2)(nil).DescribeVpcsWithContext), arg0, arg1)
+}
+
+// RevokeSecurityGroupEgressWithContext mocks base method.
+func (m *MockEC2) RevokeSecurityGroupEgressWithContext(arg0 context.Context, arg1 *ec2.RevokeSecurityGroupEgressInput) (*ec2.RevokeSecurityGroupEgressOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RevokeSecurityGroupEgressWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*ec2.RevokeSecurityGroupEgressOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RevokeSecurityGroupEgressWithContext indicates an expected call of RevokeSecurityGroupEgressWithContext.
+func (mr *MockEC2MockRecorder) RevokeSecurityGroupEgressWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RevokeSecurityGroupEgressWithContext", reflect.TypeOf((*MockEC2)(nil).RevokeSecurityGroupEgressWithContext), arg0, arg1)
 }
 
 // RevokeSecurityGroupIngressWithContext mocks base method.
