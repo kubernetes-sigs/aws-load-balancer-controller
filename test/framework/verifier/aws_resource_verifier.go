@@ -68,6 +68,7 @@ type MutualAuthenticationExpectation struct {
 type ListenerRuleExpectation struct {
 	Conditions []elbv2types.RuleCondition
 	Actions    []elbv2types.Action
+	Transforms []elbv2types.RuleTransform
 	Priority   int32
 }
 
@@ -424,7 +425,12 @@ func VerifyLoadBalancerListenerRules(ctx context.Context, f *framework.Framework
 		if err := verifyListenerRuleConditions(actualRule.Conditions, expectedRule.Conditions); err != nil {
 			return err
 		}
-		if err := verifyListenerRuleActions(actualRule.Actions, expectedRule.Actions); err != nil {
+
+		if err := verifyListenerRulePriority(int32(actualPriority), expectedRule.Priority); err != nil {
+			return err
+		}
+
+		if err := verifyListenerRuleTransforms(actualRule.Transforms, expectedRule.Transforms); err != nil {
 			return err
 		}
 	}
@@ -563,6 +569,50 @@ func verifyListenerRuleConditions(actual, expected []elbv2types.RuleCondition) e
 			return errors.Errorf("unknown listener rule condition field %s", expectedField)
 		}
 	}
+	return nil
+}
+
+func verifyListenerRuleTransforms(actual, expected []elbv2types.RuleTransform) error {
+	if len(actual) != len(expected) {
+		return errors.Errorf("expected %d listener rule conditions, got %d", len(expected), len(actual))
+	}
+
+	sort.Slice(actual, func(i, j int) bool {
+		return actual[i].Type < actual[j].Type
+	})
+	sort.Slice(expected, func(i, j int) bool {
+		return expected[i].Type < expected[j].Type
+	})
+
+	for i := 0; i < len(actual); i++ {
+
+		if actual[i].Type != expected[i].Type {
+			return errors.Errorf("unexpected transform type. got %s", actual[i].Type)
+		}
+
+		var actualRewriteConfig []elbv2types.RewriteConfig
+		var expectedRewriteConfig []elbv2types.RewriteConfig
+
+		if actual[i].Type == elbv2types.TransformTypeEnumUrlRewrite {
+			actualRewriteConfig = actual[i].UrlRewriteConfig.Rewrites
+			expectedRewriteConfig = expected[i].UrlRewriteConfig.Rewrites
+		} else {
+			actualRewriteConfig = actual[i].HostHeaderRewriteConfig.Rewrites
+			expectedRewriteConfig = expected[i].HostHeaderRewriteConfig.Rewrites
+		}
+
+		for rewriteIndx := 0; rewriteIndx < len(actualRewriteConfig); rewriteIndx++ {
+			if *actualRewriteConfig[rewriteIndx].Regex != *expectedRewriteConfig[rewriteIndx].Regex {
+				return errors.Errorf("expected regex %+v, got %+v", expected[i], actual[i])
+			}
+
+			if *actualRewriteConfig[rewriteIndx].Replace != *expectedRewriteConfig[rewriteIndx].Replace {
+				return errors.Errorf("expected replace %+v, got %+v", expected[i], actual[i])
+			}
+
+		}
+	}
+
 	return nil
 }
 

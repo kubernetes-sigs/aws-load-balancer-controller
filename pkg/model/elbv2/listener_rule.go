@@ -194,5 +194,6 @@ type ListenerRuleStatus struct {
 type Rule struct {
 	Conditions []RuleCondition
 	Actions    []Action
+	Transforms []Transform
 	Tags       map[string]string
 }

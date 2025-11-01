@@ -186,7 +186,7 @@ information see the [Gateway API Conformance Page](https://gateway-api.sigs.k8s.
 | HTTPRouteRule - HTTPRouteFilter - ResponseHeaderModifier | Core              |                                                                                                                   ❌ |
 | HTTPRouteRule - HTTPRouteFilter - RequestMirror          | Extended          |                                                                                                                   ❌ |
 | HTTPRouteRule - HTTPRouteFilter - RequestRedirect        | Core              |                                                                                                                   ✅ |
-| HTTPRouteRule - HTTPRouteFilter - UrlRewrite             | Extended          |                                                                                                                   ❌ |
+| HTTPRouteRule - HTTPRouteFilter - UrlRewrite             | Extended          |                                                                                                                   ✅ |
 | HTTPRouteRule - HTTPRouteFilter - CORS                   | Extended          |                                                                                                                   ❌ |
 | HTTPRouteRule - HTTPRouteFilter - ExternalAuth           | Extended          |                                ❌ -- Use [ListenerRuleConfigurations](customization.md#customizing-l7-routing-rules) |
 | HTTPRouteRule - HTTPRouteFilter - ExtensionRef           | Core              |                      ✅ -- Use to attach [ListenerRuleConfigurations](customization.md#customizing-l7-routing-rules) |
