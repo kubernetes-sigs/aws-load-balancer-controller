@@ -1,6 +1,8 @@
 package routeutils
 
 import (
+	"context"
+	"fmt"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -9,6 +11,9 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"strings"
 )
 
 type ServiceBackendConfig struct {
@@ -17,12 +22,22 @@ type ServiceBackendConfig struct {
 	servicePort      *corev1.ServicePort
 }
 
+var _ TargetGroupConfigurator = &ServiceBackendConfig{}
+
 func NewServiceBackendConfig(service *corev1.Service, targetGroupProps *elbv2gw.TargetGroupProps, servicePort *corev1.ServicePort) *ServiceBackendConfig {
 	return &ServiceBackendConfig{
 		service:          service,
 		targetGroupProps: targetGroupProps,
 		servicePort:      servicePort,
 	}
+}
+
+func (s *ServiceBackendConfig) GetTargetType(defaultTargetType elbv2model.TargetType) elbv2model.TargetType {
+	if s.targetGroupProps == nil || s.targetGroupProps.TargetType == nil {
+		return defaultTargetType
+	}
+
+	return elbv2model.TargetType(*s.targetGroupProps.TargetType)
 }
 
 func (s *ServiceBackendConfig) GetHealthCheckPort(targetType elbv2model.TargetType, isServiceExternalTrafficPolicyTypeLocal bool) (intstr.IntOrString, error) {
@@ -105,4 +120,113 @@ func (s *ServiceBackendConfig) GetTargetGroupProps() *elbv2gw.TargetGroupProps {
 	return s.targetGroupProps
 }
 
-var _ TargetGroupConfigurator = &ServiceBackendConfig{}
+func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef) (*ServiceBackendConfig, error, error) {
+	if backendRef.Port == nil {
+		initialErrorMessage := "Port is required"
+		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
+		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue, &wrappedGatewayErrorMessage, nil), nil
+	}
+
+	var svcNamespace string
+	if backendRef.Namespace == nil {
+		svcNamespace = routeIdentifier.Namespace
+	} else {
+		svcNamespace = string(*backendRef.Namespace)
+	}
+
+	svcIdentifier := types.NamespacedName{
+		Namespace: svcNamespace,
+		Name:      string(backendRef.Name),
+	}
+
+	// Check for reference grant when performing cross namespace gateway -> route attachment
+	if svcNamespace != routeIdentifier.Namespace {
+		allowed, err := referenceGrantCheck(ctx, k8sClient, serviceKind, svcIdentifier, routeIdentifier, routeKind)
+		if err != nil {
+			// Currently, this API only fails for a k8s related error message, hence no status update + make the error fatal.
+			return nil, nil, errors.Wrapf(err, "Unable to perform reference grant check")
+		}
+
+		// We should not give any hints about the existence of this resource, therefore, we return nil.
+		// That way, users can't infer if the route is missing because of a misconfigured service reference
+		// or the sentence grant is not allowing the connection.
+		if !allowed {
+			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(referenceGrantNotExists, routeKind, routeIdentifier)
+			return nil, wrapError(errors.Errorf("%s", referenceGrantNotExists), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonRefNotPermitted, &wrappedGatewayErrorMessage, nil), nil
+		}
+	}
+
+	svc := &corev1.Service{}
+	err := k8sClient.Get(ctx, svcIdentifier, svc)
+	if err != nil {
+
+		convertToNotFoundError := client.IgnoreNotFound(err)
+
+		if convertToNotFoundError == nil {
+			// Svc not found, post an updated status.
+			initialErrorMessage := fmt.Sprintf("Service (%s:%s) not found)", svcIdentifier.Namespace, svcIdentifier.Name)
+			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
+			return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil), nil
+		}
+		// Otherwise, general error. No need for status update.
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch svc object %+v", svcIdentifier))
+	}
+
+	// TODO -- This should be updated, to handle UDP and TCP on the same service port.
+	// Currently, it will just arbitrarily take one.
+
+	var servicePort *corev1.ServicePort
+
+	for _, svcPort := range svc.Spec.Ports {
+		if svcPort.Port == int32(*backendRef.Port) {
+			servicePort = &svcPort
+			break
+		}
+	}
+
+	if servicePort == nil {
+		initialErrorMessage := fmt.Sprintf("Unable to find service port for port %d", *backendRef.Port)
+		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
+		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil), nil
+	}
+
+	tgConfig, err := LookUpTargetGroupConfiguration(ctx, k8sClient, serviceKind, k8s.NamespacedName(svc))
+
+	if err != nil {
+		// As of right now, this error can only be thrown because of a k8s api error hence no status update.
+		return nil, nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch tg config object"))
+	}
+
+	var tgProps *elbv2gw.TargetGroupProps
+
+	if tgConfig != nil {
+		tgProps = tgConfigConstructor.ConstructTargetGroupConfigForRoute(tgConfig, routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
+	}
+
+	// validate if protocol version is compatible with appProtocol
+	if tgProps != nil && servicePort.AppProtocol != nil {
+		appProtocol := strings.ToLower(*servicePort.AppProtocol)
+		if tgProps.ProtocolVersion != nil {
+			isCompatible := true
+			switch *tgProps.ProtocolVersion {
+			case elbv2gw.ProtocolVersionGRPC:
+				if appProtocol == "http" {
+					isCompatible = false
+				}
+			case elbv2gw.ProtocolVersionHTTP1, elbv2gw.ProtocolVersionHTTP2:
+				if appProtocol == "grpc" {
+					isCompatible = false
+				}
+			}
+			if !isCompatible {
+				initialErrorMessage := fmt.Sprintf("Service port appProtocol %s is not compatible with target group protocolVersion %s", *servicePort.AppProtocol, *tgProps.ProtocolVersion)
+				wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
+
+				// This potentially could be fatal, but let's make the reconcile cycle as resilient as possible.
+				return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedProtocol, &wrappedGatewayErrorMessage, nil), nil
+			}
+		}
+	}
+
+	return NewServiceBackendConfig(svc, tgProps, servicePort), nil, nil
+}

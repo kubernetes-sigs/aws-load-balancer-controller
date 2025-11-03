@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 )
 
 // IsGatewayManagedByLBController checks if a Gateway is managed by the ALB/NLB Gateway Controller
@@ -101,6 +102,48 @@ func GetImpactedGatewaysFromParentRefs(ctx context.Context, k8sClient client.Cli
 		err = fmt.Errorf("failed to list gateways, %s", unknownGateways)
 	}
 	return impactedGateways, err
+}
+
+func GetImpactedGatewaysFromBackendRefs(ctx context.Context, k8sClient client.Client, tcpRoutes []gwalpha2.TCPRouteRule, resourceNamespace string, gwController string) ([]types.NamespacedName, error) {
+	resultSet := sets.New[types.NamespacedName]()
+	processedSet := sets.New[types.NamespacedName]()
+	errorSet := sets.New[types.NamespacedName]()
+	for _, route := range tcpRoutes {
+		for _, ref := range route.BackendRefs {
+			if ref.Kind == nil || *ref.Kind != "Gateway" {
+				continue
+			}
+
+			ns := resourceNamespace
+			if ref.Namespace != nil {
+				ns = string(*ref.Namespace)
+			}
+			nsn := types.NamespacedName{
+				Namespace: ns,
+				Name:      string(ref.Name),
+			}
+			if processedSet.Has(nsn) {
+				continue
+			}
+
+			gw := &gwv1.Gateway{}
+			if err := k8sClient.Get(ctx, nsn, gw); err != nil {
+				// Ignore and continue processing other refs
+				errorSet.Insert(nsn)
+				continue
+			}
+			processedSet.Insert(nsn)
+
+			if IsGatewayManagedByLBController(ctx, k8sClient, gw, gwController) {
+				resultSet.Insert(nsn)
+			}
+		}
+	}
+	var err error
+	if resultSet.Len() > 0 {
+		err = fmt.Errorf("failed to list gateways, %s", resultSet.UnsortedList())
+	}
+	return resultSet.UnsortedList(), err
 }
 
 // GetImpactedGatewayClassesFromLbConfig identifies GatewayClasses affected by LoadBalancer configuration changes.

@@ -425,7 +425,7 @@ func TestCommonBackendLoader_TargetGroupName(t *testing.T) {
 			name: "valid name",
 			backendRef: gwv1.BackendRef{
 				BackendObjectReference: gwv1.BackendObjectReference{
-					Kind: (*gwv1.Kind)(awssdk.String(TargetGroupNameBackend)),
+					Kind: (*gwv1.Kind)(awssdk.String(targetGroupNameBackend)),
 					Name: "foo",
 				},
 			},
@@ -462,12 +462,14 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 	testCases := []struct {
 		name                         string
 		allTargetGroupConfigurations []elbv2gw.TargetGroupConfiguration
-		serviceMetadata              types.NamespacedName
+		objectMetadata               types.NamespacedName
+		kind                         string
 		expectErr                    bool
 		expectedTGConfiguration      *elbv2gw.TargetGroupConfiguration
 	}{
 		{
-			name: "happy path, exactly one tg config",
+			name: "happy path, exactly one tg config - service",
+			kind: serviceKind,
 			allTargetGroupConfigurations: []elbv2gw.TargetGroupConfiguration{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -482,7 +484,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 					},
 				},
 			},
-			serviceMetadata: types.NamespacedName{
+			objectMetadata: types.NamespacedName{
 				Namespace: "namespace",
 				Name:      "svc1",
 			},
@@ -500,7 +502,42 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 			},
 		},
 		{
+			name: "happy path, exactly one tg config - gateway",
+			kind: gatewayKind,
+			allTargetGroupConfigurations: []elbv2gw.TargetGroupConfiguration{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "tg1",
+						Namespace: "namespace",
+					},
+					Spec: elbv2gw.TargetGroupConfigurationSpec{
+						TargetReference: elbv2gw.Reference{
+							Kind: awssdk.String(gatewayKind),
+							Name: "svc1",
+						},
+					},
+				},
+			},
+			objectMetadata: types.NamespacedName{
+				Namespace: "namespace",
+				Name:      "svc1",
+			},
+			expectedTGConfiguration: &elbv2gw.TargetGroupConfiguration{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tg1",
+					Namespace: "namespace",
+				},
+				Spec: elbv2gw.TargetGroupConfigurationSpec{
+					TargetReference: elbv2gw.Reference{
+						Kind: awssdk.String(gatewayKind),
+						Name: "svc1",
+					},
+				},
+			},
+		},
+		{
 			name: "happy path, exactly one tg config (kind not specified)",
+			kind: serviceKind,
 			allTargetGroupConfigurations: []elbv2gw.TargetGroupConfiguration{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -514,7 +551,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 					},
 				},
 			},
-			serviceMetadata: types.NamespacedName{
+			objectMetadata: types.NamespacedName{
 				Namespace: "namespace",
 				Name:      "svc1",
 			},
@@ -532,6 +569,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 		},
 		{
 			name: "sad path, svc name different",
+			kind: serviceKind,
 			allTargetGroupConfigurations: []elbv2gw.TargetGroupConfiguration{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -546,13 +584,14 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 					},
 				},
 			},
-			serviceMetadata: types.NamespacedName{
+			objectMetadata: types.NamespacedName{
 				Namespace: "namespace",
 				Name:      "svc1",
 			},
 		},
 		{
 			name: "sad path, kind not supported",
+			kind: serviceKind,
 			allTargetGroupConfigurations: []elbv2gw.TargetGroupConfiguration{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -567,13 +606,14 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 					},
 				},
 			},
-			serviceMetadata: types.NamespacedName{
+			objectMetadata: types.NamespacedName{
 				Namespace: "namespace",
 				Name:      "svc1",
 			},
 		},
 		{
 			name: "sad path, many tg none match",
+			kind: serviceKind,
 			allTargetGroupConfigurations: []elbv2gw.TargetGroupConfiguration{
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -612,7 +652,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 					},
 				},
 			},
-			serviceMetadata: types.NamespacedName{
+			objectMetadata: types.NamespacedName{
 				Namespace: "namespace",
 				Name:      "svc1",
 			},
@@ -620,7 +660,8 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 		},
 		{
 			name: "sad path, no tg none match",
-			serviceMetadata: types.NamespacedName{
+			kind: serviceKind,
+			objectMetadata: types.NamespacedName{
 				Namespace: "namespace",
 				Name:      "svc1",
 			},
@@ -636,7 +677,7 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			result, err := LookUpTargetGroupConfiguration(context.Background(), k8sClient, tc.serviceMetadata)
+			result, err := LookUpTargetGroupConfiguration(context.Background(), k8sClient, tc.kind, tc.objectMetadata)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -655,16 +696,18 @@ func Test_lookUpTargetGroupConfiguration(t *testing.T) {
 func Test_referenceGrantCheck(t *testing.T) {
 	kind := HTTPRouteKind
 	testCases := []struct {
-		name            string
-		referenceGrants []gwbeta1.ReferenceGrant
-		svcIdentifier   types.NamespacedName
-		routeIdentifier types.NamespacedName
-		expected        bool
-		expectErr       bool
+		name             string
+		kind             string
+		referenceGrants  []gwbeta1.ReferenceGrant
+		objectIdentifier types.NamespacedName
+		routeIdentifier  types.NamespacedName
+		expected         bool
+		expectErr        bool
 	}{
 		{
-			name: "happy path",
-			svcIdentifier: types.NamespacedName{
+			name: "happy path - service",
+			kind: serviceKind,
+			objectIdentifier: types.NamespacedName{
 				Namespace: "svc-namespace",
 				Name:      "svc-name",
 			},
@@ -697,8 +740,44 @@ func Test_referenceGrantCheck(t *testing.T) {
 			expected: true,
 		},
 		{
+			name: "happy path - gateway",
+			kind: gatewayKind,
+			objectIdentifier: types.NamespacedName{
+				Namespace: "gw-namespace",
+				Name:      "gw-name",
+			},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "route-namespace",
+				Name:      "route-name",
+			},
+			referenceGrants: []gwbeta1.ReferenceGrant{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "gw-namespace",
+						Name:      "grant1",
+					},
+					Spec: gwbeta1.ReferenceGrantSpec{
+						From: []gwbeta1.ReferenceGrantFrom{
+							{
+								Kind:      gwbeta1.Kind(kind),
+								Namespace: "route-namespace",
+							},
+						},
+						To: []gwbeta1.ReferenceGrantTo{
+							{
+								Kind: gatewayKind,
+								Name: (*gwbeta1.ObjectName)(awssdk.String("gw-name")),
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
 			name: "happy path (no name equals wildcard)",
-			svcIdentifier: types.NamespacedName{
+			kind: serviceKind,
+			objectIdentifier: types.NamespacedName{
 				Namespace: "svc-namespace",
 				Name:      "svc-name",
 			},
@@ -731,7 +810,8 @@ func Test_referenceGrantCheck(t *testing.T) {
 		},
 		{
 			name: "no grants, should not allow",
-			svcIdentifier: types.NamespacedName{
+			kind: serviceKind,
+			objectIdentifier: types.NamespacedName{
 				Namespace: "svc-namespace",
 				Name:      "svc-name",
 			},
@@ -743,7 +823,8 @@ func Test_referenceGrantCheck(t *testing.T) {
 		},
 		{
 			name: "from is allowed, but not to",
-			svcIdentifier: types.NamespacedName{
+			kind: serviceKind,
+			objectIdentifier: types.NamespacedName{
 				Namespace: "svc-namespace",
 				Name:      "svc-name",
 			},
@@ -777,7 +858,8 @@ func Test_referenceGrantCheck(t *testing.T) {
 		},
 		{
 			name: "to is allowed, but not from",
-			svcIdentifier: types.NamespacedName{
+			kind: serviceKind,
+			objectIdentifier: types.NamespacedName{
 				Namespace: "svc-namespace",
 				Name:      "svc-name",
 			},
@@ -808,6 +890,41 @@ func Test_referenceGrantCheck(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "reference grant is for wrong type",
+			kind: gatewayKind,
+			objectIdentifier: types.NamespacedName{
+				Namespace: "gw-namespace",
+				Name:      "gw-name",
+			},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "route-namespace",
+				Name:      "route-name",
+			},
+			referenceGrants: []gwbeta1.ReferenceGrant{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "gw-namespace",
+						Name:      "grant1",
+					},
+					Spec: gwbeta1.ReferenceGrantSpec{
+						From: []gwbeta1.ReferenceGrantFrom{
+							{
+								Kind:      gwbeta1.Kind(kind),
+								Namespace: "route-namespace",
+							},
+						},
+						To: []gwbeta1.ReferenceGrantTo{
+							{
+								Kind: serviceKind,
+								Name: (*gwbeta1.ObjectName)(awssdk.String("gw-name")),
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -818,7 +935,7 @@ func Test_referenceGrantCheck(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			result, err := referenceGrantCheck(context.Background(), k8sClient, tc.svcIdentifier, tc.routeIdentifier, kind)
+			result, err := referenceGrantCheck(context.Background(), k8sClient, tc.kind, tc.objectIdentifier, tc.routeIdentifier, kind)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return

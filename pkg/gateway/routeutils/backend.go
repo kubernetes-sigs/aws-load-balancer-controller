@@ -3,17 +3,14 @@ package routeutils
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"strings"
-
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -21,6 +18,7 @@ import (
 
 const (
 	serviceKind             = "Service"
+	gatewayKind             = "Gateway"
 	referenceGrantNotExists = "No explicit ReferenceGrant exists to allow the reference."
 	maxWeight               = 999
 )
@@ -29,7 +27,10 @@ var (
 	tgConfigConstructor = gateway.NewTargetGroupConfigConstructor()
 )
 
+// TargetGroupConfigurator defines methods used to construct an ELB target group from a Kubernetes based backend.
 type TargetGroupConfigurator interface {
+	// GetTargetType returns the Target Type to associate with this target group.
+	GetTargetType(defaultTargetType elbv2model.TargetType) elbv2model.TargetType
 	// GetTargetGroupProps returns the target group properties associated with this backend
 	GetTargetGroupProps() *elbv2gw.TargetGroupProps
 	// GetBackendNamespacedName returns the namespaced name associated with the underlying backend.
@@ -50,6 +51,7 @@ type TargetGroupConfigurator interface {
 type Backend struct {
 	ServiceBackend     *ServiceBackendConfig
 	LiteralTargetGroup *LiteralTargetGroupConfig
+	GatewayBackend     *GatewayBackendConfig
 	Weight             int
 }
 
@@ -125,20 +127,23 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, backendRe
 
 	var serviceBackend *ServiceBackendConfig
 	var literalTargetGroup *LiteralTargetGroupConfig
+	var gatewayBackend *GatewayBackendConfig
 	var warn error
 	var fatal error
 	// We only support references of type service.
-	if backendRef.Kind == nil || *backendRef.Kind == "Service" {
+	if backendRef.Kind == nil || *backendRef.Kind == serviceKind {
 		serviceBackend, warn, fatal = serviceLoader(ctx, k8sClient, routeIdentifier, routeKind, backendRef)
-	} else if string(*backendRef.Kind) == TargetGroupNameBackend {
+	} else if string(*backendRef.Kind) == targetGroupNameBackend {
 		literalTargetGroup, warn, fatal = literalTargetGroupLoader(backendRef)
+	} else if string(*backendRef.Kind) == gatewayKind {
+		gatewayBackend, warn, fatal = gatewayLoader(ctx, k8sClient, routeIdentifier, routeKind, backendRef)
 	}
 
 	if warn != nil || fatal != nil {
 		return nil, warn, fatal
 	}
 
-	if serviceBackend == nil && literalTargetGroup == nil {
+	if serviceBackend == nil && literalTargetGroup == nil && gatewayBackend == nil {
 		initialErrorMessage := "Unknown backend reference kind"
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
 		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonInvalidKind, &wrappedGatewayErrorMessage, nil), nil
@@ -165,123 +170,9 @@ func commonBackendLoader(ctx context.Context, k8sClient client.Client, backendRe
 	}
 	return &Backend{
 		ServiceBackend:     serviceBackend,
+		GatewayBackend:     gatewayBackend,
 		LiteralTargetGroup: literalTargetGroup,
 		Weight:             weight,
-	}, nil, nil
-}
-
-func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef) (*ServiceBackendConfig, error, error) {
-	if backendRef.Port == nil {
-		initialErrorMessage := "Port is required"
-		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedValue, &wrappedGatewayErrorMessage, nil), nil
-	}
-
-	var svcNamespace string
-	if backendRef.Namespace == nil {
-		svcNamespace = routeIdentifier.Namespace
-	} else {
-		svcNamespace = string(*backendRef.Namespace)
-	}
-
-	svcIdentifier := types.NamespacedName{
-		Namespace: svcNamespace,
-		Name:      string(backendRef.Name),
-	}
-
-	// Check for reference grant when performing cross namespace gateway -> route attachment
-	if svcNamespace != routeIdentifier.Namespace {
-		allowed, err := referenceGrantCheck(ctx, k8sClient, svcIdentifier, routeIdentifier, routeKind)
-		if err != nil {
-			// Currently, this API only fails for a k8s related error message, hence no status update + make the error fatal.
-			return nil, nil, errors.Wrapf(err, "Unable to perform reference grant check")
-		}
-
-		// We should not give any hints about the existence of this resource, therefore, we return nil.
-		// That way, users can't infer if the route is missing because of a misconfigured service reference
-		// or the sentence grant is not allowing the connection.
-		if !allowed {
-			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(referenceGrantNotExists, routeKind, routeIdentifier)
-			return nil, wrapError(errors.Errorf("%s", referenceGrantNotExists), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonRefNotPermitted, &wrappedGatewayErrorMessage, nil), nil
-		}
-	}
-
-	svc := &corev1.Service{}
-	err := k8sClient.Get(ctx, svcIdentifier, svc)
-	if err != nil {
-
-		convertToNotFoundError := client.IgnoreNotFound(err)
-
-		if convertToNotFoundError == nil {
-			// Svc not found, post an updated status.
-			initialErrorMessage := fmt.Sprintf("Service (%s:%s) not found)", svcIdentifier.Namespace, svcIdentifier.Name)
-			wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-			return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil), nil
-		}
-		// Otherwise, general error. No need for status update.
-		return nil, nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch svc object %+v", svcIdentifier))
-	}
-
-	// TODO -- This should be updated, to handle UDP and TCP on the same service port.
-	// Currently, it will just arbitrarily take one.
-
-	var servicePort *corev1.ServicePort
-
-	for _, svcPort := range svc.Spec.Ports {
-		if svcPort.Port == int32(*backendRef.Port) {
-			servicePort = &svcPort
-			break
-		}
-	}
-
-	if servicePort == nil {
-		initialErrorMessage := fmt.Sprintf("Unable to find service port for port %d", *backendRef.Port)
-		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil), nil
-	}
-
-	tgConfig, err := LookUpTargetGroupConfiguration(ctx, k8sClient, k8s.NamespacedName(svc))
-
-	if err != nil {
-		// As of right now, this error can only be thrown because of a k8s api error hence no status update.
-		return nil, nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch tg config object"))
-	}
-
-	var tgProps *elbv2gw.TargetGroupProps
-
-	if tgConfig != nil {
-		tgProps = tgConfigConstructor.ConstructTargetGroupConfigForRoute(tgConfig, routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
-	}
-
-	// validate if protocol version is compatible with appProtocol
-	if tgProps != nil && servicePort.AppProtocol != nil {
-		appProtocol := strings.ToLower(*servicePort.AppProtocol)
-		if tgProps.ProtocolVersion != nil {
-			isCompatible := true
-			switch *tgProps.ProtocolVersion {
-			case elbv2gw.ProtocolVersionGRPC:
-				if appProtocol == "http" {
-					isCompatible = false
-				}
-			case elbv2gw.ProtocolVersionHTTP1, elbv2gw.ProtocolVersionHTTP2:
-				if appProtocol == "grpc" {
-					isCompatible = false
-				}
-			}
-			if !isCompatible {
-				initialErrorMessage := fmt.Sprintf("Service port appProtocol %s is not compatible with target group protocolVersion %s", *servicePort.AppProtocol, *tgProps.ProtocolVersion)
-				wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-
-				// This potentially could be fatal, but let's make the reconcile cycle as resilient as possible.
-				return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedProtocol, &wrappedGatewayErrorMessage, nil), nil
-			}
-		}
-	}
-
-	return &ServiceBackendConfig{
-		service:          svc,
-		servicePort:      servicePort,
-		targetGroupProps: tgProps,
 	}, nil, nil
 }
 
@@ -293,22 +184,30 @@ func literalTargetGroupLoader(backendRef gwv1.BackendRef) (*LiteralTargetGroupCo
 
 // LookUpTargetGroupConfiguration given a service, lookup the target group configuration associated with the service.
 // recall that target group configuration always lives within the same namespace as the service.
-func LookUpTargetGroupConfiguration(ctx context.Context, k8sClient client.Client, serviceMetadata types.NamespacedName) (*elbv2gw.TargetGroupConfiguration, error) {
+func LookUpTargetGroupConfiguration(ctx context.Context, k8sClient client.Client, objectKind string, objectMetadata types.NamespacedName) (*elbv2gw.TargetGroupConfiguration, error) {
 	tgConfigList := &elbv2gw.TargetGroupConfigurationList{}
 
 	// TODO - Add index
-	if err := k8sClient.List(ctx, tgConfigList, client.InNamespace(serviceMetadata.Namespace)); err != nil {
+	if err := k8sClient.List(ctx, tgConfigList, client.InNamespace(objectMetadata.Namespace)); err != nil {
 		return nil, err
 	}
 
 	for _, tgConfig := range tgConfigList.Items {
-		if tgConfig.Spec.TargetReference.Kind != nil && *tgConfig.Spec.TargetReference.Kind != serviceKind {
+
+		var isEligible bool
+		// Special case, nil kind == Service.
+		if tgConfig.Spec.TargetReference.Kind == nil && objectKind == serviceKind {
+			isEligible = true
+		} else if tgConfig.Spec.TargetReference.Kind != nil && objectKind == *tgConfig.Spec.TargetReference.Kind {
+			isEligible = true
+		}
+
+		if !isEligible {
 			continue
 		}
 
-		// TODO - Add a webhook to validate that only one target group config references this service.
 		// TODO - Add an index for this
-		if tgConfig.Spec.TargetReference.Name == serviceMetadata.Name {
+		if tgConfig.Spec.TargetReference.Name == objectMetadata.Name {
 			return &tgConfig, nil
 		}
 	}
@@ -317,9 +216,9 @@ func LookUpTargetGroupConfiguration(ctx context.Context, k8sClient client.Client
 
 // Implements the reference grant API
 // https://gateway-api.sigs.k8s.io/api-types/referencegrant/
-func referenceGrantCheck(ctx context.Context, k8sClient client.Client, svcIdentifier types.NamespacedName, routeIdentifier types.NamespacedName, routeKind RouteKind) (bool, error) {
+func referenceGrantCheck(ctx context.Context, k8sClient client.Client, objKind string, objIdentifier types.NamespacedName, routeIdentifier types.NamespacedName, routeKind RouteKind) (bool, error) {
 	referenceGrantList := &gwbeta1.ReferenceGrantList{}
-	if err := k8sClient.List(ctx, referenceGrantList, client.InNamespace(svcIdentifier.Namespace)); err != nil {
+	if err := k8sClient.List(ctx, referenceGrantList, client.InNamespace(objIdentifier.Namespace)); err != nil {
 		return false, err
 	}
 
@@ -336,13 +235,13 @@ func referenceGrantCheck(ctx context.Context, k8sClient client.Client, svcIdenti
 
 		if routeAllowed {
 			for _, to := range grant.Spec.To {
-				// As this is a backend reference, we only care about the "Service" Kind.
-				if to.Kind != serviceKind {
+				// Make sure the kind is correct for our query.
+				if string(to.Kind) != objKind {
 					continue
 				}
 
 				// If name is specified, we need to ensure that svc name matches the "to" name.
-				if to.Name != nil && string(*to.Name) != svcIdentifier.Name {
+				if to.Name != nil && string(*to.Name) != objIdentifier.Name {
 					continue
 				}
 

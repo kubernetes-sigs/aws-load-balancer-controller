@@ -10,12 +10,17 @@ import (
 )
 
 type mockTargetGroupBuilder struct {
-	tgs      []*elbv2model.TargetGroup
-	buildErr error
+	tgs                  []*elbv2model.TargetGroup
+	localFrontendNlbData map[string]*elbv2model.FrontendNlbTargetGroupState
+	buildErr             error
+}
+
+func (m *mockTargetGroupBuilder) getLocalFrontendNlbData() map[string]*elbv2model.FrontendNlbTargetGroupState {
+	return m.localFrontendNlbData
 }
 
 func (m *mockTargetGroupBuilder) buildTargetGroup(stack core.Stack,
-	gw *gwv1.Gateway, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
+	gw *gwv1.Gateway, listenerPort int32, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
 	var tg *elbv2model.TargetGroup
 
 	if len(m.tgs) > 0 {

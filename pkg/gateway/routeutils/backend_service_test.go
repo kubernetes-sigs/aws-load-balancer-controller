@@ -243,3 +243,24 @@ func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
 		})
 	}
 }
+
+func Test_buildTargetGroupTargetType(t *testing.T) {
+	svcBackend := NewServiceBackendConfig(nil, nil, nil)
+
+	res := svcBackend.GetTargetType(elbv2model.TargetTypeIP)
+	assert.Equal(t, elbv2model.TargetTypeIP, res)
+
+	svcBackendEmptyProps := NewServiceBackendConfig(nil, &elbv2gw.TargetGroupProps{}, nil)
+
+	res = svcBackend.GetTargetType(elbv2model.TargetTypeIP)
+
+	res = svcBackendEmptyProps.GetTargetType(elbv2model.TargetTypeIP)
+	assert.Equal(t, elbv2model.TargetTypeIP, res)
+
+	inst := elbv2gw.TargetTypeInstance
+	svcBackendWithProps := NewServiceBackendConfig(nil, &elbv2gw.TargetGroupProps{
+		TargetType: &inst,
+	}, nil)
+	res = svcBackendWithProps.GetTargetType(elbv2model.TargetTypeIP)
+	assert.Equal(t, elbv2model.TargetTypeInstance, res)
+}

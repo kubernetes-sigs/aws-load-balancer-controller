@@ -177,7 +177,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 		return nil, nil
 	}
 
-	arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, lb.Spec.IPAddressType, routeDescriptor, backend)
+	arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, lb.Spec.IPAddressType, routeDescriptor, backend)
 	if tgErr != nil {
 		return &elbv2model.ListenerSpec{}, tgErr
 	}
@@ -222,7 +222,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		}
 		targetGroupTuples := make([]elbv2model.TargetGroupTuple, 0, len(rule.GetBackends()))
 		for _, backend := range rule.GetBackends() {
-			arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, ipAddressType, route, backend)
+			arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, ipAddressType, route, backend)
 			if tgErr != nil {
 				return nil, tgErr
 			}

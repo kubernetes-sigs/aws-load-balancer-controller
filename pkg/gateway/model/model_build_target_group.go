@@ -32,7 +32,8 @@ type buildTargetGroupOutput struct {
 
 type targetGroupBuilder interface {
 	buildTargetGroup(stack core.Stack,
-		gw *gwv1.Gateway, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error)
+		gw *gwv1.Gateway, listenerPort int32, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error)
+	getLocalFrontendNlbData() map[string]*elbv2model.FrontendNlbTargetGroupState
 }
 
 type targetGroupBuilderImpl struct {
@@ -47,6 +48,8 @@ type targetGroupBuilderImpl struct {
 
 	tgbNetworkBuilder          targetGroupBindingNetworkBuilder
 	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
+
+	localFrontendNlbData map[string]*elbv2model.FrontendNlbTargetGroupState
 
 	defaultTargetType elbv2model.TargetType
 
@@ -70,6 +73,10 @@ type targetGroupBuilderImpl struct {
 	defaultHealthCheckUnhealthyThresholdForInstanceModeLocal int32
 }
 
+func (builder *targetGroupBuilderImpl) getLocalFrontendNlbData() map[string]*elbv2model.FrontendNlbTargetGroupState {
+	return builder.localFrontendNlbData
+}
+
 func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper, loadBalancerType elbv2model.LoadBalancerType, tgbNetworkBuilder targetGroupBindingNetworkBuilder, tgPropertiesConstructor gateway.TargetGroupConfigConstructor, defaultTargetType string, targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper) targetGroupBuilder {
 	return &targetGroupBuilderImpl{
 		loadBalancerType:                          loadBalancerType,
@@ -79,6 +86,7 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 		tgPropertiesConstructor:                   tgPropertiesConstructor,
 		targetGroupNameToArnMapper:                targetGroupNameToArnMapper,
 		tgByResID:                                 make(map[string]*elbv2model.TargetGroup),
+		localFrontendNlbData:                      make(map[string]*elbv2model.FrontendNlbTargetGroupState),
 		tagHelper:                                 tagHelper,
 		defaultTargetType:                         elbv2model.TargetType(defaultTargetType),
 		defaultHealthCheckMatcherHTTPCode:         "200-399",
@@ -100,10 +108,18 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
-	gw *gwv1.Gateway, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
+	gw *gwv1.Gateway, listenerPort int32, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
 
 	if backend.ServiceBackend != nil {
 		tg, err := builder.buildTargetGroupFromService(stack, gw, lbIPType, routeDescriptor, *backend.ServiceBackend)
+		if err != nil {
+			return nil, err
+		}
+		return tg.TargetGroupARN(), nil
+	}
+
+	if backend.GatewayBackend != nil {
+		tg, err := builder.buildTargetGroupFromGateway(stack, gw, listenerPort, lbIPType, routeDescriptor, *backend.GatewayBackend)
 		if err != nil {
 			return nil, err
 		}
@@ -145,6 +161,33 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupFromService(stack core.St
 	tgOut.bindingSpec.Template.Spec.TargetGroupARN = tg.TargetGroupARN()
 	elbv2modelk8s.NewTargetGroupBindingResource(stack, tg.ID(), tgOut.bindingSpec)
 	builder.tgByResID[tgResID] = tg
+	return tg, nil
+}
+
+func (builder *targetGroupBuilderImpl) buildTargetGroupFromGateway(stack core.Stack,
+	gw *gwv1.Gateway, listenerPort int32, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backendConfig routeutils.GatewayBackendConfig) (*elbv2model.TargetGroup, error) {
+	targetGroupProps := backendConfig.GetTargetGroupProps()
+	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), backendConfig.GetBackendNamespacedName(), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backendConfig.GetIdentifierPort())
+	if tg, exists := builder.tgByResID[tgResID]; exists {
+		return tg, nil
+	}
+
+	tgSpec, err := builder.buildTargetGroupSpec(gw, routeDescriptor, lbIPType, &backendConfig, targetGroupProps)
+	if err != nil {
+		return nil, err
+	}
+
+	tg := elbv2model.NewTargetGroup(stack, tgResID, tgSpec)
+	builder.tgByResID[tgResID] = tg
+
+	builder.localFrontendNlbData[tgSpec.Name] = &elbv2model.FrontendNlbTargetGroupState{
+		Name:       tgSpec.Name,
+		ARN:        tg.TargetGroupARN(),
+		Port:       listenerPort,
+		TargetARN:  core.LiteralStringToken(backendConfig.GetALBARN()),
+		TargetPort: *tg.Spec.Port,
+	}
+
 	return tg, nil
 }
 
@@ -216,7 +259,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, lbIPType elbv2model.IPAddressType, backendConfig routeutils.TargetGroupConfigurator, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error) {
-	targetType := builder.buildTargetGroupTargetType(targetGroupProps)
+	targetType := backendConfig.GetTargetType(builder.defaultTargetType)
 	tgProtocol, err := builder.buildTargetGroupProtocol(targetGroupProps, route)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
@@ -290,14 +333,6 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *el
 	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(routeKey.Namespace, "")
 	sanitizedName := invalidTargetGroupNamePattern.ReplaceAllString(routeKey.Name, "")
 	return fmt.Sprintf("k8s-%.8s-%.8s-%.10s", sanitizedNamespace, sanitizedName, uuid)
-}
-
-func (builder *targetGroupBuilderImpl) buildTargetGroupTargetType(targetGroupProps *elbv2gw.TargetGroupProps) elbv2model.TargetType {
-	if targetGroupProps == nil || targetGroupProps.TargetType == nil {
-		return builder.defaultTargetType
-	}
-
-	return elbv2model.TargetType(*targetGroupProps.TargetType)
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupIPAddressType(backendConfig routeutils.TargetGroupConfigurator, loadBalancerIPAddressType elbv2model.IPAddressType) (elbv2model.TargetGroupIPAddressType, error) {
@@ -405,7 +440,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetG
 	if err != nil {
 		return elbv2model.TargetGroupHealthCheckConfig{}, err
 	}
-	healthCheckProtocol := builder.buildTargetGroupHealthCheckProtocol(targetGroupProps, tgProtocol, isServiceExternalTrafficPolicyTypeLocal)                     //
+	healthCheckProtocol := builder.buildTargetGroupHealthCheckProtocol(targetGroupProps, targetType, tgProtocol, isServiceExternalTrafficPolicyTypeLocal)         //
 	healthCheckPath := builder.buildTargetGroupHealthCheckPath(targetGroupProps, tgProtocolVersion, healthCheckProtocol, isServiceExternalTrafficPolicyTypeLocal) //
 
 	healthCheckMatcher := builder.buildTargetGroupHealthCheckMatcher(targetGroupProps, tgProtocolVersion, healthCheckProtocol)                                  //
@@ -427,12 +462,16 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckConfig(targetG
 	return hcConfig, nil
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckProtocol(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocol elbv2model.Protocol, isServiceExternalTrafficPolicyTypeLocal bool) elbv2model.Protocol {
+func (builder *targetGroupBuilderImpl) buildTargetGroupHealthCheckProtocol(targetGroupProps *elbv2gw.TargetGroupProps, targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, isServiceExternalTrafficPolicyTypeLocal bool) elbv2model.Protocol {
 
 	if targetGroupProps == nil || targetGroupProps.HealthCheckConfig == nil || targetGroupProps.HealthCheckConfig.HealthCheckProtocol == nil {
 		if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
 			if isServiceExternalTrafficPolicyTypeLocal {
 				return builder.defaultHealthCheckProtocolForInstanceModeLocal
+			}
+			// ALB targets only support HTTP / HTTPS health checks.
+			if targetType == elbv2model.TargetTypeALB {
+				return elbv2model.ProtocolHTTP
 			}
 			return elbv2model.ProtocolTCP
 		}

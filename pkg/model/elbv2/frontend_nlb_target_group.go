@@ -10,10 +10,12 @@ const (
 
 // FrontendNlbTargetGroupState represents the state of a single ALB Target Type target group with its ALB target
 type FrontendNlbTargetGroupState struct {
-	Name       string
-	ARN        core.StringToken
-	Port       int32
-	TargetARN  core.StringToken
+	Name string
+	ARN  core.StringToken
+	// Port -> NLB Listener Port
+	Port      int32
+	TargetARN core.StringToken
+	// TargetPort -> ALB Listener Port
 	TargetPort int32
 }
 
