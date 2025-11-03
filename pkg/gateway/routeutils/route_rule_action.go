@@ -213,6 +213,8 @@ func buildHttpRuleRedirectActionsBasedOnFilter(filters []gwv1.HTTPRouteFilter, r
 			return buildHttpRedirectAction(filter.RequestRedirect, redirectConfig)
 		case gwv1.HTTPRouteFilterExtensionRef:
 			continue
+		case gwv1.HTTPRouteFilterURLRewrite:
+			continue
 		default:
 			return nil, errors.Errorf("Unsupported filter type: %v. Only request redirect is supported. To specify header modification, please configure it through LoadBalancerConfiguration.", filter.Type)
 		}
