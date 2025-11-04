@@ -821,9 +821,9 @@ spec:
                           with the target. The GENEVE, TLS, UDP, and TCP_UDP protocols
                           are not supported for health checks.
                         enum:
-                        - http
-                        - https
-                        - tcp
+                        - HTTP
+                        - HTTPS
+                        - TCP
                         type: string
                       healthCheckTimeout:
                         description: healthCheckTimeout The amount of time, in seconds,
@@ -1014,9 +1014,9 @@ spec:
                                 and TCP_UDP protocols are not supported for health
                                 checks.
                               enum:
-                              - http
-                              - https
-                              - tcp
+                              - HTTP
+                              - HTTPS
+                              - TCP
                               type: string
                             healthCheckTimeout:
                               description: healthCheckTimeout The amount of time,
