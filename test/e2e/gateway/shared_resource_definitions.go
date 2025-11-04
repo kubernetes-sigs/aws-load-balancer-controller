@@ -315,6 +315,39 @@ func buildTCPRoute() *gwalpha2.TCPRoute {
 	return tcpr
 }
 
+func buildFENLBTCPRoute(albGatewayName, albNamespace string, port gwalpha2.PortNumber) *gwalpha2.TCPRoute {
+	tcpr := &gwalpha2.TCPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("fenlb-tcp-route-%d", port),
+		},
+		Spec: gwalpha2.TCPRouteSpec{
+			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+				ParentRefs: []gwv1.ParentReference{
+					{
+						Name: defaultName,
+						Port: &port,
+					},
+				},
+			},
+			Rules: []gwalpha2.TCPRouteRule{
+				{
+					BackendRefs: []gwalpha2.BackendRef{
+						{
+							BackendObjectReference: gwalpha2.BackendObjectReference{
+								Name:      gwv1.ObjectName(albGatewayName),
+								Kind:      (*gwv1.Kind)(awssdk.String("Gateway")),
+								Namespace: (*gwv1.Namespace)(&albNamespace),
+								Port:      &port,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return tcpr
+}
+
 func buildUDPRoute() *gwalpha2.UDPRoute {
 	port := gwalpha2.PortNumber(8080)
 	udpr := &gwalpha2.UDPRoute{
