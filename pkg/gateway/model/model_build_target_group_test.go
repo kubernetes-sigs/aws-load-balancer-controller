@@ -1782,7 +1782,6 @@ func Test_buildTargetGroupFromGateway(t *testing.T) {
 				assert.True(t, exists)
 				assert.Equal(t, result.Spec.Name, frontendData.Name)
 				assert.Equal(t, tc.listenerPort, frontendData.Port)
-				//assert.Equal(t, tc.backendConfig.GetALBARN(), frontendData.TargetARN.Resolve(context.Background()))
 				assert.Equal(t, *result.Spec.Port, frontendData.TargetPort)
 			}
 		})

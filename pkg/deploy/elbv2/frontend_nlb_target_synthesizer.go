@@ -146,7 +146,6 @@ func (s *frontendNlbTargetSynthesizer) PostSynthesize(ctx context.Context) error
 			})
 
 			if err != nil {
-				s.logger.Error(err, "Got this error!")
 				requeueMsg := "Failed to register target, retrying after deplay for target group: " + resTG.Status.TargetGroupARN
 				return ctrlerrors.NewRequeueNeededAfter(requeueMsg, 15*time.Second)
 			}
