@@ -205,3 +205,46 @@ func TestGatewayBackendConfig_GetHealthCheckPort(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateGatewayARN(t *testing.T) {
+	tests := []struct {
+		name    string
+		arn     string
+		wantErr bool
+	}{
+		{
+			name:    "valid ALB ARN",
+			arn:     "arn:aws:elasticloadbalancing:us-east-1:565768096483:loadbalancer/app/k8s-echoserv-testgwal-3c92fc24ed/9604d5627427405c",
+			wantErr: false,
+		},
+		{
+			name:    "invalid NLB ARN",
+			arn:     "arn:aws:elasticloadbalancing:us-east-1:565768096483:loadbalancer/net/my-nlb/1234567890123456",
+			wantErr: true,
+		},
+		{
+			name:    "invalid format - no slashes",
+			arn:     "arn:aws:elasticloadbalancing:us-east-1:565768096483:loadbalancer",
+			wantErr: true,
+		},
+		{
+			name:    "invalid format - only one part",
+			arn:     "arn:aws:elasticloadbalancing:us-east-1:565768096483:loadbalancer/",
+			wantErr: true,
+		},
+		{
+			name:    "empty string",
+			arn:     "",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateGatewayARN(tt.arn)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateGatewayARN() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

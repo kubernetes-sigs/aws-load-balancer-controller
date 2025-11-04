@@ -122,9 +122,7 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 
 	if d.enableFrontendNLB {
 		var desiredFENLBState []*elbv2model.FrontendNlbTargetGroupDesiredState
-		err := stack.ListResources(&desiredFENLBState)
-		d.logger.Info(fmt.Sprintf("Got this result!!! %+v %+v", desiredFENLBState, err))
-
+		stack.ListResources(&desiredFENLBState)
 		var frontendNLBState *elbv2model.FrontendNlbTargetGroupDesiredState
 		if len(desiredFENLBState) == 1 {
 			frontendNLBState = desiredFENLBState[0]

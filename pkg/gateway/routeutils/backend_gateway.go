@@ -14,6 +14,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"strings"
 )
 
 var _ TargetGroupConfigurator = &GatewayBackendConfig{}
@@ -160,8 +161,24 @@ func gatewayLoader(ctx context.Context, k8sClient client.Client, routeIdentifier
 		// If the ARN is not available, then the backend is not yet usable.
 		initialErrorMessage := fmt.Sprintf("Gateway (%s:%s) is not usable yet, LB ARN is not provisioned)", gwIdentifier.Namespace, gwIdentifier.Name)
 		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-		return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil), nil
+		// This needs to be a fatal error, otherwise we will not run another reconcile cycle to pick up the ARN.
+		return nil, nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil)
+	}
+
+	err = validateGatewayARN(arn)
+	if err != nil {
+		wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(err.Error(), routeKind, routeIdentifier)
+		// This can be a warning, as we know that retrying reconcile will do nothing to fix this situation.
+		return nil, wrapError(err, gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonBackendNotFound, &wrappedGatewayErrorMessage, nil), nil
 	}
 
 	return NewGatewayBackendConfig(gw, tgProps, arn, int32(*backendRef.Port)), nil, nil
+}
+
+func validateGatewayARN(arn string) error {
+	parts := strings.Split(arn, "/")
+	if len(parts) < 2 || parts[1] != "app" {
+		return errors.Errorf("invalid gateway ARN: %s, the resource type must be application load balancer", arn)
+	}
+	return nil
 }
