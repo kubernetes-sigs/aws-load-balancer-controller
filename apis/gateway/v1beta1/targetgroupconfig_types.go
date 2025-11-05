@@ -108,7 +108,7 @@ const (
 	TargetTypeIP       TargetType = "ip"
 )
 
-// +kubebuilder:validation:Enum=http;https;tcp
+// +kubebuilder:validation:Enum=HTTP;HTTPS;TCP
 type TargetGroupHealthCheckProtocol string
 
 const (
