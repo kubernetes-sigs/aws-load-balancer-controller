@@ -49,6 +49,7 @@ type frontendNlbTargetSynthesizer struct {
 
 // Synthesize processes AWS target groups and deregisters ALB targets based on the desired state.
 func (s *frontendNlbTargetSynthesizer) Synthesize(ctx context.Context) error {
+
 	var resTGs []*elbv2model.TargetGroup
 	s.stack.ListResources(&resTGs)
 	res := s.findSDKTargetGroups()
@@ -109,6 +110,10 @@ func (s *frontendNlbTargetSynthesizer) deregisterCurrentTarget(ctx context.Conte
 }
 
 func (s *frontendNlbTargetSynthesizer) PostSynthesize(ctx context.Context) error {
+	if s.frontendNlbTargetGroupDesiredState == nil {
+		return nil
+	}
+
 	var resTGs []*elbv2model.TargetGroup
 	s.stack.ListResources(&resTGs)
 

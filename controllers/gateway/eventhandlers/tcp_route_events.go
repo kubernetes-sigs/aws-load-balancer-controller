@@ -69,16 +69,4 @@ func (h *enqueueRequestsForTCPRouteEvent) enqueueImpactedGateways(ctx context.Co
 			"gateway", gw)
 		queue.Add(reconcile.Request{NamespacedName: gw})
 	}
-
-	gateways, err = gatewayutils.GetImpactedGatewaysFromBackendRefs(ctx, h.k8sClient, route.Spec.Rules, route.Namespace, constants.NLBGatewayController)
-	if err != nil {
-		h.logger.V(1).Info("ignoring unknown gateways referred by", "tcproute", route.Name, "error", err)
-	}
-	for _, gw := range gateways {
-		h.logger.V(1).Info("enqueue gateway for tcproute event",
-			"tcproute", k8s.NamespacedName(route),
-			"gateway", gw)
-		queue.Add(reconcile.Request{NamespacedName: gw})
-	}
-
 }
