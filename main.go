@@ -237,7 +237,7 @@ func main() {
 	}
 
 	// Setup GlobalAccelerator controller only if enabled
-	if controllerCFG.FeatureGates.Enabled(config.AGAController) {
+	if shared_utils.IsAGAControllerEnabled(controllerCFG.FeatureGates, controllerCFG.AWSConfig.Region) {
 		agaReconciler := agacontroller.NewGlobalAcceleratorReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("globalAccelerator"),
 			finalizerManager, controllerCFG, cloud, ctrl.Log.WithName("controllers").WithName("globalAccelerator"), lbcMetricsCollector, reconcileCounters)
 		if err := agaReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {
