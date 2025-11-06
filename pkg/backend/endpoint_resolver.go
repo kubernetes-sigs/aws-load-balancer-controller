@@ -288,19 +288,11 @@ func buildEndpointsDataFromEndpointSliceList(epsList *discovery.EndpointSliceLis
 }
 
 func buildPodEndpoint(pod k8s.PodInfo, epAddr string, port int32) PodEndpoint {
-	var serverId *string
-	if pod.QUICServerIDs != nil {
-		sId, ok := pod.QUICServerIDs[port]
-		if ok {
-			serverId = &sId
-		}
-	}
-
 	return PodEndpoint{
 		IP:           epAddr,
 		Port:         port,
 		Pod:          pod,
-		QuicServerID: serverId,
+		QuicServerID: pod.GetQUICServerID(port),
 	}
 }
 
