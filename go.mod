@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/appmesh v1.27.7
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.173.0
 	github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 v1.53.0
+	github.com/aws/aws-sdk-go-v2/service/globalaccelerator v1.26.3
 	github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi v1.23.3
 	github.com/aws/aws-sdk-go-v2/service/servicediscovery v1.31.7
 	github.com/aws/aws-sdk-go-v2/service/shield v1.27.3
@@ -147,6 +148,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
 	github.com/spf13/cobra v1.9.1 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.34.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

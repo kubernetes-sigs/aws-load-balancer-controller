@@ -239,7 +239,7 @@ func main() {
 	// Setup GlobalAccelerator controller only if enabled
 	if controllerCFG.FeatureGates.Enabled(config.AGAController) {
 		agaReconciler := agacontroller.NewGlobalAcceleratorReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("globalAccelerator"),
-			finalizerManager, controllerCFG, ctrl.Log.WithName("controllers").WithName("globalAccelerator"), lbcMetricsCollector, reconcileCounters)
+			finalizerManager, controllerCFG, cloud, ctrl.Log.WithName("controllers").WithName("globalAccelerator"), lbcMetricsCollector, reconcileCounters)
 		if err := agaReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "GlobalAccelerator")
 			os.Exit(1)
