@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	ResourceTypeELBTargetGroup  = "elasticloadbalancing:targetgroup"
-	ResourceTypeELBLoadBalancer = "elasticloadbalancing:loadbalancer"
+	ResourceTypeELBTargetGroup    = "elasticloadbalancing:targetgroup"
+	ResourceTypeELBLoadBalancer   = "elasticloadbalancing:loadbalancer"
+	ResourceTypeGlobalAccelerator = "globalaccelerator:accelerator"
 )
 
 type RGT interface {

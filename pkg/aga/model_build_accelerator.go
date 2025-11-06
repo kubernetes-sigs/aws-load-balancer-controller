@@ -23,13 +23,14 @@ type acceleratorBuilder interface {
 }
 
 // NewAcceleratorBuilder constructs new acceleratorBuilder
-func NewAcceleratorBuilder(trackingProvider tracking.Provider, clusterName string, defaultTags map[string]string, externalManagedTags []string, additionalTagsOverrideDefaultTags bool) acceleratorBuilder {
+func NewAcceleratorBuilder(trackingProvider tracking.Provider, clusterName string, clusterRegion string, defaultTags map[string]string, externalManagedTags []string, additionalTagsOverrideDefaultTags bool) acceleratorBuilder {
 	externalManagedTagsSet := sets.New(externalManagedTags...)
 	tagHelper := newTagHelper(externalManagedTagsSet, defaultTags, additionalTagsOverrideDefaultTags)
 
 	return &defaultAcceleratorBuilder{
 		trackingProvider: trackingProvider,
 		clusterName:      clusterName,
+		clusterRegion:    clusterRegion,
 		tagHelper:        tagHelper,
 	}
 }
@@ -39,6 +40,7 @@ var _ acceleratorBuilder = &defaultAcceleratorBuilder{}
 type defaultAcceleratorBuilder struct {
 	trackingProvider tracking.Provider
 	clusterName      string
+	clusterRegion    string
 	tagHelper        tagHelper
 }
 
@@ -48,7 +50,7 @@ func (b *defaultAcceleratorBuilder) Build(ctx context.Context, stack core.Stack,
 		return nil, err
 	}
 
-	accelerator := agamodel.NewAccelerator(stack, agamodel.ResourceIDAccelerator, spec)
+	accelerator := agamodel.NewAccelerator(stack, agamodel.ResourceIDAccelerator, spec, ga)
 	return accelerator, nil
 }
 
@@ -86,6 +88,7 @@ func (b *defaultAcceleratorBuilder) buildAcceleratorName(_ context.Context, ga *
 
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(b.clusterName))
+	_, _ = uuidHash.Write([]byte(b.clusterRegion))
 	_, _ = uuidHash.Write([]byte(gaKey.Namespace))
 	_, _ = uuidHash.Write([]byte(gaKey.Name))
 	_, _ = uuidHash.Write([]byte(string(ipAddressType)))
@@ -125,15 +128,6 @@ func (b *defaultAcceleratorBuilder) buildAcceleratorTags(_ context.Context, stac
 	if err != nil {
 		return nil, err
 	}
-
-	// Add tracking tags (includes cluster tag and stack tag)
-	trackingTags := b.trackingProvider.StackTags(stack)
-	for k, v := range trackingTags {
-		tags[k] = v
-	}
-
-	// Add resource ID tag manually since we don't have the resource object yet
-	tags[b.trackingProvider.ResourceIDTagKey()] = agamodel.ResourceIDAccelerator
 
 	return tags, nil
 }
