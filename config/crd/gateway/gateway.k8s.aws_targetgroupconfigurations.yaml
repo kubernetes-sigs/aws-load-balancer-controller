@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: targetgroupconfigurations.gateway.k8s.aws
 spec:
   group: gateway.k8s.aws
@@ -82,9 +82,9 @@ spec:
                           with the target. The GENEVE, TLS, UDP, and TCP_UDP protocols
                           are not supported for health checks.
                         enum:
-                        - http
-                        - https
-                        - tcp
+                        - HTTP
+                        - HTTPS
+                        - TCP
                         type: string
                       healthCheckTimeout:
                         description: healthCheckTimeout The amount of time, in seconds,
@@ -275,9 +275,9 @@ spec:
                                 and TCP_UDP protocols are not supported for health
                                 checks.
                               enum:
-                              - http
-                              - https
-                              - tcp
+                              - HTTP
+                              - HTTPS
+                              - TCP
                               type: string
                             healthCheckTimeout:
                               description: healthCheckTimeout The amount of time,
@@ -440,7 +440,6 @@ spec:
                     description: |-
                       Kind is the Kubernetes resource kind of the referent. For example
                       "Service".
-
 
                       Defaults to "Service" when not specified.
                     type: string
