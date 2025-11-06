@@ -2,6 +2,7 @@ package tracking
 
 import (
 	"github.com/stretchr/testify/assert"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"testing"
@@ -97,6 +98,16 @@ func Test_defaultProvider_StackTags(t *testing.T) {
 				"gateway.k8s.aws/stack":           "namespace/gatewayName",
 			},
 		},
+		{
+			name:     "stackTags for AGA with region",
+			provider: NewDefaultProvider("aga.k8s.aws", "cluster-name", WithRegion("us-west-2")),
+			args:     args{stack: core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "globalAcceleratorName"})},
+			want: map[string]string{
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"aga.k8s.aws/stack":               "namespace/globalAcceleratorName",
+				"elbv2.k8s.aws/cluster-region":    "us-west-2",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -114,7 +125,7 @@ func Test_defaultProvider_ResourceTags(t *testing.T) {
 	serviceFakeRes := core.NewFakeResource(serviceStack, "fake", "service-id", core.FakeResourceSpec{}, nil)
 
 	agaStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "globalAcceleratorName"})
-	agaFakeRes := core.NewFakeResource(agaStack, "fake", "accelerator-id", core.FakeResourceSpec{}, nil)
+	agaFakeRes := core.NewFakeResource(agaStack, "fake", agamodel.ResourceIDAccelerator, core.FakeResourceSpec{}, nil)
 
 	gatewayStack := core.NewDefaultStack(core.StackID{Namespace: "namespace", Name: "gatewayName"})
 	gatewayFakeRes := core.NewFakeResource(gatewayStack, "fake", "gateway-id", core.FakeResourceSpec{}, nil)
@@ -166,7 +177,7 @@ func Test_defaultProvider_ResourceTags(t *testing.T) {
 			want: map[string]string{
 				shared_constants.TagKeyK8sCluster: "cluster-name",
 				"aga.k8s.aws/stack":               "namespace/globalAcceleratorName",
-				"aga.k8s.aws/resource":            "accelerator-id",
+				"aga.k8s.aws/resource":            "GlobalAccelerator",
 			},
 		},
 		{
@@ -180,6 +191,20 @@ func Test_defaultProvider_ResourceTags(t *testing.T) {
 				shared_constants.TagKeyK8sCluster: "cluster-name",
 				"gateway.k8s.aws/stack":           "namespace/gatewayName",
 				"gateway.k8s.aws/resource":        "gateway-id",
+			},
+		},
+		{
+			name:     "resourceTags for AGA with region",
+			provider: NewDefaultProvider("aga.k8s.aws", "cluster-name", WithRegion("us-east-1")),
+			args: args{
+				stack: agaStack,
+				res:   agaFakeRes,
+			},
+			want: map[string]string{
+				shared_constants.TagKeyK8sCluster: "cluster-name",
+				"aga.k8s.aws/stack":               "namespace/globalAcceleratorName",
+				"aga.k8s.aws/resource":            "GlobalAccelerator",
+				"elbv2.k8s.aws/cluster-region":    "us-east-1",
 			},
 		},
 	}
@@ -350,6 +375,36 @@ func Test_defaultProvider_LegacyTagKeys(t *testing.T) {
 			}
 			got := p.LegacyTagKeys()
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_WithRegion(t *testing.T) {
+	tests := []struct {
+		name     string
+		region   string
+		expected *string
+	}{
+		{
+			name:     "WithRegion sets region",
+			region:   "us-west-2",
+			expected: func() *string { s := "us-west-2"; return &s }(),
+		},
+		{
+			name:     "WithRegion sets empty region",
+			region:   "",
+			expected: func() *string { s := ""; return &s }(),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider := NewDefaultProvider("aga.k8s.aws", "cluster-name", WithRegion(tt.region))
+			if tt.expected == nil {
+				assert.Nil(t, provider.region)
+			} else {
+				assert.NotNil(t, provider.region)
+				assert.Equal(t, *tt.expected, *provider.region)
+			}
 		})
 	}
 }

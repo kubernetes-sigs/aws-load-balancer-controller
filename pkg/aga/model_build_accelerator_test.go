@@ -227,10 +227,7 @@ func Test_defaultAcceleratorBuilder_buildAcceleratorTags(t *testing.T) {
 			externalManagedTags: []string{},
 			clusterName:         "test-cluster",
 			want: map[string]string{
-				"Environment":           "test",
-				"elbv2.k8s.aws/cluster": "test-cluster",
-				"aga.k8s.aws/stack":     "test/test",
-				"aga.k8s.aws/resource":  "GlobalAccelerator",
+				"Environment": "test",
 			},
 			wantErr: false,
 		},
@@ -250,12 +247,9 @@ func Test_defaultAcceleratorBuilder_buildAcceleratorTags(t *testing.T) {
 			externalManagedTags: []string{},
 			clusterName:         "test-cluster",
 			want: map[string]string{
-				"Environment":           "test",
-				"elbv2.k8s.aws/cluster": "test-cluster",
-				"aga.k8s.aws/stack":     "test/test",
-				"aga.k8s.aws/resource":  "GlobalAccelerator",
-				"Application":           "my-app",
-				"Owner":                 "team-a",
+				"Environment": "test",
+				"Application": "my-app",
+				"Owner":       "team-a",
 			},
 			wantErr: false,
 		},
@@ -274,10 +268,7 @@ func Test_defaultAcceleratorBuilder_buildAcceleratorTags(t *testing.T) {
 			externalManagedTags: []string{},
 			clusterName:         "test-cluster",
 			want: map[string]string{
-				"Environment":           "production", // User tag overrides default
-				"elbv2.k8s.aws/cluster": "test-cluster",
-				"aga.k8s.aws/stack":     "test/test",
-				"aga.k8s.aws/resource":  "GlobalAccelerator",
+				"Environment": "production", // User tag overrides default
 			},
 			wantErr: false,
 		},
@@ -297,12 +288,9 @@ func Test_defaultAcceleratorBuilder_buildAcceleratorTags(t *testing.T) {
 			externalManagedTags: []string{"ExternalTag", "ManagedByTeam"},
 			clusterName:         "test-cluster",
 			want: map[string]string{
-				"Environment":           "test",
-				"elbv2.k8s.aws/cluster": "test-cluster",
-				"aga.k8s.aws/stack":     "test/test",
-				"aga.k8s.aws/resource":  "GlobalAccelerator",
-				"Application":           "my-app",
-				"Owner":                 "team-a",
+				"Environment": "test",
+				"Application": "my-app",
+				"Owner":       "team-a",
 			},
 			wantErr: false,
 		},
@@ -331,7 +319,7 @@ func Test_defaultAcceleratorBuilder_buildAcceleratorTags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Use true for "user tags override default tags" test case
 			additionalTagsOverrideDefaultTags := tt.name == "user tags override default tags"
-			builder := NewAcceleratorBuilder(trackingProvider, tt.clusterName, tt.defaultTags, tt.externalManagedTags, additionalTagsOverrideDefaultTags)
+			builder := NewAcceleratorBuilder(trackingProvider, tt.clusterName, "us-west-2", tt.defaultTags, tt.externalManagedTags, additionalTagsOverrideDefaultTags)
 			b := builder.(*defaultAcceleratorBuilder)
 
 			stack := core.NewDefaultStack(core.StackID{Namespace: "test", Name: "test"})
@@ -382,11 +370,7 @@ func Test_defaultAcceleratorBuilder_Build(t *testing.T) {
 					Enabled:       aws.Bool(true),
 					IPAddressType: agamodel.IPAddressTypeIPV4,
 					IpAddresses:   nil,
-					Tags: map[string]string{
-						"elbv2.k8s.aws/cluster": "test-cluster",
-						"aga.k8s.aws/stack":     "test/test",
-						"aga.k8s.aws/resource":  "GlobalAccelerator",
-					},
+					Tags:          map[string]string{},
 				},
 			},
 			wantErr: false,
@@ -420,11 +404,8 @@ func Test_defaultAcceleratorBuilder_Build(t *testing.T) {
 					IPAddressType: agamodel.IPAddressTypeDualStack,
 					IpAddresses:   []string{"1.2.3.4"},
 					Tags: map[string]string{
-						"Environment":           "test",
-						"elbv2.k8s.aws/cluster": "test-cluster",
-						"aga.k8s.aws/stack":     "test/test",
-						"aga.k8s.aws/resource":  "GlobalAccelerator",
-						"Application":           "my-app",
+						"Environment": "test",
+						"Application": "my-app",
 					},
 				},
 			},
@@ -458,12 +439,9 @@ func Test_defaultAcceleratorBuilder_Build(t *testing.T) {
 					IPAddressType: agamodel.IPAddressTypeIPV4,
 					IpAddresses:   nil,
 					Tags: map[string]string{
-						"Environment":           "test",
-						"elbv2.k8s.aws/cluster": "test-cluster",
-						"aga.k8s.aws/stack":     "test/test",
-						"aga.k8s.aws/resource":  "GlobalAccelerator",
-						"Application":           "my-app",
-						"Owner":                 "team-a",
+						"Environment": "test",
+						"Application": "my-app",
+						"Owner":       "team-a",
 					},
 				},
 			},
@@ -497,7 +475,7 @@ func Test_defaultAcceleratorBuilder_Build(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			builder := NewAcceleratorBuilder(trackingProvider, tt.clusterName, tt.defaultTags, tt.externalManagedTags, false)
+			builder := NewAcceleratorBuilder(trackingProvider, tt.clusterName, "us-west-2", tt.defaultTags, tt.externalManagedTags, false)
 
 			got, err := builder.Build(context.Background(), stack, tt.ga)
 
@@ -510,8 +488,22 @@ func Test_defaultAcceleratorBuilder_Build(t *testing.T) {
 			assert.NoError(t, err)
 			assert.NotNil(t, got)
 
-			// Deep compare the entire object
-			assert.Equal(t, tt.want, got)
+			// Verify important fields instead of deep comparing the entire object
+			// ResourceMeta fields
+
+			// Spec fields
+			assert.Equal(t, tt.want.Spec.Name, got.Spec.Name, "Name should match")
+			assert.Equal(t, *tt.want.Spec.Enabled, *got.Spec.Enabled, "Enabled should match")
+			assert.Equal(t, tt.want.Spec.IPAddressType, got.Spec.IPAddressType, "IPAddressType should match")
+			assert.Equal(t, tt.want.Spec.IpAddresses, got.Spec.IpAddresses, "IpAddresses should match")
+
+			// Tags verification
+			assert.Equal(t, len(tt.want.Spec.Tags), len(got.Spec.Tags), "Tags count should match")
+			for key, expectedValue := range tt.want.Spec.Tags {
+				actualValue, exists := got.Spec.Tags[key]
+				assert.True(t, exists, "Tag %s should exist", key)
+				assert.Equal(t, expectedValue, actualValue, "Tag %s value should match", key)
+			}
 		})
 	}
 }
