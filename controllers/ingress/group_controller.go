@@ -70,7 +70,7 @@ func NewGroupReconciler(cloud services.Cloud, k8sClient client.Client, eventReco
 		controllerConfig.EnableBackendSecurityGroup, controllerConfig.EnableManageBackendSecurityGroupRules, controllerConfig.DisableRestrictedSGRules, controllerConfig.IngressConfig.AllowedCertificateAuthorityARNs, controllerConfig.FeatureGates.Enabled(config.EnableIPTargetType), targetGroupNameToArnMapper, logger, metricsCollector)
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 	stackDeployer := deploy.NewDefaultStackDeployer(cloud, k8sClient, networkingManager, networkingSGManager, networkingSGReconciler, elbv2TaggingManager,
-		controllerConfig, ingressTagPrefix, logger, metricsCollector, controllerName, controllerConfig.FeatureGates.Enabled(config.EnhancedDefaultBehavior), targetGroupCollector)
+		controllerConfig, ingressTagPrefix, logger, metricsCollector, controllerName, controllerConfig.FeatureGates.Enabled(config.EnhancedDefaultBehavior), targetGroupCollector, true)
 	classLoader := ingress.NewDefaultClassLoader(k8sClient, true)
 	classAnnotationMatcher := ingress.NewDefaultClassAnnotationMatcher(controllerConfig.IngressConfig.IngressClass)
 	manageIngressesWithoutIngressClass := controllerConfig.IngressConfig.IngressClass == ""
@@ -206,10 +206,9 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	var secrets []types.NamespacedName
 	var backendSGRequired bool
 	var err error
-	var frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
 	var frontendNlb *elbv2model.LoadBalancer
 	buildModelFn := func() {
-		stack, lb, secrets, backendSGRequired, frontendNlbTargetGroupDesiredState, frontendNlb, err = r.modelBuilder.Build(ctx, ingGroup, r.metricsCollector)
+		stack, lb, secrets, backendSGRequired, frontendNlb, err = r.modelBuilder.Build(ctx, ingGroup, r.metricsCollector)
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "build_model", buildModelFn)
 	if err != nil {
@@ -224,7 +223,7 @@ func (r *groupReconciler) buildAndDeployModel(ctx context.Context, ingGroup ingr
 	r.logger.Info("successfully built model", "model", stackJSON)
 
 	deployModelFn := func() {
-		err = r.stackDeployer.Deploy(ctx, stack, r.metricsCollector, "ingress", frontendNlbTargetGroupDesiredState)
+		err = r.stackDeployer.Deploy(ctx, stack, r.metricsCollector, "ingress")
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, "deploy_model", deployModelFn)
 	if err != nil {

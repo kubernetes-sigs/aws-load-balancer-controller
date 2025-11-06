@@ -13,6 +13,8 @@ import (
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
@@ -31,7 +33,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 		defaultTargetType        string
 		gateway                  *gwv1.Gateway
 		route                    *routeutils.MockRoute
-		backend                  routeutils.ServiceBackendConfig
+		backend                  *routeutils.ServiceBackendConfig
 		tagErr                   error
 		expectErr                bool
 		expectedTgSpec           elbv2model.TargetGroupSpec
@@ -53,14 +55,15 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -68,8 +71,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 						Type:   intstr.Int,
 					},
 					NodePort: 8080,
-				},
-			},
+				}),
 			expectedTgSpec: elbv2model.TargetGroupSpec{
 				Name:          "k8s-myrouten-myroute-8d8111f6ac",
 				TargetType:    elbv2model.TargetTypeInstance,
@@ -108,14 +110,15 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -123,8 +126,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 						Type:   intstr.Int,
 					},
 					NodePort: 8080,
-				},
-			},
+				}),
 			expectedTgSpec: elbv2model.TargetGroupSpec{
 				Name:            "k8s-myrouten-myroute-224f4b6ea6",
 				TargetType:      elbv2model.TargetTypeInstance,
@@ -168,14 +170,15 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -183,8 +186,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 						Type:   intstr.Int,
 					},
 					NodePort: 8080,
-				},
-			},
+				}),
 			expectedTgSpec: elbv2model.TargetGroupSpec{
 				Name:          "k8s-myrouten-myroute-3bce8b0f70",
 				TargetType:    elbv2model.TargetTypeIP,
@@ -223,14 +225,15 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -239,7 +242,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 					},
 					NodePort: 8080,
 				},
-			},
+			),
 			expectedTgSpec: elbv2model.TargetGroupSpec{
 				Name:            "k8s-myrouten-myroute-a44a20bcbf",
 				TargetType:      elbv2model.TargetTypeIP,
@@ -283,14 +286,15 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -298,7 +302,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 						Type:   intstr.Int,
 					},
 				},
-			},
+			),
 			expectErr: true,
 		},
 	}
@@ -313,7 +317,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 
 			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, &mockTargetGroupBindingNetworkingBuilder{}, gateway.NewTargetGroupConfigConstructor(), tc.defaultTargetType, nil)
 
-			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(tc.gateway, tc.route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
+			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(tc.gateway, tc.route, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return
@@ -337,7 +341,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 		defaultTargetType     string
 		gateway               *gwv1.Gateway
 		route                 *routeutils.MockRoute
-		backend               routeutils.ServiceBackendConfig
+		backend               *routeutils.ServiceBackendConfig
 		tagErr                error
 		expectErr             bool
 		expectedTgSpec        elbv2model.TargetGroupSpec
@@ -359,14 +363,15 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -375,7 +380,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 					},
 					NodePort: 8080,
 				},
-			},
+			),
 			expectedTgSpec: elbv2model.TargetGroupSpec{
 				Name:          "k8s-myrouten-myroute-d02da2803b",
 				TargetType:    elbv2model.TargetTypeInstance,
@@ -433,14 +438,15 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -449,7 +455,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 					},
 					NodePort: 8080,
 				},
-			},
+			),
 			expectedTgSpec: elbv2model.TargetGroupSpec{
 				Name:            "k8s-myrouten-myroute-224f4b6ea6",
 				TargetType:      elbv2model.TargetTypeInstance,
@@ -512,14 +518,15 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -528,7 +535,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 					},
 					NodePort: 8080,
 				},
-			},
+			),
 			expectedTgSpec: elbv2model.TargetGroupSpec{
 				Name:          "k8s-myrouten-myroute-3bce8b0f70",
 				TargetType:    elbv2model.TargetTypeIP,
@@ -586,14 +593,15 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -602,7 +610,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 					},
 					NodePort: 8080,
 				},
-			},
+			),
 			expectedTgSpec: elbv2model.TargetGroupSpec{
 				Name:            "k8s-myrouten-myroute-a44a20bcbf",
 				TargetType:      elbv2model.TargetTypeIP,
@@ -675,14 +683,15 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 				Name:      "my-route",
 				Namespace: "my-route-ns",
 			},
-			backend: routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend: routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "my-svc-ns",
 						Name:      "my-svc",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -691,7 +700,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 					},
 					NodePort: 8080,
 				},
-			},
+			),
 			expectedTgSpec: elbv2model.TargetGroupSpec{
 				Name:            "k8s-myrouten-myroute-a44a20bcbf",
 				TargetType:      elbv2model.TargetTypeIP,
@@ -754,7 +763,7 @@ func Test_buildTargetGroupBindingSpec(t *testing.T) {
 
 			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, &mockTargetGroupBindingNetworkingBuilder{}, gateway.NewTargetGroupConfigConstructor(), tc.defaultTargetType, nil)
 
-			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, tc.backend)
+			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupBindingSpec(tc.gateway, nil, tc.expectedTgSpec, nil, *tc.backend)
 
 			assert.Equal(t, tc.expectedTgBindingSpec, out)
 			assert.NoError(t, err)
@@ -814,24 +823,6 @@ func Test_buildTargetGroupName(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
-}
-
-func Test_buildTargetGroupTargetType(t *testing.T) {
-	builder := targetGroupBuilderImpl{
-		defaultTargetType: elbv2model.TargetTypeIP,
-	}
-
-	res := builder.buildTargetGroupTargetType(nil)
-	assert.Equal(t, elbv2model.TargetTypeIP, res)
-
-	res = builder.buildTargetGroupTargetType(&elbv2gw.TargetGroupProps{})
-	assert.Equal(t, elbv2model.TargetTypeIP, res)
-
-	inst := elbv2gw.TargetTypeInstance
-	res = builder.buildTargetGroupTargetType(&elbv2gw.TargetGroupProps{
-		TargetType: &inst,
-	})
-	assert.Equal(t, elbv2model.TargetTypeInstance, res)
 }
 
 func Test_buildTargetGroupIPAddressType(t *testing.T) {
@@ -901,63 +892,12 @@ func Test_buildTargetGroupIPAddressType(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			builder := targetGroupBuilderImpl{}
-			res, err := builder.buildTargetGroupIPAddressType(tc.svc, tc.loadBalancerIPAddressType)
+			res, err := builder.buildTargetGroupIPAddressType(routeutils.NewServiceBackendConfig(tc.svc, nil, nil), tc.loadBalancerIPAddressType)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return
 			}
 			assert.NoError(t, err)
-			assert.Equal(t, tc.expected, res)
-
-		})
-	}
-}
-
-func Test_buildTargetGroupPort(t *testing.T) {
-	testCases := []struct {
-		name       string
-		targetType elbv2model.TargetType
-		svcPort    corev1.ServicePort
-		expected   int32
-	}{
-		{
-			name: "instance",
-			svcPort: corev1.ServicePort{
-				NodePort: 8080,
-			},
-			targetType: elbv2model.TargetTypeInstance,
-			expected:   8080,
-		},
-		{
-			name:       "instance - no node port",
-			svcPort:    corev1.ServicePort{},
-			targetType: elbv2model.TargetTypeInstance,
-			expected:   0,
-		},
-		{
-			name: "ip",
-			svcPort: corev1.ServicePort{
-				NodePort:   8080,
-				TargetPort: intstr.FromInt32(80),
-			},
-			targetType: elbv2model.TargetTypeIP,
-			expected:   80,
-		},
-		{
-			name: "ip - str port",
-			svcPort: corev1.ServicePort{
-				NodePort:   8080,
-				TargetPort: intstr.FromString("foo"),
-			},
-			targetType: elbv2model.TargetTypeIP,
-			expected:   1,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			builder := targetGroupBuilderImpl{}
-			res := builder.buildTargetGroupPort(tc.targetType, tc.svcPort)
 			assert.Equal(t, tc.expected, res)
 
 		})
@@ -1244,192 +1184,10 @@ func Test_buildTargetGroupProtocolVersion(t *testing.T) {
 	}
 }
 
-func Test_buildTargetGroupHealthCheckPort(t *testing.T) {
-	testCases := []struct {
-		name                                    string
-		isServiceExternalTrafficPolicyTypeLocal bool
-		targetGroupProps                        *elbv2gw.TargetGroupProps
-		targetType                              elbv2model.TargetType
-		svc                                     *corev1.Service
-		expected                                intstr.IntOrString
-		expectErr                               bool
-	}{
-		{
-			name:                                    "nil props",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			expected:                                intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
-		},
-		{
-			name:                                    "nil hc props",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			targetGroupProps:                        &elbv2gw.TargetGroupProps{},
-			expected:                                intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
-		},
-		{
-			name:                                    "nil hc port",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{},
-			},
-			expected: intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
-		},
-		{
-			name:                                    "explicit is use traffic port hc port",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
-					HealthCheckPort: awssdk.String(shared_constants.HealthCheckPortTrafficPort),
-				},
-			},
-			expected: intstr.FromString(shared_constants.HealthCheckPortTrafficPort),
-		},
-		{
-			name:                                    "explicit port",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
-					HealthCheckPort: awssdk.String("80"),
-				},
-			},
-			expected: intstr.FromInt32(80),
-		},
-		{
-			name:                                    "resolve str port",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			svc: &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "foo",
-							TargetPort: intstr.FromInt32(80),
-						},
-					},
-				},
-			},
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
-					HealthCheckPort: awssdk.String("foo"),
-				},
-			},
-			expected: intstr.FromInt32(80),
-		},
-		{
-			name:                                    "resolve str port - instance",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			targetType:                              elbv2model.TargetTypeInstance,
-			svc: &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "foo",
-							TargetPort: intstr.FromInt32(80),
-							NodePort:   1000,
-						},
-					},
-				},
-			},
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
-					HealthCheckPort: awssdk.String("foo"),
-				},
-			},
-			expected: intstr.FromInt32(1000),
-		},
-		{
-			name:                                    "resolve str port - resolves to other str port (error)",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			svc: &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "foo",
-							TargetPort: intstr.FromString("bar"),
-							NodePort:   1000,
-						},
-					},
-				},
-			},
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
-					HealthCheckPort: awssdk.String("foo"),
-				},
-			},
-			expectErr: true,
-		},
-		{
-			name:                                    "resolve str port - resolves to other str port but instance mode",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			targetType:                              elbv2model.TargetTypeInstance,
-			svc: &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "foo",
-							TargetPort: intstr.FromString("bar"),
-							NodePort:   1000,
-						},
-					},
-				},
-			},
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
-					HealthCheckPort: awssdk.String("foo"),
-				},
-			},
-			expected: intstr.FromInt32(1000),
-		},
-		{
-			name:                                    "resolve str port - cant find configured port",
-			isServiceExternalTrafficPolicyTypeLocal: false,
-			targetType:                              elbv2model.TargetTypeInstance,
-			svc: &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					Ports: []corev1.ServicePort{
-						{
-							Name:       "baz",
-							TargetPort: intstr.FromString("bar"),
-							NodePort:   1000,
-						},
-					},
-				},
-			},
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
-					HealthCheckPort: awssdk.String("foo"),
-				},
-			},
-			expectErr: true,
-		},
-		{
-			name:                                    "with ExternalTrafficPolicyTypeLocal and HealthCheckNodePort specified",
-			isServiceExternalTrafficPolicyTypeLocal: true,
-			svc: &corev1.Service{
-				Spec: corev1.ServiceSpec{
-					HealthCheckNodePort:   32000,
-					ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
-				},
-			},
-			expected: intstr.FromInt32(32000),
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			builder := targetGroupBuilderImpl{}
-			res, err := builder.buildTargetGroupHealthCheckPort(tc.targetGroupProps, tc.targetType, tc.svc, tc.isServiceExternalTrafficPolicyTypeLocal)
-			if tc.expectErr {
-				assert.Error(t, err, res)
-				return
-			}
-			assert.NoError(t, err)
-			assert.Equal(t, tc.expected, res)
-		})
-	}
-}
-
 func Test_buildTargetGroupHealthCheckProtocol(t *testing.T) {
 	testCases := []struct {
 		name             string
+		targetType       elbv2model.TargetType
 		lbType           elbv2model.LoadBalancerType
 		targetGroupProps *elbv2gw.TargetGroupProps
 		tgProtocol       elbv2model.Protocol
@@ -1437,19 +1195,22 @@ func Test_buildTargetGroupHealthCheckProtocol(t *testing.T) {
 	}{
 		{
 			name:       "nlb - default",
+			targetType: elbv2model.TargetTypeInstance,
 			lbType:     elbv2model.LoadBalancerTypeNetwork,
 			tgProtocol: elbv2model.ProtocolUDP,
 			expected:   elbv2model.ProtocolTCP,
 		},
 		{
 			name:       "alb - default",
+			targetType: elbv2model.TargetTypeInstance,
 			lbType:     elbv2model.LoadBalancerTypeApplication,
 			tgProtocol: elbv2model.ProtocolHTTP,
 			expected:   elbv2model.ProtocolHTTP,
 		},
 		{
-			name:   "specified http",
-			lbType: elbv2model.LoadBalancerTypeApplication,
+			name:       "specified http",
+			targetType: elbv2model.TargetTypeInstance,
+			lbType:     elbv2model.LoadBalancerTypeApplication,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
 					HealthCheckProtocol: (*elbv2gw.TargetGroupHealthCheckProtocol)(awssdk.String(string(elbv2gw.ProtocolHTTP))),
@@ -1459,8 +1220,9 @@ func Test_buildTargetGroupHealthCheckProtocol(t *testing.T) {
 			expected:   elbv2model.ProtocolHTTP,
 		},
 		{
-			name:   "specified https",
-			lbType: elbv2model.LoadBalancerTypeApplication,
+			name:       "specified https",
+			targetType: elbv2model.TargetTypeInstance,
+			lbType:     elbv2model.LoadBalancerTypeApplication,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
 					HealthCheckProtocol: (*elbv2gw.TargetGroupHealthCheckProtocol)(awssdk.String(string(elbv2gw.ProtocolHTTPS))),
@@ -1470,8 +1232,9 @@ func Test_buildTargetGroupHealthCheckProtocol(t *testing.T) {
 			expected:   elbv2model.ProtocolHTTPS,
 		},
 		{
-			name:   "specified tcp",
-			lbType: elbv2model.LoadBalancerTypeApplication,
+			name:       "specified tcp",
+			targetType: elbv2model.TargetTypeInstance,
+			lbType:     elbv2model.LoadBalancerTypeApplication,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				HealthCheckConfig: &elbv2gw.HealthCheckConfiguration{
 					HealthCheckProtocol: (*elbv2gw.TargetGroupHealthCheckProtocol)(awssdk.String(string(elbv2gw.ProtocolTCP))),
@@ -1479,6 +1242,13 @@ func Test_buildTargetGroupHealthCheckProtocol(t *testing.T) {
 			},
 			tgProtocol: elbv2model.ProtocolTCP,
 			expected:   elbv2model.ProtocolTCP,
+		},
+		{
+			name:       "nlb with alb target default",
+			targetType: elbv2model.TargetTypeALB,
+			lbType:     elbv2model.LoadBalancerTypeNetwork,
+			tgProtocol: elbv2model.ProtocolTCP,
+			expected:   elbv2model.ProtocolHTTP,
 		},
 	}
 
@@ -1488,7 +1258,7 @@ func Test_buildTargetGroupHealthCheckProtocol(t *testing.T) {
 				loadBalancerType: tc.lbType,
 			}
 
-			res := builder.buildTargetGroupHealthCheckProtocol(tc.targetGroupProps, tc.tgProtocol, false)
+			res := builder.buildTargetGroupHealthCheckProtocol(tc.targetGroupProps, tc.targetType, tc.tgProtocol, false)
 			assert.Equal(t, tc.expected, res)
 		})
 	}
@@ -1862,14 +1632,15 @@ func Test_buildTargetGroupTags(t *testing.T) {
 				Namespace: "test-namespace",
 			}
 
-			backend := routeutils.ServiceBackendConfig{
-				Service: &corev1.Service{
+			backend := routeutils.NewServiceBackendConfig(
+				&corev1.Service{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "test-namespace",
 						Name:      "test-service",
 					},
 				},
-				ServicePort: &corev1.ServicePort{
+				nil,
+				&corev1.ServicePort{
 					Protocol: corev1.ProtocolTCP,
 					Port:     80,
 					TargetPort: intstr.IntOrString{
@@ -1877,7 +1648,7 @@ func Test_buildTargetGroupTags(t *testing.T) {
 						Type:   intstr.Int,
 					},
 				},
-			}
+			)
 
 			// Create target group props with user tags if specified
 			var tgProps *elbv2gw.TargetGroupProps
@@ -1887,7 +1658,7 @@ func Test_buildTargetGroupTags(t *testing.T) {
 				}
 			}
 
-			tgSpec, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(gateway, route, elbv2gw.LoadBalancerConfiguration{}, elbv2model.IPAddressTypeIPV4, backend, tgProps)
+			tgSpec, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(gateway, route, elbv2model.IPAddressTypeIPV4, backend, tgProps)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -1896,6 +1667,123 @@ func Test_buildTargetGroupTags(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedTags, tgSpec.Tags)
+		})
+	}
+}
+
+func Test_buildTargetGroupFromGateway(t *testing.T) {
+	testCases := []struct {
+		name                 string
+		gateway              *gwv1.Gateway
+		listenerPort         int32
+		lbIPType             elbv2model.IPAddressType
+		route                *routeutils.MockRoute
+		backendConfig        *routeutils.GatewayBackendConfig
+		existingTG           bool
+		expectedTGName       string
+		expectedFrontendData bool
+	}{
+		{
+			name: "new target group creation",
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-gw",
+				},
+			},
+			listenerPort: 80,
+			lbIPType:     elbv2model.IPAddressTypeIPV4,
+			route: &routeutils.MockRoute{
+				Kind:      routeutils.HTTPRouteKind,
+				Name:      "test-route",
+				Namespace: "test-ns",
+			},
+			backendConfig:        routeutils.NewGatewayBackendConfig(&gwv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "backend-gw", Namespace: "backend-ns"}}, nil, "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-alb/1234567890123456", 8080),
+			expectedTGName:       "k8s-testns-testrout",
+			expectedFrontendData: true,
+		},
+		{
+			name: "existing target group reuse",
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-gw",
+				},
+			},
+			listenerPort: 80,
+			lbIPType:     elbv2model.IPAddressTypeIPV4,
+			route: &routeutils.MockRoute{
+				Kind:      routeutils.HTTPRouteKind,
+				Name:      "test-route",
+				Namespace: "test-ns",
+			},
+			backendConfig:        routeutils.NewGatewayBackendConfig(&gwv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "backend-gw", Namespace: "backend-ns"}}, nil, "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-alb/1234567890123456", 8080),
+			existingTG:           true,
+			expectedFrontendData: false,
+		},
+		{
+			name: "with target group props",
+			gateway: &gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-gw",
+				},
+			},
+			listenerPort: 443,
+			lbIPType:     elbv2model.IPAddressTypeIPV4,
+			route: &routeutils.MockRoute{
+				Kind:      routeutils.HTTPRouteKind,
+				Name:      "test-route",
+				Namespace: "test-ns",
+			},
+			backendConfig: routeutils.NewGatewayBackendConfig(&gwv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "backend-gw", Namespace: "backend-ns"}}, &elbv2gw.TargetGroupProps{
+				TargetGroupName: awssdk.String("custom-tg-name"),
+			}, "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-alb/1234567890123456", 8443),
+			expectedTGName:       "custom-tg-name",
+			expectedFrontendData: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tagger := &mockTagHelper{
+				tags: make(map[string]string),
+			}
+
+			builder := newTargetGroupBuilder("test-cluster", "vpc-xxx", tagger, elbv2model.LoadBalancerTypeApplication, &mockTargetGroupBindingNetworkingBuilder{}, gateway.NewTargetGroupConfigConstructor(), string(elbv2model.TargetTypeALB), nil)
+			impl := builder.(*targetGroupBuilderImpl)
+
+			stack := core.NewDefaultStack(core.StackID{Namespace: "test", Name: "test"})
+
+			// Pre-populate existing target group if needed
+			if tc.existingTG {
+				tgResID := impl.buildTargetGroupResourceID(k8s.NamespacedName(tc.gateway), tc.backendConfig.GetBackendNamespacedName(), tc.route.GetRouteNamespacedName(), tc.route.GetRouteKind(), tc.backendConfig.GetIdentifierPort())
+				existingTG := elbv2model.NewTargetGroup(stack, tgResID, elbv2model.TargetGroupSpec{
+					Name: "existing-tg",
+				})
+				impl.tgByResID[tgResID] = existingTG
+			}
+
+			result, err := impl.buildTargetGroupFromGateway(stack, tc.gateway, tc.listenerPort, tc.lbIPType, tc.route, *tc.backendConfig)
+
+			assert.NoError(t, err)
+			assert.NotNil(t, result)
+
+			if tc.existingTG {
+				assert.Equal(t, "existing-tg", result.Spec.Name)
+			} else {
+				assert.Contains(t, result.Spec.Name, tc.expectedTGName)
+				assert.Equal(t, elbv2model.TargetTypeALB, result.Spec.TargetType)
+			}
+
+			// Check frontend NLB data
+			if tc.expectedFrontendData {
+				frontendData, exists := impl.localFrontendNlbData[result.Spec.Name]
+				assert.True(t, exists)
+				assert.Equal(t, result.Spec.Name, frontendData.Name)
+				assert.Equal(t, tc.listenerPort, frontendData.Port)
+				assert.Equal(t, *result.Spec.Port, frontendData.TargetPort)
+			}
 		})
 	}
 }

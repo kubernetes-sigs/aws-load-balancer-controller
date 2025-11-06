@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sync"
 
 	"github.com/go-logr/logr"
@@ -22,16 +23,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	ingressController = "ingress"
-)
-
 // Using elbv2.TargetGroupsResult instead of defining our own
 
 // StackDeployer will deploy a resource stack into AWS and K8S.
 type StackDeployer interface {
 	// Deploy a resource stack.
-	Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState) error
+	Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string) error
 }
 
 // NewDefaultStackDeployer constructs new defaultStackDeployer.
@@ -39,7 +36,7 @@ func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 	networkingManager networking.NetworkingManager, networkingSGManager networking.SecurityGroupManager, networkingSGReconciler networking.SecurityGroupReconciler,
 	elbv2TaggingManager elbv2.TaggingManager,
 	config config.ControllerConfig, tagPrefix string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, controllerName string, enhancedDefaultingPolicyEnabled bool,
-	targetGroupCollector awsmetrics.TargetGroupCollector) *defaultStackDeployer {
+	targetGroupCollector awsmetrics.TargetGroupCollector, enableFrontendNLB bool) *defaultStackDeployer {
 
 	trackingProvider := tracking.NewDefaultProvider(tagPrefix, config.ClusterName)
 	ec2TaggingManager := ec2.NewDefaultTaggingManager(cloud.EC2(), networkingSGManager, cloud.VpcID(), logger)
@@ -67,6 +64,7 @@ func NewDefaultStackDeployer(cloud services.Cloud, k8sClient client.Client,
 		logger:                              logger,
 		metricsCollector:                    metricsCollector,
 		controllerName:                      controllerName,
+		enableFrontendNLB:                   enableFrontendNLB,
 	}
 }
 
@@ -95,6 +93,7 @@ type defaultStackDeployer struct {
 	vpcID                               string
 	metricsCollector                    lbcmetrics.MetricCollector
 	controllerName                      string
+	enableFrontendNLB                   bool
 
 	logger logr.Logger
 }
@@ -105,7 +104,7 @@ type ResourceSynthesizer interface {
 }
 
 // Deploy a resource stack.
-func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState) error {
+func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, metricsCollector lbcmetrics.MetricCollector, controllerName string) error {
 	synthesizers := []ResourceSynthesizer{
 		ec2.NewSecurityGroupSynthesizer(d.cloud.EC2(), d.trackingProvider, d.ec2TaggingManager, d.ec2SGManager, d.vpcID, d.logger, stack),
 	}
@@ -121,9 +120,16 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 		return elbv2.TargetGroupsResult{TargetGroups: tgs, Err: err}
 	})
 
-	if controllerName == ingressController {
+	if d.enableFrontendNLB {
+		var desiredFENLBState []*elbv2model.FrontendNlbTargetGroupDesiredState
+		stack.ListResources(&desiredFENLBState)
+		var frontendNLBState *elbv2model.FrontendNlbTargetGroupDesiredState
+		if len(desiredFENLBState) == 1 {
+			frontendNLBState = desiredFENLBState[0]
+		}
+
 		synthesizers = append(synthesizers, elbv2.NewFrontendNlbTargetSynthesizer(
-			d.k8sClient, d.trackingProvider, d.elbv2TaggingManager, d.elbv2FrontendNlbTargetsManager, d.logger, d.featureGates, stack, frontendNlbTargetGroupDesiredState, findSDKTargetGroups))
+			d.k8sClient, d.trackingProvider, d.elbv2TaggingManager, d.elbv2FrontendNlbTargetsManager, d.logger, d.featureGates, stack, frontendNLBState, findSDKTargetGroups))
 	}
 
 	synthesizers = append(synthesizers,

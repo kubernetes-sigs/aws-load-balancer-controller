@@ -200,6 +200,8 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 		psa.AddToStack(stack, lb.LoadBalancerARN())
 	}
 
+	_ = elbv2model.NewFrontendNlbTargetGroupDesiredState(stack, tgBuilder.getLocalFrontendNlbData())
+
 	return stack, lb, newAddonConfig, securityGroups.backendSecurityGroupAllocated, secrets, nil
 }
 

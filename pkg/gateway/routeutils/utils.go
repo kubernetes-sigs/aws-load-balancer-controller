@@ -79,6 +79,9 @@ func FilterRoutesBySvc(routes []preLoadRouteDescriptor, svc *corev1.Service) []p
 // Assuming we are only supporting services as backendRefs on Routes
 func isServiceReferredByRoute(route preLoadRouteDescriptor, svcID types.NamespacedName) bool {
 	for _, backendRef := range route.GetBackendRefs() {
+		if backendRef.Kind != nil && *backendRef.Kind != "Service" {
+			continue
+		}
 		namespace := route.GetRouteNamespacedName().Namespace
 		if backendRef.Namespace != nil {
 			namespace = string(*backendRef.Namespace)

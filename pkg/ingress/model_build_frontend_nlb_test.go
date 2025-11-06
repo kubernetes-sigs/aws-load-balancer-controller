@@ -1321,20 +1321,17 @@ func Test_defaultModelBuildTask_buildFrontendNlbListeners(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			stack := core.NewDefaultStack(core.StackID{Name: "awesome-stack"})
-			desiredState := &core.FrontendNlbTargetGroupDesiredState{
-				TargetGroups: make(map[string]*core.FrontendNlbTargetGroupState),
-			}
 			mockLoadBalancer := elbv2model.NewLoadBalancer(stack, "FrontendNlb", elbv2model.LoadBalancerSpec{
 				IPAddressType: elbv2model.IPAddressTypeIPV4,
 			})
 
 			task := &defaultModelBuildTask{
-				ingGroup:                           tt.ingGroup,
-				annotationParser:                   annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
-				loadBalancer:                       tt.loadBalancer,
-				frontendNlb:                        mockLoadBalancer,
-				stack:                              stack,
-				frontendNlbTargetGroupDesiredState: desiredState,
+				ingGroup:             tt.ingGroup,
+				annotationParser:     annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				loadBalancer:         tt.loadBalancer,
+				frontendNlb:          mockLoadBalancer,
+				stack:                stack,
+				localFrontendNlbData: make(map[string]*elbv2model.FrontendNlbTargetGroupState),
 			}
 
 			err := task.buildFrontendNlbListeners(context.Background(), tt.listenerPortConfigByIngress)

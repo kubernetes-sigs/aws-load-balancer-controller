@@ -20,7 +20,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Reference defines how to look up the Target Group configuration for a service.
+// Reference defines how to look up the Target Group configuration for a kubernetes object.
 type Reference struct {
 	// Group is the group of the referent. For example, "gateway.networking.k8s.io".
 	// When unspecified or empty string, core API group is inferred.
@@ -108,7 +108,7 @@ const (
 	TargetTypeIP       TargetType = "ip"
 )
 
-// +kubebuilder:validation:Enum=http;https;tcp
+// +kubebuilder:validation:Enum=HTTP;HTTPS;TCP
 type TargetGroupHealthCheckProtocol string
 
 const (

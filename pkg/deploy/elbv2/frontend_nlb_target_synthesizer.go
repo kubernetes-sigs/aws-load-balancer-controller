@@ -21,7 +21,7 @@ type TargetGroupsResult struct {
 	Err          error
 }
 
-func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider tracking.Provider, taggingManager TaggingManager, frontendNlbTargetsManager FrontendNlbTargetsManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState, findSDKTargetGroups func() TargetGroupsResult) *frontendNlbTargetSynthesizer {
+func NewFrontendNlbTargetSynthesizer(k8sClient client.Client, trackingProvider tracking.Provider, taggingManager TaggingManager, frontendNlbTargetsManager FrontendNlbTargetsManager, logger logr.Logger, featureGates config.FeatureGates, stack core.Stack, frontendNlbTargetGroupDesiredState *elbv2model.FrontendNlbTargetGroupDesiredState, findSDKTargetGroups func() TargetGroupsResult) *frontendNlbTargetSynthesizer {
 	return &frontendNlbTargetSynthesizer{
 		k8sClient:                          k8sClient,
 		trackingProvider:                   trackingProvider,
@@ -43,12 +43,13 @@ type frontendNlbTargetSynthesizer struct {
 	featureGates                       config.FeatureGates
 	logger                             logr.Logger
 	stack                              core.Stack
-	frontendNlbTargetGroupDesiredState *core.FrontendNlbTargetGroupDesiredState
+	frontendNlbTargetGroupDesiredState *elbv2model.FrontendNlbTargetGroupDesiredState
 	findSDKTargetGroups                func() TargetGroupsResult
 }
 
 // Synthesize processes AWS target groups and deregisters ALB targets based on the desired state.
 func (s *frontendNlbTargetSynthesizer) Synthesize(ctx context.Context) error {
+
 	var resTGs []*elbv2model.TargetGroup
 	s.stack.ListResources(&resTGs)
 	res := s.findSDKTargetGroups()
@@ -109,6 +110,10 @@ func (s *frontendNlbTargetSynthesizer) deregisterCurrentTarget(ctx context.Conte
 }
 
 func (s *frontendNlbTargetSynthesizer) PostSynthesize(ctx context.Context) error {
+	if s.frontendNlbTargetGroupDesiredState == nil {
+		return nil
+	}
+
 	var resTGs []*elbv2model.TargetGroup
 	s.stack.ListResources(&resTGs)
 

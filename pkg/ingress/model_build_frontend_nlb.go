@@ -561,7 +561,13 @@ func (t *defaultModelBuildTask) buildFrontendNlbListenerSpec(ctx context.Context
 
 	defaultActions := t.buildFrontendNlbListenerDefaultActions(ctx, targetGroup)
 
-	t.frontendNlbTargetGroupDesiredState.AddTargetGroup(targetGroup.Spec.Name, targetGroup.TargetGroupARN(), t.loadBalancer.LoadBalancerARN(), *targetGroup.Spec.Port, config.TargetPort)
+	t.localFrontendNlbData[targetGroup.Spec.Name] = &elbv2model.FrontendNlbTargetGroupState{
+		Name:       targetGroup.Spec.Name,
+		ARN:        targetGroup.TargetGroupARN(),
+		Port:       port,
+		TargetARN:  t.loadBalancer.LoadBalancerARN(),
+		TargetPort: config.TargetPort,
+	}
 
 	return elbv2model.ListenerSpec{
 		LoadBalancerARN: t.frontendNlb.LoadBalancerARN(),

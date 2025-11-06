@@ -7,7 +7,6 @@ import (
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"reflect"
@@ -1318,11 +1317,8 @@ func Test_BuildListenerRules(t *testing.T) {
 								},
 								BackendRefs: []routeutils.Backend{
 									{
-										ServiceBackend: &routeutils.ServiceBackendConfig{
-											Service:     &corev1.Service{},
-											ServicePort: &corev1.ServicePort{Name: "svcport"},
-										},
-										Weight: 1,
+										ServiceBackend: &routeutils.ServiceBackendConfig{},
+										Weight:         1,
 									},
 								},
 							},
@@ -1391,11 +1387,8 @@ func Test_BuildListenerRules(t *testing.T) {
 								},
 								BackendRefs: []routeutils.Backend{
 									{
-										ServiceBackend: &routeutils.ServiceBackendConfig{
-											Service:     &corev1.Service{},
-											ServicePort: &corev1.ServicePort{Name: "svcport"},
-										},
-										Weight: 1,
+										ServiceBackend: &routeutils.ServiceBackendConfig{},
+										Weight:         1,
 									},
 								},
 							},
@@ -1451,11 +1444,8 @@ func Test_BuildListenerRules(t *testing.T) {
 								},
 								BackendRefs: []routeutils.Backend{
 									{
-										ServiceBackend: &routeutils.ServiceBackendConfig{
-											Service:     &corev1.Service{},
-											ServicePort: &corev1.ServicePort{Name: "svcport"},
-										},
-										Weight: 1,
+										ServiceBackend: &routeutils.ServiceBackendConfig{},
+										Weight:         1,
 									},
 								},
 								ListenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
@@ -1526,11 +1516,8 @@ func Test_BuildListenerRules(t *testing.T) {
 								},
 								BackendRefs: []routeutils.Backend{
 									{
-										ServiceBackend: &routeutils.ServiceBackendConfig{
-											Service:     &corev1.Service{},
-											ServicePort: &corev1.ServicePort{Name: "svcport"},
-										},
-										Weight: 1,
+										ServiceBackend: &routeutils.ServiceBackendConfig{},
+										Weight:         1,
 									},
 								},
 								ListenerRuleConfig: &elbv2gw.ListenerRuleConfiguration{
@@ -1718,7 +1705,7 @@ func Test_BuildListenerRules(t *testing.T) {
 				Spec: elbv2model.ListenerSpec{
 					Protocol: tc.listenerProtocol,
 				},
-			}, tc.ipAddressType, &gwv1.Gateway{}, tc.port, elbv2gw.LoadBalancerConfiguration{}, tc.routes)
+			}, tc.ipAddressType, &gwv1.Gateway{}, tc.port, tc.routes)
 			assert.NoError(t, err)
 
 			var resLRs []*elbv2model.ListenerRule
