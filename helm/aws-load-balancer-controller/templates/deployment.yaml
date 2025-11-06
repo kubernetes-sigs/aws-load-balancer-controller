@@ -112,6 +112,12 @@ spec:
         {{- if .Values.targetgroupbindingMaxExponentialBackoffDelay }}
         - --targetgroupbinding-max-exponential-backoff-delay={{ .Values.targetgroupbindingMaxExponentialBackoffDelay }}
         {{- end }}
+        {{- if .Values.globalAcceleratorMaxConcurrentReconciles }}
+        - --globalaccelerator-max-concurrent-reconciles={{ .Values.globalAcceleratorMaxConcurrentReconciles }}
+        {{- end }}
+        {{- if .Values.globalAcceleratorMaxExponentialBackoffDelay }}
+        - --globalaccelerator-max-exponential-backoff-delay={{ .Values.globalAcceleratorMaxExponentialBackoffDelay }}
+        {{- end }}
         {{- if .Values.lbStabilizationMonitorInterval }}
         - --lb-stabilization-monitor-interval={{ .Values.lbStabilizationMonitorInterval }}
         {{- end }}

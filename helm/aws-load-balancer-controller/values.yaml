@@ -253,6 +253,12 @@ targetgroupbindingMaxConcurrentReconciles:
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
 
+# Maximum number of concurrently running reconcile loops for GlobalAccelerator objects
+globalAcceleratorMaxConcurrentReconciles:
+
+# Maximum duration of exponential backoff for GlobalAccelerator reconcile failures
+globalAcceleratorMaxExponentialBackoffDelay:
+
 # Interval at which the controller monitors the state of load balancer after creation for stabilization
 lbStabilizationMonitorInterval:
 
