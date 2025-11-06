@@ -3,6 +3,7 @@ package aga
 import (
 	"context"
 	"github.com/pkg/errors"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
 
@@ -18,18 +19,35 @@ type Accelerator struct {
 	// observed state of Accelerator
 	// +optional
 	Status *AcceleratorStatus `json:"status,omitempty"`
+
+	// Reference to the CRD for accessing status
+	crd agaapi.GlobalAccelerator `json:"-"`
 }
 
 // NewAccelerator constructs new Accelerator resource.
-func NewAccelerator(stack core.Stack, id string, spec AcceleratorSpec) *Accelerator {
+func NewAccelerator(stack core.Stack, id string, spec AcceleratorSpec, crd *agaapi.GlobalAccelerator) *Accelerator {
 	accelerator := &Accelerator{
 		ResourceMeta: core.NewResourceMeta(stack, ResourceTypeAccelerator, id),
 		Spec:         spec,
 		Status:       nil,
+		crd:          *crd,
 	}
 	stack.AddResource(accelerator)
 	accelerator.registerDependencies(stack)
 	return accelerator
+}
+
+// GetARNFromCRDStatus returns the ARN from the CRD status if available.
+func (a *Accelerator) GetARNFromCRDStatus() string {
+	if a.crd.Status.AcceleratorARN != nil {
+		return *a.crd.Status.AcceleratorARN
+	}
+	return ""
+}
+
+// GetCRDUID returns the UID of the CRD for use as idempotency token.
+func (a *Accelerator) GetCRDUID() string {
+	return string(a.crd.UID)
 }
 
 // SetStatus sets the Accelerator's status
