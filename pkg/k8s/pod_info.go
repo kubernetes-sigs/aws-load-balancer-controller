@@ -24,12 +24,16 @@ type PodInfo struct {
 	UID types.UID
 
 	ContainerPorts []corev1.ContainerPort
-	QUICServerIDs  map[int32]string
 	ReadinessGates []corev1.PodReadinessGate
 	Conditions     []corev1.PodCondition
 	NodeName       string
 	PodIP          string
 	CreationTime   v1.Time
+
+	// DefaultQUICServerID the fallback server id when no per-port quic server ids are configured.
+	DefaultQUICServerID *string
+	// PerPortServerIds a mapping of container port to its respective quic server id
+	PerPortServerIds map[int32]string
 
 	ENIInfos []PodENIInfo
 }
@@ -42,6 +46,16 @@ type PodENIInfo struct {
 
 	// PrivateIP is the primary IP of the branch Network interface
 	PrivateIP string `json:"privateIp"`
+}
+
+func (i *PodInfo) GetQUICServerID(port int32) *string {
+	if i.PerPortServerIds != nil {
+		sId, ok := i.PerPortServerIds[port]
+		if ok {
+			return &sId
+		}
+	}
+	return i.DefaultQUICServerID
 }
 
 // HasAnyOfReadinessGates returns whether podInfo has any of these readinessGates
@@ -119,32 +133,30 @@ func (podInfoBuilder *podInfoBuilder) buildPodInfo(pod *corev1.Pod) PodInfo {
 	}
 
 	var containerPorts []corev1.ContainerPort
-	var quicServerIDs map[int32]string
-	for _, podContainer := range pod.Spec.Containers {
+	var defaultQUICServerID *string
+	var perPortQUICServerIDs map[int32]string
+
+	allContainers := make([]corev1.Container, 0)
+	allContainers = append(allContainers, pod.Spec.Containers...)
+	// also support sidecar container (initContainer with restartPolicy=Always)
+	for _, initContainer := range pod.Spec.InitContainers {
+		if initContainer.RestartPolicy != nil && *initContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
+			allContainers = append(allContainers, initContainer)
+		}
+	}
+
+	for _, podContainer := range allContainers {
 		containerPorts = append(containerPorts, podContainer.Ports...)
 		extractedId := podInfoBuilder.extractQUICServerID(pod, podContainer)
 		if extractedId != nil {
-			if quicServerIDs == nil {
-				quicServerIDs = make(map[int32]string)
+			if perPortQUICServerIDs == nil {
+				perPortQUICServerIDs = make(map[int32]string)
 			}
 			for _, p := range podContainer.Ports {
-				quicServerIDs[p.ContainerPort] = *extractedId
+				perPortQUICServerIDs[p.ContainerPort] = *extractedId
 			}
-		}
-	}
-	// also support sidecar container (initContainer with restartPolicy=Always)
-	for _, podContainer := range pod.Spec.InitContainers {
-		if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
-			containerPorts = append(containerPorts, podContainer.Ports...)
-		}
-
-		extractedId := podInfoBuilder.extractQUICServerID(pod, podContainer)
-		if extractedId != nil {
-			if quicServerIDs == nil {
-				quicServerIDs = make(map[int32]string)
-			}
-			for _, p := range podContainer.Ports {
-				quicServerIDs[p.ContainerPort] = *extractedId
+			if defaultQUICServerID == nil {
+				defaultQUICServerID = extractedId
 			}
 		}
 	}
@@ -153,13 +165,14 @@ func (podInfoBuilder *podInfoBuilder) buildPodInfo(pod *corev1.Pod) PodInfo {
 		Key: podKey,
 		UID: pod.UID,
 
-		ContainerPorts: containerPorts,
-		QUICServerIDs:  quicServerIDs,
-		ReadinessGates: pod.Spec.ReadinessGates,
-		Conditions:     pod.Status.Conditions,
-		NodeName:       pod.Spec.NodeName,
-		PodIP:          pod.Status.PodIP,
-		CreationTime:   pod.CreationTimestamp,
+		ContainerPorts:      containerPorts,
+		DefaultQUICServerID: defaultQUICServerID,
+		PerPortServerIds:    perPortQUICServerIDs,
+		ReadinessGates:      pod.Spec.ReadinessGates,
+		Conditions:          pod.Status.Conditions,
+		NodeName:            pod.Spec.NodeName,
+		PodIP:               pod.Status.PodIP,
+		CreationTime:        pod.CreationTimestamp,
 
 		ENIInfos: podENIInfos,
 	}
