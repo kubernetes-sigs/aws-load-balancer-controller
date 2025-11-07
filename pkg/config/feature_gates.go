@@ -72,7 +72,7 @@ func NewFeatureGates() FeatureGates {
 			LBCapacityReservation:         true,
 			NLBGatewayAPI:                 false,
 			ALBGatewayAPI:                 false,
-			AGAController:                 true,
+			AGAController:                 false,
 			EnableTCPUDPListenerType:      false,
 			EnhancedDefaultBehavior:       false,
 			EnableDefaultTagsLowPriority:  false,
