@@ -66,6 +66,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
+	agawebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/aga"
 	corewebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/core"
 	elbv2webhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/elbv2"
 	networkingwebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/networking"
@@ -420,6 +421,11 @@ func main() {
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), cloud.VpcID(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+
+	// Setup GlobalAccelerator validator only if enabled
+	if controllerCFG.FeatureGates.Enabled(config.AGAController) {
+		agawebhook.NewGlobalAcceleratorValidator(ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+	}
 	//+kubebuilder:scaffold:builder
 
 	go func() {
