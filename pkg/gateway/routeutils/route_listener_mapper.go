@@ -2,6 +2,7 @@ package routeutils
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/types"
@@ -12,7 +13,7 @@ import (
 // listenerToRouteMapper is an internal utility that will map a list of routes to the listeners of a gateway
 // if the gateway and/or route are incompatible, then the route is discarded.
 type listenerToRouteMapper interface {
-	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[types.NamespacedName][]gwv1.Hostname, []RouteData, error)
+	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, error)
 }
 
 var _ listenerToRouteMapper = &listenerToRouteMapperImpl{}
@@ -33,9 +34,9 @@ func newListenerToRouteMapper(k8sClient client.Client, logger logr.Logger) liste
 
 // mapGatewayAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
 // Returns: (routesByPort, compatibleHostnamesByPort, failedRoutes, error)
-func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[types.NamespacedName][]gwv1.Hostname, []RouteData, error) {
+func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, error) {
 	result := make(map[int][]preLoadRouteDescriptor)
-	compatibleHostnamesByPort := make(map[int32]map[types.NamespacedName][]gwv1.Hostname)
+	compatibleHostnamesByPort := make(map[int32]map[string][]gwv1.Hostname)
 	failedRoutes := make([]RouteData, 0)
 
 	// First filter out any routes that are not intended for this Gateway.
@@ -48,6 +49,8 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 		}
 	}
 
+	// Dedupe - Check if route already exists for this port before adding
+	seenRoutesPerPort := make(map[int]map[string]bool)
 	// Next, greedily looking for the route to attach to.
 	for _, listener := range gw.Spec.Listeners {
 		// used for cross serving check
@@ -74,16 +77,23 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 
 			if allowedAttachment {
 				port := int32(listener.Port)
-				result[int(port)] = append(result[int(port)], route)
+				routeKey := fmt.Sprintf("%s-%s", route.GetRouteKind(), route.GetRouteNamespacedName())
+				if seenRoutesPerPort[int(port)] == nil {
+					seenRoutesPerPort[int(port)] = make(map[string]bool)
+				}
+				if !seenRoutesPerPort[int(port)][routeKey] {
+					seenRoutesPerPort[int(port)][routeKey] = true
+					result[int(port)] = append(result[int(port)], route)
+				}
 
-				// Store compatible hostnames per port per route
+				// Store compatible hostnames per port per route per kind
 				if compatibleHostnamesByPort[port] == nil {
-					compatibleHostnamesByPort[port] = make(map[types.NamespacedName][]gwv1.Hostname)
+					compatibleHostnamesByPort[port] = make(map[string][]gwv1.Hostname)
 				}
 				// Append hostnames for routes that attach to multiple listeners on the same port
-				routeKey := route.GetRouteNamespacedName()
 				compatibleHostnamesByPort[port][routeKey] = append(compatibleHostnamesByPort[port][routeKey], compatibleHostnames...)
 			}
+
 		}
 	}
 	return result, compatibleHostnamesByPort, failedRoutes, nil
