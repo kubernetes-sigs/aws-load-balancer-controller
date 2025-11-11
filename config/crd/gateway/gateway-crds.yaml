@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: listenerruleconfigurations.gateway.k8s.aws
 spec:
   group: gateway.k8s.aws
@@ -50,8 +50,10 @@ spec:
                   Actions defines the set of actions to be performed when conditions match.
                   This CRD implementation currently supports only  authenticate-oidc, authenticate-cognito, and fixed-response action types fully and forward and redirect actions partially
 
+
                   For other fields in forward and redirect actions, please use the standard Gateway API HTTPRoute or other route resources, which provide
                   native support for those conditions through the Gateway API specification.
+
 
                   At most one authentication action can be specified (either authenticate-oidc or authenticate-cognito).
                 items:
@@ -81,6 +83,7 @@ spec:
                           default: openid
                           description: |-
                             The set of user claims to be requested from the IdP. The default is openid .
+
 
                             To verify which scope values your IdP supports and how to separate multiple
                             values, see the documentation for your IdP.
@@ -151,6 +154,7 @@ spec:
                           default: openid
                           description: |-
                             The set of user claims to be requested from the IdP. The default is openid .
+
 
                             To verify which scope values your IdP supports and how to separate multiple
                             values, see the documentation for your IdP.
@@ -309,6 +313,7 @@ spec:
                   Conditions defines the circumstances under which the rule actions will be performed.
                   This CRD implementation currently supports only the source-ip condition type
 
+
                   For other condition types (such as path-pattern, host-header, http-header, etc.),
                   please use the standard Gateway API HTTPRoute or other route resources, which provide
                   native support for those conditions through the Gateway API specification.
@@ -397,7 +402,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: loadbalancerconfigurations.gateway.k8s.aws
 spec:
   group: gateway.k8s.aws
@@ -737,7 +742,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: targetgroupconfigurations.gateway.k8s.aws
 spec:
   group: gateway.k8s.aws
@@ -1174,6 +1179,7 @@ spec:
                     description: |-
                       Kind is the Kubernetes resource kind of the referent. For example
                       "Service".
+
 
                       Defaults to "Service" when not specified.
                     type: string
