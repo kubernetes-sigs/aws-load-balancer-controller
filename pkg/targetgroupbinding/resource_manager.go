@@ -3,11 +3,10 @@ package targetgroupbinding
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/cache"
 	"net/netip"
 	"sync"
 	"time"
-
-	"k8s.io/apimachinery/pkg/util/cache"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -843,17 +842,4 @@ func (m *defaultResourceManager) getMaxNewTargets(newTargetCount int, currentTar
 	}
 
 	return newTargetCount
-}
-
-// convertServerIdToELBFormat
-// convert b64 value into hex
-// append mandatory '0x' into front
-func convertServerIdToELBFormat(b64 string) (string, error) {
-	// Decode the base64 string to bytes
-	data, err := base64.StdEncoding.DecodeString(b64)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode base64: %w", err)
-	}
-
-	return fmt.Sprintf("0x%s", hex.EncodeToString(data)), nil
 }

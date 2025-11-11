@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: targetgroupconfigurations.gateway.k8s.aws
 spec:
   group: gateway.k8s.aws
@@ -440,6 +440,7 @@ spec:
                     description: |-
                       Kind is the Kubernetes resource kind of the referent. For example
                       "Service".
+
 
                       Defaults to "Service" when not specified.
                     type: string
