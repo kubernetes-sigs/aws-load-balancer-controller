@@ -503,10 +503,12 @@ func Test_setConditionsWithRouteStatusInfo(t *testing.T) {
 				acceptedCondition := findCondition(conditions, string(gwv1.RouteConditionAccepted))
 				assert.NotNil(t, acceptedCondition)
 				assert.Equal(t, metav1.ConditionTrue, acceptedCondition.Status)
+				assert.Equal(t, gwv1.RouteReasonAccepted, acceptedCondition.Reason)
 
 				resolvedRefCondition := findCondition(conditions, string(gwv1.RouteConditionResolvedRefs))
 				assert.NotNil(t, resolvedRefCondition)
 				assert.Equal(t, metav1.ConditionTrue, resolvedRefCondition.Status)
+				assert.Equal(t, gwv1.RouteReasonResolvedRefs, resolvedRefCondition.Reason)
 			},
 		},
 		{
@@ -529,18 +531,18 @@ func Test_setConditionsWithRouteStatusInfo(t *testing.T) {
 			},
 		},
 		{
-			name: "accepted false and resolvedRef false",
+			name: "accepted true and resolvedRef false",
 			info: routeutils.RouteStatusInfo{
-				Accepted:     false,
+				Accepted:     true,
 				ResolvedRefs: false,
-				Reason:       string(gwv1.RouteReasonBackendNotFound),
-				Message:      "backend not found",
+				Reason:       string(gwv1.RouteReasonRefNotPermitted),
+				Message:      "ref not permitted",
 			},
 			validateResult: func(t *testing.T, conditions []metav1.Condition) {
 				assert.Len(t, conditions, 2)
 				acceptedCondition := findCondition(conditions, string(gwv1.RouteConditionAccepted))
 				assert.NotNil(t, acceptedCondition)
-				assert.Equal(t, metav1.ConditionFalse, acceptedCondition.Status)
+				assert.Equal(t, metav1.ConditionTrue, acceptedCondition.Status)
 
 				resolvedRefCondition := findCondition(conditions, string(gwv1.RouteConditionResolvedRefs))
 				assert.NotNil(t, resolvedRefCondition)
