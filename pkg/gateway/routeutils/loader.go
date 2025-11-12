@@ -174,7 +174,32 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 				for _, lare := range loadAttachedRulesErrors {
 					var loaderErr LoaderError
 					if errors.As(lare.Err, &loaderErr) {
-						failedRoutes = append(failedRoutes, GenerateRouteData(false, false, string(loaderErr.GetRouteReason()), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), gw))
+						routeReason := loaderErr.GetRouteReason()
+						// Categorize reasons into Accepted vs ResolvedRefs conditions
+						var accepted, resolvedRefs bool
+						switch routeReason {
+						case gwv1.RouteReasonNotAllowedByListeners,
+							gwv1.RouteReasonNoMatchingListenerHostname,
+							gwv1.RouteReasonNoMatchingParent,
+							gwv1.RouteReasonUnsupportedValue,
+							gwv1.RouteReasonPending,
+							gwv1.RouteReasonIncompatibleFilters:
+							// These affect Accepted condition
+							accepted = false
+							resolvedRefs = true
+						case gwv1.RouteReasonRefNotPermitted,
+							gwv1.RouteReasonInvalidKind,
+							gwv1.RouteReasonBackendNotFound,
+							gwv1.RouteReasonUnsupportedProtocol:
+							// These affect ResolvedRefs condition
+							accepted = true
+							resolvedRefs = false
+						default:
+							// Unknown reason, fail both
+							accepted = false
+							resolvedRefs = false
+						}
+						failedRoutes = append(failedRoutes, GenerateRouteData(accepted, resolvedRefs, string(routeReason), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), gw))
 					}
 					if lare.Fatal {
 						return nil, failedRoutes, lare.Err

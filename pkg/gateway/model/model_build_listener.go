@@ -381,16 +381,16 @@ func buildL7ListenerDefaultActions() []elbv2model.Action {
 	return []elbv2model.Action{action404}
 }
 
-// returns 503 when no backends are configured
+// returns 500 when no backends are configured
 func buildL7ListenerNoBackendActions() elbv2model.Action {
-	action503 := elbv2model.Action{
+	action500 := elbv2model.Action{
 		Type: elbv2model.ActionTypeFixedResponse,
 		FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
 			ContentType: awssdk.String("text/plain"),
-			StatusCode:  "503",
+			StatusCode:  "500",
 		},
 	}
-	return action503
+	return action500
 }
 
 func buildL4ListenerDefaultActions(arn core.StringToken) []elbv2model.Action {

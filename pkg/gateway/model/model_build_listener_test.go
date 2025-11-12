@@ -2,6 +2,10 @@ package model
 
 import (
 	"context"
+	"reflect"
+	"strings"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -9,12 +13,9 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"strings"
-	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -1242,7 +1243,7 @@ func Test_BuildListenerRules(t *testing.T) {
 		tagErr        error
 	}{
 		{
-			name:             "no backends should result in 503 fixed response",
+			name:             "no backends should result in 500 fixed response",
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTP,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
@@ -1277,7 +1278,7 @@ func Test_BuildListenerRules(t *testing.T) {
 							Type: "fixed-response",
 							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
 								ContentType: awssdk.String("text/plain"),
-								StatusCode:  "503",
+								StatusCode:  "500",
 							},
 						},
 					},
@@ -1590,7 +1591,7 @@ func Test_BuildListenerRules(t *testing.T) {
 			},
 		},
 		{
-			name:             "listener rule config with authenticate-cognito and no backends should result in auth + 503 fixed response",
+			name:             "listener rule config with authenticate-cognito and no backends should result in auth + 500 fixed response",
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTPS,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
@@ -1663,7 +1664,7 @@ func Test_BuildListenerRules(t *testing.T) {
 							Type: "fixed-response",
 							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
 								ContentType: awssdk.String("text/plain"),
-								StatusCode:  "503",
+								StatusCode:  "500",
 							},
 						},
 					},

@@ -3,6 +3,7 @@ package routeutils
 import (
 	"context"
 	"fmt"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,6 +22,8 @@ const (
 	gatewayKind             = "Gateway"
 	referenceGrantNotExists = "No explicit ReferenceGrant exists to allow the reference."
 	maxWeight               = 999
+	gatewayAPIGroup         = "gateway.networking.k8s.io"
+	coreAPIGroup            = ""
 )
 
 var (
@@ -216,7 +219,7 @@ func LookUpTargetGroupConfiguration(ctx context.Context, k8sClient client.Client
 
 // Implements the reference grant API
 // https://gateway-api.sigs.k8s.io/api-types/referencegrant/
-func referenceGrantCheck(ctx context.Context, k8sClient client.Client, objKind string, objIdentifier types.NamespacedName, routeIdentifier types.NamespacedName, routeKind RouteKind) (bool, error) {
+func referenceGrantCheck(ctx context.Context, k8sClient client.Client, objKind string, objGroup string, objIdentifier types.NamespacedName, routeIdentifier types.NamespacedName, routeKind RouteKind, routeGroup string) (bool, error) {
 	referenceGrantList := &gwbeta1.ReferenceGrantList{}
 	if err := k8sClient.List(ctx, referenceGrantList, client.InNamespace(objIdentifier.Namespace)); err != nil {
 		return false, err
@@ -226,8 +229,7 @@ func referenceGrantCheck(ctx context.Context, k8sClient client.Client, objKind s
 		var routeAllowed bool
 
 		for _, from := range grant.Spec.From {
-			// Kind check maybe?
-			if string(from.Kind) == string(routeKind) && string(from.Namespace) == routeIdentifier.Namespace {
+			if string(from.Group) == routeGroup && string(from.Kind) == string(routeKind) && string(from.Namespace) == routeIdentifier.Namespace {
 				routeAllowed = true
 				break
 			}
@@ -235,8 +237,7 @@ func referenceGrantCheck(ctx context.Context, k8sClient client.Client, objKind s
 
 		if routeAllowed {
 			for _, to := range grant.Spec.To {
-				// Make sure the kind is correct for our query.
-				if string(to.Kind) != objKind {
+				if string(to.Group) != objGroup || string(to.Kind) != objKind {
 					continue
 				}
 
