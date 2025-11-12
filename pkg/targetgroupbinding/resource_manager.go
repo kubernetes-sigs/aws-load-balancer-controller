@@ -3,6 +3,7 @@ package targetgroupbinding
 import (
 	"context"
 	"fmt"
+	smithy "github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/util/cache"
 	"net/netip"
 	"sync"
