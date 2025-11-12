@@ -275,7 +275,9 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 func (r *globalAcceleratorReconciler) cleanupGlobalAcceleratorResources(ctx context.Context, ga *agaapi.GlobalAccelerator) error {
 	r.logger.Info("Cleaning up GlobalAccelerator resources", "globalAccelerator", k8s.NamespacedName(ga))
 
-	// TODO we will handle cleaning up dependent resources when we implement those
+	// Our enhanced AcceleratorManager now handles deletion of listeners before accelerator.
+	// TODO: This will be enhanced to delete endpoint groups and endpoints
+	// before deleting listeners and accelerator (when those features are implemented)
 	// 1. Find the accelerator ARN from the CRD status
 	if ga.Status.AcceleratorARN == nil {
 		r.logger.Info("No accelerator ARN found in status, nothing to clean up", "globalAccelerator", k8s.NamespacedName(ga))
