@@ -129,8 +129,7 @@ docker-push-w-buildx:
 				--push \
         		--platform ${IMG_PLATFORM}
 
-# find or download controller-gen
-# download controller-gen if necessary
+# download controller-gen v0.19.0
 controller-gen:
 	@{ \
 	set -e ;\
