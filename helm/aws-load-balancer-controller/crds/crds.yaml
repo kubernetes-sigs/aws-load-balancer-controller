@@ -729,6 +729,8 @@ spec:
                 - TLS
                 - UDP
                 - TCP_UDP
+                - QUIC
+                - TCP_QUIC
                 type: string
               targetType:
                 description: targetType is the TargetType of TargetGroup. If unspecified,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"strings"
 	"sync"
 
@@ -30,6 +31,7 @@ const (
 	vpcIDValidationErr                     = "ValidationError: vpcID %v failed to satisfy constraint: VPC Id must begin with 'vpc-' followed by 8, 17 or 32 lowercase letters (a-f) or numbers."
 	vpcIDNotMatchErr                       = "invalid VpcID %v doesnt match VpcID from TargetGroup %v"
 	tgProtocolMismatch                     = "TargetGroup %v protocol differs (got %v, expected %v)"
+	quicInstanceNotSupported               = "QUIC protocol is not supported for Instance target types."
 )
 
 var vpcIDPatternRegex = regexp.MustCompile("^(?:vpc-[0-9a-f]{8}|vpc-[0-9a-f]{17}|vpc-[0-9a-f]{32})$")
@@ -322,6 +324,11 @@ func (v *targetGroupBindingValidator) checkTargetGroupProtocol(tgb *elbv2api.Tar
 	if tgProtocol != string(*tgb.Spec.TargetGroupProtocol) {
 		return errors.Errorf(tgProtocolMismatch, tgb.Spec.TargetGroupARN, *tgb.Spec.TargetGroupProtocol, tgProtocol)
 	}
+
+	if (tgProtocol == string(elbv2.ProtocolQUIC) || tgProtocol == string(elbv2.ProtocolTCP_QUIC)) && (tgb.Spec.TargetType != nil && *tgb.Spec.TargetType == elbv2api.TargetTypeInstance) {
+		return errors.Errorf(quicInstanceNotSupported)
+	}
+
 	return nil
 }
 

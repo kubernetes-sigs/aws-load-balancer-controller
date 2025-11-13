@@ -56,6 +56,51 @@ webhooks:
     resources:
     - pods
   sideEffects: None
+- clientConfig:
+    {{- if not $.Values.enableCertManager }}
+    caBundle: {{ $tls.caCert }}
+    {{- end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-v1-pod-server-id
+  failurePolicy: Fail
+  name: quicid.elbv2.k8s.aws
+  admissionReviewVersions:
+    - v1beta1
+  namespaceSelector:
+    matchExpressions:
+    {{ if .Values.webhookNamespaceSelectors }}
+    {{ toYaml .Values.webhookNamespaceSelectors | nindent 4 }}
+    {{ else }}
+      - key: quic-example elbv2.k8s.aws/quic-server-id-inject
+        operator: In
+        values:
+          - enabled
+    {{ end }}
+  objectSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: NotIn
+        values:
+          - {{ include "aws-load-balancer-controller.name" . }}
+    {{- if .Values.objectSelector.matchExpressions }}
+    {{- toYaml .Values.objectSelector.matchExpressions | nindent 4 }}
+    {{- end }}
+    {{- if .Values.objectSelector.matchLabels }}
+    matchLabels:
+    {{- toYaml .Values.objectSelector.matchLabels | nindent 6 }}
+    {{- end }}
+  rules:
+    - apiGroups:
+        - ""
+      apiVersions:
+        - v1
+      operations:
+        - CREATE
+      resources:
+        - pods
+  sideEffects: None
 {{- if .Values.enableServiceMutatorWebhook }}
 - clientConfig:
     {{- if not $.Values.enableCertManager }}

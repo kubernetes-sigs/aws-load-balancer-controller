@@ -65,7 +65,9 @@
 | [service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity](#load-balancer-capacity-reservation)   | stringMap                  |                          |
 | [service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery](#icmp-path-mtu-discovery)          | string                  |                          | If specified, a security group rule is added to the managed security group to allow explicit ICMP traffic for [Path MTU discovery](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html#path_mtu_discovery) for IPv4 and dual-stack VPCs. Creates a rule for each source range if `service.beta.kubernetes.io/load-balancer-source-ranges` is present.                                               |
 | [service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener](#tcp-udp-listener)                            | boolean                  | false                    | If specified, the controller will attempt to try TCP_UDP Listeners when the service defines a TCP and UDP port on the same port number.                                                                                                                                                                                                                                                                              |
-| [service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg](#nlb-sg-disable)                            | boolean                  | false                    | If specified, the controller will not create or manage Security Groups for the service.                                                                                                                                                                                                                                                                                                                              |
+| [service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg](#nlb-sg-disable)                                       | boolean                  | false                    | If specified, the controller will not create or manage Security Groups for the service.                                                                                                                                                                                                                                                                                                                              |
+| [service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports](#nlb-quic-enabled)                                 | stringList                  |                     | If specified, the controller will upgrade each port specified from UDP to QUIC or TCP_UDP to TCP_QUIC.                                                                                                                                                                                                                                                                                                               |
+
 
 ## Traffic Routing
 Traffic Routing can be controlled with following annotations:
@@ -367,7 +369,19 @@ for proxy protocol v2 configuration.
     ```
     service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg: "true"
     ```
+    
+  - <a name="nlb-quic-enabled">`service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports`</a> Upgrades the UDP protocol to QUIC.
 
+    !!!warning ""
+        This annotation only applies to UDP ports. The annotation is ignored when the specified port is NOT UDP based.
+
+    !!!note ""
+        Ensure that the pods belonging to the service have been QUIC enabled. See [QUIC use-case](../use_cases/quic/index.md) for more information.
+
+    !!!example
+    ```
+    service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports: "443"
+    ```
 
 - <a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of [service.beta.kubernetes.io/aws-load-balancer-attributes](#load-balancer-attributes)
 
