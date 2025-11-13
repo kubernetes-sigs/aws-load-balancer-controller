@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,10 +50,19 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 	if lbConfSpec.ListenerConfigurations != nil {
 		for _, lsr := range *lbConfSpec.ListenerConfigurations {
 			if lsr.ProtocolPort == "TLS:443" {
+				tlsMode := gwv1.TLSModeTerminate
 				listeners = append(listeners, gwv1.Listener{
 					Name:     "port443",
 					Port:     443,
 					Protocol: gwv1.TLSProtocolType,
+					TLS: &gwv1.GatewayTLSConfig{
+						Mode: &tlsMode,
+						CertificateRefs: []gwv1.SecretObjectReference{
+							{
+								Name: "tls-cert",
+							},
+						},
+					},
 				})
 				break
 			}
@@ -253,8 +263,8 @@ func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestSta
 					parentKind:         "Gateway",
 					resolvedRefReason:  "RefNotPermitted",
 					resolvedRefsStatus: "False",
-					acceptedReason:     "RefNotPermitted",
-					acceptedStatus:     "False",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
 				},
 			},
 		},

@@ -3,6 +3,10 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -10,9 +14,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var _ = Describe("test nlb gateway using instance targets reconciled by the aws load balancer controller", func() {
@@ -56,7 +57,12 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				hasTLS = true
 			}
 
-			tgSpec := elbv2gw.TargetGroupConfigurationSpec{}
+			instanceTargetType := elbv2gw.TargetTypeInstance
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &instanceTargetType,
+				},
+			}
 
 			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, false)
 
@@ -318,7 +324,12 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 				hasTLS = true
 			}
 
-			tgSpec := elbv2gw.TargetGroupConfigurationSpec{}
+			instanceTargetType := elbv2gw.TargetTypeInstance
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &instanceTargetType,
+				},
+			}
 
 			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, false)
 

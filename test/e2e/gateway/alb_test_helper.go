@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	appsv1 "k8s.io/api/apps/v1"
@@ -131,8 +132,8 @@ func validateHTTPRouteStatusNotPermitted(tf *framework.Framework, stack ALBTestS
 					parentKind:         "Gateway",
 					resolvedRefReason:  "RefNotPermitted",
 					resolvedRefsStatus: "False",
-					acceptedReason:     "RefNotPermitted",
-					acceptedStatus:     "False",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
 				},
 			},
 		},

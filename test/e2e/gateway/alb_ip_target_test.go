@@ -4,6 +4,9 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"strings"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/gavv/httpexpect/v2"
@@ -21,8 +24,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strings"
-	"time"
 )
 
 var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws load balancer controller", func() {
@@ -130,9 +131,9 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
 				Expect(err).NotTo(HaveOccurred())
 			})
-			By("cross-ns listener should return 503 as no ref grant is available", func() {
+			By("cross-ns listener should return 500 as no ref grant is available", func() {
 				url := fmt.Sprintf("http://%v:5000/any-path", dnsName)
-				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(503))
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(500))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("confirming the route status", func() {
@@ -184,9 +185,9 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				// Give some time to have the reference grant to be deleted
 				time.Sleep(2 * time.Minute)
 			})
-			By("cross-ns listener should return 503 as no ref grant is available", func() {
+			By("cross-ns listener should return 500 as no ref grant is available", func() {
 				url := fmt.Sprintf("http://%v:5000/any-path", dnsName)
-				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(503))
+				err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(500))
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("confirming the route status", func() {

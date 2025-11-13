@@ -503,12 +503,12 @@ func Test_setConditionsWithRouteStatusInfo(t *testing.T) {
 				acceptedCondition := findCondition(conditions, string(gwv1.RouteConditionAccepted))
 				assert.NotNil(t, acceptedCondition)
 				assert.Equal(t, metav1.ConditionTrue, acceptedCondition.Status)
-				assert.Equal(t, gwv1.RouteReasonAccepted, acceptedCondition.Reason)
+				assert.Equal(t, string(gwv1.RouteReasonAccepted), acceptedCondition.Reason)
 
 				resolvedRefCondition := findCondition(conditions, string(gwv1.RouteConditionResolvedRefs))
 				assert.NotNil(t, resolvedRefCondition)
 				assert.Equal(t, metav1.ConditionTrue, resolvedRefCondition.Status)
-				assert.Equal(t, gwv1.RouteReasonResolvedRefs, resolvedRefCondition.Reason)
+				assert.Equal(t, string(gwv1.RouteReasonResolvedRefs), resolvedRefCondition.Reason)
 			},
 		},
 		{
