@@ -112,11 +112,11 @@ data:
               name: envoy.quic.connection_id_generator.quic_lb
               typed_config:
                 '@type': type.googleapis.com/envoy.extensions.quic.connection_id_generator.quic_lb.v3.Config
-                unsafe_unencrypted_testing_mode: true
+                unencrypted_mode: true
                 server_id_base64_encoded: true
                 server_id:
                   environment_variable: AWS_LBC_QUIC_SERVER_ID
-                nonce_length_bytes: 10
+                nonce_length_bytes: 7
                 encryption_parameters:
                   name: quic_lb
                   sds_config:
