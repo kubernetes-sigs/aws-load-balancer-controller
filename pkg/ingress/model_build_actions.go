@@ -3,6 +3,9 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"strings"
+	"unicode"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -10,8 +13,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"strings"
-	"unicode"
 )
 
 func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2model.Protocol, ing ClassifiedIngress, backend EnhancedBackend) ([]elbv2model.Action, error) {
@@ -23,6 +24,19 @@ func (t *defaultModelBuildTask) buildActions(ctx context.Context, protocol elbv2
 		}
 		if authAction != nil {
 			actions = append(actions, *authAction)
+		}
+
+		jwtValidationAction, err := t.buildJwtValidationAction(ctx, backend.JwtValidationConfig)
+		if err != nil {
+			return nil, err
+		}
+		if jwtValidationAction != nil {
+			actions = append(actions, *jwtValidationAction)
+		}
+
+		// Auth and jwt validation can't be set at the same time, validate to ensure both aren't set
+		if authAction != nil && jwtValidationAction != nil {
+			return nil, errors.Errorf("authentication and jwt validation can't both be configured")
 		}
 	}
 	backendAction, err := t.buildBackendAction(ctx, ing, backend.Action)
@@ -209,6 +223,31 @@ func (t *defaultModelBuildTask) buildAuthenticateOIDCAction(ctx context.Context,
 			Scope:                            &authCfg.Scope,
 			SessionCookieName:                &authCfg.SessionCookieName,
 			SessionTimeout:                   &authCfg.SessionTimeout,
+		},
+	}, nil
+}
+
+// Build JWT validation config Action model from enhanced backend
+func (t *defaultModelBuildTask) buildJwtValidationAction(_ context.Context, jwtValidationConfig *JwtValidationConfig) (*elbv2model.Action, error) {
+	if jwtValidationConfig == nil {
+		return nil, nil
+	}
+
+	var additionalClaims []elbv2model.JwtAdditionalClaim
+	for _, additionalClaim := range jwtValidationConfig.AdditionalClaims {
+		additionalClaims = append(additionalClaims, elbv2model.JwtAdditionalClaim{
+			Format: elbv2model.JwtAdditionalClaimFormat(additionalClaim.Format),
+			Name:   additionalClaim.Name,
+			Values: append([]string{}, additionalClaim.Values...),
+		})
+	}
+
+	return &elbv2model.Action{
+		Type: elbv2model.ActionTypeJwtValidation,
+		JwtValidationConfig: &elbv2model.JwtValidationConfig{
+			JwksEndpoint:     jwtValidationConfig.JwksEndpoint,
+			Issuer:           jwtValidationConfig.Issuer,
+			AdditionalClaims: additionalClaims,
 		},
 	}, nil
 }

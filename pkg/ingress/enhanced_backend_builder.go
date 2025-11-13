@@ -30,10 +30,11 @@ const (
 // It contains additional routing conditions and authentication configurations we parsed from annotations.
 // Also, when magic string `use-annotation` is specified as backend, the actions will be parsed from annotations as well.
 type EnhancedBackend struct {
-	Conditions []RuleCondition
-	Transforms []Transform
-	Action     Action
-	AuthConfig AuthConfig
+	Conditions          []RuleCondition
+	Transforms          []Transform
+	Action              Action
+	AuthConfig          AuthConfig
+	JwtValidationConfig *JwtValidationConfig
 }
 
 type EnhancedBackendBuildOptions struct {
@@ -151,11 +152,18 @@ func (b *defaultEnhancedBackendBuilder) Build(ctx context.Context, ing *networki
 		}
 	}
 
+	var jwtValidationConfig *JwtValidationConfig
+	jwtValidationConfig, err = b.buildJwtValidationConfig(ctx, ing.Annotations)
+	if err != nil {
+		return EnhancedBackend{}, err
+	}
+
 	return EnhancedBackend{
-		Conditions: conditions,
-		Transforms: transforms,
-		Action:     action,
-		AuthConfig: authCfg,
+		Conditions:          conditions,
+		Transforms:          transforms,
+		Action:              action,
+		AuthConfig:          authCfg,
+		JwtValidationConfig: jwtValidationConfig,
 	}, nil
 }
 
@@ -305,6 +313,41 @@ func (b *defaultEnhancedBackendBuilder) buildAuthConfig(ctx context.Context, act
 	}
 
 	return b.authConfigBuilder.Build(ctx, svcAndIngAnnotations)
+}
+
+// Parse annotations to construct JWT validation config model
+func (b *defaultEnhancedBackendBuilder) buildJwtValidationConfig(_ context.Context, ingAnnotation map[string]string) (*JwtValidationConfig, error) {
+	jwtValidationConfig := JwtValidationConfig{}
+	exists, err := b.annotationParser.ParseJSONAnnotation(annotations.IngressSuffixJwtValidation, &jwtValidationConfig, ingAnnotation)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, nil
+	}
+
+	// Ensure required fields are present
+	if jwtValidationConfig.JwksEndpoint == "" {
+		return nil, errors.Errorf("jwksEndpoint is a required field for jwt validation")
+	}
+	if jwtValidationConfig.Issuer == "" {
+		return nil, errors.Errorf("issuer is a required field for jwt validation")
+	}
+
+	// If additional claims are present, ensure each additional claim's required fields are present as well
+	for _, additionalClaim := range jwtValidationConfig.AdditionalClaims {
+		if additionalClaim.Format == "" {
+			return nil, errors.Errorf("format is a required field for additional claims for jwt validation")
+		}
+		if additionalClaim.Name == "" {
+			return nil, errors.Errorf("name is a required field for additional claims for jwt validation")
+		}
+		if len(additionalClaim.Values) == 0 {
+			return nil, errors.Errorf("values must not be empty for additional claims for jwt validation")
+		}
+	}
+
+	return &jwtValidationConfig, nil
 }
 
 // build503ResponseAction generates a 503 fixed response action when forward to a single non-existent Kubernetes Service.

@@ -19,10 +19,12 @@ import (
 	networking "k8s.io/api/networking/v1"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
+	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/fixture"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/manifest"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 )
 
 var _ = Describe("vanilla ingress tests", func() {
@@ -954,6 +956,130 @@ var _ = Describe("vanilla ingress tests", func() {
 
 		})
 
+	})
+
+	Context("with JWT validation pre-routing action", func() {
+		It("with JWT validation annotation, one ALB shall be created and functional", func() {
+			if len(tf.Options.CertificateARNs) == 0 {
+				Skip("Skipping tests, certificates not specified")
+			}
+
+			// Setup a simple ingress
+			appBuilder := manifest.NewFixedResponseServiceBuilder()
+			ingBuilder := manifest.NewIngressBuilder()
+			dp, svc := appBuilder.Build(sandboxNS.Name, "app", tf.Options.TestImageRegistry)
+			ingBackend := networking.IngressBackend{
+				Service: &networking.IngressServiceBackend{
+					Name: svc.Name,
+					Port: networking.ServiceBackendPort{
+						Number: 80,
+					},
+				},
+			}
+			ingClass := &networking.IngressClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: sandboxNS.Name,
+				},
+				Spec: networking.IngressClassSpec{
+					Controller: "ingress.k8s.aws/alb",
+				},
+			}
+
+			// Use annotations to setup HTTPS listener with JWT validation
+			cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
+			annotation := map[string]string{
+				"alb.ingress.kubernetes.io/scheme":          "internet-facing",
+				"alb.ingress.kubernetes.io/target-type":     "ip",
+				"alb.ingress.kubernetes.io/listen-ports":    "[{\"HTTPS\": 443}]",
+				"alb.ingress.kubernetes.io/certificate-arn": cert,
+				"alb.ingress.kubernetes.io/ssl-policy":      "ELBSecurityPolicy-TLS13-1-2-Res-2021-06",
+				"alb.ingress.kubernetes.io/jwt-validation":  "{\"jwksEndpoint\":\"https://example-endpoint.com/path\",\"issuer\":\"https://example-issuer.com\",\"additionalClaims\":[{\"name\":\"admin\",\"format\":\"single-string\",\"values\":[\"true\"]},{\"name\":\"ver\",\"format\":\"string-array\",\"values\":[\"6\",\"19\"]},{\"name\":\"scope\",\"format\":\"space-separated-values\",\"values\":[\"read:api\",\"write\",\"email\"]}]}",
+			}
+			if tf.Options.IPFamily == "IPv6" {
+				annotation["alb.ingress.kubernetes.io/ip-address-type"] = "dualstack"
+			}
+
+			// Construct the ingress
+			ing := ingBuilder.
+				AddHTTPRoute("", networking.HTTPIngressPath{Path: "/path", PathType: &exact, Backend: ingBackend}).
+				WithIngressClassName(ingClass.Name).
+				WithAnnotations(annotation).Build(sandboxNS.Name, "ing")
+
+			// Deploy stack
+			resStack := fixture.NewK8SResourceStack(tf, dp, svc, ingClass, ing)
+			err := resStack.Setup(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			defer resStack.TearDown(ctx)
+
+			lbARN, lbDNS := ExpectOneLBProvisionedForIngress(ctx, tf, ing)
+
+			By("verifying listener", func() {
+				err := verifier.VerifyLoadBalancerListener(ctx, tf, lbARN, 443, &verifier.ListenerExpectation{
+					ProtocolPort:          "HTTPS:443",
+					DefaultCertificateARN: cert,
+					SSLPolicy:             "ELBSecurityPolicy-TLS13-1-2-Res-2021-06",
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("verifying listener rules with jwt validation action", func() {
+				err := verifier.VerifyLoadBalancerListenerRules(ctx, tf, lbARN, int32(443), []verifier.ListenerRuleExpectation{
+					{
+						Conditions: []elbv2types.RuleCondition{
+							{
+								Field: awssdk.String(string(elbv2model.RuleConditionFieldPathPattern)),
+								PathPatternConfig: &elbv2types.PathPatternConditionConfig{
+									Values: []string{"/path"},
+								},
+							},
+						},
+						Actions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeJwtValidation),
+								JwtValidationConfig: &elbv2types.JwtValidationActionConfig{
+									JwksEndpoint: awssdk.String("https://example-endpoint.com/path"),
+									Issuer:       awssdk.String("https://example-issuer.com"),
+									AdditionalClaims: []elbv2types.JwtValidationActionAdditionalClaim{
+										{
+											Format: elbv2types.JwtValidationActionAdditionalClaimFormatEnumSingleString,
+											Name:   awssdk.String("admin"),
+											Values: []string{"true"},
+										},
+										{
+											Format: elbv2types.JwtValidationActionAdditionalClaimFormatEnumStringArray,
+											Name:   awssdk.String("ver"),
+											Values: []string{"6", "19"},
+										},
+										{
+											Format: elbv2types.JwtValidationActionAdditionalClaimFormatEnumSpaceSeparatedValues,
+											Name:   awssdk.String("scope"),
+											Values: []string{"read:api", "write", "email"},
+										},
+									},
+								},
+							},
+							{
+								Type: elbv2types.ActionTypeEnum(elbv2model.ActionTypeForward),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String("arn:randomArn"),
+											Weight:         awssdk.Int32(1),
+										},
+									},
+								},
+							},
+						},
+						Priority: 1,
+					},
+				})
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("waiting until DNS name is available", func() {
+				ExpectLBDNSBeAvailable(ctx, tf, lbARN, lbDNS)
+			})
+		})
 	})
 
 })

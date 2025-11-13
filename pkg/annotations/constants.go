@@ -52,6 +52,7 @@ const (
 	IngressSuffixAuthScope                                     = "auth-scope"
 	IngressSuffixAuthSessionCookie                             = "auth-session-cookie"
 	IngressSuffixAuthSessionTimeout                            = "auth-session-timeout"
+	IngressSuffixJwtValidation                                 = "jwt-validation"
 	IngressSuffixTargetNodeLabels                              = "target-node-labels"
 	IngressSuffixManageSecurityGroupRules                      = "manage-backend-security-group-rules"
 	IngressSuffixMutualAuthentication                          = "mutual-authentication"

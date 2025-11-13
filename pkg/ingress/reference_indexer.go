@@ -70,8 +70,7 @@ func (i *defaultReferenceIndexer) BuildServiceRefIndexes(ctx context.Context, in
 	for _, backend := range backends {
 		enhancedBackend, err := i.enhancedBackendBuilder.Build(ctx, ing, backend,
 			WithLoadBackendServices(false, nil),
-			WithLoadAuthConfig(false),
-		)
+			WithLoadAuthConfig(false))
 		if err != nil {
 			i.logger.Error(err, "failed to build Ingress indexes",
 				"indexKey", IndexKeyServiceRefName)

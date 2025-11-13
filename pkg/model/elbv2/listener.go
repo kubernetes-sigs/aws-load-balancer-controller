@@ -86,6 +86,7 @@ const (
 	ActionTypeAuthenticateOIDC    ActionType = "authenticate-oidc"
 	ActionTypeFixedResponse       ActionType = "fixed-response"
 	ActionTypeForward             ActionType = "forward"
+	ActionTypeJwtValidation       ActionType = "jwt-validation"
 	ActionTypeRedirect            ActionType = "redirect"
 )
 
@@ -205,6 +206,36 @@ func (cfg AuthenticateOIDCActionConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(redactedCfg)
 }
 
+// The format of an additional claim's value(s) used in JWT validation.
+type JwtAdditionalClaimFormat string
+
+const (
+	FormatSingleString         JwtAdditionalClaimFormat = "single-string"
+	FormatStringArray          JwtAdditionalClaimFormat = "string-array"
+	FormatSpaceSeparatedValues JwtAdditionalClaimFormat = "space-separated-values"
+)
+
+// An additional claim to validate during JWT validation.
+type JwtAdditionalClaim struct {
+	// The format of the claim value(s).
+	Format JwtAdditionalClaimFormat `json:"format"`
+	// The claim name.
+	Name string `json:"name"`
+	// The claim values.
+	Values []string `json:"values"`
+}
+
+// Information about an action that performs JSON Web Token (JWT) validation prior to the routing action.
+type JwtValidationConfig struct {
+	// The JSON Web Key Set (JWKS) endpoint containing the public keys used to verify the JWT.
+	JwksEndpoint string `json:"jwksEndpoint"`
+	// The issuer of the JWT.
+	Issuer string `json:"issuer"`
+	// Any additional claims in the JWT that should be validated.
+	// +optional
+	AdditionalClaims []JwtAdditionalClaim `json:"additionalClaims,omitempty"`
+}
+
 // Information about an action that returns a custom HTTP response.
 type FixedResponseActionConfig struct {
 	// The content type.
@@ -291,6 +322,10 @@ type Action struct {
 	// Information about an identity provider that is compliant with OpenID Connect (OIDC).
 	// +optional
 	AuthenticateOIDCConfig *AuthenticateOIDCActionConfig `json:"authenticateOIDCConfig,omitempty"`
+
+	// Information about an action that performs JSON Web Token (JWT) validation prior to the routing action.
+	// +optional
+	JwtValidationConfig *JwtValidationConfig `json:"jwtValidationConfig,omitempty"`
 
 	// [Application Load Balancer] Information for creating an action that returns a custom HTTP response.
 	// +optional

@@ -95,6 +95,8 @@ func CompareOptionForActions(_, _ []elbv2types.Action) cmp.Option {
 		cmpopts.EquateEmpty(),
 		cmpopts.IgnoreUnexported(elbv2types.AuthenticateCognitoActionConfig{}),
 		cmpopts.IgnoreUnexported(elbv2types.AuthenticateOidcActionConfig{}),
+		cmpopts.IgnoreUnexported(elbv2types.JwtValidationActionConfig{}),
+		cmpopts.IgnoreUnexported(elbv2types.JwtValidationActionAdditionalClaim{}),
 		cmpopts.IgnoreUnexported(elbv2types.FixedResponseActionConfig{}),
 		cmpopts.SortSlices(func(lhs elbv2types.Action, rhs elbv2types.Action) bool {
 			if lhs.Order == nil || rhs.Order == nil {

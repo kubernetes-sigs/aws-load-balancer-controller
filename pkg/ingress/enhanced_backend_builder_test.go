@@ -546,6 +546,225 @@ func Test_defaultEnhancedBackendBuilder_Build(t *testing.T) {
 			},
 		},
 		{
+			name: "vanilla serviceBackend with jwt validation containing no additional claims",
+			env: env{
+				svcs: []*corev1.Service{svc1},
+			},
+			fields: fields{
+				tolerateNonExistentBackendService: true,
+				tolerateNonExistentBackendAction:  true,
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/jwt-validation": "{\"jwksEndpoint\":\"https://issuer.example.com/.well-known/jwks.json\",\"issuer\":\"https://issuer.com\"}",
+						},
+					},
+				},
+				backend: networking.IngressBackend{
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-1",
+						Port: backendPortHTTP,
+					},
+				},
+				loadBackendServices: true,
+				loadAuthConfig:      true,
+				backendServices:     map[types.NamespacedName]*corev1.Service{},
+			},
+			want: EnhancedBackend{
+				Action: Action{
+					Type: ActionTypeForward,
+					ForwardConfig: &ForwardActionConfig{
+						TargetGroups: []TargetGroupTuple{
+							{
+								ServiceName: awssdk.String("svc-1"),
+								ServicePort: &portHTTP,
+							},
+						},
+					},
+				},
+				AuthConfig: AuthConfig{
+					Type:                     AuthTypeNone,
+					OnUnauthenticatedRequest: "authenticate",
+					Scope:                    "openid",
+					SessionCookieName:        "AWSELBAuthSessionCookie",
+					SessionTimeout:           604800,
+				},
+				JwtValidationConfig: &JwtValidationConfig{
+					JwksEndpoint: "https://issuer.example.com/.well-known/jwks.json",
+					Issuer:       "https://issuer.com",
+				},
+			},
+			wantBackendServices: map[types.NamespacedName]*corev1.Service{
+				types.NamespacedName{Namespace: "awesome-ns", Name: "svc-1"}: svc1,
+			},
+		},
+		{
+			name: "vanilla serviceBackend with jwt validation containing additional claims",
+			env: env{
+				svcs: []*corev1.Service{svc1},
+			},
+			fields: fields{
+				tolerateNonExistentBackendService: true,
+				tolerateNonExistentBackendAction:  true,
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/jwt-validation": "{\"jwksEndpoint\":\"https://issuer.example.com/.well-known/jwks.json\",\"issuer\":\"https://issuer.com\",\"additionalClaims\":[{\"format\":\"string-array\",\"name\":\"scope\",\"values\":[\"read:api\",\"write:api\"]},{\"format\":\"single-string\",\"name\":\"iat\",\"values\":[\"12456\"]},{\"format\":\"space-separated-values\",\"name\":\"aud\",\"values\":[\"https://example.com\",\"https://another-site.com\"]}]}",
+						},
+					},
+				},
+				backend: networking.IngressBackend{
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-1",
+						Port: backendPortHTTP,
+					},
+				},
+				loadBackendServices: true,
+				loadAuthConfig:      true,
+				backendServices:     map[types.NamespacedName]*corev1.Service{},
+			},
+			want: EnhancedBackend{
+				Action: Action{
+					Type: ActionTypeForward,
+					ForwardConfig: &ForwardActionConfig{
+						TargetGroups: []TargetGroupTuple{
+							{
+								ServiceName: awssdk.String("svc-1"),
+								ServicePort: &portHTTP,
+							},
+						},
+					},
+				},
+				AuthConfig: AuthConfig{
+					Type:                     AuthTypeNone,
+					OnUnauthenticatedRequest: "authenticate",
+					Scope:                    "openid",
+					SessionCookieName:        "AWSELBAuthSessionCookie",
+					SessionTimeout:           604800,
+				},
+				JwtValidationConfig: &JwtValidationConfig{
+					JwksEndpoint: "https://issuer.example.com/.well-known/jwks.json",
+					Issuer:       "https://issuer.com",
+					AdditionalClaims: []JwtAdditionalClaim{
+						{
+							Format: "string-array",
+							Name:   "scope",
+							Values: []string{"read:api", "write:api"},
+						},
+						{
+							Format: "single-string",
+							Name:   "iat",
+							Values: []string{"12456"},
+						},
+						{
+							Format: "space-separated-values",
+							Name:   "aud",
+							Values: []string{"https://example.com", "https://another-site.com"},
+						},
+					},
+				},
+			},
+			wantBackendServices: map[types.NamespacedName]*corev1.Service{
+				types.NamespacedName{Namespace: "awesome-ns", Name: "svc-1"}: svc1,
+			},
+		},
+		{
+			name: "vanilla serviceBackend with jwt validation with malformed json",
+			env: env{
+				svcs: []*corev1.Service{svc1},
+			},
+			fields: fields{
+				tolerateNonExistentBackendService: true,
+				tolerateNonExistentBackendAction:  true,
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/jwt-validation": "{\"jwksEndpoint\":\"https://issuer.example.com/.well-known/jwks.json\",\"issuer\":\"https://issuer.com\"",
+						},
+					},
+				},
+				backend: networking.IngressBackend{
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-1",
+						Port: backendPortHTTP,
+					},
+				},
+				loadBackendServices: true,
+				loadAuthConfig:      true,
+				backendServices:     map[types.NamespacedName]*corev1.Service{},
+			},
+			wantErr: errors.New("failed to parse json annotation, alb.ingress.kubernetes.io/jwt-validation: {\"jwksEndpoint\":\"https://issuer.example.com/.well-known/jwks.json\",\"issuer\":\"https://issuer.com\": unexpected end of JSON input"),
+		},
+		{
+			name: "vanilla serviceBackend with jwt validation missing required fields",
+			env: env{
+				svcs: []*corev1.Service{svc1},
+			},
+			fields: fields{
+				tolerateNonExistentBackendService: true,
+				tolerateNonExistentBackendAction:  true,
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/jwt-validation": "{\"jwksEndpoint\":\"https://issuer.example.com/.well-known/jwks.json\"}",
+						},
+					},
+				},
+				backend: networking.IngressBackend{
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-1",
+						Port: backendPortHTTP,
+					},
+				},
+				loadBackendServices: true,
+				loadAuthConfig:      true,
+				backendServices:     map[types.NamespacedName]*corev1.Service{},
+			},
+			wantErr: errors.New("issuer is a required field for jwt validation"),
+		},
+		{
+			name: "vanilla serviceBackend with jwt validation missing required fields when including additional claims",
+			env: env{
+				svcs: []*corev1.Service{svc1},
+			},
+			fields: fields{
+				tolerateNonExistentBackendService: true,
+				tolerateNonExistentBackendAction:  true,
+			},
+			args: args{
+				ing: &networking.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "awesome-ns",
+						Annotations: map[string]string{
+							"alb.ingress.kubernetes.io/jwt-validation": "{\"jwksEndpoint\":\"https://issuer.example.com/.well-known/jwks.json\",\"issuer\":\"https://issuer.com\",\"additionalClaims\":[{\"name\":\"scope\",\"values\":[\"read:api\",\"write:api\"]},{\"format\":\"single-string\",\"name\":\"iat\",\"values\":[\"12456\"]},{\"format\":\"space-separated-values\",\"name\":\"aud\",\"values\":[\"https://example.com\",\"https://another-site.com\"]}]}",
+						},
+					},
+				},
+				backend: networking.IngressBackend{
+					Service: &networking.IngressServiceBackend{
+						Name: "svc-1",
+						Port: backendPortHTTP,
+					},
+				},
+				loadBackendServices: true,
+				loadAuthConfig:      true,
+				backendServices:     map[types.NamespacedName]*corev1.Service{},
+			},
+			wantErr: errors.New("format is a required field for additional claims for jwt validation"),
+		},
+		{
 			name: "vanilla serviceBackend - non-existent service and tolerateNonExistentBackendService==true",
 			env: env{
 				svcs: []*corev1.Service{svc1},
