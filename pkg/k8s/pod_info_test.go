@@ -599,7 +599,7 @@ func Test_buildPodInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := newPodInfoBuilder("").buildPodInfo(tt.args.pod)
+			got := buildPodInfo(tt.args.pod)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -660,7 +660,7 @@ func Test_buildPodENIInfo(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := newPodInfoBuilder("").buildPodENIInfos(tt.args.pod)
+			got, err := buildPodENIInfos(tt.args.pod)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

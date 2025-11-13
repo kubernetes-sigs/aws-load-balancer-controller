@@ -142,7 +142,7 @@ type TargetGroupBindingSpec struct {
 
 	// targetGroupProtocol is the Protocol of the TargetGroup. If unspecified, it will be automatically inferred.
 	// +optional
-	// +kubebuilder:validation:Enum=HTTP;HTTPS;TCP;TLS;UDP;TCP_UDP;QUIC;TCP_QUIC
+	// +kubebuilder:validation:Enum=HTTP;HTTPS;TCP;TLS;UDP;TCP_UDP
 	TargetGroupProtocol *elbv2.Protocol `json:"targetGroupProtocol,omitempty"`
 
 	// serviceRef is a reference to a Kubernetes Service and ServicePort.

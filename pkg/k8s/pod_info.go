@@ -1,23 +1,20 @@
 package k8s
 
 import (
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 )
 
 const (
 	annotationKeyPodENIInfo = "vpc.amazonaws.com/pod-eni"
 )
 
-// PodInfo contains simplified pod information we care about.
+// PodInfo contains simplified pod information we cares about.
 // We do so to minimize memory usage.
 type PodInfo struct {
 	Key types.NamespacedName
@@ -30,11 +27,6 @@ type PodInfo struct {
 	PodIP          string
 	CreationTime   v1.Time
 
-	// DefaultQUICServerID the fallback server id when no per-port quic server ids are configured.
-	DefaultQUICServerID *string
-	// PerPortServerIds a mapping of container port to its respective quic server id
-	PerPortServerIds map[int32]string
-
 	ENIInfos []PodENIInfo
 }
 
@@ -46,16 +38,6 @@ type PodENIInfo struct {
 
 	// PrivateIP is the primary IP of the branch Network interface
 	PrivateIP string `json:"privateIp"`
-}
-
-func (i *PodInfo) GetQUICServerID(port int32) *string {
-	if i.PerPortServerIds != nil {
-		sId, ok := i.PerPortServerIds[port]
-		if ok {
-			return &sId
-		}
-	}
-	return i.DefaultQUICServerID
 }
 
 // HasAnyOfReadinessGates returns whether podInfo has any of these readinessGates
@@ -102,84 +84,43 @@ func (i *PodInfo) LookupContainerPort(port intstr.IntOrString) (int64, error) {
 	return 0, errors.Errorf("unable to find port %s on pod %s", port.String(), i.Key)
 }
 
-type podInfoBuilder struct {
-	quicServerIDVariableName string
-}
-
-func newPodInfoBuilder(quicServerIDVariableName string) *podInfoBuilder {
-	return &podInfoBuilder{
-		quicServerIDVariableName: quicServerIDVariableName,
-	}
-}
-
-// podInfoConversionFunc computes the converted PodInfo per pod object.
-func (podInfoBuilder *podInfoBuilder) podInfoConverter(obj interface{}) (interface{}, error) {
-	pod, ok := obj.(*corev1.Pod)
-	if !ok {
-		return nil, errors.New("expect pod object")
-	}
-	podInfo := podInfoBuilder.buildPodInfo(pod)
-	return &podInfo, nil
-}
-
 // buildPodInfo will construct PodInfo for given pod.
-func (podInfoBuilder *podInfoBuilder) buildPodInfo(pod *corev1.Pod) PodInfo {
+func buildPodInfo(pod *corev1.Pod) PodInfo {
 	podKey := NamespacedName(pod)
 
 	var podENIInfos []PodENIInfo
 	// we kept podENIInfo as nil if the eniInfo via annotation is malformed.
-	if eniInfo, err := podInfoBuilder.buildPodENIInfos(pod); err == nil {
+	if eniInfo, err := buildPodENIInfos(pod); err == nil {
 		podENIInfos = eniInfo
 	}
 
 	var containerPorts []corev1.ContainerPort
-	var defaultQUICServerID *string
-	var perPortQUICServerIDs map[int32]string
-
-	allContainers := make([]corev1.Container, 0)
-	allContainers = append(allContainers, pod.Spec.Containers...)
-	// also support sidecar container (initContainer with restartPolicy=Always)
-	for _, initContainer := range pod.Spec.InitContainers {
-		if initContainer.RestartPolicy != nil && *initContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
-			allContainers = append(allContainers, initContainer)
-		}
-	}
-
-	for _, podContainer := range allContainers {
+	for _, podContainer := range pod.Spec.Containers {
 		containerPorts = append(containerPorts, podContainer.Ports...)
-		extractedId := podInfoBuilder.extractQUICServerID(pod, podContainer)
-		if extractedId != nil {
-			if perPortQUICServerIDs == nil {
-				perPortQUICServerIDs = make(map[int32]string)
-			}
-			for _, p := range podContainer.Ports {
-				perPortQUICServerIDs[p.ContainerPort] = *extractedId
-			}
-			if defaultQUICServerID == nil {
-				defaultQUICServerID = extractedId
-			}
+	}
+	// also support sidecar container (initContainer with restartPolicy=Always)
+	for _, podContainer := range pod.Spec.InitContainers {
+		if podContainer.RestartPolicy != nil && *podContainer.RestartPolicy == corev1.ContainerRestartPolicyAlways {
+			containerPorts = append(containerPorts, podContainer.Ports...)
 		}
 	}
-
 	return PodInfo{
 		Key: podKey,
 		UID: pod.UID,
 
-		ContainerPorts:      containerPorts,
-		DefaultQUICServerID: defaultQUICServerID,
-		PerPortServerIds:    perPortQUICServerIDs,
-		ReadinessGates:      pod.Spec.ReadinessGates,
-		Conditions:          pod.Status.Conditions,
-		NodeName:            pod.Spec.NodeName,
-		PodIP:               pod.Status.PodIP,
-		CreationTime:        pod.CreationTimestamp,
+		ContainerPorts: containerPorts,
+		ReadinessGates: pod.Spec.ReadinessGates,
+		Conditions:     pod.Status.Conditions,
+		NodeName:       pod.Spec.NodeName,
+		PodIP:          pod.Status.PodIP,
+		CreationTime:   pod.CreationTimestamp,
 
 		ENIInfos: podENIInfos,
 	}
 }
 
 // buildPodENIInfo will construct PodENIInfo for given pod if any.
-func (podInfoBuilder *podInfoBuilder) buildPodENIInfos(pod *corev1.Pod) ([]PodENIInfo, error) {
+func buildPodENIInfos(pod *corev1.Pod) ([]PodENIInfo, error) {
 	rawAnnotation, ok := pod.Annotations[annotationKeyPodENIInfo]
 	if !ok {
 		return nil, nil
@@ -191,46 +132,4 @@ func (podInfoBuilder *podInfoBuilder) buildPodENIInfos(pod *corev1.Pod) ([]PodEN
 	}
 
 	return podENIInfos, nil
-}
-
-func (podInfoBuilder *podInfoBuilder) extractQUICServerID(pod *corev1.Pod, container corev1.Container) *string {
-
-	if pod.Annotations == nil {
-		return nil
-	}
-
-	_, ok := pod.Annotations[annotations.QuicEnabledContainersAnnotation]
-
-	if !ok {
-		return nil
-	}
-
-	if container.Env == nil || len(container.Env) == 0 {
-		return nil
-	}
-
-	for _, env := range container.Env {
-		if env.Name == podInfoBuilder.quicServerIDVariableName {
-			converted, err := convertServerIdToELBFormat(env.Value)
-			if err != nil {
-				return nil
-			}
-			return &converted
-		}
-	}
-
-	return nil
-}
-
-// convertServerIdToELBFormat
-// convert b64 value into hex
-// append mandatory '0x' into front
-func convertServerIdToELBFormat(b64 string) (string, error) {
-	// Decode the base64 string to bytes
-	data, err := base64.StdEncoding.DecodeString(b64)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode base64: %w", err)
-	}
-
-	return fmt.Sprintf("0x%s", hex.EncodeToString(data)), nil
 }

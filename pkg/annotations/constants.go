@@ -126,9 +126,4 @@ const (
 	SvcLBSuffixEnableIcmpForPathMtuDiscovery             = "aws-load-balancer-enable-icmp-for-path-mtu-discovery"
 	SvcLBSuffixEnableTCPUDPListener                      = "aws-load-balancer-enable-tcp-udp-listener"
 	SvcLBSuffixDisableNLBSG                              = "aws-load-balancer-disable-nlb-sg"
-	SvcLBSuffixQUICEnabledPorts                          = "aws-load-balancer-quic-enabled-ports"
-)
-
-const (
-	QuicEnabledContainersAnnotation = "service.beta.kubernetes.io/aws-load-balancer-quic-enabled-containers"
 )

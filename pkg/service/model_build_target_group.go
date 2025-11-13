@@ -559,7 +559,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 			Protocol: &protocolTCP,
 			Port:     nil,
 		})
-		if tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolTCP_UDP || tgProtocol == elbv2model.ProtocolQUIC || tgProtocol == elbv2model.ProtocolTCP_QUIC {
+		if tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolTCP_UDP {
 			ports = append(ports, elbv2api.NetworkingPort{
 				Protocol: &protocolUDP,
 				Port:     nil,
@@ -574,10 +574,6 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 				Protocol: &protocolTCP,
 				Port:     &tgPort,
 			})
-		case elbv2model.ProtocolQUIC:
-			fallthrough
-		case elbv2model.ProtocolTCP_QUIC:
-			fallthrough
 		case elbv2model.ProtocolTCP_UDP:
 			fallthrough
 		case elbv2model.ProtocolUDP:
@@ -585,7 +581,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 				Protocol: &protocolUDP,
 				Port:     &tgPort,
 			})
-			if tgProtocol == elbv2model.ProtocolTCP_UDP || tgProtocol == elbv2model.ProtocolTCP_QUIC || hcPort.String() == shared_constants.HealthCheckPortTrafficPort || (hcPort.Type == intstr.Int && hcPort.IntValue() == tgPort.IntValue()) {
+			if tgProtocol == elbv2model.ProtocolTCP_UDP || hcPort.String() == shared_constants.HealthCheckPortTrafficPort || (hcPort.Type == intstr.Int && hcPort.IntValue() == tgPort.IntValue()) {
 				ports = append(ports, elbv2api.NetworkingPort{
 					Protocol: &protocolTCP,
 					Port:     &tgPort,
@@ -657,11 +653,11 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 
 	/*
 		https://docs.aws.amazon.com/elasticloadbalancing/latest/network/edit-target-group-attributes.html#client-ip-preservation
-		By default, client IP preservation is enabled (and can't be disabled) for instance and IP type target groups with UDP, QUIC, TCP_QUIC, and TCP_UDP protocols.
+		By default, client IP preservation is enabled (and can't be disabled) for instance and IP type target groups with UDP and TCP_UDP protocols.
 		However, you can enable or disable client IP preservation for TCP and TLS target groups using the preserve_client_ip.enabled target group attribute.
 	*/
 
-	if tgProtocol == elbv2model.ProtocolTCP_UDP || tgProtocol == elbv2model.ProtocolTCP_QUIC || tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolQUIC || t.preserveClientIP {
+	if tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolTCP_UDP || t.preserveClientIP {
 		trafficSource = t.getLoadBalancerSourceRanges(ctx)
 		if len(trafficSource) == 0 {
 			trafficSource, err = t.getDefaultIPSourceRanges(ctx, targetGroupIPAddressType, tgProtocol, scheme)
@@ -672,7 +668,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 		}
 	}
 
-	if tgProtocol == elbv2model.ProtocolTCP_UDP || tgProtocol == elbv2model.ProtocolTCP_QUIC {
+	if tgProtocol == elbv2model.ProtocolTCP_UDP {
 		tcpProtocol := elbv2api.NetworkingProtocolTCP
 		udpProtocol := elbv2api.NetworkingProtocolUDP
 		trafficPorts = []elbv2api.NetworkingPort{
@@ -687,7 +683,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworkingLegacy(ctx cont
 		}
 	} else {
 		networkingProtocol := elbv2api.NetworkingProtocolTCP
-		if tgProtocol == elbv2model.ProtocolUDP || tgProtocol == elbv2model.ProtocolQUIC {
+		if tgProtocol == elbv2model.ProtocolUDP {
 			networkingProtocol = elbv2api.NetworkingProtocolUDP
 		}
 
@@ -731,7 +727,7 @@ func (t *defaultModelBuildTask) getDefaultIPSourceRanges(ctx context.Context, ta
 	if targetGroupIPAddressType == elbv2model.TargetGroupIPAddressTypeIPv6 {
 		defaultSourceRanges = t.defaultIPv6SourceRanges
 	}
-	if (tgProtocol == elbv2model.ProtocolQUIC || tgProtocol == elbv2model.ProtocolTCP_QUIC || tgProtocol == elbv2model.ProtocolTCP_UDP || tgProtocol == elbv2model.ProtocolUDP || t.preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
+	if (tgProtocol == elbv2model.ProtocolTCP_UDP || tgProtocol == elbv2model.ProtocolUDP || t.preserveClientIP) && scheme == elbv2model.LoadBalancerSchemeInternal {
 		vpcInfo, err := t.vpcInfoProvider.FetchVPCInfo(ctx, t.vpcID, networking.FetchVPCInfoWithoutCache())
 		if err != nil {
 			return nil, err

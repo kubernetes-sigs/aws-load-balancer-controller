@@ -1,4 +1,4 @@
-package pod_readiness
+package inject
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 )
 
 // NewPodReadinessGate constructs new PodReadinessGate
-func NewPodReadinessGate(config PodReadinessGateConfig, k8sClient client.Client, logger logr.Logger) *PodReadinessGate {
+func NewPodReadinessGate(config Config, k8sClient client.Client, logger logr.Logger) *PodReadinessGate {
 	return &PodReadinessGate{
 		config:    config,
 		k8sClient: k8sClient,
@@ -27,7 +27,7 @@ func NewPodReadinessGate(config PodReadinessGateConfig, k8sClient client.Client,
 
 // PodReadinessGate is a pod mutator that adds targetHealth readiness gates to pods matching the target group bindings
 type PodReadinessGate struct {
-	config    PodReadinessGateConfig
+	config    Config
 	k8sClient client.Client
 	logger    logr.Logger
 }

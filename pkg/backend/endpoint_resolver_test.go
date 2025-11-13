@@ -2589,10 +2589,9 @@ func Test_buildEndpointsDataFromEndpointSliceList(t *testing.T) {
 
 func Test_buildPodEndpoint(t *testing.T) {
 	type args struct {
-		pod          k8s.PodInfo
-		epAddr       string
-		port         int32
-		quicServerId *string
+		pod    k8s.PodInfo
+		epAddr string
+		port   int32
 	}
 	tests := []struct {
 		name string
@@ -2614,56 +2613,6 @@ func Test_buildPodEndpoint(t *testing.T) {
 				Pod: k8s.PodInfo{
 					Key: types.NamespacedName{Name: "sample-node"},
 				},
-			},
-		},
-		{
-			name: "quic case - default id",
-			args: args{
-				pod: k8s.PodInfo{
-					Key:                 types.NamespacedName{Name: "sample-node"},
-					DefaultQUICServerID: awssdk.String("0xdeadbeef"),
-				},
-				epAddr:       "192.168.1.1",
-				port:         80,
-				quicServerId: awssdk.String("0xdeadbeef"),
-			},
-			want: PodEndpoint{
-				IP:   "192.168.1.1",
-				Port: 80,
-				Pod: k8s.PodInfo{
-					Key:                 types.NamespacedName{Name: "sample-node"},
-					DefaultQUICServerID: awssdk.String("0xdeadbeef"),
-				},
-				QuicServerID: awssdk.String("0xdeadbeef"),
-			},
-		},
-		{
-			name: "quic case - port specific id",
-			args: args{
-				pod: k8s.PodInfo{
-					Key:                 types.NamespacedName{Name: "sample-node"},
-					DefaultQUICServerID: awssdk.String("0xnotused"),
-					PerPortServerIds: map[int32]string{
-						100: "0xalsonotused",
-						80:  "0xdeadbeef",
-					},
-				},
-				epAddr:       "192.168.1.1",
-				port:         80,
-				quicServerId: awssdk.String("0xdeadbeef"),
-			},
-			want: PodEndpoint{
-				IP:   "192.168.1.1",
-				Port: 80,
-				Pod: k8s.PodInfo{
-					Key:                 types.NamespacedName{Name: "sample-node"},
-					DefaultQUICServerID: awssdk.String("0xnotused"),
-					PerPortServerIds: map[int32]string{
-						100: "0xalsonotused",
-						80:  "0xdeadbeef",
-					},
-				},
-				QuicServerID: awssdk.String("0xdeadbeef"),
 			},
 		},
 	}

@@ -18,14 +18,7 @@ type TargetInfo struct {
 
 // GetIdentifier this should match backend.Endpoint
 func (t *TargetInfo) GetIdentifier() string {
-
-	baseString := fmt.Sprintf("%s:%d", *t.Target.Id, *t.Target.Port)
-
-	if t.Target.QuicServerId != nil {
-		return fmt.Sprintf("%s:%s", baseString, *t.Target.QuicServerId)
-	}
-
-	return baseString
+	return fmt.Sprintf("%s:%d", *t.Target.Id, *t.Target.Port)
 }
 
 // IsHealthy returns whether target is healthy.

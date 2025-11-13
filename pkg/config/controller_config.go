@@ -1,8 +1,6 @@
 package config
 
 import (
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/pod_readiness"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/quic"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 	"time"
@@ -11,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 )
 
@@ -75,9 +74,7 @@ type ControllerConfig struct {
 	// Configurations for the Controller Runtime
 	RuntimeConfig RuntimeConfig
 	// Configurations for Pod inject webhook
-	PodWebhookConfig pod_readiness.PodReadinessGateConfig
-	// Configurations for QUIC integration.
-	ServerIDInjectionConfig quic.ServerIDInjectionConfig
+	PodWebhookConfig inject.Config
 	// Configurations for the Ingress controller
 	IngressConfig IngressConfig
 	// Configurations for Addons feature
@@ -198,7 +195,6 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 	cfg.RuntimeConfig.BindFlags(fs)
 
 	cfg.PodWebhookConfig.BindFlags(fs)
-	cfg.ServerIDInjectionConfig.BindFlags(fs)
 	cfg.IngressConfig.BindFlags(fs)
 	cfg.AddonsConfig.BindFlags(fs)
 	cfg.ServiceConfig.BindFlags(fs)

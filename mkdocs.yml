@@ -49,7 +49,6 @@ nav:
         - Frontend Security Groups: guide/use_cases/frontend_sg/index.md
         - Blue/Green: guide/use_cases/blue_green/index.md
         - MultiCluster Target Groups: guide/use_cases/multi_cluster/index.md
-        - QUIC: guide/use_cases/quic/index.md
       - Metrics:
         - Prometheus: guide/metrics/prometheus/index.md
   - Examples:

@@ -121,14 +121,12 @@ const (
 type Protocol string
 
 const (
-	ProtocolHTTP     Protocol = "HTTP"
-	ProtocolHTTPS    Protocol = "HTTPS"
-	ProtocolTCP      Protocol = "TCP"
-	ProtocolTLS      Protocol = "TLS"
-	ProtocolUDP      Protocol = "UDP"
-	ProtocolTCP_UDP  Protocol = "TCP_UDP"
-	ProtocolQUIC     Protocol = "QUIC"
-	ProtocolTCP_QUIC Protocol = "TCP_QUIC"
+	ProtocolHTTP    Protocol = "HTTP"
+	ProtocolHTTPS   Protocol = "HTTPS"
+	ProtocolTCP     Protocol = "TCP"
+	ProtocolTLS     Protocol = "TLS"
+	ProtocolUDP     Protocol = "UDP"
+	ProtocolTCP_UDP Protocol = "TCP_UDP"
 )
 
 // +kubebuilder:validation:Enum=HTTP1;HTTP2;GRPC

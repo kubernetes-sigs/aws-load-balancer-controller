@@ -3,14 +3,15 @@ package targetgroupbinding
 import (
 	"context"
 	"fmt"
-	smithy "github.com/aws/smithy-go"
-	"k8s.io/apimachinery/pkg/util/cache"
 	"net/netip"
 	"sync"
 	"time"
 
+	"k8s.io/apimachinery/pkg/util/cache"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	"github.com/aws/smithy-go"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -184,7 +185,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	}
 
 	notDrainingTargets, _ := partitionTargetsByDrainingStatus(targets)
-	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(tgb, endpoints, notDrainingTargets)
+	matchedEndpointAndTargets, unmatchedEndpoints, unmatchedTargets := matchPodEndpointWithTargets(endpoints, notDrainingTargets)
 
 	needNetworkingRequeue := false
 	if err := m.networkingManager.ReconcileForPodEndpoints(ctx, tgb, endpoints); err != nil {
@@ -574,14 +575,14 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 		return err
 	}
 
-	sdkTargets, err := m.prepareRegistrationCall(endpoints, tgb, overrideAzFn)
+	sdkTargets, err := m.prepareRegistrationCall(endpoints, overrideAzFn)
 	if err != nil {
 		return err
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
 }
 
-func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool) ([]elbv2types.TargetDescription, error) {
+func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.PodEndpoint, doAzOverride func(addr netip.Addr) bool) ([]elbv2types.TargetDescription, error) {
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		target := elbv2types.TargetDescription{
@@ -595,23 +596,7 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 		if doAzOverride(podIP) {
 			target.AvailabilityZone = awssdk.String("all")
 		}
-
-		doAppend := true
-
-		if tgbProtocolSupportsQuic(tgb) {
-			serverId := endpoint.QuicServerID
-			doAppend = serverId != nil
-			if serverId != nil {
-				target.QuicServerId = serverId
-			} else {
-				m.logger.Info("Dropping registration request for QUIC enabled target with no server ID", "target", target)
-				m.metricsCollector.ObserveQUICTargetMissingServerId(tgb.Name, tgb.Namespace)
-			}
-		}
-
-		if doAppend {
-			sdkTargets = append(sdkTargets, target)
-		}
+		sdkTargets = append(sdkTargets, target)
 	}
 	return sdkTargets, nil
 }
@@ -728,19 +713,19 @@ func containsTargetsInInitialState(matchedEndpointAndTargets []podEndpointAndTar
 	return false
 }
 
-func matchPodEndpointWithTargets(tgb *elbv2api.TargetGroupBinding, endpoints []backend.PodEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.PodEndpoint, []TargetInfo) {
+func matchPodEndpointWithTargets(endpoints []backend.PodEndpoint, targets []TargetInfo) ([]podEndpointAndTargetPair, []backend.PodEndpoint, []TargetInfo) {
 	var matchedEndpointAndTargets []podEndpointAndTargetPair
 	var unmatchedEndpoints []backend.PodEndpoint
 	var unmatchedTargets []TargetInfo
 
 	endpointsByUID := make(map[string]backend.PodEndpoint, len(endpoints))
 	for _, endpoint := range endpoints {
-		endpointUID := endpoint.GetIdentifier(false, tgbProtocolSupportsQuic(tgb))
+		endpointUID := fmt.Sprintf("%v:%v", endpoint.IP, endpoint.Port)
 		endpointsByUID[endpointUID] = endpoint
 	}
 	targetsByUID := make(map[string]TargetInfo, len(targets))
 	for _, target := range targets {
-		targetUID := target.GetIdentifier()
+		targetUID := fmt.Sprintf("%v:%v", awssdk.ToString(target.Target.Id), awssdk.ToInt32(target.Target.Port))
 		targetsByUID[targetUID] = target
 	}
 	endpointUIDs := sets.StringKeySet(endpointsByUID)

@@ -185,5 +185,3 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 )
-
-replace github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2 => ./scripts/aws_sdk_model_override/awsSdkGoV2/service/elasticloadbalancingv2

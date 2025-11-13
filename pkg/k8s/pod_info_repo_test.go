@@ -100,7 +100,7 @@ func Test_podInfoConversionFunc(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := newPodInfoBuilder("").podInfoConverter(tt.args.obj)
+			got, err := podInfoConversionFunc(tt.args.obj)
 			if tt.wantErr != nil {
 				assert.EqualError(t, err, tt.wantErr.Error())
 			} else {

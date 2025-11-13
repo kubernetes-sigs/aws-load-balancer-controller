@@ -179,7 +179,8 @@ func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWit
 	if resTG.Spec.HealthCheckConfig == nil || featureGates.Enabled(config.NLBHealthCheckAdvancedConfig) {
 		return false
 	}
-	if isL4TargetGroup(resTG.Spec.Protocol) {
+	if resTG.Spec.Protocol != elbv2model.ProtocolTCP && resTG.Spec.Protocol != elbv2model.ProtocolUDP &&
+		resTG.Spec.Protocol != elbv2model.ProtocolTCP_UDP && resTG.Spec.Protocol != elbv2model.ProtocolTLS {
 		return false
 	}
 	sdkObj := sdkTG.TargetGroup
@@ -195,21 +196,6 @@ func isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG TargetGroupWit
 	}
 	if hcConfig.TimeoutSeconds != nil && awssdk.ToInt32(hcConfig.TimeoutSeconds) != awssdk.ToInt32(sdkObj.HealthCheckTimeoutSeconds) {
 		return true
-	}
-	return false
-}
-
-func isL4TargetGroup(protocol elbv2model.Protocol) bool {
-	switch protocol {
-	case elbv2model.ProtocolTCP:
-	case elbv2model.ProtocolUDP:
-	case elbv2model.ProtocolTLS:
-	case elbv2model.ProtocolQUIC:
-	case elbv2model.ProtocolTCP_QUIC:
-	case elbv2model.ProtocolTCP_UDP:
-		return true
-	default:
-		return false
 	}
 	return false
 }

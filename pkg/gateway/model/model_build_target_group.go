@@ -381,7 +381,7 @@ func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupPro
 	case string(elbv2model.ProtocolTCP_UDP):
 		return elbv2model.ProtocolTCP_UDP, nil
 	default:
-		return "", errors.Errorf("backend protocol must be within [%v, %v, %v, %v, %v, %v]: %v", elbv2model.ProtocolTCP, elbv2model.ProtocolUDP, elbv2model.ProtocolTCP_UDP, elbv2model.ProtocolTLS, elbv2model.ProtocolQUIC, elbv2model.ProtocolTCP_QUIC, *targetGroupProps.Protocol)
+		return "", errors.Errorf("backend protocol must be within [%v, %v, %v, %v]: %v", elbv2model.ProtocolTCP, elbv2model.ProtocolUDP, elbv2model.ProtocolTCP_UDP, elbv2model.ProtocolTLS, *targetGroupProps.Protocol)
 	}
 }
 

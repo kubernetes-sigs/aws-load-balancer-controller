@@ -20,7 +20,6 @@ type MetricCollector interface {
 	// ObservePodReadinessGateReady this metric is useful to determine how fast pods are becoming ready in the load balancer.
 	// Due to some architectural constraints, we can only emit this metric for pods that are using readiness gates.
 	ObservePodReadinessGateReady(namespace string, tgbName string, duration time.Duration)
-	ObserveQUICTargetMissingServerId(namespace string, tgbName string)
 	ObserveControllerReconcileError(controller string, errorType string)
 	ObserveControllerReconcileLatency(controller string, stage string, fn func())
 	ObserveWebhookValidationError(webhookName string, errorType string)
@@ -37,9 +36,6 @@ type collector struct {
 }
 
 type noOpCollector struct{}
-
-func (n *noOpCollector) ObserveQUICTargetMissingServerId(namespace string, tgbName string) {
-}
 
 func (n *noOpCollector) ObservePodReadinessGateReady(_ string, _ string, _ time.Duration) {
 }
@@ -84,13 +80,6 @@ func (c *collector) ObservePodReadinessGateReady(namespace string, tgbName strin
 		labelNamespace: namespace,
 		labelName:      tgbName,
 	}).Observe(duration.Seconds())
-}
-
-func (c *collector) ObserveQUICTargetMissingServerId(namespace string, tgbName string) {
-	c.instruments.quicTargetsMissingServerId.With(prometheus.Labels{
-		labelNamespace: namespace,
-		labelName:      tgbName,
-	}).Inc()
 }
 
 func (c *collector) ObserveControllerReconcileError(controller string, errorCategory string) {

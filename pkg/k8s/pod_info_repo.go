@@ -32,10 +32,8 @@ type PodInfoRepo interface {
 // * watchNamespace is the namespace to monitor pod spec.
 //   - if watchNamespace is "", this repo monitors pods in all namespaces
 //   - if watchNamespace is not "", this repo monitors pods in specific namespace
-func NewDefaultPodInfoRepo(getter cache.Getter, watchNamespace string, quicServerIDVariableName string, logger logr.Logger) *defaultPodInfoRepo {
-	converter := newPodInfoBuilder(quicServerIDVariableName)
-
-	store := NewConversionStore(converter.podInfoConverter, podInfoKeyFunc)
+func NewDefaultPodInfoRepo(getter cache.Getter, watchNamespace string, logger logr.Logger) *defaultPodInfoRepo {
+	store := NewConversionStore(podInfoConversionFunc, podInfoKeyFunc)
 	lw := cache.NewListWatchFromClient(getter, resourceTypePods, watchNamespace, fields.Everything())
 	rt := cache.NewReflector(lw, &corev1.Pod{}, store, 0)
 
@@ -108,4 +106,14 @@ func podInfoKeyFunc(obj interface{}) (string, error) {
 		return "", errors.New("expect PodInfo object")
 	}
 	return info.Key.String(), nil
+}
+
+// podInfoConversionFunc computes the converted PodInfo per pod object.
+func podInfoConversionFunc(obj interface{}) (interface{}, error) {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return nil, errors.New("expect pod object")
+	}
+	podInfo := buildPodInfo(pod)
+	return &podInfo, nil
 }
