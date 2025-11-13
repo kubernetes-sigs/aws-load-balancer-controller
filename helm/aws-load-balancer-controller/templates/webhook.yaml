@@ -73,7 +73,7 @@ webhooks:
     {{ if .Values.webhookNamespaceSelectors }}
     {{ toYaml .Values.webhookNamespaceSelectors | nindent 4 }}
     {{ else }}
-      - key: quic-example elbv2.k8s.aws/quic-server-id-inject
+      - key: elbv2.k8s.aws/quic-server-id-inject
         operator: In
         values:
           - enabled
