@@ -199,6 +199,7 @@ metadata:
 
 #### Generate a self-signed cert and insert it into a secret
 
+`openssl genrsa -out private_key.pem 2048`
 `openssl req -new -x509 -key private_key.pem -out public_certificate.pem -days 365`
 `kubectl -n quic-example create secret tls quic-cert --cert=public_certificate.pem --key=private_key.pem`
 
@@ -256,8 +257,6 @@ spec:
         - mountPath: /etc/envoy/secrets
           name: quic-cert
       dnsPolicy: ClusterFirst
-      nodeSelector:
-        topology.kubernetes.io/zone: us-east-1d
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext:
@@ -300,14 +299,12 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
     service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg: "true"
     service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener: "true"
     service.beta.kubernetes.io/aws-load-balancer-name: quic-example
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: ip
     service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports: "443"
     service.beta.kubernetes.io/aws-load-balancer-scheme: internet-facing
-    service.beta.kubernetes.io/aws-load-balancer-subnets: subnet-0216f01774539f74c
   name: quic-service
   namespace: quic-example
 spec:
