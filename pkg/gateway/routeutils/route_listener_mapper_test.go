@@ -41,9 +41,9 @@ func (m *mockRouteAttachmentHelper) doesRouteAttachToGateway(gw gwv1.Gateway, ro
 	return m.routeGatewayMap[k]
 }
 
-func (m *mockRouteAttachmentHelper) routeAllowsAttachmentToListener(listener gwv1.Listener, route preLoadRouteDescriptor) bool {
+func (m *mockRouteAttachmentHelper) routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, []RouteData) {
 	k := makeListenerAttachmentMapKey(listener, route)
-	return m.routeListenerMap[k]
+	return m.routeListenerMap[k], nil
 }
 
 func Test_mapGatewayAndRoutes(t *testing.T) {

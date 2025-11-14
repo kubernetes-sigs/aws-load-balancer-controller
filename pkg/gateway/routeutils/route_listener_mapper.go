@@ -59,7 +59,10 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 		for _, route := range routesForGateway {
 			// We need to check both paths (route -> listener) and (listener -> route)
 			// for connection viability.
-			if !ltr.routeAttachmentHelper.routeAllowsAttachmentToListener(listener, route) {
+			allowed, failedRouteDataList := ltr.routeAttachmentHelper.routeAllowsAttachmentToListener(gw, listener, route)
+			// Collect any failed parentRefs no matter route is allowed to attach
+			failedRoutes = append(failedRoutes, failedRouteDataList...)
+			if !allowed {
 				ltr.logger.V(1).Info("Route doesnt allow attachment")
 				continue
 			}
