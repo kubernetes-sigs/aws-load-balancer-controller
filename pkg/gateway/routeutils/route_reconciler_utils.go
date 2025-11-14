@@ -48,11 +48,13 @@ type RouteReconcilerSubmitter interface {
 // constants
 
 const (
-	RouteStatusInfoAcceptedMessage                   = "Route is accepted by Gateway"
-	RouteStatusInfoRejectedMessageNoMatchingHostname = "Listener does not allow route attachment, no matching hostname"
-	RouteStatusInfoRejectedMessageNamespaceNotMatch  = "Listener does not allow route attachment, namespace does not match between listener and route"
-	RouteStatusInfoRejectedMessageKindNotMatch       = "Listener does not allow route attachment, kind does not match between listener and route"
-	RouteStatusInfoRejectedParentRefNotExist         = "ParentRefDoesNotExist"
+	RouteStatusInfoAcceptedMessage                          = "Route is accepted by Gateway"
+	RouteStatusInfoRejectedMessageNoMatchingHostname        = "Listener does not allow route attachment, no matching hostname"
+	RouteStatusInfoRejectedMessageNamespaceNotMatch         = "Listener does not allow route attachment, namespace does not match between listener and route"
+	RouteStatusInfoRejectedMessageKindNotMatch              = "Listener does not allow route attachment, kind does not match between listener and route"
+	RouteStatusInfoRejectedParentRefNotExist                = "ParentRefDoesNotExist"
+	RouteStatusInfoRejectedMessageParentSectionNameNotMatch = "Route parentRef sectionName does not match listener name"
+	RouteStatusInfoRejectedMessageParentPortNotMatch        = "Route parentRef port does not match listener port"
 )
 
 func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message string, routeNamespaceName types.NamespacedName, routeKind RouteKind, routeGeneration int64, gw gwv1.Gateway) RouteData {
