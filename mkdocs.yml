@@ -50,6 +50,7 @@ nav:
         - Blue/Green: guide/use_cases/blue_green/index.md
         - MultiCluster Target Groups: guide/use_cases/multi_cluster/index.md
         - QUIC: guide/use_cases/quic/index.md
+        - Legacy Target Groups: guide/use_cases/legacy_app_integration/index.md
       - Metrics:
         - Prometheus: guide/metrics/prometheus/index.md
   - Examples:
