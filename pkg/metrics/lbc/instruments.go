@@ -24,6 +24,8 @@ const (
 	MetricControllerCacheObjectCount = "controller_cache_object_total"
 	// MetricTopTalker tracks what resources are causing the most reconciles.
 	MetricControllerTopTalkers = "controller_top_talkers"
+	// MetricQuicTargetMissingServerId tracks the total number of QUIC targets attempted to be registered without a generated server id.
+	MetricQuicTargetMissingServerId = "quic_target_missing_server_id"
 )
 
 const (
@@ -38,6 +40,7 @@ const (
 
 type instruments struct {
 	podReadinessFlipSeconds       *prometheus.HistogramVec
+	quicTargetsMissingServerId    *prometheus.CounterVec
 	controllerReconcileErrors     *prometheus.CounterVec
 	controllerReconcileLatency    *prometheus.HistogramVec
 	webhookValidationFailure      *prometheus.CounterVec
@@ -60,6 +63,12 @@ func newInstruments(registerer prometheus.Registerer) *instruments {
 		Name:      MetricControllerReconcileErrors,
 		Help:      "Counts the number of reconcile error, categorized by error type.",
 	}, []string{labelController, labelErrorCategory})
+
+	controllerQuicTargetMissingServerId := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Subsystem: metricSubsystem,
+		Name:      MetricQuicTargetMissingServerId,
+		Help:      "tracks the total number of QUIC targets attempted to be registered without a generated server id.",
+	}, []string{labelNamespace, labelName})
 
 	controllerReconcileStageDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Subsystem: metricSubsystem,
@@ -101,5 +110,6 @@ func newInstruments(registerer prometheus.Registerer) *instruments {
 		webhookMutationFailure:        webhookMutationFailure,
 		controllerCacheObjectCount:    controllerCacheObjectCount,
 		controllerReconcileTopTalkers: controllerReconcileTopTalkers,
+		quicTargetsMissingServerId:    controllerQuicTargetMissingServerId,
 	}
 }

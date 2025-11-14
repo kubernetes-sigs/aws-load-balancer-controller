@@ -3,6 +3,7 @@ package targetgroupbinding
 import (
 	"encoding/json"
 	"fmt"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,7 +45,7 @@ func calculateTGBReconcileCheckpoint[V backend.Endpoint](endpoints []V, tgb *elb
 	endpointStrings := make([]string, 0, len(endpoints))
 
 	for _, ep := range endpoints {
-		endpointStrings = append(endpointStrings, ep.GetIdentifier(true))
+		endpointStrings = append(endpointStrings, ep.GetIdentifier(true, tgbProtocolSupportsQuic(tgb)))
 	}
 
 	slices.Sort(endpointStrings)
@@ -69,18 +70,6 @@ func GetTGBReconcileCheckpoint(tgb *elbv2api.TargetGroupBinding) string {
 	return ""
 }
 
-// GetTGBReconcileCheckpointTimestamp gets the latest updated timestamp (in seconds) for the TGB checkpoint
-func GetTGBReconcileCheckpointTimestamp(tgb *elbv2api.TargetGroupBinding) int64 {
-	if ts, ok := tgb.Annotations[annotations.AnnotationCheckPointTimestamp]; ok {
-		ts64, err := strconv.ParseInt(ts, 10, 64)
-		if err != nil {
-			return 0
-		}
-		return ts64
-	}
-	return 0
-}
-
 // SaveTGBReconcileCheckpoint updates the TGB object with a new checkpoint string.
 func SaveTGBReconcileCheckpoint(tgb *elbv2api.TargetGroupBinding, checkpoint string) {
 	if tgb.Annotations == nil {
@@ -96,4 +85,8 @@ func buildServiceReferenceKey(tgb *elbv2api.TargetGroupBinding, svcRef elbv2api.
 		Namespace: tgb.Namespace,
 		Name:      svcRef.Name,
 	}
+}
+
+func tgbProtocolSupportsQuic(tgb *elbv2api.TargetGroupBinding) bool {
+	return tgb.Spec.TargetGroupProtocol != nil && (*tgb.Spec.TargetGroupProtocol == elbv2.ProtocolQUIC || *tgb.Spec.TargetGroupProtocol == elbv2.ProtocolTCP_QUIC)
 }

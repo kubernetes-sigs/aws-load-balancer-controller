@@ -9,7 +9,7 @@ import (
 )
 
 type Endpoint interface {
-	GetIdentifier(includeTimestamp bool) string
+	GetIdentifier(includeTimestamp bool, includeQuicServerId bool) string
 }
 
 // An endpoint provided by pod directly.
@@ -18,15 +18,23 @@ type PodEndpoint struct {
 	IP string
 	// Pod's container port.
 	Port int32
+	// [QUIC] The ServerID for the IP:Port
+	QuicServerID *string
 	// Pod that provides this endpoint.
 	Pod k8s.PodInfo
 }
 
-func (e PodEndpoint) GetIdentifier(includeTimestamp bool) string {
-	if includeTimestamp {
-		return fmt.Sprintf("%s:%d:%d", e.IP, e.Port, e.Pod.CreationTime.UnixMilli())
+func (e PodEndpoint) GetIdentifier(includeTimestamp bool, includeQuicServerId bool) string {
+	baseString := fmt.Sprintf("%s:%d", e.IP, e.Port)
+
+	if e.QuicServerID != nil && includeQuicServerId {
+		baseString = fmt.Sprintf("%s:%s", baseString, *e.QuicServerID)
 	}
-	return fmt.Sprintf("%s:%d", e.IP, e.Port)
+
+	if includeTimestamp {
+		return fmt.Sprintf("%s:%d", baseString, e.Pod.CreationTime.UnixMilli())
+	}
+	return baseString
 }
 
 // An endpoint provided by nodePort as traffic proxy.
@@ -39,7 +47,9 @@ type NodePortEndpoint struct {
 	Node *corev1.Node
 }
 
-func (e NodePortEndpoint) GetIdentifier(includeTimestamp bool) string {
+// Instance targets do not support QUIC (for LBC)
+
+func (e NodePortEndpoint) GetIdentifier(includeTimestamp bool, _ bool) string {
 	if includeTimestamp {
 		return fmt.Sprintf("%s:%d:%d", e.InstanceID, e.Port, e.Node.CreationTimestamp.UnixMilli())
 	}

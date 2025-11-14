@@ -2,7 +2,7 @@
 This document primarily covers the runtime configuration options for the AWS Load Balancer Controller. For installation-specific configuration options, see the [Helm chart values documentation](https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller#configuration).
 
 !!!warning "limitation"
-    The v2.0.0+ version of AWSLoadBalancerController currently only support one controller deployment(with one or multiple replicas) per cluster.
+The v2.0.0+ version of AWSLoadBalancerController currently only support one controller deployment(with one or multiple replicas) per cluster.
 
     The AWSLoadBalancerController assumes it's the solo owner of worker node security group rules with `elbv2.k8s.aws/targetGroupBinding=shared` description, running multiple controller deployment will cause these controllers compete with each other updating worker node security group rules.
 
@@ -62,7 +62,7 @@ Currently, you can set only 1 namespace to watch in this flag. See [this Kuberne
 ## Controller command line flags
 
 !!!warning ""
-    The --cluster-name flag is mandatory and the value must match the name of the kubernetes cluster. If you specify an incorrect name, the subnet auto-discovery will not work.
+The --cluster-name flag is mandatory and the value must match the name of the kubernetes cluster. If you specify an incorrect name, the subnet auto-discovery will not work.
 
 | Flag                                                                            | Type                            | Default                                    | Description                                                                                                                                                                   |
 |---------------------------------------------------------------------------------|---------------------------------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

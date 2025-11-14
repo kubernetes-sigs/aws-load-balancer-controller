@@ -40,6 +40,13 @@ func (m *MockCollector) ObservePodReadinessGateReady(namespace string, tgbName s
 	m.recordHistogram(MetricPodReadinessGateReady, namespace, tgbName, d)
 }
 
+func (m *MockCollector) ObserveQUICTargetMissingServerId(namespace string, tgbName string) {
+	m.Invocations[MetricQuicTargetMissingServerId] = append(m.Invocations[MetricQuicTargetMissingServerId], MockCounterMetric{
+		labelNamespace: namespace,
+		labelName:      tgbName,
+	})
+}
+
 func (m *MockCollector) ObserveControllerReconcileError(controller string, errorCategory string) {
 	m.Invocations[MetricControllerReconcileErrors] = append(m.Invocations[MetricControllerReconcileErrors], MockCounterMetric{
 		labelController:    controller,

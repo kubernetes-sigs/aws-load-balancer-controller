@@ -29,6 +29,8 @@ import (
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/referencecounter"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/pod_readiness"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/quic"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -56,7 +58,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
@@ -170,7 +171,7 @@ func main() {
 
 	nlbGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.NLBGatewayAPI)
 	albGatewayEnabled := controllerCFG.FeatureGates.Enabled(config.ALBGatewayAPI)
-	podInfoRepo := k8s.NewDefaultPodInfoRepo(clientSet.CoreV1().RESTClient(), controllerCFG.RuntimeConfig.WatchNamespace, ctrl.Log)
+	podInfoRepo := k8s.NewDefaultPodInfoRepo(clientSet.CoreV1().RESTClient(), controllerCFG.RuntimeConfig.WatchNamespace, controllerCFG.ServerIDInjectionConfig.EnvironmentVariableName, ctrl.Log)
 	finalizerManager := k8s.NewDefaultFinalizerManager(mgr.GetClient(), ctrl.Log)
 	sgManager := networking.NewDefaultSecurityGroupManager(cloud.EC2(), ctrl.Log)
 	sgReconciler := networking.NewDefaultSecurityGroupReconciler(sgManager, ctrl.Log)
@@ -407,9 +408,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	podReadinessGateInjector := inject.NewPodReadinessGate(controllerCFG.PodWebhookConfig,
+	podReadinessGateInjector := pod_readiness.NewPodReadinessGate(controllerCFG.PodWebhookConfig,
 		mgr.GetClient(), ctrl.Log.WithName("pod-readiness-gate-injector"))
-	corewebhook.NewPodMutator(podReadinessGateInjector, lbcMetricsCollector).SetupWithManager(mgr)
+
+	quicServerIDInjector := quic.NewQUICServerIDInjector(controllerCFG.ServerIDInjectionConfig, mgr.GetClient(), mgr.GetAPIReader(), ctrl.Log.WithName("quic-server-id-injector"))
+
+	corewebhook.NewPodReadinessGateMutator(podReadinessGateInjector, lbcMetricsCollector).SetupWithManager(mgr)
+	corewebhook.NewPodServerIDMutator(quicServerIDInjector, lbcMetricsCollector).SetupWithManager(mgr)
 	corewebhook.NewServiceMutator(controllerCFG.ServiceConfig.LoadBalancerClass, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewIngressClassParamsValidator(lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
