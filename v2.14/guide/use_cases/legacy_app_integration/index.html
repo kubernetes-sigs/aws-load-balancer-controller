@@ -9,32 +9,28 @@
       
       
       
-        <link rel="prev" href="..">
       
       
-        <link rel="next" href="../deploy/installation/">
-      
-      
-      <link rel="icon" href="../assets/images/aws_load_balancer_icon.svg">
+      <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
       <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
     
     
       
-        <title>How it works - AWS Load Balancer Controller</title>
+        <title>Legacy App Integration - AWS Load Balancer Controller</title>
       
     
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.3cba04c6.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.3cba04c6.min.css">
       
         
-        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
       
       
 
 
     
-    <link rel="stylesheet" href="../assets/stylesheets/version-select.css">
+    <link rel="stylesheet" href="../../../assets/stylesheets/version-select.css">
 
     
       
@@ -51,7 +47,7 @@
     
       <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
     
-    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
 
@@ -75,7 +71,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#how-aws-load-balancer-controller-works" class="md-skip">
+        <a href="#motivation" class="md-skip">
           Skip to content
         </a>
       
@@ -93,7 +89,7 @@
   
       <!-- Link to home -->
       <a
-        href=".."
+        href="../../.."
         title="AWS Load Balancer Controller"
         class="md-header__button md-logo"
         aria-label="AWS Load Balancer Controller"
@@ -121,7 +117,7 @@
           <div class="md-header__topic" data-md-component="header-topic">
             <span class="md-ellipsis">
               
-                How it works
+                Legacy App Integration
               
             </span>
           </div>
@@ -131,7 +127,7 @@
       <!-- Color palette -->
       
 
-      <div id="version-select" class="mdc-select" data-base-url="..">
+      <div id="version-select" class="mdc-select" data-base-url="../../..">
     <div class="mdc-select__anchor" role="button">
         <span class="mdc-select__ripple"></span>
         <span class="mdc-select__selected-text-container">
@@ -190,13 +186,11 @@
         
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href=".." class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
           
   
   Home
@@ -214,7 +208,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../deploy/installation/" class="md-tabs__link">
+        <a href="../../../deploy/installation/" class="md-tabs__link">
           
   
   Deployment
@@ -238,7 +232,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../guide/ingress/annotations/" class="md-tabs__link">
+        <a href="../../ingress/annotations/" class="md-tabs__link">
           
   
   Guide
@@ -259,7 +253,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../examples/echo_server/" class="md-tabs__link">
+        <a href="../../../examples/echo_server/" class="md-tabs__link">
           
   
   Examples
@@ -292,7 +286,7 @@
 
 <nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href=".." title="AWS Load Balancer Controller" class="md-nav__button md-logo" aria-label="AWS Load Balancer Controller" data-md-component="logo">
+    <a href="../../.." title="AWS Load Balancer Controller" class="md-nav__button md-logo" aria-label="AWS Load Balancer Controller" data-md-component="logo">
       
   
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
@@ -319,28 +313,23 @@
       
   
   
-    
   
   
-  
     
     
     
       
-        
-        
-      
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
         
           
-          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -351,7 +340,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_1">
             <span class="md-nav__icon md-icon"></span>
             Home
@@ -365,7 +354,7 @@
   
   
     <li class="md-nav__item">
-      <a href=".." class="md-nav__link">
+      <a href="../../.." class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -383,30 +372,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  <span class="md-ellipsis">
-    How it works
-  </span>
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../../how-it-works/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -415,83 +384,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#design" class="md-nav__link">
-    <span class="md-ellipsis">
-      Design
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Design">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#ingress-creation" class="md-nav__link">
-    <span class="md-ellipsis">
-      Ingress Creation
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ingress-traffic" class="md-nav__link">
-    <span class="md-ellipsis">
-      Ingress Traffic
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Ingress Traffic">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#instance-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      Instance mode
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ip-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      IP mode
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -549,7 +441,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deploy/installation/" class="md-nav__link">
+      <a href="../../../deploy/installation/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -570,7 +462,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deploy/configurations/" class="md-nav__link">
+      <a href="../../../deploy/configurations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -591,7 +483,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deploy/subnet_discovery/" class="md-nav__link">
+      <a href="../../../deploy/subnet_discovery/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -612,7 +504,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deploy/security_groups/" class="md-nav__link">
+      <a href="../../../deploy/security_groups/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -633,7 +525,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deploy/pod_readiness_gate/" class="md-nav__link">
+      <a href="../../../deploy/pod_readiness_gate/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -654,7 +546,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deploy/scaling/" class="md-nav__link">
+      <a href="../../../deploy/scaling/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -713,7 +605,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
+      <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -825,7 +717,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/ingress/annotations/" class="md-nav__link">
+      <a href="../../ingress/annotations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -846,7 +738,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/ingress/spec/" class="md-nav__link">
+      <a href="../../ingress/spec/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -867,7 +759,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/ingress/ingress_class/" class="md-nav__link">
+      <a href="../../ingress/ingress_class/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -888,7 +780,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/ingress/cert_discovery/" class="md-nav__link">
+      <a href="../../ingress/cert_discovery/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -955,7 +847,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/service/nlb/" class="md-nav__link">
+      <a href="../../service/nlb/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -976,7 +868,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/service/annotations/" class="md-nav__link">
+      <a href="../../service/annotations/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1043,7 +935,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/targetgroupbinding/targetgroupbinding/" class="md-nav__link">
+      <a href="../../targetgroupbinding/targetgroupbinding/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1064,7 +956,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/targetgroupbinding/spec/" class="md-nav__link">
+      <a href="../../targetgroupbinding/spec/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1131,7 +1023,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/gateway/gateway/" class="md-nav__link">
+      <a href="../../gateway/gateway/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1152,7 +1044,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/gateway/l4gateway/" class="md-nav__link">
+      <a href="../../gateway/l4gateway/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1173,7 +1065,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/gateway/l7gateway/" class="md-nav__link">
+      <a href="../../gateway/l7gateway/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1232,7 +1124,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/gateway/customization/" class="md-nav__link">
+      <a href="../../gateway/customization/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1253,7 +1145,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/gateway/loadbalancerconfig/" class="md-nav__link">
+      <a href="../../gateway/loadbalancerconfig/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1274,7 +1166,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/gateway/targetgroupconfig/" class="md-nav__link">
+      <a href="../../gateway/targetgroupconfig/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1295,7 +1187,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/gateway/listenerruleconfig/" class="md-nav__link">
+      <a href="../../gateway/listenerruleconfig/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1316,7 +1208,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/gateway/spec/" class="md-nav__link">
+      <a href="../../gateway/spec/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1391,7 +1283,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/tasks/cognito_authentication/" class="md-nav__link">
+      <a href="../../tasks/cognito_authentication/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1412,7 +1304,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/tasks/ssl_redirect/" class="md-nav__link">
+      <a href="../../tasks/ssl_redirect/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1433,7 +1325,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/tasks/url_rewrite/" class="md-nav__link">
+      <a href="../../tasks/url_rewrite/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1500,7 +1392,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/use_cases/nlb_tls_termination/" class="md-nav__link">
+      <a href="../nlb_tls_termination/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1521,7 +1413,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/use_cases/self_managed_lb/" class="md-nav__link">
+      <a href="../self_managed_lb/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1542,7 +1434,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/use_cases/frontend_sg/" class="md-nav__link">
+      <a href="../frontend_sg/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1563,7 +1455,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/use_cases/blue_green/" class="md-nav__link">
+      <a href="../blue_green/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1584,7 +1476,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/use_cases/multi_cluster/" class="md-nav__link">
+      <a href="../multi_cluster/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1605,7 +1497,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/use_cases/quic/" class="md-nav__link">
+      <a href="../quic/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1672,7 +1564,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/metrics/prometheus/" class="md-nav__link">
+      <a href="../../metrics/prometheus/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1746,7 +1638,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/echo_server/" class="md-nav__link">
+      <a href="../../../examples/echo_server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1767,7 +1659,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/grpc_server/" class="md-nav__link">
+      <a href="../../../examples/grpc_server/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1788,7 +1680,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../guide/integrations/external_dns/" class="md-nav__link">
+      <a href="../../integrations/external_dns/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1809,7 +1701,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../examples/secrets_access/" class="md-nav__link">
+      <a href="../../../examples/secrets_access/" class="md-nav__link">
         
   
   <span class="md-ellipsis">
@@ -1847,8 +1739,6 @@
   
   
   
-    
-  
   
     <label class="md-nav__title" for="__toc">
       <span class="md-nav__icon md-icon"></span>
@@ -1857,47 +1747,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#design" class="md-nav__link">
+  <a href="#motivation" class="md-nav__link">
     <span class="md-ellipsis">
-      Design
+      Motivation
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Design">
+    <nav class="md-nav" aria-label="Motivation">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#ingress-creation" class="md-nav__link">
+  <a href="#approach-1-externally-managed-load-balancer" class="md-nav__link">
     <span class="md-ellipsis">
-      Ingress Creation
+      Approach 1 : Externally Managed Load Balancer
     </span>
   </a>
   
 </li>
         
           <li class="md-nav__item">
-  <a href="#ingress-traffic" class="md-nav__link">
+  <a href="#approach-2-actions-annotation" class="md-nav__link">
     <span class="md-ellipsis">
-      Ingress Traffic
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Ingress Traffic">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#instance-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      Instance mode
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#ip-mode" class="md-nav__link">
-    <span class="md-ellipsis">
-      IP mode
+      Approach 2 : actions annotation
     </span>
   </a>
   
@@ -1907,9 +1778,55 @@
     </nav>
   
 </li>
+      
+        <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    <span class="md-ellipsis">
+      Prerequisites
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#example" class="md-nav__link">
+    <span class="md-ellipsis">
+      Example
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Example">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#testing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Testing
+    </span>
+  </a>
+  
+</li>
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#considerations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Considerations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#references" class="md-nav__link">
+    <span class="md-ellipsis">
+      References
+    </span>
+  </a>
   
 </li>
       
@@ -1931,49 +1848,119 @@
   
 
 
-<h1 id="how-aws-load-balancer-controller-works">How AWS Load Balancer controller works<a class="headerlink" href="#how-aws-load-balancer-controller-works" title="Permanent link">&para;</a></h1>
-<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
-<p>The following diagram details the AWS components this controller creates. It also demonstrates the route ingress traffic takes from the ALB to the Kubernetes cluster.</p>
-<p><img alt="controller-design" src="../assets/images/controller-design.png" /></p>
-<div class="admonition warning">
-<p class="admonition-title">Note</p>
-<p>The controller manages the configurations of the resources it creates, and we do not recommend out-of-band modifications to these resources because the controller may revert the manual changes during reconciliation. We recommend to use configuration options provided as best practice, such as ingress and service annotations, controller command line flags and IngressClassParams.</p>
-</div>
-<h3 id="ingress-creation">Ingress Creation<a class="headerlink" href="#ingress-creation" title="Permanent link">&para;</a></h3>
-<p>This section describes each step (circle) above. This example demonstrates satisfying 1 ingress resource.</p>
-<p><strong>[1]</strong>: The controller watches for <a href="https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-controllers">ingress
-events</a> from the API server. When it
-finds ingress resources that satisfy its requirements, it begins the creation of AWS resources.</p>
-<p><strong>[2]</strong>: An
-<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/introduction.html">ALB</a> (ELBv2) is created in AWS for the new ingress resource. This ALB can be internet-facing or internal. You can also specify the subnets it's created in
-using annotations.</p>
-<p><strong>[3]</strong>: <a href="http://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html">Target Groups</a> are created in AWS for each unique Kubernetes service described in the ingress resource.</p>
-<p><strong>[4]</strong>: <a href="http://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html">Listeners</a> are created for every port detailed in your ingress resource annotations. When no port is specified, sensible defaults (<code>80</code> or <code>443</code>) are used. Certificates may also be attached via annotations.</p>
-<p><strong>[5]</strong>: <a href="http://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-update-rules.html">Rules</a> are created for each path specified in your ingress resource. This ensures traffic to a specific path is routed to the correct Kubernetes Service.</p>
-<p>Along with the above, the controller also...</p>
+  <h1>Legacy App Integration</h1>
+
+<h2 id="motivation">Motivation<a class="headerlink" href="#motivation" title="Permanent link">&para;</a></h2>
+<p>Organizations may need a unified load balancing approach to maintain operational simplicity and cost efficiency while gradually migrating from legacy Amazon EC2 based applications to modern Amazon EKS microservices. This single load balancer strategy enables seamless user experience and supports phased modernization without disrupting existing services during digital transformation initiatives. The AWS Load Balancer Controller provides two approaches to achieve this unified load balancing architecture with an Application Load Balancer (ALB). This document dives into the implementation details of the second approach.</p>
+<h3 id="approach-1-externally-managed-load-balancer">Approach 1 : <a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/use_cases/self_managed_lb/">Externally Managed Load Balancer</a><a class="headerlink" href="#approach-1-externally-managed-load-balancer" title="Permanent link">&para;</a></h3>
+<p>In this approach, there are no Ingress objects configured on the EKS cluster. Instead:</p>
+<ol>
+<li>Configure all forwarding rules and target groups directly on the AWS ALB using preferred tool (AWS SDK, CDK, API, CloudFormation, Terraform, etc.)</li>
+<li>Configure TargetGroupBinding objects on the EKS cluster to associate each Kubernetes Service with a Target Group on the AWS ALB</li>
+<li>The AWS Load Balancer Controller continuously tracks TargetGroupBindings and updates the target groups as pods change</li>
+</ol>
+<h3 id="approach-2-actions-annotation">Approach 2 : <code>actions</code> annotation<a class="headerlink" href="#approach-2-actions-annotation" title="Permanent link">&para;</a></h3>
+<p>In this approach,</p>
+<ol>
+<li>Configure Ingress objects on the EKS cluster</li>
+<li>Configure target groups for legacy applications on the ALB</li>
+<li>Use the <a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/guide/ingress/annotations/#actions">alb.ingress.kubernetes.io/actions.${action-name}</a> annotation that associates the specific ingress rules with the target groups configured for legacy applications</li>
+<li>When the Ingress object is deleted, the controller automatically deletes the associated target group(s)</li>
+</ol>
+<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h2>
 <ul>
-<li>deletes AWS components when ingress resources are removed from k8s.</li>
-<li>modifies AWS components when ingress resources change in k8s.</li>
-<li>assembles a list of existing ingress-related AWS components on start-up, allowing you to
-  recover if the controller were to be restarted.</li>
+<li>An EKS Cluster with <a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/latest/deploy/installation/">AWS Load Balancer Controller</a></li>
+<li><a href="https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/">kubectl</a></li>
+<li>A few EC2 instances to simulate a legacy application. </li>
+<li>A sample application on the EKS cluster which is exposed through a Kubernetes service </li>
 </ul>
-<h3 id="ingress-traffic">Ingress Traffic<a class="headerlink" href="#ingress-traffic" title="Permanent link">&para;</a></h3>
-<p>AWS Load Balancer controller supports two traffic modes:</p>
+<h2 id="example">Example<a class="headerlink" href="#example" title="Permanent link">&para;</a></h2>
+<ol>
+<li>Create an Ingress object for the sample application. Sample manifest shown below.</li>
+</ol>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name </span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myingress</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/load-balancer-name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">myalb</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/scheme</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">internet-facing</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/target-type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ip</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">ingressClassName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">alb</span>
+<span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">http</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">paths</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">sampleservice</span>
+<span class="w">            </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">number</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80</span>
+<span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/sampleapp</span>
+<span class="w">        </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Prefix</span>
+</code></pre></div>
+<p>In this example the sample application on the EKS cluster is exposed through a Kubernetes service type of <code>ClusterIP</code> with the name <code>sampleservice</code>.</p>
+<ol>
+<li>Configure a Target Group for Legacy Application</li>
+</ol>
+<p>Navigate to the AWS Console and locate the ALB created by the AWS Load Balancer Controller. Create a new target group for the legacy application. Add the EC2 instances as targets. Copy the Amazon Resource Name (ARN) of the target group.</p>
+<ol>
+<li>Update the Ingress object to include routing rules for the legacy application</li>
+</ol>
+<p>Use <code>kubectl edit ingress myingress</code> or any other method to apply these changes.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">networking.k8s.io/v1</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Ingress</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">annotations</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">alb.ingress.kubernetes.io/actions.ec2</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">|</span>
+<span class="w">      </span><span class="no">{</span>
+<span class="w">        </span><span class="no">&quot;type&quot;:&quot;forward&quot;,</span>
+<span class="w">        </span><span class="no">&quot;targetGroupARN&quot;: &quot;YOUR_TARGET_GROUP_ARN_HERE&quot;</span>
+<span class="w">      </span><span class="no">}</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">http</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">paths</span><span class="p">:</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">backend</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">service</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ec2</span>
+<span class="w">            </span><span class="nt">port</span><span class="p">:</span>
+<span class="w">              </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">use-annotation</span>
+<span class="w">        </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">/legacy</span>
+<span class="w">        </span><span class="nt">pathType</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Exact</span>
+</code></pre></div>
+<p>The <code>action-name</code> in the annotation must match the serviceName in the Ingress rules, and servicePort must be <code>use-annotation</code>. In this example the action-name of <code>ec2</code> matches the serviceName <code>ec2</code>. </p>
+<h3 id="testing">Testing<a class="headerlink" href="#testing" title="Permanent link">&para;</a></h3>
+<p>From a client machine, test access to all applications using the ALB DNS name:</p>
 <ul>
-<li>Instance mode</li>
-<li>IP mode</li>
+<li><strong>Legacy application</strong>: <code>curl http://ALB_DNS_NAME/legacy</code></li>
+<li><strong>Microservice</strong>: <code>curl http://ALB_DNS_NAME/sampleapp</code>  </li>
 </ul>
-<p>By default, <code>Instance mode</code> is used, users can explicitly select the mode via <code>alb.ingress.kubernetes.io/target-type</code> annotation.</p>
-<h4 id="instance-mode">Instance mode<a class="headerlink" href="#instance-mode" title="Permanent link">&para;</a></h4>
-<p>Ingress traffic starts at the ALB and reaches the Kubernetes nodes through each service's NodePort. This means that services referenced from ingress resources must be exposed by <code>type:NodePort</code> in order to be reached by the ALB.</p>
-<h4 id="ip-mode">IP mode<a class="headerlink" href="#ip-mode" title="Permanent link">&para;</a></h4>
-<p>Ingress traffic starts at the ALB and reaches the Kubernetes pods directly. CNIs must support directly accessible POD ip via <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-eni.html">secondary IP addresses on ENI</a>.</p>
+<h2 id="considerations">Considerations<a class="headerlink" href="#considerations" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Review ALB service quotas to ensure your architecture fits within limits</li>
+<li>Use the <code>group.name</code> annotation to group multiple Ingress objects on the same ALB</li>
+<li>Use the <code>group.order</code> annotation to prioritize Ingress objects in the ALB rules list for better performance</li>
+<li>When deleting Ingress objects, the controller will automatically clean up associated target groups</li>
+</ul>
+<h2 id="references">References<a class="headerlink" href="#references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.13/guide/targetgroupbinding/targetgroupbinding/">TargetGroupBinding Documentation</a></li>
+<li><a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.13/guide/ingress/annotations/#actions">Ingress Actions Annotation</a></li>
+<li><a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/listener-rules.html">ALB Listener Rules</a></li>
+<li><a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-limits.html">ALB Service Quotas</a></li>
+<li><a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.13/guide/ingress/annotations/#group.name">Group Name Annotation</a></li>
+<li><a href="https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.13/guide/ingress/annotations/#group.order">Group Order Annotation</a></li>
+</ul>
 
 
 
 
 
 
+
+  
+  
 
 
 
@@ -2014,16 +2001,16 @@ using annotations.</p>
     </div>
     
     
-    <script id="__config" type="application/json">{"base": "..", "features": ["navigation.tabs"], "search": "../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
     
-      <script src="../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
       
         <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
       
     
-    <script src="../assets/javascripts/version-select.js"></script>
+    <script src="../../../assets/javascripts/version-select.js"></script>
 
   </body>
 </html>

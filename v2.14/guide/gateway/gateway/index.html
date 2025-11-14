@@ -1185,6 +1185,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#specify-out-of-band-target-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      Specify out-of-band Target Groups
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1419,7 +1428,7 @@
             
   
   <span class="md-ellipsis">
-    Global Accelerator
+    Tasks
   </span>
   
 
@@ -1428,73 +1437,6 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_5">
-            <span class="md-nav__icon md-icon"></span>
-            Global Accelerator
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../globalaccelerator/spec/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Specification
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
-            
-  
-  <span class="md-ellipsis">
-    Tasks
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Tasks
           </label>
@@ -1588,10 +1530,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
         
           
-          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1602,8 +1544,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Use Cases
           </label>
@@ -1714,6 +1656,27 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/quic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    QUIC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1739,10 +1702,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
         
           
-          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1753,8 +1716,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_8">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
             <span class="md-nav__icon md-icon"></span>
             Metrics
           </label>
@@ -2053,6 +2016,15 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#specify-out-of-band-target-groups" class="md-nav__link">
+    <span class="md-ellipsis">
+      Specify out-of-band Target Groups
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -2197,6 +2169,29 @@ spec:
 the target group will not be materialized on any ALBs that the route attaches to.
 An <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_FixedResponseActionConfig.html">503 Fixed Response</a>
 will be added to any Listener Rules that would have referenced the invalid backend.</p>
+<h2 id="specify-out-of-band-target-groups">Specify out-of-band Target Groups<a class="headerlink" href="#specify-out-of-band-target-groups" title="Permanent link">&para;</a></h2>
+<p>Use an existing AWS Target Group with a Gateway-managed Load Balancer.
+This lets you integrate or migrate legacy applications that are already
+registered with an AWS Target Group outside the controller's lifecycle.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">apiVersion</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io/v1alpha2</span>
+<span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TCPRoute</span>
+<span class="nt">metadata</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tcproute</span>
+<span class="w">  </span><span class="nt">namespace</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">example-ns</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">parentRefs</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">gateway.networking.k8s.io</span>
+<span class="w">    </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Gateway</span>
+<span class="w">    </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nlb-gw</span>
+<span class="w">    </span><span class="nt">sectionName</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">tls</span>
+<span class="w">  </span><span class="nt">rules</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">backendRefs</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">group</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;&quot;</span>
+<span class="w">      </span><span class="nt">kind</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">TargetGroupName</span>
+<span class="w">      </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">test-gw-import123</span>
+<span class="w">      </span><span class="nt">weight</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1</span>
+</code></pre></div>
+<p>This support exists for all route types managed by the controller.</p>
 
 
 

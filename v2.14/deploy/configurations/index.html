@@ -1442,7 +1442,7 @@
             
   
   <span class="md-ellipsis">
-    Global Accelerator
+    Tasks
   </span>
   
 
@@ -1451,73 +1451,6 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3_5">
-            <span class="md-nav__icon md-icon"></span>
-            Global Accelerator
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../guide/globalaccelerator/spec/" class="md-nav__link">
-        
-  
-  <span class="md-ellipsis">
-    Specification
-  </span>
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
-        
-          
-          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
-            
-  
-  <span class="md-ellipsis">
-    Tasks
-  </span>
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Tasks
           </label>
@@ -1611,10 +1544,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
         
           
-          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1625,8 +1558,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_7">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
             <span class="md-nav__icon md-icon"></span>
             Use Cases
           </label>
@@ -1737,6 +1670,27 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/use_cases/quic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    QUIC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1762,10 +1716,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
         
           
-          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
             
   
   <span class="md-ellipsis">
@@ -1776,8 +1730,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3_8">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
             <span class="md-nav__icon md-icon"></span>
             Metrics
           </label>
@@ -2125,10 +2079,13 @@
 <p>This document primarily covers the runtime configuration options for the AWS Load Balancer Controller. For installation-specific configuration options, see the <a href="https://github.com/aws/eks-charts/tree/master/stable/aws-load-balancer-controller#configuration">Helm chart values documentation</a>.</p>
 <div class="admonition warning">
 <p class="admonition-title">limitation</p>
-<p>The v2.0.0+ version of AWSLoadBalancerController currently only support one controller deployment(with one or multiple replicas) per cluster.</p>
-<p>The AWSLoadBalancerController assumes it's the solo owner of worker node security group rules with <code>elbv2.k8s.aws/targetGroupBinding=shared</code> description, running multiple controller deployment will cause these controllers compete with each other updating worker node security group rules.</p>
-<p>We will remove this limitation in future versions: <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2185">tracking issue</a></p>
 </div>
+<p>The v2.0.0+ version of AWSLoadBalancerController currently only support one controller deployment(with one or multiple replicas) per cluster.</p>
+<div class="codehilite"><pre><span></span><code><span class="n">The</span><span class="w"> </span><span class="n">AWSLoadBalancerController</span><span class="w"> </span><span class="n">assumes</span><span class="w"> </span><span class="n">it</span><span class="err">&#39;</span><span class="n">s</span><span class="w"> </span><span class="n">the</span><span class="w"> </span><span class="n">solo</span><span class="w"> </span><span class="n">owner</span><span class="w"> </span><span class="n">of</span><span class="w"> </span><span class="n">worker</span><span class="w"> </span><span class="n">node</span><span class="w"> </span><span class="n">security</span><span class="w"> </span><span class="n">group</span><span class="w"> </span><span class="n">rules</span><span class="w"> </span><span class="n">with</span><span class="w"> </span><span class="err">`</span><span class="n">elbv2</span><span class="p">.</span><span class="n">k8s</span><span class="p">.</span><span class="n">aws</span><span class="o">/</span><span class="n">targetGroupBinding</span><span class="o">=</span><span class="n">shared</span><span class="err">`</span><span class="w"> </span><span class="n">description</span><span class="p">,</span><span class="w"> </span><span class="n">running</span><span class="w"> </span><span class="n">multiple</span><span class="w"> </span><span class="n">controller</span><span class="w"> </span><span class="n">deployment</span><span class="w"> </span><span class="n">will</span><span class="w"> </span><span class="n">cause</span><span class="w"> </span><span class="n">these</span><span class="w"> </span><span class="n">controllers</span><span class="w"> </span><span class="n">compete</span><span class="w"> </span><span class="n">with</span><span class="w"> </span><span class="n">each</span><span class="w"> </span><span class="n">other</span><span class="w"> </span><span class="n">updating</span><span class="w"> </span><span class="n">worker</span><span class="w"> </span><span class="n">node</span><span class="w"> </span><span class="n">security</span><span class="w"> </span><span class="n">group</span><span class="w"> </span><span class="n">rules</span><span class="p">.</span>
+
+<span class="n">We</span><span class="w"> </span><span class="n">will</span><span class="w"> </span><span class="n">remove</span><span class="w"> </span><span class="n">this</span><span class="w"> </span><span class="n">limitation</span><span class="w"> </span><span class="k">in</span><span class="w"> </span><span class="n">future</span><span class="w"> </span><span class="n">versions</span><span class="o">:</span><span class="w"> </span><span class="p">[</span><span class="n">tracking</span><span class="w"> </span><span class="n">issue</span><span class="p">](</span><span class="n">https</span><span class="o">:</span><span class="c1">//github.com/kubernetes-sigs/aws-load-balancer-controller/issues/2185)</span>
+</code></pre></div>
+
 <h2 id="aws-api-access">AWS API Access<a class="headerlink" href="#aws-api-access" title="Permanent link">&para;</a></h2>
 <p>To perform operations, the controller must have required IAM role capabilities for accessing and
 provisioning ALB resources. There are many ways to achieve this, such as loading <code>AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY</code> as environment variables or using <a href="https://github.com/jtblin/kube2iam">kube2iam</a>.</p>
@@ -2165,9 +2122,8 @@ provisioning ALB resources. There are many ways to achieve this, such as loading
 <div class="admonition note"></div>
 <p>Currently, you can set only 1 namespace to watch in this flag. See <a href="https://github.com/kubernetes/contrib/issues/847">this Kubernetes issue</a> for more details.</p>
 <h2 id="controller-command-line-flags">Controller command line flags<a class="headerlink" href="#controller-command-line-flags" title="Permanent link">&para;</a></h2>
-<div class="admonition warning">
+<div class="admonition warning"></div>
 <p>The --cluster-name flag is mandatory and the value must match the name of the kubernetes cluster. If you specify an incorrect name, the subnet auto-discovery will not work.</p>
-</div>
 <table>
 <thead>
 <tr>
