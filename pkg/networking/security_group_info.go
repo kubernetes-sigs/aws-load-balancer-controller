@@ -23,6 +23,9 @@ type SecurityGroupInfo struct {
 	// Ingress permission for securityGroup.
 	Ingress []IPPermissionInfo
 
+	// Egress permission for securityGroup
+	Egress []IPPermissionInfo
+
 	// Tags for securityGroup.
 	Tags map[string]string
 }
@@ -74,10 +77,17 @@ func NewRawSecurityGroupInfo(sdkSG ec2types.SecurityGroup) SecurityGroupInfo {
 			ingress = append(ingress, NewRawIPPermission(expandedPermission))
 		}
 	}
+	var egress []IPPermissionInfo
+	for _, sdkPermission := range sdkSG.IpPermissionsEgress {
+		for _, expandedPermission := range expandSDKIPPermission(sdkPermission) {
+			egress = append(egress, NewRawIPPermission(expandedPermission))
+		}
+	}
 	tags := buildSecurityGroupTags(sdkSG)
 	return SecurityGroupInfo{
 		SecurityGroupID: sgID,
 		Ingress:         ingress,
+		Egress:          egress,
 		Tags:            tags,
 	}
 }

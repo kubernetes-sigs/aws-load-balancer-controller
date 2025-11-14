@@ -5,8 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"regexp"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strings"
 
@@ -41,11 +43,18 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupSpec(ctx context.Contex
 	if err != nil {
 		return ec2model.SecurityGroupSpec{}, err
 	}
+
+	egressPermissions, err := t.buildManagedSecurityGroupEgressPermissions(ctx, ipAddressType)
+	if err != nil {
+		return ec2model.SecurityGroupSpec{}, err
+	}
+
 	return ec2model.SecurityGroupSpec{
 		GroupName:   name,
 		Description: "[k8s] Managed SecurityGroup for LoadBalancer",
 		Tags:        tags,
 		Ingress:     ingressPermissions,
+		Egress:      egressPermissions,
 	}, nil
 }
 
@@ -144,6 +153,72 @@ func (t *defaultModelBuildTask) buildManagedSecurityGroupIngressPermissions(ctx 
 	}
 
 	return permissions, nil
+}
+
+func (t *defaultModelBuildTask) buildManagedSecurityGroupEgressPermissions(ctx context.Context, ipAddressType elbv2model.IPAddressType) ([]ec2model.IPPermission, error) {
+	permissions := []ec2model.IPPermission{}
+
+	cidrs, err := t.buildExplicitOutboundCIDRs(ctx, ipAddressType)
+	if err != nil {
+		return nil, err
+	}
+
+	if cidrs == nil {
+		return nil, nil
+	}
+
+	for _, port := range t.service.Spec.Ports {
+		listenPort := int32(port.Port)
+		for _, cidr := range cidrs {
+			if !strings.Contains(cidr, ":") {
+				permissions = append(permissions, ec2model.IPPermission{
+					IPProtocol: strings.ToLower(string(port.Protocol)),
+					FromPort:   awssdk.Int32(listenPort),
+					ToPort:     awssdk.Int32(listenPort),
+					IPRanges: []ec2model.IPRange{
+						{
+							CIDRIP: cidr,
+						},
+					},
+				})
+			} else {
+				permissions = append(permissions, ec2model.IPPermission{
+					IPProtocol: strings.ToLower(string(port.Protocol)),
+					FromPort:   awssdk.Int32(listenPort),
+					ToPort:     awssdk.Int32(listenPort),
+					IPv6Range: []ec2model.IPv6Range{
+						{
+							CIDRIPv6: cidr,
+						},
+					},
+				})
+			}
+		}
+	}
+
+	return permissions, nil
+}
+
+func (t *defaultModelBuildTask) buildExplicitOutboundCIDRs(_ context.Context, ipAddressType elbv2model.IPAddressType) ([]string, error) {
+	var rawOutboundCIDRs []string
+
+	exists := t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixOutboundCIDRs, &rawOutboundCIDRs, t.service.Annotations)
+	if !exists {
+		return nil, nil
+	}
+
+	outboundCIDRs := []string{}
+	for _, cidr := range rawOutboundCIDRs {
+		_, _, err := net.ParseCIDR(cidr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %v settings on Service: %v: %w", annotations.SvcLBSuffixOutboundCIDRs, k8s.NamespacedName(t.service), err)
+		}
+		if strings.Contains(cidr, ":") && ipAddressType != elbv2model.IPAddressTypeDualStack {
+			return nil, errors.Errorf("unsupported v6 cidr %v when lb is not dualstack", cidr)
+		}
+		outboundCIDRs = append(outboundCIDRs, cidr)
+	}
+	return outboundCIDRs, nil
 }
 
 func (t *defaultModelBuildTask) buildCIDRsFromSourceRanges(_ context.Context, ipAddressType elbv2model.IPAddressType, prefixListsConfigured bool) ([]string, error) {
