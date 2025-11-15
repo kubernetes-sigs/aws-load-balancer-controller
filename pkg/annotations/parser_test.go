@@ -50,7 +50,7 @@ func Test_annotationParser_ParseStringAnnotation(t *testing.T) {
 			wantValue: "nlb-ip",
 		},
 		{
-			name:   "Muiltiple annotations",
+			name:   "Multiple annotations",
 			prefix: "b.k.io",
 			suffix: "t2",
 			annotations: map[string]string{
