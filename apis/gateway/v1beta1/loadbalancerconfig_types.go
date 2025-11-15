@@ -20,7 +20,7 @@ const (
 // LoadBalancerScheme is the scheme of your LB
 //
 // * with `internal` scheme, the LB is only accessible within the VPC.
-// * with `internet-facing` scheme, the LB is accesible via the public internet.
+// * with `internet-facing` scheme, the LB is accessible via the public internet.
 type LoadBalancerScheme string
 
 const (
