@@ -3,19 +3,21 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 )
 
-func NewResourceStack(dp *appsv1.Deployment, svc *corev1.Service, baseName string, enablePodReadinessGate bool) *resourceStack {
+func NewResourceStack(dp *appsv1.Deployment, svc *corev1.Service, svcs []*corev1.Service, baseName string, enablePodReadinessGate bool) *resourceStack {
 	return &resourceStack{
 		dp:                     dp,
 		svc:                    svc,
+		nonLbTypeSvcs:          svcs,
 		baseName:               baseName,
 		enablePodReadinessGate: enablePodReadinessGate,
 	}
@@ -24,7 +26,8 @@ func NewResourceStack(dp *appsv1.Deployment, svc *corev1.Service, baseName strin
 // resourceStack containing the deployment and service resources
 type resourceStack struct {
 	// configurations
-	svc                    *corev1.Service
+	svc                    *corev1.Service   // Load balancer type service
+	nonLbTypeSvcs          []*corev1.Service // Use this for non-load balancer type services
 	dp                     *appsv1.Deployment
 	ns                     *corev1.Namespace
 	baseName               string
@@ -41,10 +44,13 @@ func (s *resourceStack) Deploy(ctx context.Context, f *framework.Framework) erro
 	}
 	s.dp.Namespace = s.ns.Name
 	s.svc.Namespace = s.ns.Name
+	for _, svc := range s.nonLbTypeSvcs {
+		svc.Namespace = s.ns.Name
+	}
 	if err := s.createDeployment(ctx, f); err != nil {
 		return err
 	}
-	if err := s.createService(ctx, f); err != nil {
+	if err := s.createServices(ctx, f); err != nil {
 		return err
 	}
 	if err := s.waitUntilDeploymentReady(ctx, f); err != nil {
@@ -197,10 +203,19 @@ func (s *resourceStack) waitUntilDeploymentReady(ctx context.Context, f *framewo
 	return nil
 }
 
-func (s *resourceStack) createService(ctx context.Context, f *framework.Framework) error {
+func (s *resourceStack) createServices(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("creating service", "svc", k8s.NamespacedName(s.svc))
 	if err := f.K8sClient.Create(ctx, s.svc); err != nil {
 		return err
+	}
+
+	for _, svc := range s.nonLbTypeSvcs {
+		f.Logger.Info("creating service", "svc", k8s.NamespacedName(svc))
+		svc = svc.DeepCopy()
+		if err := f.K8sClient.Create(ctx, svc); err != nil {
+			return err
+		}
+		f.Logger.Info("created service", "svc", k8s.NamespacedName(svc))
 	}
 	return nil
 }

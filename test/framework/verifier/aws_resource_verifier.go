@@ -240,7 +240,22 @@ func VerifyLoadBalancerTargetGroups(ctx context.Context, f *framework.Framework,
 	}
 
 	if len(validatedTGs) != len(expected.TargetGroups) {
-		return fmt.Errorf("target group mismatch expected [%+v] got [%+v]\n", expected.TargetGroups, targetGroups)
+		var actualTgs []string
+		for _, tg := range targetGroups {
+			actualTgs = append(actualTgs,
+				fmt.Sprintf("{Target group name: %s, ", awssdk.ToString(tg.TargetGroupName)),
+				fmt.Sprintf("Protocol: %s, ", string(tg.Protocol)),
+				fmt.Sprintf("Target type: %s, ", string(tg.TargetType)),
+				fmt.Sprintf("Health check protocol: %s, ", string(tg.HealthCheckProtocol)),
+				fmt.Sprintf("Health check port: %s, ", awssdk.ToString(tg.HealthCheckPort)),
+				fmt.Sprintf("Health check interval: %d, ", awssdk.ToInt32(tg.HealthCheckIntervalSeconds)),
+				fmt.Sprintf("Health check timeout: %d, ", awssdk.ToInt32(tg.HealthCheckTimeoutSeconds)),
+				fmt.Sprintf("Healthy threshold: %d, ", awssdk.ToInt32(tg.HealthyThresholdCount)),
+				fmt.Sprintf("Unhealthy threshold: %d}", awssdk.ToInt32(tg.UnhealthyThresholdCount)),
+			)
+		}
+		actualTgsDetails := strings.Join(actualTgs, "")
+		return fmt.Errorf("target group mismatch expected [%+v] got [%+v]\n", expected.TargetGroups, actualTgsDetails)
 	}
 	return nil
 }
