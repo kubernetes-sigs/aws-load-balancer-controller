@@ -1,12 +1,13 @@
 package routeutils
 
 import (
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_doesRouteAttachToGateway(t *testing.T) {
@@ -231,11 +232,18 @@ func Test_doesRouteAttachToGateway(t *testing.T) {
 }
 
 func Test_routeAllowsAttachmentToListener(t *testing.T) {
+	gw := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gw",
+			Namespace: "ns1",
+		},
+	}
 	testCases := []struct {
-		name     string
-		listener gwv1.Listener
-		route    preLoadRouteDescriptor
-		result   bool
+		name             string
+		listener         gwv1.Listener
+		route            preLoadRouteDescriptor
+		result           bool
+		failedRouteCount int
 	}{
 		{
 			name: "allows attachment section and port correct",
@@ -325,7 +333,8 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			result: true,
+			result:           true,
+			failedRouteCount: 3,
 		},
 		{
 			name: "multiple parent refs one ref none attachment",
@@ -357,6 +366,45 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
+			failedRouteCount: 4,
+		},
+		{
+			name: "section name mismatch",
+			route: convertHTTPRoute(gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								SectionName: (*gwv1.SectionName)(awssdk.String("wrongsection")),
+							},
+						},
+					},
+				},
+			}),
+			listener: gwv1.Listener{
+				Name: "sectionname",
+				Port: 80,
+			},
+			failedRouteCount: 1,
+		},
+		{
+			name: "port mismatch",
+			route: convertHTTPRoute(gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Port: (*gwv1.PortNumber)(awssdk.Int32(443)),
+							},
+						},
+					},
+				},
+			}),
+			listener: gwv1.Listener{
+				Name: "sectionname",
+				Port: 80,
+			},
+			failedRouteCount: 1,
 		},
 	}
 
@@ -365,7 +413,9 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 			helper := &routeAttachmentHelperImpl{
 				logger: logr.Discard(),
 			}
-			assert.Equal(t, tc.result, helper.routeAllowsAttachmentToListener(tc.listener, tc.route))
+			allowed, failedRouteData := helper.routeAllowsAttachmentToListener(gw, tc.listener, tc.route)
+			assert.Equal(t, tc.result, allowed)
+			assert.Equal(t, tc.failedRouteCount, len(failedRouteData))
 		})
 	}
 }
