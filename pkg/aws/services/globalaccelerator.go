@@ -23,6 +23,24 @@ type GlobalAccelerator interface {
 	// DeleteAccelerator deletes an accelerator.
 	DeleteAcceleratorWithContext(ctx context.Context, input *globalaccelerator.DeleteAcceleratorInput) (*globalaccelerator.DeleteAcceleratorOutput, error)
 
+	// CreateListener creates a new listener.
+	CreateListenerWithContext(ctx context.Context, input *globalaccelerator.CreateListenerInput) (*globalaccelerator.CreateListenerOutput, error)
+
+	// DescribeListener describes a listener.
+	DescribeListenerWithContext(ctx context.Context, input *globalaccelerator.DescribeListenerInput) (*globalaccelerator.DescribeListenerOutput, error)
+
+	// UpdateListener updates a listener.
+	UpdateListenerWithContext(ctx context.Context, input *globalaccelerator.UpdateListenerInput) (*globalaccelerator.UpdateListenerOutput, error)
+
+	// DeleteListener deletes a listener.
+	DeleteListenerWithContext(ctx context.Context, input *globalaccelerator.DeleteListenerInput) (*globalaccelerator.DeleteListenerOutput, error)
+
+	// wrapper to ListListeners API, which aggregates paged results into list.
+	ListListenersAsList(ctx context.Context, input *globalaccelerator.ListListenersInput) ([]types.Listener, error)
+
+	// ListListenersForAccelerator lists all listeners for an accelerator.
+	ListListenersForAcceleratorWithContext(ctx context.Context, input *globalaccelerator.ListListenersInput) (*globalaccelerator.ListListenersOutput, error)
+
 	// TagResource tags a resource.
 	TagResourceWithContext(ctx context.Context, input *globalaccelerator.TagResourceInput) (*globalaccelerator.TagResourceOutput, error)
 
@@ -116,4 +134,61 @@ func (c *defaultGlobalAccelerator) ListTagsForResourceWithContext(ctx context.Co
 		return nil, err
 	}
 	return client.ListTagsForResource(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) CreateListenerWithContext(ctx context.Context, input *globalaccelerator.CreateListenerInput) (*globalaccelerator.CreateListenerOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "CreateListener")
+	if err != nil {
+		return nil, err
+	}
+	return client.CreateListener(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) DescribeListenerWithContext(ctx context.Context, input *globalaccelerator.DescribeListenerInput) (*globalaccelerator.DescribeListenerOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "DescribeListener")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeListener(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) UpdateListenerWithContext(ctx context.Context, input *globalaccelerator.UpdateListenerInput) (*globalaccelerator.UpdateListenerOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "UpdateListener")
+	if err != nil {
+		return nil, err
+	}
+	return client.UpdateListener(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) DeleteListenerWithContext(ctx context.Context, input *globalaccelerator.DeleteListenerInput) (*globalaccelerator.DeleteListenerOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "DeleteListener")
+	if err != nil {
+		return nil, err
+	}
+	return client.DeleteListener(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) ListListenersForAcceleratorWithContext(ctx context.Context, input *globalaccelerator.ListListenersInput) (*globalaccelerator.ListListenersOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "ListListeners")
+	if err != nil {
+		return nil, err
+	}
+	return client.ListListeners(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) ListListenersAsList(ctx context.Context, input *globalaccelerator.ListListenersInput) ([]types.Listener, error) {
+	var result []types.Listener
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "ListListeners")
+	if err != nil {
+		return nil, err
+	}
+	paginator := globalaccelerator.NewListListenersPaginator(client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.Listeners...)
+	}
+	return result, nil
 }

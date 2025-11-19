@@ -27,11 +27,12 @@ type AcceleratorManager interface {
 }
 
 // NewDefaultAcceleratorManager constructs new defaultAcceleratorManager.
-func NewDefaultAcceleratorManager(gaService services.GlobalAccelerator, trackingProvider tracking.Provider, taggingManager TaggingManager, externalManagedTags []string, logger logr.Logger) *defaultAcceleratorManager {
+func NewDefaultAcceleratorManager(gaService services.GlobalAccelerator, trackingProvider tracking.Provider, taggingManager TaggingManager, listenerManager ListenerManager, externalManagedTags []string, logger logr.Logger) *defaultAcceleratorManager {
 	return &defaultAcceleratorManager{
 		gaService:           gaService,
 		trackingProvider:    trackingProvider,
 		taggingManager:      taggingManager,
+		listenerManager:     listenerManager,
 		externalManagedTags: externalManagedTags,
 		logger:              logger,
 	}
@@ -44,6 +45,7 @@ type defaultAcceleratorManager struct {
 	gaService           services.GlobalAccelerator
 	trackingProvider    tracking.Provider
 	taggingManager      TaggingManager
+	listenerManager     ListenerManager
 	externalManagedTags []string
 	logger              logr.Logger
 }
@@ -162,7 +164,29 @@ func (m *defaultAcceleratorManager) Delete(ctx context.Context, sdkAccelerator A
 		}
 	}
 
-	// Step 2: Delete the accelerator
+	// Step 2: Delete all listeners associated with this accelerator
+	// TODO: This will be enhanced to delete endpoint groups and endpoints
+	// before deleting listeners (when those features are implemented)
+	listeners, err := m.listListeners(ctx, acceleratorARN)
+	if err != nil {
+		var apiErr *agatypes.AcceleratorNotFoundException
+		if errors.As(err, &apiErr) {
+			m.logger.Info("Accelerator not found, assuming already deleted", "acceleratorARN", acceleratorARN)
+			return nil
+		}
+		return fmt.Errorf("failed to list listeners for accelerator: %w", err)
+	}
+
+	for _, listener := range listeners {
+		listenerARN := awssdk.ToString(listener.ListenerArn)
+		m.logger.Info("Deleting listener for accelerator", "listenerARN", listenerARN, "acceleratorARN", acceleratorARN)
+
+		if err := m.listenerManager.Delete(ctx, listenerARN); err != nil {
+			return fmt.Errorf("failed to delete listener %s: %w", listenerARN, err)
+		}
+	}
+
+	// Step 3: Delete the accelerator
 	deleteInput := &globalaccelerator.DeleteAcceleratorInput{
 		AcceleratorArn: aws.String(acceleratorARN),
 	}
@@ -176,6 +200,14 @@ func (m *defaultAcceleratorManager) Delete(ctx context.Context, sdkAccelerator A
 				Message: "Accelerator is not fully disabled yet",
 			}
 		}
+
+		// Check if accelerator was already deleted
+		var apiErr *agatypes.AcceleratorNotFoundException
+		if errors.As(err, &apiErr) {
+			m.logger.Info("Accelerator already deleted", "acceleratorARN", acceleratorARN)
+			return nil
+		}
+
 		return fmt.Errorf("failed to delete accelerator: %w", err)
 	}
 
@@ -247,6 +279,15 @@ func (m *defaultAcceleratorManager) isSDKAcceleratorSettingsDrifted(resAccelerat
 func (m *defaultAcceleratorManager) getIdempotencyToken(resAccelerator *agamodel.Accelerator) string {
 	// Use the CRD's UID as the idempotency token as its unique
 	return resAccelerator.GetCRDUID()
+}
+
+// listListeners lists all listeners for a given accelerator
+func (m *defaultAcceleratorManager) listListeners(ctx context.Context, acceleratorARN string) ([]agatypes.Listener, error) {
+	listInput := &globalaccelerator.ListListenersInput{
+		AcceleratorArn: aws.String(acceleratorARN),
+	}
+
+	return m.gaService.ListListenersAsList(ctx, listInput)
 }
 
 func (m *defaultAcceleratorManager) buildAcceleratorStatus(accelerator *agatypes.Accelerator) agamodel.AcceleratorStatus {

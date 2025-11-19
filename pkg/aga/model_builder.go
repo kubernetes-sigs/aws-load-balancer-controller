@@ -62,7 +62,6 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ga *agaapi.GlobalAccele
 	// Create fresh builder instances for each reconciliation
 	acceleratorBuilder := NewAcceleratorBuilder(b.trackingProvider, b.clusterName, b.clusterRegion, b.defaultTags, b.externalManagedTags, b.featureGates.Enabled(config.EnableDefaultTagsLowPriority))
 	// TODO
-	// listenerBuilder := NewListenerBuilder()
 	// endpointGroupBuilder := NewEndpointGroupBuilder()
 	// endpointBuilder := NewEndpointBuilder()
 
@@ -72,8 +71,19 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ga *agaapi.GlobalAccele
 		return nil, nil, err
 	}
 
+	// Build Listeners if specified
+	var listeners []*agamodel.Listener
+	if ga.Spec.Listeners != nil {
+		// Create builder for listeners and endpoints
+		listenerBuilder := NewListenerBuilder()
+		listeners, err = listenerBuilder.Build(ctx, stack, accelerator, *ga.Spec.Listeners)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	b.logger.V(1).Info("Listeners built", "listeners", listeners)
 	// TODO: Add other resource builders
-	// listeners, err := listenerBuilder.Build(ctx, stack, accelerator, ga.Spec.Listeners)
 	// endpointGroups, err := endpointGroupBuilder.Build(ctx, stack, listeners, ga.Spec.Listeners)
 	// endpoints, err := endpointBuilder.Build(ctx, stack, endpointGroups, ga.Spec.Listeners)
 

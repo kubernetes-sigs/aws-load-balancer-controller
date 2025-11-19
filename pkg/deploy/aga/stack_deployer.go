@@ -32,9 +32,9 @@ func NewDefaultStackDeployer(cloud services.Cloud, config config.ControllerConfi
 
 	// Create actual managers
 	agaTaggingManager := NewDefaultTaggingManager(cloud.GlobalAccelerator(), cloud.RGT(), logger)
-	acceleratorManager := NewDefaultAcceleratorManager(cloud.GlobalAccelerator(), trackingProvider, agaTaggingManager, config.ExternalManagedTags, logger)
+	listenerManager := NewDefaultListenerManager(cloud.GlobalAccelerator(), logger)
+	acceleratorManager := NewDefaultAcceleratorManager(cloud.GlobalAccelerator(), trackingProvider, agaTaggingManager, listenerManager, config.ExternalManagedTags, logger)
 	// TODO: Create other managers when they are implemented
-	// listenerManager := NewDefaultListenerManager(cloud.GlobalAccelerator(), trackingProvider, agaTaggingManager, config.ExternalManagedTags, logger)
 	// endpointGroupManager := NewDefaultEndpointGroupManager(cloud.GlobalAccelerator(), trackingProvider, agaTaggingManager, config.ExternalManagedTags, logger)
 	// endpointManager := NewDefaultEndpointManager(cloud.GlobalAccelerator(), logger)
 
@@ -48,8 +48,8 @@ func NewDefaultStackDeployer(cloud services.Cloud, config config.ControllerConfi
 		controllerName:     controllerName,
 		agaTaggingManager:  agaTaggingManager,
 		acceleratorManager: acceleratorManager,
+		listenerManager:    listenerManager,
 		// TODO: Set other managers when implemented
-		// listenerManager:      listenerManager,
 		// endpointGroupManager: endpointGroupManager,
 		// endpointManager:      endpointManager,
 	}
@@ -70,8 +70,8 @@ type defaultStackDeployer struct {
 	// Actual managers
 	agaTaggingManager  TaggingManager
 	acceleratorManager AcceleratorManager
+	listenerManager    ListenerManager
 	// TODO: Add other managers when implemented
-	// listenerManager      ListenerManager
 	// endpointGroupManager EndpointGroupManager
 	// endpointManager      EndpointManager
 }
@@ -91,8 +91,8 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 	// Creation order: Accelerator first, then dependent resources
 	synthesizers = append(synthesizers,
 		NewAcceleratorSynthesizer(d.cloud.GlobalAccelerator(), d.trackingProvider, d.agaTaggingManager, d.acceleratorManager, d.logger, d.featureGates, stack),
+		NewListenerSynthesizer(d.cloud.GlobalAccelerator(), d.listenerManager, d.logger, stack),
 		// TODO: Add other synthesizers when managers are implemented
-		// NewListenerSynthesizer(d.cloud.GlobalAccelerator(), d.trackingProvider, d.agaTaggingManager, d.listenerManager, d.logger, d.featureGates, stack),
 		// NewEndpointGroupSynthesizer(d.cloud.GlobalAccelerator(), d.trackingProvider, d.agaTaggingManager, d.endpointGroupManager, d.logger, d.featureGates, stack),
 		// NewEndpointSynthesizer(d.cloud.GlobalAccelerator(), d.trackingProvider, d.endpointManager, d.logger, d.featureGates, stack),
 	)

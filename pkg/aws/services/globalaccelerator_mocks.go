@@ -51,6 +51,21 @@ func (mr *MockGlobalAcceleratorMockRecorder) CreateAcceleratorWithContext(arg0, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAcceleratorWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).CreateAcceleratorWithContext), arg0, arg1)
 }
 
+// CreateListenerWithContext mocks base method.
+func (m *MockGlobalAccelerator) CreateListenerWithContext(arg0 context.Context, arg1 *globalaccelerator.CreateListenerInput) (*globalaccelerator.CreateListenerOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateListenerWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.CreateListenerOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateListenerWithContext indicates an expected call of CreateListenerWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) CreateListenerWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateListenerWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).CreateListenerWithContext), arg0, arg1)
+}
+
 // DeleteAcceleratorWithContext mocks base method.
 func (m *MockGlobalAccelerator) DeleteAcceleratorWithContext(arg0 context.Context, arg1 *globalaccelerator.DeleteAcceleratorInput) (*globalaccelerator.DeleteAcceleratorOutput, error) {
 	m.ctrl.T.Helper()
@@ -64,6 +79,21 @@ func (m *MockGlobalAccelerator) DeleteAcceleratorWithContext(arg0 context.Contex
 func (mr *MockGlobalAcceleratorMockRecorder) DeleteAcceleratorWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAcceleratorWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).DeleteAcceleratorWithContext), arg0, arg1)
+}
+
+// DeleteListenerWithContext mocks base method.
+func (m *MockGlobalAccelerator) DeleteListenerWithContext(arg0 context.Context, arg1 *globalaccelerator.DeleteListenerInput) (*globalaccelerator.DeleteListenerOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteListenerWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.DeleteListenerOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteListenerWithContext indicates an expected call of DeleteListenerWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) DeleteListenerWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteListenerWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).DeleteListenerWithContext), arg0, arg1)
 }
 
 // DescribeAcceleratorWithContext mocks base method.
@@ -81,6 +111,21 @@ func (mr *MockGlobalAcceleratorMockRecorder) DescribeAcceleratorWithContext(arg0
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeAcceleratorWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).DescribeAcceleratorWithContext), arg0, arg1)
 }
 
+// DescribeListenerWithContext mocks base method.
+func (m *MockGlobalAccelerator) DescribeListenerWithContext(arg0 context.Context, arg1 *globalaccelerator.DescribeListenerInput) (*globalaccelerator.DescribeListenerOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeListenerWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.DescribeListenerOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeListenerWithContext indicates an expected call of DescribeListenerWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) DescribeListenerWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeListenerWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).DescribeListenerWithContext), arg0, arg1)
+}
+
 // ListAcceleratorsAsList mocks base method.
 func (m *MockGlobalAccelerator) ListAcceleratorsAsList(arg0 context.Context, arg1 *globalaccelerator.ListAcceleratorsInput) ([]types.Accelerator, error) {
 	m.ctrl.T.Helper()
@@ -94,6 +139,36 @@ func (m *MockGlobalAccelerator) ListAcceleratorsAsList(arg0 context.Context, arg
 func (mr *MockGlobalAcceleratorMockRecorder) ListAcceleratorsAsList(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAcceleratorsAsList", reflect.TypeOf((*MockGlobalAccelerator)(nil).ListAcceleratorsAsList), arg0, arg1)
+}
+
+// ListListenersAsList mocks base method.
+func (m *MockGlobalAccelerator) ListListenersAsList(arg0 context.Context, arg1 *globalaccelerator.ListListenersInput) ([]types.Listener, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListListenersAsList", arg0, arg1)
+	ret0, _ := ret[0].([]types.Listener)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListListenersAsList indicates an expected call of ListListenersAsList.
+func (mr *MockGlobalAcceleratorMockRecorder) ListListenersAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListenersAsList", reflect.TypeOf((*MockGlobalAccelerator)(nil).ListListenersAsList), arg0, arg1)
+}
+
+// ListListenersForAcceleratorWithContext mocks base method.
+func (m *MockGlobalAccelerator) ListListenersForAcceleratorWithContext(arg0 context.Context, arg1 *globalaccelerator.ListListenersInput) (*globalaccelerator.ListListenersOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListListenersForAcceleratorWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.ListListenersOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListListenersForAcceleratorWithContext indicates an expected call of ListListenersForAcceleratorWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) ListListenersForAcceleratorWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListListenersForAcceleratorWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).ListListenersForAcceleratorWithContext), arg0, arg1)
 }
 
 // ListTagsForResourceWithContext mocks base method.
@@ -154,4 +229,19 @@ func (m *MockGlobalAccelerator) UpdateAcceleratorWithContext(arg0 context.Contex
 func (mr *MockGlobalAcceleratorMockRecorder) UpdateAcceleratorWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAcceleratorWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).UpdateAcceleratorWithContext), arg0, arg1)
+}
+
+// UpdateListenerWithContext mocks base method.
+func (m *MockGlobalAccelerator) UpdateListenerWithContext(arg0 context.Context, arg1 *globalaccelerator.UpdateListenerInput) (*globalaccelerator.UpdateListenerOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateListenerWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.UpdateListenerOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateListenerWithContext indicates an expected call of UpdateListenerWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) UpdateListenerWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateListenerWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).UpdateListenerWithContext), arg0, arg1)
 }
