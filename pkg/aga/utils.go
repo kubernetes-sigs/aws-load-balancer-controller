@@ -1,4 +1,4 @@
-package shared_utils
+package aga
 
 import (
 	"strings"

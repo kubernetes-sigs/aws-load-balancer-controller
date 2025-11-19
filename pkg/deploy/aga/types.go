@@ -9,3 +9,8 @@ type AcceleratorWithTags struct {
 	Accelerator *globalacceleratortypes.Accelerator
 	Tags        map[string]string
 }
+
+// ListenerResource represents an AWS Global Accelerator Listener.
+type ListenerResource struct {
+	Listener *globalacceleratortypes.Listener
+}

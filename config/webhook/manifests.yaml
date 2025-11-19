@@ -93,6 +93,27 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
+        path: /validate-aga-k8s-aws-v1beta1-globalaccelerator
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    name: vglobalaccelerator.aga.k8s.aws
+    rules:
+      - apiGroups:
+          - aga.k8s.aws
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - globalaccelerators
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
         path: /validate-elbv2-k8s-aws-v1beta1-ingressclassparams
     failurePolicy: Fail
     name: vingressclassparams.elbv2.k8s.aws

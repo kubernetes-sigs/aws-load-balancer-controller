@@ -1,0 +1,18 @@
+# This patch adds the GlobalAccelerator validator webhook configuration to the webhook configurations
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: webhook-configuration
+webhooks:
+  - name: vglobalaccelerator.aga.k8s.aws
+    rules:
+      - apiGroups:
+          - "aga.k8s.aws"
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - globalaccelerators
+        scope: "Namespaced"

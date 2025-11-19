@@ -48,6 +48,7 @@ const (
 )
 
 // PortRange defines the port range for Global Accelerator listeners.
+// +kubebuilder:validation:XValidation:rule="self.fromPort <= self.toPort",message="FromPort must be less than or equal to ToPort"
 type PortRange struct {
 	// FromPort is the first port in the range of ports, inclusive.
 	// +kubebuilder:validation:Minimum=1
