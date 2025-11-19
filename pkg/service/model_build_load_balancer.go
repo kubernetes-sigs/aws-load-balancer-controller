@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"net/netip"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"sort"
 	"strconv"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
@@ -24,17 +22,8 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-)
-
-const (
-	lbAttrsAccessLogsS3Enabled                 = "access_logs.s3.enabled"
-	lbAttrsAccessLogsS3Bucket                  = "access_logs.s3.bucket"
-	lbAttrsAccessLogsS3Prefix                  = "access_logs.s3.prefix"
-	lbAttrsLoadBalancingCrossZoneEnabled       = "load_balancing.cross_zone.enabled"
-	lbAttrsLoadBalancingDnsClientRoutingPolicy = "dns_record.client_routing_policy"
-	availabilityZoneAffinity                   = "availability_zone_affinity"
-	partialAvailabilityZoneAffinity            = "partial_availability_zone_affinity"
-	anyAvailabilityZone                        = "any_availability_zone"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 )
 
 func (t *defaultModelBuildTask) buildLoadBalancer(ctx context.Context, scheme elbv2model.LoadBalancerScheme) error {
@@ -497,7 +486,7 @@ func (t *defaultModelBuildTask) buildLoadBalancerAttributes(_ context.Context) (
 		return []elbv2model.LoadBalancerAttribute{}, err
 	}
 	mergedAttributes := algorithm.MergeStringMap(specificAttributes, loadBalancerAttributes)
-	return makeAttributesSliceFromMap(mergedAttributes), nil
+	return shared_utils.MakeAttributesSliceFromMap(mergedAttributes), nil
 }
 
 func (t *defaultModelBuildTask) buildLoadBalancerMinimumCapacity(_ context.Context) (*elbv2model.MinimumLoadBalancerCapacity, error) {
@@ -527,35 +516,21 @@ func (t *defaultModelBuildTask) buildLoadBalancerMinimumCapacity(_ context.Conte
 	return minimumLoadBalancerCapacity, nil
 }
 
-func makeAttributesSliceFromMap(loadBalancerAttributesMap map[string]string) []elbv2model.LoadBalancerAttribute {
-	attributes := make([]elbv2model.LoadBalancerAttribute, 0, len(loadBalancerAttributesMap))
-	for attrKey, attrValue := range loadBalancerAttributesMap {
-		attributes = append(attributes, elbv2model.LoadBalancerAttribute{
-			Key:   attrKey,
-			Value: attrValue,
-		})
-	}
-	sort.Slice(attributes, func(i, j int) bool {
-		return attributes[i].Key < attributes[j].Key
-	})
-	return attributes
-}
-
 func (t *defaultModelBuildTask) getLoadBalancerAttributes() (map[string]string, error) {
 	var attributes map[string]string
 	if _, err := t.annotationParser.ParseStringMapAnnotation(annotations.SvcLBSuffixLoadBalancerAttributes, &attributes, t.service.Annotations); err != nil {
 		return nil, err
 	}
-	dnsRecordClientRoutingPolicy, exists := attributes[lbAttrsLoadBalancingDnsClientRoutingPolicy]
+	dnsRecordClientRoutingPolicy, exists := attributes[shared_constants.LBAttributeLoadBalancingDnsClientRoutingPolicy]
 	if exists {
 		switch dnsRecordClientRoutingPolicy {
-		case availabilityZoneAffinity:
-		case partialAvailabilityZoneAffinity:
-		case anyAvailabilityZone:
+		case shared_constants.LBAttributeAvailabilityZoneAffinity:
+		case shared_constants.LBAttributePartialAvailabilityZoneAffinity:
+		case shared_constants.LBAttributeAnyAvailabilityZone:
 		default:
 			return nil, errors.Errorf("invalid dns_record.client_routing_policy set in annotation %s: got '%s' expected one of ['%s', '%s', '%s']",
 				annotations.SvcLBSuffixLoadBalancerAttributes, dnsRecordClientRoutingPolicy,
-				anyAvailabilityZone, partialAvailabilityZoneAffinity, availabilityZoneAffinity)
+				shared_constants.LBAttributeAnyAvailabilityZone, shared_constants.LBAttributePartialAvailabilityZoneAffinity, shared_constants.LBAttributeAvailabilityZoneAffinity)
 		}
 	}
 	return attributes, nil
@@ -573,12 +548,12 @@ func (t *defaultModelBuildTask) getAnnotationSpecificLbAttributes() (map[string]
 		return nil, err
 	}
 	if exists && accessLogEnabled {
-		annotationSpecificAttrs[lbAttrsAccessLogsS3Enabled] = strconv.FormatBool(accessLogEnabled)
+		annotationSpecificAttrs[shared_constants.LBAttributeAccessLogsS3Enabled] = strconv.FormatBool(accessLogEnabled)
 		if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixAccessLogS3BucketName, &bucketName, t.service.Annotations); exists {
-			annotationSpecificAttrs[lbAttrsAccessLogsS3Bucket] = bucketName
+			annotationSpecificAttrs[shared_constants.LBAttributeAccessLogsS3Bucket] = bucketName
 		}
 		if exists := t.annotationParser.ParseStringAnnotation(annotations.SvcLBSuffixAccessLogS3BucketPrefix, &bucketPrefix, t.service.Annotations); exists {
-			annotationSpecificAttrs[lbAttrsAccessLogsS3Prefix] = bucketPrefix
+			annotationSpecificAttrs[shared_constants.LBAttributeAccessLogsS3Prefix] = bucketPrefix
 		}
 	}
 	exists, err = t.annotationParser.ParseBoolAnnotation(annotations.SvcLBSuffixCrossZoneLoadBalancingEnabled, &crossZoneEnabled, t.service.Annotations)
@@ -586,7 +561,7 @@ func (t *defaultModelBuildTask) getAnnotationSpecificLbAttributes() (map[string]
 		return nil, err
 	}
 	if exists {
-		annotationSpecificAttrs[lbAttrsLoadBalancingCrossZoneEnabled] = strconv.FormatBool(crossZoneEnabled)
+		annotationSpecificAttrs[shared_constants.LBAttributeLoadBalancingCrossZoneEnabled] = strconv.FormatBool(crossZoneEnabled)
 	}
 	return annotationSpecificAttrs, nil
 }
