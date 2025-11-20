@@ -929,6 +929,12 @@ spec:
                       type: string
                     description: Tags the Tags to add on the target group.
                     type: object
+                  targetControlPort:
+                    description: targetControlPort [Application Load Balancer] The
+                      port on which the target communicates its capacity. This value
+                      can't be modified after target group creation.
+                    format: int32
+                    type: integer
                   targetGroupAttributes:
                     description: targetGroupAttributes defines the attribute of target
                       group
@@ -1124,6 +1130,12 @@ spec:
                             type: string
                           description: Tags the Tags to add on the target group.
                           type: object
+                        targetControlPort:
+                          description: targetControlPort [Application Load Balancer]
+                            The port on which the target communicates its capacity.
+                            This value can't be modified after target group creation.
+                          format: int32
+                          type: integer
                         targetGroupAttributes:
                           description: targetGroupAttributes defines the attribute
                             of target group

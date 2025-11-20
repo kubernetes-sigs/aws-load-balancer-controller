@@ -1,0 +1,23 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: ALBTargetControlConfig
+metadata:
+  name: aws-load-balancer-controller-alb-target-control-agent-config
+  namespace: kube-system
+spec:
+  image: "public.ecr.aws/aws-elb/target-optimizer/target-control-agent:latest"
+  dataAddress: "0.0.0.0:80"
+  controlAddress: "0.0.0.0:3000"
+  destinationAddress: "127.0.0.1:8080"
+  maxConcurrency: 1
+  tlsCertPath: "/path/to/cert.pem"
+  tlsKeyPath: "/path/to/key.pem"
+  tlsSecurityPolicy: "ELBSecurityPolicy-TLS-1-2-2017-01"
+  protocolVersion: "HTTP1"
+  rustLog: "debug"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"

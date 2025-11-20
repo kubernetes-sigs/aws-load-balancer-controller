@@ -10,6 +10,44 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
+        path: /mutate-alb-target-control-namespace-v1-pod
+    failurePolicy: Fail
+    name: alb-target-control.namespace.elbv2.k8s.aws
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
+        path: /mutate-alb-target-control-object-v1-pod
+    failurePolicy: Fail
+    name: alb-target-control.object.elbv2.k8s.aws
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
         path: /mutate-v1-pod
     failurePolicy: Ignore
     name: mpod.elbv2.k8s.aws

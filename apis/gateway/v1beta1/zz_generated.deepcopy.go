@@ -1153,6 +1153,11 @@ func (in *TargetGroupProps) DeepCopyInto(out *TargetGroupProps) {
 		*out = new(ProtocolVersion)
 		**out = **in
 	}
+	if in.TargetControlPort != nil {
+		in, out := &in.TargetControlPort, &out.TargetControlPort
+		*out = new(int32)
+		**out = **in
+	}
 	if in.EnableMultiCluster != nil {
 		in, out := &in.EnableMultiCluster, &out.EnableMultiCluster
 		*out = new(bool)

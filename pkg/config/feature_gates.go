@@ -30,6 +30,7 @@ const (
 	AGAController                 Feature = "AGAController"
 	EnhancedDefaultBehavior       Feature = "EnhancedDefaultBehavior"
 	EnableDefaultTagsLowPriority  Feature = "EnableDefaultTagsLowPriority"
+	ALBTargetControlAgent         Feature = "ALBTargetControlAgent"
 )
 
 type FeatureGates interface {
@@ -76,6 +77,7 @@ func NewFeatureGates() FeatureGates {
 			EnableTCPUDPListenerType:      false,
 			EnhancedDefaultBehavior:       false,
 			EnableDefaultTagsLowPriority:  false,
+			ALBTargetControlAgent:         false,
 		},
 	}
 }

@@ -388,6 +388,7 @@ controllerConfig:
   # AGAController: false
   # EnhancedDefaultBehavior: false
   # EnableDefaultTagsLowPriority: false
+  # ALBTargetControlAgent: false
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope

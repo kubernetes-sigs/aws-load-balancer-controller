@@ -19,10 +19,13 @@ package main
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
+
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
+	"sync"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -35,7 +38,6 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sync"
 
 	"k8s.io/client-go/util/workqueue"
 
@@ -58,6 +60,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/albtargetcontrol"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
@@ -415,6 +418,22 @@ func main() {
 
 	corewebhook.NewPodReadinessGateMutator(podReadinessGateInjector, lbcMetricsCollector).SetupWithManager(mgr)
 	corewebhook.NewPodServerIDMutator(quicServerIDInjector, lbcMetricsCollector).SetupWithManager(mgr)
+
+	// Setup ALB target control agent sidecar injector if enabled
+	var targetControlAgentInjector albtargetcontrol.ALBTargetControlAgentInjector
+	if controllerCFG.FeatureGates.Enabled(config.ALBTargetControlAgent) {
+		targetControlAgentInjector = albtargetcontrol.NewALBTargetControlAgentInjector(
+			mgr.GetClient(),
+			mgr.GetAPIReader(),
+			ctrl.Log.WithName(albtargetcontrol.LoggerName),
+			albtargetcontrol.DefaultControllerNamespace,
+		)
+	}
+
+	// Setup ALB sidecar injection webhook mutator
+	if targetControlAgentInjector != nil {
+		corewebhook.NewALBTargetControlAgentMutator(targetControlAgentInjector, lbcMetricsCollector).SetupWithManager(mgr)
+	}
 	corewebhook.NewServiceMutator(controllerCFG.ServiceConfig.LoadBalancerClass, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewIngressClassParamsValidator(lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)

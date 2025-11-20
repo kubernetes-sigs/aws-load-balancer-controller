@@ -212,40 +212,41 @@ on the load balancer.
         ```
 - <a name="nlb-default-action">`service.beta.kubernetes.io/actions.${protocol}-${port}`</a> provides a method for configuring the action on a listener on the specified port. It supports configuring weighted target groups.
 
-  !!!note
-    - Weighted target groups are supported for the following protocols: TCP, TLS, UDP, TCP_UDP
-    - The `baseServiceWeight` is the weight of the target group associated with the implicit service
-  
-  !!!note
-    - Forward actions on listeners can specify whether to enable target group stickiness. When enabled, target group stickiness causes subsequent connections from the same source IP address to prefer the previously chosen target group.
-    - For listeners, if a forward action contains multiple target groups and any of them have stickiness enabled, then the forward action must also have target group stickiness enabled.
-    - For TLS listeners, target group stickiness is not supported.
-    - For TLS listeners, you can't add both TCP target groups and TLS target groups to the action. All target groups in the default action must use the same protocol.
-    - For dualstack load balancers, you can't add both IPv4 target groups and IPv6 target groups to the same action. All target groups in the default action must use the same IP address type.
+    !!!note
+        - Weighted target groups are supported for the following protocols: TCP, TLS, UDP, TCP_UDP
+        - The `baseServiceWeight` is the weight of the target group associated with the implicit service
+    
+    !!!note
+        - Forward actions on listeners can specify whether to enable target group stickiness. When enabled, target group stickiness causes subsequent connections from the same source IP address to prefer the previously chosen target group.
+        - For listeners, if a forward action contains multiple target groups and any of them have stickiness enabled, then the forward action must also have target group stickiness enabled.
+        - For TLS listeners, target group stickiness is not supported.
+        - For TLS listeners, you can't add both TCP target groups and TLS target groups to the action. All target groups in the default action must use the same protocol.
+        - For dualstack load balancers, you can't add both IPv4 target groups and IPv6 target groups to the same action. All target groups in the default action must use the same IP address type.
 
-  !!!example
-  ```
-  service.beta.kubernetes.io/actions.TCP-80: {
-  "type": "forward",
-  "forwardConfig": {
-    "baseServiceWeight": 10,
-    "targetGroups": [
-      {
-        "serviceName": "service-1",
-        "servicePort": 81,
-        "weight": 20
-      },
-      {
-        "serviceName": "service-2",
-        "servicePort": 82,
-        "weight": 30
-      }
-    ],
-    "targetGroupStickinessConfig": {
-      "enabled": true
-    }
-  }
- ```
+    !!!example
+        ```
+        service.beta.kubernetes.io/actions.TCP-80: {
+          "type": "forward",
+          "forwardConfig": {
+            "baseServiceWeight": 10,
+            "targetGroups": [
+              {
+                "serviceName": "service-1",
+                "servicePort": 81,
+                "weight": 20
+              },
+              {
+                "serviceName": "service-2",
+                "servicePort": 82,
+                "weight": 30
+              }
+            ],
+            "targetGroupStickinessConfig": {
+              "enabled": true
+            }
+          }
+        }
+        ```
 
 ## Traffic Listening
 Traffic Listening can be controlled with following annotations:

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"strings"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	. "github.com/onsi/ginkgo/v2"
@@ -589,6 +591,9 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 			targetSvc2    *corev1.Service
 		)
 		BeforeEach(func() {
+			if strings.HasPrefix(tf.Options.AWSRegion, "cn-") || strings.Contains(tf.Options.AWSRegion, "-iso-") || tf.Options.AWSRegion == "eusc-de-east-1" {
+				Skip("Skipping test, weighted target groups not supported in this region")
+			}
 			// Service 1 to forward to
 			svc1Name = fmt.Sprintf("target-svc1-%v", utils.RandomDNS1123Label(5))
 			targetSvc1 = &corev1.Service{
@@ -653,6 +658,10 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 				"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
 				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
 				"service.beta.kubernetes.io/actions.TCP-80":           forwardActionValue,
+			}
+
+			if tf.Options.IPFamily == framework.IPv6 {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
 			}
 
 			svcName = "my-nlb"

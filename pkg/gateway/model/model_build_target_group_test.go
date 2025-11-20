@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +22,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_buildTargetGroupSpec(t *testing.T) {
@@ -811,6 +812,11 @@ func Test_buildTargetGroupName(t *testing.T) {
 			protocolVersion: &http2,
 			expected:        "k8s-myns-myroute-d2bd5deaa7",
 		},
+		{
+			name:             "with target control port",
+			targetGroupProps: &elbv2gw.TargetGroupProps{TargetControlPort: awssdk.Int32(3000)},
+			expected:         "k8s-myns-myroute-54e81471e4",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -818,8 +824,12 @@ func Test_buildTargetGroupName(t *testing.T) {
 			builder := targetGroupBuilderImpl{
 				clusterName: clusterName,
 			}
+			var targetControlPort *int32
+			if tc.targetGroupProps != nil {
+				targetControlPort = tc.targetGroupProps.TargetControlPort
+			}
 
-			result := builder.buildTargetGroupName(tc.targetGroupProps, gwKey, routeKey, routeutils.HTTPRouteKind, svcKey, 80, elbv2model.TargetTypeIP, elbv2model.ProtocolTCP, tc.protocolVersion)
+			result := builder.buildTargetGroupName(tc.targetGroupProps, gwKey, routeKey, routeutils.HTTPRouteKind, svcKey, 80, elbv2model.TargetTypeIP, elbv2model.ProtocolTCP, tc.protocolVersion, targetControlPort)
 			assert.Equal(t, tc.expected, result)
 		})
 	}
@@ -1757,7 +1767,7 @@ func Test_buildTargetGroupFromGateway(t *testing.T) {
 
 			// Pre-populate existing target group if needed
 			if tc.existingTG {
-				tgResID := impl.buildTargetGroupResourceID(k8s.NamespacedName(tc.gateway), tc.backendConfig.GetBackendNamespacedName(), tc.route.GetRouteNamespacedName(), tc.route.GetRouteKind(), tc.backendConfig.GetIdentifierPort())
+				tgResID := impl.buildTargetGroupResourceID(k8s.NamespacedName(tc.gateway), tc.backendConfig.GetBackendNamespacedName(), tc.route.GetRouteNamespacedName(), tc.route.GetRouteKind(), tc.backendConfig.GetIdentifierPort(), nil)
 				existingTG := elbv2model.NewTargetGroup(stack, tgResID, elbv2model.TargetGroupSpec{
 					Name: "existing-tg",
 				})
@@ -1783,6 +1793,125 @@ func Test_buildTargetGroupFromGateway(t *testing.T) {
 				assert.Equal(t, result.Spec.Name, frontendData.Name)
 				assert.Equal(t, tc.listenerPort, frontendData.Port)
 				assert.Equal(t, *result.Spec.Port, frontendData.TargetPort)
+			}
+		})
+	}
+}
+
+func Test_buildTargetControlPort(t *testing.T) {
+	testCases := []struct {
+		name             string
+		targetGroupProps *elbv2gw.TargetGroupProps
+		tgProtocol       elbv2model.Protocol
+		expectedPort     *int32
+		tgType           elbv2model.TargetType
+	}{
+		{
+			name:             "nil targetGroupProps",
+			targetGroupProps: nil,
+			tgProtocol:       elbv2model.ProtocolHTTP,
+			tgType:           elbv2model.TargetTypeIP,
+			expectedPort:     nil,
+		},
+		{
+			name: "nil TargetControlPort",
+			targetGroupProps: &elbv2gw.TargetGroupProps{
+				TargetControlPort: nil,
+			},
+			tgType:       elbv2model.TargetTypeIP,
+			tgProtocol:   elbv2model.ProtocolHTTP,
+			expectedPort: nil,
+		},
+		{
+			name: "HTTP protocol with target control port",
+			targetGroupProps: &elbv2gw.TargetGroupProps{
+				TargetControlPort: awssdk.Int32(3000),
+			},
+			tgProtocol:   elbv2model.ProtocolHTTP,
+			tgType:       elbv2model.TargetTypeIP,
+			expectedPort: awssdk.Int32(3000),
+		},
+		{
+			name: "HTTPS protocol with target control port",
+			targetGroupProps: &elbv2gw.TargetGroupProps{
+				TargetControlPort: awssdk.Int32(3000),
+			},
+			tgType:       elbv2model.TargetTypeIP,
+			tgProtocol:   elbv2model.ProtocolHTTPS,
+			expectedPort: awssdk.Int32(3000),
+		},
+		{
+			name: "TCP protocol with target control port - should return nil",
+			targetGroupProps: &elbv2gw.TargetGroupProps{
+				TargetControlPort: awssdk.Int32(3000),
+			},
+			tgType:       elbv2model.TargetTypeIP,
+			tgProtocol:   elbv2model.ProtocolTCP,
+			expectedPort: nil,
+		},
+		{
+			name: "UDP protocol with target control port - should return nil",
+			targetGroupProps: &elbv2gw.TargetGroupProps{
+				TargetControlPort: awssdk.Int32(3000),
+			},
+			tgProtocol:   elbv2model.ProtocolUDP,
+			tgType:       elbv2model.TargetTypeIP,
+			expectedPort: nil,
+		},
+		{
+			name: "TLS protocol with target control port - should return nil",
+			targetGroupProps: &elbv2gw.TargetGroupProps{
+				TargetControlPort: awssdk.Int32(3000),
+			},
+			tgProtocol:   elbv2model.ProtocolTLS,
+			tgType:       elbv2model.TargetTypeIP,
+			expectedPort: nil,
+		},
+		{
+			name: "Instance target type with target control port - should return nil",
+			targetGroupProps: &elbv2gw.TargetGroupProps{
+				TargetControlPort: awssdk.Int32(3000),
+			},
+			tgProtocol:   elbv2model.ProtocolTLS,
+			tgType:       elbv2model.TargetTypeInstance,
+			expectedPort: nil,
+		},
+		{
+			name: "ALB target type with target control port - should return nil",
+			targetGroupProps: &elbv2gw.TargetGroupProps{
+				TargetControlPort: awssdk.Int32(3000),
+			},
+			tgProtocol:   elbv2model.ProtocolTCP,
+			tgType:       elbv2model.TargetTypeALB,
+			expectedPort: nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			builder := &targetGroupBuilderImpl{}
+			result, err := builder.buildTargetControlPort(tc.targetGroupProps, tc.tgProtocol, tc.tgType)
+
+			// Check for error conditions
+			if tc.targetGroupProps != nil && tc.targetGroupProps.TargetControlPort != nil {
+				if tc.tgProtocol != elbv2model.ProtocolHTTP && tc.tgProtocol != elbv2model.ProtocolHTTPS {
+					assert.Error(t, err)
+					assert.Nil(t, result)
+					return
+				}
+				if tc.tgType == elbv2model.TargetTypeInstance || tc.tgType == elbv2model.TargetTypeALB {
+					assert.Error(t, err)
+					assert.Nil(t, result)
+					return
+				}
+			}
+
+			assert.NoError(t, err)
+			if tc.expectedPort == nil {
+				assert.Nil(t, result)
+			} else {
+				assert.NotNil(t, result)
+				assert.Equal(t, *tc.expectedPort, *result)
 			}
 		})
 	}

@@ -3,6 +3,193 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
+  name: albtargetcontrolconfigs.elbv2.k8s.aws
+spec:
+  group: elbv2.k8s.aws
+  names:
+    kind: ALBTargetControlConfig
+    listKind: ALBTargetControlConfigList
+    plural: albtargetcontrolconfigs
+    singular: albtargetcontrolconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: The ALB target control agent sidecar image
+      jsonPath: .spec.image
+      name: IMAGE
+      type: string
+    - description: Application destination address
+      jsonPath: .spec.destinationAddress
+      name: DESTINATION
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1beta1
+    schema:
+      openAPIV3Schema:
+        description: ALBTargetControlConfig is the Schema for the albtargetcontrolconfigs
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ALBTargetControlConfigSpec defines the desired state of ALBTargetControlConfig
+            properties:
+              controlAddress:
+                description: |-
+                  ControlAddress specifies the socket (IP:port) where the load balancer exchanges management traffic with agents.
+                  The port in the socket is the target control port you configure for the target group.
+                pattern: ^.+:[0-9]+$
+                type: string
+              dataAddress:
+                description: |-
+                  DataAddress specifies the socket (IP:port) where the agent receives application traffic from the load balancer.
+                  The port in this socket is the application traffic port you configure for your target group.
+                pattern: ^.+:[0-9]+$
+                type: string
+              destinationAddress:
+                description: |-
+                  DestinationAddress specifies the socket (IP:port) where the agent proxies application traffic.
+                  Your application should be listening on this port.
+                pattern: ^.+:[0-9]+$
+                type: string
+              image:
+                description: |-
+                  Image specifies the container image for the ALB target control agent sidecar.
+                  The agent is available as a Docker image at: public.ecr.aws/aws-elb/target-optimizer/target-control-agent:latest
+                type: string
+              maxConcurrency:
+                default: 1
+                description: MaxConcurrency specifies the maximum number of concurrent
+                  requests that the target receives from the load balancer.
+                format: int32
+                maximum: 1000
+                minimum: 0
+                type: integer
+              protocolVersion:
+                description: |-
+                  ProtocolVersion specifies the protocol through which the load balancer communicates with the agent.
+                  Possible values are HTTP1, HTTP2, GRPC.
+                enum:
+                - HTTP1
+                - HTTP2
+                - GRPC
+                type: string
+              resources:
+                description: Resources specifies the resource requirements for the
+                  ALB target control agent sidecar
+                properties:
+                  claims:
+                    description: |-
+                      Claims lists the names of resources, defined in spec.resourceClaims,
+                      that are used by this container.
+
+                      This is an alpha field and requires enabling the
+                      DynamicResourceAllocation feature gate.
+
+                      This field is immutable. It can only be set for containers.
+                    items:
+                      description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                      properties:
+                        name:
+                          description: |-
+                            Name must match the name of one entry in pod.spec.resourceClaims of
+                            the Pod where this field is used. It makes that resource available
+                            inside a container.
+                          type: string
+                        request:
+                          description: |-
+                            Request is the name chosen for a request in the referenced claim.
+                            If empty, everything from the claim is made available, otherwise
+                            only the result of this request.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  limits:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Limits describes the maximum amount of compute resources allowed.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: |-
+                      Requests describes the minimum amount of compute resources required.
+                      If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                      otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                      More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                    type: object
+                type: object
+              rustLog:
+                description: |-
+                  RustLog specifies the log level of the agent process. The agent software is written in Rust.
+                  Possible values are debug, info, and error.
+                enum:
+                - debug
+                - info
+                - error
+                type: string
+              tlsCertPath:
+                description: |-
+                  TLSCertPath specifies the location of the TLS certificate that the agent provides to the load balancer during TLS handshake.
+                  By default, the agent generates a self-signed certificate in-memory.
+                type: string
+              tlsKeyPath:
+                description: |-
+                  TLSKeyPath specifies the location of the private key corresponding to the TLS certificate that the agent provides to the load balancer during TLS handshake.
+                  By default, the agent generates a private key in memory.
+                type: string
+              tlsSecurityPolicy:
+                description: TLSSecurityPolicy specifies the ELB security policy that
+                  you configure for the target group.
+                type: string
+            required:
+            - controlAddress
+            - dataAddress
+            - destinationAddress
+            - image
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
   name: ingressclassparams.elbv2.k8s.aws
 spec:
   group: elbv2.k8s.aws

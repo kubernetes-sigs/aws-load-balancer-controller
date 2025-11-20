@@ -171,6 +171,11 @@ func isSDKTargetGroupRequiresReplacement(sdkTG TargetGroupWithTags, resTG *elbv2
 		}
 	}
 
+	// Check if TargetControlPort has changed - requires replacement
+	if isSDKTargetGroupTargetControlPortDrifted(resTG.Spec, sdkTG) {
+		return true
+	}
+
 	return isSDKTargetGroupRequiresReplacementDueToNLBHealthCheck(sdkTG, resTG, featureGates)
 }
 
@@ -212,4 +217,19 @@ func isL4TargetGroup(protocol elbv2model.Protocol) bool {
 		return false
 	}
 	return false
+}
+
+func isSDKTargetGroupTargetControlPortDrifted(tgSpec elbv2model.TargetGroupSpec, sdkTG TargetGroupWithTags) bool {
+	desiredPort := tgSpec.TargetControlPort
+	currentPort := sdkTG.TargetGroup.TargetControlPort
+
+	if desiredPort == nil && currentPort == nil {
+		return false
+	}
+
+	if (desiredPort == nil) != (currentPort == nil) {
+		return true
+	}
+
+	return awssdk.ToInt32(desiredPort) != awssdk.ToInt32(currentPort)
 }

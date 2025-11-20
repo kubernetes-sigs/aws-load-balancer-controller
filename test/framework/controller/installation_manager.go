@@ -12,7 +12,7 @@ import (
 // InstallationManager is responsible for manage controller installation in cluster.
 type InstallationManager interface {
 	ResetController() error
-	UpgradeController(controllerImage string, enableEndPointSlices bool) error
+	UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool) error
 }
 
 // NewDefaultInstallationManager constructs new defaultInstallationManager.
@@ -53,7 +53,7 @@ func (m *defaultInstallationManager) ResetController() error {
 	return err
 }
 
-func (m *defaultInstallationManager) UpgradeController(controllerImage string, enableEndPointSlices bool) error {
+func (m *defaultInstallationManager) UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool) error {
 	imageRepo, imageTag, err := splitImageRepoAndTag(controllerImage)
 	if err != nil {
 		return err
@@ -68,6 +68,13 @@ func (m *defaultInstallationManager) UpgradeController(controllerImage string, e
 	}
 	if enableEndPointSlices {
 		vals["enableEndpointSlices"] = true
+	}
+	if enableALBTargetControlAgent {
+		vals["controllerConfig"] = map[string]interface{}{
+			"featureGates": map[string]interface{}{
+				"ALBTargetControlAgent": true,
+			},
+		}
 	}
 	_, err = m.helmReleaseManager.InstallOrUpgradeRelease(m.helmChart,
 		m.namespace, AWSLoadBalancerControllerHelmRelease, vals,

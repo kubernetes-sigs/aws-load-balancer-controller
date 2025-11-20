@@ -2,6 +2,8 @@ package elbv2
 
 import (
 	"context"
+	"time"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -12,7 +14,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
-	"time"
 )
 
 const (
@@ -193,6 +194,7 @@ func buildSDKCreateTargetGroupInput(tgSpec elbv2model.TargetGroupSpec) *elbv2sdk
 	sdkObj.TargetType = elbv2types.TargetTypeEnum(tgSpec.TargetType)
 	sdkObj.Port = tgSpec.Port
 	sdkObj.Protocol = elbv2types.ProtocolEnum(tgSpec.Protocol)
+	sdkObj.TargetControlPort = tgSpec.TargetControlPort
 	if &tgSpec.IPAddressType != nil && tgSpec.IPAddressType != elbv2model.TargetGroupIPAddressTypeIPv4 {
 		sdkObj.IpAddressType = elbv2types.TargetGroupIpAddressTypeEnum(tgSpec.IPAddressType)
 	}

@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"strconv"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/go-logr/logr"
@@ -11,7 +13,6 @@ import (
 	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"strconv"
 )
 
 type targetGroupBindingNetworkBuilder interface {
@@ -45,10 +46,10 @@ func (builder *targetGroupBindingNetworkBuilderImpl) buildTargetGroupBindingNetw
 	if len(builder.sgOutput.securityGroupTokens) == 0 {
 		return builder.nlbNoSecurityGroups(targetPort, targetGroupSpec)
 	}
-	return builder.standardBuilder(targetPort, *targetGroupSpec.HealthCheckConfig.Port, targetGroupSpec.Protocol), nil
+	return builder.standardBuilder(targetPort, *targetGroupSpec.HealthCheckConfig.Port, targetGroupSpec.Protocol, targetGroupSpec.TargetControlPort), nil
 }
 
-func (builder *targetGroupBindingNetworkBuilderImpl) standardBuilder(targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, tgProtocol elbv2model.Protocol) *elbv2modelk8s.TargetGroupBindingNetworking {
+func (builder *targetGroupBindingNetworkBuilderImpl) standardBuilder(targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, tgProtocol elbv2model.Protocol, targetControlPort *int32) *elbv2modelk8s.TargetGroupBindingNetworking {
 	if builder.sgOutput.backendSecurityGroupToken == nil {
 		return nil
 	}
@@ -111,6 +112,14 @@ func (builder *targetGroupBindingNetworkBuilderImpl) standardBuilder(targetPort 
 		networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
 			Protocol: &protocolTCP,
 			Port:     &hcPortToUse,
+		})
+	}
+
+	if targetControlPort != nil {
+		controlPort := intstr.FromInt32(*targetControlPort)
+		networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
+			Protocol: &protocolTCP,
+			Port:     &controlPort,
 		})
 	}
 
