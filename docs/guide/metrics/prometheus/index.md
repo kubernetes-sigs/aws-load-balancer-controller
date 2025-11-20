@@ -44,10 +44,10 @@ Following metrics are added:
 | aws_api_call_call_retries | Counter   | Number of times the SDK retried requests to AWS services for SDK API calls |
 | aws_api_requests_total | Counter   | Total number of HTTP requests that the SDK made |
 | aws_request_duration_seconds | Histogram | Latency of an individual HTTP request to the service endpoint |
-| api_call_permission_errors_total | Counter   | Number of failed AWS API calls due to auth or authorization failures |
-| api_call_service_limit_exceeded_errors_total | Counter   | Number of failed AWS API calls due to exceeding service limit |
-| api_call_throttled_errors_total | Counter   | Number of failed AWS API calls due to throttling error |
-| api_call_validation_errors_total | Counter   | Number of failed AWS API calls due to validation error |
+| aws_api_call_permission_errors_total | Counter   | Number of failed AWS API calls due to auth or authorization failures |
+| aws_api_call_service_limit_exceeded_errors_total | Counter   | Number of failed AWS API calls due to exceeding service limit |
+| aws_api_call_throttled_errors_total | Counter   | Number of failed AWS API calls due to throttling error |
+| aws_api_call_validation_errors_total | Counter   | Number of failed AWS API calls due to validation error |
 | aws_target_group_info | Gauge     | Information about target group |
 | awslbc_readiness_gate_ready_seconds | Histogram | Time to flip a readiness gate to true |
 | awslbc_reconcile_stage_duration | Histogram | Latency of different reconcile stages |
