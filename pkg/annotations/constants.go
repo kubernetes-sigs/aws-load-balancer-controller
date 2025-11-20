@@ -77,6 +77,7 @@ const (
 	IngressSuffixFrontendNlbHealthCheckSuccessCodes            = "frontend-nlb-healthcheck-success-codes"
 	IngressSuffixFrontendNlbTags                               = "frontend-nlb-tags"
 	IngressSuffixUseRegexPathMatch                             = "use-regex-path-match"
+	IngressSuffixTargetControlPort                             = "target-control-port"
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io

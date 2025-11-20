@@ -152,6 +152,10 @@ type TargetGroupSpec struct {
 	// The tags.
 	// +optional
 	Tags map[string]string `json:"tags,omitempty"`
+
+	// The TargetControlPort.
+	// +optional
+	TargetControlPort *int32 `json:"targetControlPort,omitempty"`
 }
 
 // TargetGroupStatus defines the observed state of TargetGroup

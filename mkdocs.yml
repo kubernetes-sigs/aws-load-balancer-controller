@@ -52,7 +52,10 @@ nav:
         - QUIC: guide/use_cases/quic/index.md
         - Legacy Target Groups: guide/use_cases/legacy_app_integration/index.md
       - Metrics:
-        - Prometheus: guide/metrics/prometheus/index.md
+          - Prometheus: guide/metrics/prometheus/index.md
+      - ALB Target Optimizer:
+          - Target Control Agent : guide/ingress/alb-target-agent.md
+          - ALBTargetControlConfig : guide/ingress/alb-target-agent-spec.md
   - Examples:
     - EchoServer: examples/echo_server.md
     - gRPCServer: examples/grpc_server.md

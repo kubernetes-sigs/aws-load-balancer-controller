@@ -6,8 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"regexp"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"strconv"
+
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 
@@ -65,7 +66,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	if targetType == elbv2api.TargetTypeInstance {
 		targetPort = intstr.FromInt32(svcPort.NodePort)
 	}
-	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, *tg.Spec.HealthCheckConfig.Port)
+	tgbNetworking := t.buildTargetGroupBindingNetworking(ctx, targetPort, *tg.Spec.HealthCheckConfig.Port, tg.Spec.TargetControlPort)
 
 	multiTg, err := t.buildTargetGroupBindingMultiClusterFlag(ing, svc)
 	if err != nil {
@@ -96,7 +97,7 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingSpec(ctx context.Context,
 	}, nil
 }
 
-func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString) *elbv2modelk8s.TargetGroupBindingNetworking {
+func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Context, targetPort intstr.IntOrString, healthCheckPort intstr.IntOrString, targetControlPort *int32) *elbv2modelk8s.TargetGroupBindingNetworking {
 	if t.backendSGIDToken == nil {
 		return nil
 	}
@@ -132,6 +133,13 @@ func (t *defaultModelBuildTask) buildTargetGroupBindingNetworking(_ context.Cont
 		networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
 			Protocol: &protocolTCP,
 			Port:     &healthCheckPort,
+		})
+	}
+	if targetControlPort != nil {
+		controlPort := intstr.FromInt32(*targetControlPort)
+		networkingPorts = append(networkingPorts, elbv2api.NetworkingPort{
+			Protocol: &protocolTCP,
+			Port:     &controlPort,
 		})
 	}
 	for _, port := range networkingPorts {
@@ -183,7 +191,16 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	tgPort := t.buildTargetGroupPort(ctx, targetType, svcPort)
-	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing.Ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion)
+	targetControlPort, err := t.buildTargetGroupTargetControlPort(ctx, svcAndIngAnnotations, svc, port)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
+
+	if targetType == elbv2model.TargetTypeInstance && targetControlPort != nil {
+		return elbv2model.TargetGroupSpec{}, errors.New("target control port is not supported for instance target target group")
+	}
+
+	name := t.buildTargetGroupName(ctx, k8s.NamespacedName(ing.Ing), svc, port, tgPort, targetType, tgProtocol, tgProtocolVersion, targetControlPort)
 
 	if tgPort == 0 {
 		if targetType == elbv2model.TargetTypeIP {
@@ -192,17 +209,20 @@ func (t *defaultModelBuildTask) buildTargetGroupSpec(ctx context.Context,
 		return elbv2model.TargetGroupSpec{}, errors.Errorf("TargetGroup port is empty. When using Instance targets, your service be must of type 'NodePort' or 'LoadBalancer'")
 	}
 
-	return elbv2model.TargetGroupSpec{
+	tgSpec := elbv2model.TargetGroupSpec{
 		Name:                  name,
 		TargetType:            targetType,
 		Port:                  awssdk.Int32(tgPort),
+		TargetControlPort:     targetControlPort,
 		Protocol:              tgProtocol,
 		ProtocolVersion:       &tgProtocolVersion,
 		IPAddressType:         ipAddressType,
 		HealthCheckConfig:     &healthCheckConfig,
 		TargetGroupAttributes: tgAttributes,
 		Tags:                  tags,
-	}, nil
+	}
+
+	return tgSpec, nil
 }
 
 var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
@@ -210,7 +230,7 @@ var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 // buildTargetGroupName will calculate the targetGroup's name.
 func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 	ingKey types.NamespacedName, svc *corev1.Service, port intstr.IntOrString, tgPort int32,
-	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion elbv2model.ProtocolVersion) string {
+	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion elbv2model.ProtocolVersion, targetControlPort *int32) string {
 	uuidHash := sha256.New()
 	_, _ = uuidHash.Write([]byte(t.clusterName))
 	_, _ = uuidHash.Write([]byte(t.ingGroup.ID.String()))
@@ -222,6 +242,9 @@ func (t *defaultModelBuildTask) buildTargetGroupName(_ context.Context,
 	_, _ = uuidHash.Write([]byte(targetType))
 	_, _ = uuidHash.Write([]byte(tgProtocol))
 	_, _ = uuidHash.Write([]byte(tgProtocolVersion))
+	if targetControlPort != nil {
+		_, _ = uuidHash.Write([]byte(strconv.Itoa(int(*targetControlPort))))
+	}
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
 	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(svc.Namespace, "")
@@ -279,6 +302,17 @@ func (t *defaultModelBuildTask) buildTargetGroupPort(_ context.Context, targetTy
 	// when a literal targetPort is used, we just use a fixed 1 here as this setting is not in the data path.
 	// also, under extreme edge case, it can actually be different ports for different pods.
 	return 1
+}
+
+func (t *defaultModelBuildTask) buildTargetGroupTargetControlPort(_ context.Context, svcAndIngAnnotations map[string]string, svc *corev1.Service, port intstr.IntOrString) (*int32, error) {
+	var rawTargetControlPort int32
+	annotationKey := fmt.Sprintf("%v.%v.%v", annotations.IngressSuffixTargetControlPort, svc.Name, port.String())
+	exist, err := t.annotationParser.ParseInt32Annotation(annotationKey, &rawTargetControlPort, svcAndIngAnnotations)
+
+	if err != nil || !exist {
+		return nil, err
+	}
+	return &rawTargetControlPort, nil
 }
 
 func (t *defaultModelBuildTask) buildTargetGroupProtocol(_ context.Context, svcAndIngAnnotations map[string]string) (elbv2model.Protocol, error) {

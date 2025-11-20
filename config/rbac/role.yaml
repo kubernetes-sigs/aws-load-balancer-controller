@@ -60,6 +60,12 @@ rules:
 - apiGroups:
   - elbv2.k8s.aws
   resources:
+  - albtargetcontrolconfigs
+  verbs:
+  - get
+- apiGroups:
+  - elbv2.k8s.aws
+  resources:
   - ingressclassparams
   verbs:
   - get

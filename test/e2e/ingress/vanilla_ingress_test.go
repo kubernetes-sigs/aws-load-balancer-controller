@@ -3,12 +3,13 @@ package ingress
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gavv/httpexpect/v2"
@@ -40,7 +41,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		ctx = context.Background()
 		if tf.Options.ControllerImage != "" {
 			By(fmt.Sprintf("ensure cluster installed with controller: %s", tf.Options.ControllerImage), func() {
-				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false)
+				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false, false)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(60 * time.Second)
 			})
@@ -436,7 +437,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			ctx = context.Background()
 			if tf.Options.ControllerImage != "" {
 				By(fmt.Sprintf("upgrade controller with endPointSlices enabled."), func() {
-					err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true)
+					err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true, false)
 					Expect(err).NotTo(HaveOccurred())
 					time.Sleep(60 * time.Second)
 				})

@@ -113,6 +113,12 @@ func (t *targetGroupConfigConstructorImpl) performTakeOneMerges(merged, highPrio
 		merged.ProtocolVersion = defaultProps.ProtocolVersion
 	}
 
+	if highPriority.TargetControlPort != nil {
+		merged.TargetControlPort = highPriority.TargetControlPort
+	} else {
+		merged.TargetControlPort = defaultProps.TargetControlPort
+	}
+
 	if highPriority.EnableMultiCluster != nil {
 		merged.EnableMultiCluster = highPriority.EnableMultiCluster
 	} else {

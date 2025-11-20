@@ -444,6 +444,9 @@ var _ = Describe("test k8s service using instance target reconciled by the aws l
 		svc2Weight := 3
 
 		BeforeEach(func() {
+			if strings.HasPrefix(tf.Options.AWSRegion, "cn-") || strings.Contains(tf.Options.AWSRegion, "-iso-") || tf.Options.AWSRegion == "eusc-de-east-1" {
+				Skip("Skipping test, weighted target groups not supported in this region")
+			}
 			// Service 1 to forward to
 			svc1Name := fmt.Sprintf("target-svc1-%v", utils.RandomDNS1123Label(5))
 			targetSvc1 := &corev1.Service{
@@ -509,6 +512,10 @@ var _ = Describe("test k8s service using instance target reconciled by the aws l
 				"service.beta.kubernetes.io/aws-load-balancer-nlb-target-type": "instance",
 				"service.beta.kubernetes.io/aws-load-balancer-scheme":          "internet-facing",
 				"service.beta.kubernetes.io/actions.TCP-80":                    forwardActionValue,
+			}
+
+			if tf.Options.IPFamily == framework.IPv6 {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
 			}
 
 			svcs = append(svcs, targetSvc1, targetSvc2)
