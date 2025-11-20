@@ -2,6 +2,8 @@ package routeutils
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -13,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_buildHttpRedirectAction(t *testing.T) {
@@ -27,7 +28,6 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 	query := "test-query"
 	replaceFullPath := "/new-path"
 	replacePrefixPath := "/new-prefix-path"
-	replacePrefixPathAfterProcessing := "/new-prefix-path/*"
 	invalidPath := "/invalid-path*"
 
 	tests := []struct {
@@ -66,7 +66,7 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "redirect with prefix match",
+			name: "redirect with prefix match only - uses literal prefix",
 			filter: &gwv1.HTTPRequestRedirectFilter{
 				Path: &gwv1.HTTPPathModifier{
 					Type:               gwv1.PrefixMatchHTTPPathModifier,
@@ -76,7 +76,61 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 			want: &elbv2model.Action{
 				Type: elbv2model.ActionTypeRedirect,
 				RedirectConfig: &elbv2model.RedirectActionConfig{
-					Path: &replacePrefixPathAfterProcessing,
+					Path: &replacePrefixPath,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "redirect with prefix match and scheme - uses #{path}",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Scheme: &scheme,
+				Path: &gwv1.HTTPPathModifier{
+					Type:               gwv1.PrefixMatchHTTPPathModifier,
+					ReplacePrefixMatch: &replacePrefixPath,
+				},
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeRedirect,
+				RedirectConfig: &elbv2model.RedirectActionConfig{
+					Path:     awssdk.String("/#{path}"),
+					Protocol: &expectedScheme,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "redirect with prefix match and port - uses #{path}",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Port: (*gwv1.PortNumber)(&port),
+				Path: &gwv1.HTTPPathModifier{
+					Type:               gwv1.PrefixMatchHTTPPathModifier,
+					ReplacePrefixMatch: &replacePrefixPath,
+				},
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeRedirect,
+				RedirectConfig: &elbv2model.RedirectActionConfig{
+					Path: awssdk.String("/#{path}"),
+					Port: &portString,
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "redirect with prefix match and hostname - uses #{path}",
+			filter: &gwv1.HTTPRequestRedirectFilter{
+				Hostname: (*gwv1.PreciseHostname)(&hostname),
+				Path: &gwv1.HTTPPathModifier{
+					Type:               gwv1.PrefixMatchHTTPPathModifier,
+					ReplacePrefixMatch: &replacePrefixPath,
+				},
+			},
+			want: &elbv2model.Action{
+				Type: elbv2model.ActionTypeRedirect,
+				RedirectConfig: &elbv2model.RedirectActionConfig{
+					Path: awssdk.String("/#{path}"),
+					Host: &hostname,
 				},
 			},
 			wantErr: false,
@@ -101,17 +155,6 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 				Path: &gwv1.HTTPPathModifier{
 					Type:            gwv1.FullPathHTTPPathModifier,
 					ReplaceFullPath: &invalidPath,
-				},
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "path with wildcards in ReplacePrefixMatch",
-			filter: &gwv1.HTTPRequestRedirectFilter{
-				Path: &gwv1.HTTPPathModifier{
-					Type:               gwv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: &invalidPath,
 				},
 			},
 			want:    nil,

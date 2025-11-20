@@ -259,12 +259,14 @@ func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter, redirectCon
 			path = filter.Path.ReplaceFullPath
 			isComponentSpecified = true
 		} else if filter.Path.ReplacePrefixMatch != nil {
-			pathValue := *filter.Path.ReplacePrefixMatch
-			if strings.ContainsAny(pathValue, "*?") {
-				return nil, errors.Errorf("ReplacePrefixMatch shouldn't contain wildcards: %v", pathValue)
+			// Use #{path} if other components are modified (avoids redirect loop)
+			// Otherwise use literal prefix (no suffix preservation)
+			if filter.Scheme != nil || filter.Port != nil || filter.Hostname != nil {
+				pathVariable := "/#{path}"
+				path = &pathVariable
+			} else {
+				path = filter.Path.ReplacePrefixMatch
 			}
-			processedPath := fmt.Sprintf("%s/*", pathValue)
-			path = &processedPath
 			isComponentSpecified = true
 		}
 	}
