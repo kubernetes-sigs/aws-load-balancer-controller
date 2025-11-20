@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
@@ -60,10 +62,10 @@ func (m *defaultAcceleratorManager) buildSDKCreateAcceleratorInput(_ context.Con
 		IdempotencyToken: aws.String(idempotencyToken),
 	}
 
-	//TODO: BYOIP feature
-	//if len(resAccelerator.Spec.IpAddresses) > 0 {
-	//	createInput.IpAddresses = resAccelerator.Spec.IpAddresses
-	//}
+	// BYOIP feature: Set IP addresses if provided
+	if len(resAccelerator.Spec.IpAddresses) > 0 {
+		createInput.IpAddresses = resAccelerator.Spec.IpAddresses
+	}
 
 	// Add tags
 	tags := m.trackingProvider.ResourceTags(resAccelerator.Stack(), resAccelerator, resAccelerator.Spec.Tags)
@@ -103,11 +105,8 @@ func (m *defaultAcceleratorManager) buildSDKUpdateAcceleratorInput(ctx context.C
 		IpAddressType:  agatypes.IpAddressType(resAccelerator.Spec.IPAddressType),
 		Enabled:        resAccelerator.Spec.Enabled,
 	}
+	// BYOIP is only supported during accelerator creation, not updates
 
-	//TODO: BYOIP feature
-	//if len(resAccelerator.Spec.IpAddresses) > 0 {
-	//	updateInput.IpAddresses = resAccelerator.Spec.IpAddresses
-	//}
 	return updateInput
 }
 
@@ -272,8 +271,41 @@ func (m *defaultAcceleratorManager) isSDKAcceleratorSettingsDrifted(resAccelerat
 		return true
 	}
 
-	//TODO : BYOIP feature
+	// Check if user attempts to change IP addresses (BYOIP only supported at creation)
+	if len(resAccelerator.Spec.IpAddresses) > 0 && !m.areIPAddressesEqual(resAccelerator.Spec.IpAddresses, sdkAccelerator.Accelerator.IpSets) {
+		m.logger.Info("IP addresses cannot be updated after accelerator creation, ignoring IP address changes")
+	}
+
 	return false
+}
+
+func (m *defaultAcceleratorManager) areIPAddressesEqual(desiredIPs []string, actualIPSets []agatypes.IpSet) bool {
+
+	// IPv6 BYOIP is not supported at this time
+	return m.areIPv4AddressesEqual(desiredIPs, actualIPSets)
+}
+
+// areIPv4AddressesEqual compares desired IPv4 addresses with actual IP sets from AWS
+func (m *defaultAcceleratorManager) areIPv4AddressesEqual(desiredIPs []string, actualIPSets []agatypes.IpSet) bool {
+	actualIPv4s := extractIPv4Addresses(actualIPSets)
+	if len(desiredIPs) != len(actualIPv4s) {
+		return false
+	}
+
+	slices.Sort(desiredIPs)
+	slices.Sort(actualIPv4s)
+	return slices.Equal(desiredIPs, actualIPv4s)
+}
+
+// extractIPv4Addresses extracts IPv4 addresses from IPSets
+func extractIPv4Addresses(ipSets []agatypes.IpSet) []string {
+	ips := make([]string, 0)
+	for _, ipSet := range ipSets {
+		if ipSet.IpAddressFamily == "IPv4" {
+			ips = append(ips, ipSet.IpAddresses...)
+		}
+	}
+	return ips
 }
 
 func (m *defaultAcceleratorManager) getIdempotencyToken(resAccelerator *agamodel.Accelerator) string {
