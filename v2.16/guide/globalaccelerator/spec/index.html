@@ -1,0 +1,2580 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+      
+      
+      <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
+    
+    
+      
+        <title>API Reference - AWS Load Balancer Controller</title>
+      
+    
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    <link rel="stylesheet" href="../../../assets/stylesheets/version-select.css">
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      <header class="md-header" data-md-component="header">
+    <nav
+      class="md-header__inner md-grid"
+      aria-label="header.title"
+    >
+  
+      <!-- Link to home -->
+      <a
+        href="../../.."
+        title="AWS Load Balancer Controller"
+        class="md-header__button md-logo"
+        aria-label="AWS Load Balancer Controller"
+        data-md-component="logo"
+      >
+        
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+      </a>
+  
+      <!-- Button to open drawer -->
+      <label class="md-header__button md-icon" for="__drawer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+      </label>
+  
+      <!-- Header title -->
+      <div class="md-header__title" data-md-component="header-title">
+        <div class="md-header__ellipsis">
+          <div class="md-header__topic">
+            <span class="md-ellipsis">
+              AWS Load Balancer Controller
+            </span>
+          </div>
+          <div class="md-header__topic" data-md-component="header-topic">
+            <span class="md-ellipsis">
+              
+                API Reference
+              
+            </span>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Color palette -->
+      
+
+      <div id="version-select" class="mdc-select" data-base-url="../../..">
+    <div class="mdc-select__anchor" role="button">
+        <span class="mdc-select__ripple"></span>
+        <span class="mdc-select__selected-text-container">
+            <span class="mdc-select__selected-text"></span>
+        </span>
+        <span class="mdc-select__dropdown-icon">
+            <svg class="mdc-select__dropdown-icon-graphic" viewBox="7 10 10 5" focusable="false">
+                <polygon class="mdc-select__dropdown-icon-inactive" stroke="none" fill-rule="evenodd"
+                    points="7 10 12 15 17 10">
+                </polygon>
+                <polygon class="mdc-select__dropdown-icon-active" stroke="none" fill-rule="evenodd"
+                    points="7 15 12 10 17 15">
+                </polygon>
+            </svg>
+        </span>
+    </div>
+
+    <div class="mdc-select__menu mdc-menu mdc-menu-surface mdc-menu-surface--fullwidth">
+        <ul class="mdc-list" role="listbox">
+        </ul>
+    </div>
+</div>
+      <!-- Site language selector -->
+      
+  
+      <!-- Button to open search modal -->
+      
+  
+      <!-- Repository information -->
+      
+        <div class="md-header__source">
+          <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+        </div>
+      
+    </nav>
+  </header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
+          
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../deploy/installation/" class="md-tabs__link">
+          
+  
+  Deployment
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../ingress/annotations/" class="md-tabs__link">
+          
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../examples/echo_server/" class="md-tabs__link">
+          
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="AWS Load Balancer Controller" class="md-nav__button md-logo" aria-label="AWS Load Balancer Controller" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    AWS Load Balancer Controller
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-it-works/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How it works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Deployment
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Deployment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/configurations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configurations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/subnet_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Subnet Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/security_groups/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Group Management
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/pod_readiness_gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pod Readiness Gate
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/scaling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Scaling your LBC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Upgrade
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            Upgrade
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate v1 to v2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Ingress
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ingress
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/ingress_class/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    IngressClass
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/cert_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificate Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Service
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Service
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/nlb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Network Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            TargetGroupBinding
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/targetgroupbinding/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Gateway API (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Gateway API (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/l4gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L4 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/l7gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L7 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_4" id="__nav_3_4_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customizations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            Customizations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/customization/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How customizations works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/loadbalancerconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LoadBalancerConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/targetgroupconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/listenerruleconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerRuleConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tasks
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            Tasks
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/cognito_authentication/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Cognito Authentication
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/ssl_redirect/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SSL Redirect
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/url_rewrite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    URL Rewrite
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Use Cases
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            Use Cases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/nlb_tls_termination/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    NLB TLS Termination
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/self_managed_lb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Externally Managed Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frontend Security Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/blue_green/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Blue/Green
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/multi_cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    MultiCluster Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/quic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    QUIC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/legacy_app_integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Legacy Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            Metrics
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/prometheus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    ALB Target Optimizer
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            ALB Target Optimizer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Target Control Agent
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent-spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ALBTargetControlConfig
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/echo_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EchoServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/grpc_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    gRPCServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/external_dns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setup External DNS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/secrets_access/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    RBAC to access OIDC Secret
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#packages" class="md-nav__link">
+    <span class="md-ellipsis">
+      Packages
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#agak8sawsv1beta1" class="md-nav__link">
+    <span class="md-ellipsis">
+      aga.k8s.aws/v1beta1
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="aga.k8s.aws/v1beta1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#resource-types" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Types
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#clientaffinitytype" class="md-nav__link">
+    <span class="md-ellipsis">
+      ClientAffinityType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#globalaccelerator" class="md-nav__link">
+    <span class="md-ellipsis">
+      GlobalAccelerator
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#globalacceleratorendpoint" class="md-nav__link">
+    <span class="md-ellipsis">
+      GlobalAcceleratorEndpoint
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#globalacceleratorendpointgroup" class="md-nav__link">
+    <span class="md-ellipsis">
+      GlobalAcceleratorEndpointGroup
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#globalacceleratorendpointtype" class="md-nav__link">
+    <span class="md-ellipsis">
+      GlobalAcceleratorEndpointType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#globalacceleratorlistener" class="md-nav__link">
+    <span class="md-ellipsis">
+      GlobalAcceleratorListener
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#globalacceleratorprotocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      GlobalAcceleratorProtocol
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#globalacceleratorspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      GlobalAcceleratorSpec
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#globalacceleratorstatus" class="md-nav__link">
+    <span class="md-ellipsis">
+      GlobalAcceleratorStatus
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ipaddresstype" class="md-nav__link">
+    <span class="md-ellipsis">
+      IPAddressType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ipset" class="md-nav__link">
+    <span class="md-ellipsis">
+      IPSet
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portoverride" class="md-nav__link">
+    <span class="md-ellipsis">
+      PortOverride
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portrange" class="md-nav__link">
+    <span class="md-ellipsis">
+      PortRange
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="api-reference">API Reference<a class="headerlink" href="#api-reference" title="Permanent link">&para;</a></h1>
+<h2 id="packages">Packages<a class="headerlink" href="#packages" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="#agak8sawsv1beta1">aga.k8s.aws/v1beta1</a></li>
+</ul>
+<h2 id="agak8sawsv1beta1">aga.k8s.aws/v1beta1<a class="headerlink" href="#agak8sawsv1beta1" title="Permanent link">&para;</a></h2>
+<p>Package v1beta1 contains API Schema definitions for the aga v1beta1 API group</p>
+<h3 id="resource-types">Resource Types<a class="headerlink" href="#resource-types" title="Permanent link">&para;</a></h3>
+<ul>
+<li><a href="#globalaccelerator">GlobalAccelerator</a></li>
+</ul>
+<h4 id="clientaffinitytype">ClientAffinityType<a class="headerlink" href="#clientaffinitytype" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>ClientAffinityType defines the client affinity for Global Accelerator listeners.</p>
+<p><em>Validation:</em>
+- Enum: [SOURCE_IP NONE]</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorlistener">GlobalAcceleratorListener</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SOURCE_IP</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>NONE</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="globalaccelerator">GlobalAccelerator<a class="headerlink" href="#globalaccelerator" title="Permanent link">&para;</a></h4>
+<p>GlobalAccelerator is the Schema for the GlobalAccelerator API</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apiVersion</code> <em>string</em></td>
+<td><code>aga.k8s.aws/v1beta1</code></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>kind</code> <em>string</em></td>
+<td><code>GlobalAccelerator</code></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>metadata</code> <em><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#objectmeta-v1-meta">ObjectMeta</a></em></td>
+<td>Refer to Kubernetes API documentation for fields of <code>metadata</code>.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>spec</code> <em><a href="#globalacceleratorspec">GlobalAcceleratorSpec</a></em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code> <em><a href="#globalacceleratorstatus">GlobalAcceleratorStatus</a></em></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="globalacceleratorendpoint">GlobalAcceleratorEndpoint<a class="headerlink" href="#globalacceleratorendpoint" title="Permanent link">&para;</a></h4>
+<p>GlobalAcceleratorEndpoint defines an endpoint for a Global Accelerator endpoint group.</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorendpointgroup">GlobalAcceleratorEndpointGroup</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code> <em><a href="#globalacceleratorendpointtype">GlobalAcceleratorEndpointType</a></em></td>
+<td>Type specifies the type of endpoint reference.</td>
+<td></td>
+<td>Enum: [EndpointID Service Ingress Gateway] <br /></td>
+</tr>
+<tr>
+<td><code>endpointID</code> <em>string</em></td>
+<td>EndpointID is the ID of the endpoint when type is EndpointID.<br />If the endpoint is a Network Load Balancer or Application Load Balancer, this is the Amazon Resource Name (ARN) of the resource.<br />A resource must be valid and active when you add it as an endpoint.<br />Mandatory for remote regions.</td>
+<td></td>
+<td>MaxLength: 255 <br /></td>
+</tr>
+<tr>
+<td><code>name</code> <em>string</em></td>
+<td>Name is the name of the Kubernetes resource when type is Service, Ingress, or Gateway.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>namespace</code> <em>string</em></td>
+<td>Namespace is the namespace of the Kubernetes resource when type is Service, Ingress, or Gateway.<br />If not specified, defaults to the same namespace as the GlobalAccelerator resource.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>weight</code> <em>integer</em></td>
+<td>Weight is the weight associated with the endpoint. When you add weights to endpoints, you configure Global Accelerator to route traffic based on proportions that you specify.<br />For example, you might specify endpoint weights of 4, 5, 5, and 6 (sum=20). The result is that 4/20 of your traffic, on average, is routed to the first endpoint,<br />5/20 is routed both to the second and third endpoints, and 6/20 is routed to the last endpoint.<br />For more information, see Endpoint Weights in the AWS Global Accelerator Developer Guide:<br />https://docs.aws.amazon.com/global-accelerator/latest/dg/about-endpoints-endpoint-weights.html</td>
+<td>128</td>
+<td>Maximum: 255 <br />Minimum: 0 <br /></td>
+</tr>
+<tr>
+<td><code>clientIPPreservationEnabled</code> <em>boolean</em></td>
+<td>ClientIPPreservationEnabled indicates whether client IP address preservation is enabled for an Application Load Balancer endpoint.<br />The value is true or false. The default value is true for new accelerators.<br />If the value is set to true, the client's IP address is preserved in the X-Forwarded-For request header as traffic travels to applications on the Application Load Balancer endpoint fronted by the accelerator.<br />For more information, see Preserve Client IP Addresses in the AWS Global Accelerator Developer Guide:<br />https://docs.aws.amazon.com/global-accelerator/latest/dg/preserve-client-ip-address.html</td>
+<td>true</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="globalacceleratorendpointgroup">GlobalAcceleratorEndpointGroup<a class="headerlink" href="#globalacceleratorendpointgroup" title="Permanent link">&para;</a></h4>
+<p>GlobalAcceleratorEndpointGroup defines an endpoint group for a Global Accelerator listener.</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorlistener">GlobalAcceleratorListener</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>region</code> <em>string</em></td>
+<td>Region is the AWS Region where the endpoint group is located.<br />If unspecified, defaults to the current cluster region.</td>
+<td></td>
+<td>MaxLength: 255 <br /></td>
+</tr>
+<tr>
+<td><code>trafficDialPercentage</code> <em>integer</em></td>
+<td>TrafficDialPercentage is the percentage of traffic to send to an AWS Regions. Additional traffic is distributed to other endpoint groups for this listener<br />Use this action to increase (dial up) or decrease (dial down) traffic to a specific Region. The percentage is applied to the traffic that would otherwise have been routed to the Region based on optimal routing.</td>
+<td>100</td>
+<td>Maximum: 100 <br />Minimum: 0 <br /></td>
+</tr>
+<tr>
+<td><code>portOverrides</code> <em><a href="#portoverride">PortOverride</a></em></td>
+<td>PortOverrides is a list of endpoint port overrides. Allows you to override the destination ports used to route traffic to an endpoint. Using a port override lets you map a list of external destination ports (that your users send traffic to) to a list of internal destination ports that you want an application endpoint to receive traffic on.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>endpoints</code> <em><a href="#globalacceleratorendpoint">GlobalAcceleratorEndpoint</a></em></td>
+<td>Endpoints is the list of endpoint configurations for this endpoint group.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="globalacceleratorendpointtype">GlobalAcceleratorEndpointType<a class="headerlink" href="#globalacceleratorendpointtype" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>GlobalAcceleratorEndpointType defines the type of endpoint for Global Accelerator.</p>
+<p><em>Validation:</em>
+- Enum: [EndpointID Service Ingress Gateway]</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorendpoint">GlobalAcceleratorEndpoint</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>EndpointID</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>Service</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>Ingress</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>Gateway</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="globalacceleratorlistener">GlobalAcceleratorListener<a class="headerlink" href="#globalacceleratorlistener" title="Permanent link">&para;</a></h4>
+<p>GlobalAcceleratorListener defines a listener for the Global Accelerator.</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorspec">GlobalAcceleratorSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>protocol</code> <em><a href="#globalacceleratorprotocol">GlobalAcceleratorProtocol</a></em></td>
+<td>Protocol is the protocol for the connections from clients to the accelerator.<br />When not specified, the controller will automatically determine the protocol by inspecting<br />the referenced Kubernetes resources (Service, Ingress, or Gateway) in the endpoint groups.</td>
+<td></td>
+<td>Enum: [TCP UDP] <br /></td>
+</tr>
+<tr>
+<td><code>portRanges</code> <em><a href="#portrange">PortRange</a></em></td>
+<td>PortRanges is the list of port ranges for the connections from clients to the accelerator.<br />When not specified, the controller will automatically determine the port ranges by inspecting<br />the referenced Kubernetes resources (Service, Ingress, or Gateway) in the endpoint groups.</td>
+<td></td>
+<td>MaxItems: 10 <br />MinItems: 1 <br /></td>
+</tr>
+<tr>
+<td><code>clientAffinity</code> <em><a href="#clientaffinitytype">ClientAffinityType</a></em></td>
+<td>ClientAffinity lets you direct all requests from a user to the same endpoint, if you have stateful applications, regardless of the port and protocol of the client request.<br />Client affinity gives you control over whether to always route each client to the same specific endpoint.<br />AWS Global Accelerator uses a consistent-flow hashing algorithm to choose the optimal endpoint for a connection.<br />If client affinity is NONE, Global Accelerator uses the "five-tuple" (5-tuple) properties—source IP address, source port, destination IP address, destination port, and protocol—to select the hash value, and then chooses the best endpoint.<br />However, with this setting, if someone uses different ports to connect to Global Accelerator, their connections might not be always routed to the same endpoint because the hash value changes.<br />If you want a given client to always be routed to the same endpoint, set client affinity to SOURCE_IP instead.<br />When you use the SOURCE_IP setting, Global Accelerator uses the "two-tuple" (2-tuple) properties— source (client) IP address and destination IP address—to select the hash value.<br />The default value is NONE.</td>
+<td>NONE</td>
+<td>Enum: [SOURCE_IP NONE] <br /></td>
+</tr>
+<tr>
+<td><code>endpointGroups</code> <em><a href="#globalacceleratorendpointgroup">GlobalAcceleratorEndpointGroup</a></em></td>
+<td>EndpointGroups defines a list of endpoint groups for a Global Accelerator listener.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="globalacceleratorprotocol">GlobalAcceleratorProtocol<a class="headerlink" href="#globalacceleratorprotocol" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>GlobalAcceleratorProtocol defines the protocol for Global Accelerator listeners.</p>
+<p><em>Validation:</em>
+- Enum: [TCP UDP]</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorlistener">GlobalAcceleratorListener</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>TCP</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>UDP</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="globalacceleratorspec">GlobalAcceleratorSpec<a class="headerlink" href="#globalacceleratorspec" title="Permanent link">&para;</a></h4>
+<p>GlobalAcceleratorSpec defines the desired state of GlobalAccelerator</p>
+<p><em>Appears in:</em>
+- <a href="#globalaccelerator">GlobalAccelerator</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code> <em>string</em></td>
+<td>Name is the name of the Global Accelerator.<br />The name must contain only alphanumeric characters or hyphens (-), and must not begin or end with a hyphen.</td>
+<td></td>
+<td>MaxLength: 64 <br />MinLength: 1 <br />Pattern: <code>^[a-zA-Z0-9_-]\{1,64\}$</code> <br /></td>
+</tr>
+<tr>
+<td><code>ipAddresses</code> <em>string</em></td>
+<td>IpAddresses optionally specifies the IP addresses from your own IP address pool (BYOIP) to use for the accelerator's static IP addresses.<br />You can specify one or two addresses. Do not include the /32 suffix.<br />If you bring your own IP address pool to Global Accelerator (BYOIP), you can choose an IPv4 address from your own pool to use for the accelerator's static IPv4 address.<br />After you bring an address range to AWS, it appears in your account as an address pool. When you create an accelerator, you can assign one IPv4 address from your range to it.<br />Global Accelerator assigns you a second static IPv4 address from an Amazon IP address range. If you bring two IPv4 address ranges to AWS, you can assign one IPv4 address from each range to your accelerator.<br />Note that you can't update IP addresses for an existing accelerator. To change them, you must create a new accelerator with the new addresses.<br />For more information, see Bring your own IP addresses (BYOIP) in the AWS Global Accelerator Developer Guide.<br />https://docs.aws.amazon.com/global-accelerator/latest/dg/using-byoip.html</td>
+<td></td>
+<td>MaxItems: 2 <br />MinItems: 1 <br /></td>
+</tr>
+<tr>
+<td><code>ipAddressType</code> <em><a href="#ipaddresstype">IPAddressType</a></em></td>
+<td>IPAddressType is the value for the address type.</td>
+<td>IPV4</td>
+<td>Enum: [IPV4 DUAL_STACK] <br /></td>
+</tr>
+<tr>
+<td><code>tags</code> <em>map[string]string</em></td>
+<td>Tags defines list of Tags on the Global Accelerator.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>listeners</code> <em><a href="#globalacceleratorlistener">GlobalAcceleratorListener</a></em></td>
+<td>Listeners defines the listeners for the Global Accelerator.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="globalacceleratorstatus">GlobalAcceleratorStatus<a class="headerlink" href="#globalacceleratorstatus" title="Permanent link">&para;</a></h4>
+<p>GlobalAcceleratorStatus defines the observed state of GlobalAccelerator</p>
+<p><em>Appears in:</em>
+- <a href="#globalaccelerator">GlobalAccelerator</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>observedGeneration</code> <em>integer</em></td>
+<td>The generation observed by the GlobalAccelerator controller.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>acceleratorARN</code> <em>string</em></td>
+<td>AcceleratorARN is the Amazon Resource Name (ARN) of the accelerator.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>dnsName</code> <em>string</em></td>
+<td>DNSName The Domain Name System (DNS) name that Global Accelerator creates that points to an accelerator's static IPv4 addresses.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>dualStackDnsName</code> <em>string</em></td>
+<td>DualStackDnsName is the Domain Name System (DNS) name that Global Accelerator creates that points to a dual-stack accelerator's four static IP addresses: two IPv4 addresses and two IPv6 addresses.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ipSets</code> <em><a href="#ipset">IPSet</a> array</em></td>
+<td>IPSets is the static IP addresses that Global Accelerator associates with the accelerator.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code> <em>string</em></td>
+<td>Status is the current status of the accelerator.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>conditions</code> <em><a href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.32/#condition-v1-meta">Condition</a> array</em></td>
+<td>Conditions represent the current conditions of the GlobalAccelerator.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="ipaddresstype">IPAddressType<a class="headerlink" href="#ipaddresstype" title="Permanent link">&para;</a></h4>
+<p><em>Underlying type:</em> <em>string</em></p>
+<p>IPAddressType defines the IP address type for Global Accelerator.</p>
+<p><em>Validation:</em>
+- Enum: [IPV4 DUAL_STACK]</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorspec">GlobalAcceleratorSpec</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IPV4</code></td>
+<td></td>
+</tr>
+<tr>
+<td><code>DUAL_STACK</code></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="ipset">IPSet<a class="headerlink" href="#ipset" title="Permanent link">&para;</a></h4>
+<p>IPSet is the static IP addresses that Global Accelerator associates with the accelerator.</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorstatus">GlobalAcceleratorStatus</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ipAddresses</code> <em>string</em></td>
+<td>IpAddresses is the array of IP addresses in the IP address set.</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>ipAddressFamily</code> <em>string</em></td>
+<td>IpAddressFamily is the types of IP addresses included in this IP set.</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h4 id="portoverride">PortOverride<a class="headerlink" href="#portoverride" title="Permanent link">&para;</a></h4>
+<p>PortOverride defines a port override for an endpoint group.
+Override specific listener ports used to route traffic to endpoints that are part of an endpoint group.
+For example, you can create a port override in which the listener receives user traffic on ports 80 and 443,
+but your accelerator routes that traffic to ports 1080 and 1443, respectively, on the endpoints.</p>
+<p>For more information, see Port overrides in the AWS Global Accelerator Developer Guide:
+https://docs.aws.amazon.com/global-accelerator/latest/dg/about-endpoint-groups-port-override.html</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorendpointgroup">GlobalAcceleratorEndpointGroup</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>listenerPort</code> <em>integer</em></td>
+<td>ListenerPort is the listener port that you want to map to a specific endpoint port.<br />This is the port that user traffic arrives to the Global Accelerator on.</td>
+<td></td>
+<td>Maximum: 65535 <br />Minimum: 1 <br /></td>
+</tr>
+<tr>
+<td><code>endpointPort</code> <em>integer</em></td>
+<td>EndpointPort is the endpoint port that you want traffic to be routed to.<br />This is the port on the endpoint, such as the Application Load Balancer or Amazon EC2 instance.</td>
+<td></td>
+<td>Maximum: 65535 <br />Minimum: 1 <br /></td>
+</tr>
+</tbody>
+</table>
+<h4 id="portrange">PortRange<a class="headerlink" href="#portrange" title="Permanent link">&para;</a></h4>
+<p>PortRange defines the port range for Global Accelerator listeners.</p>
+<p><em>Appears in:</em>
+- <a href="#globalacceleratorlistener">GlobalAcceleratorListener</a></p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Description</th>
+<th>Default</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fromPort</code> <em>integer</em></td>
+<td>FromPort is the first port in the range of ports, inclusive.</td>
+<td></td>
+<td>Maximum: 65535 <br />Minimum: 1 <br /></td>
+</tr>
+<tr>
+<td><code>toPort</code> <em>integer</em></td>
+<td>ToPort is the last port in the range of ports, inclusive.</td>
+<td></td>
+<td>Maximum: 65535 <br />Minimum: 1 <br /></td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+    
+      <script src="../../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+      
+    
+    <script src="../../../assets/javascripts/version-select.js"></script>
+
+  </body>
+</html>

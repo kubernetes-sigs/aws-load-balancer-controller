@@ -1,0 +1,2894 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../spec/">
+      
+      
+        <link rel="next" href="../cert_discovery/">
+      
+      
+      <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
+    
+    
+      
+        <title>IngressClass - AWS Load Balancer Controller</title>
+      
+    
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    <link rel="stylesheet" href="../../../assets/stylesheets/version-select.css">
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#ingressclass" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      <header class="md-header" data-md-component="header">
+    <nav
+      class="md-header__inner md-grid"
+      aria-label="header.title"
+    >
+  
+      <!-- Link to home -->
+      <a
+        href="../../.."
+        title="AWS Load Balancer Controller"
+        class="md-header__button md-logo"
+        aria-label="AWS Load Balancer Controller"
+        data-md-component="logo"
+      >
+        
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+      </a>
+  
+      <!-- Button to open drawer -->
+      <label class="md-header__button md-icon" for="__drawer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+      </label>
+  
+      <!-- Header title -->
+      <div class="md-header__title" data-md-component="header-title">
+        <div class="md-header__ellipsis">
+          <div class="md-header__topic">
+            <span class="md-ellipsis">
+              AWS Load Balancer Controller
+            </span>
+          </div>
+          <div class="md-header__topic" data-md-component="header-topic">
+            <span class="md-ellipsis">
+              
+                IngressClass
+              
+            </span>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Color palette -->
+      
+
+      <div id="version-select" class="mdc-select" data-base-url="../../..">
+    <div class="mdc-select__anchor" role="button">
+        <span class="mdc-select__ripple"></span>
+        <span class="mdc-select__selected-text-container">
+            <span class="mdc-select__selected-text"></span>
+        </span>
+        <span class="mdc-select__dropdown-icon">
+            <svg class="mdc-select__dropdown-icon-graphic" viewBox="7 10 10 5" focusable="false">
+                <polygon class="mdc-select__dropdown-icon-inactive" stroke="none" fill-rule="evenodd"
+                    points="7 10 12 15 17 10">
+                </polygon>
+                <polygon class="mdc-select__dropdown-icon-active" stroke="none" fill-rule="evenodd"
+                    points="7 15 12 10 17 15">
+                </polygon>
+            </svg>
+        </span>
+    </div>
+
+    <div class="mdc-select__menu mdc-menu mdc-menu-surface mdc-menu-surface--fullwidth">
+        <ul class="mdc-list" role="listbox">
+        </ul>
+    </div>
+</div>
+      <!-- Site language selector -->
+      
+  
+      <!-- Button to open search modal -->
+      
+  
+      <!-- Repository information -->
+      
+        <div class="md-header__source">
+          <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+        </div>
+      
+    </nav>
+  </header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
+          
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../deploy/installation/" class="md-tabs__link">
+          
+  
+  Deployment
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../annotations/" class="md-tabs__link">
+          
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../examples/echo_server/" class="md-tabs__link">
+          
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="AWS Load Balancer Controller" class="md-nav__button md-logo" aria-label="AWS Load Balancer Controller" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    AWS Load Balancer Controller
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-it-works/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How it works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Deployment
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Deployment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/configurations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configurations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/subnet_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Subnet Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/security_groups/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Group Management
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/pod_readiness_gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pod Readiness Gate
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/scaling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Scaling your LBC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Upgrade
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            Upgrade
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate v1 to v2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Ingress
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ingress
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    IngressClass
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    IngressClass
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#deprecated-kubernetesioingressclass-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deprecated kubernetes.io/ingress.class annotation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ingressclassparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      IngressClassParams
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="IngressClassParams">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ingressclassparams-specification" class="md-nav__link">
+    <span class="md-ellipsis">
+      IngressClassParams specification
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="IngressClassParams specification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#specloadbalancername" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.loadBalancerName
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specnamespaceselector" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.namespaceSelector
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specgroup" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.group
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specscheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.scheme
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specinboundcidrs" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.inboundCIDRs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#speccertificatearn" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.certificateArn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specsslpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.sslPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specsslredirectport" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.sslRedirectPort
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specsubnets" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.subnets
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="spec.subnets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#specsubnetsids" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.subnets.ids
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specsubnetstags" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.subnets.tags
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specipaddresstype" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.ipAddressType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectags" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.tags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectargettype" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.targetType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specloadbalancerattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.loadBalancerAttributes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specminimumloadbalancercapacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.minimumLoadBalancerCapacity
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="spec.minimumLoadBalancerCapacity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#specminimumloadbalancercapacitycapacityunits" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.minimumLoadBalancerCapacity.capacityUnits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specipamconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.ipamConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specprefixlistsids" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.PrefixListsIDs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specprefixlistsids_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.prefixListsIDs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#speclisteners" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.listeners
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specwafv2aclarn" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.wafv2AclArn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specwafv2aclname" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.wafv2AclName
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-cleanup-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Cleanup Order
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cert_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificate Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Service
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Service
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/nlb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Network Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            TargetGroupBinding
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/targetgroupbinding/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Gateway API (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Gateway API (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/l4gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L4 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/l7gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L7 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_4" id="__nav_3_4_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customizations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            Customizations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/customization/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How customizations works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/loadbalancerconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LoadBalancerConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/targetgroupconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/listenerruleconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerRuleConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tasks
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            Tasks
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/cognito_authentication/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Cognito Authentication
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/ssl_redirect/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SSL Redirect
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/url_rewrite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    URL Rewrite
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Use Cases
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            Use Cases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/nlb_tls_termination/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    NLB TLS Termination
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/self_managed_lb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Externally Managed Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frontend Security Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/blue_green/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Blue/Green
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/multi_cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    MultiCluster Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/quic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    QUIC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/legacy_app_integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Legacy Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            Metrics
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/prometheus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    ALB Target Optimizer
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            ALB Target Optimizer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../alb-target-agent/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Target Control Agent
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../alb-target-agent-spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ALBTargetControlConfig
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/echo_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EchoServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/grpc_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    gRPCServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/external_dns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setup External DNS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/secrets_access/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    RBAC to access OIDC Secret
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#deprecated-kubernetesioingressclass-annotation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Deprecated kubernetes.io/ingress.class annotation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#ingressclassparams" class="md-nav__link">
+    <span class="md-ellipsis">
+      IngressClassParams
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="IngressClassParams">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ingressclassparams-specification" class="md-nav__link">
+    <span class="md-ellipsis">
+      IngressClassParams specification
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="IngressClassParams specification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#specloadbalancername" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.loadBalancerName
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specnamespaceselector" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.namespaceSelector
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specgroup" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.group
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specscheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.scheme
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specinboundcidrs" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.inboundCIDRs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#speccertificatearn" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.certificateArn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specsslpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.sslPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specsslredirectport" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.sslRedirectPort
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specsubnets" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.subnets
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="spec.subnets">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#specsubnetsids" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.subnets.ids
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specsubnetstags" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.subnets.tags
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specipaddresstype" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.ipAddressType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectags" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.tags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectargettype" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.targetType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specloadbalancerattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.loadBalancerAttributes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specminimumloadbalancercapacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.minimumLoadBalancerCapacity
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="spec.minimumLoadBalancerCapacity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#specminimumloadbalancercapacitycapacityunits" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.minimumLoadBalancerCapacity.capacityUnits
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specipamconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.ipamConfiguration
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specprefixlistsids" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.PrefixListsIDs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specprefixlistsids_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.prefixListsIDs
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#speclisteners" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.listeners
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specwafv2aclarn" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.wafv2AclArn
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#specwafv2aclname" class="md-nav__link">
+    <span class="md-ellipsis">
+      spec.wafv2AclName
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resource-cleanup-order" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource Cleanup Order
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="ingressclass"><a href="https://kubernetes.io/docs/concepts/services-networking/ingress/#ingress-class">IngressClass</a><a class="headerlink" href="#ingressclass" title="Permanent link">&para;</a></h1>
+<p>Ingresses can be implemented by different controllers, often with different configuration. Each Ingress should specify a
+class, a reference to an IngressClass resource that contains additional configuration including the name of the
+controller that should implement the class. IngressClass resources contain an optional parameters field. This can be
+used to reference additional implementation-specific configuration for this class.
+For the AWS Load Balancer controller, the implementation-specific configuration is
+<a href="#ingressclassparams">IngressClassParams</a> in the <code>elbv2.k8s.aws</code> API group.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>specify controller as <code>ingress.k8s.aws/alb</code> to denote Ingresses should be managed by AWS Load Balancer Controller.
+<div class="highlight"><pre><span></span><code>apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: awesome-class
+spec:
+  controller: ingress.k8s.aws/alb
+</code></pre></div></li>
+<li>specify additional configurations by referencing an IngressClassParams resource.
+<div class="highlight"><pre><span></span><code>apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: awesome-class
+spec:
+  controller: ingress.k8s.aws/alb
+  parameters:
+    apiGroup: elbv2.k8s.aws
+    kind: IngressClassParams
+    name: awesome-class-cfg
+</code></pre></div></li>
+</ul>
+</div>
+<div class="admonition tip">
+<p class="admonition-title"><a href="https://kubernetes.io/docs/concepts/services-networking/ingress/#default-ingress-class">default IngressClass</a></p>
+<p>You can mark a particular IngressClass as the default for your cluster. Setting the
+<code>ingressclass.kubernetes.io/is-default-class</code> annotation to <code>true</code> on an IngressClass resource will ensure that new
+Ingresses without an <code>ingressClassName</code> field specified will be assigned this default IngressClass.</p>
+</div>
+<h2 id="deprecated-kubernetesioingressclass-annotation"><a href="https://kubernetes.io/docs/concepts/services-networking/ingress/#deprecated-annotation">Deprecated <code>kubernetes.io/ingress.class</code> annotation</a><a class="headerlink" href="#deprecated-kubernetesioingressclass-annotation" title="Permanent link">&para;</a></h2>
+<p>Before the IngressClass resource and <code>ingressClassName</code> field were added in Kubernetes 1.18, Ingress classes were
+specified with a <code>kubernetes.io/ingress.class</code> annotation on the Ingress. This annotation was never formally defined,
+but was widely supported by Ingress controllers.</p>
+<p>The newer <code>ingressClassName</code> field on Ingresses is a replacement for that annotation, but is not a direct equivalent.
+While the annotation was generally used to reference the name of the Ingress controller that should implement the
+Ingress, the field is a reference to an IngressClass resource that contains additional Ingress configuration, including
+the name of the Ingress controller.</p>
+<div class="admonition tip">
+<p class="admonition-title">disable <code>kubernetes.io/ingress.class</code> annotation</p>
+<p>In order to maintain backwards-compatibility, <code>kubernetes.io/ingress.class</code> annotation is still supported currently.
+You can enforce IngressClass resource adoption by disabling the <code>kubernetes.io/ingress.class</code> annotation via <a href="../../../deploy/configurations/#disable-ingress-class-annotation">--disable-ingress-class-annotation</a> controller flag.</p>
+</div>
+<h2 id="ingressclassparams">IngressClassParams<a class="headerlink" href="#ingressclassparams" title="Permanent link">&para;</a></h2>
+<div class="admonition question">
+<p class="admonition-title">EKS Auto Mode users</p>
+<p>If you are using EKS Auto Mode, please see the
+<a href="https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-alb.html#_considerations">EKS Auto Mode documentation</a>
+for key differences between the load balancing capability of EKS Auto Mode and the open source load balancer controller.</p>
+</div>
+<p>IngressClassParams is a <a href="https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/">CRD</a> specific to the AWS Load Balancer Controller, which can be used along with IngressClass’s parameter field.
+You can use IngressClassParams to enforce settings for a set of Ingresses.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>with scheme &amp; ipAddressType &amp; tags
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: awesome-class
+spec:
+  scheme: internal
+  ipAddressType: dualstack
+  tags:
+  - key: org
+    value: my-org
+</code></pre></div></li>
+<li>with loadBalancerName
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: awesome-class
+spec:
+  loadBalancerName: name-1
+</code></pre></div></li>
+<li>with namespaceSelector
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: awesome-class
+spec:
+  namespaceSelector:
+    matchLabels:
+      team: team-a
+</code></pre></div></li>
+<li>with IngressGroup
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: awesome-class
+spec:
+  group:
+    name: my-group
+</code></pre></div></li>
+<li>with loadBalancerAttributes
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+    name: awesome-class
+spec:
+  loadBalancerAttributes:
+  - key: deletion_protection.enabled
+    value: &quot;true&quot;
+  - key: idle_timeout.timeout_seconds
+    value: &quot;120&quot;
+</code></pre></div></li>
+<li>with subnets.ids
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: awesome-class
+spec:
+  subnets:
+    ids:
+    - subnet-xxx
+    - subnet-123
+</code></pre></div></li>
+<li>with subnets.tags
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  subnets:
+  tags:
+    kubernetes.io/role/internal-elb:
+    - &quot;1&quot;
+    myKey:
+    - myVal0
+    - myVal1
+</code></pre></div></li>
+<li>with certificateArn
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+name: class2048-config
+spec:
+  certificateArn: [&#39;arn:aws:acm:us-east-1:123456789:certificate/test-arn-1&#39;,&#39;arn:aws:acm:us-east-1:123456789:certificate/test-arn-2&#39;]
+</code></pre></div></li>
+<li>with minimumLoadBalancerCapacity.capacityUnits
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  minimumLoadBalancerCapacity:
+    capacityUnits: 1000
+</code></pre></div></li>
+<li>with targetType
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  targetType: ip
+</code></pre></div></li>
+</ul>
+</div>
+<ul>
+<li>with sslRedirectPort
+    <div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  sslRedirectPort: &#39;443&#39;
+</code></pre></div><ul>
+<li>with IPv4IPAMPoolId
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  ipamConfiguration:
+    ipv4IPAMPoolId: ipam-pool-000000000
+</code></pre></div></li>
+<li>with PrefixListsIDs (not recommended, use prefixListsIDs instead)
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  PrefixListsIDs:
+    - pl-00000000
+    - pl-11111111
+</code></pre></div></li>
+<li>with prefixListsIDs
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  PrefixListsIDs:
+    - pl-00000000
+    - pl-11111111
+</code></pre></div></li>
+<li>with listeners
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  listeners:
+    - protocol: HTTPS
+      port: 443
+      listenerAttributes:
+       - key: routing.http.response.server.enabled
+         value: &quot;false&quot;
+</code></pre></div></li>
+<li>with wafv2AclName
+<div class="highlight"><pre><span></span><code>apiVersion: elbv2.k8s.aws/v1beta1
+kind: IngressClassParams
+metadata:
+  name: class2048-config
+spec:
+  wafv2AclName: &quot;web-acl-name-1&quot;
+</code></pre></div></li>
+</ul>
+</li>
+</ul>
+<h3 id="ingressclassparams-specification">IngressClassParams specification<a class="headerlink" href="#ingressclassparams-specification" title="Permanent link">&para;</a></h3>
+<h4 id="specloadbalancername">spec.loadBalancerName<a class="headerlink" href="#specloadbalancername" title="Permanent link">&para;</a></h4>
+<p><code>loadBalancerName</code> is an optional setting.</p>
+<p>Cluster administrators can use the <code>loadBalancerName</code> field to specify name of the load balancer that will be provisioned by the controller.</p>
+<ol>
+<li>If <code>loadBalancerName</code> is set, one load balancer per <code>IngressClass</code> will be provisioned. LBC will ignore the <code>alb.ingress.kubernetes.io/load-balancer-name</code> annotation.</li>
+<li>If <code>loadBalancerName</code> is not set, Ingresses with this IngressClass can continue to use <code>alb.ingress.kubernetes.io/load-balancer-name annotation</code> to specify name of the load balancer.</li>
+</ol>
+<h4 id="specnamespaceselector">spec.namespaceSelector<a class="headerlink" href="#specnamespaceselector" title="Permanent link">&para;</a></h4>
+<p><code>namespaceSelector</code> is an optional setting that follows general Kubernetes
+<a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors">label selector</a>
+semantics.</p>
+<p>Cluster administrators can use the <code>namespaceSelector</code> field to restrict the namespaces of Ingresses that are allowed to specify the IngressClass.</p>
+<ol>
+<li>If <code>namespaceSelector</code> specified, only Ingresses in selected namespaces can use IngressClasses with this parameter. The controller will refuse to reconcile for Ingresses that violates <code>namespaceSelector</code>.</li>
+<li>If <code>namespaceSelector</code> un-specified, all Ingresses in any namespace can use IngressClasses with this parameter.</li>
+</ol>
+<h4 id="specgroup">spec.group<a class="headerlink" href="#specgroup" title="Permanent link">&para;</a></h4>
+<p><code>group</code> is an optional setting.  The only available sub-field is <code>group.name</code>.</p>
+<p>Cluster administrators can use <code>group.name</code> field to denote the groupName for all Ingresses belong to this IngressClass.</p>
+<ol>
+<li>If <code>group.name</code> specified, all Ingresses with this IngressClass will belong to the same IngressGroup specified and result in a single ALB.
+If <code>group.name</code> is not specified, Ingresses with this IngressClass can use the older / legacy <code>alb.ingress.kubernetes.io/group.name</code> annotation to specify their IngressGroup. Ingresses that belong to the same IngressClass can form different IngressGroups via that annotation.</li>
+</ol>
+<h4 id="specscheme">spec.scheme<a class="headerlink" href="#specscheme" title="Permanent link">&para;</a></h4>
+<p><code>scheme</code> is an optional setting. The available options are <code>internet-facing</code> or <code>internal</code>.</p>
+<p>Cluster administrators can use the <code>scheme</code> field to restrict the scheme for all Ingresses that belong to this IngressClass.</p>
+<ol>
+<li>If <code>scheme</code> specified, all Ingresses with this IngressClass will have the specified scheme.</li>
+<li>If <code>scheme</code> un-specified, Ingresses with this IngressClass can continue to use <code>alb.ingress.kubernetes.io/scheme annotation</code> to specify scheme.</li>
+</ol>
+<h4 id="specinboundcidrs">spec.inboundCIDRs<a class="headerlink" href="#specinboundcidrs" title="Permanent link">&para;</a></h4>
+<p>Cluster administrators can use the optional <code>inboundCIDRs</code> field to specify the CIDRs that are allowed to access the load balancers that belong to this IngressClass.
+If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/inbound-cidrs</code> annotation.</p>
+<h4 id="speccertificatearn">spec.certificateArn<a class="headerlink" href="#speccertificatearn" title="Permanent link">&para;</a></h4>
+<p>Cluster administrators can use the optional <code>certificateARN</code> field to specify the ARN of the certificates for all Ingresses that belong to IngressClass with this IngressClassParams.</p>
+<p>If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/certificate-arn</code> annotation.</p>
+<h4 id="specsslpolicy">spec.sslPolicy<a class="headerlink" href="#specsslpolicy" title="Permanent link">&para;</a></h4>
+<p>Cluster administrators can use the optional <code>sslPolicy</code> field to specify the SSL policy for the load balancers that belongs to this IngressClass.
+If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/ssl-policy</code> annotation.</p>
+<h4 id="specsslredirectport">spec.sslRedirectPort<a class="headerlink" href="#specsslredirectport" title="Permanent link">&para;</a></h4>
+<p>Cluster administrators can use the optional <code>sslRedirectPort</code> field to specify the SSL redirect port for the load balancers that belongs to this IngressClass.
+If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/ssl-redirect</code> annotation.</p>
+<h4 id="specsubnets">spec.subnets<a class="headerlink" href="#specsubnets" title="Permanent link">&para;</a></h4>
+<p>Cluster administrators can use the optional <code>subnets</code> field to specify the subnets for the load balancers that belong to this IngressClass.
+They may specify either <code>ids</code> or <code>tags</code>. If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/subnets annotation</code> annotation.</p>
+<h5 id="specsubnetsids">spec.subnets.ids<a class="headerlink" href="#specsubnetsids" title="Permanent link">&para;</a></h5>
+<p>If <code>ids</code> is specified, it must be a set of at least one resource ID of a subnet in the VPC. No two subnets may be in the same availability zone.</p>
+<h5 id="specsubnetstags">spec.subnets.tags<a class="headerlink" href="#specsubnetstags" title="Permanent link">&para;</a></h5>
+<p>If <code>tags</code> is specified, it is a map of tag filters. The filters will match subnets in the VPC for which
+each listed tag key is present and has one of the corresponding tag values.</p>
+<p>Unless the <code>SubnetsClusterTagCheck</code> feature gate is disabled, subnets without a cluster tag and with the cluster tag for another cluster will be excluded.</p>
+<p>Within any given availability zone, subnets with a cluster tag will be chosen over subnets without, then the subnet with the lowest-sorting resource ID will be chosen.</p>
+<h4 id="specipaddresstype">spec.ipAddressType<a class="headerlink" href="#specipaddresstype" title="Permanent link">&para;</a></h4>
+<p><code>ipAddressType</code> is an optional setting. The available options are <code>ipv4</code>, <code>dualstack</code>, or <code>dualstack-without-public-ipv4</code>.</p>
+<p>Cluster administrators can use <code>ipAddressType</code> field to restrict the ipAddressType for all Ingresses that belong to this IngressClass.</p>
+<ol>
+<li>If <code>ipAddressType</code> specified, all Ingresses with this IngressClass will have the specified ipAddressType.</li>
+<li>If <code>ipAddressType</code> un-specified, Ingresses with this IngressClass can continue to use <code>alb.ingress.kubernetes.io/ip-address-type</code> annotation to specify ipAddressType.</li>
+</ol>
+<h4 id="spectags">spec.tags<a class="headerlink" href="#spectags" title="Permanent link">&para;</a></h4>
+<p><code>tags</code> is an optional setting.</p>
+<p>Cluster administrators can use <code>tags</code> field to specify the custom tags for AWS resources provisioned for all Ingresses belong to this IngressClass.</p>
+<ol>
+<li>If <code>tags</code> is set, AWS resources provisioned for all Ingresses with this IngressClass will have the specified tags.</li>
+<li>You can also use controller-level flag <code>--default-tags</code>  or <code>alb.ingress.kubernetes.io/tags</code> annotation to specify custom tags. These tags will be merged together based on tag-key. If same tag-key appears in multiple sources, the priority is as follows:<ol>
+<li>controller-level flag <code>--default-tags</code> will have the highest priority.</li>
+<li><code>spec.tags</code> in IngressClassParams will have the middle priority.</li>
+<li><code>alb.ingress.kubernetes.io/tags</code> annotation will have the lowest priority.</li>
+</ol>
+</li>
+</ol>
+<h4 id="spectargettype">spec.targetType<a class="headerlink" href="#spectargettype" title="Permanent link">&para;</a></h4>
+<p><code>targetType</code> is an optional setting. The available options are <code>instance</code> or <code>ip</code>.</p>
+<p>This defines the target type of target groups for all Ingresses that belong to IngressClass with this IngressClassParams.
+If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/target-type</code> annotation.</p>
+<h4 id="specloadbalancerattributes">spec.loadBalancerAttributes<a class="headerlink" href="#specloadbalancerattributes" title="Permanent link">&para;</a></h4>
+<p><code>loadBalancerAttributes</code> is an optional setting.</p>
+<p>Cluster administrators can use <code>loadBalancerAttributes</code> field to specify the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html#load-balancer-attributes">Load Balancer Attributes</a> that should be applied to the load balancers that belong to this IngressClass. You can specify the list of load balancer attribute name and the desired value in the <code>spec.loadBalancerAttributes</code> field.</p>
+<ol>
+<li>If <code>loadBalancerAttributes</code> is set, the attributes defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid keys or values for the load balancer attributes, the controller will fail to reconcile ingresses belonging to the particular ingress class.</li>
+<li>If <code>loadBalancerAttributes</code> un-specified, Ingresses with this IngressClass can continue to use <code>alb.ingress.kubernetes.io/load-balancer-attributes</code> annotation to specify the load balancer attributes.</li>
+</ol>
+<h4 id="specminimumloadbalancercapacity">spec.minimumLoadBalancerCapacity<a class="headerlink" href="#specminimumloadbalancercapacity" title="Permanent link">&para;</a></h4>
+<p>Cluster administrators can use the optional <code>minimumLoadBalancerCapacity</code> field to specify the capacity reservation for the load balancers that belong to this IngressClass.
+They may specify <code>capacityUnits</code>. If the field is specified, LBC will ignore the <code>alb.ingress.kubernetes.io/minimum-load-balancer-capacity annotation</code> annotation.</p>
+<h5 id="specminimumloadbalancercapacitycapacityunits">spec.minimumLoadBalancerCapacity.capacityUnits<a class="headerlink" href="#specminimumloadbalancercapacitycapacityunits" title="Permanent link">&para;</a></h5>
+<p>If <code>capacityUnits</code> is specified, it must be to valid positive value greater than 0. If set to 0, the LBC will reset the capacity reservation for the load balancer.</p>
+<h4 id="specipamconfiguration">spec.ipamConfiguration<a class="headerlink" href="#specipamconfiguration" title="Permanent link">&para;</a></h4>
+<p><code>ipamConfiguration</code> is an optional setting.</p>
+<p>Cluster administrators can use <code>ipamConfiguration</code> field to specify the IPv4 IPAM Pool ID which will be used by your load balancer to assign IP addresses.</p>
+<ol>
+<li>If <code>ipamConfiguration</code> is set. The <code>ipv4IPAMPoolId</code> you choose will be the preferred source of public IPv4 addresses. If the pool is depleted, IPv4 addresses will be assigned by AWS. To remove the IPAM pool from your ALB, remove <code>spec.ipamConfiguration</code> from the IngressClass definition.</li>
+<li>If <code>ipamConfiguration</code> un-specified, Ingresses with this IngressClass can continue to use <code>alb.ingress.kubernetes.io/ipam-ipv4-pool-id</code> annotation specify the IPv4 IPAM Pool ID.</li>
+</ol>
+<h4 id="specprefixlistsids">spec.PrefixListsIDs<a class="headerlink" href="#specprefixlistsids" title="Permanent link">&para;</a></h4>
+<p>We accept either <code>spec.prefixListsIDs</code> or <code>spec.PrefixListsIDs</code>. Specify both is not allowed. But <code>spec.PrefixListsIDs</code> is not recommended, use <code>spec.prefixListsIDs</code> instead.</p>
+<p><code>PrefixListsIDs</code> is an optional setting.</p>
+<p>Cluster administrators can use <code>PrefixListsIDs</code> field to specify the managed prefix lists that are allowed to access the load balancers that belong to this IngressClass. You can specify the list of prefix list IDs in the <code>spec.PrefixListsIDs</code> field.</p>
+<ol>
+<li>If <code>PrefixListsIDs</code> is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.</li>
+<li>If <code>PrefixListsIDs</code> un-specified, Ingresses with this IngressClass can continue to use <code>alb.ingress.kubernetes.io/security-group-prefix-lists</code> annotation to specify the load balancer prefix lists.</li>
+</ol>
+<h4 id="specprefixlistsids_1">spec.prefixListsIDs<a class="headerlink" href="#specprefixlistsids_1" title="Permanent link">&para;</a></h4>
+<p><code>prefixListsIDs</code> is an optional setting.</p>
+<p>Cluster administrators can use <code>prefixListsIDs</code> field to specify the managed prefix lists that are allowed to access the load balancers that belong to this IngressClass. You can specify the list of prefix list IDs in the <code>spec.prefixListsIDs</code> field.</p>
+<ol>
+<li>If <code>prefixListsIDs</code> is set, the prefix lists defined will be applied to the load balancer that belong to this IngressClass. If you specify invalid prefix list IDs, the controller will fail to reconcile ingresses belonging to the particular ingress class.</li>
+<li>If <code>prefixListsIDs</code> un-specified, Ingresses with this IngressClass can continue to use <code>alb.ingress.kubernetes.io/security-group-prefix-lists</code> annotation to specify the load balancer prefix lists.</li>
+</ol>
+<h4 id="speclisteners">spec.listeners<a class="headerlink" href="#speclisteners" title="Permanent link">&para;</a></h4>
+<p><code>listeners</code> is an optional setting.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Adding listeners in the classparam specification does not automatically create listeners on your load balancers. To create listeners, you must explicitly define the listen ports in your ingress configurations. The classparam <code>spec.listeners</code> are only used to set attributes for the listeners that you define in your ingresses.</p>
+</div>
+<p>Cluster administrators can use <code>Listeners</code> field to specify the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#listener-attributes">Listener Attributes</a> for multiple load balancer listeners associated with this IngressClass. For each listener entry in the list, the desired attributes and their values are specified in the <code>listenerAttributes</code> field. Each listener is uniquely identified by its <code>port</code> and <code>protocol</code> fields, which determine which listener the attributes should be applied to.</p>
+<ol>
+<li>If <code>listeners</code> is set, the defined attributes will be applied to the corresponding load balancer listeners based on port and protocol matching. Note that using invalid keys or values will cause the controller to fail when reconciling ingresses in this IngressClass.</li>
+<li>If <code>Listeners</code> un-specified, Ingresses with this IngressClass can continue to use <code>alb.ingress.kubernetes.io/listener-attributes.${Protocol}-{Port}</code> annotation to specify the listener attributes.</li>
+</ol>
+<h4 id="specwafv2aclarn">spec.wafv2AclArn<a class="headerlink" href="#specwafv2aclarn" title="Permanent link">&para;</a></h4>
+<p>Cluster administrators can use the optional <code>wafv2AclArn</code> field to specify ARN for the Amazon WAFv2 web ACL.
+Only Regional WAFv2 is supported.
+When this param is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the annotation value to 'none'.</p>
+<h4 id="specwafv2aclname">spec.wafv2AclName<a class="headerlink" href="#specwafv2aclname" title="Permanent link">&para;</a></h4>
+<p>Cluster administrators can use the optional <code>wafv2AclName</code> field to specify name of the Amazon WAFv2 web ACL.
+Only Regional WAFv2 is supported.
+When this param is absent or empty, the controller will keep LoadBalancer WAFv2 settings unchanged. To disable WAFv2, explicitly set the param value to 'none'.
+    If the field is specified, LBC will ignore the 'alb.ingress.kubernetes.io/wafv2-acl-name' annotation.</p>
+<h3 id="resource-cleanup-order">Resource Cleanup Order<a class="headerlink" href="#resource-cleanup-order" title="Permanent link">&para;</a></h3>
+<p>When cleaning up AWS Load Balancer Controller resources, it's important to follow the correct order of deletion to avoid orphaned resources. The recommended order is:</p>
+<ol>
+<li>Delete the Ingresses first</li>
+<li>Delete the IngressClass and IngressClassParams last</li>
+</ol>
+<p>If you delete the IngressClass before the Ingresses that reference it, the Ingresses will become orphaned and cannot be cleaned up until the <code>ingressClassName</code> is manually removed from their manifests. This is because the AWS Load Balancer Controller's validating webhook requires a valid IngressClass to be present when processing Ingress resources.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Deleting IngressClass resources before their associated Ingresses can result in orphaned resources that require manual cleanup. Always delete Ingresses first to ensure proper resource cleanup.</p>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+    
+      <script src="../../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+      
+    
+    <script src="../../../assets/javascripts/version-select.js"></script>
+
+  </body>
+</html>

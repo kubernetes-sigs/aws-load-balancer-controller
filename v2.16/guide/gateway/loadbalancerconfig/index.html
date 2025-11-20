@@ -1,0 +1,3350 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../customization/">
+      
+      
+        <link rel="next" href="../targetgroupconfig/">
+      
+      
+      <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
+    
+    
+      
+        <title>LoadBalancerConfiguration - AWS Load Balancer Controller</title>
+      
+    
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    <link rel="stylesheet" href="../../../assets/stylesheets/version-select.css">
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#loadbalancerconfiguration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      <header class="md-header" data-md-component="header">
+    <nav
+      class="md-header__inner md-grid"
+      aria-label="header.title"
+    >
+  
+      <!-- Link to home -->
+      <a
+        href="../../.."
+        title="AWS Load Balancer Controller"
+        class="md-header__button md-logo"
+        aria-label="AWS Load Balancer Controller"
+        data-md-component="logo"
+      >
+        
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+      </a>
+  
+      <!-- Button to open drawer -->
+      <label class="md-header__button md-icon" for="__drawer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+      </label>
+  
+      <!-- Header title -->
+      <div class="md-header__title" data-md-component="header-title">
+        <div class="md-header__ellipsis">
+          <div class="md-header__topic">
+            <span class="md-ellipsis">
+              AWS Load Balancer Controller
+            </span>
+          </div>
+          <div class="md-header__topic" data-md-component="header-topic">
+            <span class="md-ellipsis">
+              
+                LoadBalancerConfiguration
+              
+            </span>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Color palette -->
+      
+
+      <div id="version-select" class="mdc-select" data-base-url="../../..">
+    <div class="mdc-select__anchor" role="button">
+        <span class="mdc-select__ripple"></span>
+        <span class="mdc-select__selected-text-container">
+            <span class="mdc-select__selected-text"></span>
+        </span>
+        <span class="mdc-select__dropdown-icon">
+            <svg class="mdc-select__dropdown-icon-graphic" viewBox="7 10 10 5" focusable="false">
+                <polygon class="mdc-select__dropdown-icon-inactive" stroke="none" fill-rule="evenodd"
+                    points="7 10 12 15 17 10">
+                </polygon>
+                <polygon class="mdc-select__dropdown-icon-active" stroke="none" fill-rule="evenodd"
+                    points="7 15 12 10 17 15">
+                </polygon>
+            </svg>
+        </span>
+    </div>
+
+    <div class="mdc-select__menu mdc-menu mdc-menu-surface mdc-menu-surface--fullwidth">
+        <ul class="mdc-list" role="listbox">
+        </ul>
+    </div>
+</div>
+      <!-- Site language selector -->
+      
+  
+      <!-- Button to open search modal -->
+      
+  
+      <!-- Repository information -->
+      
+        <div class="md-header__source">
+          <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+        </div>
+      
+    </nav>
+  </header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
+          
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../deploy/installation/" class="md-tabs__link">
+          
+  
+  Deployment
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../ingress/annotations/" class="md-tabs__link">
+          
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../examples/echo_server/" class="md-tabs__link">
+          
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="AWS Load Balancer Controller" class="md-nav__button md-logo" aria-label="AWS Load Balancer Controller" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    AWS Load Balancer Controller
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-it-works/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How it works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Deployment
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Deployment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/configurations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configurations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/subnet_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Subnet Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/security_groups/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Group Management
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/pod_readiness_gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pod Readiness Gate
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/scaling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Scaling your LBC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Upgrade
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            Upgrade
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate v1 to v2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Ingress
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ingress
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/ingress_class/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    IngressClass
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/cert_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificate Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Service
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Service
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/nlb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Network Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../service/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            TargetGroupBinding
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/targetgroupbinding/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Gateway API (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Gateway API (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../l4gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L4 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../l7gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L7 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_4" id="__nav_3_4_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customizations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            Customizations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../customization/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How customizations works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    LoadBalancerConfiguration
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    LoadBalancerConfiguration
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#loadbalancerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfiguration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LoadBalancerConfiguration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#top-level-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      Top Level Fields
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Top Level Fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mergingmode" class="md-nav__link">
+    <span class="md-ellipsis">
+      MergingMode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancername" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerName
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scheme
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ipaddresstype" class="md-nav__link">
+    <span class="md-ellipsis">
+      IpAddressType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enforcesecuritygroupinboundrulesonprivatelinktraffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#customerownedipv4pool" class="md-nav__link">
+    <span class="md-ellipsis">
+      CustomerOwnedIpv4Pool
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ipv4ipampoolid" class="md-nav__link">
+    <span class="md-ellipsis">
+      IPv4IPAMPoolId
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancersubnets" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerSubnets
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancersubnetsselector" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerSubnetsSelector
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerconfigurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerConfigurations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#securitygroups" class="md-nav__link">
+    <span class="md-ellipsis">
+      SecurityGroups
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#securitygroupprefixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      SecurityGroupPrefixes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sourceranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      SourceRanges
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vpcid" class="md-nav__link">
+    <span class="md-ellipsis">
+      VpcId
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerAttributes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enableicmp" class="md-nav__link">
+    <span class="md-ellipsis">
+      EnableICMP
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#managebackendsecuritygrouprules" class="md-nav__link">
+    <span class="md-ellipsis">
+      ManageBackendSecurityGroupRules
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#minimumloadbalancercapacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      MinimumLoadBalancerCapacity
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerConfiguration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ListenerConfiguration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#protocolport" class="md-nav__link">
+    <span class="md-ellipsis">
+      ProtocolPort
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#defaultcertificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      DefaultCertificate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Certificates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sslpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      SslPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alpnpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      ALPNPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthentication
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerAttributes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthenticationattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthenticationAttributes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MutualAuthenticationAttributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#advertisetruststorecanames" class="md-nav__link">
+    <span class="md-ellipsis">
+      AdvertiseTrustStoreCaNames
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ignoreclientcertificateexpiry" class="md-nav__link">
+    <span class="md-ellipsis">
+      IgnoreClientCertificateExpiry
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthenticationmode" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthenticationMode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#truststore" class="md-nav__link">
+    <span class="md-ellipsis">
+      TrustStore
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subnetconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      SubnetConfiguration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SubnetConfiguration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#identifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      Identifier
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#eipallocation" class="md-nav__link">
+    <span class="md-ellipsis">
+      EIPAllocation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#privateipv4allocation" class="md-nav__link">
+    <span class="md-ellipsis">
+      PrivateIPv4Allocation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ipv6allocation" class="md-nav__link">
+    <span class="md-ellipsis">
+      IPv6Allocation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sourcenatipv6prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      SourceNatIPv6Prefix
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wafv2" class="md-nav__link">
+    <span class="md-ellipsis">
+      WAFv2
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WAFv2">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#webacl" class="md-nav__link">
+    <span class="md-ellipsis">
+      WebACL
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shield" class="md-nav__link">
+    <span class="md-ellipsis">
+      Shield
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Shield">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enabled
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../targetgroupconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../listenerruleconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerRuleConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tasks
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            Tasks
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/cognito_authentication/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Cognito Authentication
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/ssl_redirect/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SSL Redirect
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/url_rewrite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    URL Rewrite
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Use Cases
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            Use Cases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/nlb_tls_termination/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    NLB TLS Termination
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/self_managed_lb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Externally Managed Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frontend Security Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/blue_green/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Blue/Green
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/multi_cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    MultiCluster Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/quic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    QUIC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/legacy_app_integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Legacy Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            Metrics
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/prometheus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    ALB Target Optimizer
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            ALB Target Optimizer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Target Control Agent
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent-spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ALBTargetControlConfig
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/echo_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EchoServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/grpc_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    gRPCServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/external_dns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setup External DNS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/secrets_access/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    RBAC to access OIDC Secret
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#loadbalancerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerConfiguration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LoadBalancerConfiguration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#top-level-fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      Top Level Fields
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Top Level Fields">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mergingmode" class="md-nav__link">
+    <span class="md-ellipsis">
+      MergingMode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancername" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerName
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#scheme" class="md-nav__link">
+    <span class="md-ellipsis">
+      Scheme
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ipaddresstype" class="md-nav__link">
+    <span class="md-ellipsis">
+      IpAddressType
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enforcesecuritygroupinboundrulesonprivatelinktraffic" class="md-nav__link">
+    <span class="md-ellipsis">
+      EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#customerownedipv4pool" class="md-nav__link">
+    <span class="md-ellipsis">
+      CustomerOwnedIpv4Pool
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ipv4ipampoolid" class="md-nav__link">
+    <span class="md-ellipsis">
+      IPv4IPAMPoolId
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancersubnets" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerSubnets
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancersubnetsselector" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerSubnetsSelector
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerconfigurations" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerConfigurations
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#securitygroups" class="md-nav__link">
+    <span class="md-ellipsis">
+      SecurityGroups
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#securitygroupprefixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      SecurityGroupPrefixes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sourceranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      SourceRanges
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vpcid" class="md-nav__link">
+    <span class="md-ellipsis">
+      VpcId
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#loadbalancerattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      LoadBalancerAttributes
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      Tags
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enableicmp" class="md-nav__link">
+    <span class="md-ellipsis">
+      EnableICMP
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#managebackendsecuritygrouprules" class="md-nav__link">
+    <span class="md-ellipsis">
+      ManageBackendSecurityGroupRules
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#minimumloadbalancercapacity" class="md-nav__link">
+    <span class="md-ellipsis">
+      MinimumLoadBalancerCapacity
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerConfiguration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ListenerConfiguration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#protocolport" class="md-nav__link">
+    <span class="md-ellipsis">
+      ProtocolPort
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#defaultcertificate" class="md-nav__link">
+    <span class="md-ellipsis">
+      DefaultCertificate
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#certificates" class="md-nav__link">
+    <span class="md-ellipsis">
+      Certificates
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sslpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      SslPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#alpnpolicy" class="md-nav__link">
+    <span class="md-ellipsis">
+      ALPNPolicy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthentication
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#listenerattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      ListenerAttributes
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthenticationattributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthenticationAttributes
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="MutualAuthenticationAttributes">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#advertisetruststorecanames" class="md-nav__link">
+    <span class="md-ellipsis">
+      AdvertiseTrustStoreCaNames
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ignoreclientcertificateexpiry" class="md-nav__link">
+    <span class="md-ellipsis">
+      IgnoreClientCertificateExpiry
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mutualauthenticationmode" class="md-nav__link">
+    <span class="md-ellipsis">
+      MutualAuthenticationMode
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#truststore" class="md-nav__link">
+    <span class="md-ellipsis">
+      TrustStore
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subnetconfiguration" class="md-nav__link">
+    <span class="md-ellipsis">
+      SubnetConfiguration
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SubnetConfiguration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#identifier" class="md-nav__link">
+    <span class="md-ellipsis">
+      Identifier
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#eipallocation" class="md-nav__link">
+    <span class="md-ellipsis">
+      EIPAllocation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#privateipv4allocation" class="md-nav__link">
+    <span class="md-ellipsis">
+      PrivateIPv4Allocation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ipv6allocation" class="md-nav__link">
+    <span class="md-ellipsis">
+      IPv6Allocation
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sourcenatipv6prefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      SourceNatIPv6Prefix
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#wafv2" class="md-nav__link">
+    <span class="md-ellipsis">
+      WAFv2
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="WAFv2">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#webacl" class="md-nav__link">
+    <span class="md-ellipsis">
+      WebACL
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#shield" class="md-nav__link">
+    <span class="md-ellipsis">
+      Shield
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Shield">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#enabled" class="md-nav__link">
+    <span class="md-ellipsis">
+      Enabled
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+  <h1>LoadBalancerConfiguration</h1>
+
+<h2 id="loadbalancerconfiguration">LoadBalancerConfiguration<a class="headerlink" href="#loadbalancerconfiguration" title="Permanent link">&para;</a></h2>
+<h3 id="top-level-fields">Top Level Fields<a class="headerlink" href="#top-level-fields" title="Permanent link">&para;</a></h3>
+<h4 id="mergingmode">MergingMode<a class="headerlink" href="#mergingmode" title="Permanent link">&para;</a></h4>
+<p><code>mergingMode</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  mergingMode: prefer-gateway-class
+</code></pre></div>
+<p>Defines the merge behavior when both the Gateway and GatewayClass have a defined LoadBalancerConfiguration. This field is only honored for the configuration attached to the GatewayClass.</p>
+<ul>
+<li><strong>Options</strong>:<ul>
+<li>prefer-gateway-class: When merging configuration from both Gateway and GatewayClass, value conflicts are resolved by using the GatewayClass configuration.</li>
+<li>prefer-gateway: When merging configuration from both Gateway and GatewayClass, value conflicts are resolved by using the Gateway configuration.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Default</strong> prefer-gateway-class</p>
+<h4 id="loadbalancername">LoadBalancerName<a class="headerlink" href="#loadbalancername" title="Permanent link">&para;</a></h4>
+<p><code>loadBalancerName</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  loadBalancerName: foo
+</code></pre></div>
+<p>Defines the name of the LB to provision. If unspecified, it will be automatically generated.</p>
+<p><strong>Default</strong> Autogenerate Name</p>
+<h4 id="scheme">Scheme<a class="headerlink" href="#scheme" title="Permanent link">&para;</a></h4>
+<p><code>scheme</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  scheme: internal
+</code></pre></div>
+<p>Defines the LoadBalancer Scheme.</p>
+<ul>
+<li>internal</li>
+<li>the LB is only accessible within the VPC.</li>
+<li>internet-facing</li>
+<li>the LB is accessible via the public internet.</li>
+</ul>
+<p><strong>Default</strong> internal</p>
+<h4 id="ipaddresstype">IpAddressType<a class="headerlink" href="#ipaddresstype" title="Permanent link">&para;</a></h4>
+<p><code>ipAddressType</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  ipAddressType: dualstack
+</code></pre></div>
+<p>Define what IP Address Type to use.</p>
+<ul>
+<li>ipv4</li>
+<li>Only publish IPv4 address(es)</li>
+<li>dualstack</li>
+<li>Publish both IPv4 and IPv6 address(es)</li>
+<li>dualstack-without-public-ipv4</li>
+<li>Publish private IPv4 address(es) and public IPv6 address(es)</li>
+<li>Only applicable to ALB Gateways</li>
+</ul>
+<p><strong>Default</strong> ipv4</p>
+<h4 id="enforcesecuritygroupinboundrulesonprivatelinktraffic">EnforceSecurityGroupInboundRulesOnPrivateLinkTraffic<a class="headerlink" href="#enforcesecuritygroupinboundrulesonprivatelinktraffic" title="Permanent link">&para;</a></h4>
+<p><code>enforceSecurityGroupInboundRulesOnPrivateLinkTraffic</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  enforceSecurityGroupInboundRulesOnPrivateLinkTraffic: on
+</code></pre></div>
+<p>Indicates whether to evaluate inbound security group rules for traffic sent to a Network Load Balancer through Amazon Web Services PrivateLink.</p>
+<p>Valid options are <code>on</code> and <code>off</code></p>
+<p>Only applicable to NLB Gateways.</p>
+<p><strong>Default</strong> on</p>
+<h4 id="customerownedipv4pool">CustomerOwnedIpv4Pool<a class="headerlink" href="#customerownedipv4pool" title="Permanent link">&para;</a></h4>
+<p><code>customerOwnedIpv4Pool</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  customerOwnedIpv4Pool: coip-1234
+</code></pre></div>
+<p>The ID of the customer-owned address for Application Load Balancers on Outposts pool.</p>
+<p>Only applicable to ALB Gateways.</p>
+<p><strong>Default</strong> no value</p>
+<h4 id="ipv4ipampoolid">IPv4IPAMPoolId<a class="headerlink" href="#ipv4ipampoolid" title="Permanent link">&para;</a></h4>
+<p><code>ipv4IPAMPoolId</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  ipv4IPAMPoolId: ipam-1234
+</code></pre></div>
+<p>The IPAM pool ID used for IPv4 Addresses on the ALB.</p>
+<p>Only applicable to ALB Gateways.</p>
+<p><strong>Default</strong> no value</p>
+<h4 id="loadbalancersubnets">LoadBalancerSubnets<a class="headerlink" href="#loadbalancersubnets" title="Permanent link">&para;</a></h4>
+<p><code>loadBalancerSubnets</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  loadBalancerSubnets:
+    - identifier: subnet-1234
+</code></pre></div>
+<p>An optional list of subnet configurations to be used in the LB. This value takes precedence over subnet <code>loadBalancerSubnetsSelector</code> if both are selected.</p>
+<p>See <a href="./#subnetconfiguration">SubnetConfiguration</a> for more more details</p>
+<p><strong>Default</strong> Use <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a></p>
+<h4 id="loadbalancersubnetsselector">LoadBalancerSubnetsSelector<a class="headerlink" href="#loadbalancersubnetsselector" title="Permanent link">&para;</a></h4>
+<p><code>loadBalancerSubnetsSelector</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  loadBalancerSubnetsSelector:
+    key1:
+      - k1
+      - k2
+      - k3
+</code></pre></div>
+<p>The subnets in the load balancer's VPC where each tag specified in the map key contains one of the values in the corresponding value list.</p>
+<p><strong>Default</strong> Use <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a></p>
+<h4 id="listenerconfigurations">ListenerConfigurations<a class="headerlink" href="#listenerconfigurations" title="Permanent link">&para;</a></h4>
+<p><code>listenerConfigurations</code></p>
+<p>A list of Listener Configurations. See the <a href="#listenerconfiguration">ListenerConfiguration</a></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  listenerConfigurations:
+    - protocolPort: HTTPS:80
+      defaultCertificate: my-cert
+    - protocolPort: HTTPS:81
+      defaultCertificate: my-cert1
+</code></pre></div>
+<p><strong>Default</strong> Empty list</p>
+<h4 id="securitygroups">SecurityGroups<a class="headerlink" href="#securitygroups" title="Permanent link">&para;</a></h4>
+<p><code>securityGroups</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  securityGroups:
+    - &quot;sg1&quot;
+    - &quot;sg2&quot;
+</code></pre></div>
+<p>The security groups to attach to the Load Balancer.</p>
+<p><strong>Default</strong></p>
+<p>The controller will automatically create one security group, the security group will be attached to the LoadBalancer and allow access from <a href="#sourceranges"><code>SourceRanges</code></a> and <a href="#securitygroupprefixes"><code>SecurityGroupPrefixes</code></a> to each Listener port.
+Also, the securityGroups for Node/Pod will be modified to allow inbound traffic from this securityGroup.</p>
+<h4 id="securitygroupprefixes">SecurityGroupPrefixes<a class="headerlink" href="#securitygroupprefixes" title="Permanent link">&para;</a></h4>
+<p><code>securityGroupPrefixes</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  securityGroupPrefixes:
+    - &quot;pl1&quot;
+    - &quot;pl2&quot;
+</code></pre></div>
+<p>An optional list of prefixes that are allowed to access the LB.</p>
+<p><strong>Default</strong> Empty list</p>
+<h4 id="sourceranges">SourceRanges<a class="headerlink" href="#sourceranges" title="Permanent link">&para;</a></h4>
+<p><code>sourceRanges</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  sourceRanges:
+    - &quot;2001:db8::/32&quot;
+    - &quot;127.0.0.1/24&quot;
+</code></pre></div>
+<p>An optional list of CIDRs that are allowed to access the LB.</p>
+<p><strong>Default</strong> Empty list</p>
+<h4 id="vpcid">VpcId<a class="headerlink" href="#vpcid" title="Permanent link">&para;</a></h4>
+<p><code>vpcId</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  vpcId: vpc-1234
+</code></pre></div>
+<p>The VPC ID of LoadBalancer</p>
+<p><strong>Default</strong> Autodetect VPC from Cluster VPC</p>
+<h4 id="loadbalancerattributes">LoadBalancerAttributes<a class="headerlink" href="#loadbalancerattributes" title="Permanent link">&para;</a></h4>
+<p><code>loadBalancerAttributes</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  loadBalancerAttributes:
+    - key: k1
+      value: v1
+    - key: k2
+      value: v2
+</code></pre></div>
+<p>The attributes to apply to an LB.
+See the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html">ELB documentation</a> for a full list of attributes</p>
+<p><strong>Default</strong> Empty list</p>
+<h4 id="tags">Tags<a class="headerlink" href="#tags" title="Permanent link">&para;</a></h4>
+<p><code>tags</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  tags:
+    tag-k1: v1
+    tag-k2: v2
+</code></pre></div>
+<p>The tags to apply to an LB.</p>
+<p><strong>Default</strong> No tags</p>
+<h4 id="enableicmp">EnableICMP<a class="headerlink" href="#enableicmp" title="Permanent link">&para;</a></h4>
+<p><code>enableICMP</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  enableICMP: true
+</code></pre></div>
+<p>Enables the creation of security group rules to the managed security group to allow explicit ICMP traffic for Path MTU discovery for IPv4 and dual-stack VPCs</p>
+<p>Only applies to Network LoadBalancers.</p>
+<p><strong>Default</strong> false</p>
+<h4 id="managebackendsecuritygrouprules">ManageBackendSecurityGroupRules<a class="headerlink" href="#managebackendsecuritygrouprules" title="Permanent link">&para;</a></h4>
+<p><code>manageBackendSecurityGroupRules</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  manageBackendSecurityGroupRules: true
+</code></pre></div>
+<p>Specify whether you want the controller to configure security group rules on the Node/Pod for traffic access when you specify securityGroups</p>
+<p><strong>Default</strong> false</p>
+<h4 id="minimumloadbalancercapacity">MinimumLoadBalancerCapacity<a class="headerlink" href="#minimumloadbalancercapacity" title="Permanent link">&para;</a></h4>
+<p><code>minimumLoadBalancerCapacity</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  minimumLoadBalancerCapacity:
+    capacityUnits: 100000
+</code></pre></div>
+<p>Define the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/capacity-unit-reservation.html">capacity reservation</a> for LoadBalancers</p>
+<p><strong>Default</strong> No capacity reservation</p>
+<h3 id="listenerconfiguration">ListenerConfiguration<a class="headerlink" href="#listenerconfiguration" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  listenerConfigurations:
+    - protocolPort: TLS:80
+      defaultCertificate: my-cert
+      certificates: [arn-1, arn2, arn3]
+      sslPolicy: ELBSecurityPolicy-2016-08
+      alpnPolicy: HTTP1Only
+</code></pre></div>
+<h4 id="protocolport">ProtocolPort<a class="headerlink" href="#protocolport" title="Permanent link">&para;</a></h4>
+<p><code>protocolPort</code></p>
+<p>The identifier for the listener on load balancer. It should be of the form PROTOCOL:PORT</p>
+<p><strong>Default</strong> No default, not an optional field.</p>
+<h4 id="defaultcertificate">DefaultCertificate<a class="headerlink" href="#defaultcertificate" title="Permanent link">&para;</a></h4>
+<p><code>defaultCertificate</code></p>
+<p>The default cert ARN.</p>
+<p><strong>Default</strong> No cert</p>
+<h4 id="certificates">Certificates<a class="headerlink" href="#certificates" title="Permanent link">&para;</a></h4>
+<p><code>certificates</code></p>
+<p>A list of cert ARNs to accept on this listener.</p>
+<p><strong>Default</strong> Empty list</p>
+<h4 id="sslpolicy">SslPolicy<a class="headerlink" href="#sslpolicy" title="Permanent link">&para;</a></h4>
+<p><code>sslPolicy</code></p>
+<p>The security policy that defines which protocols and ciphers are supported for secure listeners [HTTPS or TLS listener].</p>
+<p>See the documentation for more information
+<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html">ALB</a>
+<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/describe-ssl-policies.html">NLB</a></p>
+<p><strong>Default</strong> ELBSecurityPolicy-2016-08</p>
+<h4 id="alpnpolicy">ALPNPolicy<a class="headerlink" href="#alpnpolicy" title="Permanent link">&para;</a></h4>
+<p><code>alpnPolicy</code></p>
+<p>An optional string that allows you to configure ALPN policies on your Load Balancer.</p>
+<p>See the documentation for more details:
+<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-listeners.html#alpn-policies">ALPN</a></p>
+<p>Possible values:
+- HTTP1Only 
+  - Negotiate only HTTP/1.<em>. The ALPN preference list is http/1.1, http/1.0.
+- HTTP2Only
+  - Negotiate only HTTP/2. The ALPN preference list is h2.
+- HTTP2Optional
+  - Prefer HTTP/1.</em> over HTTP/2 (which can be useful for HTTP/2 testing). The ALPN preference list is http/1.1, http/1.0, h2.
+- HTTP2Preferred
+  - Prefer HTTP/2 over HTTP/1.*. The ALPN preference list is h2, http/1.1, http/1.0.
+- None
+  - Do not negotiate ALPN.</p>
+<p>Only applies to Network LoadBalancer Gateways.</p>
+<p><strong>Default</strong> None</p>
+<h4 id="mutualauthentication">MutualAuthentication<a class="headerlink" href="#mutualauthentication" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  listenerConfigurations:
+    - protocolPort: HTTPS:443
+      defaultCertificate: my-cert
+      certificates: [arn-1, arn2, arn3]
+      mutualAuthentication:
+        advertiseTrustStoreCaNames: &quot;off&quot;
+        ignoreClientCertificateExpiry: true
+        mode: verify
+        trustStore: ts-1234
+</code></pre></div>
+<p><code>mutualAuthentication</code></p>
+<p>Define the mutual authentication configuration information. Using <a href="#mutualauthenticationattributes">MutualAuthenticationAttributes</a> </p>
+<p>See the documentation for more information
+<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/application/mutual-authentication.html">mTLS</a></p>
+<p>Only applies to Application LoadBalancer Gateways.</p>
+<p><strong>Default</strong> No MTLS</p>
+<h4 id="listenerattributes">ListenerAttributes<a class="headerlink" href="#listenerattributes" title="Permanent link">&para;</a></h4>
+<p><code>listenerAttributes</code></p>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  listenerConfigurations:
+    - protocolPort: HTTPS:80
+      defaultCertificate: my-cert
+      certificates: [arn-1, arn2, arn3]
+      listenerAttributes:
+        - key: k1
+          value: v1
+        - key: k2
+          value: v2
+</code></pre></div>
+<p>Define the attributes for the listener.</p>
+<p>See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_ListenerAttribute.html">ListenerAttributes</a>
+for a complete list.</p>
+<p><strong>Default</strong> Empty list</p>
+<h3 id="mutualauthenticationattributes">MutualAuthenticationAttributes<a class="headerlink" href="#mutualauthenticationattributes" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  listenerConfigurations:
+    - protocolPort: HTTPS:80
+      defaultCertificate: my-cert
+      certificates: [arn-1, arn2, arn3]
+      mutualAuthentication:
+        advertiseTrustStoreCaNames: &quot;off&quot;
+        ignoreClientCertificateExpiry: true
+        mode: verify
+        trustStore: ts-1234
+</code></pre></div>
+<h4 id="advertisetruststorecanames">AdvertiseTrustStoreCaNames<a class="headerlink" href="#advertisetruststorecanames" title="Permanent link">&para;</a></h4>
+<p><code>advertiseTrustStoreCaNames</code></p>
+<p>Whether trust store CA certificate names are advertised. Supported values are "on" and "off"</p>
+<p><strong>Default</strong> "off"</p>
+<h4 id="ignoreclientcertificateexpiry">IgnoreClientCertificateExpiry<a class="headerlink" href="#ignoreclientcertificateexpiry" title="Permanent link">&para;</a></h4>
+<p><code>ignoreClientCertificateExpiry</code></p>
+<p>Whether expired client certificates are ignored.</p>
+<p><strong>Default</strong> False</p>
+<h4 id="mutualauthenticationmode">MutualAuthenticationMode<a class="headerlink" href="#mutualauthenticationmode" title="Permanent link">&para;</a></h4>
+<p><code>mode</code></p>
+<p>The client certificate handling method</p>
+<p>Possible values:
+- verify
+  - When you use mutual TLS verify mode, Application Load Balancer performs X.509 client certificate authentication for clients when a load balancer negotiates TLS connections
+- passthrough
+  - When you use mutual TLS passthrough mode, Application Load Balancer sends the whole client certificate chain to the target using HTTP headers. Then, by using the client certificate chain, you can implement corresponding load balancer authentication and target authorization logic in your application.
+- off
+  - mTLS is not enabled.</p>
+<p><strong>Default</strong> Off</p>
+<h4 id="truststore">TrustStore<a class="headerlink" href="#truststore" title="Permanent link">&para;</a></h4>
+<p><code>trustStore</code></p>
+<p>The Name or ARN of the trust store.</p>
+<p><strong>Default</strong> Empty string</p>
+<h3 id="subnetconfiguration">SubnetConfiguration<a class="headerlink" href="#subnetconfiguration" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  loadBalancerSubnets:
+    - identifier: &quot;my-subnet&quot;
+      eipAllocation: &quot;eip-1234&quot;
+      privateIPv4Allocation: &quot;127.0.0.1&quot;
+      ipv6Allocation: &quot;69e1:9570:c975:1af1:8073:384c:5aae:53c6&quot;
+      sourceNatIPv6Prefix: &quot;2001:db8::/32&quot;
+</code></pre></div>
+<h4 id="identifier">Identifier<a class="headerlink" href="#identifier" title="Permanent link">&para;</a></h4>
+<p><code>identifier</code></p>
+<p>The name or ID of the subnet</p>
+<p><strong>Default</strong> Empty string</p>
+<h4 id="eipallocation">EIPAllocation<a class="headerlink" href="#eipallocation" title="Permanent link">&para;</a></h4>
+<p><code>eipAllocation</code></p>
+<p>The EIP name for this subnet.</p>
+<p>Only applies to Network LoadBalancer Gateways.</p>
+<p><strong>Default</strong> Empty string</p>
+<h4 id="privateipv4allocation">PrivateIPv4Allocation<a class="headerlink" href="#privateipv4allocation" title="Permanent link">&para;</a></h4>
+<p><code>privateIPv4Allocation</code></p>
+<p>The private ipv4 address to assign to this subnet.</p>
+<p>Only applies to Network LoadBalancer Gateways.</p>
+<p><strong>Default</strong> Empty string</p>
+<h4 id="ipv6allocation">IPv6Allocation<a class="headerlink" href="#ipv6allocation" title="Permanent link">&para;</a></h4>
+<p><code>ipv6Allocation</code></p>
+<p>The ipv6 address to assign to this subnet.</p>
+<p>Only applies to Network LoadBalancer Gateways.</p>
+<p><strong>Default</strong> Empty string</p>
+<h4 id="sourcenatipv6prefix">SourceNatIPv6Prefix<a class="headerlink" href="#sourcenatipv6prefix" title="Permanent link">&para;</a></h4>
+<p><code>sourceNatIPv6Prefix</code></p>
+<p>The IPv6 prefix to use for source NAT. Specify an IPv6 prefix (/80 netmask) from the subnet CIDR block or auto_assigned to use an IPv6 prefix selected at random from the subnet CIDR block.</p>
+<p>Only applies to Network LoadBalancer Gateways.</p>
+<p><strong>Default</strong> Empty string</p>
+<h3 id="wafv2">WAFv2<a class="headerlink" href="#wafv2" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  wafV2:
+    webACL: &quot;my-web-acl&quot;
+</code></pre></div>
+<h4 id="webacl">WebACL<a class="headerlink" href="#webacl" title="Permanent link">&para;</a></h4>
+<p>The <a href="https://docs.aws.amazon.com/waf/latest/APIReference/Welcome.html">WAF</a> Web ACL to add to the Gateway.</p>
+<p>Only applies to Application LoadBalancer Gateways.</p>
+<p><strong>Default</strong> Empty string (No WAF enabled)</p>
+<h3 id="shield">Shield<a class="headerlink" href="#shield" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code>apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: example-config
+  namespace: echoserver
+spec:
+  shieldConfiguration:
+    enabled: true
+</code></pre></div>
+<h4 id="enabled">Enabled<a class="headerlink" href="#enabled" title="Permanent link">&para;</a></h4>
+<p>Whether to enroll this Gateway with <a href="https://docs.aws.amazon.com/waf/latest/developerguide/ddos-advanced-summary.html">Shield Advanced</a> support.</p>
+<p>Only applies to Application LoadBalancer Gateways.</p>
+<p><strong>Default</strong> false (No Shield enabled)</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+    
+      <script src="../../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+      
+    
+    <script src="../../../assets/javascripts/version-select.js"></script>
+
+  </body>
+</html>
