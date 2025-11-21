@@ -459,7 +459,7 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 				httpExp := httpexpect.New(tf.LoggerReporter, fmt.Sprintf("http://%v", dnsName))
 				httpExp.GET("/api/v1/users").WithRedirectPolicy(httpexpect.DontFollowRedirects).Expect().
 					Status(302).
-					Header("Location").Equal("https://api.example.com:80/v2/*")
+					Header("Location").Equal("https://api.example.com:80/v2/v1/users")
 			})
 
 			By("testing redirect with scheme and port change", func() {
