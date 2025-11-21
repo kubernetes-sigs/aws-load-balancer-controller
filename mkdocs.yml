@@ -38,6 +38,7 @@ nav:
               - LoadBalancerConfiguration: guide/gateway/loadbalancerconfig.md
               - TargetGroupConfiguration: guide/gateway/targetgroupconfig.md
               - ListenerRuleConfiguration: guide/gateway/listenerruleconfig.md
+              - Gateway Chaining: guide/gateway/gateway_chaining.md
               - Specification: guide/gateway/spec.md
       - Tasks:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
