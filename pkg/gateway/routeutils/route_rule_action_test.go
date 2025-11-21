@@ -66,59 +66,7 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "redirect with prefix match only - uses literal prefix",
-			filter: &gwv1.HTTPRequestRedirectFilter{
-				Path: &gwv1.HTTPPathModifier{
-					Type:               gwv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: &replacePrefixPath,
-				},
-			},
-			want: &elbv2model.Action{
-				Type: elbv2model.ActionTypeRedirect,
-				RedirectConfig: &elbv2model.RedirectActionConfig{
-					Path: &replacePrefixPath,
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "redirect with prefix match and scheme - uses #{path}",
-			filter: &gwv1.HTTPRequestRedirectFilter{
-				Scheme: &scheme,
-				Path: &gwv1.HTTPPathModifier{
-					Type:               gwv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: &replacePrefixPath,
-				},
-			},
-			want: &elbv2model.Action{
-				Type: elbv2model.ActionTypeRedirect,
-				RedirectConfig: &elbv2model.RedirectActionConfig{
-					Path:     awssdk.String("/#{path}"),
-					Protocol: &expectedScheme,
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "redirect with prefix match and port - uses #{path}",
-			filter: &gwv1.HTTPRequestRedirectFilter{
-				Port: (*gwv1.PortNumber)(&port),
-				Path: &gwv1.HTTPPathModifier{
-					Type:               gwv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: &replacePrefixPath,
-				},
-			},
-			want: &elbv2model.Action{
-				Type: elbv2model.ActionTypeRedirect,
-				RedirectConfig: &elbv2model.RedirectActionConfig{
-					Path: awssdk.String("/#{path}"),
-					Port: &portString,
-				},
-			},
-			wantErr: false,
-		},
-		{
-			name: "redirect with prefix match and hostname - uses #{path}",
+			name: "redirect with prefix  - no path in redirect config",
 			filter: &gwv1.HTTPRequestRedirectFilter{
 				Hostname: (*gwv1.PreciseHostname)(&hostname),
 				Path: &gwv1.HTTPPathModifier{
@@ -129,17 +77,10 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 			want: &elbv2model.Action{
 				Type: elbv2model.ActionTypeRedirect,
 				RedirectConfig: &elbv2model.RedirectActionConfig{
-					Path: awssdk.String("/#{path}"),
 					Host: &hostname,
 				},
 			},
 			wantErr: false,
-		},
-		{
-			name:    "redirect with no component provided",
-			filter:  &gwv1.HTTPRequestRedirectFilter{},
-			want:    nil,
-			wantErr: true,
 		},
 		{
 			name: "invalid scheme provided",

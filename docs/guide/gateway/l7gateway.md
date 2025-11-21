@@ -206,9 +206,9 @@ The AWS Load Balancer Controller supports HTTPRoute RequestRedirect filters with
 
 **ReplacePrefixMatch Behavior:**
 
-The behavior of `ReplacePrefixMatch` depends on whether other redirect components are modified:
+We support `ReplacePrefixMatch` with limitations:
 
-1. **With scheme/port/hostname changes** - Path suffixes are preserved:
+1. **With scheme/port/hostname changes** - Works as expected:
    ```yaml
    filters:
    - type: RequestRedirect
@@ -221,7 +221,7 @@ The behavior of `ReplacePrefixMatch` depends on whether other redirect component
    - Request: `/old-prefix/path/to/resource`
    - Redirects to: `/new-prefix/path/to/resource` ✅ (suffix preserved)
 
-2. **Without other component changes** - Only prefix is replaced, suffixes are NOT preserved:
+2. **Without other component changes** - AWS ALB will reject with redirect loop error:
    ```yaml
    filters:
    - type: RequestRedirect
@@ -230,13 +230,14 @@ The behavior of `ReplacePrefixMatch` depends on whether other redirect component
          type: ReplacePrefixMatch
          replacePrefixMatch: /new-prefix
    ```
-   - Request: `/old-prefix/path/to/resource`
-   - Redirects to: `/new-prefix` ❌ (suffix lost)
+   - This configuration will be rejected by the API with "InvalidLoadBalancerAction: The redirect configuration is not valid because it creates a loop." ❌
 
 **Recommendations:**
 
-- For path-only redirects with exact paths, use `ReplaceFullPath`
-- To preserve path suffixes with prefix replacement, also modify `scheme`, `port`, or `hostname`
+- For path-only redirects, use `ReplaceFullPath` instead
+- To use `ReplacePrefixMatch`, you must also modify `scheme`, `port`, or `hostname`
+
+**Important**: If one HTTPRoute rule has an invalid redirect configuration (e.g., path-only redirect with `ReplacePrefixMatch` that cause redirect loop), the controller will fail to create that listener rule and stop processing subsequent rules in the same HTTPRoute. This means valid rules with lower precedence (shorter paths, later in the route) will not be created. 
 
 #### Examples
 

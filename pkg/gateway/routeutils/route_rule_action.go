@@ -225,7 +225,6 @@ func buildHttpRuleRedirectActionsBasedOnFilter(filters []gwv1.HTTPRouteFilter, r
 // buildHttpRedirectAction configure filter attributes to RedirectActionConfig
 // gateway api has no attribute to specify query, use listener rule configuration
 func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter, redirectConfig *elbv2gw.RedirectActionConfig) (*elbv2model.Action, error) {
-	isComponentSpecified := false
 	var statusCode string
 	if filter.StatusCode != nil {
 		statusCodeStr := fmt.Sprintf("HTTP_%d", *filter.StatusCode)
@@ -236,7 +235,6 @@ func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter, redirectCon
 	if filter.Port != nil {
 		portStr := fmt.Sprintf("%d", *filter.Port)
 		port = &portStr
-		isComponentSpecified = true
 	}
 
 	var protocol *string
@@ -246,7 +244,6 @@ func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter, redirectCon
 			return nil, errors.Errorf("unsupported redirect scheme: %v", upperScheme)
 		}
 		protocol = &upperScheme
-		isComponentSpecified = true
 	}
 
 	var path *string
@@ -257,28 +254,18 @@ func buildHttpRedirectAction(filter *gwv1.HTTPRequestRedirectFilter, redirectCon
 				return nil, errors.Errorf("ReplaceFullPath shouldn't contain wildcards: %v", pathValue)
 			}
 			path = filter.Path.ReplaceFullPath
-			isComponentSpecified = true
 		} else if filter.Path.ReplacePrefixMatch != nil {
-			// Use #{path} if other components are modified (avoids redirect loop)
-			// Otherwise use literal prefix (no suffix preservation)
-			if filter.Scheme != nil || filter.Port != nil || filter.Hostname != nil {
-				pathVariable := "/#{path}"
-				path = &pathVariable
-			} else {
-				path = filter.Path.ReplacePrefixMatch
+			//url rewrite will handle path transform
+			pathValue := *filter.Path.ReplacePrefixMatch
+			if strings.ContainsAny(pathValue, "*?") {
+				return nil, errors.Errorf("ReplacePrefixMatch shouldn't contain wildcards: %v", pathValue)
 			}
-			isComponentSpecified = true
 		}
 	}
 
 	var hostname *string
 	if filter.Hostname != nil {
 		hostname = (*string)(filter.Hostname)
-		isComponentSpecified = true
-	}
-
-	if !isComponentSpecified {
-		return nil, errors.Errorf("To avoid a redirect loop, you must modify at least one of the following components: protocol, port, hostname or path.")
 	}
 
 	var query *string
