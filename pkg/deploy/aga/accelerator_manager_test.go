@@ -3,11 +3,13 @@ package aga
 import (
 	"context"
 	"errors"
-	"k8s.io/apimachinery/pkg/types"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
+	agatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	gatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	"github.com/go-logr/logr"
 	"github.com/golang/mock/gomock"
@@ -282,6 +284,31 @@ func Test_defaultAcceleratorManager_buildSDKCreateAcceleratorInput(t *testing.T)
 				assert.False(t, *input.Enabled)
 			},
 		},
+		{
+			name: "BYOIP accelerator with custom IP addresses",
+			resAccelerator: func() *agamodel.Accelerator {
+				fakeCRD := &agaapi.GlobalAccelerator{}
+				fakeCRD.UID = types.UID("test-uid-byoip")
+				acc := agamodel.NewAccelerator(stack, "test-byoip-accelerator", agamodel.AcceleratorSpec{
+					Name:          "test-byoip-accelerator",
+					IPAddressType: agamodel.IPAddressTypeIPV4,
+					Enabled:       aws.Bool(true),
+					IpAddresses:   []string{"192.0.2.1", "192.0.2.2"},
+				}, fakeCRD)
+				return acc
+			}(),
+			setupExpectations: func() {
+				mockTrackingProvider.EXPECT().ResourceTags(gomock.Any(), gomock.Any(), gomock.Nil()).Return(map[string]string{
+					"elbv2.k8s.aws/cluster": "test-cluster",
+				})
+				mockTaggingManager.EXPECT().ConvertTagsToSDKTags(gomock.Any()).Return([]gatypes.Tag{})
+			},
+			validateInput: func(t *testing.T, resAccelerator *agamodel.Accelerator, manager *defaultAcceleratorManager) {
+				input := manager.buildSDKCreateAcceleratorInput(context.Background(), resAccelerator)
+				assert.NotNil(t, input.IpAddresses)
+				assert.Equal(t, []string{"192.0.2.1", "192.0.2.2"}, input.IpAddresses)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -414,6 +441,41 @@ func Test_defaultAcceleratorManager_buildSDKUpdateAcceleratorInput(t *testing.T)
 
 				// Validate enabled status changed to false
 				assert.False(t, *input.Enabled)
+			},
+		},
+		{
+			name: "BYOIP not supported in update",
+			resAccelerator: func() *agamodel.Accelerator {
+				fakeCRD := &agaapi.GlobalAccelerator{}
+				fakeCRD.UID = types.UID("test-uid-byoip-update")
+				acc := agamodel.NewAccelerator(stack, "test-byoip-update", agamodel.AcceleratorSpec{
+					Name:          "test-byoip-update",
+					IPAddressType: agamodel.IPAddressTypeIPV4,
+					Enabled:       aws.Bool(true),
+					IpAddresses:   []string{"192.0.2.1", "192.0.2.2"},
+				}, fakeCRD)
+				return acc
+			}(),
+			sdkAccelerator: AcceleratorWithTags{
+				Accelerator: &gatypes.Accelerator{
+					AcceleratorArn: aws.String("arn:aws:globalaccelerator::123456789012:accelerator/1234abcd-abcd-1234-abcd-1234abcdefgh"),
+					Name:           aws.String("test-byoip-update"),
+					IpAddressType:  gatypes.IpAddressTypeIpv4,
+					Enabled:        aws.Bool(true),
+					IpSets: []gatypes.IpSet{
+						{
+							IpAddressFamily: gatypes.IpAddressFamilyIPv4,
+							IpAddresses:     []string{"192.0.2.3", "192.0.2.4"},
+						},
+					},
+				},
+				Tags: map[string]string{
+					"aga.k8s.aws/resource": "test-accelerator",
+				},
+			},
+			validateInput: func(t *testing.T, resAccelerator *agamodel.Accelerator, sdkAccelerator AcceleratorWithTags, manager *defaultAcceleratorManager) {
+				input := manager.buildSDKUpdateAcceleratorInput(context.Background(), resAccelerator, sdkAccelerator)
+				assert.Nil(t, input.IpAddresses, "IP addresses should not be included in update input")
 			},
 		},
 	}
@@ -719,5 +781,232 @@ func Test_defaultAcceleratorManager_disableAccelerator(t *testing.T) {
 			}
 			assert.Equal(t, tt.expectedResult, result)
 		})
+	}
+}
+
+func Test_defaultAcceleratorManager_isSDKAcceleratorSettingsDrifted(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	stack := core.NewDefaultStack(core.StackID{Namespace: "test-namespace", Name: "test-name"})
+
+	tests := []struct {
+		name           string
+		resSpec        agamodel.AcceleratorSpec
+		sdkAccelerator AcceleratorWithTags
+		expectedDrift  bool
+	}{
+		{
+			name: "No drift - all fields match",
+			resSpec: agamodel.AcceleratorSpec{
+				Name:          "test-accelerator",
+				IPAddressType: agamodel.IPAddressTypeIPV4,
+				Enabled:       aws.Bool(true),
+			},
+			sdkAccelerator: AcceleratorWithTags{
+				Accelerator: &gatypes.Accelerator{
+					Name:          aws.String("test-accelerator"),
+					IpAddressType: gatypes.IpAddressTypeIpv4,
+					Enabled:       aws.Bool(true),
+				},
+			},
+			expectedDrift: false,
+		},
+		{
+			name: "Name differs - drift detected",
+			resSpec: agamodel.AcceleratorSpec{
+				Name:          "new-name",
+				IPAddressType: agamodel.IPAddressTypeIPV4,
+				Enabled:       aws.Bool(true),
+			},
+			sdkAccelerator: AcceleratorWithTags{
+				Accelerator: &gatypes.Accelerator{
+					Name:          aws.String("old-name"),
+					IpAddressType: gatypes.IpAddressTypeIpv4,
+					Enabled:       aws.Bool(true),
+				},
+			},
+			expectedDrift: true,
+		},
+		{
+			name: "IP address type differs - drift detected",
+			resSpec: agamodel.AcceleratorSpec{
+				Name:          "test-accelerator",
+				IPAddressType: agamodel.IPAddressTypeDualStack,
+				Enabled:       aws.Bool(true),
+			},
+			sdkAccelerator: AcceleratorWithTags{
+				Accelerator: &gatypes.Accelerator{
+					Name:          aws.String("test-accelerator"),
+					IpAddressType: gatypes.IpAddressTypeIpv4,
+					Enabled:       aws.Bool(true),
+				},
+			},
+			expectedDrift: true,
+		},
+		{
+			name: "Enabled state differs - drift detected",
+			resSpec: agamodel.AcceleratorSpec{
+				Name:          "test-accelerator",
+				IPAddressType: agamodel.IPAddressTypeIPV4,
+				Enabled:       aws.Bool(false),
+			},
+			sdkAccelerator: AcceleratorWithTags{
+				Accelerator: &gatypes.Accelerator{
+					Name:          aws.String("test-accelerator"),
+					IpAddressType: gatypes.IpAddressTypeIpv4,
+					Enabled:       aws.Bool(true),
+				},
+			},
+			expectedDrift: true,
+		},
+		{
+			name: "IP addresses match - no drift",
+			resSpec: agamodel.AcceleratorSpec{
+				Name:          "test-accelerator",
+				IPAddressType: agamodel.IPAddressTypeIPV4,
+				Enabled:       aws.Bool(true),
+				IpAddresses:   []string{"192.0.2.1", "192.0.2.2"},
+			},
+			sdkAccelerator: AcceleratorWithTags{
+				Accelerator: &gatypes.Accelerator{
+					Name:          aws.String("test-accelerator"),
+					IpAddressType: gatypes.IpAddressTypeIpv4,
+					Enabled:       aws.Bool(true),
+					IpSets: []gatypes.IpSet{
+						{IpAddresses: []string{"192.0.2.1", "192.0.2.2"}},
+					},
+				},
+			},
+			expectedDrift: false,
+		},
+		{
+			name: "IP addresses differ - no drift but logs warning",
+			resSpec: agamodel.AcceleratorSpec{
+				Name:          "test-accelerator",
+				IPAddressType: agamodel.IPAddressTypeIPV4,
+				Enabled:       aws.Bool(true),
+				IpAddresses:   []string{"192.0.2.1", "192.0.2.2"},
+			},
+			sdkAccelerator: AcceleratorWithTags{
+				Accelerator: &gatypes.Accelerator{
+					Name:          aws.String("test-accelerator"),
+					IpAddressType: gatypes.IpAddressTypeIpv4,
+					Enabled:       aws.Bool(true),
+					IpSets: []gatypes.IpSet{
+						{IpAddresses: []string{"192.0.2.3", "192.0.2.4"}},
+					},
+				},
+			},
+			expectedDrift: false,
+		},
+		{
+			name: "Multiple fields differ - drift detected",
+			resSpec: agamodel.AcceleratorSpec{
+				Name:          "new-name",
+				IPAddressType: agamodel.IPAddressTypeDualStack,
+				Enabled:       aws.Bool(false),
+			},
+			sdkAccelerator: AcceleratorWithTags{
+				Accelerator: &gatypes.Accelerator{
+					Name:          aws.String("old-name"),
+					IpAddressType: gatypes.IpAddressTypeIpv4,
+					Enabled:       aws.Bool(true),
+				},
+			},
+			expectedDrift: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockGAClient := services.NewMockGlobalAccelerator(ctrl)
+			mockTrackingProvider := tracking.NewMockProvider(ctrl)
+			mockTaggingManager := NewMockTaggingManager(ctrl)
+			logger := logr.New(&log.NullLogSink{})
+
+			manager := &defaultAcceleratorManager{
+				gaService:        mockGAClient,
+				trackingProvider: mockTrackingProvider,
+				taggingManager:   mockTaggingManager,
+				logger:           logger,
+			}
+
+			fakeCRD := &agaapi.GlobalAccelerator{}
+			fakeCRD.UID = types.UID("test-uid")
+
+			resAccelerator := agamodel.NewAccelerator(stack, "test-accelerator", tt.resSpec, fakeCRD)
+
+			drifted := manager.isSDKAcceleratorSettingsDrifted(resAccelerator, tt.sdkAccelerator)
+			assert.Equal(t, tt.expectedDrift, drifted)
+		})
+	}
+}
+
+func Test_defaultAcceleratorManager_areIPv4AddressesEqual(t *testing.T) {
+	tests := []struct {
+		name           string
+		desiredIPs     []string
+		actualIPSets   []agatypes.IpSet
+		expectedResult bool
+		description    string
+	}{
+		{
+			name:           "Two BYOIPs match current - no drift",
+			desiredIPs:     []string{"169.254.8.13", "169.254.8.14"},
+			actualIPSets:   makeIPSets([]string{"169.254.8.13", "169.254.8.14"}),
+			expectedResult: true,
+			description:    "Both BYOIPs match exactly",
+		},
+		{
+			name:           "One BYOIP matches current - drift",
+			desiredIPs:     []string{"169.254.8.13, 169.254.9.13"},
+			actualIPSets:   makeIPSets([]string{"169.254.8.13", "99.82.158.217"}),
+			expectedResult: false,
+			description:    "BYOIP present, Amazon auto-assigned the other",
+		},
+		{
+			name:           "One BYOIP missing from current - drift detected",
+			desiredIPs:     []string{"169.254.9.13"},
+			actualIPSets:   makeIPSets([]string{"169.254.8.13", "99.82.158.217"}),
+			expectedResult: false,
+			description:    "Desired BYOIP not in current",
+		},
+		{
+			name:           "Changing from one BYOIP to another - drift detected",
+			desiredIPs:     []string{"169.254.8.16", "99.82.158.217"},
+			actualIPSets:   makeIPSets([]string{"169.254.9.13", "99.82.158.217"}),
+			expectedResult: false,
+			description:    "Different BYOIP, count matches but IP doesn't",
+		},
+		{
+			name:           "Two BYOIPs in different order - no drift",
+			desiredIPs:     []string{"169.254.8.14", "169.254.8.13"},
+			actualIPSets:   makeIPSets([]string{"169.254.8.13", "169.254.8.14"}),
+			expectedResult: true,
+			description:    "Order doesn't matter for exact match",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &defaultAcceleratorManager{
+				logger: logr.Discard(),
+			}
+			result := m.areIPv4AddressesEqual(tt.desiredIPs, tt.actualIPSets)
+			assert.Equal(t, tt.expectedResult, result, tt.description)
+		})
+	}
+}
+
+func makeIPSets(ips []string) []agatypes.IpSet {
+	if len(ips) == 0 {
+		return []agatypes.IpSet{}
+	}
+	return []agatypes.IpSet{
+		{
+			IpAddressFamily: "IPv4",
+			IpAddresses:     ips,
+		},
 	}
 }
