@@ -283,8 +283,8 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 	_, fatalErrors := r.endpointLoader.LoadEndpoints(ctx, ga, endpoints)
 	if len(fatalErrors) > 0 {
 		err := fmt.Errorf("failed to load endpoints: %v", fatalErrors[0])
-		r.logger.Error(err, "Fatal error loading endpoints")
-
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedEndpointLoad, fmt.Sprintf("Failed to reconcile due to %v", err))
+		r.logger.Error(err, fmt.Sprintf("fatal error loading endpoints for %v", k8s.NamespacedName(ga)))
 		// Handle other endpoint loading errors
 		if statusErr := r.statusUpdater.UpdateStatusFailure(ctx, ga, agadeploy.EndpointLoadFailed, err.Error()); statusErr != nil {
 			r.logger.Error(statusErr, "Failed to update GlobalAccelerator status after endpoint load failure")
@@ -316,7 +316,7 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, MetricStageDeployStack, deployStackFn)
 	if err != nil {
 		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedDeploy, fmt.Sprintf("Failed to deploy stack due to %v", err))
-
+		r.logger.Error(err, fmt.Sprintf("Failed to deploy stack for: %v", k8s.NamespacedName(ga)))
 		// Update status to indicate deployment failure
 		if statusErr := r.statusUpdater.UpdateStatusFailure(ctx, ga, agadeploy.DeploymentFailed, fmt.Sprintf("Failed to deploy stack: %v", err)); statusErr != nil {
 			r.logger.Error(statusErr, "Failed to update GlobalAccelerator status after deployment failure")

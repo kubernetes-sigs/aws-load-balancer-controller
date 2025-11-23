@@ -9,6 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -97,55 +98,15 @@ func (s *listenerSynthesizer) synthesizeListenersOnAccelerator(ctx context.Conte
 
 	// Improved operation order to minimize traffic disruption:
 	// 1. Delete only conflicting listeners (that would block updates)
-	// 2. Update matched listeners
-	// 3. Delete unneeded (non-conflicting) listeners
-	// 4. Create new listeners
+	// 2. Process all port overrides which may block listener updates
+	//   - Remove endpoint port overrides that overlap with any new listener port ranges
+	//   - Remove listener port overrides from existing listener which is outside desired listener port ranges
+	// 3. Update matched listeners
+	// 4. Delete unneeded (non-conflicting) listeners
+	// 5. Create new listeners
 
 	// STEP 1: Find SDK listeners that have port conflicts with planned updates
-	var conflictingListeners []*ListenerResource
-	var nonConflictingListeners []*ListenerResource
-
-	// Track which listeners have port conflicts with our updates
-	conflictMap := make(map[string][]*ListenerResource)
-
-	// For each update we're planning to do...
-	for _, pair := range matchedResAndSDKListeners {
-		var conflicts []*ListenerResource
-
-		// Check against all unmatched SDK listeners for conflicts
-		for _, sdkListener := range unmatchedSDKListeners {
-			if s.hasPortRangeConflict(pair.resListener, sdkListener) {
-				conflicts = append(conflicts, sdkListener)
-			}
-		}
-
-		// If there are conflicts, add them to our conflict map
-		if len(conflicts) > 0 {
-			conflictMap[pair.resListener.ID()] = conflicts
-		}
-	}
-
-	// Build list of conflicting and non-conflicting listeners
-	listenerIsConflicting := make(map[string]bool)
-
-	// Add all listeners with port conflicts to the conflicting list
-	for _, conflicts := range conflictMap {
-		for _, listener := range conflicts {
-			arn := *listener.Listener.ListenerArn
-			if !listenerIsConflicting[arn] {
-				conflictingListeners = append(conflictingListeners, listener)
-				listenerIsConflicting[arn] = true
-			}
-		}
-	}
-
-	// Sort remaining unmatched listeners into non-conflicting
-	for _, sdkListener := range unmatchedSDKListeners {
-		arn := *sdkListener.Listener.ListenerArn
-		if !listenerIsConflicting[arn] {
-			nonConflictingListeners = append(nonConflictingListeners, sdkListener)
-		}
-	}
+	conflictingListeners, nonConflictingListeners := s.findConflictingAndNonConflictingListeners(matchedResAndSDKListeners, unmatchedSDKListeners)
 
 	// STEP 2: Execute operations in correct order
 
@@ -162,6 +123,15 @@ func (s *listenerSynthesizer) synthesizeListenersOnAccelerator(ctx context.Conte
 				"listenerARN", *listener.Listener.ListenerArn)
 			return err
 		}
+	}
+
+	// Next, Process all port overrides BEFORE updating listeners
+	allResListenerPortRanges, allSDKListenersToProcess, updatePortRangesByListener := s.preparePortOverrideProcessing(resListeners, matchedResAndSDKListeners, nonConflictingListeners)
+
+	// Consolidated port override processing
+	if err := s.ProcessEndpointGroupPortOverrides(ctx, allSDKListenersToProcess, allResListenerPortRanges, updatePortRangesByListener); err != nil {
+		s.logger.Error(err, "Failed to process endpoint group port overrides")
+		return err
 	}
 
 	// Next, update existing matched listeners (now conflict-free)
@@ -288,7 +258,7 @@ func (s *listenerSynthesizer) matchResAndSDKListeners(resListeners []*agamodel.L
 // 3. Matches listeners with identical keys (exact protocol and port range matches)
 // 4. Returns matched pairs and remaining unmatched listeners
 //
-// The key generation ensures that port ranges in different order but with identical 
+// The key generation ensures that port ranges in different order but with identical
 // values still match correctly.
 func (s *listenerSynthesizer) findExactMatches(resListeners []*agamodel.Listener, sdkListeners []*ListenerResource) (
 	[]resAndSDKListenerPair, []*agamodel.Listener, []*ListenerResource) {
@@ -468,6 +438,62 @@ func (s *listenerSynthesizer) findSimilarityMatches(resListeners []*agamodel.Lis
 	return matchedPairs, unmatchedResListeners, unmatchedSDKListeners
 }
 
+// findConflictingAndNonConflictingListeners separates unmatched SDK listeners into those that have
+// port conflicts with planned updates and those that don't
+func (s *listenerSynthesizer) findConflictingAndNonConflictingListeners(
+	matchedResAndSDKListeners []resAndSDKListenerPair,
+	unmatchedSDKListeners []*ListenerResource) ([]*ListenerResource, []*ListenerResource) {
+
+	var conflictingListeners []*ListenerResource
+	var nonConflictingListeners []*ListenerResource
+
+	// Track which listeners have port conflicts with our updates
+	conflictMap := make(map[string][]*ListenerResource)
+
+	// For each update we're planning to do...
+	for _, pair := range matchedResAndSDKListeners {
+		var conflicts []*ListenerResource
+
+		// Check against all unmatched SDK listeners for conflicts
+		for _, sdkListener := range unmatchedSDKListeners {
+			if s.hasPortRangeConflict(pair.resListener, sdkListener) {
+				conflicts = append(conflicts, sdkListener)
+			}
+		}
+
+		// If there are conflicts, add them to our conflict map
+		if len(conflicts) > 0 {
+			conflictMap[pair.resListener.ID()] = conflicts
+		}
+	}
+
+	// Build list of conflicting and non-conflicting listeners
+	listenerIsConflicting := make(map[string]bool)
+
+	// Add all listeners with port conflicts to the conflicting list
+	for _, conflicts := range conflictMap {
+		for _, listener := range conflicts {
+			arn := *listener.Listener.ListenerArn
+			if !listenerIsConflicting[arn] {
+				conflictingListeners = append(conflictingListeners, listener)
+				listenerIsConflicting[arn] = true
+			}
+		}
+	}
+
+	// Sort remaining unmatched listeners into non-conflicting
+	for _, sdkListener := range unmatchedSDKListeners {
+		arn := *sdkListener.Listener.ListenerArn
+		if !listenerIsConflicting[arn] {
+			nonConflictingListeners = append(nonConflictingListeners, sdkListener)
+		}
+	}
+
+	return conflictingListeners, nonConflictingListeners
+}
+
+// calculateSimilarityScore calculates how similar two listeners are
+// Higher scores indicate better matches
 // calculateSimilarityScore calculates how similar two listeners are based on their attributes.
 //
 // The scoring system uses these components:
@@ -596,4 +622,251 @@ func (s *listenerSynthesizer) hasPortRangeConflict(resListener *agamodel.Listene
 // portRangesToString serializes port ranges to a string - deprecated, use ResPortRangesToString instead
 func (s *listenerSynthesizer) portRangesToString(portRanges []agamodel.PortRange) string {
 	return ResPortRangesToString(portRanges)
+}
+
+// havePortRangesChanged checks if port ranges have changed between resource and SDK listener
+func (s *listenerSynthesizer) havePortRangesChanged(resListener *agamodel.Listener, sdkListener *ListenerResource) bool {
+	if len(resListener.Spec.PortRanges) != len(sdkListener.Listener.PortRanges) {
+		return true
+	}
+
+	// Build maps for easy comparison
+	resPortSet := s.makeResPortSet(resListener.Spec.PortRanges)
+	sdkPortSet := s.makeSDKPortSet(sdkListener.Listener.PortRanges)
+
+	// If port sets have different sizes, they've changed
+	if len(resPortSet) != len(sdkPortSet) {
+		return true
+	}
+
+	// Check if any port exists in one set but not the other
+	for port := range resPortSet {
+		if !sdkPortSet[port] {
+			return true
+		}
+	}
+
+	for port := range sdkPortSet {
+		if !resPortSet[port] {
+			return true
+		}
+	}
+
+	// Port ranges are the same
+	return false
+}
+
+// ProcessEndpointGroupPortOverrides handles all port override validations and updates using a two-phase approach
+// Phase 1: Collect all endpoint groups and analyze all port overrides for conflicts
+// Phase 2: Execute updates for all identified conflicts
+//
+// The two-phase approach ensures consistent behavior regardless of processing order, since all
+// analysis is completed before any modifications are made.
+//
+// It handles these validations:
+//   - Remove port overrides with endpoint port that overlap with any desired listener port ranges
+//   - Remove port overrides with listener port outside desired listener port ranges
+func (s *listenerSynthesizer) ProcessEndpointGroupPortOverrides(
+	ctx context.Context,
+	listeners []*ListenerResource,
+	allListenerPortRanges []agamodel.PortRange,
+	updatePortRangesByListener map[string][]agamodel.PortRange) error {
+
+	s.logger.V(1).Info("Processing all endpoint port overrides before updating listeners")
+
+	// PHASE 1: Collection and Analysis
+	// Map of endpoint group ARN to its conflict information
+	type endpointGroupConflicts struct {
+		endpointGroup        agatypes.EndpointGroup
+		listenerARN          string
+		validPortOverrides   []agatypes.PortOverride
+		invalidPortOverrides []agatypes.PortOverride
+	}
+
+	// Store all conflicts to be resolved
+	conflictsByEndpointGroupARN := make(map[string]*endpointGroupConflicts)
+
+	// Process each listener to collect all endpoint groups and analyze port overrides
+	for _, listener := range listeners {
+		listenerARN := awssdk.ToString(listener.Listener.ListenerArn)
+
+		// List endpoint groups per listener
+		endpointGroups, err := s.listenerManager.ListEndpointGroups(ctx, listenerARN)
+		if err != nil {
+			return fmt.Errorf("failed to list endpoint groups for listener %s: %w", listenerARN, err)
+		}
+
+		// Skip if no endpoint groups
+		if len(endpointGroups) == 0 {
+			continue
+		}
+
+		// Get the updated port ranges for this listener if it's being updated
+		updatedPortRanges := updatePortRangesByListener[listenerARN]
+
+		// Analyze each endpoint group's port overrides
+		for _, eg := range endpointGroups {
+			endpointGroupARN := awssdk.ToString(eg.EndpointGroupArn)
+
+			// Skip if no port overrides to check
+			if eg.PortOverrides == nil || len(eg.PortOverrides) == 0 {
+				continue
+			}
+
+			s.logger.V(1).Info("Analyzing endpoint group port overrides for conflicts",
+				"listenerARN", listenerARN,
+				"endpointGroupARN", endpointGroupARN)
+
+			// Apply all validation rules and collect valid/invalid port overrides
+			validPortOverrides, invalidPortOverrides := s.processPortOverridesWithAllRules(
+				eg.PortOverrides,
+				allListenerPortRanges,
+				updatedPortRanges)
+
+			// Only store conflicts if we found invalid overrides
+			if len(invalidPortOverrides) > 0 {
+				conflictsByEndpointGroupARN[endpointGroupARN] = &endpointGroupConflicts{
+					endpointGroup:        eg,
+					listenerARN:          listenerARN,
+					validPortOverrides:   validPortOverrides,
+					invalidPortOverrides: invalidPortOverrides,
+				}
+			}
+		}
+	}
+
+	// PHASE 2: Execution - Update all endpoint groups with conflicts
+	// Process all conflicts
+	for endpointGroupARN := range conflictsByEndpointGroupARN {
+		conflictInfo := conflictsByEndpointGroupARN[endpointGroupARN]
+
+		s.logger.V(1).Info("Updating endpoint group to remove conflicting port overrides",
+			"endpointGroupARN", endpointGroupARN,
+			"listenerARN", conflictInfo.listenerARN,
+			"conflictCount", len(conflictInfo.invalidPortOverrides))
+
+		// Update this endpoint group to remove the invalid port overrides
+		if err := s.updateEndpointGroupPortOverrides(
+			ctx,
+			conflictInfo.endpointGroup,
+			conflictInfo.validPortOverrides,
+			conflictInfo.invalidPortOverrides); err != nil {
+			return fmt.Errorf("failed to update endpoint group %s to remove conflicts: %w",
+				endpointGroupARN, err)
+		}
+	}
+
+	return nil
+}
+
+// processPortOverridesWithAllRules applies all validation rules to port overrides:
+// 1. Endpoint ports must not overlap with any listener port ranges (if listener is being updated)
+// 2. Listener ports must be within listener port ranges (if listener is being updated)
+func (s *listenerSynthesizer) processPortOverridesWithAllRules(
+	portOverrides []agatypes.PortOverride,
+	allListenerPortRanges []agamodel.PortRange,
+	updatedListenerPortRanges []agamodel.PortRange) ([]agatypes.PortOverride, []agatypes.PortOverride) {
+
+	validPortOverrides := make([]agatypes.PortOverride, 0)
+	invalidPortOverrides := make([]agatypes.PortOverride, 0)
+	for _, po := range portOverrides {
+		isValid := true
+
+		// Rule 1: Endpoint port must not overlap with ANY listener port range
+		if aga.IsPortInRanges(awssdk.ToInt32(po.EndpointPort), allListenerPortRanges) {
+			isValid = false
+			s.logger.V(1).Info("Found port override with endpoint port that overlaps with a listener port range",
+				"endpointPort", awssdk.ToInt32(po.EndpointPort),
+				"listenerPort", awssdk.ToInt32(po.ListenerPort))
+		}
+
+		// Rule 2: If listener is being updated, listener port must be within updated port ranges
+		if isValid && len(updatedListenerPortRanges) > 0 && !aga.IsPortInRanges(awssdk.ToInt32(po.ListenerPort), updatedListenerPortRanges) {
+			isValid = false
+			s.logger.V(1).Info("Found port override with listener port outside updated listener port range",
+				"listenerPort", awssdk.ToInt32(po.ListenerPort),
+				"endpointPort", awssdk.ToInt32(po.EndpointPort))
+		}
+
+		// Add to appropriate collection based on validation result
+		if isValid {
+			validPortOverrides = append(validPortOverrides, po)
+		} else {
+			invalidPortOverrides = append(invalidPortOverrides, po)
+		}
+	}
+
+	return validPortOverrides, invalidPortOverrides
+}
+
+// preparePortOverrideProcessing collects all the port override processing requirements:
+// - all res listener port ranges
+// - all SDK listeners to process
+// - map of listeners being updated with their new port ranges
+func (s *listenerSynthesizer) preparePortOverrideProcessing(
+	resListeners []*agamodel.Listener,
+	matchedResAndSDKListeners []resAndSDKListenerPair,
+	nonConflictingListeners []*ListenerResource) ([]agamodel.PortRange, []*ListenerResource, map[string][]agamodel.PortRange) {
+
+	// Collect all port ranges from resource listeners
+	var allResListenerPortRanges []agamodel.PortRange
+	for _, resListener := range resListeners {
+		allResListenerPortRanges = append(allResListenerPortRanges, resListener.Spec.PortRanges...)
+	}
+
+	// Extract the SDK listeners from matchedResAndSDKListeners
+	var allSDKListenersToProcess []*ListenerResource
+	for _, pair := range matchedResAndSDKListeners {
+		allSDKListenersToProcess = append(allSDKListenersToProcess, pair.sdkListener)
+	}
+
+	// Combine with nonConflictingListeners
+	allSDKListenersToProcess = append(allSDKListenersToProcess, nonConflictingListeners...)
+
+	// Prepare map of listeners being updated with their new port ranges
+	updatePortRangesByListener := make(map[string][]agamodel.PortRange)
+	for _, pair := range matchedResAndSDKListeners {
+		if s.havePortRangesChanged(pair.resListener, pair.sdkListener) {
+			listenerARN := awssdk.ToString(pair.sdkListener.Listener.ListenerArn)
+			updatePortRangesByListener[listenerARN] = pair.resListener.Spec.PortRanges
+		}
+	}
+
+	return allResListenerPortRanges, allSDKListenersToProcess, updatePortRangesByListener
+}
+
+// updateEndpointGroupPortOverrides updates an endpoint group with valid port overrides
+// and logs information about the removed invalid ones
+func (s *listenerSynthesizer) updateEndpointGroupPortOverrides(
+	ctx context.Context,
+	endpointGroup agatypes.EndpointGroup,
+	validPortOverrides []agatypes.PortOverride,
+	invalidPortOverrides []agatypes.PortOverride) error {
+
+	endpointGroupARN := awssdk.ToString(endpointGroup.EndpointGroupArn)
+
+	// For logging purposes, record each removed override
+	for _, po := range invalidPortOverrides {
+		s.logger.V(1).Info("Removing port override",
+			"listenerPort", awssdk.ToInt32(po.ListenerPort),
+			"endpointPort", awssdk.ToInt32(po.EndpointPort),
+			"endpointGroupARN", endpointGroupARN)
+	}
+
+	// Update the endpoint group with only valid port overrides
+	_, err := s.gaClient.UpdateEndpointGroupWithContext(ctx, &globalaccelerator.UpdateEndpointGroupInput{
+		EndpointGroupArn: endpointGroup.EndpointGroupArn,
+		PortOverrides:    validPortOverrides,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to update endpoint group %s for port overrides to remove conflicts: %w", endpointGroupARN, err)
+	}
+
+	s.logger.Info("Successfully updated endpoint group port overrides to remove conflicts",
+		"endpointGroupARN", endpointGroupARN,
+		"removedCount", len(invalidPortOverrides),
+		"remainingCount", len(validPortOverrides))
+
+	return nil
 }
