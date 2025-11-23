@@ -4,7 +4,18 @@ import (
 	"strings"
 
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
 )
+
+// IsPortInRanges checks if a port is within any of the specified port ranges
+func IsPortInRanges(port int32, portRanges []agamodel.PortRange) bool {
+	for _, portRange := range portRanges {
+		if portRange.FromPort <= port && port <= portRange.ToPort {
+			return true
+		}
+	}
+	return false
+}
 
 // IsAGAControllerEnabled checks if the AGA controller is both enabled via feature gate
 // and if the region is in a partition that supports Global Accelerator

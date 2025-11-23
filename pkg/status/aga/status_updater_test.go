@@ -291,7 +291,7 @@ func Test_defaultStatusUpdater_UpdateStatusFailure(t *testing.T) {
 				},
 			},
 			reason:  "ProvisioningFailed",
-			message: "Failed to provision accelerator: validation error",
+			message: "Reconciliation failed. See events and controller logs for details",
 			validateStatus: func(t *testing.T, ga *v1beta1.GlobalAccelerator) {
 				// Check that observed generation was updated
 				assert.NotNil(t, ga.Status.ObservedGeneration)
@@ -303,7 +303,7 @@ func Test_defaultStatusUpdater_UpdateStatusFailure(t *testing.T) {
 				assert.Equal(t, ConditionTypeReady, condition.Type)
 				assert.Equal(t, metav1.ConditionFalse, condition.Status)
 				assert.Equal(t, "ProvisioningFailed", condition.Reason)
-				assert.Equal(t, "Failed to provision accelerator: validation error", condition.Message)
+				assert.Equal(t, "Reconciliation failed. See events and controller logs for details", condition.Message)
 			},
 		},
 		{
@@ -328,7 +328,7 @@ func Test_defaultStatusUpdater_UpdateStatusFailure(t *testing.T) {
 				},
 			},
 			reason:  "NewError",
-			message: "New error message",
+			message: "Reconciliation failed. See events and controller logs for details",
 			validateStatus: func(t *testing.T, ga *v1beta1.GlobalAccelerator) {
 				// Check that observed generation was updated
 				assert.NotNil(t, ga.Status.ObservedGeneration)
@@ -340,7 +340,7 @@ func Test_defaultStatusUpdater_UpdateStatusFailure(t *testing.T) {
 				assert.Equal(t, ConditionTypeReady, condition.Type)
 				assert.Equal(t, metav1.ConditionFalse, condition.Status)
 				assert.Equal(t, "NewError", condition.Reason)
-				assert.Equal(t, "New error message", condition.Message)
+				assert.Equal(t, "Reconciliation failed. See events and controller logs for details", condition.Message)
 			},
 		},
 		{
@@ -359,13 +359,13 @@ func Test_defaultStatusUpdater_UpdateStatusFailure(t *testing.T) {
 							Status:             metav1.ConditionFalse,
 							LastTransitionTime: metav1.Now(),
 							Reason:             "SameError",
-							Message:            "Same error message",
+							Message:            "Reconciliation failed. See events and controller logs for details",
 						},
 					},
 				},
 			},
 			reason:  "SameError",
-			message: "Same error message",
+			message: "Reconciliation failed. See events and controller logs for details",
 			validateStatus: func(t *testing.T, ga *v1beta1.GlobalAccelerator) {
 				// Status should be unchanged
 				assert.NotNil(t, ga.Status.ObservedGeneration)
