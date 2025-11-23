@@ -68,9 +68,6 @@ const (
 	requeueMessage          = "Monitoring provisioning state"
 	statusUpdateRequeueTime = 1 * time.Minute
 
-	// Status reason constants
-	EndpointLoadFailed = "EndpointLoadFailed"
-
 	// Metric stage constants
 	MetricStageFetchGlobalAccelerator     = "fetch_globalAccelerator"
 	MetricStageAddFinalizers              = "add_finalizers"
@@ -90,7 +87,7 @@ const (
 func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, finalizerManager k8s.FinalizerManager, config config.ControllerConfig, cloud services.Cloud, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) *globalAcceleratorReconciler {
 
 	// Create tracking provider
-	trackingProvider := tracking.NewDefaultProvider(agaTagPrefix, config.ClusterName, tracking.WithRegion(config.AWSConfig.Region))
+	trackingProvider := tracking.NewDefaultProvider(agaTagPrefix, config.ClusterName, tracking.WithRegion(cloud.Region()))
 
 	// Create model builder
 	agaModelBuilder := aga.NewDefaultModelBuilder(
@@ -99,7 +96,7 @@ func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder recor
 		trackingProvider,
 		config.FeatureGates,
 		config.ClusterName,
-		config.AWSConfig.Region,
+		cloud.Region(),
 		config.DefaultTags,
 		config.ExternalManagedTags,
 		logger.WithName("aga-model-builder"),
@@ -289,7 +286,7 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 		r.logger.Error(err, "Fatal error loading endpoints")
 
 		// Handle other endpoint loading errors
-		if statusErr := r.statusUpdater.UpdateStatusFailure(ctx, ga, EndpointLoadFailed, err.Error()); statusErr != nil {
+		if statusErr := r.statusUpdater.UpdateStatusFailure(ctx, ga, agadeploy.EndpointLoadFailed, err.Error()); statusErr != nil {
 			r.logger.Error(statusErr, "Failed to update GlobalAccelerator status after endpoint load failure")
 		}
 		return err
@@ -303,6 +300,8 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, MetricStageBuildModel, buildModelFn)
 	if err != nil {
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed to build model: %v", err))
+		r.logger.Error(err, fmt.Sprintf("Failed to build model for: %v", k8s.NamespacedName(ga)))
 		// Update status to indicate model building failure
 		if statusErr := r.statusUpdater.UpdateStatusFailure(ctx, ga, agadeploy.ModelBuildFailed, fmt.Sprintf("Failed to build model: %v", err)); statusErr != nil {
 			r.logger.Error(statusErr, "Failed to update GlobalAccelerator status after model build failure")

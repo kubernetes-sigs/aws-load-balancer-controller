@@ -52,6 +52,7 @@ const (
 	GlobalAcceleratorEventReasonFailedUpdateStatus     = "FailedUpdateStatus"
 	GlobalAcceleratorEventReasonFailedCleanup          = "FailedCleanup"
 	GlobalAcceleratorEventReasonFailedBuildModel       = "FailedBuildModel"
+	GlobalAcceleratorEventReasonFailedEndpointLoad     = "FailedEndpointLoad"
 	GlobalAcceleratorEventReasonFailedDeploy           = "FailedDeploy"
 	GlobalAcceleratorEventReasonSuccessfullyReconciled = "SuccessfullyReconciled"
 )
