@@ -8,6 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	types "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	gomock "github.com/golang/mock/gomock"
 	aga0 "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
 )
@@ -62,6 +63,21 @@ func (m *MockListenerManager) Delete(arg0 context.Context, arg1 string) error {
 func (mr *MockListenerManagerMockRecorder) Delete(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockListenerManager)(nil).Delete), arg0, arg1)
+}
+
+// ListEndpointGroups mocks base method.
+func (m *MockListenerManager) ListEndpointGroups(arg0 context.Context, arg1 string) ([]types.EndpointGroup, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEndpointGroups", arg0, arg1)
+	ret0, _ := ret[0].([]types.EndpointGroup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListEndpointGroups indicates an expected call of ListEndpointGroups.
+func (mr *MockListenerManagerMockRecorder) ListEndpointGroups(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEndpointGroups", reflect.TypeOf((*MockListenerManager)(nil).ListEndpointGroups), arg0, arg1)
 }
 
 // Update mocks base method.

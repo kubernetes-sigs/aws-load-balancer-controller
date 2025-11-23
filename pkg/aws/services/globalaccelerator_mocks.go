@@ -51,6 +51,21 @@ func (mr *MockGlobalAcceleratorMockRecorder) CreateAcceleratorWithContext(arg0, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAcceleratorWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).CreateAcceleratorWithContext), arg0, arg1)
 }
 
+// CreateEndpointGroupWithContext mocks base method.
+func (m *MockGlobalAccelerator) CreateEndpointGroupWithContext(arg0 context.Context, arg1 *globalaccelerator.CreateEndpointGroupInput) (*globalaccelerator.CreateEndpointGroupOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateEndpointGroupWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.CreateEndpointGroupOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateEndpointGroupWithContext indicates an expected call of CreateEndpointGroupWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) CreateEndpointGroupWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEndpointGroupWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).CreateEndpointGroupWithContext), arg0, arg1)
+}
+
 // CreateListenerWithContext mocks base method.
 func (m *MockGlobalAccelerator) CreateListenerWithContext(arg0 context.Context, arg1 *globalaccelerator.CreateListenerInput) (*globalaccelerator.CreateListenerOutput, error) {
 	m.ctrl.T.Helper()
@@ -79,6 +94,21 @@ func (m *MockGlobalAccelerator) DeleteAcceleratorWithContext(arg0 context.Contex
 func (mr *MockGlobalAcceleratorMockRecorder) DeleteAcceleratorWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteAcceleratorWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).DeleteAcceleratorWithContext), arg0, arg1)
+}
+
+// DeleteEndpointGroupWithContext mocks base method.
+func (m *MockGlobalAccelerator) DeleteEndpointGroupWithContext(arg0 context.Context, arg1 *globalaccelerator.DeleteEndpointGroupInput) (*globalaccelerator.DeleteEndpointGroupOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEndpointGroupWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.DeleteEndpointGroupOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteEndpointGroupWithContext indicates an expected call of DeleteEndpointGroupWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) DeleteEndpointGroupWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEndpointGroupWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).DeleteEndpointGroupWithContext), arg0, arg1)
 }
 
 // DeleteListenerWithContext mocks base method.
@@ -111,6 +141,21 @@ func (mr *MockGlobalAcceleratorMockRecorder) DescribeAcceleratorWithContext(arg0
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeAcceleratorWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).DescribeAcceleratorWithContext), arg0, arg1)
 }
 
+// DescribeEndpointGroupWithContext mocks base method.
+func (m *MockGlobalAccelerator) DescribeEndpointGroupWithContext(arg0 context.Context, arg1 *globalaccelerator.DescribeEndpointGroupInput) (*globalaccelerator.DescribeEndpointGroupOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DescribeEndpointGroupWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.DescribeEndpointGroupOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DescribeEndpointGroupWithContext indicates an expected call of DescribeEndpointGroupWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) DescribeEndpointGroupWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DescribeEndpointGroupWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).DescribeEndpointGroupWithContext), arg0, arg1)
+}
+
 // DescribeListenerWithContext mocks base method.
 func (m *MockGlobalAccelerator) DescribeListenerWithContext(arg0 context.Context, arg1 *globalaccelerator.DescribeListenerInput) (*globalaccelerator.DescribeListenerOutput, error) {
 	m.ctrl.T.Helper()
@@ -139,6 +184,21 @@ func (m *MockGlobalAccelerator) ListAcceleratorsAsList(arg0 context.Context, arg
 func (mr *MockGlobalAcceleratorMockRecorder) ListAcceleratorsAsList(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListAcceleratorsAsList", reflect.TypeOf((*MockGlobalAccelerator)(nil).ListAcceleratorsAsList), arg0, arg1)
+}
+
+// ListEndpointGroupsAsList mocks base method.
+func (m *MockGlobalAccelerator) ListEndpointGroupsAsList(arg0 context.Context, arg1 *globalaccelerator.ListEndpointGroupsInput) ([]types.EndpointGroup, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEndpointGroupsAsList", arg0, arg1)
+	ret0, _ := ret[0].([]types.EndpointGroup)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListEndpointGroupsAsList indicates an expected call of ListEndpointGroupsAsList.
+func (mr *MockGlobalAcceleratorMockRecorder) ListEndpointGroupsAsList(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEndpointGroupsAsList", reflect.TypeOf((*MockGlobalAccelerator)(nil).ListEndpointGroupsAsList), arg0, arg1)
 }
 
 // ListListenersAsList mocks base method.
@@ -229,6 +289,21 @@ func (m *MockGlobalAccelerator) UpdateAcceleratorWithContext(arg0 context.Contex
 func (mr *MockGlobalAcceleratorMockRecorder) UpdateAcceleratorWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAcceleratorWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).UpdateAcceleratorWithContext), arg0, arg1)
+}
+
+// UpdateEndpointGroupWithContext mocks base method.
+func (m *MockGlobalAccelerator) UpdateEndpointGroupWithContext(arg0 context.Context, arg1 *globalaccelerator.UpdateEndpointGroupInput) (*globalaccelerator.UpdateEndpointGroupOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateEndpointGroupWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.UpdateEndpointGroupOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateEndpointGroupWithContext indicates an expected call of UpdateEndpointGroupWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) UpdateEndpointGroupWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEndpointGroupWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).UpdateEndpointGroupWithContext), arg0, arg1)
 }
 
 // UpdateListenerWithContext mocks base method.

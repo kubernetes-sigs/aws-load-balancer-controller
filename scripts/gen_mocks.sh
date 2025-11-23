@@ -26,6 +26,7 @@ $MOCKGEN -package=networking -destination=./pkg/networking/vpc_info_provider_moc
 $MOCKGEN -package=networking -destination=./pkg/networking/backend_sg_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking BackendSGProvider
 $MOCKGEN -package=networking -destination=./pkg/networking/security_group_resolver_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SecurityGroupResolver
 $MOCKGEN -package=aga -destination=./pkg/deploy/aga/accelerator_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/aga AcceleratorManager
+$MOCKGEN -package=aga -destination=./pkg/deploy/aga/endpoint_group_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/aga EndpointGroupManager
 $MOCKGEN -package=aga -destination=./pkg/deploy/aga/listener_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/aga ListenerManager
 $MOCKGEN -package=aga -destination=./pkg/deploy/aga/tagging_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/aga TaggingManager
 $MOCKGEN -package=certs -destination=./pkg/certs/cert_discovery_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/certs CertDiscovery
