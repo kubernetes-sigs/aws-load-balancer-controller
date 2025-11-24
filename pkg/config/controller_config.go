@@ -28,6 +28,7 @@ const (
 	flagALBGatewayMaxConcurrentReconciles            = "alb-gateway-max-concurrent-reconciles"
 	flagNLBGatewayMaxConcurrentReconciles            = "nlb-gateway-max-concurrent-reconciles"
 	flagGlobalAcceleratorMaxConcurrentReconciles     = "globalaccelerator-max-concurrent-reconciles"
+	flagGlobalAcceleratorMaxExponentialBackoffDelay  = "globalaccelerator-max-exponential-backoff-delay"
 	flagTargetGroupBindingMaxExponentialBackoffDelay = "targetgroupbinding-max-exponential-backoff-delay"
 	flagLbStabilizationMonitorInterval               = "lb-stabilization-monitor-interval"
 	flagDefaultSSLPolicy                             = "default-ssl-policy"
@@ -38,6 +39,7 @@ const (
 	flagDisableRestrictedSGRules                     = "disable-restricted-sg-rules"
 	flagMaxTargetsPerTargetGroup                     = "max-targets-per-target-group"
 	defaultLogLevel                                  = "info"
+	defaultGlobalAcceleratorMaxConcurrentReconciles  = 1
 	defaultMaxConcurrentReconciles                   = 3
 	defaultMaxExponentialBackoffDelay                = time.Second * 1000
 	defaultSSLPolicy                                 = "ELBSecurityPolicy-2016-08"
@@ -126,6 +128,9 @@ type ControllerConfig struct {
 	// GlobalAcceleratorMaxConcurrentReconciles Max concurrent reconcile loops for GlobalAccelerator objects
 	GlobalAcceleratorMaxConcurrentReconciles int
 
+	// GlobalAcceleratorMaxExponentialBackoffDelay Max exponential backoff delay for reconcile failures of GlobalAccelerator
+	GlobalAcceleratorMaxExponentialBackoffDelay time.Duration
+
 	// EnableBackendSecurityGroup specifies whether to use optimized security group rules
 	EnableBackendSecurityGroup bool
 
@@ -171,8 +176,10 @@ func (cfg *ControllerConfig) BindFlags(fs *pflag.FlagSet) {
 		"Maximum number of concurrently running reconcile loops for alb gateway")
 	fs.IntVar(&cfg.NLBGatewayMaxConcurrentReconciles, flagNLBGatewayMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for nlb gateway")
-	fs.IntVar(&cfg.GlobalAcceleratorMaxConcurrentReconciles, flagGlobalAcceleratorMaxConcurrentReconciles, defaultMaxConcurrentReconciles,
+	fs.IntVar(&cfg.GlobalAcceleratorMaxConcurrentReconciles, flagGlobalAcceleratorMaxConcurrentReconciles, defaultGlobalAcceleratorMaxConcurrentReconciles,
 		"Maximum number of concurrently running reconcile loops for globalAccelerator")
+	fs.DurationVar(&cfg.GlobalAcceleratorMaxExponentialBackoffDelay, flagGlobalAcceleratorMaxExponentialBackoffDelay, defaultMaxExponentialBackoffDelay,
+		"Maximum duration of exponential backoff for globalAccelerator reconcile failures")
 	fs.DurationVar(&cfg.TargetGroupBindingMaxExponentialBackoffDelay, flagTargetGroupBindingMaxExponentialBackoffDelay, defaultMaxExponentialBackoffDelay,
 		"Maximum duration of exponential backoff for targetGroupBinding reconcile failures")
 	fs.DurationVar(&cfg.LBStabilizationMonitorInterval, flagLbStabilizationMonitorInterval, defaultLbStabilizationMonitorInterval,

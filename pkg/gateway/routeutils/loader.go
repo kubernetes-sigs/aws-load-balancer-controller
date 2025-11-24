@@ -6,7 +6,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -150,7 +149,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 }
 
 // loadChildResources responsible for loading all resources that a route descriptor references.
-func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor, compatibleHostnamesByPort map[int32]map[types.NamespacedName][]gwv1.Hostname, gw gwv1.Gateway) (map[int32][]RouteDescriptor, []RouteData, error) {
+func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map[int][]preLoadRouteDescriptor, compatibleHostnamesByPort map[int32]map[string][]gwv1.Hostname, gw gwv1.Gateway) (map[int32][]RouteDescriptor, []RouteData, error) {
 	// Cache to reduce duplicate route lookups.
 	// Kind -> [NamespacedName:Previously Loaded Descriptor]
 	resourceCache := make(map[string]RouteDescriptor)
@@ -174,7 +173,32 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 				for _, lare := range loadAttachedRulesErrors {
 					var loaderErr LoaderError
 					if errors.As(lare.Err, &loaderErr) {
-						failedRoutes = append(failedRoutes, GenerateRouteData(false, false, string(loaderErr.GetRouteReason()), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), gw))
+						routeReason := loaderErr.GetRouteReason()
+						// Categorize reasons into Accepted vs ResolvedRefs conditions
+						var accepted, resolvedRefs bool
+						switch routeReason {
+						case gwv1.RouteReasonNotAllowedByListeners,
+							gwv1.RouteReasonNoMatchingListenerHostname,
+							gwv1.RouteReasonNoMatchingParent,
+							gwv1.RouteReasonUnsupportedValue,
+							gwv1.RouteReasonPending,
+							gwv1.RouteReasonIncompatibleFilters:
+							// These affect Accepted condition
+							accepted = false
+							resolvedRefs = true
+						case gwv1.RouteReasonRefNotPermitted,
+							gwv1.RouteReasonInvalidKind,
+							gwv1.RouteReasonBackendNotFound,
+							gwv1.RouteReasonUnsupportedProtocol:
+							// These affect ResolvedRefs condition
+							accepted = true
+							resolvedRefs = false
+						default:
+							// Unknown reason, fail both
+							accepted = false
+							resolvedRefs = false
+						}
+						failedRoutes = append(failedRoutes, GenerateRouteData(accepted, resolvedRefs, string(routeReason), loaderErr.GetRouteMessage(), preloadedRoute.GetRouteNamespacedName(), preloadedRoute.GetRouteKind(), preloadedRoute.GetRouteGeneration(), gw))
 					}
 					if lare.Fatal {
 						return nil, failedRoutes, lare.Err
@@ -190,7 +214,7 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 	// Set compatible hostnames by port for all routes
 	for _, route := range resourceCache {
 		hostnamesByPort := make(map[int32][]gwv1.Hostname)
-		routeKey := route.GetRouteNamespacedName()
+		routeKey := fmt.Sprintf("%s-%s", route.GetRouteKind(), route.GetRouteNamespacedName())
 		for port, compatibleHostnames := range compatibleHostnamesByPort {
 			if hostnames, exists := compatibleHostnames[routeKey]; exists {
 				hostnamesByPort[port] = hostnames

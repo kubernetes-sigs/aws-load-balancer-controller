@@ -12,10 +12,12 @@ $MOCKGEN -package=services -destination=./pkg/aws/services/rgt_mocks.go sigs.k8s
 $MOCKGEN -package=services -destination=./pkg/aws/services/shield_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services Shield
 $MOCKGEN -package=services -destination=./pkg/aws/services/wafregional_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services WAFRegional
 $MOCKGEN -package=services -destination=./pkg/aws/services/wafv2_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services WAFv2
+$MOCKGEN -package=services -destination=./pkg/aws/services/globalaccelerator_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services GlobalAccelerator
 $MOCKGEN -package=webhook -destination=./pkg/webhook/mutator_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/webhook Mutator
 $MOCKGEN -package=webhook -destination=./pkg/webhook/validator_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/webhook Validator
 $MOCKGEN -package=k8s -destination=./pkg/k8s/finalizer_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/k8s FinalizerManager
 $MOCKGEN -package=k8s -destination=./pkg/k8s/pod_info_repo_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/k8s PodInfoRepo
+
 $MOCKGEN -package=networking -destination=./pkg/networking/security_group_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SecurityGroupManager
 $MOCKGEN -package=networking -destination=./pkg/networking/subnet_resolver_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SubnetsResolver
 $MOCKGEN -package=networking -destination=./pkg/networking/az_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking AZInfoProvider
@@ -23,8 +25,12 @@ $MOCKGEN -package=networking -destination=./pkg/networking/node_info_provider_mo
 $MOCKGEN -package=networking -destination=./pkg/networking/vpc_info_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking VPCInfoProvider
 $MOCKGEN -package=networking -destination=./pkg/networking/backend_sg_provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking BackendSGProvider
 $MOCKGEN -package=networking -destination=./pkg/networking/security_group_resolver_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/networking SecurityGroupResolver
+$MOCKGEN -package=aga -destination=./pkg/deploy/aga/accelerator_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/aga AcceleratorManager
+$MOCKGEN -package=aga -destination=./pkg/deploy/aga/listener_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/aga ListenerManager
+$MOCKGEN -package=aga -destination=./pkg/deploy/aga/tagging_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/aga TaggingManager
 $MOCKGEN -package=certs -destination=./pkg/certs/cert_discovery_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/certs CertDiscovery
 $MOCKGEN -package=elbv2 -destination=./pkg/deploy/elbv2/tagging_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/elbv2 TaggingManager
 $MOCKGEN -package=shield -destination=./pkg/deploy/shield/protection_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/shield ProtectionManager
 $MOCKGEN -package=wafv2 -destination=./pkg/deploy/wafv2/web_acl_association_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafv2 WebACLAssociationManager
 $MOCKGEN -package=wafregional -destination=./pkg/deploy/wafregional/web_acl_association_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafregional WebACLAssociationManager
+$MOCKGEN -package=tracking -destination=./pkg/deploy/tracking/provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking Provider

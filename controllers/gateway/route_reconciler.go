@@ -226,69 +226,48 @@ func (d *routeReconcilerImpl) resolveRefGateway(parentRef gwv1.ParentReference, 
 // setCondition based on RouteStatusInfo
 func (d *routeReconcilerImpl) setConditionsWithRouteStatusInfo(route client.Object, parentStatus *gwv1.RouteParentStatus, info routeutils.RouteStatusInfo) {
 	timeNow := metav1.NewTime(time.Now())
+	var conditions []metav1.Condition
 	if !info.ResolvedRefs {
-		// resolvedRef rejected
-		parentStatus.Conditions = []metav1.Condition{
-			{
-				Type:               string(gwv1.RouteConditionAccepted),
-				Status:             metav1.ConditionFalse,
-				Reason:             info.Reason,
-				Message:            info.Message,
-				LastTransitionTime: timeNow,
-				ObservedGeneration: route.GetGeneration(),
-			},
-			{
-				Type:               string(gwv1.RouteConditionResolvedRefs),
-				Status:             metav1.ConditionFalse,
-				Reason:             info.Reason,
-				Message:            info.Message,
-				LastTransitionTime: timeNow,
-				ObservedGeneration: route.GetGeneration(),
-			},
-		}
-		return
-	}
-	// resolveRef accepted and route accepted
-	if info.Accepted {
-		parentStatus.Conditions = []metav1.Condition{
-			{
-				Type:               string(gwv1.RouteConditionAccepted),
-				Status:             metav1.ConditionTrue,
-				Reason:             info.Reason,
-				Message:            info.Message,
-				LastTransitionTime: timeNow,
-				ObservedGeneration: route.GetGeneration(),
-			},
-			{
-				Type:               string(gwv1.RouteConditionResolvedRefs),
-				Status:             metav1.ConditionTrue,
-				Reason:             string(gwv1.RouteReasonResolvedRefs),
-				LastTransitionTime: timeNow,
-				ObservedGeneration: route.GetGeneration(),
-			},
-		}
-		return
+		conditions = append(conditions, metav1.Condition{
+			Type:               string(gwv1.RouteConditionResolvedRefs),
+			Status:             metav1.ConditionFalse,
+			Reason:             info.Reason,
+			Message:            info.Message,
+			LastTransitionTime: timeNow,
+			ObservedGeneration: route.GetGeneration(),
+		})
 	} else {
-		// resolveRef accepted but route rejected
-		parentStatus.Conditions = []metav1.Condition{
-			{
-				Type:               string(gwv1.RouteConditionAccepted),
-				Status:             metav1.ConditionFalse,
-				Reason:             info.Reason,
-				Message:            info.Message,
-				LastTransitionTime: timeNow,
-				ObservedGeneration: route.GetGeneration(),
-			},
-			{
-				Type:               string(gwv1.RouteConditionResolvedRefs),
-				Status:             metav1.ConditionTrue,
-				Reason:             string(gwv1.RouteReasonAccepted),
-				LastTransitionTime: timeNow,
-				ObservedGeneration: route.GetGeneration(),
-			},
-		}
-		return
+		conditions = append(conditions, metav1.Condition{
+			Type:               string(gwv1.RouteConditionResolvedRefs),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gwv1.RouteReasonResolvedRefs),
+			Message:            "",
+			LastTransitionTime: timeNow,
+			ObservedGeneration: route.GetGeneration(),
+		})
 	}
+
+	if !info.Accepted {
+		conditions = append(conditions, metav1.Condition{
+			Type:               string(gwv1.RouteConditionAccepted),
+			Status:             metav1.ConditionFalse,
+			Reason:             info.Reason,
+			Message:            info.Message,
+			LastTransitionTime: timeNow,
+			ObservedGeneration: route.GetGeneration(),
+		})
+	} else {
+		conditions = append(conditions, metav1.Condition{
+			Type:               string(gwv1.RouteConditionAccepted),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gwv1.RouteReasonAccepted),
+			Message:            "",
+			LastTransitionTime: timeNow,
+			ObservedGeneration: route.GetGeneration(),
+		})
+	}
+
+	parentStatus.Conditions = conditions
 }
 
 func (d *routeReconcilerImpl) setConditionsBasedOnResolveRefGateway(route client.Object, parentStatus *gwv1.RouteParentStatus, resolveErr error) {

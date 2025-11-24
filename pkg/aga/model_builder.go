@@ -23,7 +23,7 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
 func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventRecorder,
 	trackingProvider tracking.Provider, featureGates config.FeatureGates,
-	clusterName string, defaultTags map[string]string, externalManagedTags []string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *defaultModelBuilder {
+	clusterName string, clusterRegion string, defaultTags map[string]string, externalManagedTags []string, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *defaultModelBuilder {
 
 	return &defaultModelBuilder{
 		k8sClient:           k8sClient,
@@ -31,6 +31,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		trackingProvider:    trackingProvider,
 		featureGates:        featureGates,
 		clusterName:         clusterName,
+		clusterRegion:       clusterRegion,
 		defaultTags:         defaultTags,
 		externalManagedTags: externalManagedTags,
 		logger:              logger,
@@ -47,6 +48,7 @@ type defaultModelBuilder struct {
 	trackingProvider    tracking.Provider
 	featureGates        config.FeatureGates
 	clusterName         string
+	clusterRegion       string
 	defaultTags         map[string]string
 	externalManagedTags []string
 	logger              logr.Logger
@@ -58,9 +60,8 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ga *agaapi.GlobalAccele
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(ga)))
 
 	// Create fresh builder instances for each reconciliation
-	acceleratorBuilder := NewAcceleratorBuilder(b.trackingProvider, b.clusterName, b.defaultTags, b.externalManagedTags, b.featureGates.Enabled(config.EnableDefaultTagsLowPriority))
+	acceleratorBuilder := NewAcceleratorBuilder(b.trackingProvider, b.clusterName, b.clusterRegion, b.defaultTags, b.externalManagedTags, b.featureGates.Enabled(config.EnableDefaultTagsLowPriority))
 	// TODO
-	// listenerBuilder := NewListenerBuilder()
 	// endpointGroupBuilder := NewEndpointGroupBuilder()
 	// endpointBuilder := NewEndpointBuilder()
 
@@ -70,8 +71,19 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ga *agaapi.GlobalAccele
 		return nil, nil, err
 	}
 
+	// Build Listeners if specified
+	var listeners []*agamodel.Listener
+	if ga.Spec.Listeners != nil {
+		// Create builder for listeners and endpoints
+		listenerBuilder := NewListenerBuilder()
+		listeners, err = listenerBuilder.Build(ctx, stack, accelerator, *ga.Spec.Listeners)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	b.logger.V(1).Info("Listeners built", "listeners", listeners)
 	// TODO: Add other resource builders
-	// listeners, err := listenerBuilder.Build(ctx, stack, accelerator, ga.Spec.Listeners)
 	// endpointGroups, err := endpointGroupBuilder.Build(ctx, stack, listeners, ga.Spec.Listeners)
 	// endpoints, err := endpointBuilder.Build(ctx, stack, endpointGroups, ga.Spec.Listeners)
 

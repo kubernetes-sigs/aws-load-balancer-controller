@@ -229,13 +229,15 @@ func TestCommonBackendLoader_Service(t *testing.T) {
 					Spec: gwbeta1.ReferenceGrantSpec{
 						From: []gwbeta1.ReferenceGrantFrom{
 							{
+								Group:     gatewayAPIGroup,
 								Kind:      gwbeta1.Kind(kind),
 								Namespace: "route-ns",
 							},
 						},
 						To: []gwbeta1.ReferenceGrantTo{
 							{
-								Kind: serviceKind,
+								Group: "",
+								Kind:  serviceKind,
 							},
 						},
 					},
@@ -724,14 +726,16 @@ func Test_referenceGrantCheck(t *testing.T) {
 					Spec: gwbeta1.ReferenceGrantSpec{
 						From: []gwbeta1.ReferenceGrantFrom{
 							{
+								Group:     gatewayAPIGroup,
 								Kind:      gwbeta1.Kind(kind),
 								Namespace: "route-namespace",
 							},
 						},
 						To: []gwbeta1.ReferenceGrantTo{
 							{
-								Kind: serviceKind,
-								Name: (*gwbeta1.ObjectName)(awssdk.String("svc-name")),
+								Group: "",
+								Kind:  serviceKind,
+								Name:  (*gwbeta1.ObjectName)(awssdk.String("svc-name")),
 							},
 						},
 					},
@@ -759,14 +763,16 @@ func Test_referenceGrantCheck(t *testing.T) {
 					Spec: gwbeta1.ReferenceGrantSpec{
 						From: []gwbeta1.ReferenceGrantFrom{
 							{
+								Group:     gatewayAPIGroup,
 								Kind:      gwbeta1.Kind(kind),
 								Namespace: "route-namespace",
 							},
 						},
 						To: []gwbeta1.ReferenceGrantTo{
 							{
-								Kind: gatewayKind,
-								Name: (*gwbeta1.ObjectName)(awssdk.String("gw-name")),
+								Group: gatewayAPIGroup,
+								Kind:  gatewayKind,
+								Name:  (*gwbeta1.ObjectName)(awssdk.String("gw-name")),
 							},
 						},
 					},
@@ -794,13 +800,15 @@ func Test_referenceGrantCheck(t *testing.T) {
 					Spec: gwbeta1.ReferenceGrantSpec{
 						From: []gwbeta1.ReferenceGrantFrom{
 							{
+								Group:     gatewayAPIGroup,
 								Kind:      gwbeta1.Kind(kind),
 								Namespace: "route-namespace",
 							},
 						},
 						To: []gwbeta1.ReferenceGrantTo{
 							{
-								Kind: serviceKind,
+								Group: "",
+								Kind:  serviceKind,
 							},
 						},
 					},
@@ -841,14 +849,16 @@ func Test_referenceGrantCheck(t *testing.T) {
 					Spec: gwbeta1.ReferenceGrantSpec{
 						From: []gwbeta1.ReferenceGrantFrom{
 							{
+								Group:     gatewayAPIGroup,
 								Kind:      gwbeta1.Kind(kind),
 								Namespace: "route-namespace",
 							},
 						},
 						To: []gwbeta1.ReferenceGrantTo{
 							{
-								Kind: serviceKind,
-								Name: (*gwbeta1.ObjectName)(awssdk.String("baz")),
+								Group: "",
+								Kind:  serviceKind,
+								Name:  (*gwbeta1.ObjectName)(awssdk.String("baz")),
 							},
 						},
 					},
@@ -876,13 +886,15 @@ func Test_referenceGrantCheck(t *testing.T) {
 					Spec: gwbeta1.ReferenceGrantSpec{
 						From: []gwbeta1.ReferenceGrantFrom{
 							{
+								Group:     gatewayAPIGroup,
 								Kind:      gwbeta1.Kind("other kind"),
 								Namespace: "route-namespace",
 							},
 						},
 						To: []gwbeta1.ReferenceGrantTo{
 							{
-								Kind: serviceKind,
+								Group: "",
+								Kind:  serviceKind,
 							},
 						},
 					},
@@ -910,20 +922,130 @@ func Test_referenceGrantCheck(t *testing.T) {
 					Spec: gwbeta1.ReferenceGrantSpec{
 						From: []gwbeta1.ReferenceGrantFrom{
 							{
+								Group:     gatewayAPIGroup,
 								Kind:      gwbeta1.Kind(kind),
 								Namespace: "route-namespace",
 							},
 						},
 						To: []gwbeta1.ReferenceGrantTo{
 							{
-								Kind: serviceKind,
-								Name: (*gwbeta1.ObjectName)(awssdk.String("gw-name")),
+								Group: "",
+								Kind:  serviceKind,
+								Name:  (*gwbeta1.ObjectName)(awssdk.String("gw-name")),
 							},
 						},
 					},
 				},
 			},
 			expected: false,
+		},
+		{
+			name: "wrong from group - should not allow",
+			kind: serviceKind,
+			objectIdentifier: types.NamespacedName{
+				Namespace: "svc-namespace",
+				Name:      "svc-name",
+			},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "route-namespace",
+				Name:      "route-name",
+			},
+			referenceGrants: []gwbeta1.ReferenceGrant{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "svc-namespace",
+						Name:      "grant1",
+					},
+					Spec: gwbeta1.ReferenceGrantSpec{
+						From: []gwbeta1.ReferenceGrantFrom{
+							{
+								Group:     "wrong-group",
+								Kind:      gwbeta1.Kind(kind),
+								Namespace: "route-namespace",
+							},
+						},
+						To: []gwbeta1.ReferenceGrantTo{
+							{
+								Group: "",
+								Kind:  serviceKind,
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "wrong to group - should not allow",
+			kind: serviceKind,
+			objectIdentifier: types.NamespacedName{
+				Namespace: "svc-namespace",
+				Name:      "svc-name",
+			},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "route-namespace",
+				Name:      "route-name",
+			},
+			referenceGrants: []gwbeta1.ReferenceGrant{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "svc-namespace",
+						Name:      "grant1",
+					},
+					Spec: gwbeta1.ReferenceGrantSpec{
+						From: []gwbeta1.ReferenceGrantFrom{
+							{
+								Group:     gatewayAPIGroup,
+								Kind:      gwbeta1.Kind(kind),
+								Namespace: "route-namespace",
+							},
+						},
+						To: []gwbeta1.ReferenceGrantTo{
+							{
+								Group: "wrong-group",
+								Kind:  serviceKind,
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "correct groups - should allow",
+			kind: serviceKind,
+			objectIdentifier: types.NamespacedName{
+				Namespace: "svc-namespace",
+				Name:      "svc-name",
+			},
+			routeIdentifier: types.NamespacedName{
+				Namespace: "route-namespace",
+				Name:      "route-name",
+			},
+			referenceGrants: []gwbeta1.ReferenceGrant{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "svc-namespace",
+						Name:      "grant1",
+					},
+					Spec: gwbeta1.ReferenceGrantSpec{
+						From: []gwbeta1.ReferenceGrantFrom{
+							{
+								Group:     gatewayAPIGroup,
+								Kind:      gwbeta1.Kind(kind),
+								Namespace: "route-namespace",
+							},
+						},
+						To: []gwbeta1.ReferenceGrantTo{
+							{
+								Group: "",
+								Kind:  serviceKind,
+							},
+						},
+					},
+				},
+			},
+			expected: true,
 		},
 	}
 
@@ -935,7 +1057,11 @@ func Test_referenceGrantCheck(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			result, err := referenceGrantCheck(context.Background(), k8sClient, tc.kind, tc.objectIdentifier, tc.routeIdentifier, kind)
+			objGroup := coreAPIGroup
+			if tc.kind == gatewayKind {
+				objGroup = gatewayAPIGroup
+			}
+			result, err := referenceGrantCheck(context.Background(), k8sClient, tc.kind, objGroup, tc.objectIdentifier, tc.routeIdentifier, kind, gatewayAPIGroup)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return

@@ -5,6 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"reflect"
+	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,6 +47,7 @@ func (m *listOptionEquals) String() string {
 func GenerateTestClient() client.Client {
 	k8sSchema := runtime.NewScheme()
 	clientgoscheme.AddToScheme(k8sSchema)
+	agaapi.AddToScheme(k8sSchema)
 	elbv2api.AddToScheme(k8sSchema)
 	gwv1.AddToScheme(k8sSchema)
 	gwalpha2.AddToScheme(k8sSchema)

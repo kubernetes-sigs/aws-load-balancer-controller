@@ -8,7 +8,7 @@ import (
 // routeAttachmentHelper is an internal utility that is responsible for providing functionality related to route filtering.
 type routeAttachmentHelper interface {
 	doesRouteAttachToGateway(gw gwv1.Gateway, route preLoadRouteDescriptor) bool
-	routeAllowsAttachmentToListener(listener gwv1.Listener, route preLoadRouteDescriptor) bool
+	routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, []RouteData)
 }
 
 var _ routeAttachmentHelper = &routeAttachmentHelperImpl{}
@@ -56,19 +56,24 @@ func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, 
 // This function implements the Gateway API spec for route -> listener attachment.
 // This function assumes that the caller has already validated that the gateway that owns the listener allows for route
 // attachment.
-func (rah *routeAttachmentHelperImpl) routeAllowsAttachmentToListener(listener gwv1.Listener, route preLoadRouteDescriptor) bool {
+// Returns: (allowed, failedRouteDataList)
+func (rah *routeAttachmentHelperImpl) routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, []RouteData) {
+	var failedRouteData []RouteData
 	for _, parentRef := range route.GetParentRefs() {
-
 		if parentRef.SectionName != nil && string(*parentRef.SectionName) != string(listener.Name) {
+			rd := GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingParent), RouteStatusInfoRejectedMessageParentSectionNameNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw)
+			failedRouteData = append(failedRouteData, rd)
 			continue
 		}
 
 		if parentRef.Port != nil && *parentRef.Port != listener.Port {
+			rd := GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingParent), RouteStatusInfoRejectedMessageParentPortNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw)
+			failedRouteData = append(failedRouteData, rd)
 			continue
 		}
 
-		return true
+		return true, failedRouteData
 	}
 
-	return false
+	return false, failedRouteData
 }
