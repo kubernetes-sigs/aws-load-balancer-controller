@@ -58,7 +58,7 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 	portsWithRoutes := sets.Int32KeySet(routes)
 	// Materialise the listener only if listener has associated routes
 	if len(gwLsPorts.Intersection(portsWithRoutes).List()) != 0 {
-		lbLsCfgs := mapLoadBalancerListenerConfigsByPort(lbCfg, gw.Spec.Listeners)
+		lbLsCfgs := mapLoadBalancerListenerConfigsByPort(lbCfg, gwLsCfgs)
 		for _, port := range gwLsPorts.Intersection(portsWithRoutes).List() {
 			ls, err := l.buildListener(ctx, stack, lb, gw, port, routes[port], lbCfg, gwLsCfgs[port], lbLsCfgs[port])
 			if err != nil {
@@ -83,7 +83,7 @@ func (l listenerBuilderImpl) buildListeners(ctx context.Context, stack core.Stac
 	return secrets, nil
 }
 
-func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, routes []routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.Listener, error) {
+func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, routes []routeutils.RouteDescriptor, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.Listener, error) {
 	var listenerSpec *elbv2model.ListenerSpec
 
 	var err error
@@ -104,7 +104,7 @@ func (l listenerBuilderImpl) buildListener(ctx context.Context, stack core.Stack
 	return elbv2model.NewListener(stack, lsResID, *listenerSpec), nil
 }
 
-func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
+func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, port int32, lbCfg elbv2gw.LoadBalancerConfiguration, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
 	tags, err := l.buildListenerTags(lbCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
@@ -133,7 +133,7 @@ func (l listenerBuilderImpl) buildListenerSpec(ctx context.Context, lb *elbv2mod
 	return listenerSpec, nil
 }
 
-func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
+func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
 	listenerSpec, err := l.buildListenerSpec(ctx, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
@@ -147,7 +147,7 @@ func (l listenerBuilderImpl) buildL7ListenerSpec(ctx context.Context, lb *elbv2m
 	return listenerSpec, nil
 }
 
-func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, routes []routeutils.RouteDescriptor, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
+func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core.Stack, lb *elbv2model.LoadBalancer, gw *gwv1.Gateway, lbCfg elbv2gw.LoadBalancerConfiguration, port int32, routes []routeutils.RouteDescriptor, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.ListenerSpec, error) {
 	listenerSpec, err := l.buildListenerSpec(ctx, lb, gw, port, lbCfg, gwLsCfg, lbLsCfg)
 	if err != nil {
 		return &elbv2model.ListenerSpec{}, err
@@ -177,7 +177,7 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 		return nil, nil
 	}
 
-	arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, lb.Spec.IPAddressType, routeDescriptor, backend)
+	arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, listenerSpec.Protocol, lb.Spec.IPAddressType, routeDescriptor, backend)
 	if tgErr != nil {
 		return &elbv2model.ListenerSpec{}, tgErr
 	}
@@ -222,7 +222,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		}
 		targetGroupTuples := make([]elbv2model.TargetGroupTuple, 0, len(rule.GetBackends()))
 		for _, backend := range rule.GetBackends() {
-			arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, ipAddressType, route, backend)
+			arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, ls.Spec.Protocol, ipAddressType, route, backend)
 			if tgErr != nil {
 				return nil, tgErr
 			}
@@ -313,7 +313,7 @@ func buildListenerAttributes(lsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model
 	return attributes, nil
 }
 
-func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gw *gwv1.Gateway, port int32, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model.Certificate, error) {
+func (l listenerBuilderImpl) buildCertificates(ctx context.Context, gw *gwv1.Gateway, port int32, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) ([]elbv2model.Certificate, error) {
 	if !isSecureProtocol(gwLsCfg.protocol) {
 		return []elbv2model.Certificate{}, nil
 	}
@@ -408,7 +408,7 @@ func buildL4ListenerDefaultActions(arn core.StringToken) []elbv2model.Action {
 	}
 }
 
-func (l listenerBuilderImpl) buildMutualAuthenticationAttributes(ctx context.Context, gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.MutualAuthenticationAttributes, error) {
+func (l listenerBuilderImpl) buildMutualAuthenticationAttributes(ctx context.Context, gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*elbv2model.MutualAuthenticationAttributes, error) {
 	// Skip mTLS configuration for non-secure protocols
 	if !isSecureProtocol(gwLsCfg.protocol) || lbLsCfg == nil || lbLsCfg.MutualAuthentication == nil {
 		return nil, nil
@@ -453,7 +453,7 @@ func (l listenerBuilderImpl) buildMutualAuthenticationAttributes(ctx context.Con
 	}, nil
 }
 
-func (l listenerBuilderImpl) buildSSLPolicy(gwLsCfg *gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*string, error) {
+func (l listenerBuilderImpl) buildSSLPolicy(gwLsCfg gwListenerConfig, lbLsCfg *elbv2gw.ListenerConfiguration) (*string, error) {
 	if !isSecureProtocol(gwLsCfg.protocol) {
 		return nil, nil
 	}
@@ -488,17 +488,34 @@ func buildListenerALPNPolicy(listenerProtocol elbv2model.Protocol, lbLsCfg *elbv
 }
 
 // mapGatewayListenerConfigsByPort creates a mapping of ports to listener configurations from the Gateway listeners.
-func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor) (map[int32]*gwListenerConfig, error) {
-	gwListenerConfigs := make(map[int32]*gwListenerConfig)
+func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway, routes map[int32][]routeutils.RouteDescriptor) (map[int32]gwListenerConfig, error) {
+	gwListenerConfigs := make(map[int32]gwListenerConfig)
 	for _, listener := range gw.Spec.Listeners {
 		port := int32(listener.Port)
-		protocol := listener.Protocol
-		if gwListenerConfigs[port] != nil && string(gwListenerConfigs[port].protocol) != string(protocol) {
-			return nil, fmt.Errorf("invalid listeners on gateway, listeners with same ports cannot have different protocols")
+		protocol := elbv2model.Protocol(listener.Protocol)
+
+		_, hasPort := gwListenerConfigs[port]
+		if !hasPort {
+			gwListenerConfigs[port] = gwListenerConfig{
+				protocol:  protocol,
+				hostnames: sets.New[string](),
+			}
 		}
-		if gwListenerConfigs[port] == nil {
-			gwListenerConfigs[port] = &gwListenerConfig{
-				protocol:  elbv2model.Protocol(protocol),
+
+		if hasPort && gwListenerConfigs[port].protocol != protocol {
+			// Special case TCP_UDP (or TCP_QUIC)
+
+			mergedValue, mergeErr := mergeProtocols(gwListenerConfigs[port].protocol, protocol)
+
+			if mergeErr != nil {
+				return nil, fmt.Errorf("invalid listeners on gateway, listeners with same ports cannot have different protocols")
+			}
+
+			// TODO this only works for TCP, UDP route merging.
+			// If we need to support TLS merging, then this will need
+			// to be updated.
+			gwListenerConfigs[port] = gwListenerConfig{
+				protocol:  mergedValue,
 				hostnames: sets.New[string](),
 			}
 		}
@@ -532,11 +549,11 @@ func mapGatewayListenerConfigsByPort(gw *gwv1.Gateway, routes map[int32][]routeu
 
 // mapLoadBalancerListenerConfigsByPort creates a mapping of ports to their corresponding
 // listener configurations from the LoadBalancer configuration.
-func mapLoadBalancerListenerConfigsByPort(lbCfg elbv2gw.LoadBalancerConfiguration, gatewayListeners []gwv1.Listener) map[int32]*elbv2gw.ListenerConfiguration {
+func mapLoadBalancerListenerConfigsByPort(lbCfg elbv2gw.LoadBalancerConfiguration, gatewayListeners map[int32]gwListenerConfig) map[int32]*elbv2gw.ListenerConfiguration {
 	configuredListeners := sets.NewString()
 
-	for _, configuredListener := range gatewayListeners {
-		configuredListeners.Insert(generateListenerPortKey(configuredListener))
+	for port, configuredListener := range gatewayListeners {
+		configuredListeners.Insert(generateListenerPortKey(port, configuredListener))
 	}
 
 	lbLsCfgs := make(map[int32]*elbv2gw.ListenerConfiguration)
@@ -554,8 +571,8 @@ func mapLoadBalancerListenerConfigsByPort(lbCfg elbv2gw.LoadBalancerConfiguratio
 	return lbLsCfgs
 }
 
-func generateListenerPortKey(listener gwv1.Listener) string {
-	return fmt.Sprintf("%s:%d", strings.ToLower(string(listener.Protocol)), listener.Port)
+func generateListenerPortKey(port int32, listener gwListenerConfig) string {
+	return fmt.Sprintf("%s:%d", strings.ToLower(string(listener.protocol)), port)
 }
 
 func newListenerBuilder(loadBalancerType elbv2model.LoadBalancerType, tgBuilder targetGroupBuilder, tagHelper tagHelper, clusterName string, defaultSSLPolicy string, elbv2Client services.ELBV2, acmClient services.ACM, k8sClient client.Client, allowedCAARNs []string, secretsManager k8s.SecretsManager, logger logr.Logger) listenerBuilder {
@@ -598,4 +615,20 @@ func getRoutingAction(config *elbv2gw.ListenerRuleConfiguration) *elbv2gw.Action
 		}
 	}
 	return nil
+}
+
+func mergeProtocols(storedProtocol, proposedProtocol elbv2model.Protocol) (elbv2model.Protocol, error) {
+	if storedProtocol == elbv2model.ProtocolTCP_UDP && (proposedProtocol == elbv2model.ProtocolTCP || proposedProtocol == elbv2model.ProtocolUDP) {
+		return elbv2model.ProtocolTCP_UDP, nil
+	}
+
+	if storedProtocol == elbv2model.ProtocolTCP && proposedProtocol == elbv2model.ProtocolUDP {
+		return elbv2model.ProtocolTCP_UDP, nil
+	}
+
+	if storedProtocol == elbv2model.ProtocolUDP && proposedProtocol == elbv2model.ProtocolTCP {
+		return elbv2model.ProtocolTCP_UDP, nil
+	}
+
+	return elbv2model.ProtocolHTTP, errors.New("unsupported merge")
 }

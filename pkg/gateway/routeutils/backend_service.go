@@ -173,9 +173,8 @@ func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier
 		return nil, nil, errors.Wrap(err, fmt.Sprintf("Unable to fetch svc object %+v", svcIdentifier))
 	}
 
-	// TODO -- This should be updated, to handle UDP and TCP on the same service port.
-	// Currently, it will just arbitrarily take one.
-
+	// We just take 1, we don't care about the underlying protocol
+	// This works for singular protocols [TCP] or dual protocols [TCP_UDP].
 	var servicePort *corev1.ServicePort
 
 	for _, svcPort := range svc.Spec.Ports {
