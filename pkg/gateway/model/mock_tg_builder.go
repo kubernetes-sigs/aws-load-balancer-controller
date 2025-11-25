@@ -20,7 +20,7 @@ func (m *mockTargetGroupBuilder) getLocalFrontendNlbData() map[string]*elbv2mode
 }
 
 func (m *mockTargetGroupBuilder) buildTargetGroup(stack core.Stack,
-	gw *gwv1.Gateway, listenerPort int32, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
+	gw *gwv1.Gateway, listenerPort int32, listenerProtocol elbv2model.Protocol, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
 	var tg *elbv2model.TargetGroup
 
 	if len(m.tgs) > 0 {
