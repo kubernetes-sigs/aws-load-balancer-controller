@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"strings"
 	"time"
 
@@ -1108,7 +1109,7 @@ func ExpectTwoLBProvisionedForIngress(ctx context.Context, tf *framework.Framewo
 	Eventually(func(g Gomega) {
 		err := tf.K8sClient.Get(ctx, k8s.NamespacedName(ing), ing)
 		g.Expect(err).NotTo(HaveOccurred())
-		albDNS, nlbDNS = FindIngressTwoDNSName(ing)
+		albDNS, nlbDNS = shared_utils.FindIngressTwoDNSName(ing)
 		g.Expect(albDNS).ShouldNot(BeEmpty())
 		g.Expect(nlbDNS).ShouldNot(BeEmpty())
 	}, utils.IngressReconcileTimeout, utils.PollIntervalShort).Should(Succeed())
