@@ -9,6 +9,9 @@ const (
 
 	// DeploymentFailed is the error code when stack deployment fails
 	DeploymentFailed = "DeploymentFailed"
+
+	// Status reason constants
+	EndpointLoadFailed = "EndpointLoadFailed"
 )
 
 // AcceleratorNotDisabledError is returned when an accelerator is not ready for deletion

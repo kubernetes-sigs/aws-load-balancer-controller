@@ -1,6 +1,11 @@
 package aga
 
 import (
+	"context"
+	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
+	"github.com/golang/mock/gomock"
+	pkgaga "sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sort"
 	"testing"
 
@@ -1762,6 +1767,528 @@ func Test_listenerSynthesizer_generateSDKListenerKey(t *testing.T) {
 			}
 			got := s.generateSDKListenerKey(tt.listener)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_listenerSynthesizer_processPortOverridesWithAllRules(t *testing.T) {
+	tests := []struct {
+		name                      string
+		portOverrides             []agatypes.PortOverride
+		allListenerPortRanges     []agamodel.PortRange
+		updatedListenerPortRanges []agamodel.PortRange
+		wantValidCount            int
+		wantInvalidCount          int
+		wantInvalidPortsEndpoint  []int32
+		wantInvalidPortsListener  []int32
+	}{
+		{
+			name:                      "empty port overrides",
+			portOverrides:             []agatypes.PortOverride{},
+			allListenerPortRanges:     []agamodel.PortRange{{FromPort: 80, ToPort: 90}},
+			updatedListenerPortRanges: []agamodel.PortRange{{FromPort: 80, ToPort: 85}},
+			wantValidCount:            0,
+			wantInvalidCount:          0,
+		},
+		{
+			name: "all port overrides valid",
+			portOverrides: []agatypes.PortOverride{
+				{ListenerPort: awssdk.Int32(80), EndpointPort: awssdk.Int32(8080)},
+				{ListenerPort: awssdk.Int32(81), EndpointPort: awssdk.Int32(8081)},
+			},
+			allListenerPortRanges:     []agamodel.PortRange{{FromPort: 80, ToPort: 90}},
+			updatedListenerPortRanges: []agamodel.PortRange{{FromPort: 80, ToPort: 85}},
+			wantValidCount:            2,
+			wantInvalidCount:          0,
+		},
+		{
+			name: "endpoint port overlaps with listener port range",
+			portOverrides: []agatypes.PortOverride{
+				{ListenerPort: awssdk.Int32(80), EndpointPort: awssdk.Int32(85)},   // Invalid: endpoint port in listener range
+				{ListenerPort: awssdk.Int32(81), EndpointPort: awssdk.Int32(8081)}, // Valid
+			},
+			allListenerPortRanges:     []agamodel.PortRange{{FromPort: 80, ToPort: 90}},
+			updatedListenerPortRanges: []agamodel.PortRange{{FromPort: 80, ToPort: 85}},
+			wantValidCount:            1,
+			wantInvalidCount:          1,
+			wantInvalidPortsEndpoint:  []int32{85},
+		},
+		{
+			name: "listener port outside updated range",
+			portOverrides: []agatypes.PortOverride{
+				{ListenerPort: awssdk.Int32(80), EndpointPort: awssdk.Int32(8080)}, // Valid
+				{ListenerPort: awssdk.Int32(87), EndpointPort: awssdk.Int32(8087)}, // Invalid: listener port outside updated range
+			},
+			allListenerPortRanges:     []agamodel.PortRange{{FromPort: 80, ToPort: 90}},
+			updatedListenerPortRanges: []agamodel.PortRange{{FromPort: 80, ToPort: 85}},
+			wantValidCount:            1,
+			wantInvalidCount:          1,
+			wantInvalidPortsListener:  []int32{87},
+		},
+		{
+			name: "multiple invalid conditions",
+			portOverrides: []agatypes.PortOverride{
+				{ListenerPort: awssdk.Int32(80), EndpointPort: awssdk.Int32(8080)}, // Valid
+				{ListenerPort: awssdk.Int32(81), EndpointPort: awssdk.Int32(85)},   // Invalid: endpoint port in listener range
+				{ListenerPort: awssdk.Int32(87), EndpointPort: awssdk.Int32(8087)}, // Invalid: listener port outside updated range
+			},
+			allListenerPortRanges:     []agamodel.PortRange{{FromPort: 80, ToPort: 90}},
+			updatedListenerPortRanges: []agamodel.PortRange{{FromPort: 80, ToPort: 85}},
+			wantValidCount:            1,
+			wantInvalidCount:          2,
+			wantInvalidPortsEndpoint:  []int32{85},
+			wantInvalidPortsListener:  []int32{87},
+		},
+		{
+			name: "no updated listener port ranges",
+			portOverrides: []agatypes.PortOverride{
+				{ListenerPort: awssdk.Int32(80), EndpointPort: awssdk.Int32(8080)}, // Valid except for endpoint port check
+				{ListenerPort: awssdk.Int32(81), EndpointPort: awssdk.Int32(85)},   // Invalid: endpoint port in listener range
+			},
+			allListenerPortRanges:     []agamodel.PortRange{{FromPort: 80, ToPort: 90}},
+			updatedListenerPortRanges: []agamodel.PortRange{},
+			wantValidCount:            1,
+			wantInvalidCount:          1,
+			wantInvalidPortsEndpoint:  []int32{85},
+		},
+		{
+			name: "multiple listener port ranges - endpoint port in one range",
+			portOverrides: []agatypes.PortOverride{
+				{ListenerPort: awssdk.Int32(80), EndpointPort: awssdk.Int32(8080)}, // Valid
+				{ListenerPort: awssdk.Int32(443), EndpointPort: awssdk.Int32(443)}, // Invalid: endpoint port in another listener range
+			},
+			allListenerPortRanges: []agamodel.PortRange{
+				{FromPort: 80, ToPort: 90},
+				{FromPort: 443, ToPort: 443},
+			},
+			updatedListenerPortRanges: []agamodel.PortRange{
+				{FromPort: 80, ToPort: 90},
+				{FromPort: 443, ToPort: 443},
+			},
+			wantValidCount:           1,
+			wantInvalidCount:         1,
+			wantInvalidPortsEndpoint: []int32{443},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &listenerSynthesizer{
+				logger: logr.Discard(),
+			}
+
+			validPortOverrides, invalidPortOverrides := s.processPortOverridesWithAllRules(
+				tt.portOverrides,
+				tt.allListenerPortRanges,
+				tt.updatedListenerPortRanges,
+			)
+
+			// Verify counts
+			assert.Equal(t, tt.wantValidCount, len(validPortOverrides), "valid port overrides count")
+			assert.Equal(t, tt.wantInvalidCount, len(invalidPortOverrides), "invalid port overrides count")
+
+			// If specific invalid endpoint ports were expected, check those
+			if tt.wantInvalidPortsEndpoint != nil {
+				var actualInvalidEndpointPorts []int32
+				for _, po := range invalidPortOverrides {
+					// If this port was invalidated because of endpoint port overlap
+					if pkgaga.IsPortInRanges(awssdk.ToInt32(po.EndpointPort), tt.allListenerPortRanges) {
+						actualInvalidEndpointPorts = append(actualInvalidEndpointPorts, awssdk.ToInt32(po.EndpointPort))
+					}
+				}
+				assert.ElementsMatch(t, tt.wantInvalidPortsEndpoint, actualInvalidEndpointPorts, "invalid endpoint ports")
+			}
+
+			// If specific invalid listener ports were expected, check those
+			if tt.wantInvalidPortsListener != nil && len(tt.updatedListenerPortRanges) > 0 {
+				var actualInvalidListenerPorts []int32
+				for _, po := range invalidPortOverrides {
+					// If this port was invalidated because listener port was outside updated ranges
+					if !pkgaga.IsPortInRanges(awssdk.ToInt32(po.EndpointPort), tt.allListenerPortRanges) &&
+						!pkgaga.IsPortInRanges(awssdk.ToInt32(po.ListenerPort), tt.updatedListenerPortRanges) {
+						actualInvalidListenerPorts = append(actualInvalidListenerPorts, awssdk.ToInt32(po.ListenerPort))
+					}
+				}
+				assert.ElementsMatch(t, tt.wantInvalidPortsListener, actualInvalidListenerPorts, "invalid listener ports")
+			}
+		})
+	}
+}
+
+func TestListenerSynthesizer_ProcessEndpointGroupPortOverrides(t *testing.T) {
+	tests := []struct {
+		name                       string
+		listeners                  []*ListenerResource
+		allListenerPortRanges      []agamodel.PortRange
+		updatePortRangesByListener map[string][]agamodel.PortRange
+		endpointGroups             map[string][]agatypes.EndpointGroup
+		updateCalls                map[string][]agatypes.PortOverride
+		expectError                bool
+	}{
+		{
+			name: "no endpoint groups - no updates needed",
+			listeners: []*ListenerResource{
+				{
+					Listener: &agatypes.Listener{
+						ListenerArn: awssdk.String("arn:listener1"),
+						Protocol:    agatypes.ProtocolTcp,
+						PortRanges: []agatypes.PortRange{
+							{FromPort: awssdk.Int32(80), ToPort: awssdk.Int32(80)},
+						},
+					},
+				},
+			},
+			allListenerPortRanges: []agamodel.PortRange{
+				{FromPort: 80, ToPort: 80},
+			},
+			updatePortRangesByListener: map[string][]agamodel.PortRange{},
+			endpointGroups: map[string][]agatypes.EndpointGroup{
+				"arn:listener1": {}, // No endpoint groups
+			},
+			updateCalls: map[string][]agatypes.PortOverride{},
+			expectError: false,
+		},
+		{
+			name: "no port overrides - no updates needed",
+			listeners: []*ListenerResource{
+				{
+					Listener: &agatypes.Listener{
+						ListenerArn: awssdk.String("arn:listener1"),
+						Protocol:    agatypes.ProtocolTcp,
+						PortRanges: []agatypes.PortRange{
+							{FromPort: awssdk.Int32(80), ToPort: awssdk.Int32(80)},
+						},
+					},
+				},
+			},
+			allListenerPortRanges: []agamodel.PortRange{
+				{FromPort: 80, ToPort: 80},
+			},
+			updatePortRangesByListener: map[string][]agamodel.PortRange{},
+			endpointGroups: map[string][]agatypes.EndpointGroup{
+				"arn:listener1": {
+					{
+						EndpointGroupArn: awssdk.String("arn:endpointgroup1"),
+						PortOverrides:    []agatypes.PortOverride{}, // No port overrides
+					},
+				},
+			},
+			updateCalls: map[string][]agatypes.PortOverride{},
+			expectError: false,
+		},
+		{
+			name: "endpoint port overlaps with listener port range - should be removed",
+			listeners: []*ListenerResource{
+				{
+					Listener: &agatypes.Listener{
+						ListenerArn: awssdk.String("arn:listener1"),
+						Protocol:    agatypes.ProtocolTcp,
+						PortRanges: []agatypes.PortRange{
+							{FromPort: awssdk.Int32(80), ToPort: awssdk.Int32(90)},
+						},
+					},
+				},
+			},
+			allListenerPortRanges: []agamodel.PortRange{
+				{FromPort: 80, ToPort: 90},
+			},
+			updatePortRangesByListener: map[string][]agamodel.PortRange{},
+			endpointGroups: map[string][]agatypes.EndpointGroup{
+				"arn:listener1": {
+					{
+						EndpointGroupArn: awssdk.String("arn:endpointgroup1"),
+						PortOverrides: []agatypes.PortOverride{
+							{ListenerPort: awssdk.Int32(80), EndpointPort: awssdk.Int32(85)},   // Overlaps (endpoint port in listener range)
+							{ListenerPort: awssdk.Int32(80), EndpointPort: awssdk.Int32(8080)}, // Valid
+						},
+					},
+				},
+			},
+			updateCalls: map[string][]agatypes.PortOverride{
+				"arn:endpointgroup1": {
+					{ListenerPort: awssdk.Int32(80), EndpointPort: awssdk.Int32(8080)}, // Only the valid one remains
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "listener port outside updated ranges - should be removed",
+			listeners: []*ListenerResource{
+				{
+					Listener: &agatypes.Listener{
+						ListenerArn: awssdk.String("arn:listener1"),
+						Protocol:    agatypes.ProtocolTcp,
+						PortRanges: []agatypes.PortRange{
+							{FromPort: awssdk.Int32(80), ToPort: awssdk.Int32(90)},
+						},
+					},
+				},
+			},
+			allListenerPortRanges: []agamodel.PortRange{
+				{FromPort: 80, ToPort: 90},
+			},
+			updatePortRangesByListener: map[string][]agamodel.PortRange{
+				"arn:listener1": {
+					{FromPort: 80, ToPort: 85}, // Narrower range than current
+				},
+			},
+			endpointGroups: map[string][]agatypes.EndpointGroup{
+				"arn:listener1": {
+					{
+						EndpointGroupArn: awssdk.String("arn:endpointgroup1"),
+						PortOverrides: []agatypes.PortOverride{
+							{ListenerPort: awssdk.Int32(82), EndpointPort: awssdk.Int32(8082)}, // Valid - within updated range
+							{ListenerPort: awssdk.Int32(88), EndpointPort: awssdk.Int32(8088)}, // Invalid - outside updated range
+						},
+					},
+				},
+			},
+			updateCalls: map[string][]agatypes.PortOverride{
+				"arn:endpointgroup1": {
+					{ListenerPort: awssdk.Int32(82), EndpointPort: awssdk.Int32(8082)}, // Only the valid one remains
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "multiple listeners with multiple endpoint groups - consolidated processing",
+			listeners: []*ListenerResource{
+				{
+					Listener: &agatypes.Listener{
+						ListenerArn: awssdk.String("arn:listener1"),
+						Protocol:    agatypes.ProtocolTcp,
+						PortRanges: []agatypes.PortRange{
+							{FromPort: awssdk.Int32(80), ToPort: awssdk.Int32(90)},
+						},
+					},
+				},
+				{
+					Listener: &agatypes.Listener{
+						ListenerArn: awssdk.String("arn:listener2"),
+						Protocol:    agatypes.ProtocolUdp,
+						PortRanges: []agatypes.PortRange{
+							{FromPort: awssdk.Int32(53), ToPort: awssdk.Int32(53)},
+						},
+					},
+				},
+			},
+			allListenerPortRanges: []agamodel.PortRange{
+				{FromPort: 80, ToPort: 90},
+				{FromPort: 53, ToPort: 53},
+			},
+			updatePortRangesByListener: map[string][]agamodel.PortRange{
+				"arn:listener1": {
+					{FromPort: 80, ToPort: 85}, // Narrowed range
+				},
+				// No update for listener2
+			},
+			endpointGroups: map[string][]agatypes.EndpointGroup{
+				"arn:listener1": {
+					{
+						EndpointGroupArn: awssdk.String("arn:endpointgroup1"),
+						PortOverrides: []agatypes.PortOverride{
+							{ListenerPort: awssdk.Int32(82), EndpointPort: awssdk.Int32(82)},   // Invalid - endpoint port overlaps
+							{ListenerPort: awssdk.Int32(88), EndpointPort: awssdk.Int32(8088)}, // Invalid - listener port outside updated range
+							{ListenerPort: awssdk.Int32(85), EndpointPort: awssdk.Int32(8085)}, // Valid
+						},
+					},
+				},
+				"arn:listener2": {
+					{
+						EndpointGroupArn: awssdk.String("arn:endpointgroup2"),
+						PortOverrides: []agatypes.PortOverride{
+							{ListenerPort: awssdk.Int32(53), EndpointPort: awssdk.Int32(5353)}, // Valid
+							{ListenerPort: awssdk.Int32(53), EndpointPort: awssdk.Int32(53)},   // Invalid - endpoint port overlaps
+						},
+					},
+				},
+			},
+			updateCalls: map[string][]agatypes.PortOverride{
+				"arn:endpointgroup1": {
+					{ListenerPort: awssdk.Int32(85), EndpointPort: awssdk.Int32(8085)}, // Only valid one remains
+				},
+				"arn:endpointgroup2": {
+					{ListenerPort: awssdk.Int32(53), EndpointPort: awssdk.Int32(5353)}, // Only valid one remains
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "multiple listeners each with both types of port override conflicts",
+			listeners: []*ListenerResource{
+				{
+					Listener: &agatypes.Listener{
+						ListenerArn: awssdk.String("arn:listener1"),
+						Protocol:    agatypes.ProtocolTcp,
+						PortRanges: []agatypes.PortRange{
+							{FromPort: awssdk.Int32(80), ToPort: awssdk.Int32(90)},
+							{FromPort: awssdk.Int32(443), ToPort: awssdk.Int32(443)},
+						},
+					},
+				},
+				{
+					Listener: &agatypes.Listener{
+						ListenerArn: awssdk.String("arn:listener2"),
+						Protocol:    agatypes.ProtocolUdp,
+						PortRanges: []agatypes.PortRange{
+							{FromPort: awssdk.Int32(53), ToPort: awssdk.Int32(53)},
+							{FromPort: awssdk.Int32(8000), ToPort: awssdk.Int32(8010)},
+						},
+					},
+				},
+			},
+			allListenerPortRanges: []agamodel.PortRange{
+				{FromPort: 80, ToPort: 90},
+				{FromPort: 443, ToPort: 443},
+				{FromPort: 53, ToPort: 53},
+				{FromPort: 8000, ToPort: 8010},
+			},
+			updatePortRangesByListener: map[string][]agamodel.PortRange{
+				"arn:listener1": {
+					{FromPort: 80, ToPort: 85},   // Narrowed range
+					{FromPort: 443, ToPort: 443}, // Unchanged
+				},
+				"arn:listener2": {
+					{FromPort: 53, ToPort: 53},     // Unchanged
+					{FromPort: 8000, ToPort: 8005}, // Narrowed range
+				},
+			},
+			endpointGroups: map[string][]agatypes.EndpointGroup{
+				"arn:listener1": {
+					{
+						EndpointGroupArn: awssdk.String("arn:endpointgroup1"),
+						PortOverrides: []agatypes.PortOverride{
+							// Both types of issues
+							{ListenerPort: awssdk.Int32(82), EndpointPort: awssdk.Int32(82)},    // Invalid - endpoint port overlaps
+							{ListenerPort: awssdk.Int32(88), EndpointPort: awssdk.Int32(8088)},  // Invalid - listener port outside updated range
+							{ListenerPort: awssdk.Int32(443), EndpointPort: awssdk.Int32(443)},  // Invalid - endpoint port overlaps
+							{ListenerPort: awssdk.Int32(85), EndpointPort: awssdk.Int32(8085)},  // Valid
+							{ListenerPort: awssdk.Int32(443), EndpointPort: awssdk.Int32(8443)}, // Valid
+						},
+					},
+				},
+				"arn:listener2": {
+					{
+						EndpointGroupArn: awssdk.String("arn:endpointgroup2"),
+						PortOverrides: []agatypes.PortOverride{
+							// Both types of issues
+							{ListenerPort: awssdk.Int32(53), EndpointPort: awssdk.Int32(53)},     // Invalid - endpoint port overlaps
+							{ListenerPort: awssdk.Int32(8008), EndpointPort: awssdk.Int32(9008)}, // Invalid - listener port outside updated range
+							{ListenerPort: awssdk.Int32(8000), EndpointPort: awssdk.Int32(8000)}, // Invalid - endpoint port overlaps
+							{ListenerPort: awssdk.Int32(53), EndpointPort: awssdk.Int32(5353)},   // Valid
+							{ListenerPort: awssdk.Int32(8005), EndpointPort: awssdk.Int32(9005)}, // Valid
+						},
+					},
+				},
+			},
+			updateCalls: map[string][]agatypes.PortOverride{
+				"arn:endpointgroup1": {
+					// Only valid port overrides remain
+					{ListenerPort: awssdk.Int32(85), EndpointPort: awssdk.Int32(8085)},
+					{ListenerPort: awssdk.Int32(443), EndpointPort: awssdk.Int32(8443)},
+				},
+				"arn:endpointgroup2": {
+					// Only valid port overrides remain
+					{ListenerPort: awssdk.Int32(53), EndpointPort: awssdk.Int32(5353)},
+					{ListenerPort: awssdk.Int32(8005), EndpointPort: awssdk.Int32(9005)},
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create mocks
+			// Setup controller and mocks
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			mockGaClient := services.NewMockGlobalAccelerator(ctrl)
+
+			// Create mock listener manager using gomock
+			mockListenerManager := NewMockListenerManager(ctrl)
+
+			// Setup expectations for mockListenerManager.ListEndpointGroups
+			for listenerARN, endpointGroups := range tt.endpointGroups {
+				mockListenerManager.EXPECT().
+					ListEndpointGroups(gomock.Any(), listenerARN).
+					Return(endpointGroups, nil)
+			}
+
+			// Track which endpoint groups have been updated
+			updatedEndpointGroups := make(map[string]bool)
+
+			// Setup expectations for mockGaClient.UpdateEndpointGroupWithContext
+			for _, expectedPortMapping := range tt.updateCalls {
+				// If we expect an update for this endpoint group, mock the call
+				if len(expectedPortMapping) > 0 {
+					mockGaClient.EXPECT().
+						UpdateEndpointGroupWithContext(gomock.Any(), gomock.Any()).
+						AnyTimes().
+						DoAndReturn(
+							func(_ context.Context, input *globalaccelerator.UpdateEndpointGroupInput) (*globalaccelerator.UpdateEndpointGroupOutput, error) {
+								// Mark this endpoint group as updated
+								arn := awssdk.ToString(input.EndpointGroupArn)
+								updatedEndpointGroups[arn] = true
+
+								// Get the expected port mapping for this endpoint group
+								expectedMapping, exists := tt.updateCalls[arn]
+								assert.True(t, exists, "Unexpected endpoint group update: %s", arn)
+
+								// Verify port overrides count
+								assert.Equal(t, len(expectedMapping), len(input.PortOverrides))
+
+								// Create map of actual port overrides
+								actualMapping := make(map[int32]int32)
+								for _, po := range input.PortOverrides {
+									actualMapping[awssdk.ToInt32(po.ListenerPort)] = awssdk.ToInt32(po.EndpointPort)
+								}
+
+								// Convert actual port overrides to a map for easier comparison
+								actualMap := make(map[int32]int32)
+								for _, po := range input.PortOverrides {
+									actualMap[awssdk.ToInt32(po.ListenerPort)] = awssdk.ToInt32(po.EndpointPort)
+								}
+
+								// Create expected map
+								expectedMap := make(map[int32]int32)
+								for _, po := range expectedMapping {
+									expectedMap[awssdk.ToInt32(po.ListenerPort)] = awssdk.ToInt32(po.EndpointPort)
+								}
+
+								// Verify the mappings match
+								assert.Equal(t, expectedMap, actualMap)
+
+								return &globalaccelerator.UpdateEndpointGroupOutput{}, nil
+							})
+				}
+			}
+
+			// Create the synthesizer with the mocks
+			s := NewListenerSynthesizer(mockGaClient, mockListenerManager, logr.Discard(), nil)
+
+			// Call the method under test
+			err := s.ProcessEndpointGroupPortOverrides(
+				context.Background(),
+				tt.listeners,
+				tt.allListenerPortRanges,
+				tt.updatePortRangesByListener,
+			)
+
+			// Assert results
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+
+				// Verify all expected endpoint group updates happened
+				for endpointGroupARN, expectedMapping := range tt.updateCalls {
+					if len(expectedMapping) > 0 {
+						assert.True(t, updatedEndpointGroups[endpointGroupARN],
+							"Expected endpoint group %s to be updated", endpointGroupARN)
+					}
+				}
+			}
 		})
 	}
 }

@@ -8,7 +8,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
 	agatypes "github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	"github.com/go-logr/logr"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 )
@@ -316,9 +318,22 @@ func Test_defaultListenerManager_isSDKListenerSettingsDrifted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create listener manager
+			// Create mock controller
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+
+			// Create mock GlobalAccelerator service
+			mockGAService := services.NewMockGlobalAccelerator(ctrl)
+
+			// Set up the mock behavior
+			mockGAService.EXPECT().
+				ListEndpointGroupsAsList(gomock.Any(), gomock.Any()).
+				Return([]agatypes.EndpointGroup{}, nil).
+				AnyTimes()
+
+			// Create manager with mock service
 			m := &defaultListenerManager{
-				gaService: nil, // Not needed for this test
+				gaService: mockGAService,
 				logger:    logr.Discard(),
 			}
 
