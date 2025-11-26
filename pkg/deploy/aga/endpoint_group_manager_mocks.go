@@ -65,6 +65,20 @@ func (mr *MockEndpointGroupManagerMockRecorder) Delete(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockEndpointGroupManager)(nil).Delete), arg0, arg1)
 }
 
+// ManageEndpoints mocks base method.
+func (m *MockEndpointGroupManager) ManageEndpoints(arg0 context.Context, arg1 string, arg2 []aga.EndpointConfiguration, arg3 []types.EndpointDescription) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ManageEndpoints", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ManageEndpoints indicates an expected call of ManageEndpoints.
+func (mr *MockEndpointGroupManagerMockRecorder) ManageEndpoints(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ManageEndpoints", reflect.TypeOf((*MockEndpointGroupManager)(nil).ManageEndpoints), arg0, arg1, arg2, arg3)
+}
+
 // Update mocks base method.
 func (m *MockEndpointGroupManager) Update(arg0 context.Context, arg1 *aga.EndpointGroup, arg2 *types.EndpointGroup) (aga.EndpointGroupStatus, error) {
 	m.ctrl.T.Helper()
