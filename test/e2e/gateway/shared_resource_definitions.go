@@ -348,7 +348,7 @@ func buildFENLBTCPRoute(albGatewayName, albNamespace string, port gwalpha2.PortN
 	return tcpr
 }
 
-func buildUDPRoute() *gwalpha2.UDPRoute {
+func buildUDPRoute(sectionName string) *gwalpha2.UDPRoute {
 	port := gwalpha2.PortNumber(8080)
 	udpr := &gwalpha2.UDPRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -359,7 +359,7 @@ func buildUDPRoute() *gwalpha2.UDPRoute {
 				ParentRefs: []gwv1.ParentReference{
 					{
 						Name:        defaultName,
-						SectionName: (*gwv1.SectionName)(awssdk.String("port8080")),
+						SectionName: (*gwv1.SectionName)(awssdk.String(sectionName)),
 					},
 				},
 			},

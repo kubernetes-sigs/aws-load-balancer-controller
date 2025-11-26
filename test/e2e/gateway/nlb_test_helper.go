@@ -85,9 +85,45 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 	lbc := buildLoadBalancerConfig(lbConfSpec)
 	tgcTCP := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svcTCP)
 	tgcUDP := buildTargetGroupConfig(udpDefaultTgConfigName, tgConfSpec, svcUDP)
-	udpr := buildUDPRoute()
+	udpr := buildUDPRoute("port8080")
 
 	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", readinessGateEnabled)
+
+	return s.nlbResourceStack.Deploy(ctx, f)
+}
+
+func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	dpUDP := buildUDPDeploymentSpec()
+	svcUDP := buildUDPServiceSpec()
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
+	listeners := []gwv1.Listener{
+		{
+			Name:     "port80tcp",
+			Port:     80,
+			Protocol: gwv1.TCPProtocolType,
+		},
+		{
+			Name:     "port80udp",
+			Port:     80,
+			Protocol: gwv1.UDPProtocolType,
+		},
+	}
+
+	tcprs := []*gwalpha2.TCPRoute{}
+
+	gw := buildBasicGatewaySpec(gwc, listeners)
+
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+	tgcUDP := buildTargetGroupConfig(udpDefaultTgConfigName, tgConfSpec, svcUDP)
+	udpr := buildUDPRoute("port80udp")
+
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", readinessGateEnabled)
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
@@ -285,6 +321,7 @@ func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestSta
 			},
 		},
 	}
+
 	validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, tcpValidationInfo)
 	validateRouteStatus(tf, stack.nlbResourceStack.udprs, udpRouteStatusConverter, udpValidationInfo)
 }
