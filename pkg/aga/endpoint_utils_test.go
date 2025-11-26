@@ -180,7 +180,7 @@ func TestGetAllEndpointsFromGA(t *testing.T) {
 				}
 			}
 
-			result := GetAllEndpointsFromGA(tt.ga)
+			result := GetAllDesiredEndpointsFromGA(tt.ga)
 
 			// Compare lengths
 			assert.Equal(t, len(tt.expected), len(result))

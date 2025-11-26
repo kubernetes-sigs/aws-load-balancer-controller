@@ -188,7 +188,7 @@ func (u *defaultStatusUpdater) UpdateStatusFailure(ctx context.Context, ga *v1be
 		Status:             metav1.ConditionFalse,
 		LastTransitionTime: metav1.Now(),
 		Reason:             reason,
-		Message:            message,
+		Message:            "Reconciliation failed. See events and controller logs for details",
 	}
 
 	conditionUpdated := u.updateCondition(&ga.Status.Conditions, failureCondition)

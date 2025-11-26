@@ -23,13 +23,17 @@ type ListenerManager interface {
 
 	// Delete deletes a listener.
 	Delete(ctx context.Context, listenerARN string) error
+
+	// ListEndpointGroups lists all endpoint groups for a given listener
+	ListEndpointGroups(ctx context.Context, listenerARN string) ([]agatypes.EndpointGroup, error)
 }
 
 // NewDefaultListenerManager constructs new defaultListenerManager.
-func NewDefaultListenerManager(gaService services.GlobalAccelerator, logger logr.Logger) *defaultListenerManager {
+func NewDefaultListenerManager(gaService services.GlobalAccelerator, endpointGroupManager EndpointGroupManager, logger logr.Logger) *defaultListenerManager {
 	return &defaultListenerManager{
-		gaService: gaService,
-		logger:    logger,
+		gaService:            gaService,
+		endpointGroupManager: endpointGroupManager,
+		logger:               logger,
 	}
 }
 
@@ -37,8 +41,9 @@ var _ ListenerManager = &defaultListenerManager{}
 
 // defaultListenerManager is the default implementation for ListenerManager.
 type defaultListenerManager struct {
-	gaService services.GlobalAccelerator
-	logger    logr.Logger
+	gaService            services.GlobalAccelerator
+	endpointGroupManager EndpointGroupManager
+	logger               logr.Logger
 }
 
 // convertPortRangesToSDK converts model port ranges to SDK port ranges
@@ -164,11 +169,30 @@ func (m *defaultListenerManager) Update(ctx context.Context, resListener *agamod
 }
 
 func (m *defaultListenerManager) Delete(ctx context.Context, listenerARN string) error {
-	// TODO: This will be enhanced to check for and delete endpoint groups
-	// before deleting the listener (when those features are implemented)
-
 	m.logger.Info("Deleting listener", "listenerARN", listenerARN)
 
+	// Step 1: Delete all endpoint groups associated with this listener
+	endpointGroups, err := m.ListEndpointGroups(ctx, listenerARN)
+	if err != nil {
+		var apiErr *agatypes.ListenerNotFoundException
+		if errors.As(err, &apiErr) {
+			m.logger.Info("Listener not found, assuming already deleted", "listenerARN", listenerARN)
+			return nil
+		}
+		return fmt.Errorf("failed to list endpoint groups for listener: %w", err)
+	}
+
+	for _, endpointGroup := range endpointGroups {
+		endpointGroupARN := aws.ToString(endpointGroup.EndpointGroupArn)
+		m.logger.Info("Deleting endpoint group for listener", "endpointGroupARN", endpointGroupARN, "listenerARN", listenerARN)
+
+		if err := m.endpointGroupManager.Delete(ctx, endpointGroupARN); err != nil {
+			return fmt.Errorf("failed to delete endpoint group %s: %w", endpointGroupARN, err)
+		}
+		m.logger.Info("Deleted endpoint group for listener", "endpointGroupARN", endpointGroupARN, "listenerARN", listenerARN)
+	}
+
+	// Step 2: Delete the listener
 	deleteInput := &globalaccelerator.DeleteListenerInput{
 		ListenerArn: aws.String(listenerARN),
 	}
@@ -185,6 +209,15 @@ func (m *defaultListenerManager) Delete(ctx context.Context, listenerARN string)
 
 	m.logger.Info("Successfully deleted listener", "listenerARN", listenerARN)
 	return nil
+}
+
+// ListEndpointGroups lists all endpoint groups for a given listener
+func (m *defaultListenerManager) ListEndpointGroups(ctx context.Context, listenerARN string) ([]agatypes.EndpointGroup, error) {
+	listInput := &globalaccelerator.ListEndpointGroupsInput{
+		ListenerArn: aws.String(listenerARN),
+	}
+
+	return m.gaService.ListEndpointGroupsAsList(ctx, listInput)
 }
 
 // isSDKListenerSettingsDrifted checks if the listener configuration has drifted from the desired state

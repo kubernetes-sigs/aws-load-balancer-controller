@@ -41,6 +41,21 @@ type GlobalAccelerator interface {
 	// ListListenersForAccelerator lists all listeners for an accelerator.
 	ListListenersForAcceleratorWithContext(ctx context.Context, input *globalaccelerator.ListListenersInput) (*globalaccelerator.ListListenersOutput, error)
 
+	// CreateEndpointGroup creates a new endpoint group.
+	CreateEndpointGroupWithContext(ctx context.Context, input *globalaccelerator.CreateEndpointGroupInput) (*globalaccelerator.CreateEndpointGroupOutput, error)
+
+	// DescribeEndpointGroup describes an endpoint group.
+	DescribeEndpointGroupWithContext(ctx context.Context, input *globalaccelerator.DescribeEndpointGroupInput) (*globalaccelerator.DescribeEndpointGroupOutput, error)
+
+	// UpdateEndpointGroup updates an endpoint group.
+	UpdateEndpointGroupWithContext(ctx context.Context, input *globalaccelerator.UpdateEndpointGroupInput) (*globalaccelerator.UpdateEndpointGroupOutput, error)
+
+	// DeleteEndpointGroup deletes an endpoint group.
+	DeleteEndpointGroupWithContext(ctx context.Context, input *globalaccelerator.DeleteEndpointGroupInput) (*globalaccelerator.DeleteEndpointGroupOutput, error)
+
+	// wrapper to ListEndpointGroups API, which aggregates paged results into list.
+	ListEndpointGroupsAsList(ctx context.Context, input *globalaccelerator.ListEndpointGroupsInput) ([]types.EndpointGroup, error)
+
 	// TagResource tags a resource.
 	TagResourceWithContext(ctx context.Context, input *globalaccelerator.TagResourceInput) (*globalaccelerator.TagResourceOutput, error)
 
@@ -189,6 +204,55 @@ func (c *defaultGlobalAccelerator) ListListenersAsList(ctx context.Context, inpu
 			return nil, err
 		}
 		result = append(result, output.Listeners...)
+	}
+	return result, nil
+}
+
+func (c *defaultGlobalAccelerator) CreateEndpointGroupWithContext(ctx context.Context, input *globalaccelerator.CreateEndpointGroupInput) (*globalaccelerator.CreateEndpointGroupOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "CreateEndpointGroup")
+	if err != nil {
+		return nil, err
+	}
+	return client.CreateEndpointGroup(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) DescribeEndpointGroupWithContext(ctx context.Context, input *globalaccelerator.DescribeEndpointGroupInput) (*globalaccelerator.DescribeEndpointGroupOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "DescribeEndpointGroup")
+	if err != nil {
+		return nil, err
+	}
+	return client.DescribeEndpointGroup(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) UpdateEndpointGroupWithContext(ctx context.Context, input *globalaccelerator.UpdateEndpointGroupInput) (*globalaccelerator.UpdateEndpointGroupOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "UpdateEndpointGroup")
+	if err != nil {
+		return nil, err
+	}
+	return client.UpdateEndpointGroup(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) DeleteEndpointGroupWithContext(ctx context.Context, input *globalaccelerator.DeleteEndpointGroupInput) (*globalaccelerator.DeleteEndpointGroupOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "DeleteEndpointGroup")
+	if err != nil {
+		return nil, err
+	}
+	return client.DeleteEndpointGroup(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) ListEndpointGroupsAsList(ctx context.Context, input *globalaccelerator.ListEndpointGroupsInput) ([]types.EndpointGroup, error) {
+	var result []types.EndpointGroup
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "ListEndpointGroups")
+	if err != nil {
+		return nil, err
+	}
+	paginator := globalaccelerator.NewListEndpointGroupsPaginator(client, input)
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, output.EndpointGroups...)
 	}
 	return result, nil
 }

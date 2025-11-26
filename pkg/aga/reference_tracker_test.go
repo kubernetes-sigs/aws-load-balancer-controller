@@ -147,9 +147,9 @@ func TestReferenceTracker_UpdateReferencesForGA(t *testing.T) {
 			// Create tracker
 			tracker := NewReferenceTracker(logr.Discard())
 
-			endpoints := GetAllEndpointsFromGA(tt.ga)
+			endpoints := GetAllDesiredEndpointsFromGA(tt.ga)
 			// Update references
-			tracker.UpdateReferencesForGA(tt.ga, endpoints)
+			tracker.UpdateDesiredEndpointReferencesForGA(tt.ga, endpoints)
 
 			// Check number of tracked resources
 			gaKey := types.NamespacedName{Namespace: tt.ga.Namespace, Name: tt.ga.Name}
@@ -212,8 +212,8 @@ func TestReferenceTracker_UpdateReferencesForGA_RemoveStaleReferences(t *testing
 	// Create tracker and add initial references
 	tracker := NewReferenceTracker(logr.Discard())
 
-	endpoints := GetAllEndpointsFromGA(ga)
-	tracker.UpdateReferencesForGA(ga, endpoints)
+	endpoints := GetAllDesiredEndpointsFromGA(ga)
+	tracker.UpdateDesiredEndpointReferencesForGA(ga, endpoints)
 
 	// Verify initial state
 	service1Key := ResourceKey{
@@ -256,8 +256,8 @@ func TestReferenceTracker_UpdateReferencesForGA_RemoveStaleReferences(t *testing
 	}
 
 	// Update references with modified GA
-	endpoints = GetAllEndpointsFromGA(ga)
-	tracker.UpdateReferencesForGA(ga, endpoints)
+	endpoints = GetAllDesiredEndpointsFromGA(ga)
+	tracker.UpdateDesiredEndpointReferencesForGA(ga, endpoints)
 
 	// Verify that service1 is still referenced, service2 is no longer referenced, and service3 is now referenced
 	assert.True(t, tracker.IsResourceReferenced(service1Key))
@@ -328,10 +328,10 @@ func TestReferenceTracker_RemoveGA(t *testing.T) {
 
 	// Create tracker and add references from both GAs
 	tracker := NewReferenceTracker(logr.Discard())
-	endpoints1 := GetAllEndpointsFromGA(ga1)
-	endpoints2 := GetAllEndpointsFromGA(ga2)
-	tracker.UpdateReferencesForGA(ga1, endpoints1)
-	tracker.UpdateReferencesForGA(ga2, endpoints2)
+	endpoints1 := GetAllDesiredEndpointsFromGA(ga1)
+	endpoints2 := GetAllDesiredEndpointsFromGA(ga2)
+	tracker.UpdateDesiredEndpointReferencesForGA(ga1, endpoints1)
+	tracker.UpdateDesiredEndpointReferencesForGA(ga2, endpoints2)
 
 	// Resource keys
 	service1Key := ResourceKey{
@@ -406,8 +406,8 @@ func TestReferenceTracker_IsResourceReferenced(t *testing.T) {
 
 	// Create tracker and add references
 	tracker := NewReferenceTracker(logr.Discard())
-	endpoints := GetAllEndpointsFromGA(ga)
-	tracker.UpdateReferencesForGA(ga, endpoints)
+	endpoints := GetAllDesiredEndpointsFromGA(ga)
+	tracker.UpdateDesiredEndpointReferencesForGA(ga, endpoints)
 
 	// Resource keys - one that exists and one that doesn't
 	existingResourceKey := ResourceKey{
@@ -479,10 +479,10 @@ func TestReferenceTracker_GetGAsForResource(t *testing.T) {
 
 	// Create tracker and add references
 	tracker := NewReferenceTracker(logr.Discard())
-	endpoints1 := GetAllEndpointsFromGA(ga1)
-	endpoints2 := GetAllEndpointsFromGA(ga2)
-	tracker.UpdateReferencesForGA(ga1, endpoints1)
-	tracker.UpdateReferencesForGA(ga2, endpoints2)
+	endpoints1 := GetAllDesiredEndpointsFromGA(ga1)
+	endpoints2 := GetAllDesiredEndpointsFromGA(ga2)
+	tracker.UpdateDesiredEndpointReferencesForGA(ga1, endpoints1)
+	tracker.UpdateDesiredEndpointReferencesForGA(ga2, endpoints2)
 
 	// Resource key for the shared service
 	sharedServiceKey := ResourceKey{

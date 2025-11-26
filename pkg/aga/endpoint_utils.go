@@ -28,8 +28,8 @@ type EndpointReference struct {
 	Endpoint   *agaapi.GlobalAcceleratorEndpoint
 }
 
-// GetAllEndpointsFromGA extracts all endpoint references from a GlobalAccelerator resource
-func GetAllEndpointsFromGA(ga *agaapi.GlobalAccelerator) []EndpointReference {
+// GetAllDesiredEndpointsFromGA extracts all endpoint references from a GlobalAccelerator resource
+func GetAllDesiredEndpointsFromGA(ga *agaapi.GlobalAccelerator) []EndpointReference {
 	if ga == nil || ga.Spec.Listeners == nil {
 		return nil
 	}

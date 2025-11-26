@@ -32,25 +32,25 @@ func NewDefaultStackDeployer(cloud services.Cloud, config config.ControllerConfi
 
 	// Create actual managers
 	agaTaggingManager := NewDefaultTaggingManager(cloud.GlobalAccelerator(), cloud.RGT(), logger)
-	listenerManager := NewDefaultListenerManager(cloud.GlobalAccelerator(), logger)
+	endpointGroupManager := NewDefaultEndpointGroupManager(cloud.GlobalAccelerator(), logger)
+	listenerManager := NewDefaultListenerManager(cloud.GlobalAccelerator(), endpointGroupManager, logger)
 	acceleratorManager := NewDefaultAcceleratorManager(cloud.GlobalAccelerator(), trackingProvider, agaTaggingManager, listenerManager, config.ExternalManagedTags, logger)
 	// TODO: Create other managers when they are implemented
-	// endpointGroupManager := NewDefaultEndpointGroupManager(cloud.GlobalAccelerator(), trackingProvider, agaTaggingManager, config.ExternalManagedTags, logger)
 	// endpointManager := NewDefaultEndpointManager(cloud.GlobalAccelerator(), logger)
 
 	return &defaultStackDeployer{
-		cloud:              cloud,
-		controllerConfig:   config,
-		trackingProvider:   trackingProvider,
-		featureGates:       config.FeatureGates,
-		logger:             logger,
-		metricsCollector:   metricsCollector,
-		controllerName:     controllerName,
-		agaTaggingManager:  agaTaggingManager,
-		acceleratorManager: acceleratorManager,
-		listenerManager:    listenerManager,
+		cloud:                cloud,
+		controllerConfig:     config,
+		trackingProvider:     trackingProvider,
+		featureGates:         config.FeatureGates,
+		logger:               logger,
+		metricsCollector:     metricsCollector,
+		controllerName:       controllerName,
+		agaTaggingManager:    agaTaggingManager,
+		acceleratorManager:   acceleratorManager,
+		listenerManager:      listenerManager,
+		endpointGroupManager: endpointGroupManager,
 		// TODO: Set other managers when implemented
-		// endpointGroupManager: endpointGroupManager,
 		// endpointManager:      endpointManager,
 	}
 }
@@ -68,11 +68,11 @@ type defaultStackDeployer struct {
 	controllerName   string
 
 	// Actual managers
-	agaTaggingManager  TaggingManager
-	acceleratorManager AcceleratorManager
-	listenerManager    ListenerManager
+	agaTaggingManager    TaggingManager
+	acceleratorManager   AcceleratorManager
+	listenerManager      ListenerManager
+	endpointGroupManager EndpointGroupManager
 	// TODO: Add other managers when implemented
-	// endpointGroupManager EndpointGroupManager
 	// endpointManager      EndpointManager
 }
 
@@ -92,8 +92,8 @@ func (d *defaultStackDeployer) Deploy(ctx context.Context, stack core.Stack, met
 	synthesizers = append(synthesizers,
 		NewAcceleratorSynthesizer(d.cloud.GlobalAccelerator(), d.trackingProvider, d.agaTaggingManager, d.acceleratorManager, d.logger, d.featureGates, stack),
 		NewListenerSynthesizer(d.cloud.GlobalAccelerator(), d.listenerManager, d.logger, stack),
+		NewEndpointGroupSynthesizer(d.cloud.GlobalAccelerator(), d.endpointGroupManager, d.logger, stack),
 		// TODO: Add other synthesizers when managers are implemented
-		// NewEndpointGroupSynthesizer(d.cloud.GlobalAccelerator(), d.trackingProvider, d.agaTaggingManager, d.endpointGroupManager, d.logger, d.featureGates, stack),
 		// NewEndpointSynthesizer(d.cloud.GlobalAccelerator(), d.trackingProvider, d.endpointManager, d.logger, d.featureGates, stack),
 	)
 
