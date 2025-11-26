@@ -220,9 +220,9 @@ type resAndSDKListenerPair struct {
 // matchResAndSDKListeners matches resource listeners with SDK listeners using a multi-phase approach.
 //
 // The algorithm implements a two-phase matching process:
-// 1. First phase (Exact Matching): Matches listeners with identical protocol and port ranges
-// 2. Second phase (Similarity Matching): For remaining unmatched listeners, uses a similarity-based
-//    algorithm to find the best matches based on protocol and port range overlap
+//  1. First phase (Exact Matching): Matches listeners with identical protocol and port ranges
+//  2. Second phase (Similarity Matching): For remaining unmatched listeners, uses a similarity-based
+//     algorithm to find the best matches based on protocol and port range overlap
 //
 // Returns three groups:
 // - matchedResAndSDKListeners: pairs of resource and SDK listeners that will be updated
@@ -499,17 +499,17 @@ func (s *listenerSynthesizer) findConflictingAndNonConflictingListeners(
 // The scoring system uses these components:
 //
 // 1. Base Protocol Score:
-//    - If protocols match: +40 points (significant bonus)
-//    - If protocols don't match: 0 points (no bonus)
+//   - If protocols match: +40 points (significant bonus)
+//   - If protocols don't match: 0 points (no bonus)
 //
 // 2. Port Overlap Score:
-//    - Uses Jaccard similarity: (intersection / union) * 100
-//    - Calculates the percentage of common ports between the two listeners
-//    - Converts port ranges into individual port sets for precise comparison
+//   - Uses Jaccard similarity: (intersection / union) * 100
+//   - Calculates the percentage of common ports between the two listeners
+//   - Converts port ranges into individual port sets for precise comparison
 //
 // 3. Client Affinity Score:
-//    - If both listeners have client affinity specified and they match: +10 points
-//    - Otherwise: 0 points (no bonus)
+//   - If both listeners have client affinity specified and they match: +10 points
+//   - Otherwise: 0 points (no bonus)
 //
 // Note: In the future, we might need to add endpoint matching as well as one of the
 // score components so that we match the listeners with the most endpoint matches

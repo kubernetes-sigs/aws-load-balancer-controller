@@ -269,11 +269,11 @@ func (r *globalAcceleratorReconciler) buildModel(ctx context.Context, ga *agaapi
 func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx context.Context, ga *agaapi.GlobalAccelerator) error {
 	r.logger.Info("Reconciling GlobalAccelerator resources", "globalAccelerator", k8s.NamespacedName(ga))
 
-	// Get all endpoints from GA
-	endpoints := aga.GetAllEndpointsFromGA(ga)
+	// Get all desired endpoints from GA
+	endpoints := aga.GetAllDesiredEndpointsFromGA(ga)
 
 	// Track referenced endpoints
-	r.referenceTracker.UpdateReferencesForGA(ga, endpoints)
+	r.referenceTracker.UpdateDesiredEndpointReferencesForGA(ga, endpoints)
 
 	// Update resource watches with the endpointResourcesManager
 	r.endpointResourcesManager.MonitorEndpointResources(ga, endpoints)

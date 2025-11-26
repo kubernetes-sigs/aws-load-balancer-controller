@@ -34,8 +34,8 @@ func NewReferenceTracker(logger logr.Logger) *ReferenceTracker {
 	}
 }
 
-// UpdateReferencesForGA updates the tracking information for a GlobalAccelerator
-func (t *ReferenceTracker) UpdateReferencesForGA(ga *agaapi.GlobalAccelerator, endpoints []EndpointReference) {
+// UpdateDesiredEndpointReferencesForGA updates the tracking information for a GlobalAccelerator
+func (t *ReferenceTracker) UpdateDesiredEndpointReferencesForGA(ga *agaapi.GlobalAccelerator, desiredEndpoints []EndpointReference) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -45,7 +45,7 @@ func (t *ReferenceTracker) UpdateReferencesForGA(ga *agaapi.GlobalAccelerator, e
 	currentResources := sets.New[ResourceKey]()
 
 	// Process each endpoint
-	for _, endpoint := range endpoints {
+	for _, endpoint := range desiredEndpoints {
 		resourceKey := endpoint.ToResourceKey()
 
 		currentResources.Insert(resourceKey)
