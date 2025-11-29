@@ -74,6 +74,20 @@ type PortOverride struct {
 	EndpointPort int32 `json:"endpointPort"`
 }
 
+// EndpointConfiguration defines an endpoint configuration for Global Accelerator endpoint groups.
+type EndpointConfiguration struct {
+	// EndpointID is the ID of the endpoint.
+	EndpointID string `json:"endpointId"`
+
+	// Weight determines the proportion of traffic that is directed to the endpoint.
+	// +optional
+	Weight *int32 `json:"weight,omitempty"`
+
+	// ClientIPPreservationEnabled indicates whether client IP preservation is enabled for this endpoint.
+	// +optional
+	ClientIPPreservationEnabled *bool `json:"clientIPPreservationEnabled,omitempty"`
+}
+
 // EndpointGroupSpec defines the desired state of EndpointGroup
 type EndpointGroupSpec struct {
 	// ListenerARN is the ARN of the listener for the endpoint group
@@ -92,7 +106,7 @@ type EndpointGroupSpec struct {
 
 	// EndpointConfigurations is a list of endpoint configurations for the endpoint group.
 	// +optional
-	// This field is not implemented in the initial version as it will be part of a separate endpoint builder.
+	EndpointConfigurations []EndpointConfiguration `json:"endpointConfigurations,omitempty"`
 }
 
 // EndpointGroupStatus defines the observed state of EndpointGroup
