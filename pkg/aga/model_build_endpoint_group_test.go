@@ -2,14 +2,336 @@ package aga
 
 import (
 	"context"
+	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/assert"
 	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
+	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
-	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
 )
+
+func Test_generateEndpointKey(t *testing.T) {
+	tests := []struct {
+		name        string
+		endpoint    agaapi.GlobalAcceleratorEndpoint
+		gaNamespace string
+		want        string
+	}{
+		{
+			name: "endpoint with EndpointID type",
+			endpoint: agaapi.GlobalAcceleratorEndpoint{
+				Type:       agaapi.GlobalAcceleratorEndpointTypeEndpointID,
+				EndpointID: awssdk.String("arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-alb/1234567890"),
+			},
+			gaNamespace: "default",
+			want:        "EndpointID/arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/my-alb/1234567890",
+		},
+		{
+			name: "endpoint with Service type and explicit namespace",
+			endpoint: agaapi.GlobalAcceleratorEndpoint{
+				Type:      agaapi.GlobalAcceleratorEndpointTypeService,
+				Namespace: awssdk.String("test-namespace"),
+				Name:      awssdk.String("test-service"),
+			},
+			gaNamespace: "default",
+			want:        "Service/test-namespace/test-service",
+		},
+		{
+			name: "endpoint with Service type and default namespace",
+			endpoint: agaapi.GlobalAcceleratorEndpoint{
+				Type: agaapi.GlobalAcceleratorEndpointTypeService,
+				Name: awssdk.String("test-service"),
+			},
+			gaNamespace: "default",
+			want:        "Service/default/test-service",
+		},
+		{
+			name: "endpoint with Ingress type",
+			endpoint: agaapi.GlobalAcceleratorEndpoint{
+				Type:      agaapi.GlobalAcceleratorEndpointTypeIngress,
+				Namespace: awssdk.String("ingress-ns"),
+				Name:      awssdk.String("test-ingress"),
+			},
+			gaNamespace: "default",
+			want:        "Ingress/ingress-ns/test-ingress",
+		},
+		{
+			name: "endpoint with Gateway type",
+			endpoint: agaapi.GlobalAcceleratorEndpoint{
+				Type:      agaapi.GlobalAcceleratorEndpointTypeGateway,
+				Namespace: awssdk.String("gateway-ns"),
+				Name:      awssdk.String("test-gateway"),
+			},
+			gaNamespace: "default",
+			want:        "Gateway/gateway-ns/test-gateway",
+		},
+		{
+			name: "endpoint with nil name (should still work)",
+			endpoint: agaapi.GlobalAcceleratorEndpoint{
+				Type:      agaapi.GlobalAcceleratorEndpointTypeService,
+				Namespace: awssdk.String("test-namespace"),
+				Name:      nil,
+			},
+			gaNamespace: "default",
+			want:        "Service/test-namespace/",
+		},
+		{
+			name: "endpoint with both nil namespace and name",
+			endpoint: agaapi.GlobalAcceleratorEndpoint{
+				Type:      agaapi.GlobalAcceleratorEndpointTypeService,
+				Namespace: nil,
+				Name:      nil,
+			},
+			gaNamespace: "default",
+			want:        "Service/default/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := generateEndpointKey(tt.endpoint, tt.gaNamespace)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultEndpointGroupBuilder_buildEndpointConfigurations(t *testing.T) {
+	testLogger := logr.Discard()
+
+	// Create test LoadedEndpoints
+	createTestEndpoints := func() []*LoadedEndpoint {
+		return []*LoadedEndpoint{
+			{
+				Type:        agaapi.GlobalAcceleratorEndpointTypeService,
+				Name:        "test-service",
+				Namespace:   "default",
+				Weight:      100,
+				ARN:         "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-service/1234567890",
+				DNSName:     "test-service.default.svc.cluster.local",
+				Status:      EndpointStatusLoaded,
+				EndpointRef: &agaapi.GlobalAcceleratorEndpoint{Type: agaapi.GlobalAcceleratorEndpointTypeService, Name: awssdk.String("test-service")},
+			},
+			{
+				Type:        agaapi.GlobalAcceleratorEndpointTypeIngress,
+				Name:        "test-ingress",
+				Namespace:   "ingress-ns",
+				Weight:      200,
+				ARN:         "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-ingress/0987654321",
+				DNSName:     "test-ingress.example.com",
+				Status:      EndpointStatusLoaded,
+				EndpointRef: &agaapi.GlobalAcceleratorEndpoint{Type: agaapi.GlobalAcceleratorEndpointTypeIngress, Name: awssdk.String("test-ingress"), Namespace: awssdk.String("ingress-ns")},
+			},
+			{
+				Type:        agaapi.GlobalAcceleratorEndpointTypeGateway,
+				Name:        "test-gateway",
+				Namespace:   "gateway-ns",
+				Weight:      150,
+				ARN:         "",
+				DNSName:     "",
+				Status:      EndpointStatusWarning,
+				Error:       fmt.Errorf("gateway not found"),
+				Message:     "Gateway resource not found",
+				EndpointRef: &agaapi.GlobalAcceleratorEndpoint{Type: agaapi.GlobalAcceleratorEndpointTypeGateway, Name: awssdk.String("test-gateway"), Namespace: awssdk.String("gateway-ns")},
+			},
+			{
+				Type:        agaapi.GlobalAcceleratorEndpointTypeEndpointID,
+				Name:        "",
+				Namespace:   "",
+				Weight:      100,
+				ARN:         "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/test-lb/abcdef1234",
+				Status:      EndpointStatusLoaded,
+				EndpointRef: &agaapi.GlobalAcceleratorEndpoint{Type: agaapi.GlobalAcceleratorEndpointTypeEndpointID, EndpointID: awssdk.String("arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/test-lb/abcdef1234")},
+			},
+		}
+	}
+
+	tests := []struct {
+		name            string
+		endpointGroup   agaapi.GlobalAcceleratorEndpointGroup
+		loadedEndpoints []*LoadedEndpoint
+		want            []agamodel.EndpointConfiguration
+		wantErr         bool
+	}{
+		{
+			name: "nil endpoints in endpoint group",
+			endpointGroup: agaapi.GlobalAcceleratorEndpointGroup{
+				Endpoints: nil,
+			},
+			loadedEndpoints: createTestEndpoints(),
+			want:            nil,
+			wantErr:         false,
+		},
+		{
+			name: "empty endpoints array in endpoint group",
+			endpointGroup: agaapi.GlobalAcceleratorEndpointGroup{
+				Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{},
+			},
+			loadedEndpoints: createTestEndpoints(),
+			want:            []agamodel.EndpointConfiguration{},
+			wantErr:         false,
+		},
+		{
+			name: "endpoint with EndpointID reference",
+			endpointGroup: agaapi.GlobalAcceleratorEndpointGroup{
+				Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+					{
+						Type:                        agaapi.GlobalAcceleratorEndpointTypeEndpointID,
+						EndpointID:                  awssdk.String("arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/test-lb/abcdef1234"),
+						ClientIPPreservationEnabled: awssdk.Bool(true),
+					},
+				},
+			},
+			loadedEndpoints: createTestEndpoints(),
+			want: []agamodel.EndpointConfiguration{
+				{
+					EndpointID:                  "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/net/test-lb/abcdef1234",
+					Weight:                      awssdk.Int32(100),
+					ClientIPPreservationEnabled: awssdk.Bool(true),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "endpoint with Service reference",
+			endpointGroup: agaapi.GlobalAcceleratorEndpointGroup{
+				Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+					{
+						Type:                        agaapi.GlobalAcceleratorEndpointTypeService,
+						Name:                        awssdk.String("test-service"),
+						ClientIPPreservationEnabled: awssdk.Bool(false),
+					},
+				},
+			},
+			loadedEndpoints: createTestEndpoints(),
+			want: []agamodel.EndpointConfiguration{
+				{
+					EndpointID:                  "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-service/1234567890",
+					Weight:                      awssdk.Int32(100),
+					ClientIPPreservationEnabled: awssdk.Bool(false),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "endpoint with Ingress reference, no override weight",
+			endpointGroup: agaapi.GlobalAcceleratorEndpointGroup{
+				Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+					{
+						Type:                        agaapi.GlobalAcceleratorEndpointTypeIngress,
+						Namespace:                   awssdk.String("ingress-ns"),
+						Name:                        awssdk.String("test-ingress"),
+						ClientIPPreservationEnabled: awssdk.Bool(true),
+					},
+				},
+			},
+			loadedEndpoints: createTestEndpoints(),
+			want: []agamodel.EndpointConfiguration{
+				{
+					EndpointID:                  "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-ingress/0987654321",
+					Weight:                      awssdk.Int32(200), // From the loaded endpoint, no override
+					ClientIPPreservationEnabled: awssdk.Bool(true), // From the endpoint definition
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "endpoint with warning status - not included",
+			endpointGroup: agaapi.GlobalAcceleratorEndpointGroup{
+				Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+					{
+						Type:      agaapi.GlobalAcceleratorEndpointTypeGateway,
+						Namespace: awssdk.String("gateway-ns"),
+						Name:      awssdk.String("test-gateway"),
+					},
+				},
+			},
+			loadedEndpoints: createTestEndpoints(),
+			want:            []agamodel.EndpointConfiguration{}, // No endpoints should be added
+			wantErr:         false,
+		},
+		{
+			name: "endpoint not found in loaded endpoints",
+			endpointGroup: agaapi.GlobalAcceleratorEndpointGroup{
+				Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+					{
+						Type:      agaapi.GlobalAcceleratorEndpointTypeService,
+						Namespace: awssdk.String("non-existent"),
+						Name:      awssdk.String("non-existent-service"),
+					},
+				},
+			},
+			loadedEndpoints: createTestEndpoints(),
+			want:            []agamodel.EndpointConfiguration{}, // No endpoints should be added
+			wantErr:         false,
+		},
+		{
+			name: "multiple endpoints with mixed types",
+			endpointGroup: agaapi.GlobalAcceleratorEndpointGroup{
+				Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+					{
+						Type: agaapi.GlobalAcceleratorEndpointTypeService,
+						Name: awssdk.String("test-service"),
+					},
+					{
+						Type:                        agaapi.GlobalAcceleratorEndpointTypeIngress,
+						Namespace:                   awssdk.String("ingress-ns"),
+						Name:                        awssdk.String("test-ingress"),
+						ClientIPPreservationEnabled: awssdk.Bool(true),
+					},
+					{
+						Type:      agaapi.GlobalAcceleratorEndpointTypeGateway,
+						Namespace: awssdk.String("gateway-ns"),
+						Name:      awssdk.String("test-gateway"), // Has warning status, should be skipped
+					},
+					{
+						Type: agaapi.GlobalAcceleratorEndpointTypeService,
+						Name: awssdk.String("non-existent-service"), // Not in loaded endpoints, should be skipped
+					},
+				},
+			},
+			loadedEndpoints: createTestEndpoints(),
+			want: []agamodel.EndpointConfiguration{
+				{
+					EndpointID:                  "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-service/1234567890",
+					Weight:                      awssdk.Int32(100),
+					ClientIPPreservationEnabled: nil,
+				},
+				{
+					EndpointID:                  "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/test-ingress/0987654321",
+					Weight:                      awssdk.Int32(200), // From the loaded endpoint
+					ClientIPPreservationEnabled: awssdk.Bool(true),
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			// Create endpointGroupBuilder
+			builder := &defaultEndpointGroupBuilder{
+				clusterRegion: "us-west-2",
+				gaNamespace:   "default",
+				logger:        testLogger,
+			}
+
+			// Call buildEndpointConfigurations
+			got, err := builder.buildEndpointConfigurations(ctx, tt.endpointGroup, tt.loadedEndpoints)
+
+			// Check for expected error
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.ElementsMatch(t, tt.want, got) // Use ElementsMatch to ignore order
+			}
+		})
+	}
+}
 
 func Test_defaultEndpointGroupBuilder_determineRegion(t *testing.T) {
 	tests := []struct {

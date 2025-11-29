@@ -36,6 +36,21 @@ func (m *MockGlobalAccelerator) EXPECT() *MockGlobalAcceleratorMockRecorder {
 	return m.recorder
 }
 
+// AddEndpointsWithContext mocks base method.
+func (m *MockGlobalAccelerator) AddEndpointsWithContext(arg0 context.Context, arg1 *globalaccelerator.AddEndpointsInput) (*globalaccelerator.AddEndpointsOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddEndpointsWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.AddEndpointsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AddEndpointsWithContext indicates an expected call of AddEndpointsWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) AddEndpointsWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddEndpointsWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).AddEndpointsWithContext), arg0, arg1)
+}
+
 // CreateAcceleratorWithContext mocks base method.
 func (m *MockGlobalAccelerator) CreateAcceleratorWithContext(arg0 context.Context, arg1 *globalaccelerator.CreateAcceleratorInput) (*globalaccelerator.CreateAcceleratorOutput, error) {
 	m.ctrl.T.Helper()
@@ -244,6 +259,21 @@ func (m *MockGlobalAccelerator) ListTagsForResourceWithContext(arg0 context.Cont
 func (mr *MockGlobalAcceleratorMockRecorder) ListTagsForResourceWithContext(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTagsForResourceWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).ListTagsForResourceWithContext), arg0, arg1)
+}
+
+// RemoveEndpointsWithContext mocks base method.
+func (m *MockGlobalAccelerator) RemoveEndpointsWithContext(arg0 context.Context, arg1 *globalaccelerator.RemoveEndpointsInput) (*globalaccelerator.RemoveEndpointsOutput, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RemoveEndpointsWithContext", arg0, arg1)
+	ret0, _ := ret[0].(*globalaccelerator.RemoveEndpointsOutput)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RemoveEndpointsWithContext indicates an expected call of RemoveEndpointsWithContext.
+func (mr *MockGlobalAcceleratorMockRecorder) RemoveEndpointsWithContext(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveEndpointsWithContext", reflect.TypeOf((*MockGlobalAccelerator)(nil).RemoveEndpointsWithContext), arg0, arg1)
 }
 
 // TagResourceWithContext mocks base method.

@@ -64,9 +64,15 @@ const (
 	agaResourcesGroupVersion = "aga.k8s.aws/v1beta1"
 	globalAcceleratorKind    = "GlobalAccelerator"
 
-	// Requeue constants for provisioning state monitoring
-	requeueMessage          = "Monitoring provisioning state"
-	statusUpdateRequeueTime = 1 * time.Minute
+	// Requeue constants for state monitoring
+	// requeueReasonAcceleratorInProgress indicates that the reconciliation is being requeued because
+	// the Global Accelerator is still in progress state
+	requeueReasonAcceleratorInProgress = "Waiting for Global Accelerator %s  with status 'IN_PROGRESS' to complete"
+
+	// requeueReasonEndpointsInWarningState indicates that the reconciliation is being requeued because
+	// there are endpoints in warning state that need to be periodically rechecked
+	requeueReasonEndpointsInWarningState = "Retrying endpoints for Global Accelerator %s  which did load successfully - will check availability again soon"
+	statusUpdateRequeueTime              = 1 * time.Minute
 
 	// Metric stage constants
 	MetricStageFetchGlobalAccelerator     = "fetch_globalAccelerator"
@@ -251,8 +257,8 @@ func (r *globalAcceleratorReconciler) cleanupGlobalAccelerator(ctx context.Conte
 	return nil
 }
 
-func (r *globalAcceleratorReconciler) buildModel(ctx context.Context, ga *agaapi.GlobalAccelerator) (core.Stack, *agamodel.Accelerator, error) {
-	stack, accelerator, err := r.modelBuilder.Build(ctx, ga)
+func (r *globalAcceleratorReconciler) buildModel(ctx context.Context, ga *agaapi.GlobalAccelerator, loadedEndpoints []*aga.LoadedEndpoint) (core.Stack, *agamodel.Accelerator, error) {
+	stack, accelerator, err := r.modelBuilder.Build(ctx, ga, loadedEndpoints)
 	if err != nil {
 		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, err
@@ -279,7 +285,7 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 	r.endpointResourcesManager.MonitorEndpointResources(ga, endpoints)
 
 	// Validate and load endpoint status using the endpoint loader
-	_, fatalErrors := r.endpointLoader.LoadEndpoints(ctx, ga, endpoints)
+	loadedEndpoints, fatalErrors := r.endpointLoader.LoadEndpoints(ctx, ga, endpoints)
 	if len(fatalErrors) > 0 {
 		err := fmt.Errorf("failed to load endpoints: %v", fatalErrors[0])
 		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedEndpointLoad, fmt.Sprintf("Failed to reconcile due to %v", err))
@@ -295,7 +301,7 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 	var accelerator *agamodel.Accelerator
 	var err error
 	buildModelFn := func() {
-		stack, accelerator, err = r.buildModel(ctx, ga)
+		stack, accelerator, err = r.buildModel(ctx, ga, loadedEndpoints)
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, MetricStageBuildModel, buildModelFn)
 	if err != nil {
@@ -326,14 +332,37 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx co
 
 	r.logger.Info("Successfully deployed GlobalAccelerator stack", "stackID", stack.StackID())
 
-	// Update GlobalAccelerator status after successful deployment
+	// Check if any endpoints have warning status and collect them
+	hasWarningEndpoints := false
+	for _, ep := range loadedEndpoints {
+		if ep.Status == aga.EndpointStatusWarning {
+			hasWarningEndpoints = true
+		}
+	}
+
+	// Update GlobalAccelerator status after successful deployment, including warning endpoints
 	requeueNeeded, err := r.statusUpdater.UpdateStatusSuccess(ctx, ga, accelerator)
 	if err != nil {
 		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return err
 	}
-	if requeueNeeded {
-		return ctrlerrors.NewRequeueNeededAfter(requeueMessage, statusUpdateRequeueTime)
+
+	// If we have warning endpoints, add a separate condition for them and requeue
+	if hasWarningEndpoints {
+		r.logger.V(1).Info("Detected endpoints in warning state, will requeue",
+			"Global Accelerator", k8s.NamespacedName(ga))
+
+		// Add event to notify about warning endpoints
+		warningMessage := fmt.Sprintf("Detected endpoints which did not load successfully. These endpoints will be rechecked shortly.")
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonWarningEndpoints, warningMessage)
+	}
+
+	if requeueNeeded || hasWarningEndpoints {
+		message := fmt.Sprintf(requeueReasonAcceleratorInProgress, k8s.NamespacedName(ga))
+		if hasWarningEndpoints {
+			message = fmt.Sprintf(requeueReasonEndpointsInWarningState, k8s.NamespacedName(ga))
+		}
+		return ctrlerrors.NewRequeueNeededAfter(message, statusUpdateRequeueTime)
 	}
 
 	r.eventRecorder.Event(ga, corev1.EventTypeNormal, k8s.GlobalAcceleratorEventReasonSuccessfullyReconciled, "Successfully reconciled")
@@ -379,7 +408,7 @@ func (r *globalAcceleratorReconciler) cleanupGlobalAcceleratorResources(ctx cont
 			if updateErr := r.statusUpdater.UpdateStatusDeletion(ctx, ga); updateErr != nil {
 				r.logger.Error(updateErr, "Failed to update status during accelerator deletion")
 			}
-			return ctrlerrors.NewRequeueNeeded("Waiting for accelerator to be disabled")
+			return ctrlerrors.NewRequeueNeeded(fmt.Sprintf(requeueReasonAcceleratorInProgress, k8s.NamespacedName(ga)))
 		}
 
 		// Any other error

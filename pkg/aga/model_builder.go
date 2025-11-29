@@ -17,7 +17,7 @@ import (
 // ModelBuilder is responsible for building model stack for a GlobalAccelerator.
 type ModelBuilder interface {
 	// Build model stack for a GlobalAccelerator.
-	Build(ctx context.Context, ga *agaapi.GlobalAccelerator) (core.Stack, *agamodel.Accelerator, error)
+	Build(ctx context.Context, ga *agaapi.GlobalAccelerator, loadedEndpoints []*LoadedEndpoint) (core.Stack, *agamodel.Accelerator, error)
 }
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
@@ -56,15 +56,14 @@ type defaultModelBuilder struct {
 }
 
 // Build model stack for a GlobalAccelerator.
-func (b *defaultModelBuilder) Build(ctx context.Context, ga *agaapi.GlobalAccelerator) (core.Stack, *agamodel.Accelerator, error) {
+func (b *defaultModelBuilder) Build(ctx context.Context, ga *agaapi.GlobalAccelerator, loadedEndpoints []*LoadedEndpoint) (core.Stack, *agamodel.Accelerator, error) {
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(ga)))
 
 	// Create fresh builder instances for each reconciliation
 	acceleratorBuilder := NewAcceleratorBuilder(b.trackingProvider, b.clusterName, b.clusterRegion, b.defaultTags, b.externalManagedTags, b.featureGates.Enabled(config.EnableDefaultTagsLowPriority))
 	listenerBuilder := NewListenerBuilder()
-	endpointGroupBuilder := NewEndpointGroupBuilder(b.clusterRegion)
-	// TODO
-	// endpointBuilder := NewEndpointBuilder()
+	endpointGroupBuilder := NewEndpointGroupBuilder(b.clusterRegion, ga.Namespace, b.logger)
+
 	// Build Accelerator
 	accelerator, err := acceleratorBuilder.Build(ctx, stack, ga)
 	if err != nil {
@@ -78,15 +77,13 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ga *agaapi.GlobalAccele
 		if err != nil {
 			return nil, nil, err
 		}
-		endpointGroups, err := endpointGroupBuilder.Build(ctx, stack, listeners, *ga.Spec.Listeners)
+
+		// Build endpoint groups with loaded endpoints
+		_, err := endpointGroupBuilder.Build(ctx, stack, listeners, *ga.Spec.Listeners, loadedEndpoints)
 		if err != nil {
 			return nil, nil, err
 		}
-		b.logger.V(1).Info("Listener and endpoint groups built", "listeners", listeners, "endpointGroups", endpointGroups)
 	}
-
-	// TODO: Add endpoint builder
-	// endpoints, err := endpointBuilder.Build(ctx, stack, endpointGroups, ga.Spec.Listeners)
 
 	return stack, accelerator, nil
 }
