@@ -41,6 +41,7 @@ func validateRouteStatus[R any](tf *framework.Framework, routes []R, routeStatus
 							Expect(string(cond.Status)).To(Equal(listener.resolvedRefsStatus))
 							Expect(cond.Reason).To(Equal(listener.resolvedRefReason))
 						} else if cond.Type == string(gwv1.RouteConditionAccepted) {
+							fmt.Printf("%+v, %+v\n", listener, cond)
 							Expect(string(cond.Status)).To(Equal(listener.acceptedStatus))
 							Expect(cond.Reason).To(Equal(listener.acceptedReason))
 						} else {

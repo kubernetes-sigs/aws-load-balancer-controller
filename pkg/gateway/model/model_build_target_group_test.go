@@ -2,8 +2,6 @@ package model
 
 import (
 	"context"
-	"testing"
-
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +20,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"testing"
 )
 
 func Test_buildTargetGroupSpec(t *testing.T) {
@@ -318,7 +317,7 @@ func Test_buildTargetGroupSpec(t *testing.T) {
 
 			builder := newTargetGroupBuilder("my-cluster", "vpc-xxx", tagger, tc.lbType, &mockTargetGroupBindingNetworkingBuilder{}, gateway.NewTargetGroupConfigConstructor(), tc.defaultTargetType, nil)
 
-			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(tc.gateway, tc.route, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
+			out, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(tc.gateway, tc.route, elbv2model.ProtocolHTTP, elbv2model.IPAddressTypeIPV4, tc.backend, nil)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return
@@ -824,6 +823,7 @@ func Test_buildTargetGroupName(t *testing.T) {
 			builder := targetGroupBuilderImpl{
 				clusterName: clusterName,
 			}
+
 			var targetControlPort *int32
 			if tc.targetGroupProps != nil {
 				targetControlPort = tc.targetGroupProps.TargetControlPort
@@ -917,6 +917,7 @@ func Test_buildTargetGroupIPAddressType(t *testing.T) {
 func Test_buildTargetGroupProtocol(t *testing.T) {
 	testCases := []struct {
 		name             string
+		listenerProtocol elbv2model.Protocol
 		lbType           elbv2model.LoadBalancerType
 		targetGroupProps *elbv2gw.TargetGroupProps
 		route            routeutils.RouteDescriptor
@@ -924,8 +925,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 		expectErr        bool
 	}{
 		{
-			name:   "alb - auto detect - http",
-			lbType: elbv2model.LoadBalancerTypeApplication,
+			name:             "alb - auto detect - http",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			lbType:           elbv2model.LoadBalancerTypeApplication,
 			route: &routeutils.MockRoute{
 				Kind:      routeutils.HTTPRouteKind,
 				Name:      "r1",
@@ -934,8 +936,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolHTTP,
 		},
 		{
-			name:   "alb - auto detect - grpc",
-			lbType: elbv2model.LoadBalancerTypeApplication,
+			name:             "alb - auto detect - grpc",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			lbType:           elbv2model.LoadBalancerTypeApplication,
 			route: &routeutils.MockRoute{
 				Kind:      routeutils.GRPCRouteKind,
 				Name:      "r1",
@@ -944,8 +947,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolHTTP,
 		},
 		{
-			name:   "alb - auto detect - tls",
-			lbType: elbv2model.LoadBalancerTypeApplication,
+			name:             "alb - auto detect - tls",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			lbType:           elbv2model.LoadBalancerTypeApplication,
 			route: &routeutils.MockRoute{
 				Kind:      routeutils.TLSRouteKind,
 				Name:      "r1",
@@ -954,8 +958,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolHTTPS,
 		},
 		{
-			name:   "nlb - auto detect - tcp",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - auto detect - tcp",
+			listenerProtocol: elbv2model.ProtocolTLS,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			route: &routeutils.MockRoute{
 				Kind:      routeutils.TCPRouteKind,
 				Name:      "r1",
@@ -964,8 +969,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolTCP,
 		},
 		{
-			name:   "alb - auto detect - udp",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "alb - auto detect - udp",
+			listenerProtocol: elbv2model.ProtocolUDP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			route: &routeutils.MockRoute{
 				Kind:      routeutils.UDPRouteKind,
 				Name:      "r1",
@@ -974,8 +980,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolUDP,
 		},
 		{
-			name:   "nlb - auto detect - tls",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - auto detect - tls",
+			listenerProtocol: elbv2model.ProtocolTCP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			route: &routeutils.MockRoute{
 				Kind:      routeutils.TLSRouteKind,
 				Name:      "r1",
@@ -984,8 +991,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolTLS,
 		},
 		{
-			name:   "alb - specified - http",
-			lbType: elbv2model.LoadBalancerTypeApplication,
+			name:             "alb - specified - http",
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			lbType:           elbv2model.LoadBalancerTypeApplication,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				Protocol: protocolPtr(elbv2gw.ProtocolHTTP),
 			},
@@ -997,8 +1005,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolHTTP,
 		},
 		{
-			name:   "alb - specified - https",
-			lbType: elbv2model.LoadBalancerTypeApplication,
+			name:             "alb - specified - https",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			lbType:           elbv2model.LoadBalancerTypeApplication,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				Protocol: protocolPtr(elbv2gw.ProtocolHTTPS),
 			},
@@ -1010,8 +1019,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolHTTPS,
 		},
 		{
-			name:   "alb - specified - invalid protocol",
-			lbType: elbv2model.LoadBalancerTypeApplication,
+			name:             "alb - specified - invalid protocol",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			lbType:           elbv2model.LoadBalancerTypeApplication,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				Protocol: protocolPtr(elbv2gw.ProtocolTCP),
 			},
@@ -1023,8 +1033,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expectErr: true,
 		},
 		{
-			name:   "nlb - auto detect - tcp",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - auto detect - tcp",
+			listenerProtocol: elbv2model.ProtocolTCP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			route: &routeutils.MockRoute{
 				Kind:      routeutils.TCPRouteKind,
 				Name:      "r1",
@@ -1033,18 +1044,20 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolTCP,
 		},
 		{
-			name:   "alb - auto detect - udp",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - auto detect - tcp_udp",
+			listenerProtocol: elbv2model.ProtocolTCP_UDP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			route: &routeutils.MockRoute{
 				Kind:      routeutils.UDPRouteKind,
 				Name:      "r1",
 				Namespace: "ns",
 			},
-			expected: elbv2model.ProtocolUDP,
+			expected: elbv2model.ProtocolTCP_UDP,
 		},
 		{
-			name:   "nlb - auto detect - tls",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - auto detect - tls",
+			listenerProtocol: elbv2model.ProtocolTLS,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			route: &routeutils.MockRoute{
 				Kind:      routeutils.TLSRouteKind,
 				Name:      "r1",
@@ -1053,8 +1066,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolTLS,
 		},
 		{
-			name:   "nlb - specified - tcp protocol",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - specified - tcp protocol",
+			listenerProtocol: elbv2model.ProtocolTCP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				Protocol: protocolPtr(elbv2gw.ProtocolTCP),
 			},
@@ -1066,8 +1080,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolTCP,
 		},
 		{
-			name:   "nlb - specified - udp protocol",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - specified - udp protocol",
+			listenerProtocol: elbv2model.ProtocolUDP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				Protocol: protocolPtr(elbv2gw.ProtocolUDP),
 			},
@@ -1079,8 +1094,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolUDP,
 		},
 		{
-			name:   "nlb - specified - tcpudp protocol",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - specified - tcpudp protocol",
+			listenerProtocol: elbv2model.ProtocolTCP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				Protocol: protocolPtr(elbv2gw.ProtocolTCP_UDP),
 			},
@@ -1092,8 +1108,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolTCP_UDP,
 		},
 		{
-			name:   "nlb - specified - tls protocol",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - specified - tls protocol",
+			listenerProtocol: elbv2model.ProtocolTCP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				Protocol: protocolPtr(elbv2gw.ProtocolTLS),
 			},
@@ -1105,8 +1122,9 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			expected: elbv2model.ProtocolTLS,
 		},
 		{
-			name:   "nlb - specified - invalid protocol",
-			lbType: elbv2model.LoadBalancerTypeNetwork,
+			name:             "nlb - specified - invalid protocol",
+			listenerProtocol: elbv2model.ProtocolTCP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				Protocol: protocolPtr(elbv2gw.ProtocolHTTPS),
 			},
@@ -1117,6 +1135,17 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			},
 			expectErr: true,
 		},
+		{
+			name:             "nlb - tcp_udp listener",
+			listenerProtocol: elbv2model.ProtocolTCP_UDP,
+			lbType:           elbv2model.LoadBalancerTypeNetwork,
+			route: &routeutils.MockRoute{
+				Kind:      routeutils.TCPRouteKind,
+				Name:      "r1",
+				Namespace: "ns",
+			},
+			expected: elbv2model.ProtocolTCP_UDP,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1124,7 +1153,7 @@ func Test_buildTargetGroupProtocol(t *testing.T) {
 			builder := targetGroupBuilderImpl{
 				loadBalancerType: tc.lbType,
 			}
-			res, err := builder.buildTargetGroupProtocol(tc.targetGroupProps, tc.route)
+			res, err := builder.buildTargetGroupProtocol(tc.targetGroupProps, tc.route, tc.listenerProtocol)
 			if tc.expectErr {
 				assert.Error(t, err)
 				return
@@ -1668,7 +1697,7 @@ func Test_buildTargetGroupTags(t *testing.T) {
 				}
 			}
 
-			tgSpec, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(gateway, route, elbv2model.IPAddressTypeIPV4, backend, tgProps)
+			tgSpec, err := builder.(*targetGroupBuilderImpl).buildTargetGroupSpec(gateway, route, elbv2model.ProtocolHTTP, elbv2model.IPAddressTypeIPV4, backend, tgProps)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -1774,7 +1803,7 @@ func Test_buildTargetGroupFromGateway(t *testing.T) {
 				impl.tgByResID[tgResID] = existingTG
 			}
 
-			result, err := impl.buildTargetGroupFromGateway(stack, tc.gateway, tc.listenerPort, tc.lbIPType, tc.route, *tc.backendConfig)
+			result, err := impl.buildTargetGroupFromGateway(stack, tc.gateway, tc.listenerPort, elbv2model.ProtocolHTTP, tc.lbIPType, tc.route, *tc.backendConfig)
 
 			assert.NoError(t, err)
 			assert.NotNil(t, result)
@@ -1793,125 +1822,6 @@ func Test_buildTargetGroupFromGateway(t *testing.T) {
 				assert.Equal(t, result.Spec.Name, frontendData.Name)
 				assert.Equal(t, tc.listenerPort, frontendData.Port)
 				assert.Equal(t, *result.Spec.Port, frontendData.TargetPort)
-			}
-		})
-	}
-}
-
-func Test_buildTargetControlPort(t *testing.T) {
-	testCases := []struct {
-		name             string
-		targetGroupProps *elbv2gw.TargetGroupProps
-		tgProtocol       elbv2model.Protocol
-		expectedPort     *int32
-		tgType           elbv2model.TargetType
-	}{
-		{
-			name:             "nil targetGroupProps",
-			targetGroupProps: nil,
-			tgProtocol:       elbv2model.ProtocolHTTP,
-			tgType:           elbv2model.TargetTypeIP,
-			expectedPort:     nil,
-		},
-		{
-			name: "nil TargetControlPort",
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				TargetControlPort: nil,
-			},
-			tgType:       elbv2model.TargetTypeIP,
-			tgProtocol:   elbv2model.ProtocolHTTP,
-			expectedPort: nil,
-		},
-		{
-			name: "HTTP protocol with target control port",
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				TargetControlPort: awssdk.Int32(3000),
-			},
-			tgProtocol:   elbv2model.ProtocolHTTP,
-			tgType:       elbv2model.TargetTypeIP,
-			expectedPort: awssdk.Int32(3000),
-		},
-		{
-			name: "HTTPS protocol with target control port",
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				TargetControlPort: awssdk.Int32(3000),
-			},
-			tgType:       elbv2model.TargetTypeIP,
-			tgProtocol:   elbv2model.ProtocolHTTPS,
-			expectedPort: awssdk.Int32(3000),
-		},
-		{
-			name: "TCP protocol with target control port - should return nil",
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				TargetControlPort: awssdk.Int32(3000),
-			},
-			tgType:       elbv2model.TargetTypeIP,
-			tgProtocol:   elbv2model.ProtocolTCP,
-			expectedPort: nil,
-		},
-		{
-			name: "UDP protocol with target control port - should return nil",
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				TargetControlPort: awssdk.Int32(3000),
-			},
-			tgProtocol:   elbv2model.ProtocolUDP,
-			tgType:       elbv2model.TargetTypeIP,
-			expectedPort: nil,
-		},
-		{
-			name: "TLS protocol with target control port - should return nil",
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				TargetControlPort: awssdk.Int32(3000),
-			},
-			tgProtocol:   elbv2model.ProtocolTLS,
-			tgType:       elbv2model.TargetTypeIP,
-			expectedPort: nil,
-		},
-		{
-			name: "Instance target type with target control port - should return nil",
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				TargetControlPort: awssdk.Int32(3000),
-			},
-			tgProtocol:   elbv2model.ProtocolTLS,
-			tgType:       elbv2model.TargetTypeInstance,
-			expectedPort: nil,
-		},
-		{
-			name: "ALB target type with target control port - should return nil",
-			targetGroupProps: &elbv2gw.TargetGroupProps{
-				TargetControlPort: awssdk.Int32(3000),
-			},
-			tgProtocol:   elbv2model.ProtocolTCP,
-			tgType:       elbv2model.TargetTypeALB,
-			expectedPort: nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			builder := &targetGroupBuilderImpl{}
-			result, err := builder.buildTargetControlPort(tc.targetGroupProps, tc.tgProtocol, tc.tgType)
-
-			// Check for error conditions
-			if tc.targetGroupProps != nil && tc.targetGroupProps.TargetControlPort != nil {
-				if tc.tgProtocol != elbv2model.ProtocolHTTP && tc.tgProtocol != elbv2model.ProtocolHTTPS {
-					assert.Error(t, err)
-					assert.Nil(t, result)
-					return
-				}
-				if tc.tgType == elbv2model.TargetTypeInstance || tc.tgType == elbv2model.TargetTypeALB {
-					assert.Error(t, err)
-					assert.Nil(t, result)
-					return
-				}
-			}
-
-			assert.NoError(t, err)
-			if tc.expectedPort == nil {
-				assert.Nil(t, result)
-			} else {
-				assert.NotNil(t, result)
-				assert.Equal(t, *tc.expectedPort, *result)
 			}
 		})
 	}

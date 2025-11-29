@@ -85,6 +85,95 @@ spec:
 * **L4 Listener Materialization:** The controller processes the `my-tcp-app-route` resource. Given that the `TCPRoute` validly references the `my-tcp-gateway` and its `tcp-app` listener, an **NLB Listener** is materialized on the provisioned NLB. This listener will be configured for `TCP` protocol on `port 8080`, as specified in the `Gateway`'s listener definition. A default forward action is subsequently configured on the NLB Listener, directing all incoming traffic on `port 8080` to the newly created Target Group for service `my-tcp-service` in `backendRefs` section of `my-tcp-app-route`.
 * **Target Group Creation:** An **AWS Target Group** is created for the Kubernetes Service `my-tcp-service` with default configuration. The cluster nodes are then registered as targets within this new Target Group.
 
+
+### Combined Protocols
+AWS NLB supports combining TCP and UDP on the same listener; the protocol is called TCP_UDP. This powerful
+paradigm allows the load balancer to serve different protocols for different applications on the same listener port.
+The LBC implements this protocol merging capability.
+
+#### Combined protocol quirks
+
+AWS NLB assumes that in a combined protocol set up,
+all targets are able to serve both protocols. To prevent configuration duplication, we follow this same pattern for constructing
+the combined protocol listener. TCP_UDP listeners are able to attach routes of type TCP and UDP, each route attached
+generates a TCP_UDP target group.
+
+
+#### Combined protocol examples
+
+```yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: my-tcp-udp-gateway
+  namespace: tcp-udp
+spec:
+  gatewayClassName: aws-nlb-gateway-class
+  listeners:
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    name: tcp-app
+    port: 80
+    protocol: TCP
+  - allowedRoutes:
+      namespaces:
+        from: Same
+    name: udp-app
+    port: 80
+    protocol: UDP
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: UDPRoute
+metadata:
+  name: my-udp-app-route
+  namespace: tcp-udp
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-tcp-udp-gateway
+    sectionName: udp-app
+  rules:
+  - backendRefs:
+    - group: ""
+      kind: Service
+      name: udpechoserver
+      port: 8080
+      weight: 1
+```
+
+To customize the target group created, it's no different from a single protocol
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: TargetGroupConfiguration
+metadata:
+  name: example-tg-config
+  namespace: tcp-udp
+spec:
+  defaultConfiguration:
+    targetType: ip
+  targetReference:
+    group: ""
+    kind: Service
+    name: udpechoserver
+```
+
+To customize the listener:
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: LoadBalancerConfiguration
+metadata:
+  name: nlb-lb-config
+  namespace: tcp-udp
+spec:
+  listenerConfigurations:
+  - protocolPort: TCP_UDP:80
+    listenerAttributes:
+    - key: tcp.idle_timeout.seconds
+      value: "60"
+```
+
 ### L4 Gateway API Limitations for NLBs
 The LBC implementation of the Gateway API for L4 routes, which provisions NLB, introduces specific constraints to align with NLB capabilities. These limitations are enforced during the reconciliation process and are critical for successful L4 traffic management.
 
