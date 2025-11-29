@@ -63,6 +63,9 @@ type LoadedEndpoint struct {
 	Status  LoadedEndpointStatus
 	Error   error  // The error that occurred during loading, if any
 	Message string // Human-readable message explaining the status
+
+	// K8s resource reference - used for port and protocol discovery
+	K8sResource client.Object
 }
 
 // IsUsable returns true if this endpoint can be used in the model
@@ -224,6 +227,10 @@ func (l *endpointLoaderImpl) loadResourceWithDNS(
 	result.DNSName = dnsName
 	result.ARN = arn
 	result.Message = fmt.Sprintf("Successfully resolved %s to LoadBalancer ARN", resourceType)
+
+	// Store the K8s resource object in the result as a generalized client.Object
+	// This is used for port and protocol auto-discovery
+	result.K8sResource = obj.DeepCopyObject().(client.Object)
 
 	return nil
 }

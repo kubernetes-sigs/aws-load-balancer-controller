@@ -47,7 +47,7 @@ type defaultEndpointGroupManager struct {
 // buildSDKPortOverrides converts model port overrides to SDK port overrides
 func (m *defaultEndpointGroupManager) buildSDKPortOverrides(modelPortOverrides []agamodel.PortOverride) []agatypes.PortOverride {
 	if len(modelPortOverrides) == 0 {
-		return nil
+		return []agatypes.PortOverride{}
 	}
 
 	portOverrides := make([]agatypes.PortOverride, 0, len(modelPortOverrides))
@@ -133,12 +133,12 @@ func (m *defaultEndpointGroupManager) buildSDKUpdateEndpointGroupInput(_ context
 	// Convert TrafficDialPercentage from int32 to float32 if provided
 	if resEndpointGroup.Spec.TrafficDialPercentage != nil {
 		updateInput.TrafficDialPercentage = awssdk.Float32(float32(*resEndpointGroup.Spec.TrafficDialPercentage))
+	} else {
+		updateInput.TrafficDialPercentage = nil
 	}
 
 	// Add port overrides if specified
-	if len(resEndpointGroup.Spec.PortOverrides) > 0 {
-		updateInput.PortOverrides = m.buildSDKPortOverrides(resEndpointGroup.Spec.PortOverrides)
-	}
+	updateInput.PortOverrides = m.buildSDKPortOverrides(resEndpointGroup.Spec.PortOverrides)
 
 	return updateInput, nil
 }
@@ -399,7 +399,7 @@ func (m *defaultEndpointGroupManager) ManageEndpoints(
 	configsToAdd, configsToUpdate, endpointsToRemove, isUpdateRequired := m.detectEndpointDrift(sdkEndpoints, resEndpointConfigs)
 
 	if len(configsToAdd) == 0 && len(endpointsToRemove) == 0 && !isUpdateRequired {
-		m.logger.V(1).Info("No drift found for endpoint group", "endpointGroupARN", endpointGroupARN)
+		m.logger.V(1).Info("No drift found for endpoints", "endpointGroupARN", endpointGroupARN)
 		return nil
 	}
 
