@@ -292,7 +292,7 @@ func (builder *targetGroupBindingNetworkBuilderImpl) buildPeersFromSourceRangeCI
 
 func (builder *targetGroupBindingNetworkBuilderImpl) buildHealthCheckSourceCIDRs(preserveClientIP bool, trafficSource, subnetCIDRs []string, tgPort, hcPort intstr.IntOrString,
 	tgProtocol elbv2model.Protocol, defaultRangeUsed bool) []string {
-	if tgProtocol != elbv2model.ProtocolUDP &&
+	if tgProtocol != elbv2model.ProtocolUDP && tgProtocol != elbv2model.ProtocolTCP_UDP &&
 		(hcPort.String() == shared_constants.HealthCheckPortTrafficPort || hcPort.IntValue() == tgPort.IntValue()) {
 		if !preserveClientIP {
 			return nil

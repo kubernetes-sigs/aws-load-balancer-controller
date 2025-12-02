@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -115,11 +116,25 @@ func (r *targetgroupConfigurationReconciler) handleDelete(tgConf *elbv2gw.Target
 		Name:      tgConf.Spec.TargetReference.Name,
 	}
 
-	eligibleForRemoval := r.serviceReferenceCounter.IsEligibleForRemoval(svcReference, allGateways)
+	svc := &corev1.Service{}
+	err := r.k8sClient.Get(context.Background(), svcReference, svc)
 
-	// if the targetgroup configuration is still in use, we should not delete it
-	if !eligibleForRemoval {
-		return fmt.Errorf("targetgroup configuration [%+v] is still in use", k8s.NamespacedName(tgConf))
+	referenceCheckNeeded := true
+	if err != nil {
+		notFoundErr := client.IgnoreNotFound(err)
+		if notFoundErr != nil {
+			return notFoundErr
+		}
+		referenceCheckNeeded = false
+	}
+
+	if referenceCheckNeeded {
+		eligibleForRemoval := r.serviceReferenceCounter.IsEligibleForRemoval(svcReference, allGateways)
+
+		// if the targetgroup configuration is still in use, we should not delete it
+		if !eligibleForRemoval {
+			return fmt.Errorf("targetgroup configuration [%+v] is still in use", k8s.NamespacedName(tgConf))
+		}
 	}
 	return r.finalizerManager.RemoveFinalizers(context.Background(), tgConf, shared_constants.TargetGroupConfigurationFinalizer)
 }
