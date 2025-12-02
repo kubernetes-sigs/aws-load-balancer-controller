@@ -37,7 +37,7 @@ func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *auxiliary
 		lbConfSpec.IpAddressType = &v6
 	}
 
-	svc := buildServiceSpec()
+	svc := buildServiceSpec(map[string]string{})
 	tgc := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svc)
 	return s.deploy(ctx, f, gwListeners, httprs, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{buildDeploymentSpec(f.Options.TestImageRegistry)}, []*corev1.Service{svc}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc}, lrConfSpec, secret, readinessGateEnabled)
 }

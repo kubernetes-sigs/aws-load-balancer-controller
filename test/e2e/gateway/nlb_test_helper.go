@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,7 +24,7 @@ type NLBTestStack struct {
 
 func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxiliaryStack *auxiliaryResourceStack, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
 	dpTCP := buildDeploymentSpec(f.Options.TestImageRegistry)
-	svcTCP := buildServiceSpec()
+	svcTCP := buildServiceSpec(map[string]string{})
 
 	dpUDP := buildUDPDeploymentSpec()
 	svcUDP := buildUDPServiceSpec()
@@ -69,7 +70,7 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 		}
 	}
 
-	tcprs := []*gwalpha2.TCPRoute{buildTCPRoute()}
+	tcprs := []*gwalpha2.TCPRoute{buildTCPRoute([]gwv1.ParentReference{}, []gwv1.BackendRef{})}
 	if auxiliaryStack != nil {
 		listeners = append(listeners, gwv1.Listener{
 			Name:     "other-ns",
@@ -88,6 +89,80 @@ func (s *NLBTestStack) Deploy(ctx context.Context, f *framework.Framework, auxil
 	udpr := buildUDPRoute("port8080")
 
 	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP, dpUDP}, []*corev1.Service{svcTCP, svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP, tgcUDP}, tcprs, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-e2e", readinessGateEnabled)
+
+	return s.nlbResourceStack.Deploy(ctx, f)
+}
+
+func (s *NLBTestStack) DeployTCPWeightedStack(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	dpTCP1 := buildCustomizableResponseDeploymentSpec("dp1", "yellow", f.Options.TestImageRegistry)
+	dpTCP2 := buildCustomizableResponseDeploymentSpec("dp2", "green", f.Options.TestImageRegistry)
+	svcTCP1 := buildServiceSpec(dpTCP1.Spec.Selector.MatchLabels)
+	svcTCP2 := buildServiceSpec(dpTCP2.Spec.Selector.MatchLabels)
+	svcTCP2.Name = svcTCP2.Name + "-2"
+
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
+	listeners := []gwv1.Listener{
+		{
+			Name:     "port80",
+			Port:     80,
+			Protocol: gwv1.TCPProtocolType,
+		},
+	}
+
+	if lbConfSpec.ListenerConfigurations != nil {
+		for _, lsr := range *lbConfSpec.ListenerConfigurations {
+			if lsr.ProtocolPort == "TLS:443" {
+				tlsMode := gwv1.TLSModeTerminate
+				listeners = append(listeners, gwv1.Listener{
+					Name:     "port443",
+					Port:     443,
+					Protocol: gwv1.TLSProtocolType,
+					TLS: &gwv1.GatewayTLSConfig{
+						Mode: &tlsMode,
+						CertificateRefs: []gwv1.SecretObjectReference{
+							{
+								Name: "tls-cert",
+							},
+						},
+					},
+				})
+				break
+			}
+		}
+	}
+
+	tcprs := []*gwalpha2.TCPRoute{buildTCPRoute([]gwv1.ParentReference{
+		{
+			Name: defaultName,
+		},
+	}, []gwv1.BackendRef{
+		{
+			BackendObjectReference: gwalpha2.BackendObjectReference{
+				Name: gwv1.ObjectName(svcTCP1.Name),
+				Port: (*gwv1.PortNumber)(&svcTCP1.Spec.Ports[0].Port),
+			},
+		},
+		{
+			BackendObjectReference: gwalpha2.BackendObjectReference{
+				Name: gwv1.ObjectName(svcTCP2.Name),
+				Port: (*gwv1.PortNumber)(&svcTCP2.Spec.Ports[0].Port),
+			},
+		},
+	})}
+
+	gw := buildBasicGatewaySpec(gwc, listeners)
+
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+	tgcTCP1 := buildTargetGroupConfig(svcTCP1.Name, tgConfSpec, svcTCP1)
+	tgcTCP2 := buildTargetGroupConfig(svcTCP2.Name, tgConfSpec, svcTCP2)
+
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP1, dpTCP2}, []*corev1.Service{svcTCP1, svcTCP2}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP1, tgcTCP2}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", readinessGateEnabled)
 
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
@@ -227,7 +302,8 @@ func (s *NLBTestStack) CreateFENLBReferenceGrant(ctx context.Context, f *framewo
 			},
 			To: []gwbeta1.ReferenceGrantTo{
 				{
-					Kind: "Gateway",
+					Kind:  "Gateway",
+					Group: gwbeta1.Group(gwbeta1.GroupName),
 				},
 			},
 		},
@@ -406,4 +482,16 @@ func udpRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.Route
 		return gwv1.RouteStatus{}, types.NamespacedName{}, err
 	}
 	return retrievedRoute.Status.RouteStatus, k8s.NamespacedName(&retrievedRoute), nil
+}
+
+func weightedRequestValidation(tf *framework.Framework, url string) {
+	bm := &bodyMatcher{
+		responseCount: map[string]int{},
+	}
+	for i := 0; i < 100; i++ {
+		_ = tf.HTTPVerifier.VerifyURL(url, bm)
+	}
+	// We have configured the weighted listener to have two body types.
+	// We aren't interested in verifying that the NLB is correctly splitting traffic.
+	Expect(len(bm.responseCount)).To(Equal(2))
 }

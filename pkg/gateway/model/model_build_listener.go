@@ -158,31 +158,45 @@ func (l listenerBuilderImpl) buildL4ListenerSpec(ctx context.Context, stack core
 	}
 	listenerSpec.ALPNPolicy = alpnPolicy
 
-	// For L4 Gateways we will assume that each L4 gateway Listener will have a single L4 route and each route will only have a single backendRef as weighted tgs are not supported for NLBs.
-	if len(routes) > 1 {
-		return &elbv2model.ListenerSpec{}, errors.Errorf("multiple routes %+v are not supported for listener %v:%v for gateway %v", routes, listenerSpec.Protocol, port, k8s.NamespacedName(gw))
-	}
-	routeDescriptor := routes[0]
-	if routeDescriptor.GetAttachedRules()[0].GetBackends() == nil || len(routeDescriptor.GetAttachedRules()[0].GetBackends()) == 0 {
-		l.logger.Info("Skipping listener creation due to no backend ref found for route", "route", routeDescriptor.GetRouteNamespacedName(), "listener", fmt.Sprintf("%v:%v", listenerSpec.Protocol, port), "gateway", k8s.NamespacedName(gw))
+	tgTuples, err := l.buildL4TargetGroupTuples(stack, routes, gw, port, listenerSpec.Protocol, lb.Spec.IPAddressType)
+
+	if len(tgTuples) == 0 {
+		l.logger.Info("Skipping listener creation due to no backend references", "listener", fmt.Sprintf("%v:%v", listenerSpec.Protocol, port), "gateway", k8s.NamespacedName(gw))
 		return nil, nil
 	}
-	if len(routeDescriptor.GetAttachedRules()[0].GetBackends()) > 1 {
-		return &elbv2model.ListenerSpec{}, errors.Errorf("multiple backend refs found for route %v for listener on port:protocol %v:%v for gateway %v , only one must be specified", routeDescriptor.GetRouteNamespacedName(), port, listenerSpec.Protocol, k8s.NamespacedName(gw))
-	}
-	backend := routeDescriptor.GetAttachedRules()[0].GetBackends()[0]
-
-	if backend.Weight == 0 {
-		l.logger.Info("Ignoring NLB backend with 0 weight.", "route", routeDescriptor.GetRouteNamespacedName())
-		return nil, nil
-	}
-
-	arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, listenerSpec.Protocol, lb.Spec.IPAddressType, routeDescriptor, backend)
-	if tgErr != nil {
-		return &elbv2model.ListenerSpec{}, tgErr
-	}
-	listenerSpec.DefaultActions = buildL4ListenerDefaultActions(arn)
+	listenerSpec.DefaultActions = buildL4ListenerDefaultActions(tgTuples, lbLsCfg)
 	return listenerSpec, nil
+}
+
+func (l listenerBuilderImpl) buildL4TargetGroupTuples(stack core.Stack, routes []routeutils.RouteDescriptor, gw *gwv1.Gateway, port int32, listenerProtocol elbv2model.Protocol, ipAddressType elbv2model.IPAddressType) ([]elbv2model.TargetGroupTuple, error) {
+	tgTuples := make([]elbv2model.TargetGroupTuple, 0)
+	for routeIndx := range routes {
+		routeDescriptor := routes[routeIndx]
+		if routeDescriptor.GetAttachedRules() == nil || len(routeDescriptor.GetAttachedRules()) == 0 {
+			continue
+		}
+
+		for _, rule := range routeDescriptor.GetAttachedRules() {
+			backends := rule.GetBackends()
+			for backendIndx := range backends {
+				backend := backends[backendIndx]
+				if backend.Weight == 0 {
+					l.logger.Info("Ignoring NLB backend with 0 weight.", "route", routeDescriptor.GetRouteNamespacedName())
+					continue
+				}
+
+				arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, listenerProtocol, ipAddressType, routeDescriptor, backend)
+				if tgErr != nil {
+					return tgTuples, tgErr
+				}
+				tgTuples = append(tgTuples, elbv2model.TargetGroupTuple{
+					TargetGroupARN: arn,
+					Weight:         awssdk.Int32(int32(backend.Weight)),
+				})
+			}
+		}
+	}
+	return tgTuples, nil
 }
 
 func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.Stack, ls *elbv2model.Listener, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, port int32, routes map[int32][]routeutils.RouteDescriptor) ([]types.NamespacedName, error) {
@@ -393,16 +407,20 @@ func buildL7ListenerNoBackendActions() elbv2model.Action {
 	return action500
 }
 
-func buildL4ListenerDefaultActions(arn core.StringToken) []elbv2model.Action {
+func buildL4ListenerDefaultActions(tuples []elbv2model.TargetGroupTuple, lbLsCfg *elbv2gw.ListenerConfiguration) []elbv2model.Action {
+
+	var stickyConfig *elbv2model.TargetGroupStickinessConfig
+	if lbLsCfg != nil && lbLsCfg.TargetGroupStickiness != nil {
+		stickyConfig = &elbv2model.TargetGroupStickinessConfig{}
+		stickyConfig.Enabled = lbLsCfg.TargetGroupStickiness
+	}
+
 	return []elbv2model.Action{
 		{
 			Type: elbv2model.ActionTypeForward,
 			ForwardConfig: &elbv2model.ForwardActionConfig{
-				TargetGroups: []elbv2model.TargetGroupTuple{
-					{
-						TargetGroupARN: arn,
-					},
-				},
+				TargetGroups:                tuples,
+				TargetGroupStickinessConfig: stickyConfig,
 			},
 		},
 	}

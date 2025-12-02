@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"fmt"
-
 	"github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,6 +24,7 @@ type listenerValidationInfo struct {
 }
 
 func validateRouteStatus[R any](tf *framework.Framework, routes []R, routeStatusConverter func(*framework.Framework, interface{}) (gwv1.RouteStatus, types.NamespacedName, error), validationMap map[string]routeValidationInfo) {
+
 	for _, createdRoute := range routes {
 		rs, nsn, err := routeStatusConverter(tf, createdRoute)
 		Expect(err).NotTo(HaveOccurred())
@@ -53,4 +53,5 @@ func validateRouteStatus[R any](tf *framework.Framework, routes []R, routeStatus
 			Expect(found).To(BeTrue())
 		}
 	}
+
 }

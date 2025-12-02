@@ -336,6 +336,11 @@ func (in *ListenerConfiguration) DeepCopyInto(out *ListenerConfiguration) {
 		*out = new(ALPNPolicy)
 		**out = **in
 	}
+	if in.TargetGroupStickiness != nil {
+		in, out := &in.TargetGroupStickiness, &out.TargetGroupStickiness
+		*out = new(bool)
+		**out = **in
+	}
 	if in.MutualAuthentication != nil {
 		in, out := &in.MutualAuthentication, &out.MutualAuthentication
 		*out = new(MutualAuthenticationAttributes)

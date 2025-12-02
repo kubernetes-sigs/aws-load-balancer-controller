@@ -568,6 +568,11 @@ spec:
                         protocols and ciphers are supported for secure listeners [HTTPS
                         or TLS listener].
                       type: string
+                    targetGroupStickiness:
+                      description: targetGroupStickiness [Network LoadBalancer] enables
+                        sticky routing for requests when using a listener configured
+                        with weighted target groups.
+                      type: boolean
                   required:
                   - protocolPort
                   type: object

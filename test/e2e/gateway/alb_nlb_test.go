@@ -167,7 +167,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(2 * time.Minute)
 			})
-			By("deploy reference grant that allows nlb <-> alb attachment", func() {
+			By("validate lb composition", func() {
 				// No ref grants, means no tg or listener.
 				expectedTargetGroups := []verifier.ExpectedTargetGroup{
 					{
