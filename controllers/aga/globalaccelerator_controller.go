@@ -107,6 +107,7 @@ func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder recor
 		config.ExternalManagedTags,
 		logger.WithName("aga-model-builder"),
 		metricsCollector,
+		cloud.ELBV2(),
 	)
 
 	// Create stack marshaller

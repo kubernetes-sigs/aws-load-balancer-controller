@@ -240,11 +240,17 @@ func (r *serviceReconciler) cleanupLoadBalancerResources(ctx context.Context, sv
 func (r *serviceReconciler) updateServiceStatus(ctx context.Context, lbDNS string, svc *corev1.Service) error {
 	if len(svc.Status.LoadBalancer.Ingress) != 1 ||
 		svc.Status.LoadBalancer.Ingress[0].IP != "" ||
-		svc.Status.LoadBalancer.Ingress[0].Hostname != lbDNS {
+		svc.Status.LoadBalancer.Ingress[0].Hostname != lbDNS ||
+		r.shouldUpdatePorts(svc) {
+
 		svcOld := svc.DeepCopy()
+
+		ports := r.buildPortsForStatus(svc)
+
 		svc.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
 			{
 				Hostname: lbDNS,
+				Ports:    ports,
 			},
 		}
 		if err := r.k8sClient.Status().Patch(ctx, svc, client.MergeFrom(svcOld)); err != nil {
@@ -252,6 +258,49 @@ func (r *serviceReconciler) updateServiceStatus(ctx context.Context, lbDNS strin
 		}
 	}
 	return nil
+}
+
+// shouldUpdatePorts checks if we need to update the port information in the status
+func (r *serviceReconciler) shouldUpdatePorts(svc *corev1.Service) bool {
+	if len(svc.Status.LoadBalancer.Ingress) != 1 {
+		return true
+	}
+
+	existingPorts := svc.Status.LoadBalancer.Ingress[0].Ports
+	expectedPorts := r.buildPortsForStatus(svc)
+
+	if len(existingPorts) != len(expectedPorts) {
+		return true
+	}
+
+	// Create maps for easier comparison
+	existingPortMap := make(map[int32]bool)
+	for _, port := range existingPorts {
+		existingPortMap[port.Port] = true
+	}
+
+	// Check if any expected port is missing
+	for _, port := range expectedPorts {
+		if !existingPortMap[port.Port] {
+			return true
+		}
+	}
+
+	return false
+}
+
+// buildPortsForStatus builds the list of port entries for the service status
+func (r *serviceReconciler) buildPortsForStatus(svc *corev1.Service) []corev1.PortStatus {
+	var ports []corev1.PortStatus
+
+	for _, svcPort := range svc.Spec.Ports {
+		ports = append(ports, corev1.PortStatus{
+			Port:     svcPort.Port,
+			Protocol: svcPort.Protocol,
+		})
+	}
+
+	return ports
 }
 
 func (r *serviceReconciler) cleanupServiceStatus(ctx context.Context, svc *corev1.Service) error {
