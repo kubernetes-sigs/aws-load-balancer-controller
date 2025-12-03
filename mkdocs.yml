@@ -40,6 +40,11 @@ nav:
               - ListenerRuleConfiguration: guide/gateway/listenerruleconfig.md
               - Gateway Chaining: guide/gateway/gateway_chaining.md
               - Specification: guide/gateway/spec.md
+      - AWS Global Accelerator (New):
+          - Overview: guide/globalaccelerator/aga-controller.md
+          - Installation: guide/globalaccelerator/installation.md
+          - Examples: guide/globalaccelerator/examples.md
+          - Specification: guide/globalaccelerator/spec.md
       - Tasks:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
           - SSL Redirect: guide/tasks/ssl_redirect.md

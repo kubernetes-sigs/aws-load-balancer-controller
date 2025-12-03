@@ -17,11 +17,11 @@ func IsPortInRanges(port int32, portRanges []agamodel.PortRange) bool {
 	return false
 }
 
-// IsAGAControllerEnabled checks if the AGA controller is both enabled via feature gate
+// IsGlobalAcceleratorControllerEnabled checks if the Global Accelerator controller is both enabled via feature gate
 // and if the region is in a partition that supports Global Accelerator
-func IsAGAControllerEnabled(featureGates config.FeatureGates, region string) bool {
-	// First check if AGA controller is enabled via feature gate
-	if !featureGates.Enabled(config.AGAController) {
+func IsGlobalAcceleratorControllerEnabled(featureGates config.FeatureGates, region string) bool {
+	// First check if Global Accelerator controller is enabled via feature gate
+	if !featureGates.Enabled(config.GlobalAcceleratorController) {
 		return false
 	}
 

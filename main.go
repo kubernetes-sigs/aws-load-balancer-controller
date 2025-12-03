@@ -241,7 +241,7 @@ func main() {
 	}
 
 	// Setup GlobalAccelerator controller only if enabled
-	if aga.IsAGAControllerEnabled(controllerCFG.FeatureGates, cloud.Region()) {
+	if aga.IsGlobalAcceleratorControllerEnabled(controllerCFG.FeatureGates, cloud.Region()) {
 		agaReconciler := agacontroller.NewGlobalAcceleratorReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("globalAccelerator"),
 			finalizerManager, controllerCFG, cloud, ctrl.Log.WithName("controllers").WithName("globalAccelerator"), lbcMetricsCollector, reconcileCounters)
 		if err := agaReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {
@@ -442,7 +442,7 @@ func main() {
 	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 
 	// Setup GlobalAccelerator validator only if enabled
-	if aga.IsAGAControllerEnabled(controllerCFG.FeatureGates, cloud.Region()) {
+	if aga.IsGlobalAcceleratorControllerEnabled(controllerCFG.FeatureGates, cloud.Region()) {
 		agawebhook.NewGlobalAcceleratorValidator(ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	}
 	//+kubebuilder:scaffold:builder
