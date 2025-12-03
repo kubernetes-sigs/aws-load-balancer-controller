@@ -64,6 +64,12 @@ type GlobalAccelerator interface {
 
 	// ListTagsForResource lists tags for a resource.
 	ListTagsForResourceWithContext(ctx context.Context, input *globalaccelerator.ListTagsForResourceInput) (*globalaccelerator.ListTagsForResourceOutput, error)
+
+	// AddEndpoints adds endpoints to an endpoint group.
+	AddEndpointsWithContext(ctx context.Context, input *globalaccelerator.AddEndpointsInput) (*globalaccelerator.AddEndpointsOutput, error)
+
+	// RemoveEndpoints removes endpoints from an endpoint group.
+	RemoveEndpointsWithContext(ctx context.Context, input *globalaccelerator.RemoveEndpointsInput) (*globalaccelerator.RemoveEndpointsOutput, error)
 }
 
 // NewGlobalAccelerator constructs new GlobalAccelerator implementation.
@@ -255,4 +261,20 @@ func (c *defaultGlobalAccelerator) ListEndpointGroupsAsList(ctx context.Context,
 		result = append(result, output.EndpointGroups...)
 	}
 	return result, nil
+}
+
+func (c *defaultGlobalAccelerator) AddEndpointsWithContext(ctx context.Context, input *globalaccelerator.AddEndpointsInput) (*globalaccelerator.AddEndpointsOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "AddEndpoints")
+	if err != nil {
+		return nil, err
+	}
+	return client.AddEndpoints(ctx, input)
+}
+
+func (c *defaultGlobalAccelerator) RemoveEndpointsWithContext(ctx context.Context, input *globalaccelerator.RemoveEndpointsInput) (*globalaccelerator.RemoveEndpointsOutput, error) {
+	client, err := c.awsClientsProvider.GetGlobalAcceleratorClient(ctx, "RemoveEndpoints")
+	if err != nil {
+		return nil, err
+	}
+	return client.RemoveEndpoints(ctx, input)
 }

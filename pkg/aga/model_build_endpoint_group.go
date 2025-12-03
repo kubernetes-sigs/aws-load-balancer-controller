@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/go-logr/logr"
 	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
@@ -12,16 +13,21 @@ import (
 // endpointGroupBuilder builds EndpointGroup model resources
 type endpointGroupBuilder interface {
 	// Build builds all endpoint groups for all listeners
-	Build(ctx context.Context, stack core.Stack, listeners []*agamodel.Listener, listenerConfigs []agaapi.GlobalAcceleratorListener) ([]*agamodel.EndpointGroup, error)
+	Build(ctx context.Context, stack core.Stack, listeners []*agamodel.Listener,
+		listenerConfigs []agaapi.GlobalAcceleratorListener, loadedEndpoints []*LoadedEndpoint) ([]*agamodel.EndpointGroup, error)
 
 	// buildEndpointGroupsForListener builds endpoint groups for a specific listener
-	buildEndpointGroupsForListener(ctx context.Context, stack core.Stack, listener *agamodel.Listener, endpointGroups []agaapi.GlobalAcceleratorEndpointGroup, listenerIndex int) ([]*agamodel.EndpointGroup, error)
+	buildEndpointGroupsForListener(ctx context.Context, stack core.Stack, listener *agamodel.Listener,
+		endpointGroups []agaapi.GlobalAcceleratorEndpointGroup, listenerIndex int,
+		loadedEndpoints []*LoadedEndpoint) ([]*agamodel.EndpointGroup, error)
 }
 
 // NewEndpointGroupBuilder constructs new endpointGroupBuilder
-func NewEndpointGroupBuilder(clusterRegion string) endpointGroupBuilder {
+func NewEndpointGroupBuilder(clusterRegion string, gaNamespace string, logger logr.Logger) endpointGroupBuilder {
 	return &defaultEndpointGroupBuilder{
 		clusterRegion: clusterRegion,
+		gaNamespace:   gaNamespace,
+		logger:        logger,
 	}
 }
 
@@ -29,10 +35,13 @@ var _ endpointGroupBuilder = &defaultEndpointGroupBuilder{}
 
 type defaultEndpointGroupBuilder struct {
 	clusterRegion string
+	gaNamespace   string
+	logger        logr.Logger
 }
 
 // Build builds EndpointGroup model resources
-func (b *defaultEndpointGroupBuilder) Build(ctx context.Context, stack core.Stack, listeners []*agamodel.Listener, listenerConfigs []agaapi.GlobalAcceleratorListener) ([]*agamodel.EndpointGroup, error) {
+func (b *defaultEndpointGroupBuilder) Build(ctx context.Context, stack core.Stack, listeners []*agamodel.Listener,
+	listenerConfigs []agaapi.GlobalAcceleratorListener, loadedEndpoints []*LoadedEndpoint) ([]*agamodel.EndpointGroup, error) {
 	if listeners == nil || len(listeners) == 0 {
 		return nil, nil
 	}
@@ -51,7 +60,7 @@ func (b *defaultEndpointGroupBuilder) Build(ctx context.Context, stack core.Stac
 			continue
 		}
 
-		listenerEndpointGroups, err := b.buildEndpointGroupsForListener(ctx, stack, listener, *listenerConfig.EndpointGroups, i)
+		listenerEndpointGroups, err := b.buildEndpointGroupsForListener(ctx, stack, listener, *listenerConfig.EndpointGroups, i, loadedEndpoints)
 		if err != nil {
 			return nil, err
 		}
@@ -114,11 +123,13 @@ func (b *defaultEndpointGroupBuilder) validateEndpointPortOverridesWithinListene
 }
 
 // buildEndpointGroupsForListener builds EndpointGroup models for a specific listener
-func (b *defaultEndpointGroupBuilder) buildEndpointGroupsForListener(ctx context.Context, stack core.Stack, listener *agamodel.Listener, endpointGroups []agaapi.GlobalAcceleratorEndpointGroup, listenerIndex int) ([]*agamodel.EndpointGroup, error) {
+func (b *defaultEndpointGroupBuilder) buildEndpointGroupsForListener(ctx context.Context, stack core.Stack,
+	listener *agamodel.Listener, endpointGroups []agaapi.GlobalAcceleratorEndpointGroup,
+	listenerIndex int, loadedEndpoints []*LoadedEndpoint) ([]*agamodel.EndpointGroup, error) {
 	var result []*agamodel.EndpointGroup
 
 	for i, endpointGroup := range endpointGroups {
-		spec, err := b.buildEndpointGroupSpec(ctx, listener, endpointGroup)
+		spec, err := b.buildEndpointGroupSpec(ctx, listener, endpointGroup, loadedEndpoints)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +143,9 @@ func (b *defaultEndpointGroupBuilder) buildEndpointGroupsForListener(ctx context
 }
 
 // buildEndpointGroupSpec builds the EndpointGroupSpec for a single EndpointGroup model resource
-func (b *defaultEndpointGroupBuilder) buildEndpointGroupSpec(ctx context.Context, listener *agamodel.Listener, endpointGroup agaapi.GlobalAcceleratorEndpointGroup) (agamodel.EndpointGroupSpec, error) {
+func (b *defaultEndpointGroupBuilder) buildEndpointGroupSpec(ctx context.Context,
+	listener *agamodel.Listener, endpointGroup agaapi.GlobalAcceleratorEndpointGroup,
+	loadedEndpoints []*LoadedEndpoint) (agamodel.EndpointGroupSpec, error) {
 	region, err := b.determineRegion(endpointGroup)
 	if err != nil {
 		return agamodel.EndpointGroupSpec{}, err
@@ -146,13 +159,89 @@ func (b *defaultEndpointGroupBuilder) buildEndpointGroupSpec(ctx context.Context
 		return agamodel.EndpointGroupSpec{}, err
 	}
 
+	// Build endpoint configurations from both static configurations and loaded endpoints
+	endpointConfigurations, err := b.buildEndpointConfigurations(ctx, endpointGroup, loadedEndpoints)
+	if err != nil {
+		return agamodel.EndpointGroupSpec{}, err
+	}
+
 	return agamodel.EndpointGroupSpec{
-		ListenerARN:           listener.ListenerARN(),
-		Region:                region,
-		TrafficDialPercentage: trafficDialPercentage,
-		PortOverrides:         portOverrides,
+		ListenerARN:            listener.ListenerARN(),
+		Region:                 region,
+		TrafficDialPercentage:  trafficDialPercentage,
+		PortOverrides:          portOverrides,
+		EndpointConfigurations: endpointConfigurations,
 	}, nil
 }
+
+// generateEndpointKey creates a consistent string key for endpoint lookup
+func generateEndpointKey(ep agaapi.GlobalAcceleratorEndpoint, gaNamespace string) string {
+	namespace := gaNamespace
+	if ep.Namespace != nil {
+		namespace = awssdk.ToString(ep.Namespace)
+	}
+	name := awssdk.ToString(ep.Name)
+
+	if ep.Type == agaapi.GlobalAcceleratorEndpointTypeEndpointID {
+		return fmt.Sprintf("%s/%s", ep.Type, awssdk.ToString(ep.EndpointID))
+	}
+	return fmt.Sprintf("%s/%s/%s", ep.Type, namespace, name)
+}
+
+// buildEndpointConfigurations builds endpoint configurations from both static configurations in the API struct
+// and from successfully loaded endpoints
+func (b *defaultEndpointGroupBuilder) buildEndpointConfigurations(_ context.Context,
+	endpointGroup agaapi.GlobalAcceleratorEndpointGroup, loadedEndpoints []*LoadedEndpoint) ([]agamodel.EndpointConfiguration, error) {
+
+	var endpointConfigurations []agamodel.EndpointConfiguration
+
+	// Skip if no endpoints defined in the endpoint group
+	if endpointGroup.Endpoints == nil {
+		return nil, nil
+	}
+
+	// Build a map of loaded endpoints with for quick lookup
+	loadedEndpointsMap := make(map[string]*LoadedEndpoint)
+	for _, le := range loadedEndpoints {
+		key := le.GetKey()
+		loadedEndpointsMap[key] = le
+
+	}
+
+	// Process the endpoints defined in the CRD and match with loaded endpoints
+	for _, ep := range *endpointGroup.Endpoints {
+		// Create key for lookup using the helper function
+		lookupKey := generateEndpointKey(ep, b.gaNamespace)
+
+		// Find the loaded endpoint
+		if loadedEndpoint, found := loadedEndpointsMap[lookupKey]; found {
+			// Add endpoint to model stack only if its in Loaded status and has valid ARN
+			if loadedEndpoint.Status == EndpointStatusLoaded {
+				// Create a base configuration with the loaded endpoint's ARN
+				endpointConfig := agamodel.EndpointConfiguration{
+					EndpointID: loadedEndpoint.ARN,
+				}
+				endpointConfig.Weight = awssdk.Int32(loadedEndpoint.Weight)
+				endpointConfig.ClientIPPreservationEnabled = ep.ClientIPPreservationEnabled
+				endpointConfigurations = append(endpointConfigurations, endpointConfig)
+			} else {
+				// Log warning for endpoints which are not loaded successfully during loading and has Warning status
+				b.logger.Info("Endpoint not added to endpoint group as no valid ARN was found during loading",
+					"endpoint", lookupKey,
+					"message", loadedEndpoint.Message,
+					"error", loadedEndpoint.Error)
+			}
+		} else {
+			b.logger.Info("Endpoint not found in loaded endpoints",
+				"endpoint", lookupKey)
+		}
+	}
+
+	return endpointConfigurations, nil
+}
+
+// Note: The TargetsEndpointGroup method is no longer needed since we match endpoints based on
+// the explicit references in the GlobalAcceleratorEndpoint resources under each endpoint group
 
 // validateListenerPortOverrideWithinListenerPortRanges ensures all listener ports used in port overrides are
 // contained within the listener's port ranges
