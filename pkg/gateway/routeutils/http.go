@@ -103,6 +103,10 @@ func (httpRoute *httpRouteDescription) GetRouteNamespacedName() types.Namespaced
 	return k8s.NamespacedName(httpRoute.route)
 }
 
+func (httpRoute *httpRouteDescription) GetRouteIdentifier() string {
+	return string(httpRoute.GetRouteKind()) + "-" + httpRoute.GetRouteNamespacedName().String()
+}
+
 func (httpRoute *httpRouteDescription) GetBackendRefs() []gwv1.BackendRef {
 	backendRefs := make([]gwv1.BackendRef, 0)
 	if httpRoute.route.Spec.Rules != nil {

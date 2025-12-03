@@ -32,8 +32,10 @@ type RouteMetadata struct {
 }
 
 type ParentRefGateway struct {
-	Name      string
-	Namespace string
+	Name        string
+	Namespace   string
+	Port        *gwv1.PortNumber
+	SectionName *gwv1.SectionName
 }
 
 type RouteReconciler interface {
@@ -53,11 +55,12 @@ const (
 	RouteStatusInfoRejectedMessageNamespaceNotMatch         = "Listener does not allow route attachment, namespace does not match between listener and route"
 	RouteStatusInfoRejectedMessageKindNotMatch              = "Listener does not allow route attachment, kind does not match between listener and route"
 	RouteStatusInfoRejectedParentRefNotExist                = "ParentRefDoesNotExist"
+	RouteStatusInfoRejectedMessageParentNotMatch            = "Route parentRef does not match listener"
 	RouteStatusInfoRejectedMessageParentSectionNameNotMatch = "Route parentRef sectionName does not match listener name"
 	RouteStatusInfoRejectedMessageParentPortNotMatch        = "Route parentRef port does not match listener port"
 )
 
-func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message string, routeNamespaceName types.NamespacedName, routeKind RouteKind, routeGeneration int64, gw gwv1.Gateway) RouteData {
+func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message string, routeNamespaceName types.NamespacedName, routeKind RouteKind, routeGeneration int64, gw gwv1.Gateway, port *gwv1.PortNumber, sectionName *gwv1.SectionName) RouteData {
 	return RouteData{
 		RouteStatusInfo: RouteStatusInfo{
 			Accepted:     accepted,
@@ -72,8 +75,10 @@ func GenerateRouteData(accepted bool, resolvedRefs bool, reason string, message 
 			RouteGeneration: routeGeneration,
 		},
 		ParentRefGateway: ParentRefGateway{
-			Name:      gw.Name,
-			Namespace: gw.Namespace,
+			Name:        gw.Name,
+			Namespace:   gw.Namespace,
+			Port:        port,
+			SectionName: sectionName,
 		},
 	}
 }

@@ -156,11 +156,11 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		originalRouteStatus = r.Status.Parents
 		ParentRefs = r.Spec.ParentRefs
 	}
+	routeNamespace := route.GetNamespace()
 
 	// set conditions
 	var newRouteStatus []gwv1.RouteParentStatus
-	originalRouteStatusMap := createOriginalRouteStatusMap(originalRouteStatus)
-
+	originalRouteStatusMap := createOriginalRouteStatusMap(originalRouteStatus, routeNamespace)
 	for _, parentRef := range ParentRefs {
 		newRouteParentStatus := gwv1.RouteParentStatus{
 			ParentRef:      parentRef,
@@ -168,23 +168,22 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 			Conditions:     []metav1.Condition{},
 		}
 		// if status related to parentRef exists, keep the condition first
-		if status, exists := originalRouteStatusMap[getParentStatusKey(parentRef)]; exists {
+		if status, exists := originalRouteStatusMap[getParentStatusKey(parentRef, routeNamespace)]; exists {
 			newRouteParentStatus.Conditions = status.Conditions
 		}
-		// Namespace is the namespace of the referent. When unspecified, this refers to the local namespace of the Route.
-		namespace := route.GetNamespace()
-		if parentRef.Namespace != nil {
-			namespace = string(*parentRef.Namespace)
-		}
+
+		// Generate key for routeData's parentRef
+		routeDataParentRefKey := getParentRefKeyFromRouteData(routeData.ParentRefGateway)
 
 		// do not allow backward generation update, Accepted and ResolvedRef always have same generation based on our implementation
 		if (len(newRouteParentStatus.Conditions) != 0 && newRouteParentStatus.Conditions[0].ObservedGeneration <= routeData.RouteMetadata.RouteGeneration) || len(newRouteParentStatus.Conditions) == 0 {
 			// for a given parentRef, if it has a statusInfo, this means condition is updated, override route condition based on route status info
-			if namespace == routeData.ParentRefGateway.Namespace && string(parentRef.Name) == routeData.ParentRefGateway.Name {
+			parentRefKey := getParentStatusKey(parentRef, routeNamespace)
+			if parentRefKey == routeDataParentRefKey {
 				d.setConditionsWithRouteStatusInfo(route, &newRouteParentStatus, routeData.RouteStatusInfo)
 			}
 
-			// resolve ref Gateway, if parentRef does not have namespace, getting it from Route
+			// handle parentRefNotExist: resolve ref Gateway, if parentRef does not have namespace, getting it from Route
 			if _, err := d.resolveRefGateway(parentRef, route.GetNamespace()); err != nil {
 				// set conditions if resolvedRef = false
 				d.setConditionsBasedOnResolveRefGateway(route, &newRouteParentStatus, err)
@@ -283,9 +282,9 @@ func (d *routeReconcilerImpl) setConditionsBasedOnResolveRefGateway(route client
 		},
 		{
 			Type:               string(gwv1.RouteConditionResolvedRefs),
-			Status:             metav1.ConditionFalse,
-			Reason:             routeutils.RouteStatusInfoRejectedParentRefNotExist,
-			Message:            resolveErr.Error(),
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gwv1.RouteConditionResolvedRefs),
+			Message:            "",
 			LastTransitionTime: timeNow,
 			ObservedGeneration: route.GetGeneration(),
 		},
@@ -310,12 +309,12 @@ func (d *routeReconcilerImpl) isRouteStatusIdentical(routeOld client.Object, rou
 
 	// build maps, key is a string which is combined from parentRef fields
 	for _, status := range routeOldStatus {
-		key := getParentStatusKey(status.ParentRef)
+		key := getParentStatusKey(status.ParentRef, routeOld.GetNamespace())
 		oldStatusMap[key] = status
 	}
 
 	for _, status := range routeNewStatus {
-		key := getParentStatusKey(status.ParentRef)
+		key := getParentStatusKey(status.ParentRef, route.GetNamespace())
 		newStatusMap[key] = status
 	}
 
@@ -359,11 +358,37 @@ func getRouteStatus(route client.Object) []gwv1.RouteParentStatus {
 	return routeStatus
 }
 
+// Helper function to generate key from RouteData's ParentRefGateway, use same format as getParentStatusKey
+func getParentRefKeyFromRouteData(gatewayRef routeutils.ParentRefGateway) string {
+
+	namespace := gatewayRef.Namespace
+
+	sectionName := ""
+	if gatewayRef.SectionName != nil {
+		sectionName = string(*gatewayRef.SectionName)
+	}
+
+	port := ""
+	if gatewayRef.Port != nil {
+		port = strconv.Itoa(int(*gatewayRef.Port))
+	}
+
+	key := fmt.Sprintf("%s/%s/%s/%s",
+		namespace,
+		gatewayRef.Name,
+		sectionName,
+		port)
+
+	return key
+}
+
 // Helper function to generate a unique key for a RouteParentStatus
-func getParentStatusKey(ref gwv1.ParentReference) string {
+func getParentStatusKey(ref gwv1.ParentReference, routeNamespace string) string {
 	namespace := ""
 	if ref.Namespace != nil {
 		namespace = string(*ref.Namespace)
+	} else {
+		namespace = routeNamespace
 	}
 
 	sectionName := ""
@@ -376,19 +401,7 @@ func getParentStatusKey(ref gwv1.ParentReference) string {
 		port = strconv.Itoa(int(*ref.Port))
 	}
 
-	group := ""
-	if ref.Group != nil {
-		group = string(*ref.Group)
-	}
-
-	kind := ""
-	if ref.Kind != nil {
-		kind = string(*ref.Kind)
-	}
-
-	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s",
-		group,
-		kind,
+	key := fmt.Sprintf("%s/%s/%s/%s",
 		namespace,
 		string(ref.Name),
 		sectionName,
@@ -427,10 +440,10 @@ func areConditionsEqual(oldConditions, newConditions []metav1.Condition) bool {
 	return true
 }
 
-func createOriginalRouteStatusMap(originalRouteStatus []gwv1.RouteParentStatus) map[string]gwv1.RouteParentStatus {
+func createOriginalRouteStatusMap(originalRouteStatus []gwv1.RouteParentStatus, routeNamespace string) map[string]gwv1.RouteParentStatus {
 	originalStatusMap := make(map[string]gwv1.RouteParentStatus)
 	for i := range originalRouteStatus {
-		key := getParentStatusKey(originalRouteStatus[i].ParentRef)
+		key := getParentStatusKey(originalRouteStatus[i].ParentRef, routeNamespace)
 		originalStatusMap[key] = originalRouteStatus[i]
 	}
 	return originalStatusMap

@@ -239,19 +239,23 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 		},
 	}
 	testCases := []struct {
-		name             string
-		listener         gwv1.Listener
-		route            preLoadRouteDescriptor
-		result           bool
-		failedRouteCount int
+		name                string
+		listener            gwv1.Listener
+		route               preLoadRouteDescriptor
+		result              bool
+		expectMatchedParent bool
 	}{
 		{
 			name: "allows attachment section and port correct",
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
@@ -263,15 +267,20 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			result: true,
+			result:              true,
+			expectMatchedParent: true,
 		},
 		{
 			name: "allows attachment section specified",
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname")),
 							},
 						},
@@ -282,15 +291,20 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			result: true,
+			result:              true,
+			expectMatchedParent: true,
 		},
 		{
 			name: "allows attachment port specified",
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
+								Name: "gw",
 								Port: (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
 						},
@@ -301,27 +315,35 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			result: true,
+			result:              true,
+			expectMatchedParent: true,
 		},
 		{
 			name: "multiple parent refs one ref allows attachment",
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname1")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname2")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname3")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
@@ -333,8 +355,8 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			result:           true,
-			failedRouteCount: 3,
+			result:              true,
+			expectMatchedParent: true,
 		},
 		{
 			name: "multiple parent refs one ref none attachment",
@@ -366,7 +388,8 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			failedRouteCount: 4,
+			result:              false,
+			expectMatchedParent: false,
 		},
 		{
 			name: "section name mismatch",
@@ -385,7 +408,8 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			failedRouteCount: 1,
+			result:              false,
+			expectMatchedParent: false,
 		},
 		{
 			name: "port mismatch",
@@ -404,7 +428,8 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			failedRouteCount: 1,
+			result:              false,
+			expectMatchedParent: false,
 		},
 	}
 
@@ -413,9 +438,13 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 			helper := &routeAttachmentHelperImpl{
 				logger: logr.Discard(),
 			}
-			allowed, failedRouteData := helper.routeAllowsAttachmentToListener(gw, tc.listener, tc.route)
+			allowed, matchedParentRef := helper.routeAllowsAttachmentToListener(gw, tc.listener, tc.route)
 			assert.Equal(t, tc.result, allowed)
-			assert.Equal(t, tc.failedRouteCount, len(failedRouteData))
+			if tc.expectMatchedParent {
+				assert.NotNil(t, matchedParentRef)
+			} else {
+				assert.Nil(t, matchedParentRef)
+			}
 		})
 	}
 }

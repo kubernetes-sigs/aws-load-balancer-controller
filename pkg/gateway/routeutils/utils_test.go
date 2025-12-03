@@ -77,6 +77,11 @@ func (m mockPreLoadRouteDescriptor) GetRouteCreateTimestamp() time.Time {
 	panic("implement me")
 }
 
+func (m mockPreLoadRouteDescriptor) GetRouteIdentifier() string {
+	//TODO implement me
+	panic("implement me")
+}
+
 func (m mockPreLoadRouteDescriptor) GetCompatibleHostnamesByPort() map[int32][]gwv1.Hostname {
 	return map[int32][]gwv1.Hostname{80: m.compatibleHostnames}
 }

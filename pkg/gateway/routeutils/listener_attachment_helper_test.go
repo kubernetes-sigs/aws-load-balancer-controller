@@ -23,6 +23,12 @@ func (mnss *mockNamespaceSelector) getNamespacesFromSelector(_ context.Context, 
 }
 
 func Test_listenerAllowsAttachment(t *testing.T) {
+	kind := gwv1.Kind("HTTPRoute")
+	port := gwv1.PortNumber(80)
+	matchedParentRef := gwv1.ParentReference{
+		Kind: &kind,
+		Port: &port,
+	}
 
 	type expectedRouteStatus struct {
 		reason  string
@@ -90,7 +96,7 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			hostnameFromGrpcRoute := map[types.NamespacedName][]gwv1.Hostname{}
 			_, result, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
-			}, route, hostnameFromHttpRoute, hostnameFromGrpcRoute)
+			}, route, &matchedParentRef, hostnameFromHttpRoute, hostnameFromGrpcRoute)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, result)
 			if tc.expectedStatusUpdate == nil {

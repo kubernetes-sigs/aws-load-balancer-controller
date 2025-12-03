@@ -98,6 +98,10 @@ func (udpRoute *udpRouteDescription) GetRouteNamespacedName() types.NamespacedNa
 	return k8s.NamespacedName(udpRoute.route)
 }
 
+func (udpRoute *udpRouteDescription) GetRouteIdentifier() string {
+	return string(udpRoute.GetRouteKind()) + "-" + udpRoute.GetRouteNamespacedName().String()
+}
+
 func (udpRoute *udpRouteDescription) GetRawRoute() interface{} {
 	return udpRoute.route
 }
