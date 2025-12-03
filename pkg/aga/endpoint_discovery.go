@@ -2,19 +2,18 @@ package aga
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 
 	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,7 +50,7 @@ func NewEndpointDiscovery(client client.Client, logger logr.Logger, elbv2Client 
 // 1. Identify the endpoint type (Service, Ingress, Gateway, or LoadBalancer via EndpointID)
 // 2. Extract protocol and port information from the stored K8s resource or AWS API
 // 3. For Service endpoints, handle both TCP and UDP protocols based on the Service definition
-// 4. For Ingress endpoints, parse annotations to get port configurations
+// 4. For Ingress endpoints, extract ports from the load balancer status
 // 5. For Gateway endpoints, map Gateway protocols to GlobalAccelerator protocols
 // 6. For LoadBalancer (EndpointID) endpoints, query AWS API to get listener information
 func (d *EndpointDiscovery) FetchProtocolPortInfo(ctx context.Context, endpoint *LoadedEndpoint) ([]ProtocolPortInfo, error) {
@@ -89,130 +88,80 @@ func (d *EndpointDiscovery) fetchServiceProtocolPortInfo(_ context.Context, endp
 			k8s.NamespacedName(endpoint.K8sResource), endpoint.K8sResource)
 	}
 
-	// Group ports by port number to check for TCP_UDP services (same port number, different protocols)
-	portMap := make(map[int32][]corev1.ServicePort)
-	for _, port := range svc.Spec.Ports {
-		key := port.Port
-		if vals, exists := portMap[key]; exists {
-			portMap[key] = append(vals, port)
-		} else {
-			portMap[key] = []corev1.ServicePort{port}
+	// Get ports from the service status
+	if len(svc.Status.LoadBalancer.Ingress) > 0 && len(svc.Status.LoadBalancer.Ingress[0].Ports) > 0 {
+		// Group ports by port number to check for TCP_UDP services (same port number, different protocols)
+		portMap := make(map[int32][]corev1.PortStatus)
+		for _, port := range svc.Status.LoadBalancer.Ingress[0].Ports {
+			key := port.Port
+			if vals, exists := portMap[key]; exists {
+				portMap[key] = append(vals, port)
+			} else {
+				portMap[key] = []corev1.PortStatus{port}
+			}
 		}
+
+		// Check for TCP_UDP services and return error if found
+		for portNum, portStatuses := range portMap {
+			if len(portStatuses) > 1 {
+				// TCP_UDP service case not supported
+				return nil, fmt.Errorf("auto-discovery does not support TCP_UDP services on the same port %d for endpoint %v",
+					portNum, k8s.NamespacedName(svc))
+			}
+		}
+
+		// Group ports by protocol
+		tcpPorts := []int32{}
+		udpPorts := []int32{}
+
+		for _, port := range svc.Status.LoadBalancer.Ingress[0].Ports {
+			if port.Protocol == corev1.ProtocolUDP {
+				udpPorts = append(udpPorts, port.Port)
+			} else {
+				tcpPorts = append(tcpPorts, port.Port)
+			}
+		}
+		return createProtocolPortsInfo(tcpPorts, udpPorts), nil
 	}
 
-	// Check for TCP_UDP services and return error if found
-	for portNum, servicePorts := range portMap {
-		if len(servicePorts) > 1 {
-			// TCP_UDP service case not supported
-			return nil, fmt.Errorf("auto-discovery does not support TCP_UDP services on the same port %d for endpoint %v",
-				portNum, k8s.NamespacedName(svc))
-		}
-	}
-
-	// Group ports by protocol
-	tcpPorts := []int32{}
-	udpPorts := []int32{}
-
-	for _, port := range svc.Spec.Ports {
-		if port.Protocol == corev1.ProtocolUDP {
-			udpPorts = append(udpPorts, port.Port)
-		} else {
-			tcpPorts = append(tcpPorts, port.Port)
-		}
-	}
-
-	return createProtocolPortsInfo(tcpPorts, udpPorts), nil
+	// No ports found in status
+	return nil, fmt.Errorf("no port information available in service status for endpoint %v",
+		k8s.NamespacedName(svc))
 }
 
 // fetchIngressProtocolPortInfo extracts protocol and port information from an Ingress endpoint
-// This function parses annotations to determine the correct ports and protocols
-func (d *EndpointDiscovery) fetchIngressProtocolPortInfo(ctx context.Context, endpoint *LoadedEndpoint) ([]ProtocolPortInfo, error) {
+// This function uses the listener ports stored in the Ingress status
+func (d *EndpointDiscovery) fetchIngressProtocolPortInfo(_ context.Context, endpoint *LoadedEndpoint) ([]ProtocolPortInfo, error) {
 	ing, ok := endpoint.K8sResource.(*networkingv1.Ingress)
 	if !ok {
 		return nil, fmt.Errorf("expected Ingress object for endpoint %v but got %T",
 			k8s.NamespacedName(endpoint.K8sResource), endpoint.K8sResource)
 	}
 
-	// Check if there's a certificate (from annotations or IngressClassParams)
-	hasCert, err := d.ingressHasCertificate(ctx, ing)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check for ingress certificates: %w", err)
+	// Get ports from the ALB entry in status using FindIngressTwoDNSName
+	var tcpPorts []int32
+	albDNS, _ := shared_utils.FindIngressTwoDNSName(ing)
+
+	// Find the entry that corresponds to the ALB DNS
+	if albDNS != "" {
+		for _, ingressEntry := range ing.Status.LoadBalancer.Ingress {
+			if ingressEntry.Hostname == albDNS && len(ingressEntry.Ports) > 0 {
+				for _, portStatus := range ingressEntry.Ports {
+					tcpPorts = append(tcpPorts, portStatus.Port)
+				}
+				break
+			}
+		}
 	}
 
-	// Check for listen-ports annotation
-	var tcpPorts []int32
-	rawListenPorts := ""
-	if d.annotationParser.ParseStringAnnotation(annotations.IngressSuffixListenPorts, &rawListenPorts, ing.Annotations) {
-		// Parse the listen-ports JSON format
-		// Example format: [{"HTTP": 80}, {"HTTPS": 443}, {"HTTP": 8080}, {"HTTPS": 8443}]
-		var err error
-		tcpPorts, err = d.parseIngressListenPorts(rawListenPorts, ing)
-		if err != nil {
-			return nil, err
-		}
-		if len(tcpPorts) == 0 {
-			return nil, fmt.Errorf("no valid ports found in listen-ports configuration for ingress %v", k8s.NamespacedName(ing))
-		}
-	} else {
-		// Use default ports based on certificate presence
-		if hasCert {
-			tcpPorts = []int32{443} // HTTPS port
-		} else {
-			tcpPorts = []int32{80} // HTTP port
-		}
+	if len(tcpPorts) == 0 {
+		return nil, fmt.Errorf("no valid ports found for ingress %v", k8s.NamespacedName(ing))
 	}
 
 	// Return TCP protocol with discovered ports
 	return []ProtocolPortInfo{
 		{Protocol: agaapi.GlobalAcceleratorProtocolTCP, Ports: tcpPorts},
 	}, nil
-}
-
-// ingressHasCertificate checks if an Ingress has certificates defined either in
-// annotations or IngressClassParams
-func (d *EndpointDiscovery) ingressHasCertificate(ctx context.Context, ing *networkingv1.Ingress) (bool, error) {
-	// First check annotations
-	certARN := ""
-	hasCert := d.annotationParser.ParseStringAnnotation(annotations.IngressSuffixCertificateARN, &certARN, ing.Annotations) && certARN != ""
-
-	// If no certificate in annotations, check IngressClassParams if available
-	if !hasCert && ing.Spec.IngressClassName != nil {
-		hasCertFromParams, err := d.hasCertificatesInIngressClassParams(ctx, *ing.Spec.IngressClassName)
-		if err != nil {
-			return false, fmt.Errorf("error checking IngressClassParams for certificates: %w", err)
-		}
-		return hasCertFromParams, nil
-	}
-
-	return hasCert, nil
-}
-
-// parseIngressListenPorts parses the listen-ports annotation and extracts port numbers
-func (d *EndpointDiscovery) parseIngressListenPorts(rawListenPorts string, ing *networkingv1.Ingress) ([]int32, error) {
-	var entries []map[string]int32
-	if err := json.Unmarshal([]byte(rawListenPorts), &entries); err != nil {
-		d.logger.V(1).Error(err, "failed to parse listen-ports configuration for ingress",
-			"listen-ports", rawListenPorts,
-			"ingress", k8s.NamespacedName(ing))
-		return nil, fmt.Errorf("failed to parse listen-ports annotation: %w", err)
-	}
-
-	if len(entries) == 0 {
-		d.logger.V(1).Info("empty listen-ports configuration for ingress",
-			"listen-ports", rawListenPorts,
-			"ingress", k8s.NamespacedName(ing))
-		return nil, fmt.Errorf("empty listen-ports configuration")
-	}
-
-	// Extract all ports from the listen-ports annotation
-	var tcpPorts []int32
-	for _, entry := range entries {
-		for _, port := range entry {
-			tcpPorts = append(tcpPorts, port)
-		}
-	}
-
-	return tcpPorts, nil
 }
 
 // fetchGatewayProtocolPortInfo extracts protocol and port information from a Gateway endpoint
@@ -223,8 +172,6 @@ func (d *EndpointDiscovery) fetchGatewayProtocolPortInfo(_ context.Context, endp
 			k8s.NamespacedName(endpoint.K8sResource), endpoint.K8sResource)
 	}
 
-	// The test expects individual protocol-port mappings (one item per port) rather than grouped by protocol
-	// For test compatibility, we'll create separate protocol groups for each port
 	tcpPortsMap := make(map[int32]bool)
 	udpPortsMap := make(map[int32]bool)
 
@@ -282,37 +229,6 @@ func (d *EndpointDiscovery) fetchLoadBalancerProtocolPortInfo(ctx context.Contex
 		"udpPorts", udpPorts)
 
 	return protocolPortsInfo, nil
-}
-
-// hasCertificatesInIngressClassParams checks if the specified IngressClass has certificate ARNs defined
-// in its associated IngressClassParams
-func (d *EndpointDiscovery) hasCertificatesInIngressClassParams(ctx context.Context, ingressClassName string) (bool, error) {
-	// First, get the IngressClass object to find its Parameters reference
-	ingressClass := &networkingv1.IngressClass{}
-	if err := d.client.Get(ctx, client.ObjectKey{Name: ingressClassName}, ingressClass); err != nil {
-		return false, fmt.Errorf("failed to get IngressClass %s: %w", ingressClassName, err)
-	}
-
-	// Check if the IngressClass has Parameters defined
-	if ingressClass.Spec.Parameters == nil {
-		return false, nil
-	}
-
-	// Check if the Parameters refer to an IngressClassParams object
-	if ingressClass.Spec.Parameters.APIGroup == nil ||
-		*ingressClass.Spec.Parameters.APIGroup != "elbv2.k8s.aws" ||
-		ingressClass.Spec.Parameters.Kind != "IngressClassParams" {
-		return false, nil
-	}
-
-	// Now get the IngressClassParams object
-	ingressClassParams := &elbv2api.IngressClassParams{}
-	if err := d.client.Get(ctx, client.ObjectKey{Name: ingressClass.Spec.Parameters.Name}, ingressClassParams); err != nil {
-		return false, fmt.Errorf("failed to get IngressClassParams %s: %w", ingressClass.Spec.Parameters.Name, err)
-	}
-
-	// Check if certificate ARNs are defined
-	return len(ingressClassParams.Spec.CertificateArn) > 0, nil
 }
 
 // getProtocolPortFromELBListener get the protocol and port info from ELB listener

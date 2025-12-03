@@ -14,8 +14,6 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
-	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -32,7 +30,7 @@ func TestFetchEndpointProtocolPortInfo(t *testing.T) {
 	httpsType := gwv1.HTTPSProtocolType
 	udpType := gwv1.UDPProtocolType
 
-	// Test Service endpoint
+	// Test Service endpoint with ports in status
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-service",
@@ -42,16 +40,34 @@ func TestFetchEndpointProtocolPortInfo(t *testing.T) {
 			Type: corev1.ServiceTypeLoadBalancer,
 			Ports: []corev1.ServicePort{
 				{
-					Port: 80,
+					Name:     "http",
+					Protocol: corev1.ProtocolTCP, // This protocol should NOT be used
+					Port:     9999,               // This port should NOT be used
 				},
-				{
-					Port: 443,
+			},
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						Hostname: "test-nlb.us-west-2.elb.amazonaws.com",
+						Ports: []corev1.PortStatus{
+							{
+								Port:     80,
+								Protocol: corev1.ProtocolTCP,
+							},
+							{
+								Port:     443,
+								Protocol: corev1.ProtocolTCP,
+							},
+						},
+					},
 				},
 			},
 		},
 	}
 
-	t.Run("Service endpoint with TCP ports", func(t *testing.T) {
+	t.Run("Service endpoint with TCP ports in status", func(t *testing.T) {
 		serviceEndpoint := &LoadedEndpoint{
 			Type:        agaapi.GlobalAcceleratorEndpointTypeService,
 			Name:        "test-service",
@@ -67,7 +83,6 @@ func TestFetchEndpointProtocolPortInfo(t *testing.T) {
 		protocolPortsInfo, err := discovery.FetchProtocolPortInfo(ctx, serviceEndpoint)
 		assert.NoError(t, err)
 
-		// With the updated structure, we expect a single protocol with multiple ports
 		assert.Len(t, protocolPortsInfo, 1, "Should have one protocol group (TCP)")
 		assert.Equal(t, agaapi.GlobalAcceleratorProtocolTCP, protocolPortsInfo[0].Protocol, "Protocol should be TCP")
 
@@ -80,7 +95,7 @@ func TestFetchEndpointProtocolPortInfo(t *testing.T) {
 		assert.True(t, portsFound[443], "Port 443 should be present")
 	})
 
-	// Test Service with multi-protocol ports
+	// Test Service with multi-protocol ports in status
 	svcMultiProto := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-service-multi-proto",
@@ -90,20 +105,32 @@ func TestFetchEndpointProtocolPortInfo(t *testing.T) {
 			Type: corev1.ServiceTypeLoadBalancer,
 			Ports: []corev1.ServicePort{
 				{
-					Name:     "http",
-					Protocol: corev1.ProtocolTCP,
-					Port:     80,
+					Port: 9999, // Should be ignored as we're using status ports
 				},
-				{
-					Name:     "udp-port",
-					Protocol: corev1.ProtocolUDP,
-					Port:     53,
+			},
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						Hostname: "test-nlb-multi.us-west-2.elb.amazonaws.com",
+						Ports: []corev1.PortStatus{
+							{
+								Port:     80,
+								Protocol: corev1.ProtocolTCP,
+							},
+							{
+								Port:     53,
+								Protocol: corev1.ProtocolUDP,
+							},
+						},
+					},
 				},
 			},
 		},
 	}
 
-	t.Run("Service with multi-protocol ports", func(t *testing.T) {
+	t.Run("Service with multi-protocol ports in status", func(t *testing.T) {
 		serviceMultiProtoEndpoint := &LoadedEndpoint{
 			Type:        agaapi.GlobalAcceleratorEndpointTypeService,
 			Name:        "test-service-multi-proto",
@@ -148,9 +175,25 @@ func TestFetchEndpointProtocolPortInfo(t *testing.T) {
 			Name:      "test-ingress",
 			Namespace: "default",
 		},
+		Status: networkingv1.IngressStatus{
+			LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+				Ingress: []networkingv1.IngressLoadBalancerIngress{
+					{
+						Hostname: "test-alb.us-west-2.elb.amazonaws.com",
+						Ports: []networkingv1.IngressPortStatus{
+							{Port: 80},
+							{Port: 443},
+						},
+					},
+					{
+						Hostname: "test-nlb.amazonaws.com", // Non-ALB entry
+					},
+				},
+			},
+		},
 	}
 
-	t.Run("Ingress endpoint with default port", func(t *testing.T) {
+	t.Run("Ingress endpoint with ALB DNS and ports in status", func(t *testing.T) {
 		ingressEndpoint := &LoadedEndpoint{
 			Type:        agaapi.GlobalAcceleratorEndpointTypeIngress,
 			Name:        "test-ingress",
@@ -165,10 +208,14 @@ func TestFetchEndpointProtocolPortInfo(t *testing.T) {
 		discovery := NewEndpointDiscovery(mockClient, logger, mockElbv2Client)
 		protocolPortsInfo, err := discovery.FetchProtocolPortInfo(ctx, ingressEndpoint)
 		assert.NoError(t, err)
-		assert.Len(t, protocolPortsInfo, 1) // Default is just HTTP port 80
+		assert.Len(t, protocolPortsInfo, 1) // TCP protocol group
 		assert.Equal(t, agaapi.GlobalAcceleratorProtocolTCP, protocolPortsInfo[0].Protocol)
-		assert.Len(t, protocolPortsInfo[0].Ports, 1, "Should have one port in TCP group")
-		assert.Equal(t, int32(80), protocolPortsInfo[0].Ports[0], "Port should be 80")
+		assert.Len(t, protocolPortsInfo[0].Ports, 2, "Should have two ports in TCP group")
+
+		// Check if both ports are present
+		ports := protocolPortsInfo[0].Ports
+		assert.Contains(t, ports, int32(80), "Port 80 should be in ports")
+		assert.Contains(t, ports, int32(443), "Port 443 should be in ports")
 	})
 
 	// Test Gateway endpoint
@@ -246,120 +293,112 @@ func TestFetchIngressProtocolPortInfo(t *testing.T) {
 
 	ctx := context.TODO()
 
-	// Define test IngressClass and IngressClassParams to test certificate discovery from IngressClassParams
-	ingressClass := &networkingv1.IngressClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alb",
-		},
-		Spec: networkingv1.IngressClassSpec{
-			Controller: "ingress.k8s.aws/alb",
-			Parameters: &networkingv1.IngressClassParametersReference{
-				APIGroup: awssdk.String("elbv2.k8s.aws"),
-				Kind:     "IngressClassParams",
-				Name:     "alb-class-params",
-			},
-		},
-	}
-
-	ingressClassParams := &elbv2api.IngressClassParams{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alb-class-params",
-		},
-		Spec: elbv2api.IngressClassParamsSpec{
-			CertificateArn: []string{"arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012"},
-		},
-	}
-
 	testCases := []struct {
-		name                string
-		annotations         map[string]string
-		expectedPortCount   int
-		expectedPorts       map[int32]bool
-		expectError         bool
-		errorSubstring      string
-		hasIngressClassName bool
-		ingressClassName    string
+		name              string
+		ingressStatus     []networkingv1.IngressLoadBalancerIngress
+		expectedPortCount int
+		expectedPorts     map[int32]bool
+		expectError       bool
+		errorSubstring    string
 	}{
 		{
-			name:              "Default HTTP port when no annotations",
-			annotations:       map[string]string{},
-			expectedPortCount: 1,
-			expectedPorts:     map[int32]bool{80: true},
-			expectError:       false,
-		},
-		{
-			name: "Default HTTPS port when certificate annotation is present",
-			annotations: map[string]string{
-				"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012",
-			},
-			expectedPortCount: 1,
-			expectedPorts:     map[int32]bool{443: true},
-			expectError:       false,
-		},
-		{
-			name:                "Default HTTPS port when certificate is in IngressClassParams",
-			annotations:         map[string]string{},
-			expectedPortCount:   1,
-			expectedPorts:       map[int32]bool{443: true},
-			expectError:         false,
-			hasIngressClassName: true,
-			ingressClassName:    "alb",
-		},
-		{
-			name: "Custom listen-ports configuration",
-			annotations: map[string]string{
-				"alb.ingress.kubernetes.io/listen-ports": `[{"HTTP": 8080}, {"HTTPS": 8443}]`,
+			name: "Ingress with ALB entry and ports in status",
+			ingressStatus: []networkingv1.IngressLoadBalancerIngress{
+				{
+					Hostname: "test-alb.us-west-2.elb.amazonaws.com",
+					Ports: []networkingv1.IngressPortStatus{
+						{Port: 80},
+						{Port: 443},
+					},
+				},
 			},
 			expectedPortCount: 2,
-			expectedPorts:     map[int32]bool{8080: true, 8443: true},
+			expectedPorts:     map[int32]bool{80: true, 443: true},
 			expectError:       false,
 		},
 		{
-			name: "Multiple entries for same protocol in listen-ports configuration",
-			annotations: map[string]string{
-				"alb.ingress.kubernetes.io/listen-ports": `[{"HTTP": 80}, {"HTTPS": 443}, {"HTTP": 8080}, {"HTTPS": 8443}]`,
+			name: "Ingress with ALB entry but no ports in status",
+			ingressStatus: []networkingv1.IngressLoadBalancerIngress{
+				{
+					Hostname: "test-alb.us-west-2.elb.amazonaws.com",
+					// No ports
+				},
 			},
-			expectedPortCount: 4,
-			expectedPorts:     map[int32]bool{80: true, 443: true, 8080: true, 8443: true},
+			expectedPortCount: 0,
+			expectedPorts:     map[int32]bool{},
+			expectError:       true,
+			errorSubstring:    "no valid ports found",
+		},
+		{
+			name: "Ingress with ALB and NLB entries in status (should use ALB ports)",
+			ingressStatus: []networkingv1.IngressLoadBalancerIngress{
+				{
+					Hostname: "test-alb.us-west-2.elb.amazonaws.com",
+					Ports: []networkingv1.IngressPortStatus{
+						{Port: 80},
+						{Port: 443},
+					},
+				},
+				{
+					Hostname: "test-nlb.amazonaws.com", // NLB entry, should be ignored for port discovery
+				},
+			},
+			expectedPortCount: 2,
+			expectedPorts:     map[int32]bool{80: true, 443: true},
 			expectError:       false,
 		},
 		{
-			name: "Invalid listen-ports configuration",
-			annotations: map[string]string{
-				"alb.ingress.kubernetes.io/listen-ports": `invalid-json`,
+			name: "Ingress with NLB entry first and ALB entry second in status",
+			ingressStatus: []networkingv1.IngressLoadBalancerIngress{
+				{
+					Hostname: "test-nlb.amazonaws.com", // NLB entry, should be ignored for port discovery
+				},
+				{
+					Hostname: "test-alb.us-west-2.elb.amazonaws.com",
+					Ports: []networkingv1.IngressPortStatus{
+						{Port: 443},
+						{Port: 8443},
+					},
+				},
 			},
-			expectedPortCount: 0,
-			expectError:       true,
-			errorSubstring:    "failed to parse listen-ports annotation",
+			expectedPortCount: 2,
+			expectedPorts:     map[int32]bool{443: true, 8443: true},
+			expectError:       false,
 		},
 		{
-			name: "Empty listen-ports configuration",
-			annotations: map[string]string{
-				"alb.ingress.kubernetes.io/listen-ports": `[]`,
+			name: "Ingress with no ALB entry in status",
+			ingressStatus: []networkingv1.IngressLoadBalancerIngress{
+				{
+					Hostname: "test-nlb.amazonaws.com", // Not an ALB entry
+				},
 			},
 			expectedPortCount: 0,
+			expectedPorts:     map[int32]bool{},
 			expectError:       true,
-			errorSubstring:    "empty listen-ports configuration",
+			errorSubstring:    "no valid ports found",
 		},
 		{
-			name: "Invalid protocol configuration",
-			annotations: map[string]string{
-				"alb.ingress.kubernetes.io/listen-ports": `{"invalid-format": true}`,
-			},
+			name:              "Ingress with empty status",
+			ingressStatus:     []networkingv1.IngressLoadBalancerIngress{},
 			expectedPortCount: 0,
+			expectedPorts:     map[int32]bool{},
 			expectError:       true,
-			errorSubstring:    "failed to parse",
+			errorSubstring:    "no valid ports found",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create Ingress resource with test case annotations
+			// Create Ingress resource with test case status
 			ingress := &networkingv1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-ingress-" + tc.name,
-					Namespace:   "default",
-					Annotations: tc.annotations,
+					Name:      "test-ingress-" + tc.name,
+					Namespace: "default",
+				},
+				Status: networkingv1.IngressStatus{
+					LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+						Ingress: tc.ingressStatus,
+					},
 				},
 			}
 
@@ -372,43 +411,10 @@ func TestFetchIngressProtocolPortInfo(t *testing.T) {
 				K8sResource: ingress,
 			}
 
-			// Add IngressClassName if test case requires it
-			if tc.hasIngressClassName {
-				ingress.Spec.IngressClassName = &tc.ingressClassName
-			}
-
 			// Create mocks
 			mockClient := mock_client.NewMockClient(ctrl)
 			mockElbv2Client := services.NewMockELBV2(ctrl)
 			logger := zap.New()
-
-			// Configure mocks to handle IngressClassParams lookup based on test case
-			if tc.hasIngressClassName && tc.ingressClassName == "alb" {
-				// Mock getting IngressClass
-				mockClient.EXPECT().
-					Get(gomock.Any(),
-						client.ObjectKey{Name: tc.ingressClassName},
-						gomock.AssignableToTypeOf(&networkingv1.IngressClass{}),
-						gomock.Any()).
-					DoAndReturn(func(ctx context.Context, key client.ObjectKey, obj *networkingv1.IngressClass, _ ...any) error {
-						*obj = *ingressClass
-						return nil
-					})
-
-				// Mock getting IngressClassParams
-				mockClient.EXPECT().
-					Get(gomock.Any(),
-						client.ObjectKey{Name: "alb-class-params"},
-						gomock.AssignableToTypeOf(&elbv2api.IngressClassParams{}),
-						gomock.Any()).
-					DoAndReturn(func(ctx context.Context, key client.ObjectKey, obj *elbv2api.IngressClassParams, _ ...any) error {
-						*obj = *ingressClassParams
-						return nil
-					})
-			} else {
-				// For other test cases, just make sure the Get calls don't fail
-				mockClient.EXPECT().Get(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-			}
 
 			// Call the function under test
 			discovery := NewEndpointDiscovery(mockClient, logger, mockElbv2Client)
@@ -422,8 +428,6 @@ func TestFetchIngressProtocolPortInfo(t *testing.T) {
 				}
 			} else {
 				assert.NoError(t, err)
-				// The expected port count is now the number of ports, not the number of protocol groups
-				// With the updated structure, we should have only one protocol group (TCP) with multiple ports
 				assert.Len(t, protocolPortsInfo, 1, "Should have one protocol group (TCP)")
 				assert.Equal(t, agaapi.GlobalAcceleratorProtocolTCP, protocolPortsInfo[0].Protocol, "Protocol should be TCP")
 
@@ -452,24 +456,23 @@ func TestFetchServiceProtocolPortInfo(t *testing.T) {
 	ctx := context.TODO()
 
 	testCases := []struct {
-		name             string
-		servicePorts     []corev1.ServicePort
-		expectedTCPPorts []int32
-		expectedUDPPorts []int32
-		expectError      bool
+		name               string
+		serviceStatusPorts []corev1.PortStatus
+		expectedTCPPorts   []int32
+		expectedUDPPorts   []int32
+		expectError        bool
+		errorSubstring     string
 	}{
 		{
-			name: "Single protocol (TCP only)",
-			servicePorts: []corev1.ServicePort{
+			name: "Service ports from status (TCP only)",
+			serviceStatusPorts: []corev1.PortStatus{
 				{
-					Name:     "http",
-					Protocol: corev1.ProtocolTCP,
 					Port:     80,
+					Protocol: corev1.ProtocolTCP,
 				},
 				{
-					Name:     "https",
-					Protocol: corev1.ProtocolTCP,
 					Port:     443,
+					Protocol: corev1.ProtocolTCP,
 				},
 			},
 			expectedTCPPorts: []int32{80, 443},
@@ -477,17 +480,15 @@ func TestFetchServiceProtocolPortInfo(t *testing.T) {
 			expectError:      false,
 		},
 		{
-			name: "Multi-protocol service (TCP + UDP)",
-			servicePorts: []corev1.ServicePort{
+			name: "Service ports from status (TCP + UDP)",
+			serviceStatusPorts: []corev1.PortStatus{
 				{
-					Name:     "http",
-					Protocol: corev1.ProtocolTCP,
 					Port:     80,
+					Protocol: corev1.ProtocolTCP,
 				},
 				{
-					Name:     "dns",
-					Protocol: corev1.ProtocolUDP,
 					Port:     53,
+					Protocol: corev1.ProtocolUDP,
 				},
 			},
 			expectedTCPPorts: []int32{80},
@@ -495,22 +496,37 @@ func TestFetchServiceProtocolPortInfo(t *testing.T) {
 			expectError:      false,
 		},
 		{
-			name: "Service with same port but different protocols (TCP_UDP service) - not supported",
-			servicePorts: []corev1.ServicePort{
+			name: "Error for TCP_UDP service (same port with different protocols)",
+			serviceStatusPorts: []corev1.PortStatus{
 				{
-					Name:     "dns-tcp",
-					Protocol: corev1.ProtocolTCP,
 					Port:     53,
+					Protocol: corev1.ProtocolTCP,
 				},
 				{
-					Name:     "dns-udp",
-					Protocol: corev1.ProtocolUDP,
 					Port:     53,
+					Protocol: corev1.ProtocolUDP,
 				},
 			},
 			expectedTCPPorts: []int32{},
 			expectedUDPPorts: []int32{},
 			expectError:      true,
+			errorSubstring:   "auto-discovery does not support TCP_UDP services on the same port 53",
+		},
+		{
+			name:               "Error when status has no ports",
+			serviceStatusPorts: []corev1.PortStatus{},
+			expectedTCPPorts:   []int32{},
+			expectedUDPPorts:   []int32{},
+			expectError:        true,
+			errorSubstring:     "no port information available",
+		},
+		{
+			name:               "Error when no status entry",
+			serviceStatusPorts: nil,
+			expectedTCPPorts:   []int32{},
+			expectedUDPPorts:   []int32{},
+			expectError:        true,
+			errorSubstring:     "no port information available",
 		},
 	}
 
@@ -523,9 +539,18 @@ func TestFetchServiceProtocolPortInfo(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: corev1.ServiceSpec{
-					Type:  corev1.ServiceTypeLoadBalancer,
-					Ports: tc.servicePorts,
+					Type: corev1.ServiceTypeLoadBalancer,
 				},
+			}
+
+			// Add status ports if provided
+			if tc.serviceStatusPorts != nil {
+				svc.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{
+					{
+						Hostname: "test-nlb.us-west-2.elb.amazonaws.com",
+						Ports:    tc.serviceStatusPorts,
+					},
+				}
 			}
 
 			// Create loaded endpoint with the service resource
@@ -549,6 +574,7 @@ func TestFetchServiceProtocolPortInfo(t *testing.T) {
 			// Check error expectations
 			if tc.expectError {
 				assert.Error(t, err)
+				assert.Nil(t, protocolPortsInfo)
 			} else {
 				assert.NoError(t, err)
 
@@ -753,376 +779,6 @@ func TestFetchGatewayProtocolPortInfo(t *testing.T) {
 				for _, expectedPort := range expectedUDPPorts {
 					assert.Contains(t, udpPorts, expectedPort, "Expected UDP port %d not found", expectedPort)
 				}
-			}
-		})
-	}
-}
-
-func TestIngressHasCertificate(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx := context.TODO()
-	mockClient := mock_client.NewMockClient(ctrl)
-	logger := zap.New()
-	mockElbv2Client := services.NewMockELBV2(ctrl)
-
-	discovery := NewEndpointDiscovery(mockClient, logger, mockElbv2Client)
-
-	// Define IngressClass and IngressClassParams for testing
-	ingressClass := &networkingv1.IngressClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alb",
-		},
-		Spec: networkingv1.IngressClassSpec{
-			Controller: "ingress.k8s.aws/alb",
-			Parameters: &networkingv1.IngressClassParametersReference{
-				APIGroup: awssdk.String("elbv2.k8s.aws"),
-				Kind:     "IngressClassParams",
-				Name:     "alb-class-params",
-			},
-		},
-	}
-
-	ingressClassParams := &elbv2api.IngressClassParams{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alb-class-params",
-		},
-		Spec: elbv2api.IngressClassParamsSpec{
-			CertificateArn: []string{"arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012"},
-		},
-	}
-
-	testCases := []struct {
-		name                string
-		annotations         map[string]string
-		hasIngressClassName bool
-		ingressClassName    string
-		expectMockCalls     bool
-		expectedResult      bool
-		expectError         bool
-		errorSubstring      string
-	}{
-		{
-			name: "Certificate in annotations",
-			annotations: map[string]string{
-				"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012",
-			},
-			hasIngressClassName: false,
-			expectedResult:      true,
-			expectError:         false,
-		},
-		{
-			name:                "Certificate in IngressClassParams",
-			annotations:         map[string]string{},
-			hasIngressClassName: true,
-			ingressClassName:    "alb",
-			expectMockCalls:     true,
-			expectedResult:      true,
-			expectError:         false,
-		},
-		{
-			name:                "No certificate anywhere",
-			annotations:         map[string]string{},
-			hasIngressClassName: false,
-			expectedResult:      false,
-			expectError:         false,
-		},
-		{
-			name: "Both in annotations and IngressClassParams (annotations take precedence)",
-			annotations: map[string]string{
-				"alb.ingress.kubernetes.io/certificate-arn": "arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012",
-			},
-			hasIngressClassName: true,
-			ingressClassName:    "alb",
-			expectedResult:      true,
-			expectError:         false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Create Ingress resource with test case parameters
-			ing := &networkingv1.Ingress{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-ingress",
-					Namespace:   "default",
-					Annotations: tc.annotations,
-				},
-			}
-
-			// Add IngressClassName if test case requires it
-			if tc.hasIngressClassName {
-				ing.Spec.IngressClassName = &tc.ingressClassName
-			}
-
-			// Set up mock expectations if needed
-			if tc.expectMockCalls {
-				// First mock call to get IngressClass
-				mockClient.EXPECT().
-					Get(gomock.Any(),
-						client.ObjectKey{Name: tc.ingressClassName},
-						gomock.AssignableToTypeOf(&networkingv1.IngressClass{}),
-						gomock.Any()).
-					DoAndReturn(func(ctx context.Context, key client.ObjectKey, obj *networkingv1.IngressClass, _ ...any) error {
-						*obj = *ingressClass
-						return nil
-					})
-
-				// Second mock call to get IngressClassParams
-				mockClient.EXPECT().
-					Get(gomock.Any(),
-						client.ObjectKey{Name: "alb-class-params"},
-						gomock.AssignableToTypeOf(&elbv2api.IngressClassParams{}),
-						gomock.Any()).
-					DoAndReturn(func(ctx context.Context, key client.ObjectKey, obj *elbv2api.IngressClassParams, _ ...any) error {
-						*obj = *ingressClassParams
-						return nil
-					})
-			}
-
-			// Call the function under test
-			result, err := discovery.ingressHasCertificate(ctx, ing)
-
-			// Verify error expectations
-			if tc.expectError {
-				assert.Error(t, err)
-				if tc.errorSubstring != "" {
-					assert.Contains(t, err.Error(), tc.errorSubstring)
-				}
-			} else {
-				assert.NoError(t, err)
-			}
-
-			// Verify the result
-			assert.Equal(t, tc.expectedResult, result)
-		})
-	}
-}
-
-func TestParseIngressListenPorts(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockClient := mock_client.NewMockClient(ctrl)
-	logger := zap.New()
-	mockElbv2Client := services.NewMockELBV2(ctrl)
-
-	discovery := NewEndpointDiscovery(mockClient, logger, mockElbv2Client)
-
-	testCases := []struct {
-		name           string
-		rawListenPorts string
-		expectedPorts  []int32
-	}{
-		{
-			name:           "Single HTTP port",
-			rawListenPorts: `[{"HTTP": 80}]`,
-			expectedPorts:  []int32{80},
-		},
-		{
-			name:           "Single HTTPS port",
-			rawListenPorts: `[{"HTTPS": 443}]`,
-			expectedPorts:  []int32{443},
-		},
-		{
-			name:           "Multiple ports",
-			rawListenPorts: `[{"HTTP": 80}, {"HTTPS": 443}, {"HTTP": 8080}, {"HTTPS": 8443}]`,
-			expectedPorts:  []int32{80, 443, 8080, 8443},
-		},
-		{
-			name:           "Empty JSON array",
-			rawListenPorts: `[]`,
-			expectedPorts:  nil,
-		},
-		{
-			name:           "Invalid JSON",
-			rawListenPorts: `invalid-json`,
-			expectedPorts:  nil,
-		},
-		{
-			name:           "Invalid format (not array of objects)",
-			rawListenPorts: `{"HTTP": 80}`,
-			expectedPorts:  nil,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Create a mock ingress resource for logging purposes
-			ing := &networkingv1.Ingress{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-ingress",
-					Namespace: "default",
-				},
-			}
-
-			// Call the function under test
-			result, err := discovery.parseIngressListenPorts(tc.rawListenPorts, ing)
-
-			// Verify the result
-			if tc.expectedPorts == nil {
-				if tc.name == "Invalid JSON" || tc.name == "Invalid format (not array of objects)" {
-					assert.Error(t, err)
-					assert.Contains(t, err.Error(), "failed to parse listen-ports annotation")
-					assert.Empty(t, result)
-				} else if tc.name == "Empty JSON array" {
-					assert.Error(t, err)
-					assert.Contains(t, err.Error(), "empty listen-ports configuration")
-					assert.Empty(t, result)
-				}
-			} else {
-				assert.NoError(t, err)
-				assert.ElementsMatch(t, tc.expectedPorts, result)
-			}
-		})
-	}
-}
-
-func TestHasCertificatesInIngressClassParams(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	ctx := context.TODO()
-	mockClient := mock_client.NewMockClient(ctrl)
-	logger := zap.New()
-	mockElbv2Client := services.NewMockELBV2(ctrl)
-
-	discovery := NewEndpointDiscovery(mockClient, logger, mockElbv2Client)
-
-	// Valid IngressClass with Parameters pointing to valid IngressClassParams
-	validIngressClass := &networkingv1.IngressClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alb",
-		},
-		Spec: networkingv1.IngressClassSpec{
-			Controller: "ingress.k8s.aws/alb",
-			Parameters: &networkingv1.IngressClassParametersReference{
-				APIGroup: awssdk.String("elbv2.k8s.aws"),
-				Kind:     "IngressClassParams",
-				Name:     "alb-class-params",
-			},
-		},
-	}
-
-	// IngressClass without Parameters
-	noParamsIngressClass := &networkingv1.IngressClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alb-no-params",
-		},
-		Spec: networkingv1.IngressClassSpec{
-			Controller: "ingress.k8s.aws/alb",
-			// No Parameters
-		},
-	}
-
-	// IngressClass with non-elbv2 Parameters
-	nonElbv2ParamsIngressClass := &networkingv1.IngressClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alb-other-params",
-		},
-		Spec: networkingv1.IngressClassSpec{
-			Controller: "ingress.k8s.aws/alb",
-			Parameters: &networkingv1.IngressClassParametersReference{
-				APIGroup: awssdk.String("other.k8s.aws"), // Different API group
-				Kind:     "OtherParams",
-				Name:     "other-params",
-			},
-		},
-	}
-
-	// IngressClassParams with certificate ARN
-	ingressClassParamsWithCert := &elbv2api.IngressClassParams{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alb-class-params",
-		},
-		Spec: elbv2api.IngressClassParamsSpec{
-			CertificateArn: []string{"arn:aws:acm:us-west-2:123456789012:certificate/12345678-1234-1234-1234-123456789012"},
-		},
-	}
-
-	// IngressClassParams without certificate ARN
-	ingressClassParamsNoCert := &elbv2api.IngressClassParams{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "alb-class-params-no-cert",
-		},
-		Spec: elbv2api.IngressClassParamsSpec{
-			// No CertificateArn
-		},
-	}
-
-	testCases := []struct {
-		name             string
-		ingressClassName string
-		mockResponses    []interface{}
-		expectError      bool
-		expectedHasCert  bool
-	}{
-		{
-			name:             "Valid IngressClass with certificate",
-			ingressClassName: "alb",
-			mockResponses:    []interface{}{validIngressClass, ingressClassParamsWithCert},
-			expectError:      false,
-			expectedHasCert:  true,
-		},
-		{
-			name:             "Valid IngressClass but no certificate",
-			ingressClassName: "alb",
-			mockResponses:    []interface{}{validIngressClass, ingressClassParamsNoCert},
-			expectError:      false,
-			expectedHasCert:  false,
-		},
-		{
-			name:             "IngressClass without Parameters",
-			ingressClassName: "alb-no-params",
-			mockResponses:    []interface{}{noParamsIngressClass},
-			expectError:      false,
-			expectedHasCert:  false,
-		},
-		{
-			name:             "IngressClass with non-elbv2 Parameters",
-			ingressClassName: "alb-other-params",
-			mockResponses:    []interface{}{nonElbv2ParamsIngressClass},
-			expectError:      false,
-			expectedHasCert:  false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Set up mock expectations
-			mockClient.EXPECT().
-				Get(gomock.Any(),
-					client.ObjectKey{Name: tc.ingressClassName},
-					gomock.AssignableToTypeOf(&networkingv1.IngressClass{}),
-					gomock.Any()).
-				DoAndReturn(func(ctx context.Context, key client.ObjectKey, obj *networkingv1.IngressClass, _ ...any) error {
-					*obj = *(tc.mockResponses[0].(*networkingv1.IngressClass))
-					return nil
-				})
-
-			// If we expect more calls (to get IngressClassParams)
-			if len(tc.mockResponses) > 1 {
-				mockClient.EXPECT().
-					Get(gomock.Any(),
-						gomock.Any(), // Don't strictly match Name here as different IngressClasses may have different param names
-						gomock.AssignableToTypeOf(&elbv2api.IngressClassParams{}),
-						gomock.Any()).
-					DoAndReturn(func(ctx context.Context, key client.ObjectKey, obj *elbv2api.IngressClassParams, _ ...any) error {
-						*obj = *(tc.mockResponses[1].(*elbv2api.IngressClassParams))
-						return nil
-					})
-			}
-
-			// Call the function under test
-			result, err := discovery.hasCertificatesInIngressClassParams(ctx, tc.ingressClassName)
-
-			// Verify the result
-			if tc.expectError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tc.expectedHasCert, result)
 			}
 		})
 	}

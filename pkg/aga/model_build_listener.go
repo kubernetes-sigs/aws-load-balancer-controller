@@ -49,7 +49,7 @@ func (b *defaultListenerBuilder) Build(ctx context.Context, stack core.Stack, ac
 	// Default to using original listeners
 	listenersToProcess = listeners
 
-	// Apply auto-discovery logic if applicable - using the implementation from utils.go
+	// Apply auto-discovery logic if applicable
 	canApplyAutoDiscovery := canApplyAutoDiscoveryForGA(ga, loadedEndpoints)
 	if canApplyAutoDiscovery {
 		var err error

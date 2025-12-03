@@ -141,8 +141,18 @@ func TestDefaultListenerBuilder_Build(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "test-ingress",
 							Namespace: "default",
-							Annotations: map[string]string{
-								"alb.ingress.kubernetes.io/listen-ports": `[{"HTTP": 8080}, {"HTTPS": 8443}]`,
+						},
+						Status: networking.IngressStatus{
+							LoadBalancer: networking.IngressLoadBalancerStatus{
+								Ingress: []networking.IngressLoadBalancerIngress{
+									{
+										Hostname: "test-alb.us-west-2.elb.amazonaws.com",
+										Ports: []networking.IngressPortStatus{
+											{Port: 8080},
+											{Port: 8443},
+										},
+									},
+								},
 							},
 						},
 					},
@@ -209,6 +219,25 @@ func TestDefaultListenerBuilder_Build(t *testing.T) {
 								},
 							},
 						},
+						Status: corev1.ServiceStatus{
+							LoadBalancer: corev1.LoadBalancerStatus{
+								Ingress: []corev1.LoadBalancerIngress{
+									{
+										Hostname: "test-nlb.us-west-2.elb.amazonaws.com",
+										Ports: []corev1.PortStatus{
+											{
+												Port:     80,
+												Protocol: corev1.ProtocolTCP,
+											},
+											{
+												Port:     443,
+												Protocol: corev1.ProtocolTCP,
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -268,6 +297,25 @@ func TestDefaultListenerBuilder_Build(t *testing.T) {
 									Name:     "dns",
 									Protocol: corev1.ProtocolUDP,
 									Port:     53,
+								},
+							},
+						},
+						Status: corev1.ServiceStatus{
+							LoadBalancer: corev1.LoadBalancerStatus{
+								Ingress: []corev1.LoadBalancerIngress{
+									{
+										Hostname: "mixed-service-nlb.us-west-2.elb.amazonaws.com",
+										Ports: []corev1.PortStatus{
+											{
+												Port:     80,
+												Protocol: corev1.ProtocolTCP,
+											},
+											{
+												Port:     53,
+												Protocol: corev1.ProtocolUDP,
+											},
+										},
+									},
 								},
 							},
 						},
@@ -761,8 +809,18 @@ func TestAutomaticEndpointDiscovery(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-ingress",
 				Namespace: "default",
-				Annotations: map[string]string{
-					"alb.ingress.kubernetes.io/listen-ports": `[{"HTTP": 8080}, {"HTTPS": 8443}]`,
+			},
+			Status: networking.IngressStatus{
+				LoadBalancer: networking.IngressLoadBalancerStatus{
+					Ingress: []networking.IngressLoadBalancerIngress{
+						{
+							Hostname: "test-alb.us-west-2.elb.amazonaws.com",
+							Ports: []networking.IngressPortStatus{
+								{Port: 8080},
+								{Port: 8443},
+							},
+						},
+					},
 				},
 			},
 		},

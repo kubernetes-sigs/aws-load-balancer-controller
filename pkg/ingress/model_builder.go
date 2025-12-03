@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/cache"
 	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -46,7 +47,7 @@ const (
 // ModelBuilder is responsible for build mode stack for a IngressGroup.
 type ModelBuilder interface {
 	// build mode stack for a IngressGroup.
-	Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, error)
+	Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, []int32, error)
 }
 
 // NewDefaultModelBuilder constructs new defaultModelBuilder.
@@ -135,7 +136,7 @@ type defaultModelBuilder struct {
 }
 
 // build mode stack for a IngressGroup.
-func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, error) {
+func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metricsCollector lbcmetrics.MetricCollector) (core.Stack, *elbv2model.LoadBalancer, []types.NamespacedName, bool, *elbv2model.LoadBalancer, []int32, error) {
 	stack := core.NewDefaultStack(core.StackID(ingGroup.ID))
 
 	task := &defaultModelBuildTask{
@@ -193,11 +194,22 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		localFrontendNlbData:       make(map[string]*elbv2model.FrontendNlbTargetGroupState),
 	}
 	if err := task.run(ctx); err != nil {
-		return nil, nil, nil, false, nil, err
+		return nil, nil, nil, false, nil, nil, err
 	}
 
+	// Extract just the port numbers from listenPortConfigByPort
+	var listenerPorts []int32
+	for port := range task.listenPortConfigByPort {
+		listenerPorts = append(listenerPorts, port)
+	}
+
+	// Sort ports for consistency
+	sort.Slice(listenerPorts, func(i, j int) bool {
+		return listenerPorts[i] < listenerPorts[j]
+	})
+
 	_ = elbv2model.NewFrontendNlbTargetGroupDesiredState(task.stack, task.localFrontendNlbData)
-	return task.stack, task.loadBalancer, task.secretKeys, task.backendSGAllocated, task.frontendNlb, nil
+	return task.stack, task.loadBalancer, task.secretKeys, task.backendSGAllocated, task.frontendNlb, listenerPorts, nil
 }
 
 // the default model build task
@@ -257,6 +269,7 @@ type defaultModelBuildTask struct {
 	localFrontendNlbData       map[string]*elbv2model.FrontendNlbTargetGroupState
 	targetGroupNameToArnMapper shared_utils.TargetGroupARNMapper
 	webACLNameToArnMapper      *webACLNameToArnMapper
+	listenPortConfigByPort     map[int32]listenPortConfig
 
 	metricsCollector lbcmetrics.MetricCollector
 }
@@ -298,25 +311,25 @@ func (t *defaultModelBuildTask) run(ctx context.Context) error {
 		}
 	}
 
-	listenPortConfigByPort := make(map[int32]listenPortConfig)
+	t.listenPortConfigByPort = make(map[int32]listenPortConfig)
 	for port, cfgs := range listenPortConfigsByPort {
 		mergedCfg, err := t.mergeListenPortConfigs(ctx, cfgs)
 		if err != nil {
 			return errors.Wrapf(err, "failed to merge listenPort config for port: %v", port)
 		}
-		listenPortConfigByPort[port] = mergedCfg
+		t.listenPortConfigByPort[port] = mergedCfg
 	}
 
-	lb, err := t.buildLoadBalancer(ctx, listenPortConfigByPort)
+	lb, err := t.buildLoadBalancer(ctx, t.listenPortConfigByPort)
 	if err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_load_balancer_error", err, t.metricsCollector)
 	}
 
-	t.sslRedirectConfig, err = t.buildSSLRedirectConfig(ctx, listenPortConfigByPort)
+	t.sslRedirectConfig, err = t.buildSSLRedirectConfig(ctx, t.listenPortConfigByPort)
 	if err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, "build_ssl_redirct_config_error", err, t.metricsCollector)
 	}
-	for port, cfg := range listenPortConfigByPort {
+	for port, cfg := range t.listenPortConfigByPort {
 		ingList := ingListByPort[port]
 		ls, err := t.buildListener(ctx, lb.LoadBalancerARN(), port, cfg, ingList)
 		if err != nil {
