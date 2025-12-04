@@ -103,8 +103,8 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 				assert.Nil(t, statusUpdate)
 			} else {
 				assert.NotNil(t, statusUpdate)
-				assert.Equal(t, gw.Name, statusUpdate.ParentRefGateway.Name)
-				assert.Equal(t, gw.Namespace, statusUpdate.ParentRefGateway.Namespace)
+				assert.Equal(t, gwv1.ObjectName(gw.Name), statusUpdate.ParentRef.Name)
+				assert.Equal(t, gwv1.Namespace(gw.Namespace), *statusUpdate.ParentRef.Namespace)
 				assert.Equal(t, route.GetRouteNamespacedName().Name, statusUpdate.RouteMetadata.RouteName)
 				assert.Equal(t, route.GetRouteNamespacedName().Namespace, statusUpdate.RouteMetadata.RouteNamespace)
 				assert.Equal(t, tc.expectedStatusUpdate.message, statusUpdate.RouteStatusInfo.Message)

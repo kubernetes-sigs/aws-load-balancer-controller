@@ -151,9 +151,26 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 		}
 	}
 
+	// Per Gateway API spec: "If 1 of 2 Gateway listeners accept attachment from the referencing Route,
+	// the Route MUST be considered successfully attached."
+	// For specific parentRefs (with sectionName/port), report individual status.
+	// For generic parentRefs (no sectionName/port), skip failures if any listener accepted.
 	failedRoutes := make([]RouteData, 0)
-	for _, routeDataList := range failedRoutesMap {
-		failedRoutes = append(failedRoutes, routeDataList...)
+	for routeKey, routeDataList := range failedRoutesMap {
+		for _, routeData := range routeDataList {
+			parentRefKey := getParentRefKey(routeData.ParentRef, gw)
+			// Check if this specific parentRef succeeded
+			if _, succeeded := matchedParentRefs[routeKey][parentRefKey]; succeeded {
+				continue
+			}
+			// For generic parentRefs (no sectionName/port), skip if route attached anywhere
+			if routeData.ParentRef.SectionName == nil && routeData.ParentRef.Port == nil {
+				if _, hasMatches := matchedParentRefs[routeKey]; hasMatches {
+					continue
+				}
+			}
+			failedRoutes = append(failedRoutes, routeData)
+		}
 	}
 
 	// Convert matchedParentRefs to return format

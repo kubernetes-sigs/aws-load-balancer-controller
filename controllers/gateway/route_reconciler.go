@@ -173,7 +173,7 @@ func (d *routeReconcilerImpl) updateRouteStatus(route client.Object, routeData r
 		}
 
 		// Generate key for routeData's parentRef
-		routeDataParentRefKey := getParentRefKeyFromRouteData(routeData.ParentRefGateway)
+		routeDataParentRefKey := getParentRefKeyFromRouteData(routeData.ParentRef, routeData.RouteMetadata.RouteNamespace)
 
 		// do not allow backward generation update, Accepted and ResolvedRef always have same generation based on our implementation
 		if (len(newRouteParentStatus.Conditions) != 0 && newRouteParentStatus.Conditions[0].ObservedGeneration <= routeData.RouteMetadata.RouteGeneration) || len(newRouteParentStatus.Conditions) == 0 {
@@ -358,32 +358,22 @@ func getRouteStatus(route client.Object) []gwv1.RouteParentStatus {
 	return routeStatus
 }
 
-// Helper function to generate key from RouteData's ParentRefGateway, use same format as getParentStatusKey
-func getParentRefKeyFromRouteData(gatewayRef routeutils.ParentRefGateway) string {
-
-	namespace := gatewayRef.Namespace
-
-	sectionName := ""
-	if gatewayRef.SectionName != nil {
-		sectionName = string(*gatewayRef.SectionName)
-	}
-
-	port := ""
-	if gatewayRef.Port != nil {
-		port = strconv.Itoa(int(*gatewayRef.Port))
-	}
-
-	key := fmt.Sprintf("%s/%s/%s/%s",
-		namespace,
-		gatewayRef.Name,
-		sectionName,
-		port)
-
-	return key
+// Helper function to generate key from RouteData's ParentReference, use same format as getParentStatusKey
+func getParentRefKeyFromRouteData(parentRef gwv1.ParentReference, routeNamespace string) string {
+	return getParentStatusKey(parentRef, routeNamespace)
 }
 
 // Helper function to generate a unique key for a RouteParentStatus
 func getParentStatusKey(ref gwv1.ParentReference, routeNamespace string) string {
+	group := ""
+	if ref.Group != nil {
+		group = string(*ref.Group)
+	}
+	kind := ""
+	if ref.Kind != nil {
+		kind = string(*ref.Kind)
+	}
+
 	namespace := ""
 	if ref.Namespace != nil {
 		namespace = string(*ref.Namespace)
@@ -401,7 +391,9 @@ func getParentStatusKey(ref gwv1.ParentReference, routeNamespace string) string 
 		port = strconv.Itoa(int(*ref.Port))
 	}
 
-	key := fmt.Sprintf("%s/%s/%s/%s",
+	key := fmt.Sprintf("%s/%s/%s/%s/%s/%s",
+		group,
+		kind,
 		namespace,
 		string(ref.Name),
 		sectionName,

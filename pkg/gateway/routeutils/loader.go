@@ -242,14 +242,18 @@ func (l *loaderImpl) loadChildResources(ctx context.Context, preloadedRoutes map
 
 func generateRouteDataCacheKey(rd RouteData) string {
 	port := ""
-	if rd.ParentRefGateway.Port != nil {
-		port = fmt.Sprintf("%d", *rd.ParentRefGateway.Port)
+	if rd.ParentRef.Port != nil {
+		port = fmt.Sprintf("%d", *rd.ParentRef.Port)
 	}
 	sectionName := ""
-	if rd.ParentRefGateway.SectionName != nil {
-		sectionName = string(*rd.ParentRefGateway.SectionName)
+	if rd.ParentRef.SectionName != nil {
+		sectionName = string(*rd.ParentRef.SectionName)
 	}
-	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRefGateway.Name, rd.ParentRefGateway.Namespace, port, sectionName)
+	namespace := ""
+	if rd.ParentRef.Namespace != nil {
+		namespace = string(*rd.ParentRef.Namespace)
+	}
+	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
 }
 
 func buildAttachedRouteMap(gw gwv1.Gateway, mappedRoutes map[int][]preLoadRouteDescriptor) map[gwv1.SectionName]int32 {

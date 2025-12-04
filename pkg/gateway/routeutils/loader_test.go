@@ -105,6 +105,8 @@ func (m *mockRoute) GetRouteIdentifier() string {
 }
 
 func Test_LoadRoutesForGateway(t *testing.T) {
+	testNamespace := gwv1.Namespace("gw-ns")
+
 	preLoadHTTPRoutes := []preLoadRouteDescriptor{
 		&mockRoute{
 			namespacedName: types.NamespacedName{
@@ -293,9 +295,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 						RouteKind:       string(TCPRouteKind),
 						RouteGeneration: 0,
 					},
-					ParentRefGateway: ParentRefGateway{
+					ParentRef: gwv1.ParentReference{
 						Name:      "gw",
-						Namespace: "gw-ns",
+						Namespace: &testNamespace,
 					},
 				},
 			},
@@ -326,9 +328,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 						RouteKind:       string(HTTPRouteKind),
 						RouteGeneration: 0,
 					},
-					ParentRefGateway: ParentRefGateway{
+					ParentRef: gwv1.ParentReference{
 						Name:      "gw",
-						Namespace: "gw-ns",
+						Namespace: &testNamespace,
 					},
 				},
 				{
@@ -341,9 +343,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 						RouteKind:       string(HTTPRouteKind),
 						RouteGeneration: 0,
 					},
-					ParentRefGateway: ParentRefGateway{
+					ParentRef: gwv1.ParentReference{
 						Name:      "gw",
-						Namespace: "gw-ns",
+						Namespace: &testNamespace,
 					},
 				},
 			},
