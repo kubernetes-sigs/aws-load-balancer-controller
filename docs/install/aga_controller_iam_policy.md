@@ -4,117 +4,20 @@ This document outlines the required IAM permissions for the AWS Global Accelerat
 
 ## IAM Policy
 
-Create an IAM policy with the following permissions to allow the controller to manage AWS Global Accelerator resources:
+Create an IAM policy with the following permissions to allow the controller to manage AWS Global Accelerator resources. The policy is defined in the [aga_controller_iam_policy.json](./aga_controller_iam_policy.json) file.
 
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Allow",
-            "Action": [
-                "iam:CreateServiceLinkedRole"
-            ],
-            "Resource": "*",
-            "Condition": {
-                "StringEquals": {
-                    "iam:AWSServiceName": [
-                        "globalaccelerator.amazonaws.com"
-                    ]
-                }
-            }
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "globalaccelerator:DescribeAccelerator",
-                "globalaccelerator:DescribeEndpointGroup",
-                "globalaccelerator:DescribeListener",
-                "globalaccelerator:ListAccelerators",
-                "globalaccelerator:ListEndpointGroups",
-                "globalaccelerator:ListListeners",
-                "globalaccelerator:ListTagsForResource",
-                "ec2:DescribeRegions"
-            ],
-            "Resource": "*"
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "globalaccelerator:CreateAccelerator"
-            ],
-            "Resource": "*",
-            "Condition": {
-                "Null": {
-                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
-                },
-                "StringEquals": {
-                    "aws:RequestTag/aga.k8s.aws/resource": "GlobalAccelerator"
-                }
-            }
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "globalaccelerator:UpdateAccelerator",
-                "globalaccelerator:DeleteAccelerator",
-                "globalaccelerator:CreateListener",
-                "globalaccelerator:UpdateListener",
-                "globalaccelerator:DeleteListener",
-                "globalaccelerator:CreateEndpointGroup",
-                "globalaccelerator:UpdateEndpointGroup",
-                "globalaccelerator:DeleteEndpointGroup",
-                "globalaccelerator:AddEndpoints",
-                "globalaccelerator:RemoveEndpoints"
-            ],
-            "Resource": [
-                "arn:aws:globalaccelerator::*:accelerator/*",
-                "arn:aws:globalaccelerator::*:accelerator/*/listener/*",
-                "arn:aws:globalaccelerator::*:accelerator/*/listener/*/endpoint-group/*"
-            ],
-            "Condition": {
-                "Null": {
-                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
-                },
-                "StringEquals": {
-                    "aws:ResourceTag/aga.k8s.aws/resource": "GlobalAccelerator"
-                }
-            }
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "globalaccelerator:TagResource",
-                "globalaccelerator:UntagResource"
-            ],
-            "Resource": "arn:aws:globalaccelerator::*:accelerator/*",
-            "Condition": {
-                "Null": {
-                    "aws:RequestTag/elbv2.k8s.aws/cluster": "true",
-                    "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
-                },
-                "StringEquals": {
-                    "aws:ResourceTag/aga.k8s.aws/resource": "GlobalAccelerator"
-                }
-            }
-        },
-        {
-            "Effect": "Allow",
-            "Action": [
-                "globalaccelerator:TagResource"
-            ],
-            "Resource": "arn:aws:globalaccelerator::*:accelerator/*",
-            "Condition": {
-                "Null": {
-                    "aws:RequestTag/elbv2.k8s.aws/cluster": "false"
-                },
-                "StringEquals": {
-                    "aws:RequestTag/aga.k8s.aws/resource": "GlobalAccelerator"
-                }
-            }
-        }
-    ]
-}
+You can fetch the policy directly using curl:
+
+```bash
+curl -o aga_controller_iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/aga_controller_iam_policy.json
+```
+
+Then create the IAM policy using the AWS CLI:
+
+```bash
+aws iam create-policy \
+  --policy-name AWSLoadBalancerControllerAGAIAMPolicy \
+  --policy-document file://aga_controller_iam_policy.json
 ```
 
 ## Permission Requirements Explanation
