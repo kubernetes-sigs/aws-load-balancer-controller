@@ -459,7 +459,7 @@ serviceMutatorWebhookConfig:
   - CREATE
     # - UPDATE
 
-# podMutatorWebhookConfig contains configurations specific to the service mutator webhook
+# podMutatorWebhookConfig contains configurations specific to the pod mutator webhook
 podMutatorWebhookConfig:
   # whether or not to fail the pod creation if the webhook fails
   failurePolicy: Ignore
