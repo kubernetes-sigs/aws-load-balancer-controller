@@ -173,6 +173,10 @@ type ListenerConfiguration struct {
 	// +kubebuilder:default="None"
 	ALPNPolicy *ALPNPolicy `json:"alpnPolicy,omitempty"`
 
+	// targetGroupStickiness [Network LoadBalancer] enables sticky routing for requests when using a listener configured with weighted target groups.
+	// +optional
+	TargetGroupStickiness *bool `json:"targetGroupStickiness,omitempty"`
+
 	// mutualAuthentication defines the mutual authentication configuration information.
 	// +optional
 	MutualAuthentication *MutualAuthenticationAttributes `json:"mutualAuthentication,omitempty"`

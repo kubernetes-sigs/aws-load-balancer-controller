@@ -2,6 +2,8 @@ package model
 
 import (
 	"context"
+	"fmt"
+	"github.com/go-logr/logr"
 	"reflect"
 	"strings"
 	"testing"
@@ -1848,6 +1850,269 @@ func Test_BuildListenerRules(t *testing.T) {
 
 			for _, lr := range resLRs {
 				assert.Equal(t, tc.expectedTags, lr.Spec.Tags)
+			}
+		})
+	}
+}
+
+func Test_buildL4TargetGroupTuples(t *testing.T) {
+
+	type tgValidation struct {
+		arn    string
+		weight int
+	}
+
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
+
+	tgs := make([]*elbv2model.TargetGroup, 0)
+
+	for i := 1; i <= 4; i++ {
+		tgs = append(tgs, &elbv2model.TargetGroup{
+			ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::TargetGroup", fmt.Sprintf("id-%d", i)),
+			Status: &elbv2model.TargetGroupStatus{
+				TargetGroupARN: fmt.Sprintf("arn%d", i),
+			},
+		})
+	}
+	testCases := []struct {
+		name         string
+		targetGroups []*elbv2model.TargetGroup
+		routes       []routeutils.RouteDescriptor
+		expected     []tgValidation
+		expectErr    bool
+	}{
+		{
+			name:     "no routes",
+			routes:   []routeutils.RouteDescriptor{},
+			expected: make([]tgValidation, 0),
+		},
+		{
+			name: "one route - no backends",
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{},
+			},
+			expected: make([]tgValidation, 0),
+		},
+		{
+			name: "one route - one rule - one backend",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+			},
+		},
+		{
+			name: "one route - one rule - two backend",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+								{
+									Weight: 2,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+				{
+					arn:    "arn2",
+					weight: 2,
+				},
+			},
+		},
+		{
+			name: "one route - two rules - one backend each",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+							},
+						},
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 2,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+				{
+					arn:    "arn2",
+					weight: 2,
+				},
+			},
+		},
+		{
+			name: "two routes - one rule / two backends each",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+				tgs[2],
+				tgs[3],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+								{
+									Weight: 1,
+								},
+							},
+						},
+					},
+				},
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 2,
+								},
+								{
+									Weight: 1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+				{
+					arn:    "arn2",
+					weight: 1,
+				},
+				{
+					arn:    "arn3",
+					weight: 2,
+				},
+				{
+					arn:    "arn4",
+					weight: 1,
+				},
+			},
+		},
+		{
+			name: "two routes - one rule / one backend each",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+							},
+						},
+					},
+				},
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 2,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+				{
+					arn:    "arn2",
+					weight: 2,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockTgBuilder := &mockTargetGroupBuilder{
+				tgs: tc.targetGroups,
+			}
+
+			builder := &listenerBuilderImpl{
+				tgBuilder: mockTgBuilder,
+				logger:    logr.Discard(),
+			}
+
+			result, err := builder.buildL4TargetGroupTuples(stack, tc.routes, &gwv1.Gateway{}, 80, elbv2model.ProtocolHTTP, elbv2model.IPAddressTypeIPV4)
+
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, len(tc.expected), len(result))
+				for i := range tc.expected {
+					e := tc.expected[i]
+					a := result[i]
+					actualArn, _ := a.TargetGroupARN.Resolve(context.Background())
+					assert.Equal(t, e.arn, actualArn)
+					assert.Equal(t, e.weight, int(*a.Weight))
+				}
 			}
 		})
 	}

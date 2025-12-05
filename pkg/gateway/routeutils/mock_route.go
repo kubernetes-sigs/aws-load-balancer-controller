@@ -38,7 +38,6 @@ type MockRoute struct {
 }
 
 func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
-	//TODO implement me
 	panic("implement me")
 }
 
