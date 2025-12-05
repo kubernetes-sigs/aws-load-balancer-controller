@@ -12,7 +12,7 @@ import (
 // InstallationManager is responsible for manage controller installation in cluster.
 type InstallationManager interface {
 	ResetController() error
-	UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool) error
+	UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool, enableGlobalAcceleratorController bool) error
 }
 
 // NewDefaultInstallationManager constructs new defaultInstallationManager.
@@ -53,7 +53,7 @@ func (m *defaultInstallationManager) ResetController() error {
 	return err
 }
 
-func (m *defaultInstallationManager) UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool) error {
+func (m *defaultInstallationManager) UpgradeController(controllerImage string, enableEndPointSlices bool, enableALBTargetControlAgent bool, enableGlobalAcceleratorController bool) error {
 	imageRepo, imageTag, err := splitImageRepoAndTag(controllerImage)
 	if err != nil {
 		return err
@@ -69,11 +69,16 @@ func (m *defaultInstallationManager) UpgradeController(controllerImage string, e
 	if enableEndPointSlices {
 		vals["enableEndpointSlices"] = true
 	}
+	featureGates := make(map[string]interface{})
 	if enableALBTargetControlAgent {
+		featureGates["ALBTargetControlAgent"] = true
+	}
+	if enableGlobalAcceleratorController {
+		featureGates["GlobalAcceleratorController"] = true
+	}
+	if len(featureGates) > 0 {
 		vals["controllerConfig"] = map[string]interface{}{
-			"featureGates": map[string]interface{}{
-				"ALBTargetControlAgent": true,
-			},
+			"featureGates": featureGates,
 		}
 	}
 	_, err = m.helmReleaseManager.InstallOrUpgradeRelease(m.helmChart,

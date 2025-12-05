@@ -130,7 +130,7 @@ eksctl::delete_cluster() {
     return 1
   fi
 
-  echo "ueleted cluster ${cluster_name}"
+  echo "deleted cluster ${cluster_name}"
   return 0
 }
 
@@ -187,5 +187,47 @@ eksctl::create_iamserviceaccount() {
   fi
 
   echo "created cluster SA ${sa_namespace}/${sa_name}"
+  return 0
+}
+
+#######################################
+# Attach IAM policy to existing Service Account
+#
+# Globals:
+#   EKSCTL_CLUSTER_DIR
+# Arguments:
+#   cluster_name        EKS cluster's name
+#   region              aws region
+#   sa_namespace        namespace of service account
+#   sa_name             name of service account
+#   iam_policy_arn      arn of iam policy to attach
+#
+# sample: eksctl::attach_policy_to_iamserviceaccount awesome-cluster us-west-2 awesome-ns awesome-name arn:aws:iam::xxxxx:policy/xxxxxx
+#######################################
+eksctl::attach_policy_to_iamserviceaccount() {
+  declare -r cluster_name="$1" region="$2" sa_namespace="$3" sa_name="$4" iam_policy_arn="$5"
+
+  echo "attaching policy to cluster SA ${sa_namespace}/${sa_name}"
+  
+  local cluster_kubeconfig="${EKSCTL_CLUSTER_DIR}/${cluster_name}.kubeconfig"
+  
+  # Get the IAM role ARN associated with the service account
+  local role_arn
+  role_arn=$(kubectl --kubeconfig="${cluster_kubeconfig}" get sa "${sa_name}" -n "${sa_namespace}" -o jsonpath='{.metadata.annotations.eks\.amazonaws\.com/role-arn}')
+  if [[ -z "${role_arn}" ]]; then
+    echo "unable to get IAM role ARN for service account ${sa_namespace}/${sa_name}" >&2
+    return 1
+  fi
+  
+  local role_name
+  role_name=$(echo "${role_arn}" | awk -F'/' '{print $NF}')
+  
+  echo "attaching policy ${iam_policy_arn} to role ${role_name}"
+  if ! aws iam attach-role-policy --region "${region}" --role-name "${role_name}" --policy-arn "${iam_policy_arn}"; then
+    echo "unable to attach policy to role ${role_name}" >&2
+    return 1
+  fi
+
+  echo "attached policy to cluster SA ${sa_namespace}/${sa_name}"
   return 0
 }

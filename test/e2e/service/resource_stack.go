@@ -127,6 +127,10 @@ func (s *resourceStack) GetStackName() string {
 	return fmt.Sprintf("%v/%v", s.ns.Name, s.svc.Name)
 }
 
+func (s *resourceStack) GetNamespace() string {
+	return s.ns.Name
+}
+
 func (s *resourceStack) getListenersPortMap() map[string]string {
 	listenersMap := map[string]string{}
 	for _, port := range s.createdSVC.Spec.Ports {

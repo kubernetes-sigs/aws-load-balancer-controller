@@ -28,6 +28,11 @@ CONTROLLER_IAM_POLICY_FILE="$(dirname "${BASH_SOURCE[0]}")/../docs/install/iam_p
 CONTROLLER_IAM_POLICY_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
 CONTROLLER_IAM_POLICY_ARN="" # will be fulfilled during setup_controller_iam_sa
 
+# Global Accelerator IAM policy settings
+CONTROLLER_AGA_IAM_POLICY_FILE="$(dirname "${BASH_SOURCE[0]}")/../docs/install/iam_policy_aga.json"
+CONTROLLER_AGA_IAM_POLICY_NAME="lb-controller-aga-e2e-${PULL_NUMBER}-$BUILD_ID"
+CONTROLLER_AGA_IAM_POLICY_ARN="" # will be fulfilled during setup_controller_aga_iam
+
 # Cluster settings
 EKSCTL_VERSION="v0.210.0"
 CLUSTER_NAME="lb-controller-e2e-${PULL_NUMBER}-$BUILD_ID"
@@ -161,15 +166,62 @@ setup_controller_iam_sa() {
 }
 
 #######################################
+# Setup Global Accelerator IAM policy for AWS Load Balancer Controller
+#
+# Globals:
+#   AWS_REGION
+#   CLUSTER_NAME
+#   CONTROLLER_SA_NAMESPACE
+#   CONTROLLER_SA_NAME
+#   CONTROLLER_AGA_IAM_POLICY_NAME
+#   CONTROLLER_AGA_IAM_POLICY_FILE
+#   CONTROLLER_AGA_IAM_POLICY_ARN
+# Arguments:
+#   None
+#######################################
+setup_controller_aga_iam() {
+  if [[ -z "${CONTROLLER_AGA_IAM_POLICY_ARN}" ]]; then
+    echo "creating Global Accelerator IAM policy for controller"
+
+    CONTROLLER_AGA_IAM_POLICY_ARN=$(iam::create_policy "${CONTROLLER_AGA_IAM_POLICY_NAME}" "${CONTROLLER_AGA_IAM_POLICY_FILE}" "${AWS_REGION}")
+    if [[ $? -ne 0 ]]; then
+      echo "unable to create Global Accelerator IAM policy for controller" >&2
+      return 1
+    fi
+
+    echo "created Global Accelerator IAM policy for controller: ${CONTROLLER_AGA_IAM_POLICY_ARN}"
+  fi
+
+  if ! eksctl::attach_policy_to_iamserviceaccount "${CLUSTER_NAME}" "${AWS_REGION}" "${CONTROLLER_SA_NAMESPACE}" "${CONTROLLER_SA_NAME}" "${CONTROLLER_AGA_IAM_POLICY_ARN}"; then
+    echo "unable to attach Global Accelerator IAM policy to service account" >&2
+    return 1
+  fi
+
+  return 0
+}
+
+#######################################
 # Cleanup IAM role and Service Account for AWS Load Balancer Controller
 #
 # Globals:
 #   AWS_REGION
 #   CONTROLLER_IAM_POLICY_ARN
+#   CONTROLLER_AGA_IAM_POLICY_ARN
 # Arguments:
 #   None
 #######################################
 cleanup_controller_iam_sa() {
+  if [[ -n "${CONTROLLER_AGA_IAM_POLICY_ARN}" ]]; then
+    echo "deleting Global Accelerator IAM policy for controller"
+
+    if ! iam::delete_policy "${CONTROLLER_AGA_IAM_POLICY_ARN}" "${AWS_REGION}"; then
+      echo "unable to delete Global Accelerator IAM policy for controller" >&2
+      return 1
+    fi
+
+    echo "deleted Global Accelerator IAM policy for controller: ${CONTROLLER_AGA_IAM_POLICY_ARN}"
+  fi
+
   if [[ -n "${CONTROLLER_IAM_POLICY_ARN}" ]]; then
     echo "deleting IAM policy for controller"
 
@@ -212,7 +264,7 @@ test_controller_image() {
   CERTIFICATE_ARNS=${CERTIFICATE_ARNS:-"${CERTIFICATE_ARN_PREFIX}/${CERT_ID1},${CERTIFICATE_ARN_PREFIX}/${CERT_ID2},${CERTIFICATE_ARN_PREFIX}/${CERT_ID3}"}
   echo "creating s3 bucket $S3_BUCKET"
   aws s3api create-bucket --bucket $S3_BUCKET --region $AWS_REGION --create-bucket-configuration LocationConstraint=$AWS_REGION || true
-  ginkgo -timeout 3h -v -r test/e2e -- \
+  ginkgo -timeout 3h -v test/e2e/globalaccelerator -- \
     --kubeconfig=${CLUSTER_KUBECONFIG} \
     --cluster-name=${CLUSTER_NAME} \
     --aws-region=${AWS_REGION} \
@@ -266,6 +318,7 @@ main() {
   trap "cleanup" EXIT
   setup_cluster
   setup_controller_iam_sa
+  setup_controller_aga_iam
   test_controller_image
 }
 

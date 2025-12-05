@@ -43,7 +43,7 @@ var _ = Describe("ALB target control agent injection and target control port tes
 		if tf.Options.ControllerImage != "" {
 			By("upgrade controller with ALBTargetControlAgent enabled", func() {
 				tf.Logger.Info("Starting controller upgrade", "image", tf.Options.ControllerImage)
-				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false, true)
+				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false, true, false)
 				Expect(err).NotTo(HaveOccurred())
 				tf.Logger.Info("Controller upgrade completed, waiting for rollout")
 				time.Sleep(60 * time.Second)
