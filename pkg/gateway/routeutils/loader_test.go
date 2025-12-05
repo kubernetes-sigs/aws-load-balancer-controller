@@ -22,9 +22,16 @@ type mockMapper struct {
 	routeStatusUpdates []RouteData
 }
 
-func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, error) {
+func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
-	return m.mapToReturn, make(map[int32]map[string][]gwv1.Hostname), m.routeStatusUpdates, nil
+	matchedParentRefs := make(map[string][]gwv1.ParentReference)
+	for _, routeList := range m.mapToReturn {
+		for _, route := range routeList {
+			routeKey := route.GetRouteIdentifier()
+			matchedParentRefs[routeKey] = []gwv1.ParentReference{{}}
+		}
+	}
+	return m.mapToReturn, make(map[int32]map[string][]gwv1.Hostname), m.routeStatusUpdates, matchedParentRefs, nil
 }
 
 var _ RouteDescriptor = &mockRoute{}
@@ -93,7 +100,13 @@ func (m *mockRoute) GetRouteCreateTimestamp() time.Time {
 	panic("implement me")
 }
 
-func TestLoadRoutesForGateway(t *testing.T) {
+func (m *mockRoute) GetRouteIdentifier() string {
+	return string(m.GetRouteKind()) + "-" + m.GetRouteNamespacedName().String()
+}
+
+func Test_LoadRoutesForGateway(t *testing.T) {
+	testNamespace := gwv1.Namespace("gw-ns")
+
 	preLoadHTTPRoutes := []preLoadRouteDescriptor{
 		&mockRoute{
 			namespacedName: types.NamespacedName{
@@ -191,9 +204,9 @@ func TestLoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns": true,
+				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
 			},
 		},
 		{
@@ -209,9 +222,9 @@ func TestLoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns": true,
+				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
 			},
 		},
 		{
@@ -225,9 +238,9 @@ func TestLoadRoutesForGateway(t *testing.T) {
 				80: loadedTCPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns": true,
-				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns": true,
-				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns": true,
+				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns--": true,
+				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns--": true,
+				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns--": true,
 			},
 		},
 		{
@@ -243,12 +256,12 @@ func TestLoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns": true,
-				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns":    true,
-				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns":    true,
-				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns":    true,
+				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
+				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    true,
+				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
 			},
 		},
 		{
@@ -264,12 +277,12 @@ func TestLoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns": true,
-				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns":    true,
-				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns":    false,
-				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns":    true,
+				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
+				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    false,
+				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
 			},
 			mapperRouteStatusUpdates: []RouteData{
 				{
@@ -282,9 +295,57 @@ func TestLoadRoutesForGateway(t *testing.T) {
 						RouteKind:       string(TCPRouteKind),
 						RouteGeneration: 0,
 					},
-					ParentRefGateway: ParentRefGateway{
+					ParentRef: gwv1.ParentReference{
 						Name:      "gw",
-						Namespace: "gw-ns",
+						Namespace: &testNamespace,
+					},
+				},
+			},
+		},
+		{
+			name:                    "multiple failed routes",
+			acceptedKinds:           sets.New[RouteKind](HTTPRouteKind),
+			expectedPreMappedRoutes: preLoadHTTPRoutes,
+			expectedPreloadMap: map[int][]preLoadRouteDescriptor{
+				80: preLoadHTTPRoutes,
+			},
+			expectedMap: map[int32][]RouteDescriptor{
+				80: loadedHTTPRoutes,
+			},
+			expectedReconcileQueue: map[string]bool{
+				"http1-http1-ns-HTTPRoute-gw-gw-ns--": false,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns--": false,
+			},
+			mapperRouteStatusUpdates: []RouteData{
+				{
+					RouteStatusInfo: RouteStatusInfo{
+						Accepted: false,
+					},
+					RouteMetadata: RouteMetadata{
+						RouteName:       "http1",
+						RouteNamespace:  "http1-ns",
+						RouteKind:       string(HTTPRouteKind),
+						RouteGeneration: 0,
+					},
+					ParentRef: gwv1.ParentReference{
+						Name:      "gw",
+						Namespace: &testNamespace,
+					},
+				},
+				{
+					RouteStatusInfo: RouteStatusInfo{
+						Accepted: false,
+					},
+					RouteMetadata: RouteMetadata{
+						RouteName:       "http3",
+						RouteNamespace:  "http3-ns",
+						RouteKind:       string(HTTPRouteKind),
+						RouteGeneration: 0,
+					},
+					ParentRef: gwv1.ParentReference{
+						Name:      "gw",
+						Namespace: &testNamespace,
 					},
 				},
 			},

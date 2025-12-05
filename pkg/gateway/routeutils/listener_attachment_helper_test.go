@@ -23,6 +23,12 @@ func (mnss *mockNamespaceSelector) getNamespacesFromSelector(_ context.Context, 
 }
 
 func Test_listenerAllowsAttachment(t *testing.T) {
+	kind := gwv1.Kind("HTTPRoute")
+	port := gwv1.PortNumber(80)
+	matchedParentRef := gwv1.ParentReference{
+		Kind: &kind,
+		Port: &port,
+	}
 
 	type expectedRouteStatus struct {
 		reason  string
@@ -90,15 +96,15 @@ func Test_listenerAllowsAttachment(t *testing.T) {
 			hostnameFromGrpcRoute := map[types.NamespacedName][]gwv1.Hostname{}
 			_, result, statusUpdate, err := attachmentHelper.listenerAllowsAttachment(context.Background(), gw, gwv1.Listener{
 				Protocol: tc.listenerProtocol,
-			}, route, hostnameFromHttpRoute, hostnameFromGrpcRoute)
+			}, route, &matchedParentRef, hostnameFromHttpRoute, hostnameFromGrpcRoute)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expected, result)
 			if tc.expectedStatusUpdate == nil {
 				assert.Nil(t, statusUpdate)
 			} else {
 				assert.NotNil(t, statusUpdate)
-				assert.Equal(t, gw.Name, statusUpdate.ParentRefGateway.Name)
-				assert.Equal(t, gw.Namespace, statusUpdate.ParentRefGateway.Namespace)
+				assert.Equal(t, gwv1.ObjectName(gw.Name), statusUpdate.ParentRef.Name)
+				assert.Equal(t, gwv1.Namespace(gw.Namespace), *statusUpdate.ParentRef.Namespace)
 				assert.Equal(t, route.GetRouteNamespacedName().Name, statusUpdate.RouteMetadata.RouteName)
 				assert.Equal(t, route.GetRouteNamespacedName().Namespace, statusUpdate.RouteMetadata.RouteNamespace)
 				assert.Equal(t, tc.expectedStatusUpdate.message, statusUpdate.RouteStatusInfo.Message)

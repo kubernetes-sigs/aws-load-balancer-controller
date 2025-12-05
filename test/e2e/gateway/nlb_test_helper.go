@@ -360,6 +360,15 @@ func validateL4RouteStatusNotPermitted(tf *framework.Framework, stack NLBTestSta
 			acceptedReason:     "Accepted",
 			acceptedStatus:     "True",
 		})
+	} else {
+		tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
+			listenerName:       "port443",
+			parentKind:         "Gateway",
+			resolvedRefReason:  "ResolvedRefs",
+			resolvedRefsStatus: "True",
+			acceptedReason:     "NoMatchingParent",
+			acceptedStatus:     "False",
+		})
 	}
 
 	tcpValidationInfo := map[string]routeValidationInfo{
@@ -422,6 +431,15 @@ func validateL4RouteStatusPermitted(tf *framework.Framework, stack NLBTestStack,
 			resolvedRefsStatus: "True",
 			acceptedReason:     "Accepted",
 			acceptedStatus:     "True",
+		})
+	} else {
+		tcpRouteListenerInfo = append(tcpRouteListenerInfo, listenerValidationInfo{
+			listenerName:       "port443",
+			parentKind:         "Gateway",
+			resolvedRefReason:  "ResolvedRefs",
+			resolvedRefsStatus: "True",
+			acceptedReason:     "NoMatchingParent",
+			acceptedStatus:     "False",
 		})
 	}
 

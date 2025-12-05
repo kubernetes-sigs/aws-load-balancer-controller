@@ -98,6 +98,10 @@ func (tlsRoute *tlsRouteDescription) GetRouteNamespacedName() types.NamespacedNa
 	return k8s.NamespacedName(tlsRoute.route)
 }
 
+func (tlsRoute *tlsRouteDescription) GetRouteIdentifier() string {
+	return string(tlsRoute.GetRouteKind()) + "-" + tlsRoute.GetRouteNamespacedName().String()
+}
+
 func (tlsRoute *tlsRouteDescription) GetRawRoute() interface{} {
 	return tlsRoute.route
 }

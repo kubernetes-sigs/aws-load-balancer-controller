@@ -8,7 +8,7 @@ import (
 // routeAttachmentHelper is an internal utility that is responsible for providing functionality related to route filtering.
 type routeAttachmentHelper interface {
 	doesRouteAttachToGateway(gw gwv1.Gateway, route preLoadRouteDescriptor) bool
-	routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, []RouteData)
+	routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, *gwv1.ParentReference)
 }
 
 var _ routeAttachmentHelper = &routeAttachmentHelperImpl{}
@@ -56,24 +56,34 @@ func (rah *routeAttachmentHelperImpl) doesRouteAttachToGateway(gw gwv1.Gateway, 
 // This function implements the Gateway API spec for route -> listener attachment.
 // This function assumes that the caller has already validated that the gateway that owns the listener allows for route
 // attachment.
-// Returns: (allowed, failedRouteDataList)
-func (rah *routeAttachmentHelperImpl) routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, []RouteData) {
-	var failedRouteData []RouteData
+// Returns: (allowed, matchedParentRef)
+func (rah *routeAttachmentHelperImpl) routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, *gwv1.ParentReference) {
 	for _, parentRef := range route.GetParentRefs() {
+		if parentRef.Kind != nil && *parentRef.Kind != "Gateway" {
+			continue
+		}
+
+		var namespaceToCompare string
+		if parentRef.Namespace != nil {
+			namespaceToCompare = string(*parentRef.Namespace)
+		} else {
+			namespaceToCompare = route.GetRouteNamespacedName().Namespace
+		}
+
+		if string(parentRef.Name) != gw.Name || gw.Namespace != namespaceToCompare {
+			continue
+		}
+
 		if parentRef.SectionName != nil && string(*parentRef.SectionName) != string(listener.Name) {
-			rd := GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingParent), RouteStatusInfoRejectedMessageParentSectionNameNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw)
-			failedRouteData = append(failedRouteData, rd)
 			continue
 		}
 
 		if parentRef.Port != nil && *parentRef.Port != listener.Port {
-			rd := GenerateRouteData(false, true, string(gwv1.RouteReasonNoMatchingParent), RouteStatusInfoRejectedMessageParentPortNotMatch, route.GetRouteNamespacedName(), route.GetRouteKind(), route.GetRouteGeneration(), gw)
-			failedRouteData = append(failedRouteData, rd)
 			continue
 		}
 
-		return true, failedRouteData
+		return true, &parentRef
 	}
 
-	return false, failedRouteData
+	return false, nil
 }
