@@ -13,6 +13,9 @@
     These annotations are specific to the kubernetes [service resources reconciled](#lb-type) by the AWS Load Balancer Controller. Although the list was initially derived from the k8s in-tree `kube-controller-manager`, this
     documentation is not an accurate reference for the services reconciled by the in-tree controller. 
 
+!!!warning
+    Creating a Classic Load Balancer isn't a best practice. If you want to create using AWS LB Controller/EKS Auto Mode > That's supported only from "kubectl edit service" client and not from any annotation. Thereby, create a Service with "type:ClusterIP/NodePort" and then edit it on "kubectl client" by changing it to "LoadBalancer" type which will create a Classic Load Balancer.
+
 !!!question "EKS Auto Mode users"
     If you are using EKS Auto Mode, please see the
     [EKS Auto Mode documentation](https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-nlb.html#_considerations)
