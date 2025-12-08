@@ -611,3 +611,39 @@ func (b *bodyMatcher) Matches(resp http.Response) error {
 	b.responseCount[bodyString]++
 	return nil
 }
+
+func buildTCPRouteWithMismatchedParentRefs() *gwalpha2.TCPRoute {
+	port := gwalpha2.PortNumber(80)
+	tcpr := &gwalpha2.TCPRoute{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultName,
+		},
+		Spec: gwalpha2.TCPRouteSpec{
+			CommonRouteSpec: gwalpha2.CommonRouteSpec{
+				ParentRefs: []gwalpha2.ParentReference{
+					{
+						Name:        defaultName,
+						SectionName: (*gwv1.SectionName)(awssdk.String("listener-exists")),
+					},
+					{
+						Name:        defaultName,
+						SectionName: (*gwv1.SectionName)(awssdk.String("listener-nonexist")),
+					},
+				},
+			},
+			Rules: []gwalpha2.TCPRouteRule{
+				{
+					BackendRefs: []gwalpha2.BackendRef{
+						{
+							BackendObjectReference: gwalpha2.BackendObjectReference{
+								Name: defaultName,
+								Port: &port,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return tcpr
+}

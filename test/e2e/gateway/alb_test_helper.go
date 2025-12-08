@@ -211,3 +211,71 @@ func grpcRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.Rout
 	}
 	return retrievedRoute.Status.RouteStatus, k8s.NamespacedName(&retrievedRoute), nil
 }
+
+func validateHTTPRouteHostnameMismatchRouteAndGatewayStatus(tf *framework.Framework, stack ALBTestStack) {
+	validationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "listener-no-hostname",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "ResolvedRefs",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+
+	validateGatewayStatus(tf, stack.albResourceStack.commonStack.gw, gatewayValidationInfo{
+		conditions: []gatewayConditionValidation{
+			{
+				conditionType:   gwv1.GatewayConditionProgrammed,
+				conditionStatus: "True",
+				conditionReason: "Programmed",
+			},
+			{
+				conditionType:   gwv1.GatewayConditionAccepted,
+				conditionStatus: "True",
+				conditionReason: "Accepted",
+			},
+		},
+		listeners: []gatewayListenerValidation{
+			{
+				listenerName:   "listener-no-hostname",
+				attachedRoutes: 1,
+				conditions: []listenerConditionValidation{
+					{
+						conditionType:   gwv1.ListenerConditionAccepted,
+						conditionStatus: "True",
+						conditionReason: "Accepted",
+					},
+					{
+						conditionType:   gwv1.ListenerConditionProgrammed,
+						conditionStatus: "True",
+						conditionReason: "Programmed",
+					},
+				},
+			},
+			{
+				listenerName:   "listener-with-hostname",
+				attachedRoutes: 0,
+				conditions: []listenerConditionValidation{
+					{
+						conditionType:   gwv1.ListenerConditionAccepted,
+						conditionStatus: "True",
+						conditionReason: "Accepted",
+					},
+					{
+						conditionType:   gwv1.ListenerConditionProgrammed,
+						conditionStatus: "True",
+						conditionReason: "Programmed",
+					},
+				},
+			},
+		},
+	})
+}

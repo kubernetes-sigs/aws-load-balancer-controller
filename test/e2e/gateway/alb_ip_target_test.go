@@ -403,6 +403,48 @@ var _ = Describe("test k8s alb gateway using ip targets reconciled by the aws lo
 		})
 	})
 
+	Context("with ALB ip target configuration with hostname mismatch between Gateway and HTTPRoute", func() {
+		BeforeEach(func() {})
+		It("should attach HTTPRoute to only the compatible listener and generate correct status", func() {
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			ipTargetType := elbv2gw.TargetTypeIP
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+				},
+			}
+			lrcSpec := elbv2gw.ListenerRuleConfigurationSpec{}
+
+			gwListeners := []gwv1.Listener{
+				{
+					Name:     "listener-no-hostname",
+					Port:     80,
+					Protocol: gwv1.HTTPProtocolType,
+				},
+				{
+					Name:     "listener-with-hostname",
+					Port:     8080,
+					Protocol: gwv1.HTTPProtocolType,
+					Hostname: (*gwv1.Hostname)(awssdk.String("example.com")),
+				},
+			}
+
+			httpr := buildHTTPRoute([]string{"test.com"}, []gwv1.HTTPRouteRule{}, nil)
+
+			By("deploying stack", func() {
+				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("validating HTTPRoute and Gateway status", func() {
+				validateHTTPRouteHostnameMismatchRouteAndGatewayStatus(tf, stack)
+			})
+		})
+	})
+
 	Context("with ALB ip target configuration with HTTPRoute specified filter", func() {
 		BeforeEach(func() {})
 		It("should redirect requests correctly", func() {

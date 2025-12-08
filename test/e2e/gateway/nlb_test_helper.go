@@ -513,3 +513,112 @@ func weightedRequestValidation(tf *framework.Framework, url string) {
 	// We aren't interested in verifying that the NLB is correctly splitting traffic.
 	Expect(len(bm.responseCount)).To(Equal(2))
 }
+
+func (s *NLBTestStack) DeployListenerMismatch(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	dpTCP := buildDeploymentSpec(f.Options.TestImageRegistry)
+	svcTCP := buildServiceSpec(map[string]string{})
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
+	listeners := []gwv1.Listener{
+		{
+			Name:     "listener-exists",
+			Port:     80,
+			Protocol: gwv1.TCPProtocolType,
+		},
+		{
+			Name:     "listener-other",
+			Port:     8080,
+			Protocol: gwv1.TCPProtocolType,
+		},
+	}
+
+	tcprs := []*gwalpha2.TCPRoute{buildTCPRouteWithMismatchedParentRefs()}
+	gw := buildBasicGatewaySpec(gwc, listeners)
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+	tgcTCP := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svcTCP)
+
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpTCP}, []*corev1.Service{svcTCP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcTCP}, tcprs, []*gwalpha2.UDPRoute{}, nil, "nlb-gateway-e2e", readinessGateEnabled)
+
+	return s.nlbResourceStack.Deploy(ctx, f)
+}
+
+func validateTCPRouteListenerMismatch(tf *framework.Framework, stack NLBTestStack) {
+	validationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.nlbResourceStack.tcprs[0]).String(): {
+			parentGatewayName: stack.nlbResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "listener-exists",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "ResolvedRefs",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+				{
+					listenerName:       "listener-nonexist",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "ResolvedRefs",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "NoMatchingParent",
+					acceptedStatus:     "False",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.nlbResourceStack.tcprs, tcpRouteStatusConverter, validationInfo)
+
+	validateGatewayStatus(tf, stack.nlbResourceStack.commonStack.gw, gatewayValidationInfo{
+		conditions: []gatewayConditionValidation{
+			{
+				conditionType:   gwv1.GatewayConditionProgrammed,
+				conditionStatus: "True",
+				conditionReason: "Programmed",
+			},
+			{
+				conditionType:   gwv1.GatewayConditionAccepted,
+				conditionStatus: "True",
+				conditionReason: "Accepted",
+			},
+		},
+		listeners: []gatewayListenerValidation{
+			{
+				listenerName:   "listener-exists",
+				attachedRoutes: 1,
+				conditions: []listenerConditionValidation{
+					{
+						conditionType:   gwv1.ListenerConditionAccepted,
+						conditionStatus: "True",
+						conditionReason: "Accepted",
+					},
+					{
+						conditionType:   gwv1.ListenerConditionProgrammed,
+						conditionStatus: "True",
+						conditionReason: "Programmed",
+					},
+				},
+			},
+			{
+				listenerName:   "listener-other",
+				attachedRoutes: 0,
+				conditions: []listenerConditionValidation{
+					{
+						conditionType:   gwv1.ListenerConditionAccepted,
+						conditionStatus: "True",
+						conditionReason: "Accepted",
+					},
+					{
+						conditionType:   gwv1.ListenerConditionProgrammed,
+						conditionStatus: "True",
+						conditionReason: "Programmed",
+					},
+				},
+			},
+		},
+	})
+}
