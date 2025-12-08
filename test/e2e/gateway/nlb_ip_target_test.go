@@ -3,15 +3,16 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var _ = Describe("test nlb gateway using ip targets reconciled by the aws load balancer controller", func() {
@@ -725,4 +726,29 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 			})
 		})
 	}
+
+	Context("with NLB ip target configuration with listener mismatch in TCPRoute", func() {
+		BeforeEach(func() {})
+		It("should attach TCPRoute to only the existing listener and generate correct status", func() {
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			ipTargetType := elbv2gw.TargetTypeIP
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+				},
+			}
+
+			By("deploying stack", func() {
+				err := stack.DeployListenerMismatch(ctx, tf, lbcSpec, tgSpec, false)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("validating TCPRoute and Gateway status", func() {
+				validateTCPRouteListenerMismatch(tf, stack)
+			})
+		})
+	})
 })
