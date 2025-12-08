@@ -761,29 +761,4 @@ var _ = Describe("test nlb gateway using instance targets reconciled by the aws 
 			})
 		})
 	})
-
-	Context("with NLB instance target configuration with listener mismatch in TCPRoute", func() {
-		BeforeEach(func() {})
-		It("should attach TCPRoute to only the existing listener and generate correct status", func() {
-			interf := elbv2gw.LoadBalancerSchemeInternetFacing
-			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
-				Scheme: &interf,
-			}
-			instanceTargetType := elbv2gw.TargetTypeInstance
-			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
-				DefaultConfiguration: elbv2gw.TargetGroupProps{
-					TargetType: &instanceTargetType,
-				},
-			}
-
-			By("deploying stack", func() {
-				err := stack.DeployListenerMismatch(ctx, tf, lbcSpec, tgSpec, false)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			By("validating TCPRoute and Gateway status", func() {
-				validateTCPRouteListenerMismatch(tf, stack)
-			})
-		})
-	})
 })

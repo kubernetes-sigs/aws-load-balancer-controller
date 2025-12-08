@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/algorithm"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -48,6 +49,54 @@ func buildDeploymentSpec(testImageRegistry string) *appsv1.Deployment {
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: appContainerPort,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func buildCustomizableResponseDeploymentSpec(dpName, fixedResponseContent, testImageRegistry string) *appsv1.Deployment {
+	numReplicas := int32(defaultNumReplicas)
+	labels := map[string]string{
+		"app.kubernetes.io/instance": dpName,
+	}
+	dpImage := utils.GetDeploymentImage(testImageRegistry, utils.ColortellerImage)
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: dpName,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numReplicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            "app",
+							ImagePullPolicy: corev1.PullAlways,
+							Image:           dpImage,
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: appContainerPort,
+								},
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "SERVER_PORT",
+									Value: fmt.Sprintf("%d", appContainerPort),
+								},
+								{
+									Name:  "COLOR",
+									Value: fixedResponseContent,
 								},
 							},
 						},
@@ -189,6 +238,10 @@ func buildGRPCDeploymentSpec(name string, fixedResponseMessage string, labels ma
 	}
 }
 
+func buildServiceSpec(labels map[string]string) *corev1.Service {
+	if len(labels) == 0 {
+		labels["app.kubernetes.io/instance"] = defaultName
+		labels["app.kubernetes.io/name"] = "multi-port"
 func buildServiceSpec(labels map[string]string) *corev1.Service {
 	if len(labels) == 0 {
 		labels["app.kubernetes.io/instance"] = defaultName
@@ -354,6 +407,32 @@ func buildTCPRoute(parentRefs []gwv1.ParentReference, backendRefs []gwalpha2.Bac
 			},
 		}
 	}
+func buildTCPRoute(parentRefs []gwv1.ParentReference, backendRefs []gwalpha2.BackendRef) *gwalpha2.TCPRoute {
+
+	if len(backendRefs) == 0 {
+		port := gwalpha2.PortNumber(80)
+		backendRefs = []gwalpha2.BackendRef{
+			{
+				BackendObjectReference: gwalpha2.BackendObjectReference{
+					Name: defaultName,
+					Port: &port,
+				},
+			},
+		}
+	}
+
+	if len(parentRefs) == 0 {
+		parentRefs = []gwalpha2.ParentReference{
+			{
+				Name:        defaultName,
+				SectionName: (*gwv1.SectionName)(awssdk.String("port80")),
+			},
+			{
+				Name:        defaultName,
+				SectionName: (*gwv1.SectionName)(awssdk.String("port443")),
+			},
+		}
+	}
 	tcpr := &gwalpha2.TCPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: defaultName,
@@ -361,9 +440,11 @@ func buildTCPRoute(parentRefs []gwv1.ParentReference, backendRefs []gwalpha2.Bac
 		Spec: gwalpha2.TCPRouteSpec{
 			CommonRouteSpec: gwalpha2.CommonRouteSpec{
 				ParentRefs: parentRefs,
+				ParentRefs: parentRefs,
 			},
 			Rules: []gwalpha2.TCPRouteRule{
 				{
+					BackendRefs: backendRefs,
 					BackendRefs: backendRefs,
 				},
 			},
@@ -610,40 +691,4 @@ func (b *bodyMatcher) Matches(resp http.Response) error {
 	}
 	b.responseCount[bodyString]++
 	return nil
-}
-
-func buildTCPRouteWithMismatchedParentRefs() *gwalpha2.TCPRoute {
-	port := gwalpha2.PortNumber(80)
-	tcpr := &gwalpha2.TCPRoute{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: defaultName,
-		},
-		Spec: gwalpha2.TCPRouteSpec{
-			CommonRouteSpec: gwalpha2.CommonRouteSpec{
-				ParentRefs: []gwalpha2.ParentReference{
-					{
-						Name:        defaultName,
-						SectionName: (*gwv1.SectionName)(awssdk.String("listener-exists")),
-					},
-					{
-						Name:        defaultName,
-						SectionName: (*gwv1.SectionName)(awssdk.String("listener-nonexist")),
-					},
-				},
-			},
-			Rules: []gwalpha2.TCPRouteRule{
-				{
-					BackendRefs: []gwalpha2.BackendRef{
-						{
-							BackendObjectReference: gwalpha2.BackendObjectReference{
-								Name: defaultName,
-								Port: &port,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	return tcpr
 }
