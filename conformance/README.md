@@ -93,16 +93,22 @@ go test -v ./conformance \
 - `--skip-tests`: Comma-separated list of tests to skip
 
 
-## Exempt Features
+## Generate Conformance Test Report 
+Tests under `options.SkipTests` are test cases that we know will not pass due to ELB limitations. Using command below will generate a report `conformance-report.yaml` under conformance folder
 
-Features not yet implemented (tests will be skipped):
-- `GatewayStaticAddresses`
-- `GatewayHTTPListenerIsolation`
-- `HTTPRouteRequestMultipleMirrors`
-- `HTTPRouteRequestTimeout`
-- `HTTPRouteBackendTimeout`
-- `HTTPRouteParentRefPort`
-- continue updating...
+```bash
+go test -v -timeout=60m ./conformance -run TestConformance -args \
+--report-output=./conformance-report.yaml \
+--gateway-class=REPLACE_WITH_GATEWAY_CLASS_NAME \
+--organization=aws \
+--project=aws-load-balancer-controller \
+--url=https://github.com/kubernetes-sigs/aws-load-balancer-controller \
+--version=v2.16.0 \
+--contact=https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/OWNERS#L6 \
+--conformance-profiles=GATEWAY-HTTP \
+--allow-crds-mismatch=true \
+--cleanup-base-resources=false 
+```
 
 ## Troubleshooting
 
