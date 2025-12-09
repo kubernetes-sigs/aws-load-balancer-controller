@@ -433,9 +433,6 @@ func buildSDKModifyListenerInput(lsSpec elbv2model.ListenerSpec, desiredDefaultA
 
 // buildSDKCertificates builds the certificate list for listener.
 // returns the default certificates and extra certificates.
-// @brief logic change:
-// * add default certificate to extraCert list as AWS ELBs ignores default certificate in certain SNI TLS negotiation scenario
-// * TODO discussion: accept user specified default certificate - skipping `certificate-arn` implements this, and it shortcircuits auto-discovery
 func buildSDKCertificates(modelCerts []elbv2model.Certificate) ([]elbv2types.Certificate, []elbv2types.Certificate) {
 	if len(modelCerts) == 0 {
 		return nil, nil
