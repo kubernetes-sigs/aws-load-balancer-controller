@@ -593,8 +593,7 @@ func generateListenerPortKey(port int32, listener gwListenerConfig) string {
 	return fmt.Sprintf("%s:%d", strings.ToLower(string(listener.protocol)), port)
 }
 
-func newListenerBuilder(loadBalancerType elbv2model.LoadBalancerType, tgBuilder targetGroupBuilder, tagHelper tagHelper, clusterName string, defaultSSLPolicy string, elbv2Client services.ELBV2, acmClient services.ACM, k8sClient client.Client, allowedCAARNs []string, secretsManager k8s.SecretsManager, logger logr.Logger) listenerBuilder {
-	certDiscovery := certs.NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
+func newListenerBuilder(loadBalancerType elbv2model.LoadBalancerType, tgBuilder targetGroupBuilder, tagHelper tagHelper, certDiscovery certs.CertDiscovery, clusterName string, defaultSSLPolicy string, elbv2Client services.ELBV2, k8sClient client.Client, secretsManager k8s.SecretsManager, logger logr.Logger) listenerBuilder {
 	return &listenerBuilderImpl{
 		elbv2Client:      elbv2Client,
 		k8sClient:        k8sClient,

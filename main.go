@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
 	"sync"
@@ -117,6 +118,7 @@ type gatewayControllerConfig struct {
 	networkingManager       networking.NetworkingManager
 	targetGroupCollector    awsmetrics.TargetGroupCollector
 	targetGroupARNMapper    shared_utils.TargetGroupARNMapper
+	certDiscovery           certs.CertDiscovery
 }
 
 func main() {
@@ -259,6 +261,7 @@ func main() {
 		})
 		routeReconciler := gateway.NewRouteReconciler(delayingQueue, mgr.GetClient(), ctrl.Log.WithName("routeReconciler"))
 		serviceReferenceCounter := referencecounter.NewServiceReferenceCounter()
+		certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerCFG.IngressConfig.AllowedCertificateAuthorityARNs, ctrl.Log.WithName("gateway-cert-discovery"))
 
 		gwControllerConfig := &gatewayControllerConfig{
 			cloud:                   cloud,
@@ -278,6 +281,7 @@ func main() {
 			serviceReferenceCounter: serviceReferenceCounter,
 			targetGroupCollector:    targetGroupCollector,
 			targetGroupARNMapper:    tgArnMapper,
+			certDiscovery:           certDiscovery,
 		}
 
 		enabledControllers := sets.Set[string]{}
@@ -493,6 +497,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.serviceReferenceCounter,
 			cfg.cloud,
 			cfg.k8sClient,
+			cfg.certDiscovery,
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
 			cfg.finalizerManager,
@@ -515,6 +520,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.routeLoader,
 			cfg.cloud,
 			cfg.k8sClient,
+			cfg.certDiscovery,
 			cfg.serviceReferenceCounter,
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
