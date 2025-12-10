@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"fmt"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbac "k8s.io/api/rbac/v1"
@@ -64,9 +65,11 @@ func (s *albResourceStack) Deploy(ctx context.Context, f *framework.Framework) e
 	})
 }
 
-func (s *albResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {
-	s.commonStack.Cleanup(ctx, f)
-	s.deleteOIDCSecretWithRBAC(ctx, f)
+func (s *albResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	if err := s.commonStack.Cleanup(ctx, f); err != nil {
+		return err
+	}
+	return s.deleteOIDCSecretWithRBAC(ctx, f)
 }
 
 func (s *albResourceStack) GetLoadBalancerIngressHostname() string {
@@ -75,6 +78,10 @@ func (s *albResourceStack) GetLoadBalancerIngressHostname() string {
 
 func (s *albResourceStack) getListenersPortMap() map[string]string {
 	return s.commonStack.getListenersPortMap()
+}
+
+func (s *albResourceStack) GetNamespace() string {
+	return s.commonStack.ns.Name
 }
 
 func (s *albResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {

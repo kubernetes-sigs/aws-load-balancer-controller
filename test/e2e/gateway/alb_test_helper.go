@@ -73,12 +73,16 @@ func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwLis
 	return s.albResourceStack.Deploy(ctx, f)
 }
 
-func (s *ALBTestStack) Cleanup(ctx context.Context, f *framework.Framework) {
-	s.albResourceStack.Cleanup(ctx, f)
+func (s *ALBTestStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	return s.albResourceStack.Cleanup(ctx, f)
 }
 
 func (s *ALBTestStack) GetLoadBalancerIngressHostName() string {
 	return s.albResourceStack.GetLoadBalancerIngressHostname()
+}
+
+func (s *ALBTestStack) GetNamespace() string {
+	return s.albResourceStack.GetNamespace()
 }
 
 func (s *ALBTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framework) ([]corev1.Node, error) {

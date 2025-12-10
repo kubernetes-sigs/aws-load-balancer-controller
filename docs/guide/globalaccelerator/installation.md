@@ -40,7 +40,7 @@ The AWS Global Accelerator Controller is built into the AWS Load Balancer Contro
 -  **Install the GlobalAccelerator Custom Resource Definition (CRD)**:
 
    ```bash
-   kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/config/crd/aga/bases/aga.k8s.aws_globalaccelerators.yaml
+   kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/config/crd/aga/aga.k8s.aws_globalaccelerators.yaml
    ```
 
    Verify the CRD is installed:

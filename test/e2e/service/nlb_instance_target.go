@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,7 +20,7 @@ const (
 )
 
 type NLBInstanceTestStack struct {
-	resourceStack *resourceStack
+	resourceStack *ResourceStack
 }
 
 func (s *NLBInstanceTestStack) Deploy(ctx context.Context, f *framework.Framework, svcAnnotations map[string]string, svcs []*corev1.Service) error {

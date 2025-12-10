@@ -66,12 +66,16 @@ func (s *commonResourceStack) Deploy(ctx context.Context, f *framework.Framework
 		v.Namespace = s.ns.Name
 	}
 
-	for _, v := range s.tgcs {
-		v.Namespace = s.ns.Name
+	if s.tgcs != nil {
+		for _, v := range s.tgcs {
+			v.Namespace = s.ns.Name
+		}
 	}
 
-	for _, v := range s.lrcs {
-		v.Namespace = s.ns.Name
+	if s.lrcs != nil {
+		for _, v := range s.lrcs {
+			v.Namespace = s.ns.Name
+		}
 	}
 
 	s.gw.Namespace = s.ns.Name
@@ -120,9 +124,11 @@ func (s *commonResourceStack) Deploy(ctx context.Context, f *framework.Framework
 	return nil
 }
 
-func (s *commonResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {
-	_ = deleteNamespace(ctx, f, s.ns)
-	_ = deleteGatewayClass(ctx, f, s.gwc)
+func (s *commonResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	if err := deleteNamespace(ctx, f, s.ns); err != nil {
+		return err
+	}
+	return deleteGatewayClass(ctx, f, s.gwc)
 }
 
 func (s *commonResourceStack) GetLoadBalancerIngressHostname() string {

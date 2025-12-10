@@ -47,7 +47,7 @@ func NewMultiPathBackendStack(namespacedResourcesCFGs map[string]NamespacedResou
 		enablePodReadinessGate:  enablePodReadinessGate,
 
 		nsByNSID:         make(map[string]*corev1.Namespace),
-		resStackByNSID:   make(map[string]*resourceStack),
+		resStackByNSID:   make(map[string]*ResourceStack),
 		ingByIngIDByNSID: make(map[string]map[string]*networking.Ingress),
 	}
 }
@@ -58,7 +58,7 @@ type multiPathBackendStack struct {
 
 	// runtime variables
 	nsByNSID         map[string]*corev1.Namespace
-	resStackByNSID   map[string]*resourceStack
+	resStackByNSID   map[string]*ResourceStack
 	ingByIngIDByNSID map[string]map[string]*networking.Ingress
 }
 
@@ -173,7 +173,7 @@ func (s *multiPathBackendStack) cleanupResourceStacks(ctx context.Context, f *fr
 
 	for nsID, resStack := range s.resStackByNSID {
 		wg.Add(1)
-		go func(nsID string, resStack *resourceStack) {
+		go func(nsID string, resStack *ResourceStack) {
 			defer wg.Done()
 			f.Logger.Info("begin cleanup resource stack", "nsID", nsID)
 			if err := resStack.Cleanup(ctx, f); err != nil {
@@ -193,8 +193,8 @@ func (s *multiPathBackendStack) cleanupResourceStacks(ctx context.Context, f *fr
 	return nil
 }
 
-func (s *multiPathBackendStack) buildResourceStacks(namespacedResourcesCFGs map[string]NamespacedResourcesConfig, nsByNSID map[string]*corev1.Namespace, f *framework.Framework) (map[string]*resourceStack, map[string]map[string]*networking.Ingress) {
-	resStackByNSID := make(map[string]*resourceStack, len(namespacedResourcesCFGs))
+func (s *multiPathBackendStack) buildResourceStacks(namespacedResourcesCFGs map[string]NamespacedResourcesConfig, nsByNSID map[string]*corev1.Namespace, f *framework.Framework) (map[string]*ResourceStack, map[string]map[string]*networking.Ingress) {
+	resStackByNSID := make(map[string]*ResourceStack, len(namespacedResourcesCFGs))
 	ingByIngIDByNSID := make(map[string]map[string]*networking.Ingress, len(namespacedResourcesCFGs))
 	for nsID, resCFG := range namespacedResourcesCFGs {
 		ns := nsByNSID[nsID]
@@ -205,7 +205,7 @@ func (s *multiPathBackendStack) buildResourceStacks(namespacedResourcesCFGs map[
 	return resStackByNSID, ingByIngIDByNSID
 }
 
-func (s *multiPathBackendStack) buildResourceStack(ns *corev1.Namespace, resourcesCFG NamespacedResourcesConfig, f *framework.Framework) (*resourceStack, map[string]*networking.Ingress) {
+func (s *multiPathBackendStack) buildResourceStack(ns *corev1.Namespace, resourcesCFG NamespacedResourcesConfig, f *framework.Framework) (*ResourceStack, map[string]*networking.Ingress) {
 	dpByBackendID, svcByBackendID := s.buildBackendResources(ns, resourcesCFG.BackendCFGs, f.Options.TestImageRegistry)
 	ingByIngID := s.buildIngressResources(ns, resourcesCFG.IngCFGs, svcByBackendID, f)
 

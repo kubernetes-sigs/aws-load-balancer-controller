@@ -316,12 +316,16 @@ func (s *NLBTestStack) CreateFENLBReferenceGrant(ctx context.Context, f *framewo
 	return refGrant, nil
 }
 
-func (s *NLBTestStack) Cleanup(ctx context.Context, f *framework.Framework) {
-	s.nlbResourceStack.Cleanup(ctx, f)
+func (s *NLBTestStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	return s.nlbResourceStack.Cleanup(ctx, f)
 }
 
 func (s *NLBTestStack) GetLoadBalancerIngressHostName() string {
 	return s.nlbResourceStack.GetLoadBalancerIngressHostname()
+}
+
+func (s *NLBTestStack) GetNamespace() string {
+	return s.nlbResourceStack.GetNamespace()
 }
 
 func (s *NLBTestStack) GetWorkerNodes(ctx context.Context, f *framework.Framework) ([]corev1.Node, error) {
