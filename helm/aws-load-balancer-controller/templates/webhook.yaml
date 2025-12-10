@@ -80,10 +80,10 @@ webhooks:
     {{ end }}
   objectSelector:
     matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: NotIn
-        values:
-          - {{ include "aws-load-balancer-controller.name" . }}
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+        - {{ include "aws-load-balancer-controller.name" . }}
     {{- if .Values.objectSelector.matchExpressions }}
     {{- toYaml .Values.objectSelector.matchExpressions | nindent 4 }}
     {{- end }}
