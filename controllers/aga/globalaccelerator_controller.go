@@ -19,18 +19,28 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator/types"
 	"github.com/go-logr/logr"
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
+	ktypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/workqueue"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
+	agadeploy "sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/controllers/aga/eventhandlers"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/deploy"
@@ -42,6 +52,8 @@ import (
 	agamodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/aga"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
+	agastatus "sigs.k8s.io/aws-load-balancer-controller/pkg/status/aga"
+	gwclientset "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 )
 
 const (
@@ -52,24 +64,36 @@ const (
 	agaResourcesGroupVersion = "aga.k8s.aws/v1beta1"
 	globalAcceleratorKind    = "GlobalAccelerator"
 
+	// Requeue constants for state monitoring
+	// requeueReasonAcceleratorInProgress indicates that the reconciliation is being requeued because
+	// the Global Accelerator is still in progress state
+	requeueReasonAcceleratorInProgress = "Waiting for Global Accelerator %s  with status 'IN_PROGRESS' to complete"
+
+	// requeueReasonEndpointsInWarningState indicates that the reconciliation is being requeued because
+	// there are endpoints in warning state that need to be periodically rechecked
+	requeueReasonEndpointsInWarningState = "Retrying endpoints for Global Accelerator %s  which did load successfully - will check availability again soon"
+	statusUpdateRequeueTime              = 1 * time.Minute
+
 	// Metric stage constants
 	MetricStageFetchGlobalAccelerator     = "fetch_globalAccelerator"
 	MetricStageAddFinalizers              = "add_finalizers"
 	MetricStageBuildModel                 = "build_model"
+	MetricStageDeployStack                = "deploy_stack"
 	MetricStageReconcileGlobalAccelerator = "reconcile_globalaccelerator"
 
 	// Metric error constants
 	MetricErrorAddFinalizers              = "add_finalizers_error"
 	MetricErrorRemoveFinalizers           = "remove_finalizers_error"
 	MetricErrorBuildModel                 = "build_model_error"
+	MetricErrorDeployStack                = "deploy_stack_error"
 	MetricErrorReconcileGlobalAccelerator = "reconcile_globalaccelerator_error"
 )
 
 // NewGlobalAcceleratorReconciler constructs new globalAcceleratorReconciler
-func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, finalizerManager k8s.FinalizerManager, config config.ControllerConfig, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) *globalAcceleratorReconciler {
+func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder record.EventRecorder, finalizerManager k8s.FinalizerManager, config config.ControllerConfig, cloud services.Cloud, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, reconcileCounters *metricsutil.ReconcileCounters) *globalAcceleratorReconciler {
 
 	// Create tracking provider
-	trackingProvider := tracking.NewDefaultProvider(agaTagPrefix, config.ClusterName)
+	trackingProvider := tracking.NewDefaultProvider(agaTagPrefix, config.ClusterName, tracking.WithRegion(cloud.Region()))
 
 	// Create model builder
 	agaModelBuilder := aga.NewDefaultModelBuilder(
@@ -78,15 +102,34 @@ func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder recor
 		trackingProvider,
 		config.FeatureGates,
 		config.ClusterName,
+		cloud.Region(),
 		config.DefaultTags,
 		config.ExternalManagedTags,
 		logger.WithName("aga-model-builder"),
 		metricsCollector,
+		cloud.ELBV2(),
 	)
 
 	// Create stack marshaller
 	stackMarshaller := deploy.NewDefaultStackMarshaller()
 
+	// Create AGA stack deployer
+	stackDeployer := agadeploy.NewDefaultStackDeployer(cloud, config, trackingProvider, logger.WithName("aga-stack-deployer"), metricsCollector, controllerName)
+
+	// Create status updater
+	statusUpdater := agastatus.NewStatusUpdater(k8sClient, logger)
+
+	// Create reference tracker for endpoint tracking
+	referenceTracker := aga.NewReferenceTracker(logger.WithName("reference-tracker"))
+
+	// Create DNS resolver
+	dnsToLoadBalancerResolver, err := aga.NewDNSToLoadBalancerResolver(cloud.ELBV2())
+	if err != nil {
+		logger.Error(err, "Failed to create DNS resolver")
+	}
+
+	// Create unified endpoint loader
+	endpointLoader := aga.NewEndpointLoader(k8sClient, dnsToLoadBalancerResolver, logger.WithName("endpoint-loader"))
 	return &globalAcceleratorReconciler{
 		k8sClient:        k8sClient,
 		eventRecorder:    eventRecorder,
@@ -94,10 +137,20 @@ func NewGlobalAcceleratorReconciler(k8sClient client.Client, eventRecorder recor
 		logger:           logger,
 		modelBuilder:     agaModelBuilder,
 		stackMarshaller:  stackMarshaller,
+		stackDeployer:    stackDeployer,
+		statusUpdater:    statusUpdater,
 		metricsCollector: metricsCollector,
 		reconcileTracker: reconcileCounters.IncrementAGA,
 
-		maxConcurrentReconciles: config.GlobalAcceleratorMaxConcurrentReconciles,
+		// Components for endpoint reference tracking
+		referenceTracker:          referenceTracker,
+		dnsToLoadBalancerResolver: dnsToLoadBalancerResolver,
+
+		// Unified endpoint loader
+		endpointLoader: endpointLoader,
+
+		maxConcurrentReconciles:    config.GlobalAcceleratorMaxConcurrentReconciles,
+		maxExponentialBackoffDelay: config.GlobalAcceleratorMaxExponentialBackoffDelay,
 	}
 }
 
@@ -108,11 +161,29 @@ type globalAcceleratorReconciler struct {
 	finalizerManager k8s.FinalizerManager
 	modelBuilder     aga.ModelBuilder
 	stackMarshaller  deploy.StackMarshaller
+	stackDeployer    agadeploy.StackDeployer
+	statusUpdater    agastatus.StatusUpdater
 	logger           logr.Logger
 	metricsCollector lbcmetrics.MetricCollector
-	reconcileTracker func(namespaceName types.NamespacedName)
+	reconcileTracker func(namespaceName ktypes.NamespacedName)
 
-	maxConcurrentReconciles int
+	// Components for endpoint reference tracking
+	referenceTracker          *aga.ReferenceTracker
+	dnsToLoadBalancerResolver *aga.DNSToLoadBalancerResolver
+
+	// Unified endpoint loader
+	endpointLoader aga.EndpointLoader
+
+	// Resources manager for dedicated endpoint resource watchers
+	endpointResourcesManager aga.EndpointResourcesManager
+
+	// Event channels for dedicated watchers
+	serviceEventChan chan event.GenericEvent
+	ingressEventChan chan event.GenericEvent
+	gatewayEventChan chan event.GenericEvent
+
+	maxConcurrentReconciles    int
+	maxExponentialBackoffDelay time.Duration
 }
 
 // +kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators,verbs=get;list;watch;patch
@@ -155,11 +226,6 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAccelerator(ctx context.Con
 		return ctrlerrors.NewErrorWithMetrics(controllerName, MetricErrorAddFinalizers, err, r.metricsCollector)
 	}
 
-	// TODO: Implement GlobalAccelerator resource management
-	// This would include:
-	// 1. Creating/updating AWS Global Accelerator
-	// 2. Managing listeners and endpoint groups
-	// 3. Handling endpoint discovery from Services/Ingresses/Gateways
 	reconcileResourceFn := func() {
 		err = r.reconcileGlobalAcceleratorResources(ctx, ga)
 	}
@@ -167,14 +233,19 @@ func (r *globalAcceleratorReconciler) reconcileGlobalAccelerator(ctx context.Con
 	if err != nil {
 		return ctrlerrors.NewErrorWithMetrics(controllerName, MetricErrorReconcileGlobalAccelerator, err, r.metricsCollector)
 	}
-
-	r.eventRecorder.Event(ga, corev1.EventTypeNormal, k8s.GlobalAcceleratorEventReasonSuccessfullyReconciled, "Successfully reconciled")
 	return nil
 }
 
 func (r *globalAcceleratorReconciler) cleanupGlobalAccelerator(ctx context.Context, ga *agaapi.GlobalAccelerator) error {
 	if k8s.HasFinalizer(ga, shared_constants.GlobalAcceleratorFinalizer) {
-		// TODO: Implement cleanup logic for AWS Global Accelerator resources
+		// Clean up references in the reference tracker
+		gaKey := k8s.NamespacedName(ga)
+		r.referenceTracker.RemoveGA(gaKey)
+
+		// Clean up resource watches
+		r.endpointResourcesManager.RemoveGA(gaKey)
+
+		// TODO: Implement cleanup logic for AWS Global Accelerator resources (Only cleaning up accelerator for now)
 		if err := r.cleanupGlobalAcceleratorResources(ctx, ga); err != nil {
 			r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedCleanup, fmt.Sprintf("Failed cleanup due to %v", err))
 			return err
@@ -187,8 +258,8 @@ func (r *globalAcceleratorReconciler) cleanupGlobalAccelerator(ctx context.Conte
 	return nil
 }
 
-func (r *globalAcceleratorReconciler) buildModel(ctx context.Context, ga *agaapi.GlobalAccelerator) (core.Stack, *agamodel.Accelerator, error) {
-	stack, accelerator, err := r.modelBuilder.Build(ctx, ga)
+func (r *globalAcceleratorReconciler) buildModel(ctx context.Context, ga *agaapi.GlobalAccelerator, loadedEndpoints []*aga.LoadedEndpoint) (core.Stack, *agamodel.Accelerator, error) {
+	stack, accelerator, err := r.modelBuilder.Build(ctx, ga, loadedEndpoints)
 	if err != nil {
 		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedBuildModel, fmt.Sprintf("Failed build model due to %v", err))
 		return nil, nil, err
@@ -203,34 +274,150 @@ func (r *globalAcceleratorReconciler) buildModel(ctx context.Context, ga *agaapi
 }
 
 func (r *globalAcceleratorReconciler) reconcileGlobalAcceleratorResources(ctx context.Context, ga *agaapi.GlobalAccelerator) error {
-	r.logger.Info("Reconciling GlobalAccelerator resources", "name", ga.Name, "namespace", ga.Namespace)
+	r.logger.Info("Reconciling GlobalAccelerator resources", "globalAccelerator", k8s.NamespacedName(ga))
+
+	// Get all desired endpoints from GA
+	endpoints := aga.GetAllDesiredEndpointsFromGA(ga)
+
+	// Track referenced endpoints
+	r.referenceTracker.UpdateDesiredEndpointReferencesForGA(ga, endpoints)
+
+	// Update resource watches with the endpointResourcesManager
+	r.endpointResourcesManager.MonitorEndpointResources(ga, endpoints)
+
+	// Validate and load endpoint status using the endpoint loader
+	loadedEndpoints, fatalErrors := r.endpointLoader.LoadEndpoints(ctx, ga, endpoints)
+	if len(fatalErrors) > 0 {
+		err := fmt.Errorf("failed to load endpoints: %v", fatalErrors[0])
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedEndpointLoad, fmt.Sprintf("Failed to reconcile due to %v", err))
+		r.logger.Error(err, fmt.Sprintf("fatal error loading endpoints for %v", k8s.NamespacedName(ga)))
+		// Handle other endpoint loading errors
+		if statusErr := r.statusUpdater.UpdateStatusFailure(ctx, ga, agadeploy.EndpointLoadFailed, err.Error()); statusErr != nil {
+			r.logger.Error(statusErr, "Failed to update GlobalAccelerator status after endpoint load failure")
+		}
+		return err
+	}
+
 	var stack core.Stack
 	var accelerator *agamodel.Accelerator
 	var err error
 	buildModelFn := func() {
-		stack, accelerator, err = r.buildModel(ctx, ga)
+		stack, accelerator, err = r.buildModel(ctx, ga, loadedEndpoints)
 	}
 	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, MetricStageBuildModel, buildModelFn)
 	if err != nil {
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedBuildModel, fmt.Sprintf("Failed to build model: %v", err))
+		r.logger.Error(err, fmt.Sprintf("Failed to build model for: %v", k8s.NamespacedName(ga)))
+		// Update status to indicate model building failure
+		if statusErr := r.statusUpdater.UpdateStatusFailure(ctx, ga, agadeploy.ModelBuildFailed, fmt.Sprintf("Failed to build model: %v", err)); statusErr != nil {
+			r.logger.Error(statusErr, "Failed to update GlobalAccelerator status after model build failure")
+		}
 		return ctrlerrors.NewErrorWithMetrics(controllerName, MetricErrorBuildModel, err, r.metricsCollector)
 	}
 
-	// Log the built model for debugging
-	r.logger.Info("Built model successfully", "accelerator", accelerator.ID(), "stackID", stack.StackID())
+	// Deploy the stack to create/update AWS Global Accelerator resources
+	deployStackFn := func() {
+		err = r.stackDeployer.Deploy(ctx, stack, r.metricsCollector, controllerName)
+	}
+	r.metricsCollector.ObserveControllerReconcileLatency(controllerName, MetricStageDeployStack, deployStackFn)
+	if err != nil {
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedDeploy, fmt.Sprintf("Failed to deploy stack due to %v", err))
+		r.logger.Error(err, fmt.Sprintf("Failed to deploy stack for: %v", k8s.NamespacedName(ga)))
+		// Update status to indicate deployment failure
+		if statusErr := r.statusUpdater.UpdateStatusFailure(ctx, ga, agadeploy.DeploymentFailed, fmt.Sprintf("Failed to deploy stack: %v", err)); statusErr != nil {
+			r.logger.Error(statusErr, "Failed to update GlobalAccelerator status after deployment failure")
+		}
 
-	// TODO: Implement the deploy phase
-	// This would include:
-	// 1. Deploy the stack to create/update AWS Global Accelerator resources
-	// 2. Update the GlobalAccelerator status with the created resources
-	// 3. Handle any deployment errors and update status accordingly
+		return ctrlerrors.NewErrorWithMetrics(controllerName, MetricErrorDeployStack, err, r.metricsCollector)
+	}
+
+	r.logger.Info("Successfully deployed GlobalAccelerator stack", "stackID", stack.StackID())
+
+	// Check if any endpoints have warning status and collect them
+	hasWarningEndpoints := false
+	for _, ep := range loadedEndpoints {
+		if ep.Status == aga.EndpointStatusWarning {
+			hasWarningEndpoints = true
+		}
+	}
+
+	// Update GlobalAccelerator status after successful deployment, including warning endpoints
+	requeueNeeded, err := r.statusUpdater.UpdateStatusSuccess(ctx, ga, accelerator)
+	if err != nil {
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
+		return err
+	}
+
+	// If we have warning endpoints, add a separate condition for them and requeue
+	if hasWarningEndpoints {
+		r.logger.V(1).Info("Detected endpoints in warning state, will requeue",
+			"Global Accelerator", k8s.NamespacedName(ga))
+
+		// Add event to notify about warning endpoints
+		warningMessage := fmt.Sprintf("Detected endpoints which did not load successfully. These endpoints will be rechecked shortly.")
+		r.eventRecorder.Event(ga, corev1.EventTypeWarning, k8s.GlobalAcceleratorEventReasonWarningEndpoints, warningMessage)
+	}
+
+	if requeueNeeded || hasWarningEndpoints {
+		message := fmt.Sprintf(requeueReasonAcceleratorInProgress, k8s.NamespacedName(ga))
+		if hasWarningEndpoints {
+			message = fmt.Sprintf(requeueReasonEndpointsInWarningState, k8s.NamespacedName(ga))
+		}
+		return ctrlerrors.NewRequeueNeededAfter(message, statusUpdateRequeueTime)
+	}
+
+	r.eventRecorder.Event(ga, corev1.EventTypeNormal, k8s.GlobalAcceleratorEventReasonSuccessfullyReconciled, "Successfully reconciled")
 
 	return nil
 }
 
 func (r *globalAcceleratorReconciler) cleanupGlobalAcceleratorResources(ctx context.Context, ga *agaapi.GlobalAccelerator) error {
-	// TODO: Implement the actual AWS Global Accelerator resource cleanup
-	// This is a placeholder implementation
-	r.logger.Info("Cleaning up GlobalAccelerator resources", "name", ga.Name, "namespace", ga.Namespace)
+	r.logger.Info("Cleaning up GlobalAccelerator resources", "globalAccelerator", k8s.NamespacedName(ga))
+
+	// Our enhanced AcceleratorManager now handles deletion of listeners before accelerator.
+	// TODO: This will be enhanced to delete endpoint groups and endpoints
+	// before deleting listeners and accelerator (when those features are implemented)
+	// 1. Find the accelerator ARN from the CRD status
+	if ga.Status.AcceleratorARN == nil {
+		r.logger.Info("No accelerator ARN found in status, nothing to clean up", "globalAccelerator", k8s.NamespacedName(ga))
+		return nil
+	}
+
+	acceleratorARN := *ga.Status.AcceleratorARN
+	if acceleratorARN == "" {
+		r.logger.Info("Empty accelerator ARN in status, nothing to clean up", "globalAccelerator", k8s.NamespacedName(ga))
+		return nil
+	}
+
+	// 2. Delete the accelerator using accelerator delete manager
+	acceleratorManager := r.stackDeployer.GetAcceleratorManager()
+	r.logger.Info("Deleting accelerator", "acceleratorARN", acceleratorARN, "globalAccelerator", k8s.NamespacedName(ga))
+
+	// Initialize reference to existing accelerator for deletion
+	acceleratorWithTags := agadeploy.AcceleratorWithTags{
+		Accelerator: &types.Accelerator{
+			AcceleratorArn: &acceleratorARN,
+		},
+		Tags: nil,
+	}
+
+	if err := acceleratorManager.Delete(ctx, acceleratorWithTags); err != nil {
+		// Check if it's an AcceleratorNotDisabledError
+		var notDisabledErr *agadeploy.AcceleratorNotDisabledError
+		if errors.As(err, &notDisabledErr) {
+			// Update status to indicate we're waiting for the accelerator to be disabled
+			if updateErr := r.statusUpdater.UpdateStatusDeletion(ctx, ga); updateErr != nil {
+				r.logger.Error(updateErr, "Failed to update status during accelerator deletion")
+			}
+			return ctrlerrors.NewRequeueNeeded(fmt.Sprintf(requeueReasonAcceleratorInProgress, k8s.NamespacedName(ga)))
+		}
+
+		// Any other error
+		r.logger.Error(err, "Failed to delete accelerator", "acceleratorARN", acceleratorARN, "globalAccelerator", k8s.NamespacedName(ga))
+		return fmt.Errorf("failed to delete accelerator %s: %w", acceleratorARN, err)
+	}
+
+	r.logger.Info("Successfully cleaned up all GlobalAccelerator resources", "globalAccelerator", k8s.NamespacedName(ga))
 	return nil
 }
 
@@ -247,20 +434,97 @@ func (r *globalAcceleratorReconciler) SetupWithManager(ctx context.Context, mgr 
 		return nil
 	}
 
+	// Create event channels for dedicated watchers
+	r.serviceEventChan = make(chan event.GenericEvent)
+	r.ingressEventChan = make(chan event.GenericEvent)
+	r.gatewayEventChan = make(chan event.GenericEvent)
+
+	// Initialize Gateway API client using the same config
+	gwClient, err := gwclientset.NewForConfig(mgr.GetConfig())
+	if err != nil {
+		r.logger.Error(err, "Failed to create Gateway API client")
+		return err
+	}
+
+	// Initialize the endpoint resources manager with clients
+	r.endpointResourcesManager = aga.NewEndpointResourcesManager(
+		clientSet,
+		gwClient,
+		r.serviceEventChan,
+		r.ingressEventChan,
+		r.gatewayEventChan,
+		r.logger.WithName("endpoint-resources-manager"),
+	)
+
 	if err := r.setupIndexes(ctx, mgr.GetFieldIndexer()); err != nil {
 		return err
 	}
 
-	// TODO: Add event handlers for Services, Ingresses, and Gateways
-	// that are referenced by GlobalAccelerator endpoints
-
-	return ctrl.NewControllerManagedBy(mgr).
+	// Set up the controller builder
+	ctrl, err := ctrl.NewControllerManagedBy(mgr).
 		For(&agaapi.GlobalAccelerator{}).
 		Named(controllerName).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.maxConcurrentReconciles,
+			RateLimiter:             workqueue.NewTypedItemExponentialFailureRateLimiter[reconcile.Request](5*time.Second, r.maxExponentialBackoffDelay),
 		}).
-		Complete(r)
+		Build(r)
+
+	if err != nil {
+		return err
+	}
+
+	// Setup watches for resource events
+	if err := r.setupGlobalAcceleratorWatches(ctrl); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// setupGlobalAcceleratorWatches sets up watches for resources that can trigger reconciliation of GlobalAccelerator objects
+func (r *globalAcceleratorReconciler) setupGlobalAcceleratorWatches(c controller.Controller) error {
+	loggerPrefix := r.logger.WithName("eventHandlers")
+
+	// Create handlers for our dedicated watchers
+	serviceHandler := eventhandlers.NewEnqueueRequestsForResourceEvent(
+		aga.ServiceResourceType,
+		r.referenceTracker,
+		loggerPrefix.WithName("service-handler"),
+	)
+
+	ingressHandler := eventhandlers.NewEnqueueRequestsForResourceEvent(
+		aga.IngressResourceType,
+		r.referenceTracker,
+		loggerPrefix.WithName("ingress-handler"),
+	)
+
+	gatewayHandler := eventhandlers.NewEnqueueRequestsForResourceEvent(
+		aga.GatewayResourceType,
+		r.referenceTracker,
+		loggerPrefix.WithName("gateway-handler"),
+	)
+
+	// Add watches using the channel sources with event handlers
+	if err := c.Watch(source.Channel(r.serviceEventChan, serviceHandler)); err != nil {
+		return err
+	}
+
+	if err := c.Watch(source.Channel(r.ingressEventChan, ingressHandler)); err != nil {
+		return err
+	}
+
+	// Check if Gateway API client is initialized before setting up Gateway watch
+	// This ensures we only set up the Gateway watch if Gateway CRDs are present
+	if r.endpointResourcesManager != nil && r.endpointResourcesManager.HasGatewaySupport() {
+		if err := c.Watch(source.Channel(r.gatewayEventChan, gatewayHandler)); err != nil {
+			return err
+		}
+	} else {
+		r.logger.Info("Gateway API CRDs not found, skipping Gateway event watch setup")
+	}
+
+	return nil
 }
 
 func (r *globalAcceleratorReconciler) setupIndexes(ctx context.Context, fieldIndexer client.FieldIndexer) error {

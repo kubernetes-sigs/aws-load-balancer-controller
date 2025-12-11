@@ -2,19 +2,22 @@ package service
 
 import (
 	"context"
-	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
+	"fmt"
 	"time"
 
+	"strings"
+
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 )
 
 var _ = Describe("k8s service using ip target reconciled by the aws load balancer", func() {
@@ -107,7 +110,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 		})
 		It("Should create and verify internet-facing NLB with IP targets", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment)
+				err := stack.Deploy(ctx, tf, svc, deployment, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -363,7 +366,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 				Skip("Skipping tests, certificates not specified")
 			}
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment)
+				err := stack.Deploy(ctx, tf, svc, deployment, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -488,6 +491,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 			})
 		})
 	})
+
 	Context("NLB IP Load Balancer with name", func() {
 		var (
 			svc    *corev1.Service
@@ -523,7 +527,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 		})
 		It("Should create and verify service", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment)
+				err := stack.Deploy(ctx, tf, svc, deployment, nil)
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -569,6 +573,189 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 			By("waiting for load balancer to be available", func() {
 				err := tf.LBManager.WaitUntilLoadBalancerAvailable(ctx, lbARN)
 				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+	})
+
+	Context("NLB IP with weighted target groups", func() {
+		var (
+			svcs          []*corev1.Service
+			svc           *corev1.Service
+			svcName       string
+			baseSvcWeight int32
+			svc1Name      string
+			svc1Weight    int32
+			targetSvc1    *corev1.Service
+			svc2Name      string
+			svc2Weight    int32
+			targetSvc2    *corev1.Service
+		)
+		BeforeEach(func() {
+			if strings.HasPrefix(tf.Options.AWSRegion, "cn-") || strings.Contains(tf.Options.AWSRegion, "-iso-") || tf.Options.AWSRegion == "eusc-de-east-1" {
+				Skip("Skipping test, weighted target groups not supported in this region")
+			}
+			// Service 1 to forward to
+			svc1Name = fmt.Sprintf("target-svc1-%v", utils.RandomDNS1123Label(5))
+			targetSvc1 = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: svc1Name,
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: labels,
+					Type:     corev1.ServiceTypeNodePort,
+					Ports: []corev1.ServicePort{
+						{
+							Port:     81,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+				},
+			}
+
+			// Service 2 to forward to
+			svc2Name = fmt.Sprintf("target-svc2-%v", utils.RandomDNS1123Label(5))
+			targetSvc2 = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: svc2Name,
+				},
+				Spec: corev1.ServiceSpec{
+					Selector: labels,
+					Type:     corev1.ServiceTypeNodePort,
+					Ports: []corev1.ServicePort{
+						{
+							Port:     82,
+							Protocol: corev1.ProtocolTCP,
+						},
+					},
+				},
+			}
+
+			baseSvcWeight = 20
+			svc1Weight = 60
+			svc2Weight = 40
+			forwardActionValue := fmt.Sprintf(
+				`{
+								"type": "forward",
+								"forwardConfig": {
+									"baseServiceWeight": %d,
+									"targetGroups": [
+										{
+											"serviceName": "%v",
+											"servicePort": 81,
+											"weight": %d,
+											"tcpEnabled": true
+										},
+										{
+											"serviceName": "%v",
+											"servicePort": 82,
+											"weight": %d
+										}
+									]
+								}
+							}`, baseSvcWeight, svc1Name, svc1Weight, svc2Name, svc2Weight)
+
+			annotation := map[string]string{
+				"service.beta.kubernetes.io/aws-load-balancer-type":   "nlb-ip",
+				"service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing",
+				"service.beta.kubernetes.io/actions.TCP-80":           forwardActionValue,
+			}
+
+			if tf.Options.IPFamily == framework.IPv6 {
+				annotation["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
+			}
+
+			svcName = "my-nlb"
+			svc = &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        svcName,
+					Annotations: annotation,
+				},
+				Spec: corev1.ServiceSpec{
+					Type:     corev1.ServiceTypeLoadBalancer,
+					Selector: labels,
+					Ports: []corev1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+						},
+					},
+				},
+			}
+			svcs = append(svcs, targetSvc1, targetSvc2)
+		})
+		It("Should create and verify service", func() {
+			By("deploying stack", func() {
+				err := stack.Deploy(ctx, tf, svc, deployment, svcs)
+				Expect(err).NotTo(HaveOccurred())
+			})
+			By("checking service status for lb dns name", func() {
+				dnsName = stack.GetLoadBalancerIngressHostName()
+				Expect(dnsName).ToNot(BeEmpty())
+			})
+			By("querying AWS load balancer from the dns name", func() {
+				var err error
+				lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(lbARN).ToNot(BeEmpty())
+			})
+			By("verifying service with AWS", func() {
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						// Base service target group
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           10,
+							Timeout:            10,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+					{
+						// Target service 1
+						Protocol:   "TCP",
+						Port:       81,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           10,
+							Timeout:            10,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+					{
+						// Target service 2
+						Protocol:   "TCP",
+						Port:       82,
+						NumTargets: int(numReplicas),
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           10,
+							Timeout:            10,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+				}
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:   "network",
+					Scheme: "internet-facing",
+					Listeners: map[string]string{
+						"80": "TCP",
+					},
+					TargetGroups: expectedTargetGroups,
+				})
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 	})

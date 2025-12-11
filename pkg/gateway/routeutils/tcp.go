@@ -86,6 +86,10 @@ func (tcpRoute *tcpRouteDescription) GetRouteNamespacedName() types.NamespacedNa
 	return k8s.NamespacedName(tcpRoute.route)
 }
 
+func (tcpRoute *tcpRouteDescription) GetRouteIdentifier() string {
+	return string(tcpRoute.GetRouteKind()) + "-" + tcpRoute.GetRouteNamespacedName().String()
+}
+
 func convertTCPRoute(r gwalpha2.TCPRoute) *tcpRouteDescription {
 	return &tcpRouteDescription{route: &r, ruleAccumulator: defaultTCPRuleAccumulator}
 }

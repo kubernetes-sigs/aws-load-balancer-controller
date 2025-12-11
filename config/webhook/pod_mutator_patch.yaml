@@ -29,3 +29,37 @@ webhooks:
           operator: NotIn
           values:
             - aws-load-balancer-controller
+  - name: alb-target-control.namespace.elbv2.k8s.aws
+    failurePolicy: Fail
+    namespaceSelector:
+      matchExpressions:
+        - key: elbv2.k8s.aws/alb-target-control-agent-injection
+          operator: In
+          values:
+            - enabled
+    objectSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: NotIn
+          values:
+            - aws-load-balancer-controller
+        - key: elbv2.k8s.aws/alb-target-control-agent-inject
+          operator: NotIn
+          values:
+            - "false"
+  - name: alb-target-control.object.elbv2.k8s.aws
+    failurePolicy: Fail
+    namespaceSelector:
+      matchExpressions:
+        - key: elbv2.k8s.aws/alb-target-control-agent-injection
+          operator: DoesNotExist
+    objectSelector:
+      matchExpressions:
+        - key: app.kubernetes.io/name
+          operator: NotIn
+          values:
+            - aws-load-balancer-controller
+        - key: elbv2.k8s.aws/alb-target-control-agent-inject
+          operator: In
+          values:
+            - "true"

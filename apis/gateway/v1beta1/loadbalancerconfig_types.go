@@ -152,7 +152,7 @@ type WAFv2Configuration struct {
 	ACL string `json:"webACL"`
 }
 
-// +kubebuilder:validation:Pattern="^(HTTP|HTTPS|TLS|TCP|UDP)?:(6553[0-5]|655[0-2]\\d|65[0-4]\\d{2}|6[0-4]\\d{3}|[1-5]\\d{4}|[1-9]\\d{0,3})?$"
+// +kubebuilder:validation:Pattern="^(HTTP|HTTPS|TLS|TCP|UDP|TCP_UDP)?:(6553[0-5]|655[0-2]\\d|65[0-4]\\d{2}|6[0-4]\\d{3}|[1-5]\\d{4}|[1-9]\\d{0,3})?$"
 type ProtocolPort string
 type ListenerConfiguration struct {
 	// protocolPort is identifier for the listener on load balancer. It should be of the form PROTOCOL:PORT
@@ -172,6 +172,10 @@ type ListenerConfiguration struct {
 	// +optional
 	// +kubebuilder:default="None"
 	ALPNPolicy *ALPNPolicy `json:"alpnPolicy,omitempty"`
+
+	// targetGroupStickiness [Network LoadBalancer] enables sticky routing for requests when using a listener configured with weighted target groups.
+	// +optional
+	TargetGroupStickiness *bool `json:"targetGroupStickiness,omitempty"`
 
 	// mutualAuthentication defines the mutual authentication configuration information.
 	// +optional

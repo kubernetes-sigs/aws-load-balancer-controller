@@ -8,7 +8,7 @@ revisionHistoryLimit: 10
 
 image:
   repository: public.ecr.aws/eks/aws-load-balancer-controller
-  tag: v2.15.0
+  tag: v2.16.0
   pullPolicy: IfNotPresent
 
 runtimeClassName: ""
@@ -253,6 +253,12 @@ targetgroupbindingMaxConcurrentReconciles:
 # Maximum duration of exponential backoff for targetGroupBinding reconcile failures
 targetgroupbindingMaxExponentialBackoffDelay:
 
+# Maximum number of concurrently running reconcile loops for GlobalAccelerator objects
+globalAcceleratorMaxConcurrentReconciles:
+
+# Maximum duration of exponential backoff for GlobalAccelerator reconcile failures
+globalAcceleratorMaxExponentialBackoffDelay:
+
 # Interval at which the controller monitors the state of load balancer after creation for stabilization
 lbStabilizationMonitorInterval:
 
@@ -371,6 +377,9 @@ backendSecurityGroup:
 # disableRestrictedSecurityGroupRules specifies whether to disable creating port-range restricted security group rules for traffic
 disableRestrictedSecurityGroupRules:
 
+# maxTargetsPerTargetGroup specifies the maximum number of targets that the controller will attempt to add to a given ELB instance
+maxTargetsPerTargetGroup:
+
 # controllerConfig specifies controller configuration
 controllerConfig:
   # featureGates set of key: value pairs that describe AWS load balance controller features
@@ -385,9 +394,10 @@ controllerConfig:
   # NLBHealthCheckAdvancedConfig: true
   # ALBSingleSubnet: false
   # LBCapacityReservation: true
-  # AGAController: false
+  # GlobalAcceleratorController: false
   # EnhancedDefaultBehavior: false
   # EnableDefaultTagsLowPriority: false
+  # ALBTargetControlAgent: false
 
 certDiscovery:
   allowedCertificateAuthorityARNs: "" # empty means all CAs are in scope

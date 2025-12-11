@@ -80,10 +80,10 @@ webhooks:
     {{ end }}
   objectSelector:
     matchExpressions:
-      - key: app.kubernetes.io/name
-        operator: NotIn
-        values:
-          - {{ include "aws-load-balancer-controller.name" . }}
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+        - {{ include "aws-load-balancer-controller.name" . }}
     {{- if .Values.objectSelector.matchExpressions }}
     {{- toYaml .Values.objectSelector.matchExpressions | nindent 4 }}
     {{- end }}
@@ -143,6 +143,80 @@ webhooks:
     {{- if not $.Values.enableCertManager }}
     caBundle: {{ $tls.caCert }}
     {{- end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-alb-target-control-namespace-v1-pod
+  failurePolicy: Fail
+  name: alb-target-control.namespace.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  namespaceSelector:
+    matchExpressions:
+    - key: elbv2.k8s.aws/alb-target-control-agent-injection
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
+    - key: elbv2.k8s.aws/alb-target-control-agent-inject
+      operator: NotIn
+      values:
+      - "false"
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+- clientConfig:
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
+    service:
+      name: {{ template "aws-load-balancer-controller.webhookService" . }}
+      namespace: {{ $.Release.Namespace }}
+      path: /mutate-alb-target-control-object-v1-pod
+  failurePolicy: Fail
+  name: alb-target-control.object.elbv2.k8s.aws
+  admissionReviewVersions:
+  - v1beta1
+  namespaceSelector:
+    matchExpressions:
+    - key: elbv2.k8s.aws/alb-target-control-agent-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: app.kubernetes.io/name
+      operator: NotIn
+      values:
+      - {{ include "aws-load-balancer-controller.name" . }}
+    - key: elbv2.k8s.aws/alb-target-control-agent-inject
+      operator: In
+      values:
+      - "true"
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+- clientConfig:
+    {{ if not $.Values.enableCertManager -}}
+    caBundle: {{ $tls.caCert }}
+    {{ end }}
     service:
       name: {{ template "aws-load-balancer-controller.webhookService" . }}
       namespace: {{ $.Release.Namespace }}

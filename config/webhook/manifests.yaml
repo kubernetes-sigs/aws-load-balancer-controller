@@ -10,6 +10,44 @@ webhooks:
       service:
         name: webhook-service
         namespace: system
+        path: /mutate-alb-target-control-namespace-v1-pod
+    failurePolicy: Fail
+    name: alb-target-control.namespace.elbv2.k8s.aws
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
+        path: /mutate-alb-target-control-object-v1-pod
+    failurePolicy: Fail
+    name: alb-target-control.object.elbv2.k8s.aws
+    rules:
+      - apiGroups:
+          - ""
+        apiVersions:
+          - v1
+        operations:
+          - CREATE
+        resources:
+          - pods
+    sideEffects: None
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
         path: /mutate-v1-pod
     failurePolicy: Ignore
     name: mpod.elbv2.k8s.aws
@@ -87,6 +125,27 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: webhook
 webhooks:
+  - admissionReviewVersions:
+      - v1beta1
+    clientConfig:
+      service:
+        name: webhook-service
+        namespace: system
+        path: /validate-aga-k8s-aws-v1beta1-globalaccelerator
+    failurePolicy: Fail
+    matchPolicy: Equivalent
+    name: vglobalaccelerator.aga.k8s.aws
+    rules:
+      - apiGroups:
+          - aga.k8s.aws
+        apiVersions:
+          - v1beta1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - globalaccelerators
+    sideEffects: None
   - admissionReviewVersions:
       - v1beta1
     clientConfig:

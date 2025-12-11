@@ -3,12 +3,14 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
+	"strings"
+	"time"
+
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net/http"
-	"strings"
-	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gavv/httpexpect/v2"
@@ -40,7 +42,7 @@ var _ = Describe("vanilla ingress tests", func() {
 		ctx = context.Background()
 		if tf.Options.ControllerImage != "" {
 			By(fmt.Sprintf("ensure cluster installed with controller: %s", tf.Options.ControllerImage), func() {
-				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false)
+				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false, false)
 				Expect(err).NotTo(HaveOccurred())
 				time.Sleep(60 * time.Second)
 			})
@@ -436,7 +438,7 @@ var _ = Describe("vanilla ingress tests", func() {
 			ctx = context.Background()
 			if tf.Options.ControllerImage != "" {
 				By(fmt.Sprintf("upgrade controller with endPointSlices enabled."), func() {
-					err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true)
+					err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true, false)
 					Expect(err).NotTo(HaveOccurred())
 					time.Sleep(60 * time.Second)
 				})
@@ -1107,7 +1109,7 @@ func ExpectTwoLBProvisionedForIngress(ctx context.Context, tf *framework.Framewo
 	Eventually(func(g Gomega) {
 		err := tf.K8sClient.Get(ctx, k8s.NamespacedName(ing), ing)
 		g.Expect(err).NotTo(HaveOccurred())
-		albDNS, nlbDNS = FindIngressTwoDNSName(ing)
+		albDNS, nlbDNS = shared_utils.FindIngressTwoDNSName(ing)
 		g.Expect(albDNS).ShouldNot(BeEmpty())
 		g.Expect(nlbDNS).ShouldNot(BeEmpty())
 	}, utils.IngressReconcileTimeout, utils.PollIntervalShort).Should(Succeed())

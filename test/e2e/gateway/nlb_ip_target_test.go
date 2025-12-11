@@ -3,15 +3,16 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var _ = Describe("test nlb gateway using ip targets reconciled by the aws load balancer controller", func() {
@@ -32,9 +33,12 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 	})
 	AfterEach(func() {
 		stack.Cleanup(ctx, tf)
-		auxiliaryStack.Cleanup(ctx, tf)
+		if auxiliaryStack != nil {
+			auxiliaryStack.Cleanup(ctx, tf)
+		}
 	})
 	for _, readinessGateEnabled := range []bool{true, false} {
+
 		Context(fmt.Sprintf("with NLB ip target configuration, using readiness gates %+v", readinessGateEnabled), func() {
 			It("should provision internet-facing load balancer resources", func() {
 				interf := elbv2gw.LoadBalancerSchemeInternetFacing
@@ -282,6 +286,7 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				})
 			})
 		})
+
 		Context(fmt.Sprintf("with NLB ip target configuration, using no SG, using readiness gates %+v", readinessGateEnabled), func() {
 			It("should provision internet-facing load balancer resources", func() {
 				interf := elbv2gw.LoadBalancerSchemeInternetFacing
@@ -529,5 +534,221 @@ var _ = Describe("test nlb gateway using ip targets reconciled by the aws load b
 				})
 			})
 		})
+
+		Context(fmt.Sprintf("with TCP_UDP listener, using readiness gates %+v", readinessGateEnabled), func() {
+			It("should provision internet-facing load balancer resources", func() {
+				interf := elbv2gw.LoadBalancerSchemeInternetFacing
+				lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+					Scheme: &interf,
+				}
+
+				ipTargetType := elbv2gw.TargetTypeIP
+				tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+					DefaultConfiguration: elbv2gw.TargetGroupProps{
+						TargetType: &ipTargetType,
+					},
+				}
+
+				By("deploying stack", func() {
+					err := stack.DeployTCP_UDP(ctx, tf, lbcSpec, tgSpec, false)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				By("checking gateway status for lb dns name", func() {
+					dnsName = stack.GetLoadBalancerIngressHostName()
+					Expect(dnsName).ToNot(BeEmpty())
+				})
+
+				By("querying AWS loadbalancer from the dns name", func() {
+					var err error
+					lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(lbARN).ToNot(BeEmpty())
+				})
+
+				targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:   "TCP_UDP",
+						Port:       8080,
+						NumTargets: targetNumber,
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           15,
+							Timeout:            5,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+				}
+
+				listenerPortMap := map[string]string{
+					"80": "TCP_UDP",
+				}
+
+				By("verifying AWS loadbalancer resources", func() {
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+						Type:         "network",
+						Scheme:       "internet-facing",
+						Listeners:    listenerPortMap,
+						TargetGroups: expectedTargetGroups,
+					})
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("waiting for target group targets to be healthy", func() {
+					err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("waiting until DNS name is available", func() {
+					err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("sending http request to the lb", func() {
+					url := fmt.Sprintf("http://%v/any-path", dnsName)
+					err := tf.HTTPVerifier.VerifyURL(url, http.ResponseCodeMatches(200))
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("sending udp request to the lb", func() {
+					endpoint := fmt.Sprintf("%v:80", dnsName)
+					err := tf.UDPVerifier.VerifyUDP(endpoint)
+					Expect(err).NotTo(HaveOccurred())
+				})
+			})
+		})
+
+		Context(fmt.Sprintf("with NLB ip target configuration, using weighted listener %+v", readinessGateEnabled), func() {
+			It("should provision internet-facing load balancer resources", func() {
+				interf := elbv2gw.LoadBalancerSchemeInternetFacing
+				lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+					Scheme: &interf,
+				}
+
+				var hasTLS bool
+				if len(tf.Options.CertificateARNs) > 0 {
+					cert := strings.Split(tf.Options.CertificateARNs, ",")[0]
+
+					lbcSpec.ListenerConfigurations = &[]elbv2gw.ListenerConfiguration{
+						{
+							DefaultCertificate: &cert,
+							ProtocolPort:       "TLS:443",
+						},
+					}
+					hasTLS = true
+				}
+
+				ipTargetType := elbv2gw.TargetTypeIP
+				tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+					DefaultConfiguration: elbv2gw.TargetGroupProps{
+						TargetType: &ipTargetType,
+					},
+				}
+
+				By("deploying stack", func() {
+					err := stack.DeployTCPWeightedStack(ctx, tf, lbcSpec, tgSpec, readinessGateEnabled)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				By("checking gateway status for lb dns name", func() {
+					dnsName = stack.GetLoadBalancerIngressHostName()
+					Expect(dnsName).ToNot(BeEmpty())
+				})
+
+				By("querying AWS loadbalancer from the dns name", func() {
+					var err error
+					lbARN, err = tf.LBManager.FindLoadBalancerByDNSName(ctx, dnsName)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(lbARN).ToNot(BeEmpty())
+				})
+
+				targetNumber := int(*stack.nlbResourceStack.commonStack.dps[0].Spec.Replicas)
+
+				// TODO -- This might be hacky. Currently, the TCP svc always is 0, while UDP is 1.
+				expectedTargetGroups := []verifier.ExpectedTargetGroup{
+					{
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: targetNumber,
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           15,
+							Timeout:            5,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+					{
+						Protocol:   "TCP",
+						Port:       80,
+						NumTargets: targetNumber,
+						TargetType: "ip",
+						TargetGroupHC: &verifier.TargetGroupHC{
+							Protocol:           "TCP",
+							Port:               "traffic-port",
+							Interval:           15,
+							Timeout:            5,
+							HealthyThreshold:   3,
+							UnhealthyThreshold: 3,
+						},
+					},
+				}
+
+				By("verifying AWS loadbalancer resources", func() {
+					err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+						Type:         "network",
+						Scheme:       "internet-facing",
+						Listeners:    stack.nlbResourceStack.getListenersPortMap(),
+						TargetGroups: expectedTargetGroups,
+					})
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("waiting for target group targets to be healthy", func() {
+					err := verifier.WaitUntilTargetsAreHealthy(ctx, tf, lbARN, targetNumber)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("waiting until DNS name is available", func() {
+					err := utils.WaitUntilDNSNameAvailable(ctx, dnsName)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				By("sending http request to the lb", func() {
+					weightedRequestValidation(tf, fmt.Sprintf("http://%v/any-path", dnsName))
+				})
+
+				By("sending https request to the lb", func() {
+					if hasTLS {
+						weightedRequestValidation(tf, fmt.Sprintf("https://%v/any-path", dnsName))
+					}
+				})
+			})
+		})
 	}
+
+	Context("with NLB ip target configuration with listener mismatch in TCPRoute", func() {
+		BeforeEach(func() {})
+		It("should attach TCPRoute to only the existing listener and generate correct status", func() {
+			interf := elbv2gw.LoadBalancerSchemeInternetFacing
+			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
+				Scheme: &interf,
+			}
+			ipTargetType := elbv2gw.TargetTypeIP
+			tgSpec := elbv2gw.TargetGroupConfigurationSpec{
+				DefaultConfiguration: elbv2gw.TargetGroupProps{
+					TargetType: &ipTargetType,
+				},
+			}
+
+			By("deploying stack", func() {
+				err := stack.DeployListenerMismatch(ctx, tf, lbcSpec, tgSpec, false)
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			By("validating TCPRoute and Gateway status", func() {
+				validateTCPRouteListenerMismatch(tf, stack)
+			})
+		})
+	})
 })

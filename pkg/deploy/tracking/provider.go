@@ -29,6 +29,7 @@ import (
 //    * `stack-id` will be `namespace/globalAcceleratorName`
 //  * `aga.k8s.aws/resource: resource-id` will be applied on all AWS resources provisioned for GlobalAccelerator resources:
 //    * For GlobalAccelerator, `resource-id` will be `GlobalAccelerator`
+//  * `elbv2.k8s.aws/cluster-region: region` will be applied on AGA AWS resources when region is available.
 //For K8s resources created by this controller, the labelling strategy is as follows:
 //  * For explicit IngressGroup, the following tags will be applied on all K8s resources:
 //    * `ingress.k8s.aws/stack: groupName`
@@ -41,6 +42,9 @@ import (
 
 // Legacy AWS TagKey for cluster resources, which is used by AWSALBIngressController(v1.1.3+)
 const clusterNameTagKeyLegacy = "ingress.k8s.aws/cluster"
+
+// Cluster region tag key
+const clusterRegionTagKey = "elbv2.k8s.aws/cluster-region"
 
 // an abstraction that generates metadata to track actual resources provisioned for stack.
 type Provider interface {
@@ -66,12 +70,28 @@ type Provider interface {
 	LegacyTagKeys() []string
 }
 
+// ProviderOption can modify the provider configuration
+type ProviderOption func(p *defaultProvider)
+
+// WithRegion sets the region for the provider
+func WithRegion(region string) ProviderOption {
+	return func(p *defaultProvider) {
+		p.region = &region
+	}
+}
+
 // NewDefaultProvider constructs defaultProvider
-func NewDefaultProvider(tagPrefix string, clusterName string) *defaultProvider {
-	return &defaultProvider{
+func NewDefaultProvider(tagPrefix string, clusterName string, opts ...ProviderOption) *defaultProvider {
+	p := &defaultProvider{
 		tagPrefix:   tagPrefix,
 		clusterName: clusterName,
 	}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
 }
 
 var _ Provider = &defaultProvider{}
@@ -80,6 +100,7 @@ var _ Provider = &defaultProvider{}
 type defaultProvider struct {
 	tagPrefix   string
 	clusterName string
+	region      *string
 }
 
 func (p *defaultProvider) ResourceIDTagKey() string {
@@ -88,10 +109,17 @@ func (p *defaultProvider) ResourceIDTagKey() string {
 
 func (p *defaultProvider) StackTags(stack core.Stack) map[string]string {
 	stackID := stack.StackID()
-	return map[string]string{
+	tags := map[string]string{
 		shared_constants.TagKeyK8sCluster: p.clusterName,
 		p.prefixedTrackingKey("stack"):    stackID.String(),
 	}
+
+	// Add cluster-region tag if region is available
+	if p.region != nil && *p.region != "" {
+		tags[clusterRegionTagKey] = *p.region
+	}
+
+	return tags
 }
 
 func (p *defaultProvider) ResourceTags(stack core.Stack, res core.Resource, additionalTags map[string]string) map[string]string {

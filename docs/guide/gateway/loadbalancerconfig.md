@@ -541,6 +541,14 @@ for a complete list.
 
 **Default** Empty list
 
+#### TargetGroupStickiness
+
+`targetGroupStickiness`
+
+An optional boolean that allows you to configure target group stickiness for weighted listeners on your Load Balancer.
+
+**Default** null
+
 ### MutualAuthenticationAttributes
 
 ```

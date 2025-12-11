@@ -87,6 +87,7 @@ You can add annotations to kubernetes Ingress and Service objects to customize t
 | [alb.ingress.kubernetes.io/frontend-nlb-healthcheck-success-codes](#frontend-nlb-healthcheck-success-codes) | string                                     |200| Ingress | N/A           |
 | [alb.ingress.kubernetes.io/frontend-nlb-tags](#frontend-nlb-tags) | stringMap | N/A | Ingress | Exclusive |
 | [alb.ingress.kubernetes.io/frontend-nlb-eip-allocations](#frontend-nlb-eip-allocations) | stringList                                     |200| Ingress | N/A           |
+| [alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}](#target-control-port)                                       | integer                                    |N/A| Ingress | N/A           |
 
 ## IngressGroup
 IngressGroup feature enables you to group multiple Ingress resources together.
@@ -1369,3 +1370,14 @@ When this option is set to true, the controller will automatically provision a N
         ```
         alb.ingress.kubernetes.io/frontend-nlb-eip-allocations: eipalloc-xyz, eipalloc-zzz
         ```
+- <a name="target-control-port">`alb.ingress.kubernetes.io/target-control-port.${serviceName}.${servicePort}`</a> specifies the port on which the target control agent and application load balancer exchange management traffic for the target optimizer feature.  
+
+    !!!note
+        - The value should match the port specified in the ALB target control agent's `TARGET_CONTROL_CONTROL_ADDRESS` environment variable.
+        - Target control port once specified cannot be modified. To improve this experience, Controller will create a new target group with modified target control port and reassociate it with the listener.
+
+    !!!example
+        - Set target control port
+            ```
+            alb.ingress.kubernetes.io/target-control-port.alb-target-control.80: "3000"
+            ```

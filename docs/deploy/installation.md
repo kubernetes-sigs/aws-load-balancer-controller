@@ -43,7 +43,7 @@ Instead of depending on IMDSv2, you can specify the AWS Region via the controlle
 
 The controller runs on the worker nodes, so it needs access to the AWS ALB/NLB APIs with IAM permissions.
 
-The IAM permissions can either be setup using [IAM roles for service accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html) or can be attached directly to the worker node IAM roles. The best practice is using IRSA if you're using Amazon EKS. If you're using kOps or self-hosted Kubernetes, you must manually attach polices to node instances.
+The IAM permissions can either be setup using [IAM roles for service accounts (IRSA)](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html), [Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html), or can be attached directly to the worker node IAM roles. The best practice is using IRSA if you're using Amazon EKS. If you're using kOps or self-hosted Kubernetes, you must manually attach polices to node instances.
 
 ### Option A: Recommended, IAM roles for service accounts (IRSA)
 
@@ -90,15 +90,15 @@ Example condition for cluster name resource tag:
 2. Download an IAM policy for the LBC using one of the following commands:<p>
     If your cluster is in a US Gov Cloud region:
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.15.0/docs/install/iam_policy_us-gov.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.16.0/docs/install/iam_policy_us-gov.json
     ```
     If your cluster is in a China region:
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.15.0/docs/install/iam_policy_cn.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.16.0/docs/install/iam_policy_cn.json
     ```
     If your cluster is in any other region:
     ```
-    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.15.0/docs/install/iam_policy.json
+    curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.16.0/docs/install/iam_policy.json
     ```
 
 3. Create an IAM policy named `AWSLoadBalancerControllerIAMPolicy`. If you downloaded a different policy, replace `iam-policy` with the name of the policy that you downloaded.
@@ -121,10 +121,16 @@ Example condition for cluster name resource tag:
     --approve
     ```
 
-### Option B: Attach IAM policies to nodes
+### Option B: Recommended, Pod Identity
+
+
+Follow the Pod Identity set-up guide [here](https://docs.aws.amazon.com/eks/latest/userguide/pod-id-agent-setup.html).
+
+
+### Option C: Attach IAM policies to nodes
 If you're not setting up IAM roles for service accounts, apply the IAM policies from the following URL at a minimum. Please be aware of the possibility that the controller permissions may be assumed by other users in a pod after retrieving the node role credentials, so the best practice would be using IRSA instead of attaching IAM policy directly.
 ```
-curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.15.0/docs/install/iam_policy.json
+curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.16.0/docs/install/iam_policy.json
 ```
 
 When using this option, IMDS *must* be enabled. The controller retrieves the instance credentials using IMDS. Use IRSA to avoid usage of IMDS.
@@ -266,7 +272,7 @@ We recommend using the Helm chart to install the controller. The chart supports 
     ### Apply YAML
     1. Download the spec for the LBC.
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.15.0/v2_15_0_full.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.16.0/v2_16_0_full.yaml
     ```
     2. Edit the saved yaml file, go to the Deployment spec, and set the controller `--cluster-name` arg value to your EKS cluster name
     ```
@@ -290,15 +296,15 @@ We recommend using the Helm chart to install the controller. The chart supports 
     ```
     4. Apply the yaml file
     ```
-    kubectl apply -f v2_15_0_full.yaml
+    kubectl apply -f v2_16_0_full.yaml
     ```
     5. Optionally download the default ingressclass and ingressclass params
     ```
-    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.15.0/v2_15_0_ingclass.yaml
+    wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.16.0/v2_16_0_ingclass.yaml
     ```
     6. Apply the ingressclass and params
     ```
-    kubectl apply -f v2_15_0_ingclass.yaml
+    kubectl apply -f v2_16_0_ingclass.yaml
     ```
 
 ## Create Update Strategy

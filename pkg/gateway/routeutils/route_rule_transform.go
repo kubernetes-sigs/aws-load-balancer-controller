@@ -2,9 +2,10 @@ package routeutils
 
 import (
 	"fmt"
+	"strings"
+
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"strings"
 )
 
 const (
@@ -34,6 +35,10 @@ func buildHTTPRuleTransforms(rule *gwv1.HTTPRouteRule, httpMatch *gwv1.HTTPRoute
 				if rf.URLRewrite.Hostname != nil {
 					transforms = append(transforms, generateHostHeaderRewriteTransform(*rf.URLRewrite.Hostname))
 				}
+			}
+			// Handle RequestRedirect with ReplacePrefixMatch as URLRewrite
+			if rf.RequestRedirect != nil && rf.RequestRedirect.Path != nil && rf.RequestRedirect.Path.ReplacePrefixMatch != nil {
+				transforms = append(transforms, generateURLRewritePathTransform(*rf.RequestRedirect.Path, httpMatch))
 			}
 		}
 	}

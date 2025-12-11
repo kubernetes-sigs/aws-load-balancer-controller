@@ -32,7 +32,7 @@ type buildTargetGroupOutput struct {
 
 type targetGroupBuilder interface {
 	buildTargetGroup(stack core.Stack,
-		gw *gwv1.Gateway, listenerPort int32, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error)
+		gw *gwv1.Gateway, listenerPort int32, listenerProtocol elbv2model.Protocol, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error)
 	getLocalFrontendNlbData() map[string]*elbv2model.FrontendNlbTargetGroupState
 }
 
@@ -108,10 +108,10 @@ func newTargetGroupBuilder(clusterName string, vpcId string, tagHelper tagHelper
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
-	gw *gwv1.Gateway, listenerPort int32, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
+	gw *gwv1.Gateway, listenerPort int32, listenerProtocol elbv2model.Protocol, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backend routeutils.Backend) (core.StringToken, error) {
 
 	if backend.ServiceBackend != nil {
-		tg, err := builder.buildTargetGroupFromService(stack, gw, lbIPType, routeDescriptor, *backend.ServiceBackend)
+		tg, err := builder.buildTargetGroupFromService(stack, gw, listenerProtocol, lbIPType, routeDescriptor, *backend.ServiceBackend)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +119,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 	}
 
 	if backend.GatewayBackend != nil {
-		tg, err := builder.buildTargetGroupFromGateway(stack, gw, listenerPort, lbIPType, routeDescriptor, *backend.GatewayBackend)
+		tg, err := builder.buildTargetGroupFromGateway(stack, gw, listenerPort, listenerProtocol, lbIPType, routeDescriptor, *backend.GatewayBackend)
 		if err != nil {
 			return nil, err
 		}
@@ -135,17 +135,19 @@ func (builder *targetGroupBuilderImpl) buildTargetGroup(stack core.Stack,
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupFromService(stack core.Stack,
-	gw *gwv1.Gateway, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backendConfig routeutils.ServiceBackendConfig) (*elbv2model.TargetGroup, error) {
+	gw *gwv1.Gateway, listenerProtocol elbv2model.Protocol, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backendConfig routeutils.ServiceBackendConfig) (*elbv2model.TargetGroup, error) {
 	targetGroupProps := backendConfig.GetTargetGroupProps()
-	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), backendConfig.GetBackendNamespacedName(), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backendConfig.GetIdentifierPort())
+
+	tgSpec, err := builder.buildTargetGroupSpec(gw, routeDescriptor, listenerProtocol, lbIPType, &backendConfig, targetGroupProps)
+	if err != nil {
+		return nil, err
+	}
+
+	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), backendConfig.GetBackendNamespacedName(), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backendConfig.GetIdentifierPort(), tgSpec.TargetControlPort)
 	if tg, exists := builder.tgByResID[tgResID]; exists {
 		return tg, nil
 	}
 
-	tgSpec, err := builder.buildTargetGroupSpec(gw, routeDescriptor, lbIPType, &backendConfig, targetGroupProps)
-	if err != nil {
-		return nil, err
-	}
 	nodeSelector := builder.buildTargetGroupBindingNodeSelector(targetGroupProps, tgSpec.TargetType)
 	bindingSpec, err := builder.buildTargetGroupBindingSpec(gw, targetGroupProps, tgSpec, nodeSelector, backendConfig)
 
@@ -165,14 +167,14 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupFromService(stack core.St
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupFromGateway(stack core.Stack,
-	gw *gwv1.Gateway, listenerPort int32, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backendConfig routeutils.GatewayBackendConfig) (*elbv2model.TargetGroup, error) {
+	gw *gwv1.Gateway, listenerPort int32, listenerProtocol elbv2model.Protocol, lbIPType elbv2model.IPAddressType, routeDescriptor routeutils.RouteDescriptor, backendConfig routeutils.GatewayBackendConfig) (*elbv2model.TargetGroup, error) {
 	targetGroupProps := backendConfig.GetTargetGroupProps()
-	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), backendConfig.GetBackendNamespacedName(), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backendConfig.GetIdentifierPort())
+	tgResID := builder.buildTargetGroupResourceID(k8s.NamespacedName(gw), backendConfig.GetBackendNamespacedName(), routeDescriptor.GetRouteNamespacedName(), routeDescriptor.GetRouteKind(), backendConfig.GetIdentifierPort(), nil)
 	if tg, exists := builder.tgByResID[tgResID]; exists {
 		return tg, nil
 	}
 
-	tgSpec, err := builder.buildTargetGroupSpec(gw, routeDescriptor, lbIPType, &backendConfig, targetGroupProps)
+	tgSpec, err := builder.buildTargetGroupSpec(gw, routeDescriptor, listenerProtocol, lbIPType, &backendConfig, targetGroupProps)
 	if err != nil {
 		return nil, err
 	}
@@ -258,9 +260,9 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingSpec(gw *gwv1.Gate
 	}, nil
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, lbIPType elbv2model.IPAddressType, backendConfig routeutils.TargetGroupConfigurator, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error) {
+func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, route routeutils.RouteDescriptor, listenerProtocol elbv2model.Protocol, lbIPType elbv2model.IPAddressType, backendConfig routeutils.TargetGroupConfigurator, targetGroupProps *elbv2gw.TargetGroupProps) (elbv2model.TargetGroupSpec, error) {
 	targetType := backendConfig.GetTargetType(builder.defaultTargetType)
-	tgProtocol, err := builder.buildTargetGroupProtocol(targetGroupProps, route)
+	tgProtocol, err := builder.buildTargetGroupProtocol(targetGroupProps, route, listenerProtocol)
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
@@ -281,7 +283,11 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 		return elbv2model.TargetGroupSpec{}, err
 	}
 	tgPort := backendConfig.GetTargetGroupPort(targetType)
-	name := builder.buildTargetGroupName(targetGroupProps, k8s.NamespacedName(gw), route.GetRouteNamespacedName(), route.GetRouteKind(), backendConfig.GetBackendNamespacedName(), tgPort, targetType, tgProtocol, tgProtocolVersion)
+	targetControlPort, err := builder.buildTargetControlPort(targetGroupProps, tgProtocol, targetType)
+	if err != nil {
+		return elbv2model.TargetGroupSpec{}, err
+	}
+	name := builder.buildTargetGroupName(targetGroupProps, k8s.NamespacedName(gw), route.GetRouteNamespacedName(), route.GetRouteKind(), backendConfig.GetBackendNamespacedName(), tgPort, targetType, tgProtocol, tgProtocolVersion, targetControlPort)
 
 	if tgPort == 0 {
 		if targetType == elbv2model.TargetTypeIP {
@@ -307,7 +313,7 @@ var invalidTargetGroupNamePattern = regexp.MustCompile("[[:^alnum:]]")
 // buildTargetGroupName will calculate the targetGroup's name.
 func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *elbv2gw.TargetGroupProps,
 	gwKey types.NamespacedName, routeKey types.NamespacedName, routeKind routeutils.RouteKind, svcKey types.NamespacedName, tgPort int32,
-	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion) string {
+	targetType elbv2model.TargetType, tgProtocol elbv2model.Protocol, tgProtocolVersion *elbv2model.ProtocolVersion, targetControlPort *int32) string {
 
 	if targetGroupProps != nil && targetGroupProps.TargetGroupName != nil {
 		return *targetGroupProps.TargetGroupName
@@ -328,6 +334,9 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupName(targetGroupProps *el
 	if tgProtocolVersion != nil {
 		_, _ = uuidHash.Write([]byte(*tgProtocolVersion))
 	}
+	if targetControlPort != nil {
+		_, _ = uuidHash.Write([]byte(strconv.Itoa(int(*targetControlPort))))
+	}
 	uuid := hex.EncodeToString(uuidHash.Sum(nil))
 
 	sanitizedNamespace := invalidTargetGroupNamePattern.ReplaceAllString(routeKey.Namespace, "")
@@ -343,13 +352,13 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupIPAddressType(backendConf
 	return addressType, nil
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor) (elbv2model.Protocol, error) {
+func (builder *targetGroupBuilderImpl) buildTargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor, listenerProtocol elbv2model.Protocol) (elbv2model.Protocol, error) {
 	// TODO - Not convinced that this is good, maybe auto detect certs == HTTPS / TLS.
 	if builder.loadBalancerType == elbv2model.LoadBalancerTypeApplication {
 		return builder.buildL7TargetGroupProtocol(targetGroupProps, route)
 	}
 
-	return builder.buildL4TargetGroupProtocol(targetGroupProps, route)
+	return builder.buildL4TargetGroupProtocol(targetGroupProps, route, listenerProtocol)
 }
 
 func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor) (elbv2model.Protocol, error) {
@@ -366,7 +375,11 @@ func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupPro
 	}
 }
 
-func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor) (elbv2model.Protocol, error) {
+func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor, listenerProtocol elbv2model.Protocol) (elbv2model.Protocol, error) {
+	if listenerProtocol == elbv2model.ProtocolTCP_UDP {
+		return listenerProtocol, nil
+	}
+
 	if targetGroupProps == nil || targetGroupProps.Protocol == nil {
 		return builder.inferTargetGroupProtocolFromRoute(route), nil
 	}
@@ -604,8 +617,12 @@ func (builder *targetGroupBuilderImpl) convertMapToAttributes(attributeMap map[s
 	return convertedAttributes
 }
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupResourceID(gwKey types.NamespacedName, svcKey types.NamespacedName, routeKey types.NamespacedName, routeKind routeutils.RouteKind, port intstr.IntOrString) string {
-	return fmt.Sprintf("%s/%s:%s-%s:%s-%s-%s:%s", gwKey.Namespace, gwKey.Name, routeKey.Namespace, routeKey.Name, routeKind, svcKey.Namespace, svcKey.Name, port.String())
+func (builder *targetGroupBuilderImpl) buildTargetGroupResourceID(gwKey types.NamespacedName, svcKey types.NamespacedName, routeKey types.NamespacedName, routeKind routeutils.RouteKind, port intstr.IntOrString, targetControlPort *int32) string {
+	id := fmt.Sprintf("%s/%s:%s-%s:%s-%s-%s:%s", gwKey.Namespace, gwKey.Name, routeKey.Namespace, routeKey.Name, routeKind, svcKey.Namespace, svcKey.Name, port.String())
+	if targetControlPort != nil {
+		id = fmt.Sprintf("%s-%d", id, *targetControlPort)
+	}
+	return id
 }
 
 func (builder *targetGroupBuilderImpl) buildTargetGroupBindingNodeSelector(tgProps *elbv2gw.TargetGroupProps, targetType elbv2model.TargetType) *metav1.LabelSelector {
@@ -620,4 +637,25 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupBindingMultiClusterFlag(t
 		return false
 	}
 	return *tgProps.EnableMultiCluster
+}
+
+func (builder *targetGroupBuilderImpl) buildTargetControlPort(targetGroupProps *elbv2gw.TargetGroupProps, tgProtocol elbv2model.Protocol, targetType elbv2model.TargetType) (*int32, error) {
+	if targetGroupProps == nil || targetGroupProps.TargetControlPort == nil {
+		return nil, nil
+	}
+
+	// Target control port only works with HTTP/HTTPS protocols
+	if tgProtocol != elbv2model.ProtocolHTTP && tgProtocol != elbv2model.ProtocolHTTPS {
+		return nil, errors.Errorf("target control port is only supported for HTTP and HTTPS protocols, got: %s", tgProtocol)
+	}
+
+	if targetType == elbv2model.TargetTypeInstance {
+		return nil, errors.New("target control port is not supported for instance target target group")
+	}
+
+	if targetType == elbv2model.TargetTypeALB {
+		return nil, errors.New("target control port is not supported for ALB target target group")
+	}
+
+	return targetGroupProps.TargetControlPort, nil
 }

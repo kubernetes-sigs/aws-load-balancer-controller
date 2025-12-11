@@ -1,6 +1,8 @@
 package elbv2
 
 import (
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/pkg/errors"
@@ -9,7 +11,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
 )
 
 func Test_matchResAndSDKTargetGroups(t *testing.T) {
@@ -656,6 +657,76 @@ func Test_isSDKTargetGroupRequiresReplacement(t *testing.T) {
 				},
 			},
 			want: false,
+		},
+		{
+			name: "target control port nil -> 3000",
+			args: args{
+				sdkTG: TargetGroupWithTags{
+					TargetGroup: &elbv2types.TargetGroup{
+						TargetType:      elbv2types.TargetTypeEnumIp,
+						Port:            awssdk.Int32(8080),
+						Protocol:        elbv2types.ProtocolEnumHttp,
+						TargetGroupName: awssdk.String("my-tg1"),
+					},
+				},
+				resTG: &elbv2model.TargetGroup{
+					Spec: elbv2model.TargetGroupSpec{
+						TargetType:        elbv2model.TargetTypeIP,
+						Port:              awssdk.Int32(8080),
+						Protocol:          elbv2model.ProtocolHTTP,
+						Name:              "my-tg",
+						TargetControlPort: awssdk.Int32(3000),
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "target control port 3000 -> nil",
+			args: args{
+				sdkTG: TargetGroupWithTags{
+					TargetGroup: &elbv2types.TargetGroup{
+						TargetType:        elbv2types.TargetTypeEnumIp,
+						Port:              awssdk.Int32(8080),
+						Protocol:          elbv2types.ProtocolEnumHttp,
+						TargetGroupName:   awssdk.String("my-tg1"),
+						TargetControlPort: awssdk.Int32(3000),
+					},
+				},
+				resTG: &elbv2model.TargetGroup{
+					Spec: elbv2model.TargetGroupSpec{
+						TargetType: elbv2model.TargetTypeIP,
+						Port:       awssdk.Int32(8080),
+						Protocol:   elbv2model.ProtocolHTTP,
+						Name:       "my-tg",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "target control port 3000 -> 4000",
+			args: args{
+				sdkTG: TargetGroupWithTags{
+					TargetGroup: &elbv2types.TargetGroup{
+						TargetType:        elbv2types.TargetTypeEnumIp,
+						Port:              awssdk.Int32(8080),
+						Protocol:          elbv2types.ProtocolEnumHttp,
+						TargetGroupName:   awssdk.String("my-tg1"),
+						TargetControlPort: awssdk.Int32(3000),
+					},
+				},
+				resTG: &elbv2model.TargetGroup{
+					Spec: elbv2model.TargetGroupSpec{
+						TargetType:        elbv2model.TargetTypeIP,
+						Port:              awssdk.Int32(8080),
+						Protocol:          elbv2model.ProtocolHTTP,
+						Name:              "my-tg",
+						TargetControlPort: awssdk.Int32(4000),
+					},
+				},
+			},
+			want: true,
 		},
 	}
 	for _, tt := range tests {

@@ -31,11 +31,12 @@ var alpnNone = []string{
 }
 
 var PROTOCOLS_SUPPORTING_LISTENER_ATTRIBUTES = map[elbv2model.Protocol]bool{
-	elbv2model.ProtocolHTTP:  true,
-	elbv2model.ProtocolHTTPS: true,
-	elbv2model.ProtocolTCP:   true,
-	elbv2model.ProtocolUDP:   false,
-	elbv2model.ProtocolTLS:   false,
+	elbv2model.ProtocolHTTP:    true,
+	elbv2model.ProtocolHTTPS:   true,
+	elbv2model.ProtocolTCP:     true,
+	elbv2model.ProtocolUDP:     false,
+	elbv2model.ProtocolTLS:     false,
+	elbv2model.ProtocolTCP_UDP: true,
 }
 
 // ListenerManager is responsible for create/update/delete Listener resources.

@@ -1,10 +1,11 @@
 package routeutils
 
 import (
+	"time"
+
 	"k8s.io/apimachinery/pkg/types"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"time"
 )
 
 type MockRule struct {
@@ -38,7 +39,6 @@ type MockRoute struct {
 }
 
 func (m *MockRoute) GetBackendRefs() []gwv1.BackendRef {
-	//TODO implement me
 	panic("implement me")
 }
 
@@ -56,6 +56,10 @@ func (m *MockRoute) GetRouteNamespacedName() types.NamespacedName {
 
 func (m *MockRoute) GetRouteKind() RouteKind {
 	return m.Kind
+}
+
+func (m *MockRoute) GetRouteIdentifier() string {
+	panic("implement me")
 }
 
 func (m *MockRoute) GetHostnames() []gwv1.Hostname {

@@ -2,6 +2,12 @@ package model
 
 import (
 	"context"
+	"fmt"
+	"github.com/go-logr/logr"
+	"reflect"
+	"strings"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -9,12 +15,9 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"reflect"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/routeutils"
 	coremodel "sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
-	"strings"
-	"testing"
 
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
@@ -32,7 +35,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 		name    string
 		gateway *gwv1.Gateway
 		routes  map[int32][]routeutils.RouteDescriptor
-		want    map[int32]*gwListenerConfig
+		want    map[int32]gwListenerConfig
 		wantErr bool
 	}{
 		{
@@ -48,7 +51,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int32]*gwListenerConfig{
+			want: map[int32]gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
 					hostnames: sets.New[string](),
@@ -69,7 +72,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int32]*gwListenerConfig{
+			want: map[int32]gwListenerConfig{
 				443: {
 					protocol:  elbv2model.ProtocolTCP,
 					hostnames: sets.New[string](),
@@ -100,7 +103,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int32]*gwListenerConfig{
+			want: map[int32]gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
 					hostnames: sets.New[string](),
@@ -136,7 +139,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int32]*gwListenerConfig{
+			want: map[int32]gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
 					hostnames: sets.New[string]("foo.example.com"),
@@ -189,7 +192,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int32]*gwListenerConfig{
+			want: map[int32]gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
 					hostnames: sets.New[string]("foo.example.com", "bar.example.com"),
@@ -217,7 +220,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int32]*gwListenerConfig{
+			want: map[int32]gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
 					hostnames: sets.New[string]("foo.example.com", "bar.example.com"),
@@ -249,7 +252,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int32]*gwListenerConfig{
+			want: map[int32]gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
 					hostnames: sets.New[string]("foo.example.com", "r1.com", "r2.com", "r3.com", "r4.com", "r5.com", "r6.com"),
@@ -286,7 +289,7 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int32]*gwListenerConfig{
+			want: map[int32]gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
 					hostnames: sets.New[string]("foo.example.com", "r1.com", "r2.com", "r3.com"),
@@ -323,10 +326,111 @@ func Test_mapGatewayListenerConfigsByPort(t *testing.T) {
 					},
 				},
 			},
-			want: map[int32]*gwListenerConfig{
+			want: map[int32]gwListenerConfig{
 				80: {
 					protocol:  elbv2model.ProtocolHTTP,
 					hostnames: sets.New[string]("foo.example.com", "r1.com", "r2.com", "r3.com"),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "listener valid merge",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "udp-1",
+							Port:     80,
+							Protocol: gwv1.UDPProtocolType,
+						},
+						{
+							Name:     "tcp-1",
+							Port:     80,
+							Protocol: gwv1.TCPProtocolType,
+						},
+						{
+							Name:     "tcp-2",
+							Port:     443,
+							Protocol: gwv1.TCPProtocolType,
+						},
+					},
+				},
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{},
+				},
+				443: {
+					&routeutils.MockRoute{},
+				},
+			},
+			want: map[int32]gwListenerConfig{
+				80: {
+					protocol:  elbv2model.ProtocolTCP_UDP,
+					hostnames: sets.New[string](),
+				},
+				443: {
+					protocol:  elbv2model.ProtocolTCP,
+					hostnames: sets.New[string](),
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "listener valid merge - multiple listeners",
+			gateway: &gwv1.Gateway{
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "udp-1",
+							Port:     80,
+							Protocol: gwv1.UDPProtocolType,
+						},
+						{
+							Name:     "tcp-1",
+							Port:     80,
+							Protocol: gwv1.TCPProtocolType,
+						},
+						{
+							Name:     "tcp-2",
+							Port:     443,
+							Protocol: gwv1.TCPProtocolType,
+						},
+						{
+							Name:     "tcp-3",
+							Port:     80,
+							Protocol: gwv1.TCPProtocolType,
+						},
+						{
+							Name:     "tcp-4",
+							Port:     80,
+							Protocol: gwv1.TCPProtocolType,
+						},
+						{
+							Name:     "udp-2",
+							Port:     80,
+							Protocol: gwv1.UDPProtocolType,
+						},
+					},
+				},
+			},
+			routes: map[int32][]routeutils.RouteDescriptor{
+				80: {
+					&routeutils.MockRoute{},
+				},
+				443: {
+					&routeutils.MockRoute{},
+				},
+			},
+			want: map[int32]gwListenerConfig{
+				80: {
+					protocol:  elbv2model.ProtocolTCP_UDP,
+					hostnames: sets.New[string](),
+				},
+				443: {
+					protocol:  elbv2model.ProtocolTCP,
+					hostnames: sets.New[string](),
 				},
 			},
 			wantErr: false,
@@ -473,17 +577,17 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 	tests := []struct {
 		name      string
 		lbCfg     elbv2gw.LoadBalancerConfiguration
-		listeners []gwv1.Listener
+		listeners map[int32]gwListenerConfig
 		want      map[int32]*elbv2gw.ListenerConfiguration
 	}{
 		{
 			name:      "nil configuration",
-			listeners: []gwv1.Listener{},
+			listeners: map[int32]gwListenerConfig{},
 			want:      map[int32]*elbv2gw.ListenerConfiguration{},
 		},
 		{
 			name:      "nil listener configurations",
-			listeners: []gwv1.Listener{},
+			listeners: map[int32]gwListenerConfig{},
 			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: nil,
@@ -493,7 +597,7 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 		},
 		{
 			name:      "empty listener configurations",
-			listeners: []gwv1.Listener{},
+			listeners: map[int32]gwListenerConfig{},
 			lbCfg: elbv2gw.LoadBalancerConfiguration{
 				Spec: elbv2gw.LoadBalancerConfigurationSpec{
 					ListenerConfigurations: createListenerConfigs(),
@@ -503,10 +607,9 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 		},
 		{
 			name: "single HTTP listener",
-			listeners: []gwv1.Listener{
-				{
-					Protocol: gwv1.HTTPProtocolType,
-					Port:     80,
+			listeners: map[int32]gwListenerConfig{
+				80: {
+					protocol: elbv2model.ProtocolHTTP,
 				},
 			},
 			lbCfg: elbv2gw.LoadBalancerConfiguration{
@@ -522,18 +625,15 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 		},
 		{
 			name: "multiple valid listeners",
-			listeners: []gwv1.Listener{
-				{
-					Protocol: gwv1.HTTPProtocolType,
-					Port:     80,
+			listeners: map[int32]gwListenerConfig{
+				80: {
+					protocol: elbv2model.ProtocolHTTP,
 				},
-				{
-					Protocol: gwv1.HTTPSProtocolType,
-					Port:     443,
+				443: {
+					protocol: elbv2model.ProtocolHTTPS,
 				},
-				{
-					Protocol: gwv1.HTTPProtocolType,
-					Port:     8080,
+				8080: {
+					protocol: elbv2model.ProtocolHTTP,
 				},
 			},
 			lbCfg: elbv2gw.LoadBalancerConfiguration{
@@ -559,18 +659,15 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 		},
 		{
 			name: "conflicting listener protocols",
-			listeners: []gwv1.Listener{
-				{
-					Protocol: gwv1.HTTPProtocolType,
-					Port:     80,
+			listeners: map[int32]gwListenerConfig{
+				80: {
+					protocol: elbv2model.ProtocolHTTP,
 				},
-				{
-					Protocol: gwv1.HTTPSProtocolType,
-					Port:     443,
+				443: {
+					protocol: elbv2model.ProtocolHTTPS,
 				},
-				{
-					Protocol: gwv1.HTTPProtocolType,
-					Port:     8080,
+				8080: {
+					protocol: elbv2model.ProtocolHTTP,
 				},
 			},
 			lbCfg: elbv2gw.LoadBalancerConfiguration{
@@ -592,6 +689,24 @@ func Test_mapLoadBalancerListenerConfigsByPort(t *testing.T) {
 				},
 				8080: {
 					ProtocolPort: "HTTP:8080",
+				},
+			},
+		},
+		{
+			name: "single TCP_UDP listener",
+			listeners: map[int32]gwListenerConfig{
+				80: {
+					protocol: elbv2model.ProtocolTCP_UDP,
+				},
+			},
+			lbCfg: elbv2gw.LoadBalancerConfiguration{
+				Spec: elbv2gw.LoadBalancerConfigurationSpec{
+					ListenerConfigurations: createListenerConfigs("TCP_UDP:80"),
+				},
+			},
+			want: map[int32]*elbv2gw.ListenerConfiguration{
+				80: {
+					ProtocolPort: "TCP_UDP:80",
 				},
 			},
 		},
@@ -677,7 +792,7 @@ func TestBuildCertificates(t *testing.T) {
 		name       string
 		gateway    *gwv1.Gateway
 		port       int32
-		gwLsCfg    *gwListenerConfig
+		gwLsCfg    gwListenerConfig
 		lbLsCfg    *elbv2gw.ListenerConfiguration
 		setupMocks func(mockCertDiscovery *certs.MockCertDiscovery)
 		want       []elbv2model.Certificate
@@ -697,7 +812,7 @@ func TestBuildCertificates(t *testing.T) {
 				},
 			},
 			port: 443,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("my-host-1", "my-host-2"),
 			},
@@ -724,7 +839,7 @@ func TestBuildCertificates(t *testing.T) {
 				},
 			},
 			port: 443,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolTLS,
 				hostnames: sets.New[string]("my-host-1", "my-host-2"),
 			},
@@ -757,7 +872,7 @@ func TestBuildCertificates(t *testing.T) {
 				},
 			},
 			port: 443,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("my-host-1", "my-host-2"),
 			},
@@ -794,7 +909,7 @@ func TestBuildCertificates(t *testing.T) {
 				},
 			},
 			port: 443,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolTLS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -828,7 +943,7 @@ func TestBuildCertificates(t *testing.T) {
 				},
 			},
 			port: 443,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolTLS,
 				hostnames: sets.New[string]("example.com", "*.example.org"),
 			},
@@ -865,7 +980,7 @@ func TestBuildCertificates(t *testing.T) {
 				},
 			},
 			port: 443,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -894,7 +1009,7 @@ func TestBuildCertificates(t *testing.T) {
 				},
 			},
 			port: 443,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTP,
 				hostnames: sets.New[string](),
 			},
@@ -917,7 +1032,7 @@ func TestBuildCertificates(t *testing.T) {
 				},
 			},
 			port: 443,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string](),
 			},
@@ -979,7 +1094,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 	tests := []struct {
 		name                string
 		protocol            elbv2model.Protocol
-		gwLsCfg             *gwListenerConfig
+		gwLsCfg             gwListenerConfig
 		lbLsCfg             *elbv2gw.ListenerConfiguration
 		describeTrustStores describeTrustStoresCall
 		want                *elbv2model.MutualAuthenticationAttributes
@@ -988,7 +1103,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "non-secure protocol should return nil",
 			protocol: elbv2model.ProtocolHTTP,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTP,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -999,7 +1114,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "nil lbLsCfg should return nil",
 			protocol: elbv2model.ProtocolHTTPS,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -1010,7 +1125,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "nil mutualAuthentication should return off mode",
 			protocol: elbv2model.ProtocolHTTPS,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -1023,7 +1138,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "verify mode with truststore name should resolve ARN",
 			protocol: elbv2model.ProtocolHTTPS,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -1051,7 +1166,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "verify mode with truststore ARN should use ARN directly",
 			protocol: elbv2model.ProtocolHTTPS,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -1072,7 +1187,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "verify mode with all options",
 			protocol: elbv2model.ProtocolHTTPS,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -1095,7 +1210,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "verify mode with nil ignoreClientCertificateExpiry",
 			protocol: elbv2model.ProtocolHTTPS,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -1118,7 +1233,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "passthrough mode",
 			protocol: elbv2model.ProtocolHTTPS,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -1138,7 +1253,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "off mode",
 			protocol: elbv2model.ProtocolHTTPS,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -1158,7 +1273,7 @@ func Test_buildMutualAuthenticationAttributes(t *testing.T) {
 		{
 			name:     "error on truststore ARN resolution",
 			protocol: elbv2model.ProtocolHTTPS,
-			gwLsCfg: &gwListenerConfig{
+			gwLsCfg: gwListenerConfig{
 				protocol:  elbv2model.ProtocolHTTPS,
 				hostnames: sets.New[string]("example.com"),
 			},
@@ -1242,7 +1357,7 @@ func Test_BuildListenerRules(t *testing.T) {
 		tagErr        error
 	}{
 		{
-			name:             "no backends should result in 503 fixed response",
+			name:             "no backends should result in 500 fixed response",
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTP,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
@@ -1277,7 +1392,7 @@ func Test_BuildListenerRules(t *testing.T) {
 							Type: "fixed-response",
 							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
 								ContentType: awssdk.String("text/plain"),
-								StatusCode:  "503",
+								StatusCode:  "500",
 							},
 						},
 					},
@@ -1590,7 +1705,7 @@ func Test_BuildListenerRules(t *testing.T) {
 			},
 		},
 		{
-			name:             "listener rule config with authenticate-cognito and no backends should result in auth + 503 fixed response",
+			name:             "listener rule config with authenticate-cognito and no backends should result in auth + 500 fixed response",
 			port:             80,
 			listenerProtocol: elbv2model.ProtocolHTTPS,
 			ipAddressType:    elbv2model.IPAddressTypeIPV4,
@@ -1663,7 +1778,7 @@ func Test_BuildListenerRules(t *testing.T) {
 							Type: "fixed-response",
 							FixedResponseConfig: &elbv2model.FixedResponseActionConfig{
 								ContentType: awssdk.String("text/plain"),
-								StatusCode:  "503",
+								StatusCode:  "500",
 							},
 						},
 					},
@@ -1735,6 +1850,269 @@ func Test_BuildListenerRules(t *testing.T) {
 
 			for _, lr := range resLRs {
 				assert.Equal(t, tc.expectedTags, lr.Spec.Tags)
+			}
+		})
+	}
+}
+
+func Test_buildL4TargetGroupTuples(t *testing.T) {
+
+	type tgValidation struct {
+		arn    string
+		weight int
+	}
+
+	stack := coremodel.NewDefaultStack(coremodel.StackID{Namespace: "namespace", Name: "name"})
+
+	tgs := make([]*elbv2model.TargetGroup, 0)
+
+	for i := 1; i <= 4; i++ {
+		tgs = append(tgs, &elbv2model.TargetGroup{
+			ResourceMeta: coremodel.NewResourceMeta(stack, "AWS::ElasticLoadBalancingV2::TargetGroup", fmt.Sprintf("id-%d", i)),
+			Status: &elbv2model.TargetGroupStatus{
+				TargetGroupARN: fmt.Sprintf("arn%d", i),
+			},
+		})
+	}
+	testCases := []struct {
+		name         string
+		targetGroups []*elbv2model.TargetGroup
+		routes       []routeutils.RouteDescriptor
+		expected     []tgValidation
+		expectErr    bool
+	}{
+		{
+			name:     "no routes",
+			routes:   []routeutils.RouteDescriptor{},
+			expected: make([]tgValidation, 0),
+		},
+		{
+			name: "one route - no backends",
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{},
+			},
+			expected: make([]tgValidation, 0),
+		},
+		{
+			name: "one route - one rule - one backend",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+			},
+		},
+		{
+			name: "one route - one rule - two backend",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+								{
+									Weight: 2,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+				{
+					arn:    "arn2",
+					weight: 2,
+				},
+			},
+		},
+		{
+			name: "one route - two rules - one backend each",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+							},
+						},
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 2,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+				{
+					arn:    "arn2",
+					weight: 2,
+				},
+			},
+		},
+		{
+			name: "two routes - one rule / two backends each",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+				tgs[2],
+				tgs[3],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+								{
+									Weight: 1,
+								},
+							},
+						},
+					},
+				},
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 2,
+								},
+								{
+									Weight: 1,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+				{
+					arn:    "arn2",
+					weight: 1,
+				},
+				{
+					arn:    "arn3",
+					weight: 2,
+				},
+				{
+					arn:    "arn4",
+					weight: 1,
+				},
+			},
+		},
+		{
+			name: "two routes - one rule / one backend each",
+			targetGroups: []*elbv2model.TargetGroup{
+				tgs[0],
+				tgs[1],
+			},
+			routes: []routeutils.RouteDescriptor{
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 1,
+								},
+							},
+						},
+					},
+				},
+				&routeutils.MockRoute{
+					Rules: []routeutils.RouteRule{
+						&routeutils.MockRule{
+							BackendRefs: []routeutils.Backend{
+								{
+									Weight: 2,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []tgValidation{
+				{
+					arn:    "arn1",
+					weight: 1,
+				},
+				{
+					arn:    "arn2",
+					weight: 2,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockTgBuilder := &mockTargetGroupBuilder{
+				tgs: tc.targetGroups,
+			}
+
+			builder := &listenerBuilderImpl{
+				tgBuilder: mockTgBuilder,
+				logger:    logr.Discard(),
+			}
+
+			result, err := builder.buildL4TargetGroupTuples(stack, tc.routes, &gwv1.Gateway{}, 80, elbv2model.ProtocolHTTP, elbv2model.IPAddressTypeIPV4)
+
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, len(tc.expected), len(result))
+				for i := range tc.expected {
+					e := tc.expected[i]
+					a := result[i]
+					actualArn, _ := a.TargetGroupARN.Resolve(context.Background())
+					assert.Equal(t, e.arn, actualArn)
+					assert.Equal(t, e.weight, int(*a.Weight))
+				}
 			}
 		})
 	}

@@ -2,12 +2,12 @@ package model
 
 import (
 	"context"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
-
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/addon"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	config2 "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway"
 	modelAddons "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/model/addons"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 
@@ -39,10 +39,10 @@ type Builder interface {
 // NewModelBuilder construct a new baseModelBuilder
 func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, loadBalancerType elbv2model.LoadBalancerType, trackingProvider tracking.Provider,
-	elbv2TaggingManager elbv2deploy.TaggingManager, lbcConfig config.ControllerConfig, ec2Client services.EC2, elbv2Client services.ELBV2, acmClient services.ACM, k8sClient client.Client, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
+	elbv2TaggingManager elbv2deploy.TaggingManager, lbcConfig config.ControllerConfig, ec2Client services.EC2, elbv2Client services.ELBV2, certDiscovery certs.CertDiscovery, k8sClient client.Client, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
 	externalManagedTags sets.Set[string], defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool,
-	disableRestrictedSGRules bool, allowedCAARNs []string, supportedAddons []addon.Addon, logger logr.Logger) Builder {
+	disableRestrictedSGRules bool, supportedAddons []addon.Addon, logger logr.Logger) Builder {
 
 	gwTagHelper := newTagHelper(sets.New(lbcConfig.ExternalManagedTags...), lbcConfig.DefaultTags, featureGates.Enabled(config.EnableDefaultTagsLowPriority))
 	subnetBuilder := newSubnetModelBuilder(loadBalancerType, trackingProvider, subnetsResolver, elbv2TaggingManager)
@@ -62,8 +62,8 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 		featureGates:             featureGates,
 		ec2Client:                ec2Client,
 		elbv2Client:              elbv2Client,
-		acmClient:                acmClient,
 		k8sClient:                k8sClient,
+		certDiscovery:            certDiscovery,
 		subnetBuilder:            subnetBuilder,
 		securityGroupBuilder:     sgBuilder,
 		loadBalancerType:         loadBalancerType,
@@ -79,7 +79,6 @@ func NewModelBuilder(subnetsResolver networking.SubnetsResolver,
 
 		defaultLoadBalancerScheme: elbv2model.LoadBalancerScheme(defaultLoadBalancerScheme),
 		defaultIPType:             elbv2model.IPAddressTypeIPV4,
-		allowedCAARNs:             allowedCAARNs,
 	}
 }
 
@@ -105,9 +104,8 @@ type baseModelBuilder struct {
 	disableRestrictedSGRules   bool
 	ec2Client                  services.EC2
 	elbv2Client                services.ELBV2
-	acmClient                  services.ACM
+	certDiscovery              certs.CertDiscovery
 	k8sClient                  client.Client
-	allowedCAARNs              []string
 	metricsCollector           lbcmetrics.MetricCollector
 	lbBuilder                  loadBalancerBuilder
 	gwTagHelper                tagHelper
@@ -140,6 +138,7 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 	}
 
 	/* Basic LB stuff (Scheme, IP Address Type) */
+
 	scheme, err := baseBuilder.buildLoadBalancerScheme(lbConf)
 
 	if err != nil {
@@ -155,22 +154,18 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 	/* Subnets */
 
 	subnets, err := baseBuilder.subnetBuilder.buildLoadBalancerSubnets(ctx, lbConf.Spec.LoadBalancerSubnets, lbConf.Spec.LoadBalancerSubnetsSelector, scheme, ipAddressType, stack)
-
 	if err != nil {
 		return nil, nil, nil, false, nil, err
 	}
 
 	/* Security Groups */
-
 	securityGroups, err := baseBuilder.securityGroupBuilder.buildSecurityGroups(ctx, stack, lbConf, gw, ipAddressType)
-
 	if err != nil {
 		return nil, nil, nil, false, nil, err
 	}
 
 	/* Combine everything to form a LoadBalancer */
 	spec, err := baseBuilder.lbBuilder.buildLoadBalancerSpec(scheme, ipAddressType, gw, lbConf, subnets, securityGroups.securityGroupTokens)
-
 	if err != nil {
 		return nil, nil, nil, false, nil, err
 	}
@@ -184,12 +179,11 @@ func (baseBuilder *baseModelBuilder) Build(ctx context.Context, gw *gwv1.Gateway
 	if err != nil {
 		return nil, nil, nil, false, nil, err
 	}
-
 	lb := elbv2model.NewLoadBalancer(stack, shared_constants.ResourceIDLoadBalancer, spec)
 
 	tgbNetworkingBuilder := newTargetGroupBindingNetworkBuilder(baseBuilder.disableRestrictedSGRules, baseBuilder.vpcID, spec.Scheme, lbConf.Spec.SourceRanges, securityGroups, subnets.ec2Result, baseBuilder.vpcInfoProvider)
 	tgBuilder := newTargetGroupBuilder(baseBuilder.clusterName, baseBuilder.vpcID, baseBuilder.gwTagHelper, baseBuilder.loadBalancerType, tgbNetworkingBuilder, baseBuilder.tgPropertiesConstructor, baseBuilder.defaultTargetType, targetGroupNameToArnMapper)
-	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.acmClient, baseBuilder.k8sClient, baseBuilder.allowedCAARNs, secretsManager, baseBuilder.logger)
+	listenerBuilder := newListenerBuilder(baseBuilder.loadBalancerType, tgBuilder, baseBuilder.gwTagHelper, baseBuilder.certDiscovery, baseBuilder.clusterName, baseBuilder.defaultSSLPolicy, baseBuilder.elbv2Client, baseBuilder.k8sClient, secretsManager, baseBuilder.logger)
 
 	secrets, err := listenerBuilder.buildListeners(ctx, stack, lb, gw, routes, lbConf)
 	if err != nil {

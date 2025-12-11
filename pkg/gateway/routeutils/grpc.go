@@ -98,6 +98,10 @@ func (grpcRoute *grpcRouteDescription) GetRouteNamespacedName() types.Namespaced
 	return k8s.NamespacedName(grpcRoute.route)
 }
 
+func (grpcRoute *grpcRouteDescription) GetRouteIdentifier() string {
+	return string(grpcRoute.GetRouteKind()) + "-" + grpcRoute.GetRouteNamespacedName().String()
+}
+
 func convertGRPCRoute(r gwv1.GRPCRoute) *grpcRouteDescription {
 	return &grpcRouteDescription{route: &r, ruleAccumulator: defaultGRPCRuleAccumulator}
 }

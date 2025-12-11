@@ -6,6 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/acm"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
+	"github.com/aws/aws-sdk-go-v2/service/globalaccelerator"
 	"github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go-v2/service/shield"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
@@ -15,14 +16,15 @@ import (
 )
 
 type defaultAWSClientsProvider struct {
-	ec2Client       *ec2.Client
-	elbv2Client     *elasticloadbalancingv2.Client
-	acmClient       *acm.Client
-	wafv2Client     *wafv2.Client
-	wafRegionClient *wafregional.Client
-	shieldClient    *shield.Client
-	rgtClient       *resourcegroupstaggingapi.Client
-	stsClient       *sts.Client
+	ec2Client               *ec2.Client
+	elbv2Client             *elasticloadbalancingv2.Client
+	acmClient               *acm.Client
+	wafv2Client             *wafv2.Client
+	wafRegionClient         *wafregional.Client
+	shieldClient            *shield.Client
+	rgtClient               *resourcegroupstaggingapi.Client
+	stsClient               *sts.Client
+	globalAcceleratorClient *globalaccelerator.Client
 
 	// used for dynamic creation of ELBv2 client
 	elbv2CustomEndpoint *string
@@ -37,6 +39,7 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 	shieldCustomEndpoint := endpointsResolver.EndpointFor(shield.ServiceID)
 	rgtCustomEndpoint := endpointsResolver.EndpointFor(resourcegroupstaggingapi.ServiceID)
 	stsCustomEndpoint := endpointsResolver.EndpointFor(sts.ServiceID)
+	globalAcceleratorCustomEndpoint := endpointsResolver.EndpointFor(globalaccelerator.ServiceID)
 
 	ec2Client := ec2.NewFromConfig(cfg, func(o *ec2.Options) {
 		if ec2CustomEndpoint != nil {
@@ -76,15 +79,23 @@ func NewDefaultAWSClientsProvider(cfg aws.Config, endpointsResolver *endpoints.R
 		}
 	})
 
+	globalAcceleratorClient := globalaccelerator.NewFromConfig(cfg, func(o *globalaccelerator.Options) {
+		o.Region = "us-west-2" // Global Accelerator is a global service that requires us-west-2
+		if globalAcceleratorCustomEndpoint != nil {
+			o.BaseEndpoint = globalAcceleratorCustomEndpoint
+		}
+	})
+
 	return &defaultAWSClientsProvider{
-		ec2Client:       ec2Client,
-		elbv2Client:     elbv2Client,
-		acmClient:       acmClient,
-		wafv2Client:     wafv2Client,
-		wafRegionClient: wafregionalClient,
-		shieldClient:    shieldClient,
-		rgtClient:       rgtClient,
-		stsClient:       stsClient,
+		ec2Client:               ec2Client,
+		elbv2Client:             elbv2Client,
+		acmClient:               acmClient,
+		wafv2Client:             wafv2Client,
+		wafRegionClient:         wafregionalClient,
+		shieldClient:            shieldClient,
+		rgtClient:               rgtClient,
+		stsClient:               stsClient,
+		globalAcceleratorClient: globalAcceleratorClient,
 
 		elbv2CustomEndpoint: elbv2CustomEndpoint,
 	}, nil
@@ -123,6 +134,10 @@ func (p *defaultAWSClientsProvider) GetRGTClient(ctx context.Context, operationN
 
 func (p *defaultAWSClientsProvider) GetSTSClient(ctx context.Context, operationName string) (*sts.Client, error) {
 	return p.stsClient, nil
+}
+
+func (p *defaultAWSClientsProvider) GetGlobalAcceleratorClient(ctx context.Context, operationName string) (*globalaccelerator.Client, error) {
+	return p.globalAcceleratorClient, nil
 }
 
 func (p *defaultAWSClientsProvider) GenerateNewELBv2Client(cfg aws.Config) *elasticloadbalancingv2.Client {

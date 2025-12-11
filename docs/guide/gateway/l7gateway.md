@@ -185,7 +185,7 @@ information see the [Gateway API Conformance Page](https://gateway-api.sigs.k8s.
 | HTTPRouteRule - HTTPRouteFilter - RequestHeaderModifier  | Core              | ❌-- [Limited Support](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/header-modification.html) |
 | HTTPRouteRule - HTTPRouteFilter - ResponseHeaderModifier | Core              |                                                                                                                   ❌ |
 | HTTPRouteRule - HTTPRouteFilter - RequestMirror          | Extended          |                                                                                                                   ❌ |
-| HTTPRouteRule - HTTPRouteFilter - RequestRedirect        | Core              |                                                                                                                   ✅ |
+| HTTPRouteRule - HTTPRouteFilter - RequestRedirect        | Core              |    ✅ -- See [ReplacePrefixMatch Limitation](#requestredirect-path-modification-replaceprefixmatch-limitation) below |
 | HTTPRouteRule - HTTPRouteFilter - UrlRewrite             | Extended          |                                                                                                                   ✅ |
 | HTTPRouteRule - HTTPRouteFilter - CORS                   | Extended          |                                                                                                                   ❌ |
 | HTTPRouteRule - HTTPRouteFilter - ExternalAuth           | Extended          |                                ❌ -- Use [ListenerRuleConfigurations](customization.md#customizing-l7-routing-rules) |
@@ -200,8 +200,44 @@ information see the [Gateway API Conformance Page](https://gateway-api.sigs.k8s.
 Backend TLS is not supported by AWS ALB Gateway. For more information on how AWS ALB communicates with targets using encryption, 
 please see the [AWS documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html#target-group-routing-configuration).
 
+##### RequestRedirect Path Modification ReplacePrefixMatch Limitation
 
+The AWS Load Balancer Controller supports HTTPRoute RequestRedirect filters with both `ReplaceFullPath` and `ReplacePrefixMatch` path modification types.
 
+**ReplacePrefixMatch Behavior:**
+
+We support `ReplacePrefixMatch` with limitations:
+
+1. **With scheme/port/hostname changes** - Works as expected:
+   ```yaml
+   filters:
+   - type: RequestRedirect
+     requestRedirect:
+       scheme: HTTPS  # or port/hostname
+       path:
+         type: ReplacePrefixMatch
+         replacePrefixMatch: /new-prefix
+   ```
+   - Request: `/old-prefix/path/to/resource`
+   - Redirects to: `/new-prefix/path/to/resource` ✅ (suffix preserved)
+
+2. **Without other component changes** - AWS ALB will reject with redirect loop error:
+   ```yaml
+   filters:
+   - type: RequestRedirect
+     requestRedirect:
+       path:
+         type: ReplacePrefixMatch
+         replacePrefixMatch: /new-prefix
+   ```
+   - This configuration will be rejected by the API with "InvalidLoadBalancerAction: The redirect configuration is not valid because it creates a loop." ❌
+
+**Recommendations:**
+
+- For path-only redirects, use `ReplaceFullPath` instead
+- To use `ReplacePrefixMatch`, you must also modify `scheme`, `port`, or `hostname`
+
+**Important**: If one HTTPRoute rule has an invalid redirect configuration (e.g., path-only redirect with `ReplacePrefixMatch` that cause redirect loop), the controller will fail to create that listener rule and stop processing subsequent rules in the same HTTPRoute. This means valid rules with lower precedence (shorter paths, later in the route) will not be created. 
 
 #### Examples
 

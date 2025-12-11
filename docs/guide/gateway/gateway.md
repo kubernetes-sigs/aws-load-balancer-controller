@@ -47,9 +47,13 @@ You can disable the worker node security group rule management using the [LoadBa
 
 ## Certificate Discovery for secure listeners
 
-Both L4 and L7 Gateway implementations support static certificate configuration and certificate discovery using Listener hostname.
-The caveat is that configuration of TLS certificates can not be done via the `certificateRefs` field of a Gateway Listener,
-as the controller only supports certificate references via an ARN. In the future, we may support syncing Kubernetes secrets into ACM.
+Both L4 and L7 Gateway implementations support static certificate configuration and certificate discovery
+using the hostname field on the Gateway listener and attached routes.
+See the Gateway API [documentation](https://gateway-api.sigs.k8s.io/reference/spec/#httproutespec)
+for more information on how specifying hostnames at listener and route level work with each other.
+An important caveat to consider is
+that configuration of TLS certificates cannot be done via the `certificateRefs` field of a Gateway Listener.
+In the future, we may support syncing Kubernetes secrets into ACM.
 
 
 ### Worker node security groups selection
@@ -127,7 +131,7 @@ spec:
 
 When `my-http-service` or the configured service port can't be found,
 the target group will not be materialized on any ALBs that the route attaches to.
-An [503 Fixed Response](https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_FixedResponseActionConfig.html)
+A [500 Fixed Response](https://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_FixedResponseActionConfig.html)
 will be added to any Listener Rules that would have referenced the invalid backend.
 
 ## Specify out-of-band Target Groups

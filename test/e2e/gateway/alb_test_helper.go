@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	appsv1 "k8s.io/api/apps/v1"
@@ -36,7 +37,7 @@ func (s *ALBTestStack) DeployHTTP(ctx context.Context, auxiliaryStack *auxiliary
 		lbConfSpec.IpAddressType = &v6
 	}
 
-	svc := buildServiceSpec()
+	svc := buildServiceSpec(map[string]string{})
 	tgc := buildTargetGroupConfig(defaultTgConfigName, tgConfSpec, svc)
 	return s.deploy(ctx, f, gwListeners, httprs, []*gwv1.GRPCRoute{}, []*appsv1.Deployment{buildDeploymentSpec(f.Options.TestImageRegistry)}, []*corev1.Service{svc}, lbConfSpec, []*elbv2gw.TargetGroupConfiguration{tgc}, lrConfSpec, secret, readinessGateEnabled)
 }
@@ -131,8 +132,8 @@ func validateHTTPRouteStatusNotPermitted(tf *framework.Framework, stack ALBTestS
 					parentKind:         "Gateway",
 					resolvedRefReason:  "RefNotPermitted",
 					resolvedRefsStatus: "False",
-					acceptedReason:     "RefNotPermitted",
-					acceptedStatus:     "False",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
 				},
 			},
 		},
@@ -209,4 +210,72 @@ func grpcRouteStatusConverter(tf *framework.Framework, i interface{}) (gwv1.Rout
 		return gwv1.RouteStatus{}, types.NamespacedName{}, err
 	}
 	return retrievedRoute.Status.RouteStatus, k8s.NamespacedName(&retrievedRoute), nil
+}
+
+func validateHTTPRouteHostnameMismatchRouteAndGatewayStatus(tf *framework.Framework, stack ALBTestStack) {
+	validationInfo := map[string]routeValidationInfo{
+		k8s.NamespacedName(stack.albResourceStack.httprs[0]).String(): {
+			parentGatewayName: stack.albResourceStack.commonStack.gw.Name,
+			listenerInfo: []listenerValidationInfo{
+				{
+					listenerName:       "listener-no-hostname",
+					parentKind:         "Gateway",
+					resolvedRefReason:  "ResolvedRefs",
+					resolvedRefsStatus: "True",
+					acceptedReason:     "Accepted",
+					acceptedStatus:     "True",
+				},
+			},
+		},
+	}
+	validateRouteStatus(tf, stack.albResourceStack.httprs, httpRouteStatusConverter, validationInfo)
+
+	validateGatewayStatus(tf, stack.albResourceStack.commonStack.gw, gatewayValidationInfo{
+		conditions: []gatewayConditionValidation{
+			{
+				conditionType:   gwv1.GatewayConditionProgrammed,
+				conditionStatus: "True",
+				conditionReason: "Programmed",
+			},
+			{
+				conditionType:   gwv1.GatewayConditionAccepted,
+				conditionStatus: "True",
+				conditionReason: "Accepted",
+			},
+		},
+		listeners: []gatewayListenerValidation{
+			{
+				listenerName:   "listener-no-hostname",
+				attachedRoutes: 1,
+				conditions: []listenerConditionValidation{
+					{
+						conditionType:   gwv1.ListenerConditionAccepted,
+						conditionStatus: "True",
+						conditionReason: "Accepted",
+					},
+					{
+						conditionType:   gwv1.ListenerConditionProgrammed,
+						conditionStatus: "True",
+						conditionReason: "Programmed",
+					},
+				},
+			},
+			{
+				listenerName:   "listener-with-hostname",
+				attachedRoutes: 0,
+				conditions: []listenerConditionValidation{
+					{
+						conditionType:   gwv1.ListenerConditionAccepted,
+						conditionStatus: "True",
+						conditionReason: "Accepted",
+					},
+					{
+						conditionType:   gwv1.ListenerConditionProgrammed,
+						conditionStatus: "True",
+						conditionReason: "Programmed",
+					},
+				},
+			},
+		},
+	})
 }

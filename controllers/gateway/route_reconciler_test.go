@@ -289,6 +289,7 @@ func Test_getParentStatusKey(t *testing.T) {
 	portPtr := func(p gwv1.PortNumber) *gwv1.PortNumber {
 		return &p
 	}
+	routeNamespace := "route-namespace"
 
 	tests := []struct {
 		name   string
@@ -310,6 +311,19 @@ func Test_getParentStatusKey(t *testing.T) {
 			want: "networking.k8s.io/Gateway/test-namespace/test-gateway/test-section/80",
 		},
 		{
+			name: "no namespace should use route namespace",
+			status: gwv1.RouteParentStatus{
+				ParentRef: gwv1.ParentReference{
+					Group:       (*gwv1.Group)(ptr.To("networking.k8s.io")),
+					Kind:        (*gwv1.Kind)(ptr.To("Gateway")),
+					Name:        "test-gateway",
+					SectionName: (*gwv1.SectionName)(ptr.To("test-section")),
+					Port:        portPtr(80),
+				},
+			},
+			want: "networking.k8s.io/Gateway/route-namespace/test-gateway/test-section/80",
+		},
+		{
 			name: "no section or port",
 			status: gwv1.RouteParentStatus{
 				ParentRef: gwv1.ParentReference{
@@ -325,7 +339,7 @@ func Test_getParentStatusKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getParentStatusKey(tt.status.ParentRef)
+			got := getParentStatusKey(tt.status.ParentRef, routeNamespace)
 			if got != tt.want {
 				t.Errorf("getParentStatusKey() = %v, want %v", got, tt.want)
 			}
@@ -339,7 +353,7 @@ func TestEnqueue(t *testing.T) {
 		routeData               routeutils.RouteData
 		routeStatusInfo         routeutils.RouteStatusInfo
 		routeMetadataDescriptor routeutils.RouteMetadata
-		parentRefGateway        routeutils.ParentRefGateway
+		parentRefGateway        gwv1.ParentReference
 
 		validateEnqueued func(t *testing.T, enqueued []routeutils.EnqueuedType) // Use the type here
 	}{
@@ -355,7 +369,7 @@ func TestEnqueue(t *testing.T) {
 					RouteNamespace: "test-namespace",
 					RouteKind:      "test-kind",
 				},
-				ParentRefGateway: routeutils.ParentRefGateway{},
+				ParentRef: gwv1.ParentReference{},
 			},
 			validateEnqueued: func(t *testing.T, enqueued []routeutils.EnqueuedType) {
 				assert.Len(t, enqueued, 1)
@@ -378,7 +392,7 @@ func TestEnqueue(t *testing.T) {
 					RouteNamespace: "test-namespace",
 					RouteKind:      "test-kind",
 				},
-				ParentRefGateway: routeutils.ParentRefGateway{},
+				ParentRef: gwv1.ParentReference{},
 			},
 			validateEnqueued: func(t *testing.T, enqueued []routeutils.EnqueuedType) {
 				assert.Len(t, enqueued, 1)
@@ -400,7 +414,7 @@ func TestEnqueue(t *testing.T) {
 					RouteNamespace: "test-namespace",
 					RouteKind:      "test-kind",
 				},
-				ParentRefGateway: routeutils.ParentRefGateway{},
+				ParentRef: gwv1.ParentReference{},
 			},
 			validateEnqueued: func(t *testing.T, enqueued []routeutils.EnqueuedType) {
 				assert.Len(t, enqueued, 1)
@@ -425,6 +439,7 @@ func TestEnqueue(t *testing.T) {
 }
 
 func Test_updateRouteStatus(t *testing.T) {
+	testNamespace := gwv1.Namespace("test-namespace")
 	tests := []struct {
 		name           string
 		route          client.Object
@@ -449,9 +464,9 @@ func Test_updateRouteStatus(t *testing.T) {
 					Reason:       string(gwv1.RouteConditionAccepted),
 					Message:      "route accepted",
 				},
-				ParentRefGateway: routeutils.ParentRefGateway{
+				ParentRef: gwv1.ParentReference{
 					Name:      "test-gateway",
-					Namespace: "test-namespace",
+					Namespace: &testNamespace,
 				},
 			},
 			validateResult: func(t *testing.T, route client.Object) {
@@ -503,10 +518,12 @@ func Test_setConditionsWithRouteStatusInfo(t *testing.T) {
 				acceptedCondition := findCondition(conditions, string(gwv1.RouteConditionAccepted))
 				assert.NotNil(t, acceptedCondition)
 				assert.Equal(t, metav1.ConditionTrue, acceptedCondition.Status)
+				assert.Equal(t, string(gwv1.RouteReasonAccepted), acceptedCondition.Reason)
 
 				resolvedRefCondition := findCondition(conditions, string(gwv1.RouteConditionResolvedRefs))
 				assert.NotNil(t, resolvedRefCondition)
 				assert.Equal(t, metav1.ConditionTrue, resolvedRefCondition.Status)
+				assert.Equal(t, string(gwv1.RouteReasonResolvedRefs), resolvedRefCondition.Reason)
 			},
 		},
 		{
@@ -529,18 +546,18 @@ func Test_setConditionsWithRouteStatusInfo(t *testing.T) {
 			},
 		},
 		{
-			name: "accepted false and resolvedRef false",
+			name: "accepted true and resolvedRef false",
 			info: routeutils.RouteStatusInfo{
-				Accepted:     false,
+				Accepted:     true,
 				ResolvedRefs: false,
-				Reason:       string(gwv1.RouteReasonBackendNotFound),
-				Message:      "backend not found",
+				Reason:       string(gwv1.RouteReasonRefNotPermitted),
+				Message:      "ref not permitted",
 			},
 			validateResult: func(t *testing.T, conditions []metav1.Condition) {
 				assert.Len(t, conditions, 2)
 				acceptedCondition := findCondition(conditions, string(gwv1.RouteConditionAccepted))
 				assert.NotNil(t, acceptedCondition)
-				assert.Equal(t, metav1.ConditionFalse, acceptedCondition.Status)
+				assert.Equal(t, metav1.ConditionTrue, acceptedCondition.Status)
 
 				resolvedRefCondition := findCondition(conditions, string(gwv1.RouteConditionResolvedRefs))
 				assert.NotNil(t, resolvedRefCondition)
@@ -715,4 +732,73 @@ func findCondition(conditions []metav1.Condition, conditionType string) *metav1.
 		}
 	}
 	return nil
+}
+
+func Test_getParentRefKeyFromRouteData(t *testing.T) {
+	testNamespace := gwv1.Namespace("test-namespace")
+	testGroup := gwv1.Group("test-group")
+	testKind := gwv1.Kind("test-kind")
+	routeNamespace := "route-namespace"
+	tests := []struct {
+		name       string
+		gatewayRef gwv1.ParentReference
+		want       string
+	}{
+		{
+			name: "all fields provided",
+			gatewayRef: gwv1.ParentReference{
+				Group:       &testGroup,
+				Kind:        &testKind,
+				Namespace:   &testNamespace,
+				Name:        "test-gateway",
+				SectionName: ptr.To(gwv1.SectionName("test-section")),
+				Port:        ptr.To(gwv1.PortNumber(80)),
+			},
+			want: "test-group/test-kind/test-namespace/test-gateway/test-section/80",
+		},
+		{
+			name: "no namespace provided",
+			gatewayRef: gwv1.ParentReference{
+				Group:       &testGroup,
+				Kind:        &testKind,
+				Name:        "test-gateway",
+				SectionName: ptr.To(gwv1.SectionName("test-section")),
+				Port:        ptr.To(gwv1.PortNumber(80)),
+			},
+			want: "test-group/test-kind/route-namespace/test-gateway/test-section/80",
+		},
+		{
+			name: "no section or port",
+			gatewayRef: gwv1.ParentReference{
+				Namespace: &testNamespace,
+				Name:      "test-gateway",
+			},
+			want: "//test-namespace/test-gateway//",
+		},
+		{
+			name: "with port only",
+			gatewayRef: gwv1.ParentReference{
+				Namespace: &testNamespace,
+				Name:      "test-gateway",
+				Port:      ptr.To(gwv1.PortNumber(443)),
+			},
+			want: "//test-namespace/test-gateway//443",
+		},
+		{
+			name: "with section only",
+			gatewayRef: gwv1.ParentReference{
+				Namespace:   &testNamespace,
+				Name:        "test-gateway",
+				SectionName: ptr.To(gwv1.SectionName("https")),
+			},
+			want: "//test-namespace/test-gateway/https/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getParentRefKeyFromRouteData(tt.gatewayRef, routeNamespace)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

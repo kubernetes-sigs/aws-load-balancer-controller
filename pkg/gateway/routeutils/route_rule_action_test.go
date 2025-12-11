@@ -2,6 +2,8 @@ package routeutils
 
 import (
 	"context"
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -13,7 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_buildHttpRedirectAction(t *testing.T) {
@@ -27,7 +28,6 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 	query := "test-query"
 	replaceFullPath := "/new-path"
 	replacePrefixPath := "/new-prefix-path"
-	replacePrefixPathAfterProcessing := "/new-prefix-path/*"
 	invalidPath := "/invalid-path*"
 
 	tests := []struct {
@@ -66,8 +66,9 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "redirect with prefix match",
+			name: "redirect with prefix  - no path in redirect config",
 			filter: &gwv1.HTTPRequestRedirectFilter{
+				Hostname: (*gwv1.PreciseHostname)(&hostname),
 				Path: &gwv1.HTTPPathModifier{
 					Type:               gwv1.PrefixMatchHTTPPathModifier,
 					ReplacePrefixMatch: &replacePrefixPath,
@@ -76,16 +77,10 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 			want: &elbv2model.Action{
 				Type: elbv2model.ActionTypeRedirect,
 				RedirectConfig: &elbv2model.RedirectActionConfig{
-					Path: &replacePrefixPathAfterProcessing,
+					Host: &hostname,
 				},
 			},
 			wantErr: false,
-		},
-		{
-			name:    "redirect with no component provided",
-			filter:  &gwv1.HTTPRequestRedirectFilter{},
-			want:    nil,
-			wantErr: true,
 		},
 		{
 			name: "invalid scheme provided",
@@ -101,17 +96,6 @@ func Test_buildHttpRedirectAction(t *testing.T) {
 				Path: &gwv1.HTTPPathModifier{
 					Type:            gwv1.FullPathHTTPPathModifier,
 					ReplaceFullPath: &invalidPath,
-				},
-			},
-			want:    nil,
-			wantErr: true,
-		},
-		{
-			name: "path with wildcards in ReplacePrefixMatch",
-			filter: &gwv1.HTTPRequestRedirectFilter{
-				Path: &gwv1.HTTPPathModifier{
-					Type:               gwv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: &invalidPath,
 				},
 			},
 			want:    nil,

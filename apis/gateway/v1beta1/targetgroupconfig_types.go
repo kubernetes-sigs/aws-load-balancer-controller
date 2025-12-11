@@ -215,6 +215,10 @@ type TargetGroupProps struct {
 	// +optional
 	ProtocolVersion *ProtocolVersion `json:"protocolVersion,omitempty"`
 
+	// targetControlPort [Application Load Balancer] The port on which the target communicates its capacity. This value can't be modified after target group creation.
+	// +optional
+	TargetControlPort *int32 `json:"targetControlPort,omitempty"`
+
 	// EnableMultiCluster [Application / Network LoadBalancer]
 	// Allows for multiple Clusters / Services to use the generated TargetGroup ARN
 	// +optional

@@ -12,16 +12,12 @@ import (
 	"time"
 )
 
-const (
-	ResourceTypeELBLoadBalancer = "elasticloadbalancing:loadbalancer"
-)
-
 type NLBIPTestStack struct {
 	resourceStack *resourceStack
 }
 
-func (s *NLBIPTestStack) Deploy(ctx context.Context, f *framework.Framework, svc *corev1.Service, dp *appsv1.Deployment) error {
-	s.resourceStack = NewResourceStack(dp, svc, "service-ip-e2e", false)
+func (s *NLBIPTestStack) Deploy(ctx context.Context, f *framework.Framework, svc *corev1.Service, dp *appsv1.Deployment, svcs []*corev1.Service) error {
+	s.resourceStack = NewResourceStack(dp, svc, svcs, "service-ip-e2e", false)
 	return s.resourceStack.Deploy(ctx, f)
 }
 

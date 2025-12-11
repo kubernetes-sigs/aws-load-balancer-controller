@@ -336,6 +336,11 @@ func (in *ListenerConfiguration) DeepCopyInto(out *ListenerConfiguration) {
 		*out = new(ALPNPolicy)
 		**out = **in
 	}
+	if in.TargetGroupStickiness != nil {
+		in, out := &in.TargetGroupStickiness, &out.TargetGroupStickiness
+		*out = new(bool)
+		**out = **in
+	}
 	if in.MutualAuthentication != nil {
 		in, out := &in.MutualAuthentication, &out.MutualAuthentication
 		*out = new(MutualAuthenticationAttributes)
@@ -1151,6 +1156,11 @@ func (in *TargetGroupProps) DeepCopyInto(out *TargetGroupProps) {
 	if in.ProtocolVersion != nil {
 		in, out := &in.ProtocolVersion, &out.ProtocolVersion
 		*out = new(ProtocolVersion)
+		**out = **in
+	}
+	if in.TargetControlPort != nil {
+		in, out := &in.TargetControlPort, &out.TargetControlPort
+		*out = new(int32)
 		**out = **in
 	}
 	if in.EnableMultiCluster != nil {

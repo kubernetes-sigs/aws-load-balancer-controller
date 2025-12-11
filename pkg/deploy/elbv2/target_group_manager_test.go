@@ -1,6 +1,8 @@
 package elbv2
 
 import (
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2sdk "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -9,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
-	"testing"
 )
 
 func Test_isSDKTargetGroupHealthCheckDrifted(t *testing.T) {
@@ -508,6 +509,25 @@ func Test_buildSDKCreateTargetGroupInput(t *testing.T) {
 				Protocol:                   elbv2types.ProtocolEnumHttp,
 				TargetType:                 elbv2types.TargetTypeEnumIp,
 				IpAddressType:              elbv2types.TargetGroupIpAddressTypeEnumIpv6,
+			},
+		},
+		{
+			name: "with target control port",
+			args: args{
+				tgSpec: elbv2model.TargetGroupSpec{
+					Name:              "my-tg",
+					TargetType:        elbv2model.TargetTypeIP,
+					Port:              awssdk.Int32(8080),
+					Protocol:          elbv2model.ProtocolHTTP,
+					TargetControlPort: awssdk.Int32(9000),
+				},
+			},
+			want: &elbv2sdk.CreateTargetGroupInput{
+				Name:              awssdk.String("my-tg"),
+				Port:              awssdk.Int32(8080),
+				Protocol:          elbv2types.ProtocolEnumHttp,
+				TargetType:        elbv2types.TargetTypeEnumIp,
+				TargetControlPort: awssdk.Int32(9000),
 			},
 		},
 	}

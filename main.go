@@ -19,10 +19,14 @@ package main
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"os"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/aga"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/certs"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_utils"
 
+	"sync"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/gateway"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
@@ -35,7 +39,6 @@ import (
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"sync"
 
 	"k8s.io/client-go/util/workqueue"
 
@@ -58,6 +61,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/throttle"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/inject/albtargetcontrol"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	awsmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/aws"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
@@ -66,6 +70,7 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/runtime"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/version"
+	agawebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/aga"
 	corewebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/core"
 	elbv2webhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/elbv2"
 	networkingwebhook "sigs.k8s.io/aws-load-balancer-controller/webhooks/networking"
@@ -113,6 +118,7 @@ type gatewayControllerConfig struct {
 	networkingManager       networking.NetworkingManager
 	targetGroupCollector    awsmetrics.TargetGroupCollector
 	targetGroupARNMapper    shared_utils.TargetGroupARNMapper
+	certDiscovery           certs.CertDiscovery
 }
 
 func main() {
@@ -237,9 +243,9 @@ func main() {
 	}
 
 	// Setup GlobalAccelerator controller only if enabled
-	if controllerCFG.FeatureGates.Enabled(config.AGAController) {
+	if aga.IsGlobalAcceleratorControllerEnabled(controllerCFG.FeatureGates, cloud.Region()) {
 		agaReconciler := agacontroller.NewGlobalAcceleratorReconciler(mgr.GetClient(), mgr.GetEventRecorderFor("globalAccelerator"),
-			finalizerManager, controllerCFG, ctrl.Log.WithName("controllers").WithName("globalAccelerator"), lbcMetricsCollector, reconcileCounters)
+			finalizerManager, controllerCFG, cloud, ctrl.Log.WithName("controllers").WithName("globalAccelerator"), lbcMetricsCollector, reconcileCounters)
 		if err := agaReconciler.SetupWithManager(ctx, mgr, clientSet); err != nil {
 			setupLog.Error(err, "unable to create controller", "controller", "GlobalAccelerator")
 			os.Exit(1)
@@ -255,6 +261,7 @@ func main() {
 		})
 		routeReconciler := gateway.NewRouteReconciler(delayingQueue, mgr.GetClient(), ctrl.Log.WithName("routeReconciler"))
 		serviceReferenceCounter := referencecounter.NewServiceReferenceCounter()
+		certDiscovery := certs.NewACMCertDiscovery(cloud.ACM(), controllerCFG.IngressConfig.AllowedCertificateAuthorityARNs, ctrl.Log.WithName("gateway-cert-discovery"))
 
 		gwControllerConfig := &gatewayControllerConfig{
 			cloud:                   cloud,
@@ -274,6 +281,7 @@ func main() {
 			serviceReferenceCounter: serviceReferenceCounter,
 			targetGroupCollector:    targetGroupCollector,
 			targetGroupARNMapper:    tgArnMapper,
+			certDiscovery:           certDiscovery,
 		}
 
 		enabledControllers := sets.Set[string]{}
@@ -415,11 +423,32 @@ func main() {
 
 	corewebhook.NewPodReadinessGateMutator(podReadinessGateInjector, lbcMetricsCollector).SetupWithManager(mgr)
 	corewebhook.NewPodServerIDMutator(quicServerIDInjector, lbcMetricsCollector).SetupWithManager(mgr)
+
+	// Setup ALB target control agent sidecar injector if enabled
+	var targetControlAgentInjector albtargetcontrol.ALBTargetControlAgentInjector
+	if controllerCFG.FeatureGates.Enabled(config.ALBTargetControlAgent) {
+		targetControlAgentInjector = albtargetcontrol.NewALBTargetControlAgentInjector(
+			mgr.GetClient(),
+			mgr.GetAPIReader(),
+			ctrl.Log.WithName(albtargetcontrol.LoggerName),
+			albtargetcontrol.DefaultControllerNamespace,
+		)
+	}
+
+	// Setup ALB sidecar injection webhook mutator
+	if targetControlAgentInjector != nil {
+		corewebhook.NewALBTargetControlAgentMutator(targetControlAgentInjector, lbcMetricsCollector).SetupWithManager(mgr)
+	}
 	corewebhook.NewServiceMutator(controllerCFG.ServiceConfig.LoadBalancerClass, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewIngressClassParamsValidator(lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingMutator(cloud.ELBV2(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	elbv2webhook.NewTargetGroupBindingValidator(mgr.GetClient(), cloud.ELBV2(), cloud.VpcID(), ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
 	networkingwebhook.NewIngressValidator(mgr.GetClient(), controllerCFG.IngressConfig, ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+
+	// Setup GlobalAccelerator validator only if enabled
+	if aga.IsGlobalAcceleratorControllerEnabled(controllerCFG.FeatureGates, cloud.Region()) {
+		agawebhook.NewGlobalAcceleratorValidator(ctrl.Log, lbcMetricsCollector).SetupWithManager(mgr)
+	}
 	//+kubebuilder:scaffold:builder
 
 	go func() {
@@ -468,6 +497,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.serviceReferenceCounter,
 			cfg.cloud,
 			cfg.k8sClient,
+			cfg.certDiscovery,
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,
 			cfg.finalizerManager,
@@ -490,6 +520,7 @@ func setupGatewayController(ctx context.Context, mgr ctrl.Manager, cfg *gatewayC
 			cfg.routeLoader,
 			cfg.cloud,
 			cfg.k8sClient,
+			cfg.certDiscovery,
 			cfg.serviceReferenceCounter,
 			mgr.GetEventRecorderFor(controllerType),
 			cfg.controllerCFG,

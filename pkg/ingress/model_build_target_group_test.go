@@ -13,9 +13,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/sets"
+	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/config"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/core"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
 )
 
 func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
@@ -24,6 +29,7 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 		svc               *corev1.Service
 		port              intstr.IntOrString
 		tgPort            int32
+		controlPort       *int32
 		targetType        elbv2model.TargetType
 		tgProtocol        elbv2model.Protocol
 		tgProtocolVersion elbv2model.ProtocolVersion
@@ -128,11 +134,31 @@ func Test_defaultModelBuildTask_buildTargetGroupName(t *testing.T) {
 			},
 			want: "k8s-ns1-name1-22fbce26a7",
 		},
+		{
+			name: "include control port",
+			args: args{
+				ingKey: types.NamespacedName{Namespace: "ns-1", Name: "name-1"},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ns-1",
+						Name:      "name-1",
+						UID:       "my-uuid",
+					},
+				},
+				port:              intstr.FromString("http"),
+				tgPort:            8080,
+				targetType:        elbv2model.TargetTypeIP,
+				tgProtocol:        elbv2model.ProtocolHTTP,
+				tgProtocolVersion: elbv2model.ProtocolVersionHTTP1,
+				controlPort:       awssdk.Int32(80),
+			},
+			want: "k8s-ns1-name1-7ed91338c9",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &defaultModelBuildTask{}
-			got := task.buildTargetGroupName(context.Background(), tt.args.ingKey, tt.args.svc, tt.args.port, tt.args.tgPort, tt.args.targetType, tt.args.tgProtocol, tt.args.tgProtocolVersion)
+			got := task.buildTargetGroupName(context.Background(), tt.args.ingKey, tt.args.svc, tt.args.port, tt.args.tgPort, tt.args.targetType, tt.args.tgProtocol, tt.args.tgProtocolVersion, tt.args.controlPort)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -851,6 +877,95 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingNodeSelector(t *testing.T
 	}
 }
 
+func Test_defaultModelBuildTask_buildTargetGroupTargetControlPort(t *testing.T) {
+	type args struct {
+		svcAndIngAnnotations map[string]string
+		svc                  *corev1.Service
+		port                 intstr.IntOrString
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    *int32
+		wantErr error
+	}{
+		{
+			name: "no annotation",
+			args: args{
+				svcAndIngAnnotations: map[string]string{},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "svc-1",
+					},
+				},
+			},
+			want:    nil,
+			wantErr: nil,
+		},
+		{
+			name: "use port number, with annotation",
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/target-control-port.svc-1.80": "42",
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "svc-1",
+					},
+				},
+				port: intstr.FromInt32(80),
+			},
+			want:    awssdk.Int32(42),
+			wantErr: nil,
+		},
+		{
+			name: "invalid value",
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/target-control-port.svc-1": "invalid",
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "svc-1",
+					},
+				},
+				port: intstr.FromInt32(80),
+			},
+			want:    nil,
+			wantErr: nil,
+		},
+		{
+			name: "use port name, with annotation",
+			args: args{
+				svcAndIngAnnotations: map[string]string{
+					"alb.ingress.kubernetes.io/target-control-port.svc-1.portName": "3000",
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "svc-1",
+					},
+				},
+				port: intstr.FromString("portName"),
+			},
+			want: awssdk.Int32(3000),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				annotationParser: annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+			}
+			got, err := task.buildTargetGroupTargetControlPort(context.Background(), tt.args.svcAndIngAnnotations, tt.args.svc, tt.args.port)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
+
 func Test_defaultModelBuildTask_buildTargetGroupBindingMultiClusterFlag(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1004,6 +1119,290 @@ func Test_defaultModelBuildTask_buildTargetGroupBindingMultiClusterFlag(t *testi
 				assert.NoError(t, err)
 				assert.Equal(t, tt.want, got)
 			}
+		})
+	}
+}
+func Test_defaultModelBuildTask_buildTargetGroupSpec(t *testing.T) {
+	type args struct {
+		ing     ClassifiedIngress
+		svc     *corev1.Service
+		port    intstr.IntOrString
+		svcPort corev1.ServicePort
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr error
+	}{
+		{
+			name: "instance target type with target control port should fail",
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/target-type":                  "instance",
+								"alb.ingress.kubernetes.io/backend-protocol":             "HTTP",
+								"alb.ingress.kubernetes.io/backend-protocol-version":     "HTTP1",
+								"alb.ingress.kubernetes.io/target-control-port.svc-1.80": "3000",
+							},
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "svc-1",
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeNodePort,
+					},
+				},
+				port: intstr.FromInt32(80),
+				svcPort: corev1.ServicePort{
+					Port:     80,
+					NodePort: 30080,
+				},
+			},
+			wantErr: errors.New("target control port is not supported for instance target target group"),
+		},
+		{
+			name: "ip target type with target control port should succeed",
+			args: args{
+				ing: ClassifiedIngress{
+					Ing: &networking.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"alb.ingress.kubernetes.io/target-type":                  "ip",
+								"alb.ingress.kubernetes.io/backend-protocol":             "HTTP",
+								"alb.ingress.kubernetes.io/backend-protocol-version":     "HTTP1",
+								"alb.ingress.kubernetes.io/target-control-port.svc-1.80": "3000",
+							},
+						},
+					},
+				},
+				svc: &corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "svc-1",
+					},
+				},
+				port: intstr.FromInt32(80),
+				svcPort: corev1.ServicePort{
+					Port:       80,
+					TargetPort: intstr.FromInt32(8080),
+				},
+			},
+			wantErr: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				annotationParser:    annotations.NewSuffixAnnotationParser("alb.ingress.kubernetes.io"),
+				defaultTargetType:   elbv2model.TargetTypeIP,
+				enableIPTargetType:  true,
+				defaultTags:         map[string]string{},
+				clusterName:         "test-cluster",
+				ingGroup:            Group{ID: GroupID(types.NamespacedName{Namespace: "default", Name: "test"})},
+				featureGates:        config.NewFeatureGates(),
+				externalManagedTags: sets.NewString(),
+			}
+			_, err := task.buildTargetGroupSpec(context.Background(), tt.args.ing, tt.args.svc, tt.args.port, tt.args.svcPort)
+			if tt.wantErr != nil {
+				assert.EqualError(t, err, tt.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_defaultModelBuildTask_buildTargetGroupBindingNetworking(t *testing.T) {
+	protocolTCP := elbv2api.NetworkingProtocolTCP
+	intstr80 := intstr.FromInt32(80)
+	intstr8080 := intstr.FromInt32(8080)
+	intstr3000 := intstr.FromInt32(3000)
+	intstrTrafficPort := intstr.FromString(shared_constants.HealthCheckPortTrafficPort)
+	sgBackend := "sg-backend"
+
+	tests := []struct {
+		name                     string
+		disableRestrictedSGRules bool
+
+		targetPort        intstr.IntOrString
+		healthCheckPort   intstr.IntOrString
+		targetControlPort *int32
+		tgProtocol        elbv2.Protocol
+		svcPort           corev1.ServicePort
+		backendSGIDToken  core.StringToken
+
+		expected *elbv2modelk8s.TargetGroupBindingNetworking
+	}{
+		{
+			name:                     "tcp with restricted rules disabled",
+			disableRestrictedSGRules: true,
+			targetPort:               intstr80,
+			healthCheckPort:          intstrTrafficPort,
+			tgProtocol:               elbv2.ProtocolTCP,
+			backendSGIDToken:         core.LiteralStringToken(sgBackend),
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
+									GroupID: core.LiteralStringToken(sgBackend),
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &protocolTCP,
+								Port:     nil,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "use restricted sg rules - str hc port",
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			svcPort: corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
+			},
+			targetPort:      intstr80,
+			healthCheckPort: intstrTrafficPort,
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
+									GroupID: core.LiteralStringToken(sgBackend),
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &protocolTCP,
+								Port:     &intstr80,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "with port restricted rules, different hc",
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			svcPort: corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
+			},
+			targetPort:      intstr80,
+			healthCheckPort: intstr8080,
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
+									GroupID: core.LiteralStringToken(sgBackend),
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &protocolTCP,
+								Port:     &intstr80,
+							},
+						},
+					},
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
+									GroupID: core.LiteralStringToken(sgBackend),
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &protocolTCP,
+								Port:     &intstr8080,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:             "with port restricted rules, different targetControlPort",
+			backendSGIDToken: core.LiteralStringToken(sgBackend),
+			svcPort: corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
+			},
+			targetPort:        intstr80,
+			healthCheckPort:   intstr8080,
+			targetControlPort: awssdk.Int32(3000),
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
+									GroupID: core.LiteralStringToken(sgBackend),
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &protocolTCP,
+								Port:     &intstr80,
+							},
+						},
+					},
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
+									GroupID: core.LiteralStringToken(sgBackend),
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &protocolTCP,
+								Port:     &intstr8080,
+							},
+						},
+					},
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
+									GroupID: core.LiteralStringToken(sgBackend),
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &protocolTCP,
+								Port:     &intstr3000,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &defaultModelBuildTask{
+				disableRestrictedSGRules: tt.disableRestrictedSGRules,
+				backendSGIDToken:         tt.backendSGIDToken,
+			}
+			got := task.buildTargetGroupBindingNetworking(context.Background(), tt.targetPort, tt.healthCheckPort, tt.targetControlPort)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

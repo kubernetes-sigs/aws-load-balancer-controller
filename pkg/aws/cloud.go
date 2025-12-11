@@ -98,14 +98,15 @@ func NewCloud(cfg CloudConfig, clusterName string, metricsCollector *aws_metrics
 	cfg.VpcID = vpcID
 
 	thisObj := &defaultCloud{
-		cfg:         cfg,
-		clusterName: clusterName,
-		ec2:         ec2Service,
-		acm:         services.NewACM(awsClientsProvider),
-		wafv2:       services.NewWAFv2(awsClientsProvider),
-		wafRegional: services.NewWAFRegional(awsClientsProvider, cfg.Region),
-		shield:      services.NewShield(awsClientsProvider),
-		rgt:         services.NewRGT(awsClientsProvider),
+		cfg:               cfg,
+		clusterName:       clusterName,
+		ec2:               ec2Service,
+		acm:               services.NewACM(awsClientsProvider),
+		wafv2:             services.NewWAFv2(awsClientsProvider),
+		wafRegional:       services.NewWAFRegional(awsClientsProvider, cfg.Region),
+		shield:            services.NewShield(awsClientsProvider),
+		rgt:               services.NewRGT(awsClientsProvider),
+		globalAccelerator: services.NewGlobalAccelerator(awsClientsProvider),
 
 		awsConfigGenerator: awsConfigGenerator,
 
@@ -196,13 +197,14 @@ var _ services.Cloud = &defaultCloud{}
 type defaultCloud struct {
 	cfg CloudConfig
 
-	ec2         services.EC2
-	elbv2       services.ELBV2
-	acm         services.ACM
-	wafv2       services.WAFv2
-	wafRegional services.WAFRegional
-	shield      services.Shield
-	rgt         services.RGT
+	ec2               services.EC2
+	elbv2             services.ELBV2
+	acm               services.ACM
+	wafv2             services.WAFv2
+	wafRegional       services.WAFRegional
+	shield            services.Shield
+	rgt               services.RGT
+	globalAccelerator services.GlobalAccelerator
 
 	clusterName string
 
@@ -290,6 +292,10 @@ func (c *defaultCloud) Shield() services.Shield {
 
 func (c *defaultCloud) RGT() services.RGT {
 	return c.rgt
+}
+
+func (c *defaultCloud) GlobalAccelerator() services.GlobalAccelerator {
+	return c.globalAccelerator
 }
 
 func (c *defaultCloud) Region() string {

@@ -1,6 +1,8 @@
 package model
 
 import (
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/golang/mock/gomock"
@@ -12,7 +14,6 @@ import (
 	elbv2modelk8s "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/shared_constants"
-	"testing"
 )
 
 func Test_buildTargetGroupBindingNetworking_standardBuilder(t *testing.T) {
@@ -364,6 +365,56 @@ func Test_buildTargetGroupBindingNetworking_standardBuilder(t *testing.T) {
 							{
 								Protocol: &protocolTCP,
 								Port:     &intstr85,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "use restricted sg rules - with target control port",
+			sgOutput: securityGroupOutput{
+				securityGroupTokens:           []core.StringToken{core.LiteralStringToken("sg-1")},
+				backendSecurityGroupToken:     core.LiteralStringToken("foo"),
+				backendSecurityGroupAllocated: false,
+			},
+			tgSpec: elbv2model.TargetGroupSpec{
+				Protocol:          elbv2model.ProtocolHTTP,
+				TargetControlPort: awssdk.Int32(3000),
+				HealthCheckConfig: &elbv2model.TargetGroupHealthCheckConfig{
+					Port: &intstr80,
+				},
+			},
+			targetPort: intstr80,
+			expected: &elbv2modelk8s.TargetGroupBindingNetworking{
+				Ingress: []elbv2modelk8s.NetworkingIngressRule{
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
+									GroupID: core.LiteralStringToken("foo"),
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &protocolTCP,
+								Port:     &intstr80,
+							},
+						},
+					},
+					{
+						From: []elbv2modelk8s.NetworkingPeer{
+							{
+								SecurityGroup: &elbv2modelk8s.SecurityGroup{
+									GroupID: core.LiteralStringToken("foo"),
+								},
+							},
+						},
+						Ports: []elbv2api.NetworkingPort{
+							{
+								Protocol: &protocolTCP,
+								Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 3000},
 							},
 						},
 					},

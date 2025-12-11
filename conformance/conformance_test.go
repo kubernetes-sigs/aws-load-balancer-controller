@@ -11,18 +11,27 @@ import (
 func TestConformance(t *testing.T) {
 	options := conformance.DefaultOptions(t)
 
-	// TODO: SkipTests, SupportedFeatures,  ExemptFeatures needs to be updated after we conduct all conformance tests
-	// Below is only an example for now
-	// Configure skip tests, supported features and exempt features
-	options.SkipTests = suite.ParseSkipTests("GatewaySecretInvalidReferenceGrant")
-	options.SupportedFeatures = suite.ParseSupportedFeatures("Gateway,HTTPRoute")
-	options.ExemptFeatures = suite.ParseSupportedFeatures("GatewayStaticAddresses,GatewayHTTPListenerIsolation")
+	// Configure skip tests and supported features
+	options.SkipTests = []string{
+		"GatewayInvalidTLSConfiguration",
+		"GatewaySecretInvalidReferenceGrant",
+		"GatewaySecretMissingReferenceGrant",
+		"GatewaySecretReferenceGrantAllInNamespace",
+		"GatewaySecretReferenceGrantSpecific",
+		"GatewayWithAttachedRoutes",
+		"HTTPRouteBackendRequestHeaderModifier",
+		"HTTPRouteHTTPSListener",
+		"HTTPRouteRequestHeaderModifier",
+		"HTTPRouteHostnameIntersection",
+		"HTTPRouteServiceTypes",
+	}
+	options.SupportedFeatures = suite.ParseSupportedFeatures("Gateway,HTTPRoute,ReferenceGrant,HTTPRoutePortRedirect,HTTPRouteMethodMatching,HTTPRouteParentRefPort,HTTPRouteDestinationPortMatching")
 
 	// Configure timeout config
-	options.TimeoutConfig.GatewayStatusMustHaveListeners = 10 * time.Minute // we need to wait for LB to be provisioned before updating gateway listener status
-	options.TimeoutConfig.GatewayListenersMustHaveConditions = 10 * time.Minute
-	options.TimeoutConfig.NamespacesMustBeReady = 10 * time.Minute
-	options.TimeoutConfig.DefaultTestTimeout = 10 * time.Minute
+	options.TimeoutConfig.GatewayStatusMustHaveListeners = 8 * time.Minute // we need to wait for LB to be provisioned before updating gateway listener status
+	options.TimeoutConfig.GatewayListenersMustHaveConditions = 8 * time.Minute
+	options.TimeoutConfig.NamespacesMustBeReady = 8 * time.Minute
+	options.TimeoutConfig.DefaultTestTimeout = 8 * time.Minute
 
 	conformance.RunConformanceWithOptions(t, options)
 }

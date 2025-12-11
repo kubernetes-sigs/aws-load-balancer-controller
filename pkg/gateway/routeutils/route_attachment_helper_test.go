@@ -1,12 +1,13 @@
 package routeutils
 
 import (
+	"testing"
+
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 func Test_doesRouteAttachToGateway(t *testing.T) {
@@ -231,19 +232,30 @@ func Test_doesRouteAttachToGateway(t *testing.T) {
 }
 
 func Test_routeAllowsAttachmentToListener(t *testing.T) {
+	gw := gwv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gw",
+			Namespace: "ns1",
+		},
+	}
 	testCases := []struct {
-		name     string
-		listener gwv1.Listener
-		route    preLoadRouteDescriptor
-		result   bool
+		name                string
+		listener            gwv1.Listener
+		route               preLoadRouteDescriptor
+		result              bool
+		expectMatchedParent bool
 	}{
 		{
 			name: "allows attachment section and port correct",
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
@@ -255,15 +267,20 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			result: true,
+			result:              true,
+			expectMatchedParent: true,
 		},
 		{
 			name: "allows attachment section specified",
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname")),
 							},
 						},
@@ -274,15 +291,20 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			result: true,
+			result:              true,
+			expectMatchedParent: true,
 		},
 		{
 			name: "allows attachment port specified",
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
+								Name: "gw",
 								Port: (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
 						},
@@ -293,27 +315,35 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			result: true,
+			result:              true,
+			expectMatchedParent: true,
 		},
 		{
 			name: "multiple parent refs one ref allows attachment",
 			route: convertHTTPRoute(gwv1.HTTPRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ns1",
+				},
 				Spec: gwv1.HTTPRouteSpec{
 					CommonRouteSpec: gwv1.CommonRouteSpec{
 						ParentRefs: []gwv1.ParentReference{
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname1")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname2")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname3")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
 							{
+								Name:        "gw",
 								SectionName: (*gwv1.SectionName)(awssdk.String("sectionname")),
 								Port:        (*gwv1.PortNumber)(awssdk.Int32(80)),
 							},
@@ -325,7 +355,8 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
-			result: true,
+			result:              true,
+			expectMatchedParent: true,
 		},
 		{
 			name: "multiple parent refs one ref none attachment",
@@ -357,6 +388,48 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 				Name: "sectionname",
 				Port: 80,
 			},
+			result:              false,
+			expectMatchedParent: false,
+		},
+		{
+			name: "section name mismatch",
+			route: convertHTTPRoute(gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								SectionName: (*gwv1.SectionName)(awssdk.String("wrongsection")),
+							},
+						},
+					},
+				},
+			}),
+			listener: gwv1.Listener{
+				Name: "sectionname",
+				Port: 80,
+			},
+			result:              false,
+			expectMatchedParent: false,
+		},
+		{
+			name: "port mismatch",
+			route: convertHTTPRoute(gwv1.HTTPRoute{
+				Spec: gwv1.HTTPRouteSpec{
+					CommonRouteSpec: gwv1.CommonRouteSpec{
+						ParentRefs: []gwv1.ParentReference{
+							{
+								Port: (*gwv1.PortNumber)(awssdk.Int32(443)),
+							},
+						},
+					},
+				},
+			}),
+			listener: gwv1.Listener{
+				Name: "sectionname",
+				Port: 80,
+			},
+			result:              false,
+			expectMatchedParent: false,
 		},
 	}
 
@@ -365,7 +438,13 @@ func Test_routeAllowsAttachmentToListener(t *testing.T) {
 			helper := &routeAttachmentHelperImpl{
 				logger: logr.Discard(),
 			}
-			assert.Equal(t, tc.result, helper.routeAllowsAttachmentToListener(tc.listener, tc.route))
+			allowed, matchedParentRef := helper.routeAllowsAttachmentToListener(gw, tc.listener, tc.route)
+			assert.Equal(t, tc.result, allowed)
+			if tc.expectMatchedParent {
+				assert.NotNil(t, matchedParentRef)
+			} else {
+				assert.Nil(t, matchedParentRef)
+			}
 		})
 	}
 }

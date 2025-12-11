@@ -3,12 +3,13 @@ package routeutils
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"testing"
 )
 
 type mockListenerAttachmentHelper struct {
@@ -20,7 +21,7 @@ func makeListenerAttachmentMapKey(listener gwv1.Listener, route preLoadRouteDesc
 	return fmt.Sprintf("%s-%d-%s-%s", listener.Name, listener.Port, nsn.Name, nsn.Namespace)
 }
 
-func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) ([]gwv1.Hostname, bool, *RouteData, error) {
+func (m *mockListenerAttachmentHelper) listenerAllowsAttachment(ctx context.Context, gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor, matchedParentRef *gwv1.ParentReference, hostnamesFromHttpRoutes map[types.NamespacedName][]gwv1.Hostname, hostnamesFromGrpcRoutes map[types.NamespacedName][]gwv1.Hostname) ([]gwv1.Hostname, bool, *RouteData, error) {
 	k := makeListenerAttachmentMapKey(listener, route)
 	return nil, m.attachmentMap[k], nil, nil
 }
@@ -40,9 +41,9 @@ func (m *mockRouteAttachmentHelper) doesRouteAttachToGateway(gw gwv1.Gateway, ro
 	return m.routeGatewayMap[k]
 }
 
-func (m *mockRouteAttachmentHelper) routeAllowsAttachmentToListener(listener gwv1.Listener, route preLoadRouteDescriptor) bool {
+func (m *mockRouteAttachmentHelper) routeAllowsAttachmentToListener(gw gwv1.Gateway, listener gwv1.Listener, route preLoadRouteDescriptor) (bool, *gwv1.ParentReference) {
 	k := makeListenerAttachmentMapKey(listener, route)
-	return m.routeListenerMap[k]
+	return m.routeListenerMap[k], nil
 }
 
 func Test_mapGatewayAndRoutes(t *testing.T) {
@@ -299,6 +300,99 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 			name:     "no output",
 			expected: make(map[int][]preLoadRouteDescriptor),
 		},
+		{
+			name: "route attaches to multiple listeners on same port - verify deduplication",
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gw1",
+					Namespace: "ns-gw",
+				},
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name: "listener1-port80",
+							Port: gwv1.PortNumber(80),
+						},
+						{
+							Name: "listener2-port80",
+							Port: gwv1.PortNumber(80),
+						},
+					},
+				},
+			},
+			routes: []preLoadRouteDescriptor{route1},
+			listenerAttachmentMap: map[string]bool{
+				"listener1-port80-80-route1-ns1": true,
+				"listener2-port80-80-route1-ns1": true,
+			},
+			routeListenerMap: map[string]bool{
+				"listener1-port80-80-route1-ns1": true,
+				"listener2-port80-80-route1-ns1": true,
+			},
+			routeGatewayMap: map[string]bool{
+				makeRouteGatewayMapKey(gateway, route1): true,
+			},
+			expected: map[int][]preLoadRouteDescriptor{
+				80: {route1}, // Only one route1, not duplicated
+			},
+		},
+		{
+			name: "different route kinds with same name attach to same listener",
+			gw: gwv1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "gw1",
+					Namespace: "ns-gw",
+				},
+				Spec: gwv1.GatewaySpec{
+					Listeners: []gwv1.Listener{
+						{
+							Name:     "https-listener",
+							Port:     gwv1.PortNumber(443),
+							Protocol: gwv1.HTTPSProtocolType,
+						},
+					},
+				},
+			},
+			routes: []preLoadRouteDescriptor{
+				convertHTTPRoute(gwv1.HTTPRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-route",
+						Namespace: "default",
+					},
+				}),
+				convertGRPCRoute(gwv1.GRPCRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-route",
+						Namespace: "default",
+					},
+				}),
+			},
+			listenerAttachmentMap: map[string]bool{
+				"https-listener-443-my-route-default": true,
+			},
+			routeListenerMap: map[string]bool{
+				"https-listener-443-my-route-default": true,
+			},
+			routeGatewayMap: map[string]bool{
+				"gw1-ns-gw-my-route-default": true,
+			},
+			expected: map[int][]preLoadRouteDescriptor{
+				443: {
+					convertHTTPRoute(gwv1.HTTPRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "my-route",
+							Namespace: "default",
+						},
+					}),
+					convertGRPCRoute(gwv1.GRPCRoute{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "my-route",
+							Namespace: "default",
+						},
+					}),
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -313,7 +407,7 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 				},
 				logger: logr.Discard(),
 			}
-			result, _, statusUpdates, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)
+			result, compatibleHostnames, statusUpdates, _, err := mapper.mapGatewayAndRoutes(context.Background(), tc.gw, tc.routes)
 
 			if tc.expectErr {
 				assert.Error(t, err)
@@ -322,6 +416,7 @@ func Test_mapGatewayAndRoutes(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, len(tc.expected), len(result))
+			assert.NotNil(t, compatibleHostnames)
 
 			assert.Equal(t, 0, len(statusUpdates))
 

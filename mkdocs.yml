@@ -38,7 +38,13 @@ nav:
               - LoadBalancerConfiguration: guide/gateway/loadbalancerconfig.md
               - TargetGroupConfiguration: guide/gateway/targetgroupconfig.md
               - ListenerRuleConfiguration: guide/gateway/listenerruleconfig.md
+              - Gateway Chaining: guide/gateway/gateway_chaining.md
               - Specification: guide/gateway/spec.md
+      - AWS Global Accelerator (New):
+          - Overview: guide/globalaccelerator/aga-controller.md
+          - Installation: guide/globalaccelerator/installation.md
+          - Examples: guide/globalaccelerator/examples.md
+          - Specification: guide/globalaccelerator/spec.md
       - Tasks:
           - Cognito Authentication: guide/tasks/cognito_authentication.md
           - SSL Redirect: guide/tasks/ssl_redirect.md
@@ -52,7 +58,10 @@ nav:
         - QUIC: guide/use_cases/quic/index.md
         - Legacy Target Groups: guide/use_cases/legacy_app_integration/index.md
       - Metrics:
-        - Prometheus: guide/metrics/prometheus/index.md
+          - Prometheus: guide/metrics/prometheus/index.md
+      - ALB Target Optimizer:
+          - Target Control Agent : guide/ingress/alb-target-agent.md
+          - ALBTargetControlConfig : guide/ingress/alb-target-agent-spec.md
   - Examples:
     - EchoServer: examples/echo_server.md
     - gRPCServer: examples/grpc_server.md

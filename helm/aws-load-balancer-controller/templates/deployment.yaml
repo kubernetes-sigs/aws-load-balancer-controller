@@ -112,6 +112,12 @@ spec:
         {{- if .Values.targetgroupbindingMaxExponentialBackoffDelay }}
         - --targetgroupbinding-max-exponential-backoff-delay={{ .Values.targetgroupbindingMaxExponentialBackoffDelay }}
         {{- end }}
+        {{- if .Values.globalAcceleratorMaxConcurrentReconciles }}
+        - --globalaccelerator-max-concurrent-reconciles={{ .Values.globalAcceleratorMaxConcurrentReconciles }}
+        {{- end }}
+        {{- if .Values.globalAcceleratorMaxExponentialBackoffDelay }}
+        - --globalaccelerator-max-exponential-backoff-delay={{ .Values.globalAcceleratorMaxExponentialBackoffDelay }}
+        {{- end }}
         {{- if .Values.lbStabilizationMonitorInterval }}
         - --lb-stabilization-monitor-interval={{ .Values.lbStabilizationMonitorInterval }}
         {{- end }}
@@ -180,6 +186,9 @@ spec:
         {{- end }}
         {{- if .Values.vpcTags }}
         - --aws-vpc-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.vpcTags | trimSuffix "," }}
+        {{- end }}
+        {{- if .Values.maxTargetsPerTargetGroup }}
+        - --max-targets-per-target-group={{ .Values.maxTargetsPerTargetGroup }}
         {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:

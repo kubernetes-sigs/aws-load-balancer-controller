@@ -27,9 +27,10 @@ const (
 	SubnetDiscoveryByReachability Feature = "SubnetDiscoveryByReachability"
 	NLBGatewayAPI                 Feature = "NLBGatewayAPI"
 	ALBGatewayAPI                 Feature = "ALBGatewayAPI"
-	AGAController                 Feature = "AGAController"
+	GlobalAcceleratorController   Feature = "GlobalAcceleratorController"
 	EnhancedDefaultBehavior       Feature = "EnhancedDefaultBehavior"
 	EnableDefaultTagsLowPriority  Feature = "EnableDefaultTagsLowPriority"
+	ALBTargetControlAgent         Feature = "ALBTargetControlAgent"
 )
 
 type FeatureGates interface {
@@ -72,10 +73,11 @@ func NewFeatureGates() FeatureGates {
 			LBCapacityReservation:         true,
 			NLBGatewayAPI:                 false,
 			ALBGatewayAPI:                 false,
-			AGAController:                 false,
+			GlobalAcceleratorController:   false,
 			EnableTCPUDPListenerType:      false,
 			EnhancedDefaultBehavior:       false,
 			EnableDefaultTagsLowPriority:  false,
+			ALBTargetControlAgent:         false,
 		},
 	}
 }
