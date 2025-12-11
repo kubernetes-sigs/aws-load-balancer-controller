@@ -58,7 +58,6 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, failOpenEnabled, endpointSliceEnabled, logger)
 	return &defaultResourceManager{
 		k8sClient:                k8sClient,
-		elbv2Client:              elbv2Client,
 		targetsManager:           targetsManager,
 		endpointResolver:         endpointResolver,
 		networkingManager:        networkingManager,
@@ -83,7 +82,6 @@ var _ ResourceManager = &defaultResourceManager{}
 // default implementation for ResourceManager.
 type defaultResourceManager struct {
 	k8sClient                client.Client
-	elbv2Client              services.ELBV2
 	targetsManager           TargetsManager
 	endpointResolver         backend.EndpointResolver
 	networkingManager        networking.NetworkingManager
