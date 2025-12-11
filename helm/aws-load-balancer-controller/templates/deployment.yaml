@@ -187,6 +187,9 @@ spec:
         {{- if .Values.vpcTags }}
         - --aws-vpc-tags={{ include "aws-load-balancer-controller.convertMapToCsv" .Values.vpcTags | trimSuffix "," }}
         {{- end }}
+        {{- if .Values.maxTargetsPerTargetGroup }}
+        - --max-targets-per-target-group={{ .Values.maxTargetsPerTargetGroup }}
+        {{- end }}
         {{- if or .Values.env .Values.envSecretName }}
         env:
         {{- if .Values.env}}
