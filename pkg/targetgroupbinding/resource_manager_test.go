@@ -2,16 +2,18 @@ package targetgroupbinding
 
 import (
 	"context"
+	"net/netip"
+	"testing"
+
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	"github.com/aws/smithy-go"
 	"github.com/golang/mock/gomock"
 	"k8s.io/apimachinery/pkg/util/cache"
-	"net/netip"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/networking"
-	"testing"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/go-logr/logr"
@@ -698,6 +700,325 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 			for _, iptc := range tc.ipTestCases {
 				assert.Equal(t, iptc.result, returnedFn(iptc.ip), iptc.ip)
 			}
+		})
+	}
+}
+
+func Test_defaultResourceManager_prepareRegistrationCall_CrossZone(t *testing.T) {
+	tests := []struct {
+		name           string
+		svcAnnotations map[string]string
+		doAzOverride   bool
+		podNodeName    string
+		podNodeZone    string
+		wantAZ         *string
+		wantErr        bool
+	}{
+		{
+			name:           "ALB with cross-zone disabled, AZ override needed - should use actual AZ",
+			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=false"},
+			doAzOverride:   true,
+			podNodeName:    "node-1",
+			podNodeZone:    "us-east-1a",
+			wantAZ:         awssdk.String("us-east-1a"),
+			wantErr:        false,
+		},
+		{
+			name:           "ALB with cross-zone enabled, AZ override needed - should use 'all'",
+			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=true"},
+			doAzOverride:   true,
+			podNodeName:    "node-1",
+			podNodeZone:    "us-east-1a",
+			wantAZ:         awssdk.String("all"),
+			wantErr:        false,
+		},
+		{
+			name:           "NLB with cross-zone disabled, AZ override needed - should use 'all'",
+			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "load_balancing.cross_zone.enabled=false"},
+			doAzOverride:   true,
+			podNodeName:    "node-1",
+			podNodeZone:    "us-east-1a",
+			wantAZ:         awssdk.String("all"),
+			wantErr:        false,
+		},
+		{
+			name:           "no annotations, AZ override needed - should use 'all'",
+			svcAnnotations: map[string]string{},
+			doAzOverride:   true,
+			podNodeName:    "node-1",
+			podNodeZone:    "us-east-1a",
+			wantAZ:         awssdk.String("all"),
+			wantErr:        false,
+		},
+		{
+			name:           "no AZ override needed - should not set AZ",
+			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=false"},
+			doAzOverride:   false,
+			podNodeName:    "node-1",
+			podNodeZone:    "us-east-1a",
+			wantAZ:         nil,
+			wantErr:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: tt.podNodeName,
+					Labels: map[string]string{
+						corev1.LabelTopologyZone: tt.podNodeZone,
+					},
+				},
+			}
+
+			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(node).Build()
+
+			m := &defaultResourceManager{
+				k8sClient: k8sClient,
+				logger:    logr.New(&log.NullLogSink{}),
+			}
+
+			tgb := &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/my-tg/1234567890abcdef",
+				},
+			}
+
+			endpoints := []backend.PodEndpoint{
+				{
+					IP:   "172.16.0.108",
+					Port: 8080,
+					Pod: k8s.PodInfo{
+						Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
+						NodeName: tt.podNodeName,
+					},
+				},
+			}
+
+			doAzOverrideFn := func(addr netip.Addr) bool {
+				return tt.doAzOverride
+			}
+
+			ctx := context.Background()
+			targets, err := m.prepareRegistrationCall(ctx, endpoints, tgb, doAzOverrideFn, tt.svcAnnotations)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Len(t, targets, 1)
+			assert.Equal(t, "172.16.0.108", awssdk.ToString(targets[0].Id))
+			assert.Equal(t, int32(8080), awssdk.ToInt32(targets[0].Port))
+
+			if tt.wantAZ == nil {
+				assert.Nil(t, targets[0].AvailabilityZone)
+			} else {
+				assert.Equal(t, awssdk.ToString(tt.wantAZ), awssdk.ToString(targets[0].AvailabilityZone))
+			}
+		})
+	}
+}
+
+func Test_defaultResourceManager_isALBIngress(t *testing.T) {
+	tests := []struct {
+		name           string
+		svcAnnotations map[string]string
+		want           bool
+	}{
+		{
+			name:           "has ALB annotation",
+			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "some-value"},
+			want:           true,
+		},
+		{
+			name:           "has NLB annotation",
+			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "some-value"},
+			want:           false,
+		},
+		{
+			name:           "no annotations",
+			svcAnnotations: map[string]string{},
+			want:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &defaultResourceManager{}
+			got := m.isALBIngress(tt.svcAnnotations)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultResourceManager_isCrossZoneDisabled(t *testing.T) {
+	tests := []struct {
+		name           string
+		svcAnnotations map[string]string
+		isALB          bool
+		want           bool
+	}{
+		{
+			name:           "ALB with cross-zone disabled",
+			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=false"},
+			isALB:          true,
+			want:           true,
+		},
+		{
+			name:           "ALB with cross-zone enabled",
+			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=true"},
+			isALB:          true,
+			want:           false,
+		},
+		{
+			name:           "NLB with cross-zone disabled",
+			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "load_balancing.cross_zone.enabled=false"},
+			isALB:          false,
+			want:           true,
+		},
+		{
+			name:           "NLB with cross-zone enabled",
+			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "load_balancing.cross_zone.enabled=true"},
+			isALB:          false,
+			want:           false,
+		},
+		{
+			name:           "no cross-zone annotation",
+			svcAnnotations: map[string]string{},
+			isALB:          true,
+			want:           false,
+		},
+		{
+			name:           "ALB with multiple attributes including cross-zone disabled",
+			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=false,deregistration_delay.timeout_seconds=100"},
+			isALB:          true,
+			want:           true,
+		},
+		{
+			name:           "ALB with multiple attributes including cross-zone enabled",
+			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "deregistration_delay.timeout_seconds=100,load_balancing.cross_zone.enabled=true"},
+			isALB:          true,
+			want:           false,
+		},
+		{
+			name:           "NLB with multiple attributes including cross-zone disabled",
+			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "deletion_protection.enabled=true,load_balancing.cross_zone.enabled=false,access_logs.s3.enabled=true"},
+			isALB:          false,
+			want:           true,
+		},
+		{
+			name:           "NLB with multiple attributes including cross-zone enabled",
+			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "deletion_protection.enabled=true,load_balancing.cross_zone.enabled=true,access_logs.s3.enabled=true"},
+			isALB:          false,
+			want:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &defaultResourceManager{}
+			got := m.isCrossZoneDisabled(tt.svcAnnotations, tt.isALB)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
+	tests := []struct {
+		name        string
+		pod         k8s.PodInfo
+		nodeLabels  map[string]string
+		wantAZ      string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "node with standard topology zone label",
+			pod: k8s.PodInfo{
+				Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
+				NodeName: "node-1",
+			},
+			nodeLabels: map[string]string{
+				corev1.LabelTopologyZone: "us-east-1a",
+			},
+			wantAZ:  "us-east-1a",
+			wantErr: false,
+		},
+		{
+			name: "node with legacy zone label",
+			pod: k8s.PodInfo{
+				Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
+				NodeName: "node-1",
+			},
+			nodeLabels: map[string]string{
+				"failure-domain.beta.kubernetes.io/zone": "us-west-2b",
+			},
+			wantAZ:  "us-west-2b",
+			wantErr: false,
+		},
+		{
+			name: "node without zone label",
+			pod: k8s.PodInfo{
+				Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
+				NodeName: "node-1",
+			},
+			nodeLabels:  map[string]string{},
+			wantErr:     true,
+			errContains: "has no availability zone label",
+		},
+		{
+			name: "pod without node assigned",
+			pod: k8s.PodInfo{
+				Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
+				NodeName: "",
+			},
+			wantErr:     true,
+			errContains: "has no node assigned",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k8sSchema := runtime.NewScheme()
+			clientgoscheme.AddToScheme(k8sSchema)
+
+			var k8sClient *testclient.ClientBuilder
+			if tt.pod.NodeName != "" {
+				node := &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:   tt.pod.NodeName,
+						Labels: tt.nodeLabels,
+					},
+				}
+				k8sClient = testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(node)
+			} else {
+				k8sClient = testclient.NewClientBuilder().WithScheme(k8sSchema)
+			}
+
+			m := &defaultResourceManager{
+				k8sClient: k8sClient.Build(),
+				logger:    logr.New(&log.NullLogSink{}),
+			}
+
+			ctx := context.Background()
+			got, err := m.getPodAvailabilityZone(ctx, tt.pod)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errContains != "" {
+					assert.Contains(t, err.Error(), tt.errContains)
+				}
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantAZ, got)
 		})
 	}
 }

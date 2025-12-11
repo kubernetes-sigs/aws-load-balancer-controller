@@ -3,11 +3,14 @@ package targetgroupbinding
 import (
 	"context"
 	"fmt"
-	smithy "github.com/aws/smithy-go"
-	"k8s.io/apimachinery/pkg/util/cache"
 	"net/netip"
 	"sync"
 	"time"
+
+	smithy "github.com/aws/smithy-go"
+	"k8s.io/apimachinery/pkg/util/cache"
+
+	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -16,9 +19,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
+	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
@@ -53,6 +58,7 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 	endpointResolver := backend.NewDefaultEndpointResolver(k8sClient, podInfoRepo, failOpenEnabled, endpointSliceEnabled, logger)
 	return &defaultResourceManager{
 		k8sClient:                k8sClient,
+		elbv2Client:              elbv2Client,
 		targetsManager:           targetsManager,
 		endpointResolver:         endpointResolver,
 		networkingManager:        networkingManager,
@@ -77,6 +83,7 @@ var _ ResourceManager = &defaultResourceManager{}
 // default implementation for ResourceManager.
 type defaultResourceManager struct {
 	k8sClient                client.Client
+	elbv2Client              services.ELBV2
 	targetsManager           TargetsManager
 	endpointResolver         backend.EndpointResolver
 	networkingManager        networking.NetworkingManager
@@ -569,19 +576,26 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 	}
 
 	overrideAzFn, err := m.generateOverrideAzFn(ctx, vpcID, tgb.Spec.IamRoleArnToAssume)
-
 	if err != nil {
 		return err
 	}
 
-	sdkTargets, err := m.prepareRegistrationCall(endpoints, tgb, overrideAzFn)
+	svcAnnotations, err := m.getServiceAnnotations(ctx, tgb)
+	if err != nil {
+		return err
+	}
+
+	sdkTargets, err := m.prepareRegistrationCall(ctx, endpoints, tgb, overrideAzFn, svcAnnotations)
 	if err != nil {
 		return err
 	}
 	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
 }
 
-func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool) ([]elbv2types.TargetDescription, error) {
+func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool, svcAnnotations map[string]string) ([]elbv2types.TargetDescription, error) {
+	isALB := m.isALBIngress(svcAnnotations)
+	crossZoneDisabled := m.isCrossZoneDisabled(svcAnnotations, isALB)
+
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		target := elbv2types.TargetDescription{
@@ -593,7 +607,15 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 			return sdkTargets, err
 		}
 		if doAzOverride(podIP) {
-			target.AvailabilityZone = awssdk.String("all")
+			if isALB && crossZoneDisabled && tgb.Spec.IamRoleArnToAssume == "" {
+				az, err := m.getPodAvailabilityZone(ctx, endpoint.Pod)
+				if err != nil {
+					return sdkTargets, err
+				}
+				target.AvailabilityZone = awssdk.String(az)
+			} else {
+				target.AvailabilityZone = awssdk.String("all")
+			}
 		}
 
 		doAppend := true
@@ -843,4 +865,58 @@ func (m *defaultResourceManager) getMaxNewTargets(newTargetCount int, currentTar
 	}
 
 	return newTargetCount
+}
+
+func (m *defaultResourceManager) getServiceAnnotations(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (map[string]string, error) {
+	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
+	svc := &corev1.Service{}
+	if err := m.k8sClient.Get(ctx, svcKey, svc); err != nil {
+		return nil, err
+	}
+	return svc.Annotations, nil
+}
+
+func (m *defaultResourceManager) isALBIngress(svcAnnotations map[string]string) bool {
+	for key := range svcAnnotations {
+		if strings.HasPrefix(key, annotations.AnnotationPrefixIngress) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *defaultResourceManager) isCrossZoneDisabled(svcAnnotations map[string]string, isALB bool) bool {
+	crossZoneDisabled := "load_balancing.cross_zone.enabled=false"
+	if isALB {
+		if attrs, ok := svcAnnotations[annotations.AnnotationPrefixIngress+"/"+annotations.IngressSuffixTargetGroupAttributes]; ok {
+			return strings.Contains(attrs, crossZoneDisabled)
+		}
+	} else {
+		if attrs, ok := svcAnnotations[annotations.SvcBetaAnnotationPrefix+"/"+annotations.SvcLBSuffixLoadBalancerAttributes]; ok {
+			return strings.Contains(attrs, crossZoneDisabled)
+		}
+	}
+	return false
+}
+
+func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod k8s.PodInfo) (string, error) {
+	if pod.NodeName == "" {
+		return "", errors.Errorf("pod %s has no node assigned", pod.Key)
+	}
+
+	node := &corev1.Node{}
+	if err := m.k8sClient.Get(ctx, types.NamespacedName{Name: pod.NodeName}, node); err != nil {
+		return "", err
+	}
+
+	az, ok := node.Labels[corev1.LabelTopologyZone]
+	// fallback: try legacy/deprecated label failure-domain.beta.kubernetes.io/zone
+	if !ok {
+		az, ok = node.Labels["failure-domain.beta.kubernetes.io/zone"]
+	}
+	if !ok {
+		return "", errors.Errorf("node %s has no availability zone label", pod.NodeName)
+	}
+
+	return az, nil
 }
