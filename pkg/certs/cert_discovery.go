@@ -37,6 +37,7 @@ type CertDiscovery interface {
 
 // NewACMCertDiscovery constructs new acmCertDiscovery
 func NewACMCertDiscovery(acmClient services.ACM, allowedCAARNs []string, logger logr.Logger) *acmCertDiscovery {
+
 	return &acmCertDiscovery{
 		acmClient: acmClient,
 		logger:    logger,
