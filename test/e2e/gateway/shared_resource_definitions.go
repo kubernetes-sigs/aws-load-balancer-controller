@@ -437,7 +437,7 @@ func buildUDPRoute(sectionName string) *gwalpha2.UDPRoute {
 	return udpr
 }
 
-func buildHTTPRoute(hostnames []string, rules []gwv1.HTTPRouteRule, sectionName *gwv1.SectionName) *gwv1.HTTPRoute {
+func BuildHTTPRoute(hostnames []string, rules []gwv1.HTTPRouteRule, sectionName *gwv1.SectionName) *gwv1.HTTPRoute {
 	routeName := fmt.Sprintf("%v-%v", defaultName, utils.RandomDNS1123Label(6))
 	httpr := &gwv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{

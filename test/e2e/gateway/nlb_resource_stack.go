@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
@@ -58,8 +59,8 @@ func (s *nlbResourceStack) Deploy(ctx context.Context, f *framework.Framework) e
 	})
 }
 
-func (s *nlbResourceStack) Cleanup(ctx context.Context, f *framework.Framework) {
-	s.commonStack.Cleanup(ctx, f)
+func (s *nlbResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	return s.commonStack.Cleanup(ctx, f)
 }
 
 func (s *nlbResourceStack) GetLoadBalancerIngressHostname() string {
@@ -72,6 +73,10 @@ func (s *nlbResourceStack) getListenersPortMap() map[string]string {
 
 func (s *nlbResourceStack) waitUntilDeploymentReady(ctx context.Context, f *framework.Framework) error {
 	return waitUntilDeploymentReady(ctx, f, s.commonStack.dps)
+}
+
+func (s *nlbResourceStack) GetNamespace() string {
+	return s.commonStack.ns.Name
 }
 
 func (s *nlbResourceStack) createTCPRoutes(ctx context.Context, f *framework.Framework) error {

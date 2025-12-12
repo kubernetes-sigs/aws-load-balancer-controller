@@ -4,16 +4,17 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net/http"
+	"time"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"net/http"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"time"
 )
 
 type NLBIPTestStack struct {
-	resourceStack *resourceStack
+	resourceStack *ResourceStack
 }
 
 func (s *NLBIPTestStack) Deploy(ctx context.Context, f *framework.Framework, svc *corev1.Service, dp *appsv1.Deployment, svcs []*corev1.Service) error {

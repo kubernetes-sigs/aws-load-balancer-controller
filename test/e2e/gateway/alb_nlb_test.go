@@ -3,6 +3,9 @@ package gateway
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
@@ -10,8 +13,6 @@ import (
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwbeta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
-	"strings"
-	"time"
 )
 
 var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute", func() {
@@ -94,7 +95,7 @@ var _ = Describe("test combined ALB and NLB gateways with HTTPRoute and TCPRoute
 			}
 
 			// HTTPRoute for ALB
-			httpr := buildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying ALB stack", func() {
 				err := albStack.DeployHTTP(ctx, nil, tf, albGwListeners, []*gwv1.HTTPRoute{httpr}, albLbcSpec, tgSpec, lrcSpec, nil, true)

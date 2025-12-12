@@ -2,25 +2,26 @@ package ingress
 
 import (
 	"context"
+	"sync"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
-	"sync"
 )
 
-func NewResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, ings []*networking.Ingress) *resourceStack {
-	return &resourceStack{
+func NewResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, ings []*networking.Ingress) *ResourceStack {
+	return &ResourceStack{
 		dps:  dps,
 		svcs: svcs,
 		ings: ings,
 	}
 }
 
-// resourceStack can deploy and cleanup itself from a Kubernetes cluster.
-type resourceStack struct {
+// ResourceStack can deploy and cleanup itself from a Kubernetes cluster.
+type ResourceStack struct {
 	// configurations
 	dps  []*appsv1.Deployment
 	svcs []*corev1.Service
@@ -37,7 +38,7 @@ type resourceStack struct {
 	createdINGsMutex sync.Mutex
 }
 
-func (s *resourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) Deploy(ctx context.Context, f *framework.Framework) error {
 	if err := s.createDeployments(ctx, f); err != nil {
 		return err
 	}
@@ -56,7 +57,7 @@ func (s *resourceStack) Deploy(ctx context.Context, f *framework.Framework) erro
 	return nil
 }
 
-func (s *resourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
 	if err := s.cleanupIngresses(ctx, f); err != nil {
 		return err
 	}
@@ -69,7 +70,7 @@ func (s *resourceStack) Cleanup(ctx context.Context, f *framework.Framework) err
 	return nil
 }
 
-func (s *resourceStack) createDeployments(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) createDeployments(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("create all deployments")
 	var createErrs []error
 	var createErrsMutex sync.Mutex
@@ -101,7 +102,7 @@ func (s *resourceStack) createDeployments(ctx context.Context, f *framework.Fram
 	return nil
 }
 
-func (s *resourceStack) waitDeploymentsBecomesReady(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) waitDeploymentsBecomesReady(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("wait all deployments becomes ready")
 	var waitErrs []error
 	var waitErrsMutex sync.Mutex
@@ -133,7 +134,7 @@ func (s *resourceStack) waitDeploymentsBecomesReady(ctx context.Context, f *fram
 	return nil
 }
 
-func (s *resourceStack) cleanupDeployments(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) cleanupDeployments(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("cleanup all deployments")
 	var cleanupErrs []error
 	var cleanupErrsMutex sync.Mutex
@@ -169,7 +170,7 @@ func (s *resourceStack) cleanupDeployments(ctx context.Context, f *framework.Fra
 	return nil
 }
 
-func (s *resourceStack) createServices(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) createServices(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("create all services")
 	var createErrs []error
 	var createErrsMutex sync.Mutex
@@ -201,7 +202,7 @@ func (s *resourceStack) createServices(ctx context.Context, f *framework.Framewo
 	return nil
 }
 
-func (s *resourceStack) cleanupServices(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) cleanupServices(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("cleanup all services")
 	var cleanupErrs []error
 	var cleanupErrsMutex sync.Mutex
@@ -237,7 +238,7 @@ func (s *resourceStack) cleanupServices(ctx context.Context, f *framework.Framew
 	return nil
 }
 
-func (s *resourceStack) createIngresses(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) createIngresses(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("create all ingresses")
 	var createErrs []error
 	var createErrsMutex sync.Mutex
@@ -269,7 +270,7 @@ func (s *resourceStack) createIngresses(ctx context.Context, f *framework.Framew
 	return nil
 }
 
-func (s *resourceStack) waitIngressesBecomesReady(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) waitIngressesBecomesReady(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("wait all ingresses becomes ready")
 	var waitErrs []error
 	var waitErrsMutex sync.Mutex
@@ -301,7 +302,7 @@ func (s *resourceStack) waitIngressesBecomesReady(ctx context.Context, f *framew
 	return nil
 }
 
-func (s *resourceStack) cleanupIngresses(ctx context.Context, f *framework.Framework) error {
+func (s *ResourceStack) cleanupIngresses(ctx context.Context, f *framework.Framework) error {
 	f.Logger.Info("cleanup all ingresses")
 	var cleanupErrs []error
 	var cleanupErrsMutex sync.Mutex
@@ -335,4 +336,8 @@ func (s *resourceStack) cleanupIngresses(ctx context.Context, f *framework.Frame
 		return utils.NewMultiError(cleanupErrs...)
 	}
 	return nil
+}
+
+func (s *ResourceStack) GetNamespace() string {
+	return s.ings[0].Namespace
 }

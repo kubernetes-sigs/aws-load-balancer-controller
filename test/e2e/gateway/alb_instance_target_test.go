@@ -72,7 +72,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 				},
 			}
 			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, true)
-			httpr := buildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, &gwListeners[0].Name)
+			httpr := BuildHTTPRoute([]string{}, []gwv1.HTTPRouteRule{}, &gwListeners[0].Name)
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, auxiliaryStack, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
@@ -228,7 +228,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 					Protocol: gwv1.HTTPProtocolType,
 				},
 			}
-			httpr := buildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndTargetGroupWeights, nil)
+			httpr := BuildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndTargetGroupWeights, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -448,7 +448,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 			}
 
 			// HTTPRoute with incompatible hostname (should only attach to listener-no-hostname)
-			httpr := buildHTTPRoute([]string{"test.com"}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := BuildHTTPRoute([]string{"test.com"}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -482,7 +482,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 					Protocol: gwv1.HTTPProtocolType,
 				},
 			}
-			httpr := buildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndFilters, nil)
+			httpr := BuildHTTPRoute([]string{}, httpRouteRuleWithMatchesAndFilters, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -562,7 +562,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 				},
 			}
 
-			httpr := buildHTTPRoute([]string{}, httpRouteRuleWithMultiMatchesInSingleRule, nil)
+			httpr := BuildHTTPRoute([]string{}, httpRouteRuleWithMultiMatchesInSingleRule, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
@@ -760,7 +760,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
 				},
 			}
-			httpr := buildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := BuildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
@@ -865,7 +865,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
 				},
 			}
-			httpr := buildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := BuildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
 				Expect(err).NotTo(HaveOccurred())
@@ -1010,7 +1010,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 					},
 				},
 			}
-			httpr := buildHTTPRoute([]string{testHostname}, httpRouteRules, &gwListeners[0].Name)
+			httpr := BuildHTTPRoute([]string{testHostname}, httpRouteRules, &gwListeners[0].Name)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, false)
@@ -1217,7 +1217,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 					},
 				},
 			}
-			httpr := buildHTTPRoute([]string{testHostname}, httpRouteRules, &gwListeners[0].Name)
+			httpr := BuildHTTPRoute([]string{testHostname}, httpRouteRules, &gwListeners[0].Name)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, oidcSecret, false)
@@ -1388,7 +1388,7 @@ var _ = Describe("test k8s alb gateway using instance targets reconciled by the 
 					Hostname: (*gwv1.Hostname)(awssdk.String(testHostname)),
 				},
 			}
-			httpr := buildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
+			httpr := BuildHTTPRoute([]string{testHostname}, []gwv1.HTTPRouteRule{}, nil)
 
 			By("deploying stack", func() {
 				err := stack.DeployHTTP(ctx, nil, tf, gwListeners, []*gwv1.HTTPRoute{httpr}, lbcSpec, tgSpec, lrcSpec, nil, true)
