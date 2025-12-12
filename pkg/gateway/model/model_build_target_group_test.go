@@ -1172,6 +1172,8 @@ func Test_buildTargetGroupProtocolVersion(t *testing.T) {
 	testCases := []struct {
 		name             string
 		loadBalancerType elbv2model.LoadBalancerType
+		tgConfigurator   routeutils.TargetGroupConfigurator
+		listenerProtocol elbv2model.Protocol
 		route            routeutils.RouteDescriptor
 		targetGroupProps *elbv2gw.TargetGroupProps
 		expected         *elbv2model.ProtocolVersion
@@ -1179,36 +1181,147 @@ func Test_buildTargetGroupProtocolVersion(t *testing.T) {
 		{
 			name:             "nlb - no props",
 			loadBalancerType: elbv2model.LoadBalancerTypeNetwork,
-			route:            &routeutils.MockRoute{Kind: routeutils.TCPRouteKind},
+			listenerProtocol: elbv2model.ProtocolTCP,
+			tgConfigurator: routeutils.NewServiceBackendConfig(nil, nil, &corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
+				Port:     80,
+				TargetPort: intstr.IntOrString{
+					IntVal: 80,
+					Type:   intstr.Int,
+				},
+			}),
+			route: &routeutils.MockRoute{Kind: routeutils.TCPRouteKind},
 		},
 		{
 			name:             "nlb - with props",
 			loadBalancerType: elbv2model.LoadBalancerTypeNetwork,
-			route:            &routeutils.MockRoute{Kind: routeutils.TCPRouteKind},
+			listenerProtocol: elbv2model.ProtocolTCP,
+			tgConfigurator: routeutils.NewServiceBackendConfig(nil, nil, &corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
+				Port:     80,
+				TargetPort: intstr.IntOrString{
+					IntVal: 80,
+					Type:   intstr.Int,
+				},
+			}),
+			route: &routeutils.MockRoute{Kind: routeutils.TCPRouteKind},
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				ProtocolVersion: &http2Gw,
 			},
 		},
 		{
 			name:             "alb - no props",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			tgConfigurator: routeutils.NewServiceBackendConfig(nil, nil, &corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
+				Port:     80,
+				TargetPort: intstr.IntOrString{
+					IntVal: 80,
+					Type:   intstr.Int,
+				},
+			}),
 			route:            &routeutils.MockRoute{Kind: routeutils.HTTPRouteKind},
 			loadBalancerType: elbv2model.LoadBalancerTypeApplication,
 			expected:         &http1Elb,
 		},
 		{
 			name:             "alb - no props - grpc",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			tgConfigurator: routeutils.NewServiceBackendConfig(nil, nil, &corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
+				Port:     80,
+				TargetPort: intstr.IntOrString{
+					IntVal: 80,
+					Type:   intstr.Int,
+				},
+			}),
 			route:            &routeutils.MockRoute{Kind: routeutils.GRPCRouteKind},
 			loadBalancerType: elbv2model.LoadBalancerTypeApplication,
 			expected:         &grpcElb,
 		},
 		{
 			name:             "alb - with props",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			tgConfigurator: routeutils.NewServiceBackendConfig(nil, nil, &corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
+				Port:     80,
+				TargetPort: intstr.IntOrString{
+					IntVal: 80,
+					Type:   intstr.Int,
+				},
+			}),
 			route:            &routeutils.MockRoute{Kind: routeutils.HTTPRouteKind},
 			loadBalancerType: elbv2model.LoadBalancerTypeApplication,
 			targetGroupProps: &elbv2gw.TargetGroupProps{
 				ProtocolVersion: &http2Gw,
 			},
 			expected: &http2Elb,
+		},
+		{
+			name:             "alb - with props - http protocol",
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			tgConfigurator: routeutils.NewServiceBackendConfig(nil, nil, &corev1.ServicePort{
+				Protocol: corev1.ProtocolTCP,
+				Port:     80,
+				TargetPort: intstr.IntOrString{
+					IntVal: 80,
+					Type:   intstr.Int,
+				},
+			}),
+			route:            &routeutils.MockRoute{Kind: routeutils.HTTPRouteKind},
+			loadBalancerType: elbv2model.LoadBalancerTypeApplication,
+			targetGroupProps: &elbv2gw.TargetGroupProps{
+				ProtocolVersion: &http2Gw,
+			},
+			expected: &http1Elb,
+		},
+		{
+			name:             "alb - pv found on svc port - http listener",
+			listenerProtocol: elbv2model.ProtocolHTTP,
+			tgConfigurator: routeutils.NewServiceBackendConfig(nil, nil, &corev1.ServicePort{
+				Protocol:    corev1.ProtocolTCP,
+				Port:        80,
+				AppProtocol: awssdk.String("kubernetes.io/h2c"),
+				TargetPort: intstr.IntOrString{
+					IntVal: 80,
+					Type:   intstr.Int,
+				},
+			}),
+			route:            &routeutils.MockRoute{Kind: routeutils.HTTPRouteKind},
+			loadBalancerType: elbv2model.LoadBalancerTypeApplication,
+			expected:         &http1Elb,
+		},
+		{
+			name:             "alb - pv found on svc port - https listener",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			tgConfigurator: routeutils.NewServiceBackendConfig(nil, nil, &corev1.ServicePort{
+				Protocol:    corev1.ProtocolTCP,
+				Port:        80,
+				AppProtocol: awssdk.String("kubernetes.io/h2c"),
+				TargetPort: intstr.IntOrString{
+					IntVal: 80,
+					Type:   intstr.Int,
+				},
+			}),
+			route:            &routeutils.MockRoute{Kind: routeutils.HTTPRouteKind},
+			loadBalancerType: elbv2model.LoadBalancerTypeApplication,
+			expected:         &http2Elb,
+		},
+		{
+			name:             "alb - unknown pv found on svc port - https listener",
+			listenerProtocol: elbv2model.ProtocolHTTPS,
+			tgConfigurator: routeutils.NewServiceBackendConfig(nil, nil, &corev1.ServicePort{
+				Protocol:    corev1.ProtocolTCP,
+				Port:        80,
+				AppProtocol: awssdk.String("foo"),
+				TargetPort: intstr.IntOrString{
+					IntVal: 80,
+					Type:   intstr.Int,
+				},
+			}),
+			route:            &routeutils.MockRoute{Kind: routeutils.HTTPRouteKind},
+			loadBalancerType: elbv2model.LoadBalancerTypeApplication,
+			expected:         &http1Elb,
 		},
 	}
 
@@ -1217,7 +1330,7 @@ func Test_buildTargetGroupProtocolVersion(t *testing.T) {
 			builder := targetGroupBuilderImpl{
 				loadBalancerType: tc.loadBalancerType,
 			}
-			res := builder.buildTargetGroupProtocolVersion(tc.targetGroupProps, tc.route)
+			res := builder.buildTargetGroupProtocolVersion(tc.targetGroupProps, tc.tgConfigurator, tc.listenerProtocol, tc.route)
 			assert.Equal(t, tc.expected, res)
 		})
 	}

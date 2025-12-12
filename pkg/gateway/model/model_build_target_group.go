@@ -266,7 +266,7 @@ func (builder *targetGroupBuilderImpl) buildTargetGroupSpec(gw *gwv1.Gateway, ro
 	if err != nil {
 		return elbv2model.TargetGroupSpec{}, err
 	}
-	tgProtocolVersion := builder.buildTargetGroupProtocolVersion(targetGroupProps, route)
+	tgProtocolVersion := builder.buildTargetGroupProtocolVersion(targetGroupProps, backendConfig, listenerProtocol, route)
 
 	healthCheckConfig, err := builder.buildTargetGroupHealthCheckConfig(targetGroupProps, tgProtocol, tgProtocolVersion, targetType, backendConfig)
 	if err != nil {
@@ -423,19 +423,29 @@ var (
 	grpc  = elbv2model.ProtocolVersionGRPC
 )
 
-func (builder *targetGroupBuilderImpl) buildTargetGroupProtocolVersion(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor) *elbv2model.ProtocolVersion {
+func (builder *targetGroupBuilderImpl) buildTargetGroupProtocolVersion(targetGroupProps *elbv2gw.TargetGroupProps, backendConfig routeutils.TargetGroupConfigurator, listenerProtocol elbv2model.Protocol, route routeutils.RouteDescriptor) *elbv2model.ProtocolVersion {
 	// NLB doesn't support protocol version
 	if builder.loadBalancerType == elbv2model.LoadBalancerTypeNetwork {
 		return nil
 	}
+
+	// As of writing, only HTTPS listeners support different Protocol Version
+	if listenerProtocol != elbv2model.ProtocolHTTPS {
+		return &http1
+	}
+
 	if targetGroupProps != nil && targetGroupProps.ProtocolVersion != nil {
-		// TODO - We can infer GRPC here from route
 		pv := elbv2model.ProtocolVersion(*targetGroupProps.ProtocolVersion)
 		return &pv
 	}
 
 	if route.GetRouteKind() == routeutils.GRPCRouteKind {
 		return &grpc
+	}
+
+	resolvedProtocolVersion := backendConfig.GetProtocolVersion()
+	if resolvedProtocolVersion != nil {
+		return resolvedProtocolVersion
 	}
 
 	return &http1

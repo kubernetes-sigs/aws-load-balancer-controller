@@ -248,3 +248,8 @@ func TestValidateGatewayARN(t *testing.T) {
 		})
 	}
 }
+
+func TestGatewayBackendConfig_GetProtocolVersion(t *testing.T) {
+	config := &GatewayBackendConfig{}
+	assert.Nil(t, config.GetProtocolVersion())
+}

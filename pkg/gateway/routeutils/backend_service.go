@@ -3,8 +3,6 @@ package routeutils
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -121,6 +119,25 @@ func (s *ServiceBackendConfig) GetTargetGroupProps() *elbv2gw.TargetGroupProps {
 	return s.targetGroupProps
 }
 
+var (
+	http2 = elbv2model.ProtocolVersionHTTP2
+	http1 = elbv2model.ProtocolVersionHTTP1
+	grpc  = elbv2model.ProtocolVersionHTTP1
+)
+
+func (s *ServiceBackendConfig) GetProtocolVersion() *elbv2model.ProtocolVersion {
+	if s.servicePort.AppProtocol == nil {
+		return nil
+	}
+
+	switch *s.servicePort.AppProtocol {
+	case "kubernetes.io/h2c":
+		return &http2
+	default:
+		return nil
+	}
+}
+
 func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier types.NamespacedName, routeKind RouteKind, backendRef gwv1.BackendRef) (*ServiceBackendConfig, error, error) {
 	if backendRef.Port == nil {
 		initialErrorMessage := "Port is required"
@@ -201,31 +218,6 @@ func serviceLoader(ctx context.Context, k8sClient client.Client, routeIdentifier
 
 	if tgConfig != nil {
 		tgProps = tgConfigConstructor.ConstructTargetGroupConfigForRoute(tgConfig, routeIdentifier.Name, routeIdentifier.Namespace, string(routeKind))
-	}
-
-	// validate if protocol version is compatible with appProtocol
-	if tgProps != nil && servicePort.AppProtocol != nil {
-		appProtocol := strings.ToLower(*servicePort.AppProtocol)
-		if tgProps.ProtocolVersion != nil {
-			isCompatible := true
-			switch *tgProps.ProtocolVersion {
-			case elbv2gw.ProtocolVersionGRPC:
-				if appProtocol == "http" {
-					isCompatible = false
-				}
-			case elbv2gw.ProtocolVersionHTTP1, elbv2gw.ProtocolVersionHTTP2:
-				if appProtocol == "grpc" {
-					isCompatible = false
-				}
-			}
-			if !isCompatible {
-				initialErrorMessage := fmt.Sprintf("Service port appProtocol %s is not compatible with target group protocolVersion %s", *servicePort.AppProtocol, *tgProps.ProtocolVersion)
-				wrappedGatewayErrorMessage := generateInvalidMessageWithRouteDetails(initialErrorMessage, routeKind, routeIdentifier)
-
-				// This potentially could be fatal, but let's make the reconcile cycle as resilient as possible.
-				return nil, wrapError(errors.Errorf("%s", initialErrorMessage), gwv1.GatewayReasonListenersNotValid, gwv1.RouteReasonUnsupportedProtocol, &wrappedGatewayErrorMessage, nil), nil
-			}
-		}
 	}
 
 	return NewServiceBackendConfig(svc, tgProps, servicePort), nil, nil

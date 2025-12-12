@@ -264,3 +264,37 @@ func Test_buildTargetGroupTargetType(t *testing.T) {
 	res = svcBackendWithProps.GetTargetType(elbv2model.TargetTypeIP)
 	assert.Equal(t, elbv2model.TargetTypeInstance, res)
 }
+
+func Test_GetProtocolVersion(t *testing.T) {
+	testCases := []struct {
+		name     string
+		svcPort  *corev1.ServicePort
+		expected *elbv2model.ProtocolVersion
+	}{
+		{
+			name:    "null app protocol version",
+			svcPort: &corev1.ServicePort{},
+		},
+		{
+			name: "unknown app protocol version",
+			svcPort: &corev1.ServicePort{
+				AppProtocol: awssdk.String("foo"),
+			},
+		},
+		{
+			name: "supported protocol version",
+			svcPort: &corev1.ServicePort{
+				AppProtocol: awssdk.String("kubernetes.io/h2c"),
+			},
+			expected: &http2,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			svcBackend := NewServiceBackendConfig(nil, nil, tc.svcPort)
+			res := svcBackend.GetProtocolVersion()
+			assert.Equal(t, res, tc.expected)
+		})
+	}
+}

@@ -48,6 +48,8 @@ type TargetGroupConfigurator interface {
 	GetTargetGroupPort(targetType elbv2model.TargetType) int32
 	// GetHealthCheckPort returns the port to send health check traffic
 	GetHealthCheckPort(targetType elbv2model.TargetType, isServiceExternalTrafficPolicyTypeLocal bool) (intstr.IntOrString, error)
+	// GetProtocolVersion returns the protocol version to use for this target group
+	GetProtocolVersion() *elbv2model.ProtocolVersion
 }
 
 // Backend an abstraction on the Gateway Backend, meant to hide the underlying backend type from consumers (unless they really want to see it :))
