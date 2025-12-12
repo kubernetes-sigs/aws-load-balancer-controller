@@ -199,6 +199,13 @@ func (l listenerBuilderImpl) buildL4TargetGroupTuples(stack core.Stack, routes [
 	return tgTuples, nil
 }
 
+// buildListenerRules creates ALB listener rules from HTTPRoute and GRPCRoute rules.
+// This function handles both redirect-only rules and backend rules:
+// - Redirect-only rules: Rules with RequestRedirect filters but no BackendRefs. These create
+//   ALB redirect actions without target groups, optimizing resource usage.
+// - Backend rules: Rules with BackendRefs that create target groups for traffic forwarding.
+// - Mixed rules: Rules with both redirect filters and backends, which create both redirect
+//   actions and target groups according to Gateway API specifications.
 func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.Stack, ls *elbv2model.Listener, ipAddressType elbv2model.IPAddressType, gw *gwv1.Gateway, port int32, routes map[int32][]routeutils.RouteDescriptor) ([]types.NamespacedName, error) {
 	// sort all rules based on precedence
 	rulesWithPrecedenceOrder := routeutils.SortAllRulesByPrecedence(routes[port], port)
@@ -234,18 +241,72 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 			}
 			routingAction = getRoutingAction(rule.GetListenerRuleConfig())
 		}
+		// Analyze rule type to determine target group creation strategy
+		// - Redirect-only rules: Have redirect filters but no backends, skip target group creation
+		// - Backend rules: Have backends (with or without redirect filters), create target groups
+		// - Empty rules: Have neither redirects nor backends, will result in 503 response
+		isRedirectOnly := routeutils.IsRedirectOnlyRule(rule)
+		hasRedirectFilter := routeutils.HasRequestRedirectFilter(rule)
+		backendCount := len(rule.GetBackends())
+		
+		// Enhanced logging for redirect-only rule processing
+		l.logger.V(1).Info("Processing HTTPRoute rule", 
+			"route", route.GetRouteNamespacedName(),
+			"routeKind", route.GetRouteKind(),
+			"isRedirectOnly", isRedirectOnly,
+			"hasRedirectFilter", hasRedirectFilter,
+			"backendCount", backendCount,
+			"listenerPort", port,
+			"listenerProtocol", ls.Spec.Protocol)
+		
 		targetGroupTuples := make([]elbv2model.TargetGroupTuple, 0, len(rule.GetBackends()))
-		for _, backend := range rule.GetBackends() {
-			arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, ls.Spec.Protocol, ipAddressType, route, backend)
-			if tgErr != nil {
-				return nil, tgErr
+		
+		// Target group creation logic:
+		// - Skip target group creation for redirect-only rules to optimize resource usage
+		// - Create target groups for all backends in non-redirect-only rules
+		// - This ensures redirect-only rules don't consume AWS target group quotas
+		if !isRedirectOnly {
+			l.logger.Info("Creating target groups for rule with backends", 
+				"route", route.GetRouteNamespacedName(),
+				"backendCount", backendCount,
+				"hasRedirectFilter", hasRedirectFilter)
+				
+			for i, backend := range rule.GetBackends() {
+				l.logger.V(1).Info("Building target group for backend", 
+					"route", route.GetRouteNamespacedName(),
+					"backendIndex", i,
+					"backendWeight", backend.Weight)
+					
+				arn, tgErr := l.tgBuilder.buildTargetGroup(stack, gw, port, ls.Spec.Protocol, ipAddressType, route, backend)
+				if tgErr != nil {
+					l.logger.Error(tgErr, "Failed to build target group for backend", 
+						"route", route.GetRouteNamespacedName(),
+						"backendIndex", i,
+						"backendWeight", backend.Weight)
+					return nil, tgErr
+				}
+				
+				// weighted target group support
+				weight := int32(backend.Weight)
+				targetGroupTuples = append(targetGroupTuples, elbv2model.TargetGroupTuple{
+					TargetGroupARN: arn,
+					Weight:         &weight,
+				})
+				
+				l.logger.V(1).Info("Successfully created target group for backend", 
+					"route", route.GetRouteNamespacedName(),
+					"backendIndex", i,
+					"targetGroupARN", arn,
+					"weight", weight)
 			}
-			// weighted target group support
-			weight := int32(backend.Weight)
-			targetGroupTuples = append(targetGroupTuples, elbv2model.TargetGroupTuple{
-				TargetGroupARN: arn,
-				Weight:         &weight,
-			})
+		} else {
+			// Log that we're processing a redirect-only rule with detailed information
+			l.logger.Info("Processing redirect-only rule, skipping target group creation", 
+				"route", route.GetRouteNamespacedName(), 
+				"routeKind", route.GetRouteKind(),
+				"listenerPort", port,
+				"listenerProtocol", ls.Spec.Protocol,
+				"reason", "rule has redirect filters but no backends")
 		}
 
 		// Build Rule PreRoutingAction
