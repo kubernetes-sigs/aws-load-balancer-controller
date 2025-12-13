@@ -9,7 +9,7 @@ The pod readiness gate is needed under certain circumstances to achieve full zer
 
 * Low number of replicas in a deployment
 * Start a rolling update of the deployment
-* Rollout of new pods takes less time than it takes the AWS Load Balancer controller to register the new pods and for their health state turn »Healthy« in the target group
+* Rollout of new pods takes less time than it takes the AWS Load Balancer controller to register the new pods and for their health state to become »Healthy« in the target group
 * At some point during this rolling update, the target group might only have registered targets that are in »Initial« or »Draining« state; this results in service outage
 
 In order to avoid this situation, the AWS Load Balancer controller can set the readiness condition on the pods that constitute your ingress or service backend. The condition status on a pod will be set to `True` only when the corresponding target in the ALB/NLB target group shows a health state of »Healthy«.
