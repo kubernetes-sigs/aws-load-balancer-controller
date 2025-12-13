@@ -3,7 +3,9 @@ package targetgroupbinding
 import (
 	"context"
 	"net/netip"
+	"sync"
 	"testing"
+	"time"
 
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -704,226 +706,41 @@ func Test_defaultResourceManager_GenerateOverrideAzFn(t *testing.T) {
 	}
 }
 
-func Test_defaultResourceManager_prepareRegistrationCall_CrossZone(t *testing.T) {
+func Test_isAZValidationError(t *testing.T) {
 	tests := []struct {
-		name           string
-		svcAnnotations map[string]string
-		doAzOverride   bool
-		podNodeName    string
-		podNodeZone    string
-		wantAZ         *string
-		wantErr        bool
+		name string
+		err  error
+		want bool
 	}{
 		{
-			name:           "ALB with cross-zone disabled, AZ override needed - should use actual AZ",
-			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=false"},
-			doAzOverride:   true,
-			podNodeName:    "node-1",
-			podNodeZone:    "us-east-1a",
-			wantAZ:         awssdk.String("us-east-1a"),
-			wantErr:        false,
+			name: "AZ validation error",
+			err: &smithy.GenericAPIError{
+				Code:    "ValidationError",
+				Message: "you must specify an Availability Zone for IP target",
+			},
+			want: true,
 		},
 		{
-			name:           "ALB with cross-zone enabled, AZ override needed - should use 'all'",
-			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=true"},
-			doAzOverride:   true,
-			podNodeName:    "node-1",
-			podNodeZone:    "us-east-1a",
-			wantAZ:         awssdk.String("all"),
-			wantErr:        false,
+			name: "Different validation error",
+			err: &smithy.GenericAPIError{
+				Code:    "ValidationError",
+				Message: "some other validation error",
+			},
+			want: false,
 		},
 		{
-			name:           "NLB with cross-zone disabled, AZ override needed - should use 'all'",
-			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "load_balancing.cross_zone.enabled=false"},
-			doAzOverride:   true,
-			podNodeName:    "node-1",
-			podNodeZone:    "us-east-1a",
-			wantAZ:         awssdk.String("all"),
-			wantErr:        false,
-		},
-		{
-			name:           "no annotations, AZ override needed - should use 'all'",
-			svcAnnotations: map[string]string{},
-			doAzOverride:   true,
-			podNodeName:    "node-1",
-			podNodeZone:    "us-east-1a",
-			wantAZ:         awssdk.String("all"),
-			wantErr:        false,
-		},
-		{
-			name:           "no AZ override needed - should not set AZ",
-			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=false"},
-			doAzOverride:   false,
-			podNodeName:    "node-1",
-			podNodeZone:    "us-east-1a",
-			wantAZ:         nil,
-			wantErr:        false,
+			name: "Different error code",
+			err: &smithy.GenericAPIError{
+				Code:    "InvalidParameterException",
+				Message: "you must specify an Availability Zone for IP target",
+			},
+			want: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			k8sSchema := runtime.NewScheme()
-			clientgoscheme.AddToScheme(k8sSchema)
-
-			node := &corev1.Node{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: tt.podNodeName,
-					Labels: map[string]string{
-						corev1.LabelTopologyZone: tt.podNodeZone,
-					},
-				},
-			}
-
-			k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(node).Build()
-
-			m := &defaultResourceManager{
-				k8sClient: k8sClient,
-				logger:    logr.New(&log.NullLogSink{}),
-			}
-
-			tgb := &elbv2api.TargetGroupBinding{
-				Spec: elbv2api.TargetGroupBindingSpec{
-					TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/my-tg/1234567890abcdef",
-				},
-			}
-
-			endpoints := []backend.PodEndpoint{
-				{
-					IP:   "172.16.0.108",
-					Port: 8080,
-					Pod: k8s.PodInfo{
-						Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
-						NodeName: tt.podNodeName,
-					},
-				},
-			}
-
-			doAzOverrideFn := func(addr netip.Addr) bool {
-				return tt.doAzOverride
-			}
-
-			ctx := context.Background()
-			targets, err := m.prepareRegistrationCall(ctx, endpoints, tgb, doAzOverrideFn, tt.svcAnnotations)
-
-			if tt.wantErr {
-				assert.Error(t, err)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Len(t, targets, 1)
-			assert.Equal(t, "172.16.0.108", awssdk.ToString(targets[0].Id))
-			assert.Equal(t, int32(8080), awssdk.ToInt32(targets[0].Port))
-
-			if tt.wantAZ == nil {
-				assert.Nil(t, targets[0].AvailabilityZone)
-			} else {
-				assert.Equal(t, awssdk.ToString(tt.wantAZ), awssdk.ToString(targets[0].AvailabilityZone))
-			}
-		})
-	}
-}
-
-func Test_defaultResourceManager_isALBIngress(t *testing.T) {
-	tests := []struct {
-		name           string
-		svcAnnotations map[string]string
-		want           bool
-	}{
-		{
-			name:           "has ALB annotation",
-			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "some-value"},
-			want:           true,
-		},
-		{
-			name:           "has NLB annotation",
-			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "some-value"},
-			want:           false,
-		},
-		{
-			name:           "no annotations",
-			svcAnnotations: map[string]string{},
-			want:           false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := &defaultResourceManager{}
-			got := m.isALBIngress(tt.svcAnnotations)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func Test_defaultResourceManager_isCrossZoneDisabled(t *testing.T) {
-	tests := []struct {
-		name           string
-		svcAnnotations map[string]string
-		isALB          bool
-		want           bool
-	}{
-		{
-			name:           "ALB with cross-zone disabled",
-			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=false"},
-			isALB:          true,
-			want:           true,
-		},
-		{
-			name:           "ALB with cross-zone enabled",
-			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=true"},
-			isALB:          true,
-			want:           false,
-		},
-		{
-			name:           "NLB with cross-zone disabled",
-			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "load_balancing.cross_zone.enabled=false"},
-			isALB:          false,
-			want:           true,
-		},
-		{
-			name:           "NLB with cross-zone enabled",
-			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "load_balancing.cross_zone.enabled=true"},
-			isALB:          false,
-			want:           false,
-		},
-		{
-			name:           "no cross-zone annotation",
-			svcAnnotations: map[string]string{},
-			isALB:          true,
-			want:           false,
-		},
-		{
-			name:           "ALB with multiple attributes including cross-zone disabled",
-			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "load_balancing.cross_zone.enabled=false,deregistration_delay.timeout_seconds=100"},
-			isALB:          true,
-			want:           true,
-		},
-		{
-			name:           "ALB with multiple attributes including cross-zone enabled",
-			svcAnnotations: map[string]string{"alb.ingress.kubernetes.io/target-group-attributes": "deregistration_delay.timeout_seconds=100,load_balancing.cross_zone.enabled=true"},
-			isALB:          true,
-			want:           false,
-		},
-		{
-			name:           "NLB with multiple attributes including cross-zone disabled",
-			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "deletion_protection.enabled=true,load_balancing.cross_zone.enabled=false,access_logs.s3.enabled=true"},
-			isALB:          false,
-			want:           true,
-		},
-		{
-			name:           "NLB with multiple attributes including cross-zone enabled",
-			svcAnnotations: map[string]string{"service.beta.kubernetes.io/aws-load-balancer-attributes": "deletion_protection.enabled=true,load_balancing.cross_zone.enabled=true,access_logs.s3.enabled=true"},
-			isALB:          false,
-			want:           false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := &defaultResourceManager{}
-			got := m.isCrossZoneDisabled(tt.svcAnnotations, tt.isALB)
+			got := isAZValidationError(tt.err)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -948,18 +765,6 @@ func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
 				corev1.LabelTopologyZone: "us-east-1a",
 			},
 			wantAZ:  "us-east-1a",
-			wantErr: false,
-		},
-		{
-			name: "node with legacy zone label",
-			pod: k8s.PodInfo{
-				Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
-				NodeName: "node-1",
-			},
-			nodeLabels: map[string]string{
-				"failure-domain.beta.kubernetes.io/zone": "us-west-2b",
-			},
-			wantAZ:  "us-west-2b",
 			wantErr: false,
 		},
 		{
@@ -1021,4 +826,212 @@ func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
 			assert.Equal(t, tt.wantAZ, got)
 		})
 	}
+}
+
+func Test_defaultResourceManager_registerPodEndpoints_RetryWithCache(t *testing.T) {
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-1",
+			Labels: map[string]string{
+				corev1.LabelTopologyZone: "us-east-1a",
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(node).Build()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockTargetsManager := NewMockTargetsManager(ctrl)
+
+	tgb := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-tgb",
+			Namespace: "default",
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/my-tg/1234567890abcdef",
+		},
+	}
+
+	endpoints := []backend.PodEndpoint{
+		{
+			IP:   "172.16.0.1",
+			Port: 8080,
+			Pod: k8s.PodInfo{
+				Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+				NodeName: "node-1",
+			},
+		},
+	}
+
+	azValidationError := &smithy.GenericAPIError{
+		Code:    "ValidationError",
+		Message: "you must specify an Availability Zone for IP target",
+	}
+
+	// First call: RegisterTargets with AZ="all" fails with ValidationError
+	mockTargetsManager.EXPECT().
+		RegisterTargets(gomock.Any(), tgb, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error {
+			assert.Equal(t, "all", awssdk.ToString(targets[0].AvailabilityZone))
+			return azValidationError
+		}).
+		Times(1)
+
+	// Second call: RegisterTargets with pod AZ succeeds
+	mockTargetsManager.EXPECT().
+		RegisterTargets(gomock.Any(), tgb, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error {
+			assert.Equal(t, "us-east-1a", awssdk.ToString(targets[0].AvailabilityZone))
+			return nil
+		}).
+		Times(1)
+
+	mockVPCInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+	mockVPCInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any()).Return(networking.VPCInfo{}, nil).AnyTimes()
+
+	m := &defaultResourceManager{
+		k8sClient:            k8sClient,
+		targetsManager:       mockTargetsManager,
+		logger:               logr.New(&log.NullLogSink{}),
+		vpcID:                "vpc-123",
+		vpcInfoProvider:      mockVPCInfoProvider,
+		invalidVpcCache:      cache.NewExpiring(),
+		invalidVpcCacheTTL:   60 * time.Minute,
+		needsPodAZCache:      cache.NewExpiring(),
+		needsPodAZCacheTTL:   60 * time.Minute,
+		needsPodAZCacheMutex: sync.RWMutex{},
+	}
+
+	ctx := context.Background()
+
+	// First registration - should fail then retry and succeed
+	err := m.registerPodEndpoints(ctx, tgb, endpoints)
+	assert.NoError(t, err)
+
+	// Verify cache was set
+	tgbKey := "default/my-tgb"
+	m.needsPodAZCacheMutex.RLock()
+	_, cached := m.needsPodAZCache.Get(tgbKey)
+	m.needsPodAZCacheMutex.RUnlock()
+	assert.True(t, cached, "Cache should be set after retry")
+
+	// Third call: Second registration should use pod AZ directly (no retry)
+	endpoints2 := []backend.PodEndpoint{
+		{
+			IP:   "172.16.0.2",
+			Port: 8080,
+			Pod: k8s.PodInfo{
+				Key:      types.NamespacedName{Namespace: "default", Name: "pod-2"},
+				NodeName: "node-1",
+			},
+		},
+	}
+
+	mockTargetsManager.EXPECT().
+		RegisterTargets(gomock.Any(), tgb, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, tgb *elbv2api.TargetGroupBinding, targets []elbv2types.TargetDescription) error {
+			// Verify it goes directly to pod AZ (no "all" attempt)
+			assert.Equal(t, "us-east-1a", awssdk.ToString(targets[0].AvailabilityZone))
+			return nil
+		}).
+		Times(1)
+
+	// Second registration - should use pod AZ directly
+	err = m.registerPodEndpoints(ctx, tgb, endpoints2)
+	assert.NoError(t, err)
+}
+
+func Test_defaultResourceManager_registerPodEndpoints_RetryFails(t *testing.T) {
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-1",
+			Labels: map[string]string{
+				corev1.LabelTopologyZone: "us-east-1a",
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(node).Build()
+
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockTargetsManager := NewMockTargetsManager(ctrl)
+
+	tgb := &elbv2api.TargetGroupBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-tgb",
+			Namespace: "default",
+		},
+		Spec: elbv2api.TargetGroupBindingSpec{
+			TargetGroupARN: "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/my-tg/1234567890abcdef",
+		},
+	}
+
+	endpoints := []backend.PodEndpoint{
+		{
+			IP:   "172.16.0.1",
+			Port: 8080,
+			Pod: k8s.PodInfo{
+				Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+				NodeName: "node-1",
+			},
+		},
+	}
+
+	azValidationError := &smithy.GenericAPIError{
+		Code:    "ValidationError",
+		Message: "you must specify an Availability Zone for IP target",
+	}
+
+	// First call: RegisterTargets with AZ="all" fails
+	mockTargetsManager.EXPECT().
+		RegisterTargets(gomock.Any(), tgb, gomock.Any()).
+		Return(azValidationError).
+		Times(1)
+
+	// Second call: RegisterTargets with pod AZ also fails
+	mockTargetsManager.EXPECT().
+		RegisterTargets(gomock.Any(), tgb, gomock.Any()).
+		Return(azValidationError).
+		Times(1)
+
+	mockVPCInfoProvider := networking.NewMockVPCInfoProvider(ctrl)
+	mockVPCInfoProvider.EXPECT().FetchVPCInfo(gomock.Any(), gomock.Any()).Return(networking.VPCInfo{}, nil).AnyTimes()
+
+	m := &defaultResourceManager{
+		k8sClient:            k8sClient,
+		targetsManager:       mockTargetsManager,
+		logger:               logr.New(&log.NullLogSink{}),
+		vpcID:                "vpc-123",
+		vpcInfoProvider:      mockVPCInfoProvider,
+		invalidVpcCache:      cache.NewExpiring(),
+		invalidVpcCacheTTL:   60 * time.Minute,
+		needsPodAZCache:      cache.NewExpiring(),
+		needsPodAZCacheTTL:   60 * time.Minute,
+		needsPodAZCacheMutex: sync.RWMutex{},
+	}
+
+	ctx := context.Background()
+
+	// Registration should fail after retry
+	err := m.registerPodEndpoints(ctx, tgb, endpoints)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "you must specify an Availability Zone")
+
+	// Verify cache was still set (for future attempts)
+	tgbKey := "default/my-tgb"
+	m.needsPodAZCacheMutex.RLock()
+	_, cached := m.needsPodAZCache.Get(tgbKey)
+	m.needsPodAZCacheMutex.RUnlock()
+	assert.True(t, cached, "Cache should be set even after failed retry")
 }

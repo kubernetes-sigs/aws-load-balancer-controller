@@ -4,13 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"strings"
 	"sync"
 	"time"
 
 	smithy "github.com/aws/smithy-go"
 	"k8s.io/apimachinery/pkg/util/cache"
-
-	"strings"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -23,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
-	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/aws/services"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/backend"
 	ctrlerrors "sigs.k8s.io/aws-load-balancer-controller/pkg/error"
@@ -73,6 +71,9 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		invalidVpcCache:    cache.NewExpiring(),
 		invalidVpcCacheTTL: defaultTargetsCacheTTL,
 
+		needsPodAZCache:    cache.NewExpiring(),
+		needsPodAZCacheTTL: defaultNeedsPodAZCacheTTL,
+
 		requeueDuration: defaultRequeueDuration,
 	}
 }
@@ -97,6 +98,13 @@ type defaultResourceManager struct {
 	invalidVpcCache      *cache.Expiring
 	invalidVpcCacheTTL   time.Duration
 	invalidVpcCacheMutex sync.RWMutex
+
+	// needsPodAZCache tracks TGBs that require pod availability zones during target registration.
+	// When AWS returns an AZ validation error, we cache the TGB key to avoid retrying with AZ="all"
+	// on subsequent reconciles, improving performance by going directly to pod-specific AZs.
+	needsPodAZCache      *cache.Expiring
+	needsPodAZCacheTTL   time.Duration
+	needsPodAZCacheMutex sync.RWMutex
 
 	requeueDuration time.Duration
 }
@@ -578,21 +586,38 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 		return err
 	}
 
-	svcAnnotations, err := m.getServiceAnnotations(ctx, tgb)
-	if err != nil {
-		return err
-	}
+	tgbKey := fmt.Sprintf("%s/%s", tgb.Namespace, tgb.Name)
+	m.needsPodAZCacheMutex.RLock()
+	_, needsPodAZ := m.needsPodAZCache.Get(tgbKey)
+	m.needsPodAZCacheMutex.RUnlock()
 
-	sdkTargets, err := m.prepareRegistrationCall(ctx, endpoints, tgb, overrideAzFn, svcAnnotations)
+	sdkTargets, err := m.prepareRegistrationCall(ctx, endpoints, tgb, overrideAzFn, needsPodAZ)
 	if err != nil {
 		return err
 	}
-	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+	err = m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+	if err != nil && isAZValidationError(err) && !needsPodAZ {
+		m.logger.Info("RegisterTargets failed with AZ validation error, retrying with pod AZs", "tgb", tgbKey)
+		m.needsPodAZCacheMutex.Lock()
+		m.needsPodAZCache.Set(tgbKey, true, m.needsPodAZCacheTTL)
+		m.needsPodAZCacheMutex.Unlock()
+
+		sdkTargets, err = m.prepareRegistrationCall(ctx, endpoints, tgb, overrideAzFn, true)
+		if err != nil {
+			return err
+		}
+		retryErr := m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+		if retryErr != nil {
+			m.logger.Error(retryErr, "Failed to register targets even with availability zone specified.", "tgb", tgbKey)
+			return retryErr
+		}
+		return nil
+	}
+	return err
 }
 
-func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool, svcAnnotations map[string]string) ([]elbv2types.TargetDescription, error) {
-	isALB := m.isALBIngress(svcAnnotations)
-	crossZoneDisabled := m.isCrossZoneDisabled(svcAnnotations, isALB)
+func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool, usePodAZ bool) ([]elbv2types.TargetDescription, error) {
+	usingCrossAccount := tgb.Spec.IamRoleArnToAssume != ""
 
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
@@ -604,8 +629,9 @@ func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, en
 		if err != nil {
 			return sdkTargets, err
 		}
-		if doAzOverride(podIP) {
-			if isALB && crossZoneDisabled && tgb.Spec.IamRoleArnToAssume == "" {
+		needsAzOverride := doAzOverride(podIP)
+		if needsAzOverride {
+			if usePodAZ && !usingCrossAccount {
 				az, err := m.getPodAvailabilityZone(ctx, endpoint.Pod)
 				if err != nil {
 					return sdkTargets, err
@@ -865,34 +891,12 @@ func (m *defaultResourceManager) getMaxNewTargets(newTargetCount int, currentTar
 	return newTargetCount
 }
 
-func (m *defaultResourceManager) getServiceAnnotations(ctx context.Context, tgb *elbv2api.TargetGroupBinding) (map[string]string, error) {
-	svcKey := buildServiceReferenceKey(tgb, tgb.Spec.ServiceRef)
-	svc := &corev1.Service{}
-	if err := m.k8sClient.Get(ctx, svcKey, svc); err != nil {
-		return nil, err
-	}
-	return svc.Annotations, nil
-}
-
-func (m *defaultResourceManager) isALBIngress(svcAnnotations map[string]string) bool {
-	for key := range svcAnnotations {
-		if strings.HasPrefix(key, annotations.AnnotationPrefixIngress) {
-			return true
-		}
-	}
-	return false
-}
-
-func (m *defaultResourceManager) isCrossZoneDisabled(svcAnnotations map[string]string, isALB bool) bool {
-	crossZoneDisabled := "load_balancing.cross_zone.enabled=false"
-	if isALB {
-		if attrs, ok := svcAnnotations[annotations.AnnotationPrefixIngress+"/"+annotations.IngressSuffixTargetGroupAttributes]; ok {
-			return strings.Contains(attrs, crossZoneDisabled)
-		}
-	} else {
-		if attrs, ok := svcAnnotations[annotations.SvcBetaAnnotationPrefix+"/"+annotations.SvcLBSuffixLoadBalancerAttributes]; ok {
-			return strings.Contains(attrs, crossZoneDisabled)
-		}
+func isAZValidationError(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		isMatch := apiErr.ErrorCode() == "ValidationError" &&
+			strings.Contains(apiErr.ErrorMessage(), "you must specify an Availability Zone")
+		return isMatch
 	}
 	return false
 }
@@ -908,10 +912,6 @@ func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod
 	}
 
 	az, ok := node.Labels[corev1.LabelTopologyZone]
-	// fallback: try legacy/deprecated label failure-domain.beta.kubernetes.io/zone
-	if !ok {
-		az, ok = node.Labels["failure-domain.beta.kubernetes.io/zone"]
-	}
 	if !ok {
 		return "", errors.Errorf("node %s has no availability zone label", pod.NodeName)
 	}
