@@ -4,6 +4,7 @@ import (
 	"context"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
@@ -208,7 +209,14 @@ func deleteReferenceGrants(ctx context.Context, f *framework.Framework, refGrant
 
 func createGatewayClass(ctx context.Context, f *framework.Framework, gwc *gwv1.GatewayClass) error {
 	f.Logger.Info("creating gateway class", "gwc", k8s.NamespacedName(gwc))
-	return f.K8sClient.Create(ctx, gwc)
+	err := f.K8sClient.Create(ctx, gwc)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+	if apierrors.IsAlreadyExists(err) {
+		f.Logger.Info("gateway class already exists", "gwc", k8s.NamespacedName(gwc))
+	}
+	return nil
 }
 
 func createLoadBalancerConfig(ctx context.Context, f *framework.Framework, lbc *elbv2gw.LoadBalancerConfiguration) error {

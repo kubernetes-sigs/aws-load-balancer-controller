@@ -31,7 +31,7 @@ var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 
 	BeforeEach(func() {
 		if !tf.Options.EnableAGATests {
-			Skip("Skipping Global Accelerator Gateway tests (requires --enable-aga-tests)")
+			Skip("Skipping Global Accelerator tests (requires --enable-aga-tests)")
 		}
 		ctx = context.Background()
 		ns, err := tf.NSManager.AllocateNamespace(ctx, "aga-multi-e2e")

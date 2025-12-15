@@ -146,7 +146,7 @@ func (m *defaultEndpointGroupManager) buildSDKUpdateEndpointGroupInput(_ context
 func (m *defaultEndpointGroupManager) Update(ctx context.Context, resEndpointGroup *agamodel.EndpointGroup, sdkEndpointGroup *agatypes.EndpointGroup) (agamodel.EndpointGroupStatus, error) {
 	// Check if the endpoint group actually needs an update
 	if !m.isSDKEndpointGroupSettingsDrifted(resEndpointGroup, sdkEndpointGroup) {
-		m.logger.Info("No drift detected in endpoint group settings, skipping update",
+		m.logger.V(1).Info("No drift detected in endpoint group settings, skipping update",
 			"stackID", resEndpointGroup.Stack().StackID(),
 			"resourceID", resEndpointGroup.ID(),
 			"endpointGroupARN", *sdkEndpointGroup.EndpointGroupArn)

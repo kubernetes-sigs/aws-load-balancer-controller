@@ -131,7 +131,7 @@ func (m *defaultListenerManager) buildSDKUpdateListenerInput(ctx context.Context
 func (m *defaultListenerManager) Update(ctx context.Context, resListener *agamodel.Listener, sdkListener *ListenerResource) (agamodel.ListenerStatus, error) {
 	// Check if the listener actually needs an update
 	if !m.isSDKListenerSettingsDrifted(resListener, sdkListener) {
-		m.logger.Info("No drift detected in listener settings, skipping update",
+		m.logger.V(1).Info("No drift detected in listener settings, skipping update",
 			"stackID", resListener.Stack().StackID(),
 			"resourceID", resListener.ID(),
 			"listenerARN", *sdkListener.Listener.ListenerArn)

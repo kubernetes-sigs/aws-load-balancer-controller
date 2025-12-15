@@ -39,6 +39,11 @@ func (v *globalAcceleratorValidator) Prototype(req admission.Request) (runtime.O
 func (v *globalAcceleratorValidator) ValidateCreate(_ context.Context, obj runtime.Object) error {
 	ga := obj.(*agaapi.GlobalAccelerator)
 
+	if err := v.checkForDuplicateEndpoints(ga); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateAGAGlobalAccelerator, "checkForDuplicateEndpoints")
+		return err
+	}
+
 	if err := v.checkForOverlappingPortRanges(ga); err != nil {
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateAGAGlobalAccelerator, "checkForOverlappingPortRanges")
 		return err
@@ -49,6 +54,11 @@ func (v *globalAcceleratorValidator) ValidateCreate(_ context.Context, obj runti
 
 func (v *globalAcceleratorValidator) ValidateUpdate(_ context.Context, obj runtime.Object, _ runtime.Object) error {
 	ga := obj.(*agaapi.GlobalAccelerator)
+
+	if err := v.checkForDuplicateEndpoints(ga); err != nil {
+		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateAGAGlobalAccelerator, "checkForDuplicateEndpoints")
+		return err
+	}
 
 	if err := v.checkForOverlappingPortRanges(ga); err != nil {
 		v.metricsCollector.ObserveWebhookValidationError(apiPathValidateAGAGlobalAccelerator, "checkForOverlappingPortRanges")
@@ -115,6 +125,59 @@ func hasOverlappingRangesInSlice(portRanges []agaapi.PortRange) bool {
 func portRangesOverlap(rangeA agaapi.PortRange, rangeB agaapi.PortRange) bool {
 	// Ranges overlap if start of A is before or at end of B AND end of A is after or at start of B
 	return rangeA.FromPort <= rangeB.ToPort && rangeA.ToPort >= rangeB.FromPort
+}
+
+// checkForDuplicateEndpoints validates that there are no duplicate endpoints within each endpoint group
+func (v *globalAcceleratorValidator) checkForDuplicateEndpoints(ga *agaapi.GlobalAccelerator) error {
+	if ga.Spec.Listeners == nil {
+		return nil
+	}
+
+	for listenerIdx, listener := range *ga.Spec.Listeners {
+		if listener.EndpointGroups == nil {
+			continue
+		}
+
+		for groupIdx, group := range *listener.EndpointGroups {
+			if group.Endpoints == nil || len(*group.Endpoints) == 0 {
+				continue
+			}
+
+			seen := make(map[string]bool)
+			for _, endpoint := range *group.Endpoints {
+				key := getEndpointKey(endpoint, ga.Namespace)
+				if seen[key] {
+					return errors.Errorf(
+						"duplicate endpoint detected in listener[%d].endpointGroups[%d]: %s",
+						listenerIdx, groupIdx, key)
+				}
+				seen[key] = true
+			}
+		}
+	}
+
+	return nil
+}
+
+// getEndpointKey generates a unique key for an endpoint
+func getEndpointKey(endpoint agaapi.GlobalAcceleratorEndpoint, defaultNamespace string) string {
+	namespace := defaultNamespace
+	if endpoint.Namespace != nil {
+		namespace = *endpoint.Namespace
+	}
+	name := ""
+	if endpoint.Name != nil {
+		name = *endpoint.Name
+	}
+
+	if endpoint.Type == agaapi.GlobalAcceleratorEndpointTypeEndpointID {
+		endpointID := ""
+		if endpoint.EndpointID != nil {
+			endpointID = *endpoint.EndpointID
+		}
+		return string(endpoint.Type) + "/" + endpointID
+	}
+	return string(endpoint.Type) + "/" + namespace + "/" + name
 }
 
 // +kubebuilder:webhook:path=/validate-aga-k8s-aws-v1beta1-globalaccelerator,mutating=false,failurePolicy=fail,groups=aga.k8s.aws,resources=globalaccelerators,verbs=create;update,versions=v1beta1,name=vglobalaccelerator.aga.k8s.aws,sideEffects=None,matchPolicy=Equivalent,webhookVersions=v1,admissionReviewVersions=v1beta1
