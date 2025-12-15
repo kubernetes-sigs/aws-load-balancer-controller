@@ -27,6 +27,11 @@ type GatewayBackendConfig struct {
 	port             int32
 }
 
+func (g *GatewayBackendConfig) GetProtocolVersion() *elbv2model.ProtocolVersion {
+	// Gateway backends don't support a protocol version.
+	return nil
+}
+
 func NewGatewayBackendConfig(gateway *gwv1.Gateway, targetGroupProps *elbv2gw.TargetGroupProps, arn string, port int32) *GatewayBackendConfig {
 	return &GatewayBackendConfig{
 		gateway:          gateway,
