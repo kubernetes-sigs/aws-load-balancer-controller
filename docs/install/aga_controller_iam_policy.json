@@ -18,9 +18,6 @@
     {
       "Effect": "Allow",
       "Action": [
-        "globalaccelerator:DescribeAccelerator",
-        "globalaccelerator:DescribeEndpointGroup",
-        "globalaccelerator:DescribeListener",
         "globalaccelerator:ListAccelerators",
         "globalaccelerator:ListEndpointGroups",
         "globalaccelerator:ListListeners",
@@ -29,6 +26,27 @@
         "tag:GetResources"
       ],
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "globalaccelerator:DescribeAccelerator",
+        "globalaccelerator:DescribeEndpointGroup",
+        "globalaccelerator:DescribeListener"
+      ],
+      "Resource": [
+        "arn:aws:globalaccelerator::*:accelerator/*",
+        "arn:aws:globalaccelerator::*:accelerator/*/listener/*",
+        "arn:aws:globalaccelerator::*:accelerator/*/listener/*/endpoint-group/*"
+      ],
+      "Condition": {
+        "Null": {
+          "aws:ResourceTag/elbv2.k8s.aws/cluster": "false"
+        },
+        "StringEquals": {
+          "aws:ResourceTag/aga.k8s.aws/resource": "GlobalAccelerator"
+        }
+      }
     },
     {
       "Effect": "Allow",
