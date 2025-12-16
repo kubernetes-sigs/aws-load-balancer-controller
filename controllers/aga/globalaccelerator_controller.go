@@ -186,9 +186,10 @@ type globalAcceleratorReconciler struct {
 	maxExponentialBackoffDelay time.Duration
 }
 
-// +kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators,verbs=get;list;watch;patch
-// +kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators/status,verbs=update;patch
-// +kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators/finalizers,verbs=update;patch
+//+kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators,verbs=get;list;watch;patch
+//+kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators/status,verbs=update;patch
+//+kubebuilder:rbac:groups=aga.k8s.aws,resources=globalaccelerators/finalizers,verbs=update;patch
+
 func (r *globalAcceleratorReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
 	r.reconcileTracker(req.NamespacedName)
 	r.logger.V(1).Info("Reconcile request", "name", req.Name)
