@@ -279,7 +279,7 @@ type IPSet struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
-// +kubebuilder:printcolumn:name="NAME",type="string",JSONPath=".spec.name",description="The Global Accelerator name"
+// +kubebuilder:printcolumn:name="ACCELERATOR-NAME",type="string",JSONPath=".spec.name",description="The Global Accelerator name"
 // +kubebuilder:printcolumn:name="DNS-NAME",type="string",JSONPath=".status.dnsName",description="The Global Accelerator DNS name"
 // +kubebuilder:printcolumn:name="TYPE",type="string",JSONPath=".spec.type",description="The Global Accelerator type"
 // +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.status",description="The Global Accelerator status"

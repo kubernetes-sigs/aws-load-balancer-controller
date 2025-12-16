@@ -2,13 +2,14 @@ package aga
 
 import (
 	"context"
-	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	agaapi "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	lbcmetrics "sigs.k8s.io/aws-load-balancer-controller/pkg/metrics/lbc"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 func Test_globalAcceleratorValidator_ValidateCreate(t *testing.T) {
@@ -923,6 +924,107 @@ func Test_portRangesOverlap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := portRangesOverlap(tt.rangeA, tt.rangeB)
 			assert.Equal(t, tt.want, result)
+		})
+	}
+}
+
+func Test_globalAcceleratorValidator_checkForDuplicateEndpoints(t *testing.T) {
+	endpointName1 := "test-endpoint-1"
+	endpointName2 := "test-endpoint-2"
+	ns1 := "ns1"
+	ns2 := "ns2"
+
+	tests := []struct {
+		name      string
+		ga        *agaapi.GlobalAccelerator
+		wantError bool
+		errMsg    string
+	}{
+		{
+			name: "valid - unique endpoints",
+			ga: &agaapi.GlobalAccelerator{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns1},
+				Spec: agaapi.GlobalAcceleratorSpec{
+					Listeners: &[]agaapi.GlobalAcceleratorListener{{
+						EndpointGroups: &[]agaapi.GlobalAcceleratorEndpointGroup{{
+							Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+								{Type: agaapi.GlobalAcceleratorEndpointTypeIngress, Name: &endpointName1},
+								{Type: agaapi.GlobalAcceleratorEndpointTypeIngress, Name: &endpointName2},
+							},
+						}},
+					}},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "invalid - duplicate endpoints",
+			ga: &agaapi.GlobalAccelerator{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns1},
+				Spec: agaapi.GlobalAcceleratorSpec{
+					Listeners: &[]agaapi.GlobalAcceleratorListener{{
+						EndpointGroups: &[]agaapi.GlobalAcceleratorEndpointGroup{{
+							Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+								{Type: agaapi.GlobalAcceleratorEndpointTypeIngress, Name: &endpointName1},
+								{Type: agaapi.GlobalAcceleratorEndpointTypeIngress, Name: &endpointName1},
+							},
+						}},
+					}},
+				},
+			},
+			wantError: true,
+			errMsg:    "duplicate endpoint detected",
+		},
+		{
+			name: "valid - same name different namespaces",
+			ga: &agaapi.GlobalAccelerator{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns1},
+				Spec: agaapi.GlobalAcceleratorSpec{
+					Listeners: &[]agaapi.GlobalAcceleratorListener{{
+						EndpointGroups: &[]agaapi.GlobalAcceleratorEndpointGroup{{
+							Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+								{Type: agaapi.GlobalAcceleratorEndpointTypeIngress, Name: &endpointName1, Namespace: &ns1},
+								{Type: agaapi.GlobalAcceleratorEndpointTypeIngress, Name: &endpointName2, Namespace: &ns2},
+							},
+						}},
+					}},
+				},
+			},
+			wantError: false,
+		},
+		{
+			name: "valid - same name different endpoints types",
+			ga: &agaapi.GlobalAccelerator{
+				ObjectMeta: metav1.ObjectMeta{Namespace: ns1},
+				Spec: agaapi.GlobalAcceleratorSpec{
+					Listeners: &[]agaapi.GlobalAcceleratorListener{{
+						EndpointGroups: &[]agaapi.GlobalAcceleratorEndpointGroup{{
+							Endpoints: &[]agaapi.GlobalAcceleratorEndpoint{
+								{Type: agaapi.GlobalAcceleratorEndpointTypeService, Name: &endpointName1},
+								{Type: agaapi.GlobalAcceleratorEndpointTypeIngress, Name: &endpointName1},
+								{Type: agaapi.GlobalAcceleratorEndpointTypeGateway, Name: &endpointName2},
+							},
+						}},
+					}},
+				},
+			},
+			wantError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v := &globalAcceleratorValidator{
+				logger:           logr.New(&log.NullLogSink{}),
+				metricsCollector: lbcmetrics.NewMockCollector(),
+			}
+			err := v.checkForDuplicateEndpoints(tt.ga)
+			if tt.wantError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

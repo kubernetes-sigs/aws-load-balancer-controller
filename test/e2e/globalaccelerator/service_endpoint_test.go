@@ -24,7 +24,7 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 
 	BeforeEach(func() {
 		if !tf.Options.EnableAGATests {
-			Skip("Skipping Global Accelerator Gateway tests (requires --enable-aga-tests)")
+			Skip("Skipping Global Accelerator tests (requires --enable-aga-tests)")
 		}
 		ctx = context.Background()
 	})

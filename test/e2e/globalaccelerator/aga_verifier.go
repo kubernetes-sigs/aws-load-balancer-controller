@@ -47,6 +47,21 @@ type GlobalAcceleratorExpectation struct {
 	Listeners     []ListenerExpectation
 }
 
+func matchesListener(listener *types.Listener, expected ListenerExpectation) bool {
+	if expected.Protocol != "" && string(listener.Protocol) != expected.Protocol {
+		return false
+	}
+	if len(expected.PortRanges) > 0 {
+		if len(listener.PortRanges) == 0 {
+			return false
+		}
+		if awssdk.ToInt32(listener.PortRanges[0].FromPort) != expected.PortRanges[0].FromPort {
+			return false
+		}
+	}
+	return true
+}
+
 func verifyGlobalAcceleratorConfiguration(ctx context.Context, f *framework.Framework, acceleratorARN string, expected GlobalAcceleratorExpectation) error {
 	agaClient := f.Cloud.GlobalAccelerator()
 
@@ -79,8 +94,25 @@ func verifyGlobalAcceleratorConfiguration(ctx context.Context, f *framework.Fram
 			return fmt.Errorf("listener count mismatch: expected %d, got %d", len(expected.Listeners), len(listListenersResp.Listeners))
 		}
 
+		// Verify each expected listener exists (order-independent)
+		matched := make(map[int]bool)
 		for i, expectedListener := range expected.Listeners {
-			listener := listListenersResp.Listeners[i]
+			var listener *types.Listener
+			var matchedIdx int
+			for j := range listListenersResp.Listeners {
+				if !matched[j] && matchesListener(&listListenersResp.Listeners[j], expectedListener) {
+					listener = &listListenersResp.Listeners[j]
+					matchedIdx = j
+					break
+				}
+			}
+			if listener == nil {
+				if len(expectedListener.PortRanges) > 0 {
+					return fmt.Errorf("expected listener[%d] with port %d not found", i, expectedListener.PortRanges[0].FromPort)
+				}
+				return fmt.Errorf("expected listener[%d] not found", i)
+			}
+			matched[matchedIdx] = true
 
 			if expectedListener.Protocol != "" && string(listener.Protocol) != expectedListener.Protocol {
 				return fmt.Errorf("listener[%d] protocol mismatch: expected %s, got %s", i, expectedListener.Protocol, string(listener.Protocol))

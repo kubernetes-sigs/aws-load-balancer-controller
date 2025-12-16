@@ -118,7 +118,7 @@ func (m *defaultAcceleratorManager) Update(ctx context.Context, resAccelerator *
 
 	var updatedAccelerator *agatypes.Accelerator
 	if !m.isSDKAcceleratorSettingsDrifted(resAccelerator, sdkAccelerator) {
-		m.logger.Info("No drift detected in accelerator settings, skipping update",
+		m.logger.V(1).Info("No drift detected in accelerator settings, skipping update",
 			"stackID", resAccelerator.Stack().StackID(),
 			"resourceID", resAccelerator.ID(),
 			"acceleratorARN", *sdkAccelerator.Accelerator.AcceleratorArn)

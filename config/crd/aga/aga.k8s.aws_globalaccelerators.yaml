@@ -17,7 +17,7 @@ spec:
   - additionalPrinterColumns:
     - description: The Global Accelerator name
       jsonPath: .spec.name
-      name: NAME
+      name: ACCELERATOR-NAME
       type: string
     - description: The Global Accelerator DNS name
       jsonPath: .status.dnsName

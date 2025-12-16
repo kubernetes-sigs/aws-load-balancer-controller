@@ -11,6 +11,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/ingress"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
@@ -31,7 +33,7 @@ var _ = Describe("GlobalAccelerator with Ingress endpoint", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		if !tf.Options.EnableAGATests {
-			Skip("Skipping Global Accelerator Gateway tests (requires --enable-aga-tests)")
+			Skip("Skipping Global Accelerator tests (requires --enable-aga-tests)")
 		}
 		ns, err := tf.NSManager.AllocateNamespace(ctx, "aga-ing-e2e")
 		Expect(err).NotTo(HaveOccurred())
@@ -59,6 +61,21 @@ var _ = Describe("GlobalAccelerator with Ingress endpoint", func() {
 		if ingStack != nil {
 			err := ingStack.Cleanup(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
+		}
+		if namespace != "" {
+			By("teardown namespace", func() {
+				ns := &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{Name: namespace},
+				}
+				tf.Logger.Info("deleting namespace", "name", namespace)
+				err := tf.K8sClient.Delete(ctx, ns)
+				Expect(err).Should(SatisfyAny(BeNil(), Satisfy(apierrors.IsNotFound)))
+				tf.Logger.Info("deleted namespace", "name", namespace)
+				tf.Logger.Info("waiting namespace becomes deleted", "name", namespace)
+				err = tf.NSManager.WaitUntilNamespaceDeleted(ctx, ns)
+				Expect(err).NotTo(HaveOccurred())
+				tf.Logger.Info("namespace becomes deleted", "name", namespace)
+			})
 		}
 	})
 
