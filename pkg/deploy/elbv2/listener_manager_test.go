@@ -775,6 +775,74 @@ func Test_isSDKListenerSettingsDrifted(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "desired = mtls on, sdk = mtls on. result = no drift because no change (association status set)",
+			args: args{
+				lsSpec: elbv2model.ListenerSpec{
+					Port:       80,
+					Protocol:   elbv2model.ProtocolHTTPS,
+					SSLPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+					ALPNPolicy: []string{"HTTP2Preferred"},
+				},
+				sdkLS: ListenerWithTags{
+					Listener: &elbv2types.Listener{
+						Port:     awssdk.Int32(80),
+						Protocol: elbv2types.ProtocolEnum("HTTPS"),
+						Certificates: []elbv2types.Certificate{
+							{
+								CertificateArn: awssdk.String("cert-arn1"),
+								IsDefault:      awssdk.Bool(true),
+							},
+						},
+						DefaultActions: []elbv2types.Action{
+							{
+								Type: elbv2types.ActionTypeEnum("forward-config"),
+								ForwardConfig: &elbv2types.ForwardActionConfig{
+									TargetGroups: []elbv2types.TargetGroupTuple{
+										{
+											TargetGroupArn: awssdk.String("target-group"),
+										},
+									},
+								},
+							},
+						},
+						SslPolicy:  awssdk.String("ELBSecurityPolicy-FS-1-2-Res-2019-08"),
+						AlpnPolicy: []string{"HTTP2Preferred"},
+						MutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+							Mode:                          awssdk.String("verify"),
+							TrustStoreArn:                 awssdk.String("arn:aws:elasticloadbalancing:us-east-1:123456789123:truststore/ts-1/8786hghf"),
+							IgnoreClientCertificateExpiry: awssdk.Bool(false),
+							AdvertiseTrustStoreCaNames:    elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+							TrustStoreAssociationStatus:   elbv2types.TrustStoreAssociationStatusEnumActive,
+						},
+					},
+				},
+				desiredDefaultCerts: []elbv2types.Certificate{
+					{
+						CertificateArn: awssdk.String("cert-arn1"),
+						IsDefault:      awssdk.Bool(true),
+					},
+				},
+				desiredDefaultActions: []elbv2types.Action{
+					{
+						Type: elbv2types.ActionTypeEnum("forward-config"),
+						ForwardConfig: &elbv2types.ForwardActionConfig{
+							TargetGroups: []elbv2types.TargetGroupTuple{
+								{
+									TargetGroupArn: awssdk.String("target-group"),
+								},
+							},
+						},
+					},
+				},
+				desiredDefaultMutualAuthentication: &elbv2types.MutualAuthenticationAttributes{
+					Mode:                          awssdk.String("verify"),
+					TrustStoreArn:                 awssdk.String("arn:aws:elasticloadbalancing:us-east-1:123456789123:truststore/ts-1/8786hghf"),
+					IgnoreClientCertificateExpiry: awssdk.Bool(false),
+					AdvertiseTrustStoreCaNames:    elbv2types.AdvertiseTrustStoreCaNamesEnumOff,
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

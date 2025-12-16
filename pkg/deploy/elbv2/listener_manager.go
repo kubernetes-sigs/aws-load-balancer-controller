@@ -2,7 +2,6 @@ package elbv2
 
 import (
 	"context"
-	"reflect"
 	"strings"
 	"time"
 
@@ -380,7 +379,7 @@ func (m *defaultListenerManager) isSDKListenerSettingsDrifted(lsSpec elbv2model.
 	}
 
 	// case 6 and case 7
-	return !reflect.DeepEqual(desiredDefaultMutualAuthentication, sdkLS.Listener.MutualAuthentication)
+	return !cmp.Equal(desiredDefaultMutualAuthentication, sdkLS.Listener.MutualAuthentication, elbv2equality.CompareOptionsForMTLS())
 }
 
 func buildSDKCreateListenerInput(lsSpec elbv2model.ListenerSpec, featureGates config.FeatureGates) (*elbv2sdk.CreateListenerInput, error) {
