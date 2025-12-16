@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/gavv/httpexpect/v2"
@@ -40,16 +39,6 @@ var _ = Describe("ALB target control agent injection and target control port tes
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		if tf.Options.ControllerImage != "" {
-			By("upgrade controller with ALBTargetControlAgent enabled", func() {
-				tf.Logger.Info("Starting controller upgrade", "image", tf.Options.ControllerImage)
-				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false, true)
-				Expect(err).NotTo(HaveOccurred())
-				tf.Logger.Info("Controller upgrade completed, waiting for rollout")
-				time.Sleep(60 * time.Second)
-				tf.Logger.Info("Controller should be ready now")
-			})
-		}
 		By("setup sandbox namespace", func() {
 			tf.Logger.Info("allocating namespace")
 			ns, err := tf.NSManager.AllocateNamespace(ctx, "alb-target-control-e2e")

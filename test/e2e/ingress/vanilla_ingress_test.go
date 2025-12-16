@@ -40,13 +40,6 @@ var _ = Describe("vanilla ingress tests", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		if tf.Options.ControllerImage != "" {
-			By(fmt.Sprintf("ensure cluster installed with controller: %s", tf.Options.ControllerImage), func() {
-				err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, false, false)
-				Expect(err).NotTo(HaveOccurred())
-				time.Sleep(60 * time.Second)
-			})
-		}
 
 		By("setup sandbox namespace", func() {
 			tf.Logger.Info("allocating namespace")
@@ -434,16 +427,6 @@ var _ = Describe("vanilla ingress tests", func() {
 	})
 
 	Context("with ALB IP targets, named target port and endPointSlices enabled", func() {
-		BeforeEach(func() {
-			ctx = context.Background()
-			if tf.Options.ControllerImage != "" {
-				By(fmt.Sprintf("upgrade controller with endPointSlices enabled."), func() {
-					err := tf.CTRLInstallationManager.UpgradeController(tf.Options.ControllerImage, true, false)
-					Expect(err).NotTo(HaveOccurred())
-					time.Sleep(60 * time.Second)
-				})
-			}
-		})
 		It("with 'alb.ingress.kubernetes.io/target-type' annotation explicitly specified, and endPointSlices enabled, one ALB shall be created and functional", func() {
 			appBuilder := manifest.NewFixedResponseServiceBuilder().WithTargetPortName("e2e-targetport")
 			ingBuilder := manifest.NewIngressBuilder()

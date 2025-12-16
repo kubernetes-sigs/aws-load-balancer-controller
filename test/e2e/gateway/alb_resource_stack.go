@@ -66,6 +66,9 @@ func (s *albResourceStack) Deploy(ctx context.Context, f *framework.Framework) e
 }
 
 func (s *albResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	if s == nil || s.commonStack == nil {
+		return nil
+	}
 	if err := s.commonStack.Cleanup(ctx, f); err != nil {
 		return err
 	}

@@ -74,6 +74,9 @@ func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwLis
 }
 
 func (s *ALBTestStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	if s.albResourceStack == nil {
+		return nil
+	}
 	return s.albResourceStack.Cleanup(ctx, f)
 }
 
