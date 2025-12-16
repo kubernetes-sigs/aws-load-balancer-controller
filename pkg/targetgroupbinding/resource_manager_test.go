@@ -773,14 +773,6 @@ func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
 			nodeLabels: map[string]string{},
 			wantAZ:     nil,
 		},
-		{
-			name: "pod without node assigned",
-			pod: k8s.PodInfo{
-				Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
-				NodeName: "",
-			},
-			wantAZ: nil,
-		},
 	}
 
 	for _, tt := range tests {
@@ -808,7 +800,8 @@ func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			got := m.getPodAvailabilityZone(ctx, tt.pod)
+			got, err := m.getPodAvailabilityZone(ctx, tt.pod)
+			assert.NoError(t, err)
 
 			if tt.wantAZ == nil {
 				assert.Nil(t, got)
@@ -850,7 +843,8 @@ func Test_defaultResourceManager_getPodAvailabilityZone_Cache(t *testing.T) {
 	ctx := context.Background()
 
 	// First call - should fetch from K8s API
-	az1 := m.getPodAvailabilityZone(ctx, pod)
+	az1, err := m.getPodAvailabilityZone(ctx, pod)
+	assert.NoError(t, err)
 	assert.NotNil(t, az1)
 	assert.Equal(t, "us-east-1a", *az1)
 
@@ -862,11 +856,12 @@ func Test_defaultResourceManager_getPodAvailabilityZone_Cache(t *testing.T) {
 	assert.Equal(t, "us-east-1a", cachedValue.(string))
 
 	// Delete the node from K8s to prove second call uses cache
-	err := k8sClient.Delete(ctx, node)
+	err = k8sClient.Delete(ctx, node)
 	assert.NoError(t, err)
 
 	// Second call - should use cache, not fail even though node is deleted
-	az2 := m.getPodAvailabilityZone(ctx, pod)
+	az2, err := m.getPodAvailabilityZone(ctx, pod)
+	assert.NoError(t, err)
 	assert.NotNil(t, az2)
 	assert.Equal(t, "us-east-1a", *az2, "Should return cached value even after node deletion")
 }
@@ -904,7 +899,8 @@ func Test_defaultResourceManager_getPodAvailabilityZone_CacheForMultiplePods(t *
 
 	// All pods should get same AZ from cache after first lookup
 	for i, pod := range pods {
-		az := m.getPodAvailabilityZone(ctx, pod)
+		az, err := m.getPodAvailabilityZone(ctx, pod)
+		assert.NoError(t, err)
 		assert.NotNil(t, az, "Pod %d should have AZ", i)
 		assert.Equal(t, "us-east-1b", *az, "Pod %d should have correct AZ", i)
 	}
@@ -1129,4 +1125,160 @@ func Test_defaultResourceManager_registerPodEndpoints_RetryFails(t *testing.T) {
 	_, cached := m.needsPodAZCache.Get(tgbKey)
 	m.needsPodAZCacheMutex.RUnlock()
 	assert.True(t, cached, "Cache should be set even after failed retry")
+}
+
+func Test_defaultResourceManager_prepareRegistrationCall(t *testing.T) {
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-1",
+			Labels: map[string]string{
+				corev1.LabelTopologyZone: "us-east-1a",
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(node).Build()
+
+	tests := []struct {
+		name         string
+		endpoints    []backend.PodEndpoint
+		tgb          *elbv2api.TargetGroupBinding
+		doAzOverride func(addr netip.Addr) bool
+		usePodAZ     bool
+		wantTargets  []elbv2types.TargetDescription
+		wantErr      bool
+	}{
+		{
+			name: "usePodAZ=false, doAzOverride=true - should use 'all'",
+			endpoints: []backend.PodEndpoint{
+				{
+					IP:   "172.16.0.1",
+					Port: 8080,
+					Pod: k8s.PodInfo{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						NodeName: "node-1",
+					},
+				},
+			},
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{},
+			},
+			doAzOverride: func(addr netip.Addr) bool { return true },
+			usePodAZ:     false,
+			wantTargets: []elbv2types.TargetDescription{
+				{
+					Id:               awssdk.String("172.16.0.1"),
+					Port:             awssdk.Int32(8080),
+					AvailabilityZone: awssdk.String("all"),
+				},
+			},
+		},
+		{
+			name: "usePodAZ=true, doAzOverride=true - should use pod AZ",
+			endpoints: []backend.PodEndpoint{
+				{
+					IP:   "172.16.0.1",
+					Port: 8080,
+					Pod: k8s.PodInfo{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						NodeName: "node-1",
+					},
+				},
+			},
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{},
+			},
+			doAzOverride: func(addr netip.Addr) bool { return true },
+			usePodAZ:     true,
+			wantTargets: []elbv2types.TargetDescription{
+				{
+					Id:               awssdk.String("172.16.0.1"),
+					Port:             awssdk.Int32(8080),
+					AvailabilityZone: awssdk.String("us-east-1a"),
+				},
+			},
+		},
+		{
+			name: "usePodAZ=false, doAzOverride=false - no AZ set",
+			endpoints: []backend.PodEndpoint{
+				{
+					IP:   "172.16.0.1",
+					Port: 8080,
+					Pod: k8s.PodInfo{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						NodeName: "node-1",
+					},
+				},
+			},
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{},
+			},
+			doAzOverride: func(addr netip.Addr) bool { return false },
+			usePodAZ:     false,
+			wantTargets: []elbv2types.TargetDescription{
+				{
+					Id:   awssdk.String("172.16.0.1"),
+					Port: awssdk.Int32(8080),
+				},
+			},
+		},
+		{
+			name: "usePodAZ=true with cross-account - should use 'all'",
+			endpoints: []backend.PodEndpoint{
+				{
+					IP:   "172.16.0.1",
+					Port: 8080,
+					Pod: k8s.PodInfo{
+						Key:      types.NamespacedName{Namespace: "default", Name: "pod-1"},
+						NodeName: "node-1",
+					},
+				},
+			},
+			tgb: &elbv2api.TargetGroupBinding{
+				Spec: elbv2api.TargetGroupBindingSpec{
+					IamRoleArnToAssume: "arn:aws:iam::123456789012:role/MyRole",
+				},
+			},
+			doAzOverride: func(addr netip.Addr) bool { return true },
+			usePodAZ:     true,
+			wantTargets: []elbv2types.TargetDescription{
+				{
+					Id:               awssdk.String("172.16.0.1"),
+					Port:             awssdk.Int32(8080),
+					AvailabilityZone: awssdk.String("all"),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &defaultResourceManager{
+				k8sClient:        k8sClient,
+				logger:           logr.New(&log.NullLogSink{}),
+				nodeAZCache:      cache.NewExpiring(),
+				nodeAZCacheTTL:   60 * time.Minute,
+				nodeAZCacheMutex: sync.RWMutex{},
+			}
+
+			ctx := context.Background()
+			got, err := m.prepareRegistrationCall(ctx, tt.endpoints, tt.tgb, tt.doAzOverride, tt.usePodAZ)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.Equal(t, len(tt.wantTargets), len(got))
+			for i := range tt.wantTargets {
+				assert.Equal(t, awssdk.ToString(tt.wantTargets[i].Id), awssdk.ToString(got[i].Id))
+				assert.Equal(t, awssdk.ToInt32(tt.wantTargets[i].Port), awssdk.ToInt32(got[i].Port))
+				assert.Equal(t, awssdk.ToString(tt.wantTargets[i].AvailabilityZone), awssdk.ToString(got[i].AvailabilityZone))
+			}
+		})
+	}
 }

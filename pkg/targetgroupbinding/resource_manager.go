@@ -641,7 +641,11 @@ func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, en
 		}
 		if doAzOverride(podIP) {
 			if usePodAZ && !usingCrossAccount {
-				if az := m.getPodAvailabilityZone(ctx, endpoint.Pod); az != nil {
+				az, err := m.getPodAvailabilityZone(ctx, endpoint.Pod)
+				if err != nil {
+					return sdkTargets, err
+				}
+				if az != nil {
 					target.AvailabilityZone = az
 				} else {
 					m.logger.Info("Failed to get pod AZ, falling back to 'all'", "pod", endpoint.Pod.Key)
@@ -911,32 +915,32 @@ func isAZValidationError(err error) bool {
 	return false
 }
 
-func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod k8s.PodInfo) *string {
+func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod k8s.PodInfo) (*string, error) {
 	if pod.NodeName == "" {
-		return nil
+		return nil, errors.Errorf("pod %s has no node assigned", pod.Key)
 	}
 
 	m.nodeAZCacheMutex.RLock()
 	if cachedAZ, ok := m.nodeAZCache.Get(pod.NodeName); ok {
 		m.nodeAZCacheMutex.RUnlock()
 		az := cachedAZ.(string)
-		return &az
+		return &az, nil
 	}
 	m.nodeAZCacheMutex.RUnlock()
 
 	node := &corev1.Node{}
 	if err := m.k8sClient.Get(ctx, types.NamespacedName{Name: pod.NodeName}, node); err != nil {
-		return nil
+		return nil, err
 	}
 
 	az, ok := node.Labels[corev1.LabelTopologyZone]
 	if !ok {
-		return nil
+		return nil, nil
 	}
 
 	m.nodeAZCacheMutex.Lock()
 	m.nodeAZCache.Set(pod.NodeName, az, m.nodeAZCacheTTL)
 	m.nodeAZCacheMutex.Unlock()
 
-	return &az
+	return &az, nil
 }
