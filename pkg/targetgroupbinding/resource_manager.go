@@ -74,6 +74,9 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		needsPodAZCache:    cache.NewExpiring(),
 		needsPodAZCacheTTL: defaultNeedsPodAZCacheTTL,
 
+		nodeAZCache:    cache.NewExpiring(),
+		nodeAZCacheTTL: defaultNodeAZCacheTTL,
+
 		requeueDuration: defaultRequeueDuration,
 	}
 }
@@ -101,10 +104,17 @@ type defaultResourceManager struct {
 
 	// needsPodAZCache tracks TGBs that require pod availability zones during target registration.
 	// When AWS returns an AZ validation error, we cache the TGB key to avoid retrying with AZ="all"
-	// on subsequent reconciles, improving performance by going directly to pod-specific AZs.
+	// on subsequent reconciles, improving performance by no need to call AWS API and going directly to pod-specific AZs.
 	needsPodAZCache      *cache.Expiring
 	needsPodAZCacheTTL   time.Duration
 	needsPodAZCacheMutex sync.RWMutex
+
+	// nodeAZCache caches node name to availability zone mappings to avoid duplicate Kubernetes API calls.
+	// When multiple pods run on the same node, this cache eliminates redundant node label lookups,
+	// significantly reducing K8s API load during target registration.
+	nodeAZCache      *cache.Expiring
+	nodeAZCacheTTL   time.Duration
+	nodeAZCacheMutex sync.RWMutex
 
 	requeueDuration time.Duration
 }
@@ -629,14 +639,14 @@ func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, en
 		if err != nil {
 			return sdkTargets, err
 		}
-		needsAzOverride := doAzOverride(podIP)
-		if needsAzOverride {
+		if doAzOverride(podIP) {
 			if usePodAZ && !usingCrossAccount {
-				az, err := m.getPodAvailabilityZone(ctx, endpoint.Pod)
-				if err != nil {
-					return sdkTargets, err
+				if az := m.getPodAvailabilityZone(ctx, endpoint.Pod); az != nil {
+					target.AvailabilityZone = az
+				} else {
+					m.logger.Info("Failed to get pod AZ, falling back to 'all'", "pod", endpoint.Pod.Key)
+					target.AvailabilityZone = awssdk.String("all")
 				}
-				target.AvailabilityZone = awssdk.String(az)
 			} else {
 				target.AvailabilityZone = awssdk.String("all")
 			}
@@ -901,20 +911,32 @@ func isAZValidationError(err error) bool {
 	return false
 }
 
-func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod k8s.PodInfo) (string, error) {
+func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod k8s.PodInfo) *string {
 	if pod.NodeName == "" {
-		return "", errors.Errorf("pod %s has no node assigned", pod.Key)
+		return nil
 	}
+
+	m.nodeAZCacheMutex.RLock()
+	if cachedAZ, ok := m.nodeAZCache.Get(pod.NodeName); ok {
+		m.nodeAZCacheMutex.RUnlock()
+		az := cachedAZ.(string)
+		return &az
+	}
+	m.nodeAZCacheMutex.RUnlock()
 
 	node := &corev1.Node{}
 	if err := m.k8sClient.Get(ctx, types.NamespacedName{Name: pod.NodeName}, node); err != nil {
-		return "", err
+		return nil
 	}
 
 	az, ok := node.Labels[corev1.LabelTopologyZone]
 	if !ok {
-		return "", errors.Errorf("node %s has no availability zone label", pod.NodeName)
+		return nil
 	}
 
-	return az, nil
+	m.nodeAZCacheMutex.Lock()
+	m.nodeAZCache.Set(pod.NodeName, az, m.nodeAZCacheTTL)
+	m.nodeAZCacheMutex.Unlock()
+
+	return &az
 }

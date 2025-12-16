@@ -748,12 +748,10 @@ func Test_isAZValidationError(t *testing.T) {
 
 func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
 	tests := []struct {
-		name        string
-		pod         k8s.PodInfo
-		nodeLabels  map[string]string
-		wantAZ      string
-		wantErr     bool
-		errContains string
+		name       string
+		pod        k8s.PodInfo
+		nodeLabels map[string]string
+		wantAZ     *string
 	}{
 		{
 			name: "node with standard topology zone label",
@@ -764,8 +762,7 @@ func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
 			nodeLabels: map[string]string{
 				corev1.LabelTopologyZone: "us-east-1a",
 			},
-			wantAZ:  "us-east-1a",
-			wantErr: false,
+			wantAZ: awssdk.String("us-east-1a"),
 		},
 		{
 			name: "node without zone label",
@@ -773,9 +770,8 @@ func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
 				Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
 				NodeName: "node-1",
 			},
-			nodeLabels:  map[string]string{},
-			wantErr:     true,
-			errContains: "has no availability zone label",
+			nodeLabels: map[string]string{},
+			wantAZ:     nil,
 		},
 		{
 			name: "pod without node assigned",
@@ -783,8 +779,7 @@ func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
 				Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
 				NodeName: "",
 			},
-			wantErr:     true,
-			errContains: "has no node assigned",
+			wantAZ: nil,
 		},
 	}
 
@@ -807,25 +802,119 @@ func Test_defaultResourceManager_getPodAvailabilityZone(t *testing.T) {
 			}
 
 			m := &defaultResourceManager{
-				k8sClient: k8sClient.Build(),
-				logger:    logr.New(&log.NullLogSink{}),
+				k8sClient:   k8sClient.Build(),
+				logger:      logr.New(&log.NullLogSink{}),
+				nodeAZCache: cache.NewExpiring(),
 			}
 
 			ctx := context.Background()
-			got, err := m.getPodAvailabilityZone(ctx, tt.pod)
+			got := m.getPodAvailabilityZone(ctx, tt.pod)
 
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.errContains != "" {
-					assert.Contains(t, err.Error(), tt.errContains)
-				}
-				return
+			if tt.wantAZ == nil {
+				assert.Nil(t, got)
+			} else {
+				assert.NotNil(t, got)
+				assert.Equal(t, *tt.wantAZ, *got)
 			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantAZ, got)
 		})
 	}
+}
+
+func Test_defaultResourceManager_getPodAvailabilityZone_Cache(t *testing.T) {
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-1",
+			Labels: map[string]string{
+				corev1.LabelTopologyZone: "us-east-1a",
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(node).Build()
+
+	m := &defaultResourceManager{
+		k8sClient:      k8sClient,
+		logger:         logr.New(&log.NullLogSink{}),
+		nodeAZCache:    cache.NewExpiring(),
+		nodeAZCacheTTL: 60 * time.Minute,
+	}
+
+	pod := k8s.PodInfo{
+		Key:      types.NamespacedName{Namespace: "default", Name: "my-pod"},
+		NodeName: "node-1",
+	}
+
+	ctx := context.Background()
+
+	// First call - should fetch from K8s API
+	az1 := m.getPodAvailabilityZone(ctx, pod)
+	assert.NotNil(t, az1)
+	assert.Equal(t, "us-east-1a", *az1)
+
+	// Verify cache was populated
+	m.nodeAZCacheMutex.RLock()
+	cachedValue, found := m.nodeAZCache.Get("node-1")
+	m.nodeAZCacheMutex.RUnlock()
+	assert.True(t, found, "Cache should be populated after first call")
+	assert.Equal(t, "us-east-1a", cachedValue.(string))
+
+	// Delete the node from K8s to prove second call uses cache
+	err := k8sClient.Delete(ctx, node)
+	assert.NoError(t, err)
+
+	// Second call - should use cache, not fail even though node is deleted
+	az2 := m.getPodAvailabilityZone(ctx, pod)
+	assert.NotNil(t, az2)
+	assert.Equal(t, "us-east-1a", *az2, "Should return cached value even after node deletion")
+}
+
+func Test_defaultResourceManager_getPodAvailabilityZone_CacheForMultiplePods(t *testing.T) {
+	k8sSchema := runtime.NewScheme()
+	clientgoscheme.AddToScheme(k8sSchema)
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "node-1",
+			Labels: map[string]string{
+				corev1.LabelTopologyZone: "us-east-1b",
+			},
+		},
+	}
+
+	k8sClient := testclient.NewClientBuilder().WithScheme(k8sSchema).WithObjects(node).Build()
+
+	m := &defaultResourceManager{
+		k8sClient:      k8sClient,
+		logger:         logr.New(&log.NullLogSink{}),
+		nodeAZCache:    cache.NewExpiring(),
+		nodeAZCacheTTL: 60 * time.Minute,
+	}
+
+	ctx := context.Background()
+
+	// Multiple pods on same node
+	pods := []k8s.PodInfo{
+		{Key: types.NamespacedName{Namespace: "default", Name: "pod-1"}, NodeName: "node-1"},
+		{Key: types.NamespacedName{Namespace: "default", Name: "pod-2"}, NodeName: "node-1"},
+		{Key: types.NamespacedName{Namespace: "default", Name: "pod-3"}, NodeName: "node-1"},
+	}
+
+	// All pods should get same AZ from cache after first lookup
+	for i, pod := range pods {
+		az := m.getPodAvailabilityZone(ctx, pod)
+		assert.NotNil(t, az, "Pod %d should have AZ", i)
+		assert.Equal(t, "us-east-1b", *az, "Pod %d should have correct AZ", i)
+	}
+
+	// Verify only one entry in cache
+	m.nodeAZCacheMutex.RLock()
+	cachedValue, found := m.nodeAZCache.Get("node-1")
+	m.nodeAZCacheMutex.RUnlock()
+	assert.True(t, found)
+	assert.Equal(t, "us-east-1b", cachedValue.(string))
 }
 
 func Test_defaultResourceManager_registerPodEndpoints_RetryWithCache(t *testing.T) {
@@ -906,6 +995,9 @@ func Test_defaultResourceManager_registerPodEndpoints_RetryWithCache(t *testing.
 		needsPodAZCache:      cache.NewExpiring(),
 		needsPodAZCacheTTL:   60 * time.Minute,
 		needsPodAZCacheMutex: sync.RWMutex{},
+		nodeAZCache:          cache.NewExpiring(),
+		nodeAZCacheTTL:       60 * time.Minute,
+		nodeAZCacheMutex:     sync.RWMutex{},
 	}
 
 	ctx := context.Background()
@@ -1019,6 +1111,9 @@ func Test_defaultResourceManager_registerPodEndpoints_RetryFails(t *testing.T) {
 		needsPodAZCache:      cache.NewExpiring(),
 		needsPodAZCacheTTL:   60 * time.Minute,
 		needsPodAZCacheMutex: sync.RWMutex{},
+		nodeAZCache:          cache.NewExpiring(),
+		nodeAZCacheTTL:       60 * time.Minute,
+		nodeAZCacheMutex:     sync.RWMutex{},
 	}
 
 	ctx := context.Background()

@@ -81,7 +81,6 @@ const (
 
 	// NLB annotation suffixes
 	// prefixes service.beta.kubernetes.io, service.kubernetes.io
-	SvcBetaAnnotationPrefix                              = "service.beta.kubernetes.io"
 	SvcLBSuffixSourceRanges                              = "load-balancer-source-ranges"
 	SvcLBSuffixLoadBalancerType                          = "aws-load-balancer-type"
 	SvcLBSuffixTargetType                                = "aws-load-balancer-nlb-target-type"
