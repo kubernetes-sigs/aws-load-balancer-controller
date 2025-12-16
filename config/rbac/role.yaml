@@ -50,6 +50,23 @@ rules:
   - update
   - watch
 - apiGroups:
+  - aga.k8s.aws
+  resources:
+  - globalaccelerators
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - aga.k8s.aws
+  resources:
+  - globalaccelerators/finalizers
+  - globalaccelerators/status
+  verbs:
+  - patch
+  - update
+- apiGroups:
   - discovery.k8s.io
   resources:
   - endpointslices
