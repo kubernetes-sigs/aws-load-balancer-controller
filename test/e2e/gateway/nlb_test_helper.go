@@ -317,6 +317,9 @@ func (s *NLBTestStack) CreateFENLBReferenceGrant(ctx context.Context, f *framewo
 }
 
 func (s *NLBTestStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	if s.nlbResourceStack == nil {
+		return nil
+	}
 	return s.nlbResourceStack.Cleanup(ctx, f)
 }
 

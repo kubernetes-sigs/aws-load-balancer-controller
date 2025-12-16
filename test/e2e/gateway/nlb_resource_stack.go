@@ -60,6 +60,9 @@ func (s *nlbResourceStack) Deploy(ctx context.Context, f *framework.Framework) e
 }
 
 func (s *nlbResourceStack) Cleanup(ctx context.Context, f *framework.Framework) error {
+	if s == nil || s.commonStack == nil {
+		return nil
+	}
 	return s.commonStack.Cleanup(ctx, f)
 }
 
