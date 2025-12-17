@@ -505,6 +505,77 @@ func Test_GetImpactedGatewaysFromParentRefs(t *testing.T) {
 			},
 			wantErr: fmt.Errorf("failed to list gateways, [%s]", types.NamespacedName{Namespace: "test-ns", Name: "unknown-gw"}),
 		},
+		{
+			name: "mix routes with namespace / no namespace",
+			args: args{
+				parentRefs: []gwv1.ParentReference{
+					{
+						Name:      "test-gw",
+						Namespace: nil,
+					},
+				},
+				resourceNS: "test-ns",
+				originalParentRefsFromRouteStatus: []gwv1.RouteParentStatus{
+					{
+						ParentRef: gwv1.ParentReference{
+							Name:      "test-gw",
+							Namespace: (*gwv1.Namespace)(ptr.To("test-ns2")),
+						},
+					},
+				},
+				gateways: []*gwv1.Gateway{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw",
+							Namespace: "test-ns",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw",
+							Namespace: "test-ns2",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "test-gw-1",
+							Namespace: "test-ns2",
+						},
+						Spec: gwv1.GatewaySpec{
+							GatewayClassName: "nlb-class",
+						},
+					},
+				},
+				gatewayClasses: []*gwv1.GatewayClass{
+					{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "nlb-class",
+						},
+						Spec: gwv1.GatewayClassSpec{
+							ControllerName: constants.NLBGatewayController,
+						},
+					},
+				},
+				gwController: constants.NLBGatewayController,
+			},
+			want: []types.NamespacedName{
+				{
+					Namespace: "test-ns",
+					Name:      "test-gw",
+				},
+				{
+					Namespace: "test-ns2",
+					Name:      "test-gw",
+				},
+			},
+			wantErr: nil,
+		},
 	}
 
 	for _, tt := range tests {
