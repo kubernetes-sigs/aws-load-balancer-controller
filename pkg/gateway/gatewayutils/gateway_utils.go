@@ -68,7 +68,6 @@ func GetImpactedGatewaysFromParentRefs(ctx context.Context, k8sClient client.Cli
 		parentRefs = append(parentRefs, originalParentRef.ParentRef)
 	}
 	parentRefs = removeDuplicateParentRefs(parentRefs, resourceNamespace)
-
 	if len(parentRefs) == 0 {
 		return nil, nil
 	}
@@ -166,11 +165,14 @@ func removeDuplicateParentRefs(parentRefs []gwv1.ParentReference, resourceNamesp
 	result := make([]gwv1.ParentReference, 0, len(parentRefs))
 	exist := sets.Set[types.NamespacedName]{}
 	for _, parentRef := range parentRefs {
+		var namespaceToUse string
 		if parentRef.Namespace != nil {
-			resourceNamespace = string(*parentRef.Namespace)
+			namespaceToUse = string(*parentRef.Namespace)
+		} else {
+			namespaceToUse = resourceNamespace
 		}
 		namespacedName := types.NamespacedName{
-			Namespace: resourceNamespace,
+			Namespace: namespaceToUse,
 			Name:      string(parentRef.Name),
 		}
 		if !exist.Has(namespacedName) {
