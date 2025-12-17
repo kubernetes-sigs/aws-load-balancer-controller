@@ -45,6 +45,11 @@ type Options struct {
 	CognitoUserPoolArn      string
 	CognitoUserPoolClientId string
 	CognitoUserPoolDomain   string
+
+	// mTLS configuration for e2e tests
+	TrustStoreARN  string
+	ClientCertPath string
+	ClientKeyPath  string
 }
 
 func (options *Options) BindFlags() {
@@ -67,6 +72,10 @@ func (options *Options) BindFlags() {
 	flag.StringVar(&options.CognitoUserPoolArn, "cognito-user-pool-arn", "", `Cognito User Pool ARN for authenticate-cognito tests`)
 	flag.StringVar(&options.CognitoUserPoolClientId, "cognito-user-pool-client-id", "", `Cognito User Pool Client ID for authenticate-cognito tests`)
 	flag.StringVar(&options.CognitoUserPoolDomain, "cognito-user-pool-domain", "", `Cognito User Pool Domain for authenticate-cognito tests`)
+
+	flag.StringVar(&options.TrustStoreARN, "trust-store-arn", "", `Trust Store ARN for mTLS tests`)
+	flag.StringVar(&options.ClientCertPath, "client-cert-path", "", `Path to client certificate for mTLS tests`)
+	flag.StringVar(&options.ClientKeyPath, "client-key-path", "", `Path to client key for mTLS tests`)
 }
 
 func (options *Options) Validate() error {
