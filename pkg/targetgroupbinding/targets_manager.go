@@ -18,6 +18,8 @@ const (
 	defaultTargetsCacheTTL            = 5 * time.Minute
 	defaultRegisterTargetsChunkSize   = 200
 	defaultDeregisterTargetsChunkSize = 200
+	defaultNeedsPodAZCacheTTL         = 60 * time.Minute
+	defaultNodeAZCacheTTL             = 60 * time.Minute
 )
 
 // TargetsManager is an abstraction around ELBV2's targets API.

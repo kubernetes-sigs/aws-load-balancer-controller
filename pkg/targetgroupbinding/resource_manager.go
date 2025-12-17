@@ -3,11 +3,13 @@ package targetgroupbinding
 import (
 	"context"
 	"fmt"
-	smithy "github.com/aws/smithy-go"
-	"k8s.io/apimachinery/pkg/util/cache"
 	"net/netip"
+	"strings"
 	"sync"
 	"time"
+
+	smithy "github.com/aws/smithy-go"
+	"k8s.io/apimachinery/pkg/util/cache"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
@@ -16,6 +18,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/record"
 	elbv2api "sigs.k8s.io/aws-load-balancer-controller/apis/elbv2/v1beta1"
@@ -68,6 +71,12 @@ func NewDefaultResourceManager(k8sClient client.Client, elbv2Client services.ELB
 		invalidVpcCache:    cache.NewExpiring(),
 		invalidVpcCacheTTL: defaultTargetsCacheTTL,
 
+		needsPodAZCache:    cache.NewExpiring(),
+		needsPodAZCacheTTL: defaultNeedsPodAZCacheTTL,
+
+		nodeAZCache:    cache.NewExpiring(),
+		nodeAZCacheTTL: defaultNodeAZCacheTTL,
+
 		requeueDuration: defaultRequeueDuration,
 	}
 }
@@ -92,6 +101,20 @@ type defaultResourceManager struct {
 	invalidVpcCache      *cache.Expiring
 	invalidVpcCacheTTL   time.Duration
 	invalidVpcCacheMutex sync.RWMutex
+
+	// needsPodAZCache tracks TGBs that require pod availability zones during target registration.
+	// When AWS returns an AZ validation error, we cache the TGB key to avoid retrying with AZ="all"
+	// on subsequent reconciles, improving performance by no need to call AWS API and going directly to pod-specific AZs.
+	needsPodAZCache      *cache.Expiring
+	needsPodAZCacheTTL   time.Duration
+	needsPodAZCacheMutex sync.RWMutex
+
+	// nodeAZCache caches node name to availability zone mappings to avoid duplicate Kubernetes API calls.
+	// When multiple pods run on the same node, this cache eliminates redundant node label lookups,
+	// significantly reducing K8s API load during target registration.
+	nodeAZCache      *cache.Expiring
+	nodeAZCacheTTL   time.Duration
+	nodeAZCacheMutex sync.RWMutex
 
 	requeueDuration time.Duration
 }
@@ -569,19 +592,43 @@ func (m *defaultResourceManager) registerPodEndpoints(ctx context.Context, tgb *
 	}
 
 	overrideAzFn, err := m.generateOverrideAzFn(ctx, vpcID, tgb.Spec.IamRoleArnToAssume)
-
 	if err != nil {
 		return err
 	}
 
-	sdkTargets, err := m.prepareRegistrationCall(endpoints, tgb, overrideAzFn)
+	tgbKey := fmt.Sprintf("%s/%s", tgb.Namespace, tgb.Name)
+	m.needsPodAZCacheMutex.RLock()
+	_, needsPodAZ := m.needsPodAZCache.Get(tgbKey)
+	m.needsPodAZCacheMutex.RUnlock()
+
+	sdkTargets, err := m.prepareRegistrationCall(ctx, endpoints, tgb, overrideAzFn, needsPodAZ)
 	if err != nil {
 		return err
 	}
-	return m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+	err = m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+	if err != nil && isAZValidationError(err) && !needsPodAZ {
+		m.logger.Info("RegisterTargets failed with AZ validation error, retrying with pod AZs", "tgb", tgbKey)
+		m.needsPodAZCacheMutex.Lock()
+		m.needsPodAZCache.Set(tgbKey, true, m.needsPodAZCacheTTL)
+		m.needsPodAZCacheMutex.Unlock()
+
+		sdkTargets, err = m.prepareRegistrationCall(ctx, endpoints, tgb, overrideAzFn, true)
+		if err != nil {
+			return err
+		}
+		retryErr := m.targetsManager.RegisterTargets(ctx, tgb, sdkTargets)
+		if retryErr != nil {
+			m.logger.Error(retryErr, "Failed to register targets even with availability zone specified.", "tgb", tgbKey)
+			return retryErr
+		}
+		return nil
+	}
+	return err
 }
 
-func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool) ([]elbv2types.TargetDescription, error) {
+func (m *defaultResourceManager) prepareRegistrationCall(ctx context.Context, endpoints []backend.PodEndpoint, tgb *elbv2api.TargetGroupBinding, doAzOverride func(addr netip.Addr) bool, usePodAZ bool) ([]elbv2types.TargetDescription, error) {
+	usingCrossAccount := tgb.Spec.IamRoleArnToAssume != ""
+
 	sdkTargets := make([]elbv2types.TargetDescription, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		target := elbv2types.TargetDescription{
@@ -593,7 +640,20 @@ func (m *defaultResourceManager) prepareRegistrationCall(endpoints []backend.Pod
 			return sdkTargets, err
 		}
 		if doAzOverride(podIP) {
-			target.AvailabilityZone = awssdk.String("all")
+			if usePodAZ && !usingCrossAccount {
+				az, err := m.getPodAvailabilityZone(ctx, endpoint.Pod)
+				if err != nil {
+					return sdkTargets, err
+				}
+				if az != nil {
+					target.AvailabilityZone = az
+				} else {
+					m.logger.Info("Failed to get pod AZ, falling back to 'all'", "pod", endpoint.Pod.Key)
+					target.AvailabilityZone = awssdk.String("all")
+				}
+			} else {
+				target.AvailabilityZone = awssdk.String("all")
+			}
 		}
 
 		doAppend := true
@@ -843,4 +903,44 @@ func (m *defaultResourceManager) getMaxNewTargets(newTargetCount int, currentTar
 	}
 
 	return newTargetCount
+}
+
+func isAZValidationError(err error) bool {
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		isMatch := apiErr.ErrorCode() == "ValidationError" &&
+			strings.Contains(apiErr.ErrorMessage(), "you must specify an Availability Zone")
+		return isMatch
+	}
+	return false
+}
+
+func (m *defaultResourceManager) getPodAvailabilityZone(ctx context.Context, pod k8s.PodInfo) (*string, error) {
+	if pod.NodeName == "" {
+		return nil, errors.Errorf("pod %s has no node assigned", pod.Key)
+	}
+
+	m.nodeAZCacheMutex.RLock()
+	if cachedAZ, ok := m.nodeAZCache.Get(pod.NodeName); ok {
+		m.nodeAZCacheMutex.RUnlock()
+		az := cachedAZ.(string)
+		return &az, nil
+	}
+	m.nodeAZCacheMutex.RUnlock()
+
+	node := &corev1.Node{}
+	if err := m.k8sClient.Get(ctx, types.NamespacedName{Name: pod.NodeName}, node); err != nil {
+		return nil, err
+	}
+
+	az, ok := node.Labels[corev1.LabelTopologyZone]
+	if !ok {
+		return nil, nil
+	}
+
+	m.nodeAZCacheMutex.Lock()
+	m.nodeAZCache.Set(pod.NodeName, az, m.nodeAZCacheTTL)
+	m.nodeAZCacheMutex.Unlock()
+
+	return &az, nil
 }
