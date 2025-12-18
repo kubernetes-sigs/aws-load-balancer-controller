@@ -12,21 +12,21 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/ingress"
-	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/service"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
 
 var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 	var (
-		ctx       context.Context
-		agaStack  *ResourceStack
-		svcStack  *service.ResourceStack
-		ingStack  *ingress.ResourceStack
-		namespace string
-		svcName   string
-		ingName   string
-		aga       *agav1beta1.GlobalAccelerator
-		baseName  string
+		ctx           context.Context
+		agaStack      *ResourceStack
+		ingStack      *ingress.ResourceStack
+		namespace     string
+		svcName       string
+		ingName       string
+		aga           *agav1beta1.GlobalAccelerator
+		baseName      string
+		svcDeployment *appsv1.Deployment
+		nlbSvc        *corev1.Service
 	)
 
 	BeforeEach(func() {
@@ -52,12 +52,13 @@ var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		// Deploy Service endpoint resources in the same namespace
-		svcDeployment := createDeployment(baseName+"-svc", namespace, labels)
+		svcDeployment = createDeployment(baseName+"-svc", namespace, labels)
 		nlbAnnotations := createServiceAnnotations("nlb-ip", "internet-facing", tf.Options.IPFamily)
-		nlbSvc := createLoadBalancerService(svcName, labels, nlbAnnotations)
+		nlbSvc = createLoadBalancerService(svcName, labels, nlbAnnotations)
 		nlbSvc.Namespace = namespace
-		svcStack = service.NewResourceStack(svcDeployment, nlbSvc, nil, namespace, true)
-		err = svcStack.Deploy(ctx, tf)
+		err = tf.K8sClient.Create(ctx, svcDeployment)
+		Expect(err).NotTo(HaveOccurred())
+		err = tf.K8sClient.Create(ctx, nlbSvc)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -66,17 +67,25 @@ var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 			err := agaStack.Cleanup(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 		}
+		if nlbSvc != nil {
+			err := tf.K8sClient.Delete(ctx, nlbSvc)
+			if err != nil {
+				tf.Logger.Info("failed to delete service", "error", err)
+			}
+		}
+		if svcDeployment != nil {
+			err := tf.K8sClient.Delete(ctx, svcDeployment)
+			if err != nil {
+				tf.Logger.Info("failed to delete deployment", "error", err)
+			}
+		}
 		if ingStack != nil {
 			err := ingStack.Cleanup(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 		}
-		if svcStack != nil {
-			err := svcStack.Cleanup(ctx, tf)
-			Expect(err).NotTo(HaveOccurred())
-		}
 	})
 
-	Context("Multiple endpoint types with port overrides", func() {
+	Context("Multiple endpoint", func() {
 		It("Should create GlobalAccelerator with Service and Ingress endpoints", func() {
 			acceleratorName := "aga-multi-" + utils.RandomDNS1123Label(6)
 			protocol := agav1beta1.GlobalAcceleratorProtocolTCP
@@ -87,6 +96,7 @@ var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 				"svcName", svcName,
 				"ingName", ingName)
 
+			svcEndpoint := createServiceEndpoint(svcName, 128)
 			aga = createAGA(gaName, namespace, acceleratorName, agav1beta1.IPAddressTypeIPV4, &[]agav1beta1.GlobalAcceleratorListener{{
 				Protocol:       &protocol,
 				PortRanges:     &[]agav1beta1.PortRange{{FromPort: 80, ToPort: 80}},
@@ -94,7 +104,7 @@ var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 				EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{{
 					TrafficDialPercentage: awssdk.Int32(100),
 					Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{
-						{Type: agav1beta1.GlobalAcceleratorEndpointTypeService, Name: awssdk.String(svcName)},
+						svcEndpoint,
 						{Type: agav1beta1.GlobalAcceleratorEndpointTypeIngress, Name: awssdk.String(ingName)},
 					},
 				}},
@@ -118,7 +128,7 @@ var _ = Describe("GlobalAccelerator with multiple endpoint types", func() {
 						ClientAffinity: string(types.ClientAffinityNone),
 						EndpointGroups: []EndpointGroupExpectation{{
 							TrafficDialPercentage: 100,
-							NumEndpoints:          1,
+							NumEndpoints:          2,
 						}},
 					}},
 				})

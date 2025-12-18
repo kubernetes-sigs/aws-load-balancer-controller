@@ -10,6 +10,7 @@ import (
 	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/gateway"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -130,6 +131,9 @@ var _ = Describe("GlobalAccelerator with Gateway endpoint", func() {
 		)
 
 		BeforeEach(func() {
+			if tf.Options.IPFamily == framework.IPv6 {
+				Skip("Skipping test for IPv6")
+			}
 			gwStack = &gateway.NLBTestStack{}
 			scheme := elbv2gw.LoadBalancerSchemeInternetFacing
 			err := gwStack.Deploy(ctx, tf, nil, elbv2gw.LoadBalancerConfigurationSpec{Scheme: &scheme}, elbv2gw.TargetGroupConfigurationSpec{}, false)
