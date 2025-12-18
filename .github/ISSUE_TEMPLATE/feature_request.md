@@ -26,5 +26,5 @@ assignees: ''
 * If yes, please follow https://github.com/kubernetes-sigs/aws-load-balancer-controller/blob/main/CONTRIBUTING.md to start your contribution
 * If you're not able to contribute this feature, it will be open for public contribution. Feature requests are prioritized by the number of upvotes. We encourage community participation to help implement features faster. 
 -->
--[ ] Yes, I am willing to contribute a PR to implement this feature
--[ ] No, I cannot work on a PR at this time
+- [ ] Yes, I am willing to contribute a PR to implement this feature
+- [ ] No, I cannot work on a PR at this time
