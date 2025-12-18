@@ -195,15 +195,15 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 		if err != nil {
 			if errors.Is(err, backend.ErrNotFound) {
 				m.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonBackendNotFound, err.Error())
-			return "", oldCheckPoint, false, m.Cleanup(ctx, tgb)
+				return "", oldCheckPoint, false, m.Cleanup(ctx, tgb)
 			}
-		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "resolve_pod_endpoints_error", err, m.metricsCollector)
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "resolve_pod_endpoints_error", err, m.metricsCollector)
 		}
 
 		newCheckPoint, err = calculateTGBReconcileCheckpoint(endpoints, tgb)
 
 		if err != nil {
-		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "calculate_tgb_reconcile_checkpoint_error", err, m.metricsCollector)
 		}
 
 		if !containsPotentialReadyEndpoints && oldCheckPoint == newCheckPoint {
@@ -247,7 +247,7 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 			err = m.updateTGBCheckPoint(ctx, tgb, "", oldCheckPoint)
 			if err != nil {
 				tgbScopedLogger.Error(err, "Unable to update checkpoint before mutating change")
-			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tgb_checkpoint_error", err, m.metricsCollector)
+				return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tgb_checkpoint_error", err, m.metricsCollector)
 			}
 		}
 	}
@@ -289,22 +289,22 @@ func (m *defaultResourceManager) reconcileWithIPTargetType(ctx context.Context, 
 	if svc.Spec.Type != corev1.ServiceTypeExternalName {
 
 		if err := m.multiClusterManager.UpdateTrackedIPTargets(ctx, updateTrackedTargets, endpoints, tgb); err != nil {
-		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_ip_targets_error", err, m.metricsCollector)
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_tracked_ip_targets_error", err, m.metricsCollector)
 		}
 
 		anyPodNeedFurtherProbe, err := m.updateTargetHealthPodCondition(ctx, targetHealthCondType, matchedEndpointAndTargets, unmatchedEndpoints, tgb)
 		if err != nil {
-		return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_target_health_pod_condition_error", err, m.metricsCollector)
+			return "", "", false, ctrlerrors.NewErrorWithMetrics(controllerName, "update_target_health_pod_condition_error", err, m.metricsCollector)
 		}
 
 		if anyPodNeedFurtherProbe {
 			tgbScopedLogger.Info("Requeue for target monitor target health")
-		return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor targetHealth", m.requeueDuration)
+			return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor targetHealth", m.requeueDuration)
 		}
 
 		if containsPotentialReadyEndpoints {
 			tgbScopedLogger.Info("Requeue for potentially ready endpoints")
-		return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor potential ready endpoints", m.requeueDuration)
+			return "", "", false, ctrlerrors.NewRequeueNeededAfter("monitor potential ready endpoints", m.requeueDuration)
 		}
 	}
 
