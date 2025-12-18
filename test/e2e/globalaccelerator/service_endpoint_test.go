@@ -12,6 +12,7 @@ import (
 	agav1beta1 "sigs.k8s.io/aws-load-balancer-controller/apis/aga/v1beta1"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/k8s"
 	"sigs.k8s.io/aws-load-balancer-controller/test/e2e/service"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 )
 
@@ -79,11 +80,7 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 							{
 								TrafficDialPercentage: awssdk.Int32(100),
 								Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{
-									{
-										Type:   agav1beta1.GlobalAcceleratorEndpointTypeService,
-										Name:   awssdk.String(svcName),
-										Weight: awssdk.Int32(128),
-									},
+									createServiceEndpoint(svcName, 128),
 								},
 							},
 						},
@@ -202,6 +199,9 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 		})
 
 		It("Should update GlobalAccelerator endpoint when load balancer scheme changes", func() {
+			if tf.Options.IPFamily == framework.IPv6 {
+				Skip("Skipping test for IPv6")
+			}
 			acceleratorName := "aga-svc-ins" + utils.RandomDNS1123Label(6)
 			gaName := "aga-" + utils.RandomDNS1123Label(8)
 			protocol := agav1beta1.GlobalAcceleratorProtocolTCP
@@ -358,10 +358,7 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 					ClientAffinity: agav1beta1.ClientAffinityNone,
 					EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{{
 						TrafficDialPercentage: awssdk.Int32(100),
-						Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{{
-							Type:       agav1beta1.GlobalAcceleratorEndpointTypeEndpointID,
-							EndpointID: awssdk.String(lbARN),
-						}},
+						Endpoints:             &[]agav1beta1.GlobalAcceleratorEndpoint{createEndpointIDEndpoint(lbARN)},
 					}},
 				}})
 
@@ -446,11 +443,7 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 						ClientAffinity: agav1beta1.ClientAffinityNone,
 						EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{{
 							TrafficDialPercentage: awssdk.Int32(100),
-							Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{{
-								Type:   agav1beta1.GlobalAcceleratorEndpointTypeService,
-								Name:   awssdk.String(instanceSvcName),
-								Weight: awssdk.Int32(128),
-							}},
+							Endpoints:             &[]agav1beta1.GlobalAcceleratorEndpoint{createServiceEndpoint(instanceSvcName, 128)},
 						}},
 					},
 					{
@@ -459,11 +452,7 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 						ClientAffinity: agav1beta1.ClientAffinityNone,
 						EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{{
 							TrafficDialPercentage: awssdk.Int32(100),
-							Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{{
-								Type:   agav1beta1.GlobalAcceleratorEndpointTypeService,
-								Name:   awssdk.String(instanceSvcName),
-								Weight: awssdk.Int32(128),
-							}},
+							Endpoints:             &[]agav1beta1.GlobalAcceleratorEndpoint{createServiceEndpoint(instanceSvcName, 128)},
 						}},
 					},
 				})
@@ -520,11 +509,7 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 					ClientAffinity: agav1beta1.ClientAffinityNone,
 					EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{{
 						TrafficDialPercentage: awssdk.Int32(100),
-						Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{{
-							Type:   agav1beta1.GlobalAcceleratorEndpointTypeService,
-							Name:   awssdk.String(instanceSvcName),
-							Weight: awssdk.Int32(128),
-						}},
+						Endpoints:             &[]agav1beta1.GlobalAcceleratorEndpoint{createServiceEndpoint(instanceSvcName, 128)},
 					}},
 				}})
 

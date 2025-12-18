@@ -53,16 +53,18 @@ func createAGAWithIngressEndpoint(name, namespace, acceleratorName, endpointName
 // Pass nil for listeners to use auto-discovery (omits Protocol, PortRanges, ClientAffinity, TrafficDialPercentage)
 func createAGAWithServiceEndpoint(name, namespace, acceleratorName, endpointName string, ipAddressType agav1beta1.IPAddressType, listeners *[]agav1beta1.GlobalAcceleratorListener) *agav1beta1.GlobalAccelerator {
 	if listeners == nil {
+		ep := agav1beta1.GlobalAcceleratorEndpoint{
+			Type: agav1beta1.GlobalAcceleratorEndpointTypeService,
+			Name: awssdk.String(endpointName),
+		}
+		if tf.Options.IPFamily == framework.IPv6 {
+			ep.ClientIPPreservationEnabled = awssdk.Bool(false)
+		}
 		listeners = &[]agav1beta1.GlobalAcceleratorListener{
 			{
 				EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{
 					{
-						Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{
-							{
-								Type: agav1beta1.GlobalAcceleratorEndpointTypeService,
-								Name: awssdk.String(endpointName),
-							},
-						},
+						Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{ep},
 					},
 				},
 			},
@@ -97,16 +99,18 @@ func createAGAWithGatewayEndpoint(name, namespace, acceleratorName, endpointName
 // Pass nil for listeners to use auto-discovery (omits Protocol, PortRanges, ClientAffinity, TrafficDialPercentage)
 func createAGAWithEndpointID(name, namespace, acceleratorName, endpointID string, ipAddressType agav1beta1.IPAddressType, listeners *[]agav1beta1.GlobalAcceleratorListener) *agav1beta1.GlobalAccelerator {
 	if listeners == nil {
+		ep := agav1beta1.GlobalAcceleratorEndpoint{
+			Type:       agav1beta1.GlobalAcceleratorEndpointTypeEndpointID,
+			EndpointID: awssdk.String(endpointID),
+		}
+		if tf.Options.IPFamily == framework.IPv6 {
+			ep.ClientIPPreservationEnabled = awssdk.Bool(false)
+		}
 		listeners = &[]agav1beta1.GlobalAcceleratorListener{
 			{
 				EndpointGroups: &[]agav1beta1.GlobalAcceleratorEndpointGroup{
 					{
-						Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{
-							{
-								Type:       agav1beta1.GlobalAcceleratorEndpointTypeEndpointID,
-								EndpointID: awssdk.String(endpointID),
-							},
-						},
+						Endpoints: &[]agav1beta1.GlobalAcceleratorEndpoint{ep},
 					},
 				},
 			},
@@ -251,4 +255,29 @@ func createServiceAnnotations(lbType, scheme string, ipFamily string) map[string
 		annotations["service.beta.kubernetes.io/aws-load-balancer-ip-address-type"] = "dualstack"
 	}
 	return annotations
+}
+
+// createServiceEndpoint creates a Service endpoint with appropriate clientIPPreservationEnabled setting
+func createServiceEndpoint(svcName string, weight int32) agav1beta1.GlobalAcceleratorEndpoint {
+	ep := agav1beta1.GlobalAcceleratorEndpoint{
+		Type:   agav1beta1.GlobalAcceleratorEndpointTypeService,
+		Name:   awssdk.String(svcName),
+		Weight: awssdk.Int32(weight),
+	}
+	if tf.Options.IPFamily == framework.IPv6 {
+		ep.ClientIPPreservationEnabled = awssdk.Bool(false)
+	}
+	return ep
+}
+
+// createEndpointIDEndpoint creates an EndpointID endpoint with appropriate clientIPPreservationEnabled setting
+func createEndpointIDEndpoint(endpointID string) agav1beta1.GlobalAcceleratorEndpoint {
+	ep := agav1beta1.GlobalAcceleratorEndpoint{
+		Type:       agav1beta1.GlobalAcceleratorEndpointTypeEndpointID,
+		EndpointID: awssdk.String(endpointID),
+	}
+	if tf.Options.IPFamily == framework.IPv6 {
+		ep.ClientIPPreservationEnabled = awssdk.Bool(false)
+	}
+	return ep
 }
