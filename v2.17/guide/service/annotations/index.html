@@ -1,0 +1,3462 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../nlb/">
+      
+      
+        <link rel="next" href="../../targetgroupbinding/targetgroupbinding/">
+      
+      
+      <link rel="icon" href="../../../assets/images/aws_load_balancer_icon.svg">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.31">
+    
+    
+      
+        <title>Annotations - AWS Load Balancer Controller</title>
+      
+    
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.3cba04c6.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    <link rel="stylesheet" href="../../../assets/stylesheets/version-select.css">
+
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#service-annotations" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      <header class="md-header" data-md-component="header">
+    <nav
+      class="md-header__inner md-grid"
+      aria-label="header.title"
+    >
+  
+      <!-- Link to home -->
+      <a
+        href="../../.."
+        title="AWS Load Balancer Controller"
+        class="md-header__button md-logo"
+        aria-label="AWS Load Balancer Controller"
+        data-md-component="logo"
+      >
+        
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+      </a>
+  
+      <!-- Button to open drawer -->
+      <label class="md-header__button md-icon" for="__drawer">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+      </label>
+  
+      <!-- Header title -->
+      <div class="md-header__title" data-md-component="header-title">
+        <div class="md-header__ellipsis">
+          <div class="md-header__topic">
+            <span class="md-ellipsis">
+              AWS Load Balancer Controller
+            </span>
+          </div>
+          <div class="md-header__topic" data-md-component="header-topic">
+            <span class="md-ellipsis">
+              
+                Annotations
+              
+            </span>
+          </div>
+        </div>
+      </div>
+  
+      <!-- Color palette -->
+      
+
+      <div id="version-select" class="mdc-select" data-base-url="../../..">
+    <div class="mdc-select__anchor" role="button">
+        <span class="mdc-select__ripple"></span>
+        <span class="mdc-select__selected-text-container">
+            <span class="mdc-select__selected-text"></span>
+        </span>
+        <span class="mdc-select__dropdown-icon">
+            <svg class="mdc-select__dropdown-icon-graphic" viewBox="7 10 10 5" focusable="false">
+                <polygon class="mdc-select__dropdown-icon-inactive" stroke="none" fill-rule="evenodd"
+                    points="7 10 12 15 17 10">
+                </polygon>
+                <polygon class="mdc-select__dropdown-icon-active" stroke="none" fill-rule="evenodd"
+                    points="7 15 12 10 17 15">
+                </polygon>
+            </svg>
+        </span>
+    </div>
+
+    <div class="mdc-select__menu mdc-menu mdc-menu-surface mdc-menu-surface--fullwidth">
+        <ul class="mdc-list" role="listbox">
+        </ul>
+    </div>
+</div>
+      <!-- Site language selector -->
+      
+  
+      <!-- Button to open search modal -->
+      
+  
+      <!-- Repository information -->
+      
+        <div class="md-header__source">
+          <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+        </div>
+      
+    </nav>
+  </header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
+          
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../deploy/installation/" class="md-tabs__link">
+          
+  
+  Deployment
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+    
+  
+  
+    
+    
+      
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../ingress/annotations/" class="md-tabs__link">
+          
+  
+  Guide
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+        
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../examples/echo_server/" class="md-tabs__link">
+          
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="AWS Load Balancer Controller" class="md-nav__button md-logo" aria-label="AWS Load Balancer Controller" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54Z"/></svg>
+
+    </a>
+    AWS Load Balancer Controller
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/kubernetes-sigs/aws-load-balancer-controller" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2024 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    kubernetes-sigs/aws-load-balancer-controller
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Home
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            Home
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Welcome
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-it-works/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How it works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Deployment
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            Deployment
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation Guide
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/configurations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Configurations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/subnet_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Subnet Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/security_groups/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Security Group Management
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/pod_readiness_gate/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Pod Readiness Gate
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/scaling/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Scaling your LBC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_2_7" id="__nav_2_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Upgrade
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_2_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2_7">
+            <span class="md-nav__icon md-icon"></span>
+            Upgrade
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../deploy/upgrade/migrate_v1_v2/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Migrate v1 to v2
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  <span class="md-ellipsis">
+    Guide
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Guide
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_1" id="__nav_3_1_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Ingress
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_1">
+            <span class="md-nav__icon md-icon"></span>
+            Ingress
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/annotations/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/ingress_class/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    IngressClass
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/cert_discovery/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Certificate Discovery
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_3_2" id="__nav_3_2_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Service
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_3_2">
+            <span class="md-nav__icon md-icon"></span>
+            Service
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nlb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Network Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  <span class="md-ellipsis">
+    Annotations
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#service-annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service annotations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Annotations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#traffic-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Traffic Routing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#traffic-listening" class="md-nav__link">
+    <span class="md-ellipsis">
+      Traffic Listening
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#support-udp-based-services-over-ipv6" class="md-nav__link">
+    <span class="md-ellipsis">
+      Support UDP-based services over IPv6
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource attributes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-resource-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      AWS Resource Tags
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      Health Check
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tls" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#access-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      Access control
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#capacity-unit-reservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Capacity Unit Reservation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#legacy-cloud-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      Legacy Cloud Provider
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_3" id="__nav_3_3_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            TargetGroupBinding
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/targetgroupbinding/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupBinding
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../targetgroupbinding/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Gateway API (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4">
+            <span class="md-nav__icon md-icon"></span>
+            Gateway API (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/l4gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L4 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/l7gateway/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    L7 Routing
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_4_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_4_4" id="__nav_3_4_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Customizations
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_3_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            Customizations
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/customization/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    How customizations works
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/loadbalancerconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    LoadBalancerConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/targetgroupconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    TargetGroupConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/listenerruleconfig/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ListenerRuleConfiguration
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/gateway_chaining/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Gateway Chaining
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../gateway/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    AWS Global Accelerator (New)
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_5">
+            <span class="md-nav__icon md-icon"></span>
+            AWS Global Accelerator (New)
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/aga-controller/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Overview
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/installation/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Installation
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/examples/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../globalaccelerator/spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Specification
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Tasks
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_6">
+            <span class="md-nav__icon md-icon"></span>
+            Tasks
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/cognito_authentication/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Cognito Authentication
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/ssl_redirect/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    SSL Redirect
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../tasks/url_rewrite/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    URL Rewrite
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_7" id="__nav_3_7_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Use Cases
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            Use Cases
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/nlb_tls_termination/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    NLB TLS Termination
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/self_managed_lb/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Externally Managed Load Balancer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/frontend_sg/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frontend Security Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/blue_green/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Blue/Green
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/multi_cluster/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    MultiCluster Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/quic/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    QUIC
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../use_cases/legacy_app_integration/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Legacy Target Groups
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_8" id="__nav_3_8_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Metrics
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            Metrics
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metrics/prometheus/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Prometheus
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_3_9" id="__nav_3_9_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    ALB Target Optimizer
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_3_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3_9">
+            <span class="md-nav__icon md-icon"></span>
+            ALB Target Optimizer
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Target Control Agent
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../ingress/alb-target-agent-spec/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    ALBTargetControlConfig
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  <span class="md-ellipsis">
+    Examples
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Examples
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/echo_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    EchoServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/grpc_server/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    gRPCServer
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/external_dns/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Setup External DNS
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/secrets_access/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    RBAC to access OIDC Secret
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#service-annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service annotations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#annotations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Annotations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#traffic-routing" class="md-nav__link">
+    <span class="md-ellipsis">
+      Traffic Routing
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#traffic-listening" class="md-nav__link">
+    <span class="md-ellipsis">
+      Traffic Listening
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#support-udp-based-services-over-ipv6" class="md-nav__link">
+    <span class="md-ellipsis">
+      Support UDP-based services over IPv6
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      Resource attributes
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aws-resource-tags" class="md-nav__link">
+    <span class="md-ellipsis">
+      AWS Resource Tags
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      Health Check
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tls" class="md-nav__link">
+    <span class="md-ellipsis">
+      TLS
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#access-control" class="md-nav__link">
+    <span class="md-ellipsis">
+      Access control
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#capacity-unit-reservation" class="md-nav__link">
+    <span class="md-ellipsis">
+      Capacity Unit Reservation
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#legacy-cloud-provider" class="md-nav__link">
+    <span class="md-ellipsis">
+      Legacy Cloud Provider
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+  <h1>Annotations</h1>
+
+<h2 id="service-annotations">Service annotations<a class="headerlink" href="#service-annotations" title="Permanent link">&para;</a></h2>
+<div class="admonition note">
+<ul>
+<li>Annotation keys and values can only be strings. All other types below must be string-encoded, for example:<ul>
+<li>boolean: <code>"true"</code></li>
+<li>integer: <code>"42"</code></li>
+<li>stringList: <code>"s1,s2,s3"</code></li>
+<li>stringMap: <code>"k1=v1,k2=v2"</code></li>
+<li>json: <code>"{ \"key\": \"value\" }"</code></li>
+</ul>
+</li>
+</ul>
+</div>
+<h2 id="annotations">Annotations<a class="headerlink" href="#annotations" title="Permanent link">&para;</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>These annotations are specific to the kubernetes <a href="#lb-type">service resources reconciled</a> by the AWS Load Balancer Controller. Although the list was initially derived from the k8s in-tree <code>kube-controller-manager</code>, this
+documentation is not an accurate reference for the services reconciled by the in-tree controller. </p>
+</div>
+<div class="admonition question">
+<p class="admonition-title">EKS Auto Mode users</p>
+<p>If you are using EKS Auto Mode, please see the
+<a href="https://docs.aws.amazon.com/eks/latest/userguide/auto-configure-nlb.html#_considerations">EKS Auto Mode documentation</a>
+for key differences between the load balancing capability of EKS Auto Mode and the open source load balancer controller.</p>
+</div>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Default</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="#lb-source-ranges">service.beta.kubernetes.io/load-balancer-source-ranges</a></td>
+<td>stringList</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#lb-security-group-prefix-lists">service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists</a></td>
+<td>stringList</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#lb-type">service.beta.kubernetes.io/aws-load-balancer-type</a></td>
+<td>string</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#nlb-target-type">service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</a></td>
+<td>string</td>
+<td></td>
+<td>default <code>instance</code> in case of LoadBalancerClass</td>
+</tr>
+<tr>
+<td><a href="#load-balancer-name">service.beta.kubernetes.io/aws-load-balancer-name</a></td>
+<td>string</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#lb-internal">service.beta.kubernetes.io/aws-load-balancer-internal</a></td>
+<td>boolean</td>
+<td>false</td>
+<td>deprecated, in favor of <a href="#lb-scheme">aws-load-balancer-scheme</a></td>
+</tr>
+<tr>
+<td><a href="#lb-scheme">service.beta.kubernetes.io/aws-load-balancer-scheme</a></td>
+<td>string</td>
+<td>internal</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#proxy-protocol-v2">service.beta.kubernetes.io/aws-load-balancer-proxy-protocol</a></td>
+<td>string</td>
+<td></td>
+<td>Set to <code>"*"</code> to enable</td>
+</tr>
+<tr>
+<td><a href="#proxy-protocol-v2">service.beta.kubernetes.io/aws-load-balancer-proxy-protocol-per-target-group</a></td>
+<td>string</td>
+<td></td>
+<td>If specified,configures proxy protocol for the target groups corresponding to the ports mentioned and disables for the rest. For example, if you have services deployed on ports <code>"80, 443 and 22"</code>, the annotation value <code>"80, 443"</code> will enable proxy protocol for ports 80 and 443 only, and disable for port 22. This annotation is overriden by <code>"service.beta.kubernetes.io/aws-load-balancer-proxy-protocol"</code></td>
+</tr>
+<tr>
+<td><a href="#ip-address-type">service.beta.kubernetes.io/aws-load-balancer-ip-address-type</a></td>
+<td>string</td>
+<td>ipv4</td>
+<td>ipv4 | dualstack</td>
+</tr>
+<tr>
+<td><a href="#deprecated-attributes">service.beta.kubernetes.io/aws-load-balancer-access-log-enabled</a></td>
+<td>boolean</td>
+<td>false</td>
+<td>deprecated, in favor of <a href="#load-balancer-attributes">aws-load-balancer-attributes</a></td>
+</tr>
+<tr>
+<td><a href="#deprecated-attributes">service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name</a></td>
+<td>string</td>
+<td></td>
+<td>deprecated, in favor of <a href="#load-balancer-attributes">aws-load-balancer-attributes</a></td>
+</tr>
+<tr>
+<td><a href="#deprecated-attributes">service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix</a></td>
+<td>string</td>
+<td></td>
+<td>deprecated, in favor of <a href="#load-balancer-attributes">aws-load-balancer-attributes</a></td>
+</tr>
+<tr>
+<td><a href="#deprecated-attributes">service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled</a></td>
+<td>boolean</td>
+<td>false</td>
+<td>deprecated, in favor of <a href="#load-balancer-attributes">aws-load-balancer-attributes</a></td>
+</tr>
+<tr>
+<td><a href="#ssl-cert">service.beta.kubernetes.io/aws-load-balancer-ssl-cert</a></td>
+<td>stringList</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#ssl-ports">service.beta.kubernetes.io/aws-load-balancer-ssl-ports</a></td>
+<td>stringList</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#ssl-negotiation-policy">service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy</a></td>
+<td>string</td>
+<td>ELBSecurityPolicy-2016-08</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#backend-protocol">service.beta.kubernetes.io/aws-load-balancer-backend-protocol</a></td>
+<td>string</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#additional-resource-tags">service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags</a></td>
+<td>stringMap</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-protocol">service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol</a></td>
+<td>string</td>
+<td>TCP</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-port">service.beta.kubernetes.io/aws-load-balancer-healthcheck-port </a></td>
+<td>integer | traffic-port | named-service-port</td>
+<td>traffic-port</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-path">service.beta.kubernetes.io/aws-load-balancer-healthcheck-path</a></td>
+<td>string</td>
+<td>"/" for HTTP(S) protocols</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-healthy-threshold">service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold</a></td>
+<td>integer</td>
+<td>3</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-unhealthy-threshold">service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold</a></td>
+<td>integer</td>
+<td>3</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-timeout">service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout</a></td>
+<td>integer</td>
+<td>10</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-interval">service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval</a></td>
+<td>integer</td>
+<td>10</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#healthcheck-success-codes">service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes</a></td>
+<td>string</td>
+<td>200-399</td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#eip-allocations">service.beta.kubernetes.io/aws-load-balancer-eip-allocations</a></td>
+<td>stringList</td>
+<td></td>
+<td>internet-facing lb only. Length must match the number of subnets</td>
+</tr>
+<tr>
+<td><a href="#private-ipv4-addresses">service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses</a></td>
+<td>stringList</td>
+<td></td>
+<td>internal lb only. Length must match the number of subnets</td>
+</tr>
+<tr>
+<td><a href="#ipv6-addresses">service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses</a></td>
+<td>stringList</td>
+<td></td>
+<td>dualstack lb only. Length must match the number of subnets</td>
+</tr>
+<tr>
+<td><a href="#target-group-attributes">service.beta.kubernetes.io/aws-load-balancer-target-group-attributes</a></td>
+<td>stringMap</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#subnets">service.beta.kubernetes.io/aws-load-balancer-subnets</a></td>
+<td>stringList</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#alpn-policy">service.beta.kubernetes.io/aws-load-balancer-alpn-policy</a></td>
+<td>string</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#target-node-labels">service.beta.kubernetes.io/aws-load-balancer-target-node-labels</a></td>
+<td>stringMap</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#load-balancer-attributes">service.beta.kubernetes.io/aws-load-balancer-attributes</a></td>
+<td>stringMap</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#security-groups">service.beta.kubernetes.io/aws-load-balancer-security-groups</a></td>
+<td>stringList</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#manage-backend-sg-rules">service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules</a></td>
+<td>boolean</td>
+<td>true</td>
+<td>If <code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code> is specified, this must also be explicitly specified otherwise it defaults to <code>false</code>.</td>
+</tr>
+<tr>
+<td><a href="#update-security-settings">service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic</a></td>
+<td>string</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#listener-attributes">service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}</a></td>
+<td>stringMap</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#multi-cluster-target-group">service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group</a></td>
+<td>boolean</td>
+<td>false</td>
+<td>If specified, the controller will only operate on targets that exist within the cluster, ignoring targets from other sources.</td>
+</tr>
+<tr>
+<td><a href="#enable-prefix-for-ipv6-source-nat">service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat</a></td>
+<td>string</td>
+<td>off</td>
+<td>Optional annotation. dualstack lb only. Allowed values - on and off</td>
+</tr>
+<tr>
+<td><a href="#source-nat-ipv6-prefixes">service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes</a></td>
+<td>stringList</td>
+<td></td>
+<td>Optional annotation. dualstack lb only. This annotation is only applicable when user has to set the service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat to "on". Length must match the number of subnets</td>
+</tr>
+<tr>
+<td><a href="#load-balancer-capacity-reservation">service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity</a></td>
+<td>stringMap</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><a href="#icmp-path-mtu-discovery">service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery</a></td>
+<td>string</td>
+<td></td>
+<td>If specified, a security group rule is added to the managed security group to allow explicit ICMP traffic for <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html#path_mtu_discovery">Path MTU discovery</a> for IPv4 and dual-stack VPCs. Creates a rule for each source range if <code>service.beta.kubernetes.io/load-balancer-source-ranges</code> is present.</td>
+</tr>
+<tr>
+<td><a href="#tcp-udp-listener">service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener</a></td>
+<td>boolean</td>
+<td>false</td>
+<td>If specified, the controller will attempt to try TCP_UDP Listeners when the service defines a TCP and UDP port on the same port number.</td>
+</tr>
+<tr>
+<td><a href="#nlb-sg-disable">service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg</a></td>
+<td>boolean</td>
+<td>false</td>
+<td>If specified, the controller will not create or manage Security Groups for the service.</td>
+</tr>
+<tr>
+<td><a href="#nlb-quic-enabled">service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports</a></td>
+<td>stringList</td>
+<td></td>
+<td>If specified, the controller will upgrade each port specified from UDP to QUIC or TCP_UDP to TCP_QUIC.</td>
+</tr>
+<tr>
+<td><a href="#nlb-default-action">service.beta.kubernetes.io/aws-load-balancer-actions.${Protocol}-${Port}</a></td>
+<td>stringMap</td>
+<td></td>
+<td>If specified, the controller will add the specified action on the listener denoted by the port.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="traffic-routing">Traffic Routing<a class="headerlink" href="#traffic-routing" title="Permanent link">&para;</a></h2>
+<p>Traffic Routing can be controlled with following annotations:</p>
+<ul>
+<li>
+<p><a name="load-balancer-name"><code>service.beta.kubernetes.io/aws-load-balancer-name</code></a> specifies the custom name to use for the load balancer. Name longer than 32 characters will be treated as an error.</p>
+<div class="admonition note">
+<p class="admonition-title">limitations</p>
+<ul>
+<li>If you modify this annotation after service creation, there is no effect.</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-name: custom-name
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="lb-type"><code>service.beta.kubernetes.io/aws-load-balancer-type</code></a> specifies the load balancer type. This controller reconciles those service resources with this annotation set to either <code>nlb-ip</code> or <code>external</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>This annotation specifies the controller used to provision LoadBalancers (as specified in <a href="#legacy-cloud-provider">legacy-cloud-provider</a>). Refer to <a href="#lb-scheme">lb-scheme</a> to specify whether the LoadBalancer is internet-facing or internal.</p>
+</div>
+<div class="admonition note">
+<ul>
+<li>[Deprecated] For type <code>nlb-ip</code>, the controller will provision an NLB with targets registered by IP address. This value is supported for backwards compatibility.</li>
+<li>For type <code>external</code>, the NLB target type depends on the <a href="#nlb-target-type">nlb-target-type</a> annotation.</li>
+</ul>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">limitations</p>
+<ul>
+<li>This annotation should not be modified after service creation.</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-type: external
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="nlb-target-type"><code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type</code></a> specifies the target type to configure for NLB. You can choose between
+<code>instance</code> and <code>ip</code>.</p>
+<ul>
+<li>
+<p><code>instance</code> mode will route traffic to all EC2 instances within cluster on the <a href="https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport">NodePort</a> opened for your service. The kube-proxy on the individual worker nodes sets up the forwarding of the traffic from the NodePort to the pods behind the service.</p>
+<div class="admonition note">
+<ul>
+<li>service must be of type <code>NodePort</code> or <code>LoadBalancer</code> for <code>instance</code> targets</li>
+<li>for k8s 1.22 and later if <code>spec.allocateLoadBalancerNodePorts</code> is set to <code>false</code>, <code>NodePort</code> must be allocated manually</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">default value</p>
+<p>If you configure <code>spec.loadBalancerClass</code>, the controller defaults to <code>instance</code> target type</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">NodePort allocation</p>
+<p>k8s version 1.22 and later support disabling NodePort allocation by setting the service field <code>spec.allocateLoadBalancerNodePorts</code> to <code>false</code>. If the NodePort is not allocated for a service port, the controller will fail to reconcile instance mode NLB.</p>
+</div>
+</li>
+<li>
+<p><code>ip</code> mode will route traffic directly to the pod IP. In this mode, AWS NLB sends traffic directly to the Kubernetes pods behind the service, eliminating the need for an extra network hop through the worker nodes in the Kubernetes cluster.</p>
+<div class="admonition note">
+<ul>
+<li><code>ip</code> target mode supports pods running on AWS EC2 instances and AWS Fargate</li>
+<li>network plugin must use native AWS VPC networking configuration for pod IP, for example <a href="https://github.com/aws/amazon-vpc-cni-k8s">Amazon VPC CNI plugin</a>.</li>
+</ul>
+</div>
+</li>
+</ul>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: instance
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="subnets"><code>service.beta.kubernetes.io/aws-load-balancer-subnets</code></a> specifies the <a href="http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html">Availability Zone</a>
+the NLB will route traffic to. See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html#availability-zones">Network Load Balancers</a> for more details.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Subnets are auto-discovered if this annotation is not specified, see <a href="../../../deploy/subnet_discovery/">Subnet Discovery</a> for further details.</p>
+</div>
+<div class="admonition note">
+<p>You must specify at least one subnet in any of the AZs, both subnetID or subnetName(Name tag on subnets) can be used.</p>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">limitations</p>
+<ul>
+<li>Each subnets must be from a different Availability Zone</li>
+<li>Similar to any delete operation, removing an Availability Zone can be a potentially disruptive operation. We recommend you evaluate for any potential impact on existing connections, traffic flows, or production workloads. Refer to <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/availability-zones.html">product documentation</a> for prescriptive guidance on how to use this capability in a safe manner.</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-subnets: subnet-xxxx, mySubnet
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="alpn-policy"><code>service.beta.kubernetes.io/aws-load-balancer-alpn-policy</code></a> allows you to configure the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#alpn-policies">ALPN policies</a>
+on the load balancer.</p>
+<div class="admonition tip">
+<p class="admonition-title">supported policies</p>
+<ul>
+<li><code>HTTP1Only</code> Negotiate only HTTP/1.*. The ALPN preference list is http/1.1, http/1.0.</li>
+<li><code>HTTP2Only</code> Negotiate only HTTP/2. The ALPN preference list is h2.</li>
+<li><code>HTTP2Optional</code> Prefer HTTP/1.* over HTTP/2 (which can be useful for HTTP/2 testing). The ALPN preference list is http/1.1, http/1.0, h2.</li>
+<li><code>HTTP2Preferred</code> Prefer HTTP/2 over HTTP/1.*. The ALPN preference list is h2, http/1.1, http/1.0.</li>
+<li><code>None</code> Do not negotiate ALPN. This is the default.</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-alpn-policy: HTTP2Preferred
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="target-node-labels"><code>service.beta.kubernetes.io/aws-load-balancer-target-node-labels</code></a> specifies which nodes to include in the target group registration for <code>instance</code> target type.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-target-node-labels: label1=value1, label2=value2
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="eip-allocations"><code>service.beta.kubernetes.io/aws-load-balancer-eip-allocations</code></a> specifies a list of <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/elastic-ip-addresses-eip.html">elastic IP address</a> configuration for an internet-facing NLB.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul>
+<li>This configuration is optional, and you can use it to assign static IP addresses to your NLB</li>
+<li>You must specify the same number of eip allocations as load balancer subnets <a href="#subnets">annotation</a></li>
+<li>NLB must be internet-facing</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-eip-allocations: eipalloc-xyz, eipalloc-zzz
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="private-ipv4-addresses"><code>service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses</code></a> specifies a list of private IPv4 addresses for an internal NLB.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul>
+<li>NLB must be internal</li>
+<li>This configuration is optional, and you can use it to assign static IPv4 addresses to your NLB</li>
+<li>You must specify the same number of private IPv4 addresses as load balancer subnets <a href="#subnets">annotation</a></li>
+<li>You must specify the IPv4 addresses from the load balancer subnet IPv4 ranges</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-private-ipv4-addresses: 192.168.10.15, 192.168.32.16
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="ipv6-addresses"><code>service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses</code></a> specifies a list of IPv6 addresses for an dualstack NLB.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul>
+<li>NLB must be dualstack</li>
+<li>This configuration is optional, and you can use it to assign static IPv6 addresses to your NLB</li>
+<li>You must specify the same number of private IPv6 addresses as load balancer subnets <a href="#subnets">annotation</a></li>
+<li>You must specify the IPv6 addresses from the load balancer subnet IPv6 ranges</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-ipv6-addresses: 2600:1f13:837:8501::1, 2600:1f13:837:8504::1
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="icmp-path-mtu-discovery"><code>service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery</code></a> enables the creation of security group rules to the managed security group to allow explicit ICMP traffic for <a href="https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/network_mtu.html#path_mtu_discovery">Path MTU discovery</a> for IPv4 and dual-stack VPCs. Creates a rule for each source range if <code>service.beta.kubernetes.io/load-balancer-source-ranges</code> is present.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-enable-icmp-for-path-mtu-discovery: &quot;on&quot;
+</code></pre></div>
+</div>
+<ul>
+<li><a name="nlb-default-action"><code>service.beta.kubernetes.io/actions.${protocol}-${port}</code></a> provides a method for configuring the action on a listener on the specified port. It supports configuring weighted target groups.</li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul>
+<li>Weighted target groups are supported for the following protocols: TCP, TLS, UDP, TCP_UDP</li>
+<li>The <code>baseServiceWeight</code> is the weight of the target group associated with the implicit service</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul>
+<li>Forward actions on listeners can specify whether to enable target group stickiness. When enabled, target group stickiness causes subsequent connections from the same source IP address to prefer the previously chosen target group.</li>
+<li>For listeners, if a forward action contains multiple target groups and any of them have stickiness enabled, then the forward action must also have target group stickiness enabled.</li>
+<li>For TLS listeners, target group stickiness is not supported.</li>
+<li>For TLS listeners, you can't add both TCP target groups and TLS target groups to the action. All target groups in the default action must use the same protocol.</li>
+<li>For dualstack load balancers, you can't add both IPv4 target groups and IPv6 target groups to the same action. All target groups in the default action must use the same IP address type.</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/actions.TCP-80: {
+  &quot;type&quot;: &quot;forward&quot;,
+  &quot;forwardConfig&quot;: {
+    &quot;baseServiceWeight&quot;: 10,
+    &quot;targetGroups&quot;: [
+      {
+        &quot;serviceName&quot;: &quot;service-1&quot;,
+        &quot;servicePort&quot;: 81,
+        &quot;weight&quot;: 20
+      },
+      {
+        &quot;serviceName&quot;: &quot;service-2&quot;,
+        &quot;servicePort&quot;: 82,
+        &quot;weight&quot;: 30
+      }
+    ],
+    &quot;targetGroupStickinessConfig&quot;: {
+      &quot;enabled&quot;: true
+    }
+  }
+}
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="traffic-listening">Traffic Listening<a class="headerlink" href="#traffic-listening" title="Permanent link">&para;</a></h2>
+<p>Traffic Listening can be controlled with following annotations:</p>
+<ul>
+<li>
+<p><a name="ip-address-type"><code>service.beta.kubernetes.io/aws-load-balancer-ip-address-type</code></a> specifies the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/network-load-balancers.html#ip-address-type">IP address type</a> of NLB.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-ip-address-type: ipv4
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="support-udp-based-services-over-ipv6">Support UDP-based services over IPv6<a class="headerlink" href="#support-udp-based-services-over-ipv6" title="Permanent link">&para;</a></h2>
+<p>You can configure dualstack NLB to support UDP-based services over IPv6 via the following annotations:</p>
+<ul>
+<li>
+<p><a name="enable-prefix-for-ipv6-source-nat">service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat</a> specifies whether Prefix for IPv6 source NAT is enabled or not. UDP-based support can be enabled for dualstack NLBs only if Prefix for IPv6 source NAT is enabled.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul>
+<li>Applicable to Network Load Balancers using dualstack IP address type.</li>
+<li>This configuration is optional, and you can use it to enable UDP support over IPv6.</li>
+<li>Allowed values are either “on” or “off”</li>
+<li>Once the source prefix for source NATing is enabled, it cannot be disabled if load balancer has a UDP listener attached.</li>
+<li>Steps to disable the aws-load-balancer-enable-prefix-for-ipv6-source-nat after it is enabled and UDP listeners already attached.</li>
+<li>You will have to first remove the UDP listeners and apply the manifest.</li>
+<li>Update the manifest to set source NATing to "off" and then apply the manifest again.</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>Enable prefix for IPv6 Source NAT
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat: &quot;on&quot;
+</code></pre></div></li>
+</ul>
+</div>
+</li>
+<li>
+<p><a name="source-nat-ipv6-prefixes">service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes</a> specifies a list of IPv6 prefixes that should be used for IPv6 source NATing.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<ul>
+<li>Applicable to Network Load Balancers using dualstack IP address type.</li>
+<li>This annotation can be specified only if service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat annotation is set to “on”.</li>
+<li>This configuration is optional and it can be used to specify custom IPv6 prefixes for IPv6 source NATing to support UDP based services routing in Network Load Balancers using dualstack IP address type.</li>
+<li>If service.beta.kubernetes.io/aws-load-balancer-enable-prefix-for-ipv6-source-nat annotation is set to “on”, and you don’t specify this annotation, then IPv6 prefix/CIDR for source NATing will be auto-assigned to each subnet.</li>
+<li>If you are specifying this annotation, you must specify the same number of items in the list as the load balancer subnets annotation and following the same order. Each item in the list can have value of either “auto_assigned” or a valid IPv6 prefix/CIDR with prefix length of 80 and it should be in range of the corresponding subnet CIDR.</li>
+<li>Once the source NAT IPv6 prefixes are set, the IPv6 prefixes cannot be updated if the load balancer has a UDP listener attached.</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-source-nat-ipv6-prefixes: 1025:0223:0009:6487:0001::/80, auto_assigned, 1025:0223:0010:6487:0001::/80
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="resource-attributes">Resource attributes<a class="headerlink" href="#resource-attributes" title="Permanent link">&para;</a></h2>
+<p>NLB resource attributes can be controlled via the following annotations:</p>
+<ul>
+<li>
+<p><a name="proxy-protocol-v2">service.beta.kubernetes.io/aws-load-balancer-proxy-protocol</a> specifies whether to enable proxy protocol v2 on the target group.
+Set to '*' to enable proxy protocol v2. This annotation takes precedence over the annotation <code>service.beta.kubernetes.io/aws-load-balancer-target-group-attributes</code>
+for proxy protocol v2 configuration.</p>
+<div class="admonition note">
+<p>The only valid value for this annotation is <code>*</code>.</p>
+</div>
+</li>
+<li>
+<p><a name="target-group-attributes"><code>service.beta.kubernetes.io/aws-load-balancer-target-group-attributes</code></a> specifies the
+<a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#target-group-attributes">Target Group Attributes</a> to be configured. You can specify attributes globally for all target groups or override them for specific ports using port-specific annotations.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>
+<p>set the deregistration delay to 120 seconds (available range is 0-3600 seconds)
+    <div class="highlight"><pre><span></span><code># Global attributes for all target groups
+service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: deregistration_delay.timeout_seconds=120
+
+# Port-specific attributes (overrides global attributes for port 3306)
+service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306: proxy_protocol_v2.client_to_server.header_placement=on_first_ack
+</code></pre></div></p>
+</li>
+<li>
+<p>Port-specific attributes with empty values
+    <div class="highlight"><pre><span></span><code># Global attributes for all target groups
+service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: target.group-attr-1=80
+
+# Port-specific attributes (empty values don&#39;t override global attributes)
+service.beta.kubernetes.io/aws-load-balancer-target-group-attributes.3306: target.group-attr-1=
+</code></pre></div>
+    Note: When a port-specific attribute value is empty, it will not override the global attribute value. This allows you to selectively remove attributes for specific ports without affecting other ports that should inherit the global value.</p>
+</li>
+<li>enable source IP affinity
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: stickiness.enabled=true,stickiness.type=source_ip
+</code></pre></div></li>
+<li>enable proxy protocol version 2
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: proxy_protocol_v2.enabled=true
+</code></pre></div></li>
+<li>enable connection termination on deregistration
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: deregistration_delay.connection_termination.enabled=true
+</code></pre></div></li>
+<li>enable <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-target-groups.html#client-ip-preservation">client IP preservation</a>
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: preserve_client_ip.enabled=true
+</code></pre></div></li>
+<li>disable immediate <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/target-group-health.html#unhealthy-target-connection-termination">connection termination for unhealthy targets</a> and configure a 30s draining interval (available range is  0-360000 seconds)
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-target-group-attributes: target_health_state.unhealthy.connection_termination.enabled=false,target_health_state.unhealthy.draining_interval_seconds=30
+</code></pre></div></li>
+</ul>
+</div>
+</li>
+<li>
+<p><a name="load-balancer-attributes"><code>service.beta.kubernetes.io/aws-load-balancer-attributes</code></a> specifies <a href="http://docs.aws.amazon.com/elasticloadbalancing/latest/APIReference/API_LoadBalancerAttribute.html">Load Balancer Attributes</a> that should be applied to the NLB.</p>
+<div class="admonition warning">
+<p>Only attributes defined in the annotation will be updated. To unset any AWS defaults(e.g. Disabling access logs after having them enabled once), the values need to be explicitly set to the original values(<code>access_logs.s3.enabled=false</code>) and omitting them is not sufficient.
+Custom attributes set in this annotation's config map will be overriden by annotation-specific attributes. For backwards compatibility, existing annotations for the individual load balancer attributes get precedence in case of ties.</p>
+</div>
+<div class="admonition note">
+<ul>
+<li>If <code>deletion_protection.enabled=true</code> is in the annotation, the controller will not be able to delete the NLB during reconciliation. Once the attribute gets edited to <code>deletion_protection.enabled=false</code> during reconciliation, the deployer will force delete the resource.</li>
+<li>Please note, if the deletion protection is not enabled via annotation (e.g. via AWS console), the controller still deletes the underlying resource.</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>enable access log to s3
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-attributes: access_logs.s3.enabled=true,access_logs.s3.bucket=my-access-log-bucket,access_logs.s3.prefix=my-app
+</code></pre></div></li>
+<li>enable NLB deletion protection
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-attributes: deletion_protection.enabled=true
+</code></pre></div></li>
+<li>enable cross zone load balancing
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-attributes: load_balancing.cross_zone.enabled=true
+</code></pre></div></li>
+<li>enable client availability zone affinity
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-attributes: dns_record.client_routing_policy=availability_zone_affinity
+</code></pre></div></li>
+</ul>
+</div>
+</li>
+<li>
+<p><a name="listener-attributes"><code>service.beta.kubernetes.io/aws-load-balancer-listener-attributes.${Protocol}-${Port}</code></a> specifies listener attributes that should be applied to the listener.</p>
+<div class="admonition warning">
+<p>Only attributes defined in the annotation will be updated. To reset any AWS defaults, the values need to be explicitly set to the original values and omitting it is not sufficient.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>configure <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/update-idle-timeout.html">TCP idle timeout</a> value. 
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-listener-attributes.TCP-80: tcp.idle_timeout.seconds=400
+</code></pre></div></li>
+</ul>
+</div>
+</li>
+<li>
+<p><a name="tcp-udp-listener"><code>service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener</code></a> allows creation of <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/load-balancer-listeners.html#listener-configuration">TCP_UDP</a> listener type when the service defines a TCP and UDP port on the same port number.</p>
+<div class="admonition note"></div>
+<ul>
+<li>To change the default from false to true, use the controller flag <code>--feature-gates=EnableTCPUDPListener=true</code> to allow creation of TCP_UDP listeners for all services.</li>
+</ul>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+</div>
+<ul>
+<li>Allow for the creation of TCP_UDP listeners for a service.
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener: &quot;true&quot;
+</code></pre></div></li>
+</ul>
+</li>
+<li>
+<p><a name="nlb-sg-disable"><code>service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg</code></a> disables creation and management of SGs for the NLB. Note: This value shouldn't be changed after initial service creation. Once an NLB has been created, SGs can not be removed likewise, SGs can not be added to an existing NLB without an SG attached.</p>
+<div class="admonition warning"></div>
+<ul>
+<li>This is a fine-grained way of setting the controller level feature flag <code>--feature-gates=NLBSecurityGroup=false</code> to disable SG management for a specific service.</li>
+</ul>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+</div>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg: &quot;true&quot;
+</code></pre></div>
+</li>
+<li>
+<p><a name="nlb-quic-enabled"><code>service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports</code></a> Upgrades the UDP protocol to QUIC.</p>
+<div class="admonition warning">
+<p>This annotation only applies to UDP ports. The annotation is ignored when the specified port is NOT UDP based.</p>
+</div>
+<div class="admonition note">
+<p>Ensure that the pods belonging to the service have been QUIC enabled. See <a href="../../use_cases/quic/">QUIC use-case</a> for more information.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+</div>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports: &quot;443&quot;
+</code></pre></div>
+</li>
+<li>
+<p><a name="deprecated-attributes"></a>the following annotations are deprecated in v2.3.0 release in favor of <a href="#load-balancer-attributes">service.beta.kubernetes.io/aws-load-balancer-attributes</a></p>
+<div class="admonition note">
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-access-log-enabled
+service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name
+service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix
+service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled 
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="multi-cluster-target-group"><code>service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group</code></a> Allows you to share the created Target Group ARN with other Load Balancer Controller managed clusters.</p>
+<div class="admonition warning"></div>
+<p>This feature does not offer any Deletion Protection. Deleting the service will still delete the Target Group. If you need to support
+Target Groups shared with multiple clusters, it's recommended to use an out-of-band Target Group that is not managed by a Load Balancer Controller.</p>
+<div class="admonition note"></div>
+<ul>
+<li>It is not recommended to change this value frequently, if ever. The recommended way to set this value is on creation of the service.</li>
+</ul>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+</div>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-multi-cluster-target-group: &quot;true&quot;
+</code></pre></div>
+</li>
+</ul>
+<h2 id="aws-resource-tags">AWS Resource Tags<a class="headerlink" href="#aws-resource-tags" title="Permanent link">&para;</a></h2>
+<p>The AWS Load Balancer Controller automatically applies following tags to the AWS resources it creates (NLB/TargetGroups/Listener/ListenerRule):</p>
+<ul>
+<li><code>elbv2.k8s.aws/cluster: ${clusterName}</code></li>
+<li><code>service.k8s.aws/stack: ${stackID}</code></li>
+<li><code>service.k8s.aws/resource: ${resourceID}</code></li>
+</ul>
+<p>In addition, you can use annotations to specify additional tags</p>
+<ul>
+<li>
+<p><a name="additional-resource-tags"><code>service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags</code></a> specifies additional tags to apply to the AWS resources.</p>
+<div class="admonition note">
+<ul>
+<li>you cannot override the default controller tags mentioned above or the tags specified in the <code>--default-tags</code> controller flag</li>
+<li>if any of the tag conflicts with the ones configured via <code>--external-managed-tags</code> controller flag, the controller fails to reconcile the service</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-additional-resource-tags: Environment=dev,Team=test
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="health-check">Health Check<a class="headerlink" href="#health-check" title="Permanent link">&para;</a></h2>
+<p>Health check on target groups can be configured with following annotations:</p>
+<ul>
+<li>
+<p><a name="healthcheck-protocol"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol</code></a> specifies the target group health check protocol.</p>
+<div class="admonition note">
+<ul>
+<li>you can specify <code>tcp</code>, or <code>http</code> or <code>https</code>, <code>tcp</code> is the default</li>
+<li><code>tcp</code> is the default health check protocol if the service <code>spec.externalTrafficPolicy</code> is <code>Cluster</code>, <code>http</code> if <code>Local</code></li>
+<li>if the service <code>spec.externalTrafficPolicy</code> is <code>Local</code>, do <strong>not</strong> use <code>tcp</code> for health check</li>
+<li>Supports only single protocol per service</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<p><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-protocol: http</code></p>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-port"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port</code></a> specifies the TCP port to use for target group health check.</p>
+<div class="admonition note">
+<p class="admonition-title">accepted values</p>
+<ul>
+<li><code>traffic-port</code> - use the same port as the target group traffic (default when <code>externalTrafficPolicy=Cluster</code>)</li>
+<li>Integer string (e.g., <code>"80"</code>) - use this specific port number</li>
+<li>Service port name (e.g., <code>"http"</code>) - resolves based on target type:<ul>
+<li><strong>Instance targets</strong>: uses the Service port's <code>NodePort</code></li>
+<li><strong>IP targets</strong>: uses the Service port's <code>targetPort</code> (must be numeric, not a named port)</li>
+</ul>
+</li>
+<li><strong>Default</strong>: <code>spec.healthCheckNodePort</code> when <code>externalTrafficPolicy=Local</code>, otherwise <code>traffic-port</code></li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>set the health check port to <code>traffic-port</code>
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: traffic-port
+</code></pre></div></li>
+<li>set the health check port to port <code>80</code>
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: &quot;80&quot;
+</code></pre></div></li>
+<li>set the health check port to a named Service port
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-port: &quot;http&quot;
+</code></pre></div></li>
+</ul>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-path"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-path</code></a> specifies the http path for the health check in case of http/https protocol.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-path: /healthz
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-healthy-threshold"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold</code></a> specifies the consecutive health check successes required before a target is considered healthy.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-healthy-threshold: &quot;3&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-unhealthy-threshold"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold</code></a> specifies the consecutive health check failures before a target gets marked unhealthy.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-unhealthy-threshold: &quot;3&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-interval"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval</code></a> specifies the interval between consecutive health checks.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-interval: &quot;10&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-success-codes"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes</code></a> specifies the http success codes for the health check in case of http/https protocol.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-success-codes: &quot;200-399&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="healthcheck-timeout"><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout</code></a> specifies the target group health check timeout. The target has to respond within the timeout for a successful health check.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-healthcheck-timeout: &quot;10&quot;
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="tls">TLS<a class="headerlink" href="#tls" title="Permanent link">&para;</a></h2>
+<p>You can configure TLS support via the following annotations:</p>
+<ul>
+<li>
+<p><a name="ssl-cert"><code>service.beta.kubernetes.io/aws-load-balancer-ssl-cert</code></a> specifies the ARN of one or more certificates managed by the <a href="https://aws.amazon.com/certificate-manager">AWS Certificate Manager</a>.</p>
+<div class="admonition note">
+<p>The first certificate in the list is the default certificate and remaining certificates are for the optional certificate list.
+See <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#tls-listener-certificates">Server Certificates</a> for further details.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>single certificate
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/xxxxxxx
+</code></pre></div></li>
+<li>multiple certificates
+    <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:us-west-2:xxxxx:certificate/cert1,arn:aws:acm:us-west-2:xxxxx:certificate/cert2,arn:aws:acm:us-west-2:xxxxx:certificate/cert3
+</code></pre></div></li>
+</ul>
+</div>
+</li>
+<li>
+<p><a name="ssl-ports"><code>service.beta.kubernetes.io/aws-load-balancer-ssl-ports</code></a> specifies the frontend ports with TLS listeners.</p>
+<div class="admonition note">
+<ul>
+<li>You must configure at least one <a href="#ssl-cert">certificate</a> for TLS listeners</li>
+<li>You can specify a list of port names or port values, <code>*</code> does <strong>not</strong> match any ports</li>
+<li>If you don't specify this annotation, controller creates TLS listener for all the service ports</li>
+<li>Specify this annotation if you need both TLS and non-TLS listeners on the same load balancer</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-ssl-ports: 443, custom-port
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="ssl-negotiation-policy"><code>service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy</code></a> specifies the <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/create-tls-listener.html#describe-ssl-policies">Security Policy</a> for NLB frontend connections, allowing you to control the protocol and ciphers.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-ssl-negotiation-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="backend-protocol"><code>service.beta.kubernetes.io/aws-load-balancer-backend-protocol</code></a> specifies whether to use TLS for the backend traffic between the load balancer and the kubernetes pods.</p>
+<div class="admonition note">
+<ul>
+<li>If you specify <code>ssl</code> as the backend protocol, NLB uses TLS connections for the traffic to your kubernetes pods in case of TLS listeners</li>
+<li>You can specify <code>ssl</code> or <code>tcp</code> (default)</li>
+</ul>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-backend-protocol: ssl
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="access-control">Access control<a class="headerlink" href="#access-control" title="Permanent link">&para;</a></h2>
+<p>Load balancer access can be controlled via following annotations:</p>
+<ul>
+<li>
+<p><a name="lb-source-ranges"><code>service.beta.kubernetes.io/load-balancer-source-ranges</code></a> specifies the CIDRs that are allowed to access the NLB.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<ul>
+<li>We recommend specifying CIDRs in the service <code>spec.loadBalancerSourceRanges</code> instead</li>
+<li>For enhanced security with <code>internal</code> network load balancers, we recommend limiting access by specifying allowed source IP ranges.  This can be done using either the <code>service.beta.kubernetes.io/load-balancer-source-ranges</code> annotation or the <code>spec.loadBalancerSourceRanges</code> field.</li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Default</p>
+<ul>
+<li><code>0.0.0.0/0</code> will be used if the IPAddressType is "ipv4"</li>
+<li><code>0.0.0.0/0</code> and <code>::/0</code> will be used if the IPAddressType is "dualstack"</li>
+</ul>
+</div>
+<div class="admonition warning">
+<p>This annotation will be ignored in case preserve client IP is not enabled.
+- preserve client IP is disabled by default for <code>IP</code> targets
+- preserve client IP is enabled by default for <code>instance</code> targets</p>
+</div>
+<div class="admonition warning">
+<p>Preserve client IP has no effect on traffic converted from IPv4 to IPv6 and on traffic converted from IPv6 to IPv4. The source IP of this type of traffic is always the private IP address of the Network Load Balancer.
+- This could cause the clients that have their traffic converted to bypass the specified CIDRs that are allowed to access the NLB.</p>
+</div>
+<div class="admonition warning">
+<p>this annotation will be ignored if <code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code> is specified.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/load-balancer-source-ranges: 10.0.0.0/24
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="lb-security-group-prefix-lists"><code>service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists</code></a> specifies the managed prefix lists that are allowed to access the NLB.</p>
+<div class="admonition warning">
+<p>this annotation will be ignored if <code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code> is specified.</p>
+</div>
+<div class="admonition warning">
+<p>If you'd like to use this annotation, make sure your security group rule quota is enough. If you'd like to know how the managed prefix list affects your quota, see the <a href="https://docs.aws.amazon.com/vpc/latest/userguide/working-with-aws-managed-prefix-lists.html#aws-managed-prefix-list-weights">reference</a> in the AWS documentation for more details.</p>
+</div>
+<div class="admonition tip">
+<p>If you only use this annotation without <code>load-balancer-source-ranges</code>, the controller managed security group would ignore the <code>load-balancer-source-ranges</code> default settings.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-security-group-prefix-lists: pl-00000000, pl-1111111
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="lb-scheme"><code>service.beta.kubernetes.io/aws-load-balancer-scheme</code></a> specifies whether the NLB will be internet-facing or internal.  Valid values are <code>internal</code>, <code>internet-facing</code>. If not specified, default is <code>internal</code>.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-scheme: &quot;internet-facing&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="lb-internal"><code>service.beta.kubernetes.io/aws-load-balancer-internal</code></a> specifies whether the NLB will be internet-facing or internal.</p>
+<div class="admonition note">
+<p class="admonition-title">deprecation note</p>
+<p>This annotation is deprecated starting v2.2.0 release in favor of the new <a href="#lb-scheme">aws-load-balancer-scheme</a> annotation. It will be supported, but in case of ties, the aws-load-balancer-scheme gets precedence.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-internal: &quot;true&quot;
+</code></pre></div>
+</div>
+<ul>
+<li><a name="security-groups"><code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code></a>  specifies the frontend securityGroups you want to attach to an NLB.</li>
+</ul>
+<div class="admonition note">
+<p>When this annotation is not present, the controller will automatically create one security group. The security group will be attached to the LoadBalancer and allow access from <code>load-balancer-source-ranges</code> and <code>aws-load-balancer-security-group-prefix-lists</code> to the <code>listen-ports</code>.
+Also, the securityGroups for target instances/ENIs will be modified to allow inbound traffic from this securityGroup.</p>
+</div>
+<div class="admonition note">
+<p>If you specify this annotation, you need to configure the security groups on your target instances/ENIs to allow inbound traffic from the load balancer. You could also set the <a href="#manage-backend-sg-rules"><code>manage-backend-security-group-rules</code></a> if you want the controller to manage the security group rules.</p>
+</div>
+<div class="admonition tip">
+<p>Both name and ID of securityGroups are supported. Name matches a <code>Name</code> tag, not the <code>groupName</code> attribute.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-security-groups: sg-xxxx, nameOfSg1, nameOfSg2
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="manage-backend-sg-rules"><code>service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules</code></a> specifies whether the controller should automatically add the ingress rules to the instance/ENI security group.</p>
+<div class="admonition warning">
+<p>If you disable the automatic management of security group rules for an NLB (e.g.: by setting <code>service.beta.kubernetes.io/aws-load-balancer-security-groups</code>), you will need to manually add appropriate ingress rules to your EC2 instance or ENI security groups to allow access to the traffic and health check ports.</p>
+</div>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-manage-backend-security-group-rules: &quot;false&quot;
+</code></pre></div>
+</div>
+</li>
+<li>
+<p><a name="update-security-settings"><code>service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic</code></a> specifies whether to apply security group rules to traffic sent to the load balancer through AWS PrivateLink. </p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-inbound-sg-rules-on-private-link-traffic: &quot;off&quot;
+</code></pre></div>
+</div>
+</li>
+</ul>
+<h2 id="capacity-unit-reservation">Capacity Unit Reservation<a class="headerlink" href="#capacity-unit-reservation" title="Permanent link">&para;</a></h2>
+<p>Load balancer capacity unit reservation can be configured via following annotations:</p>
+<ul>
+<li>
+<p><a name="load-balancer-capacity-reservation"><code>service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity</code></a> specifies the
+  <a href="https://docs.aws.amazon.com/elasticloadbalancing/latest/network/capacity-unit-reservation.html">Capacity Unit Reservation</a> to be configured.</p>
+<div class="admonition example">
+<p class="admonition-title">Example</p>
+<ul>
+<li>set the capacity unit reservation to 1000
+  <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity: CapacityUnits=3000
+</code></pre></div></li>
+<li>reset the capacity unit reservation
+  <div class="highlight"><pre><span></span><code>service.beta.kubernetes.io/aws-load-balancer-minimum-load-balancer-capacity: CapacityUnits=0
+</code></pre></div></li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Notes</p>
+<ul>
+<li>If you specify this annotation, but remove it later, the capacity unit reservation is not reset. You need to reset the capacity by setting the capacity units to zero as show in the example above.</li>
+<li>If users do not want the controller to manage the capacity unit reservation on load balancer, they can disable the feature by setting controller command line feature gate flag <code>--feature-gates=LBCapacityReservation=true</code></li>
+</ul>
+</div>
+</li>
+</ul>
+<h2 id="legacy-cloud-provider">Legacy Cloud Provider<a class="headerlink" href="#legacy-cloud-provider" title="Permanent link">&para;</a></h2>
+<p>The AWS Load Balancer Controller manages Kubernetes Services in a compatible way with the AWS cloud provider's legacy service controller.</p>
+<ul>
+<li>For users on v2.5.0+, The AWS LBC provides a mutating webhook for service resources to set the <code>spec.loadBalancerCLass</code> field for Serive of type LoadBalancer, effectively making the AWS LBC the default controller for Service of type LoadBalancer. 
+  Users can disable this feature and revert to using the AWS Cloud Controller Manager as the default service controller by setting the helm chart value <code>enableServiceMutatorWebhook</code> to false with <code>--set enableServiceMutatorWebhook=false</code> .</li>
+<li>For users on older versions, the annotation <code>service.beta.kubernetes.io/aws-load-balancer-type</code> is used to determine which controller reconciles the service. If the annotation value is <code>nlb-ip</code> or <code>external</code>,
+  recent versions of the legacy cloud provider ignore the Service resource so that the AWS LBC can take over. For all other values of the annotation, the legacy cloud provider will handle the service. 
+  Note that this annotation should be specified during service creation and not edited later. Support for the annotation was added to the legacy cloud provider in Kubernetes v1.20, and is backported to v1.18.18+ and v1.19.10+.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.tabs"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+    
+      <script src="../../../assets/javascripts/bundle.fe8b6f2b.min.js"></script>
+      
+        <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+      
+    
+    <script src="../../../assets/javascripts/version-select.js"></script>
+
+  </body>
+</html>
