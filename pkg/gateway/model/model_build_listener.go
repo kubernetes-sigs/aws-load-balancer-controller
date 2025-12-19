@@ -229,7 +229,7 @@ func (l listenerBuilderImpl) buildListenerRules(ctx context.Context, stack core.
 		var preRoutingAction *elbv2gw.Action
 		var routingAction *elbv2gw.Action
 		if rule.GetListenerRuleConfig() != nil {
-			if isSecureProtocol(ls.Spec.Protocol) {
+			if ls.Spec.Protocol == elbv2model.ProtocolHTTPS {
 				preRoutingAction = getPreRoutingAction(rule.GetListenerRuleConfig())
 			}
 			routingAction = getRoutingAction(rule.GetListenerRuleConfig())
@@ -608,12 +608,12 @@ func newListenerBuilder(loadBalancerType elbv2model.LoadBalancerType, tgBuilder 
 	}
 }
 
-// getPreRoutingAction: returns pre routing action  for secure listeners from listener rule configuration
-// action will only be one of authenticate-oidc or  authenticate-cognito
+// getPreRoutingAction: returns pre routing action for secure listeners from listener rule configuration
+// action will only be one of authenticate-oidc, authenticate-cognito, or jwt-validation
 func getPreRoutingAction(config *elbv2gw.ListenerRuleConfiguration) *elbv2gw.Action {
 	if config != nil && config.Spec.Actions != nil {
 		for _, action := range config.Spec.Actions {
-			if action.Type == elbv2gw.ActionTypeAuthenticateCognito || action.Type == elbv2gw.ActionTypeAuthenticateOIDC {
+			if action.Type == elbv2gw.ActionTypeAuthenticateCognito || action.Type == elbv2gw.ActionTypeAuthenticateOIDC || action.Type == elbv2gw.ActionTypeJwtValidation {
 				return &action
 			}
 		}

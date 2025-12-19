@@ -19,14 +19,15 @@ import (
 )
 
 // BuildRulePreRoutingAction returns pre-routing action for rule
-// The assumption is that the ListenerRuleConfiguration CRD makes sure we only have one of the actions (authenticate-cognito, authenticate-oidc) defined
+// The assumption is that the ListenerRuleConfiguration CRD makes sure we only have one of the actions (authenticate-cognito, authenticate-oidc, jwt-validation) defined
 func BuildRulePreRoutingAction(ctx context.Context, route RouteDescriptor, crdPreRoutingAction *elbv2gw.Action, k8sClient client.Client, secretsManager k8s.SecretsManager) (*elbv2model.Action, *types.NamespacedName, error) {
 	switch crdPreRoutingAction.Type {
 	case elbv2gw.ActionTypeAuthenticateOIDC:
 		return buildAuthenticateOIDCAction(ctx, crdPreRoutingAction.AuthenticateOIDCConfig, route, k8sClient, secretsManager)
 	case elbv2gw.ActionTypeAuthenticateCognito:
 		return buildAuthenticateCognitoAction(crdPreRoutingAction.AuthenticateCognitoConfig)
-
+	case elbv2gw.ActionTypeJwtValidation:
+		return buildJwtValidationAction(crdPreRoutingAction.JwtValidationConfig)
 	}
 	return nil, nil, errors.Errorf("unsupported action type %s", crdPreRoutingAction.Type)
 }
@@ -76,6 +77,26 @@ func buildFixedResponseRoutingAction(fixedResponseConfig *elbv2gw.FixedResponseA
 		},
 	}
 	return &action, nil
+}
+
+func buildJwtValidationAction(jwtValidationConfig *elbv2gw.JwtValidationActionConfig) (*elbv2model.Action, *types.NamespacedName, error) {
+	additionalClaims := []elbv2model.JwtAdditionalClaim{}
+	for _, claim := range jwtValidationConfig.AdditionalClaims {
+		additionalClaims = append(additionalClaims, elbv2model.JwtAdditionalClaim{
+			Format: elbv2model.JwtAdditionalClaimFormat(claim.Format),
+			Name:   claim.Name,
+			Values: append([]string{}, claim.Values...),
+		})
+	}
+
+	return &elbv2model.Action{
+		Type: elbv2model.ActionTypeJwtValidation,
+		JwtValidationConfig: &elbv2model.JwtValidationConfig{
+			JwksEndpoint:     jwtValidationConfig.JwksEndpoint,
+			Issuer:           jwtValidationConfig.Issuer,
+			AdditionalClaims: additionalClaims,
+		},
+	}, nil, nil
 }
 
 func buildAuthenticateCognitoAction(authCognitoActionConfig *elbv2gw.AuthenticateCognitoActionConfig) (*elbv2model.Action, *types.NamespacedName, error) {

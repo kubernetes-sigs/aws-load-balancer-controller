@@ -58,7 +58,7 @@ type ListenerRuleCondition struct {
 }
 
 // ActionType defines the type of action for the rule
-// +kubebuilder:validation:Enum=forward;fixed-response;redirect;authenticate-cognito;authenticate-oidc
+// +kubebuilder:validation:Enum=forward;fixed-response;redirect;authenticate-cognito;authenticate-oidc;jwt-validation
 type ActionType string
 
 const (
@@ -67,6 +67,7 @@ const (
 	ActionTypeRedirect            ActionType = "redirect"
 	ActionTypeAuthenticateCognito ActionType = "authenticate-cognito"
 	ActionTypeAuthenticateOIDC    ActionType = "authenticate-oidc"
+	ActionTypeJwtValidation       ActionType = "jwt-validation"
 )
 
 // Information about the target group stickiness for a listener rule.
@@ -172,6 +173,53 @@ type AuthenticateCognitoActionConfig struct {
 	SessionTimeout *int64 `json:"sessionTimeout,omitempty"`
 }
 
+// JwtAdditionalClaimFormat defines the format of an additional claim's value(s) used in JWT validation
+// +kubebuilder:validation:Enum=single-string;string-array;space-separated-values
+type JwtAdditionalClaimFormat string
+
+const (
+	FormatSingleString         JwtAdditionalClaimFormat = "single-string"
+	FormatStringArray          JwtAdditionalClaimFormat = "string-array"
+	FormatSpaceSeparatedValues JwtAdditionalClaimFormat = "space-separated-values"
+)
+
+// JwtValidationActionAdditionalClaim Information about an additional claim to validate.
+type JwtValidationActionAdditionalClaim struct {
+	// The format of the claim value(s)
+	// +kubebuilder:validation:Required
+	Format JwtAdditionalClaimFormat `json:"format"`
+
+	// The name of the claim. You can't specify exp, iss, nbf, or iat because we validate them by default.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	Name string `json:"name"`
+
+	// The claim values. The maximum size of the list is 10. Each value can be up to 256 characters in length.
+	// If the format is space-separated-values, the values can't include spaces.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=10
+	Values []string `json:"values"`
+}
+
+// JwtValidationActionConfig Information about a JSON Web Token (JWT) validation action.
+type JwtValidationActionConfig struct {
+	// The issuer of the JWT. The maximum length is 256 characters.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=256
+	Issuer string `json:"issuer"`
+
+	// The JSON Web Key Set (JWKS) endpoint. This endpoint contains JSON Web Keys (JWK) that are used to validate signatures from the provider.
+	// This must be a full URL, including the HTTPS protocol, the domain, and the path. The maximum length is 256 characters.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MaxLength=256
+	JwksEndpoint string `json:"jwksEndpoint"`
+
+	// Any additional claims in the JWT that should be validated
+	// +optional
+	AdditionalClaims []JwtValidationActionAdditionalClaim `json:"additionalClaims,omitempty"`
+}
+
 // Information about an authenticate-oidc action
 type AuthenticateOidcActionConfig struct {
 	// The authorization endpoint of the IdP. This must be a full URL, including the
@@ -237,6 +285,7 @@ type AuthenticateOidcActionConfig struct {
 // +kubebuilder:validation:XValidation:rule="has(self.type) && self.type == 'fixed-response' ? has(self.fixedResponseConfig) : !has(self.fixedResponseConfig)",message="fixedResponseConfig must be specified only when type is 'fixed-response'"
 // +kubebuilder:validation:XValidation:rule="has(self.type) && self.type == 'authenticate-cognito' ? has(self.authenticateCognitoConfig) : !has(self.authenticateCognitoConfig)",message="authenticateCognitoConfig must be specified only when type is 'authenticate-cognito'"
 // +kubebuilder:validation:XValidation:rule="has(self.type) && self.type == 'authenticate-oidc' ? has(self.authenticateOIDCConfig) : !has(self.authenticateOIDCConfig)",message="authenticateOIDCConfig must be specified only when type is 'authenticate-oidc'"
+// +kubebuilder:validation:XValidation:rule="has(self.type) && self.type == 'jwt-validation' ? has(self.jwtValidationConfig) : !has(self.jwtValidationConfig)",message="jwtValidationConfig must be specified only when type is 'jwt-validation'"
 type Action struct {
 	// The type of action
 	Type ActionType `json:"type"`
@@ -260,12 +309,16 @@ type Action struct {
 	// Information for an authenticate-oidc action
 	// +optional
 	AuthenticateOIDCConfig *AuthenticateOidcActionConfig `json:"authenticateOIDCConfig,omitempty"`
+
+	// Information for a jwt-validation action
+	// +optional
+	JwtValidationConfig *JwtValidationActionConfig `json:"jwtValidationConfig,omitempty"`
 }
 
 // ListenerRuleConfigurationSpec defines the desired state of ListenerRuleConfiguration
 // +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions) > 0",message="At least one action must be specified if actions field is present"
-// +kubebuilder:validation:XValidation:rule="!has(self.actions) || self.actions.all(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito' || a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')",message="Only forward, redirect, authenticate-oidc, authenticate-cognito, and fixed-response action types are supported"
-// +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions.filter(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito')) <= 1",message="At most one authentication action (either authenticate-oidc or authenticate-cognito) can be specified"
+// +kubebuilder:validation:XValidation:rule="!has(self.actions) || self.actions.all(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito' || a.type == 'jwt-validation' || a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')",message="Only forward, redirect, authenticate-oidc, authenticate-cognito, jwt-validation, and fixed-response action types are supported"
+// +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions.filter(a, a.type == 'authenticate-oidc' || a.type == 'authenticate-cognito' || a.type == 'jwt-validation')) <= 1",message="At most one pre-routing action (authenticate-oidc, authenticate-cognito, or jwt-validation) can be specified"
 // +kubebuilder:validation:XValidation:rule="!has(self.actions) || size(self.actions.filter(a, a.type == 'fixed-response' || a.type == 'forward' || a.type == 'redirect')) <= 1",message="At most one routing action (fixed-response or forward or redirect) can be specified"
 type ListenerRuleConfigurationSpec struct {
 	// Actions defines the set of actions to be performed when conditions match.
