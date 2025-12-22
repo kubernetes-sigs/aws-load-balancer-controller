@@ -199,6 +199,7 @@ type JwtValidationActionAdditionalClaim struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=10
+	// +kubebuilder:validation:items:MaxLength=256
 	Values []string `json:"values"`
 }
 

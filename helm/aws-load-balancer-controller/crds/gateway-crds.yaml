@@ -285,6 +285,7 @@ spec:
                                   The claim values. The maximum size of the list is 10. Each value can be up to 256 characters in length.
                                   If the format is space-separated-values, the values can't include spaces.
                                 items:
+                                  maxLength: 256
                                   type: string
                                 maxItems: 10
                                 minItems: 1
