@@ -116,6 +116,38 @@ Configures the ALB to authenticate users with an [OIDC Provider](https://docs.aw
 
 **Default** No OIDC pre-routing check.
 
+### JwtValidationActionConfig
+
+```yaml
+apiVersion: gateway.k8s.aws/v1beta1
+kind: ListenerRuleConfiguration
+metadata:
+  name: example-lrc-config
+  namespace: example-ns
+spec:
+  actions:
+    - type: "jwt-validation"
+      jwtValidationConfig:
+        jwksEndpoint: "https://example.com/.well-known/jwks.json"
+        issuer: "https://example.com"
+        additionalClaims:
+          - name: "admin"
+            format: "single-string"
+            values: ["true"]
+          - name: "roles"
+            format: "string-array"
+            values: ["admin", "editor", "viewer"]
+          - name: "scope"
+            format: "space-separated-values"
+            values: ["read:api", "write:api"]
+```
+
+Configures the ALB to validate JSON Web Tokens (JWTs) before forwarding requests to the backend. The `exp` and `iss` claims are always validated by default. If present, the `nbf` and `iat` claims are also automatically validated.
+
+**Important** JWT validation is only supported for HTTPS listeners.
+
+**Default** No JWT validation.
+
 ## Conditions
 
 ### ListenerRuleCondition
