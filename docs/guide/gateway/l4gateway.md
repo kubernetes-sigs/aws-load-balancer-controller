@@ -39,7 +39,7 @@ Consider a scenario where an application requires direct TCP traffic routing:
 
 ```yaml
 # nlb-gatewayclass.yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: aws-nlb-gateway-class
@@ -47,7 +47,7 @@ spec:
   controllerName: gateway.k8s.aws/nlb
 ---
 # my-nlb-gateway.yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-tcp-gateway

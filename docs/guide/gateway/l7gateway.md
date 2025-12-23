@@ -39,7 +39,7 @@ Consider a scenario where an application exposes an HTTP and HTTPS endpoint.
 
 ```yaml
 # alb-gatewayclass.yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: aws-alb-gateway-class
@@ -47,7 +47,7 @@ spec:
   controllerName: gateway.k8s.aws/alb
 ---
 # my-alb-gateway.yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-alb-gateway
@@ -263,7 +263,7 @@ spec:
           value: example.com
 ---
 # my-alb-gateway.yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-alb-gateway
