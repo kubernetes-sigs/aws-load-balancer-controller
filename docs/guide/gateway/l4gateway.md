@@ -47,7 +47,7 @@ spec:
   controllerName: gateway.k8s.aws/nlb
 ---
 # my-nlb-gateway.yaml
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-tcp-gateway
