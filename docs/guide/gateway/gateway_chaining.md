@@ -29,7 +29,7 @@ setup the NLB Gateway always uses private IP addresses to communicate with the A
 
 ```yaml
 # alb-gatewayclass.yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: aws-alb-gateway-class
@@ -37,7 +37,7 @@ spec:
   controllerName: gateway.k8s.aws/alb
 ---
 # my-alb-gateway.yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-alb-gateway
@@ -104,7 +104,7 @@ to connect. The NLB will route traffic to the internal ALB using private IP addr
 
 ```yaml
 # nlb-gatewayclass.yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
   name: aws-nlb-gateway-class
@@ -112,7 +112,7 @@ spec:
   controllerName: gateway.k8s.aws/nlb
 ---
 # my-nlb-gateway.yaml
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: my-tcp-gateway
