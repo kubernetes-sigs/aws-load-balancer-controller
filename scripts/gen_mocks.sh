@@ -35,3 +35,4 @@ $MOCKGEN -package=shield -destination=./pkg/deploy/shield/protection_manager_moc
 $MOCKGEN -package=wafv2 -destination=./pkg/deploy/wafv2/web_acl_association_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafv2 WebACLAssociationManager
 $MOCKGEN -package=wafregional -destination=./pkg/deploy/wafregional/web_acl_association_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/wafregional WebACLAssociationManager
 $MOCKGEN -package=tracking -destination=./pkg/deploy/tracking/provider_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/deploy/tracking Provider
+$MOCKGEN -package=targetgroupbinding -destination=./pkg/targetgroupbinding/resource_manager_mocks.go sigs.k8s.io/aws-load-balancer-controller/pkg/targetgroupbinding ResourceManager
