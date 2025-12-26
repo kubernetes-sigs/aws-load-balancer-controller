@@ -919,3 +919,23 @@ func sortActionsByOrder(actions []elbv2types.Action) {
 		return awssdk.ToInt32(actions[i].Order) < awssdk.ToInt32(actions[j].Order)
 	})
 }
+
+// VerifyTargetsHaveQUICServerIDs verifies that all targets in the target group have QUIC server IDs
+func VerifyTargetsHaveQUICServerIDs(ctx context.Context, f *framework.Framework, tgARN string, expectedTargetCount int) error {
+	Eventually(func() bool {
+		targets, err := f.TGManager.GetCurrentTargets(ctx, tgARN)
+		if err != nil {
+			return false
+		}
+		if len(targets) != expectedTargetCount {
+			return false
+		}
+		for _, target := range targets {
+			if target.Target.QuicServerId == nil || *target.Target.QuicServerId == "" {
+				return false
+			}
+		}
+		return true
+	}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+	return nil
+}
