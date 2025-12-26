@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"sigs.k8s.io/aws-load-balancer-controller/controllers/elbv2/eventhandlers"
@@ -166,6 +167,9 @@ func (r *targetGroupBindingReconciler) cleanupTargetGroupBinding(ctx context.Con
 	if k8s.HasFinalizer(tgb, targetGroupBindingFinalizer) {
 		if err := r.tgbResourceManager.Cleanup(ctx, tgb); err != nil {
 			r.eventRecorder.Event(tgb, corev1.EventTypeWarning, k8s.TargetGroupBindingEventReasonFailedCleanup, fmt.Sprintf("Failed cleanup due to %v", err))
+			if statusErr := r.updateTargetGroupBindingStatusCondition(ctx, tgb, metav1.ConditionFalse, k8s.TargetGroupBindingEventReasonFailedCleanup, err.Error()); statusErr != nil {
+				r.logger.Error(statusErr, "failed to update targetGroupBinding status condition")
+			}
 			return err
 		}
 		if err := r.finalizerManager.RemoveFinalizers(ctx, tgb, targetGroupBindingFinalizer); err != nil {
@@ -188,6 +192,52 @@ func (r *targetGroupBindingReconciler) updateTargetGroupBindingStatus(ctx contex
 		return errors.Wrapf(err, "failed to update targetGroupBinding status: %v", k8s.NamespacedName(tgb))
 	}
 
+	return nil
+}
+
+func (r *targetGroupBindingReconciler) updateTargetGroupBindingStatusCondition(ctx context.Context, tgb *elbv2api.TargetGroupBinding, status metav1.ConditionStatus, reason string, message string) error {
+	tgbOld := tgb.DeepCopy()
+
+	newCondition := metav1.Condition{
+		Type:               "Ready",
+		Status:             status,
+		LastTransitionTime: metav1.Now(),
+		Reason:             reason,
+		Message:            message,
+		ObservedGeneration: tgb.Generation,
+	}
+
+	existingCondition := findCondition(tgb.Status.Conditions, newCondition.Type)
+	if existingCondition != nil &&
+		existingCondition.Status == newCondition.Status &&
+		existingCondition.Reason == newCondition.Reason &&
+		existingCondition.Message == newCondition.Message &&
+		existingCondition.ObservedGeneration == newCondition.ObservedGeneration {
+		return nil
+	}
+
+	if existingCondition == nil {
+		tgb.Status.Conditions = append(tgb.Status.Conditions, newCondition)
+	} else {
+		existingCondition.Status = newCondition.Status
+		existingCondition.Reason = newCondition.Reason
+		existingCondition.Message = newCondition.Message
+		existingCondition.ObservedGeneration = newCondition.ObservedGeneration
+		existingCondition.LastTransitionTime = newCondition.LastTransitionTime
+	}
+
+	if err := r.k8sClient.Status().Patch(ctx, tgb, client.MergeFrom(tgbOld)); err != nil {
+		return errors.Wrapf(err, "failed to update targetGroupBinding status: %v", k8s.NamespacedName(tgb))
+	}
+	return nil
+}
+
+func findCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
 	return nil
 }
 
