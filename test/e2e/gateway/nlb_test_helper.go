@@ -203,6 +203,66 @@ func (s *NLBTestStack) DeployTCP_UDP(ctx context.Context, f *framework.Framework
 	return s.nlbResourceStack.Deploy(ctx, f)
 }
 
+func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	dpUDP := buildUDPDeploymentSpec()
+	svcUDP := buildUDPServiceSpec()
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
+	gw := buildGatewaySpec(gwc.Name, []gwv1.Listener{
+		{
+			Name:     "udp-listener",
+			Port:     8080,
+			Protocol: "UDP",
+		},
+	})
+
+	lbc := buildLoadBalancerConfigurationSpec(lbConfSpec)
+	tgcUDP := buildTargetGroupConfigurationSpec(svcUDP.Name, tgConfSpec)
+
+	udpr := buildUDPRoute("udp-listener")
+	udpr.Name = "udp-route-quic"
+
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwalpha2.TCPRoute{}, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-quic-e2e", readinessGateEnabled)
+
+	return s.nlbResourceStack.Deploy(ctx, f)
+}
+
+func (s *NLBTestStack) DeployTCP_UDP_QUIC(ctx context.Context, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, tgConfSpec elbv2gw.TargetGroupConfigurationSpec, readinessGateEnabled bool) error {
+	dpUDP := buildUDPDeploymentSpec()
+	svcUDP := buildUDPServiceSpec()
+	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
+
+	if f.Options.IPFamily == framework.IPv6 {
+		v6 := elbv2gw.LoadBalancerIpAddressTypeDualstack
+		lbConfSpec.IpAddressType = &v6
+	}
+
+	gw := buildGatewaySpec(gwc.Name, []gwv1.Listener{
+		{
+			Name:     "tcp-udp-listener",
+			Port:     8080,
+			Protocol: "TCP_UDP",
+		},
+	})
+
+	lbc := buildLoadBalancerConfigurationSpec(lbConfSpec)
+	tgcUDP := buildTargetGroupConfigurationSpec(svcUDP.Name, tgConfSpec)
+
+	tcpr := buildTCPRoute("tcp-udp-listener")
+	tcpr.Name = "tcp-route-quic"
+	udpr := buildUDPRoute("tcp-udp-listener")
+	udpr.Name = "udp-route-quic"
+
+	s.nlbResourceStack = newNLBResourceStack([]*appsv1.Deployment{dpUDP}, []*corev1.Service{svcUDP}, gwc, gw, lbc, []*elbv2gw.TargetGroupConfiguration{tgcUDP}, []*gwalpha2.TCPRoute{tcpr}, []*gwalpha2.UDPRoute{udpr}, nil, "nlb-gateway-tcp-udp-quic-e2e", readinessGateEnabled)
+
+	return s.nlbResourceStack.Deploy(ctx, f)
+}
+
 func (s *NLBTestStack) DeployFrontendNLB(ctx context.Context, albStack ALBTestStack, f *framework.Framework, lbConfSpec elbv2gw.LoadBalancerConfigurationSpec, hasTLS bool, readinessGateEnabled bool) error {
 	gwc := buildGatewayClassSpec("gateway.k8s.aws/nlb")
 

@@ -3,6 +3,7 @@ package model
 import (
 	"testing"
 
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/stretchr/testify/assert"
 	elbv2gw "sigs.k8s.io/aws-load-balancer-controller/apis/gateway/v1beta1"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
@@ -19,28 +20,28 @@ func TestQuicProtocolUpgrade(t *testing.T) {
 		{
 			name:          "UDP with QUIC enabled",
 			protocol:      elbv2model.ProtocolUDP,
-			quicEnabled:   awsBool(true),
+			quicEnabled:   awssdk.Bool(true),
 			expectedProto: elbv2model.ProtocolQUIC,
 			expectError:   false,
 		},
 		{
 			name:          "TCP_UDP with QUIC enabled",
 			protocol:      elbv2model.ProtocolTCP_UDP,
-			quicEnabled:   awsBool(true),
+			quicEnabled:   awssdk.Bool(true),
 			expectedProto: elbv2model.ProtocolTCP_QUIC,
 			expectError:   false,
 		},
 		{
 			name:          "UDP with QUIC disabled",
 			protocol:      elbv2model.ProtocolUDP,
-			quicEnabled:   awsBool(false),
+			quicEnabled:   awssdk.Bool(false),
 			expectedProto: elbv2model.ProtocolUDP,
 			expectError:   false,
 		},
 		{
 			name:          "TCP with QUIC enabled should error",
 			protocol:      elbv2model.ProtocolTCP,
-			quicEnabled:   awsBool(true),
+			quicEnabled:   awssdk.Bool(true),
 			expectedProto: elbv2model.ProtocolTCP,
 			expectError:   true,
 		},
@@ -144,8 +145,4 @@ func TestMergeProtocols_WithQuic(t *testing.T) {
 			}
 		})
 	}
-}
-
-func awsBool(b bool) *bool {
-	return &b
 }
