@@ -184,6 +184,10 @@ type ListenerConfiguration struct {
 	// listenerAttributes defines the attributes for the listener
 	// +optional
 	ListenerAttributes []ListenerAttribute `json:"listenerAttributes,omitempty"`
+
+	// quicEnabled enables QUIC protocol support for UDP listeners. When enabled, UDP listeners will be upgraded to QUIC protocol.
+	// +optional
+	QuicEnabled *bool `json:"quicEnabled,omitempty"`
 }
 
 // LoadBalancerConfigurationSpec defines the desired state of LoadBalancerConfiguration
