@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -90,18 +89,14 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 			}
 
 			By("verifying target groups have QUIC protocol", func() {
-				err := tf.LBManager.VerifyTargetGroups(ctx, lbARN, expectedTargetGroups)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			By("verifying listeners have QUIC protocol", func() {
-				expectedListeners := []verifier.ExpectedListener{
-					{
-						Port:     8080,
-						Protocol: "QUIC",
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:   "network",
+					Scheme: "internet-facing",
+					Listeners: map[string]string{
+						"8080": "QUIC",
 					},
-				}
-				err := tf.LBManager.VerifyListeners(ctx, lbARN, expectedListeners)
+					TargetGroups: expectedTargetGroups,
+				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
@@ -160,18 +155,14 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 			}
 
 			By("verifying target groups have TCP_QUIC protocol", func() {
-				err := tf.LBManager.VerifyTargetGroups(ctx, lbARN, expectedTargetGroups)
-				Expect(err).NotTo(HaveOccurred())
-			})
-
-			By("verifying listeners have TCP_QUIC protocol", func() {
-				expectedListeners := []verifier.ExpectedListener{
-					{
-						Port:     8080,
-						Protocol: "TCP_QUIC",
+				err := verifier.VerifyAWSLoadBalancerResources(ctx, tf, lbARN, verifier.LoadBalancerExpectation{
+					Type:   "network",
+					Scheme: "internet-facing",
+					Listeners: map[string]string{
+						"8080": "TCP_QUIC",
 					},
-				}
-				err := tf.LBManager.VerifyListeners(ctx, lbARN, expectedListeners)
+					TargetGroups: expectedTargetGroups,
+				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})

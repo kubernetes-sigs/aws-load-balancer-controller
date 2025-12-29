@@ -213,7 +213,7 @@ func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, l
 		lbConfSpec.IpAddressType = &v6
 	}
 
-	gw := buildGatewaySpec(gwc.Name, []gwv1.Listener{
+	gw := buildBasicGatewaySpec(gwc, []gwv1.Listener{
 		{
 			Name:     "udp-listener",
 			Port:     8080,
@@ -221,8 +221,8 @@ func (s *NLBTestStack) DeployQUIC(ctx context.Context, f *framework.Framework, l
 		},
 	})
 
-	lbc := buildLoadBalancerConfigurationSpec(lbConfSpec)
-	tgcUDP := buildTargetGroupConfigurationSpec(svcUDP.Name, tgConfSpec)
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+	tgcUDP := buildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
 
 	udpr := buildUDPRoute("udp-listener")
 	udpr.Name = "udp-route-quic"
@@ -242,7 +242,7 @@ func (s *NLBTestStack) DeployTCP_UDP_QUIC(ctx context.Context, f *framework.Fram
 		lbConfSpec.IpAddressType = &v6
 	}
 
-	gw := buildGatewaySpec(gwc.Name, []gwv1.Listener{
+	gw := buildBasicGatewaySpec(gwc, []gwv1.Listener{
 		{
 			Name:     "tcp-udp-listener",
 			Port:     8080,
@@ -250,10 +250,10 @@ func (s *NLBTestStack) DeployTCP_UDP_QUIC(ctx context.Context, f *framework.Fram
 		},
 	})
 
-	lbc := buildLoadBalancerConfigurationSpec(lbConfSpec)
-	tgcUDP := buildTargetGroupConfigurationSpec(svcUDP.Name, tgConfSpec)
+	lbc := buildLoadBalancerConfig(lbConfSpec)
+	tgcUDP := buildTargetGroupConfig(svcUDP.Name, tgConfSpec, svcUDP)
 
-	tcpr := buildTCPRoute("tcp-udp-listener")
+	tcpr := buildTCPRoute([]gwv1.ParentReference{}, []gwalpha2.BackendRef{})
 	tcpr.Name = "tcp-route-quic"
 	udpr := buildUDPRoute("tcp-udp-listener")
 	udpr.Name = "udp-route-quic"
