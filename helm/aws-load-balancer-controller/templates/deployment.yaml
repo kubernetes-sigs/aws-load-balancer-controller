@@ -175,6 +175,9 @@ spec:
         {{- if ne .Values.defaultTargetType "instance" }}
         - --default-target-type={{ .Values.defaultTargetType }}
         {{- end }}
+        {{- if .Values.defaultLoadBalancerScheme }}
+        - --default-load-balancer-scheme={{ .Values.defaultLoadBalancerScheme }}
+        {{- end }}
         {{- if .Values.serviceTargetENISGTags }}
         - --service-target-eni-security-group-tags={{ .Values.serviceTargetENISGTags }}
         {{- end }}
