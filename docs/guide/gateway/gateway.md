@@ -23,7 +23,7 @@ The LBC Gateway API implementation supports the following Gateway API routes:
 * Installation of Gateway API CRDs
     * Standard Gateway API CRDs: `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/standard-install.yaml` [REQUIRED]
     * Experimental Gateway API CRDs: `kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.0/experimental-install.yaml` [OPTIONAL: Used for L4 Routes]
-* Installation of LBC Gateway API specific CRDs: `kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/refs/heads/main/config/crd/gateway/gateway-crds.yaml`
+* Installation of LBC Gateway API specific CRDs: `kubectl apply -k github.com/kubernetes-sigs/aws-load-balancer-controller/config/crd/gateway?ref=main`
 
 ## Configuration
 
