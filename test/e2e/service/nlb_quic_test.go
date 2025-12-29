@@ -2,18 +2,14 @@ package service
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	awssdk "github.com/aws/aws-sdk-go-v2/aws"
-	elbv2types "github.com/aws/aws-sdk-go-v2/service/elasticloadbalancingv2/types"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/utils"
 	"sigs.k8s.io/aws-load-balancer-controller/test/framework/verifier"
 )
@@ -64,7 +60,7 @@ var _ = Describe("NLB QUIC support", func() {
 								Image:           dpImage,
 								Ports: []corev1.ContainerPort{
 									{
-										ContainerPort: 80,
+										ContainerPort: appContainerPort,
 									},
 								},
 							},
@@ -88,6 +84,7 @@ var _ = Describe("NLB QUIC support", func() {
 				"service.beta.kubernetes.io/aws-load-balancer-type":               "nlb-ip",
 				"service.beta.kubernetes.io/aws-load-balancer-scheme":             "internet-facing",
 				"service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports": "80",
+				"service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg":     "true",
 			}
 			svc = &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -110,13 +107,17 @@ var _ = Describe("NLB QUIC support", func() {
 
 		It("Should create NLB with QUIC protocol and targets with server IDs", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil)
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{
+					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
+				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("checking service status for lb dns name", func() {
-				dnsName = stack.GetLoadBalancerIngressHostName()
-				Expect(dnsName).ToNot(BeEmpty())
+				Eventually(func() string {
+					dnsName = stack.GetLoadBalancerIngressHostName()
+					return dnsName
+				}, utils.PollTimeoutLong, utils.PollIntervalMedium).ShouldNot(BeEmpty())
 			})
 
 			By("querying AWS loadbalancer from the dns name", func() {
@@ -164,9 +165,11 @@ var _ = Describe("NLB QUIC support", func() {
 
 		BeforeEach(func() {
 			annotation := map[string]string{
-				"service.beta.kubernetes.io/aws-load-balancer-type":               "nlb-ip",
-				"service.beta.kubernetes.io/aws-load-balancer-scheme":             "internet-facing",
-				"service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports": "80",
+				"service.beta.kubernetes.io/aws-load-balancer-type":                    "nlb-ip",
+				"service.beta.kubernetes.io/aws-load-balancer-scheme":                  "internet-facing",
+				"service.beta.kubernetes.io/aws-load-balancer-enable-tcp-udp-listener": "true",
+				"service.beta.kubernetes.io/aws-load-balancer-quic-enabled-ports":      "80",
+				"service.beta.kubernetes.io/aws-load-balancer-disable-nlb-sg":          "true",
 			}
 			svc = &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -178,9 +181,16 @@ var _ = Describe("NLB QUIC support", func() {
 					Selector: labels,
 					Ports: []corev1.ServicePort{
 						{
+							Name:       "tcp",
 							Port:       80,
 							TargetPort: intstr.FromInt(80),
-							Protocol:   "TCP_UDP",
+							Protocol:   corev1.ProtocolTCP,
+						},
+						{
+							Name:       "udp",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolUDP,
 						},
 					},
 				},
@@ -189,13 +199,17 @@ var _ = Describe("NLB QUIC support", func() {
 
 		It("Should create NLB with TCP_QUIC protocol and targets with server IDs", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil)
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{
+					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
+				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("checking service status for lb dns name", func() {
-				dnsName = stack.GetLoadBalancerIngressHostName()
-				Expect(dnsName).ToNot(BeEmpty())
+				Eventually(func() string {
+					dnsName = stack.GetLoadBalancerIngressHostName()
+					return dnsName
+				}, utils.PollTimeoutLong, utils.PollIntervalMedium).ShouldNot(BeEmpty())
 			})
 
 			By("querying AWS loadbalancer from the dns name", func() {
@@ -267,13 +281,17 @@ var _ = Describe("NLB QUIC support", func() {
 
 		It("Should create NLB with TCP protocol and targets without server IDs", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil)
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{
+					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
+				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("checking service status for lb dns name", func() {
-				dnsName = stack.GetLoadBalancerIngressHostName()
-				Expect(dnsName).ToNot(BeEmpty())
+				Eventually(func() string {
+					dnsName = stack.GetLoadBalancerIngressHostName()
+					return dnsName
+				}, utils.PollTimeoutLong, utils.PollIntervalMedium).ShouldNot(BeEmpty())
 			})
 
 			By("querying AWS loadbalancer from the dns name", func() {
@@ -324,7 +342,7 @@ var _ = Describe("NLB QUIC support", func() {
 						}
 					}
 					return true
-				}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+				}, utils.PollTimeoutLong, utils.PollIntervalLong).Should(BeTrue())
 			})
 		})
 	})

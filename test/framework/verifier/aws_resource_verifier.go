@@ -936,6 +936,6 @@ func VerifyTargetsHaveQUICServerIDs(ctx context.Context, f *framework.Framework,
 			}
 		}
 		return true
-	}, utils.PollTimeoutShort, utils.PollIntervalMedium).Should(BeTrue())
+	}, utils.PollTimeoutLong, utils.PollIntervalLong).Should(BeTrue())
 	return nil
 }

@@ -48,7 +48,7 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 			annotations := createServiceAnnotations("nlb-ip", "internet-facing", tf.Options.IPFamily)
 			svc := createLoadBalancerService(svcName, labels, annotations)
 
-			svcStack = service.NewResourceStack(deployment, svc, nil, baseName, false)
+			svcStack = service.NewResourceStack(deployment, svc, nil, baseName, map[string]string{})
 			err := svcStack.Deploy(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 			namespace = svcStack.GetNamespace()
@@ -181,7 +181,7 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 			annotations["service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"] = "instance"
 			svc := createLoadBalancerService(instanceSvcName, labels, annotations)
 
-			instanceSvcStack = service.NewResourceStack(deployment, svc, nil, instanceBaseName, false)
+			instanceSvcStack = service.NewResourceStack(deployment, svc, nil, instanceBaseName, map[string]string{})
 			err := instanceSvcStack.Deploy(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 			instanceNs = instanceSvcStack.GetNamespace()
@@ -414,7 +414,7 @@ var _ = Describe("GlobalAccelerator with Service endpoint", func() {
 			annotations["service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"] = "instance"
 			svc := createLoadBalancerServiceWithPorts(instanceSvcName, labels, annotations, 80, 443)
 
-			instanceSvcStack = service.NewResourceStack(deployment, svc, nil, instanceBaseName, false)
+			instanceSvcStack = service.NewResourceStack(deployment, svc, nil, instanceBaseName, map[string]string{})
 			err := instanceSvcStack.Deploy(ctx, tf)
 			Expect(err).NotTo(HaveOccurred())
 			instanceNs = instanceSvcStack.GetNamespace()
