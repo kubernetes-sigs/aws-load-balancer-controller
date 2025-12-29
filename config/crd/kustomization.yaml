@@ -12,5 +12,5 @@ resources:
   - bases/elbv2.k8s.aws_targetgroupbindings.yaml
   - bases/elbv2.k8s.aws_ingressclassparams.yaml
   - bases/elbv2.k8s.aws_albtargetcontrolconfigs.yaml
-  - aga/aga-crds.yaml
+  - ./aga
 # +kubebuilder:scaffold:crdkustomizeresource

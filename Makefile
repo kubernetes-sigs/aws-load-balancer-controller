@@ -21,14 +21,8 @@ AWS_SDK_MODEL_OVERRIDE ?= "n"
 # Move Gateway API CRDs from bases directory to gateway directory
 MOVE_GATEWAY_CRDS = mv config/crd/bases/gateway.k8s.aws_* config/crd/gateway/
 
-# Move AGA CRDs from bases directory to aga directory
-MOVE_AGA_CRDS = mkdir -p config/crd/aga && mv config/crd/bases/aga.k8s.aws_* config/crd/aga/
-
 # Copy combined Gateway API CRDs from bases directory to helm directory
 COPY_GATEWAY_CRDS_TO_HELM = cp config/crd/gateway/gateway-crds.yaml helm/aws-load-balancer-controller/crds/gateway-crds.yaml
-
-# Copy combined AGA CRDs from aga directory to helm directory
-COPY_AGA_CRDS_TO_HELM = cp config/crd/aga/aga-crds.yaml helm/aws-load-balancer-controller/crds/aga-crds.yaml
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -74,16 +68,12 @@ manifests: controller-gen kustomize
 
 crds: manifests
 	$(MOVE_GATEWAY_CRDS)
-	$(MOVE_AGA_CRDS)
 	$(KUSTOMIZE) build config/crd > helm/aws-load-balancer-controller/crds/crds.yaml
 	$(KUSTOMIZE) build config/crd/gateway > config/crd/gateway/gateway-crds.yaml
 	echo '---' > config/crd/gateway/gateway-crds.yaml
 	$(KUSTOMIZE) build config/crd/gateway >> config/crd/gateway/gateway-crds.yaml
 	$(COPY_GATEWAY_CRDS_TO_HELM)
-	$(KUSTOMIZE) build config/crd/aga > config/crd/aga/aga-crds.yaml
-	echo '---' > config/crd/aga/aga-crds.yaml
-	$(KUSTOMIZE) build config/crd/aga >> config/crd/aga/aga-crds.yaml
-	$(COPY_AGA_CRDS_TO_HELM)
+	$(KUSTOMIZE) build config/crd/aga > helm/aws-load-balancer-controller/crds/aga-crds.yaml
 
 # Run go fmt against code
 fmt:
