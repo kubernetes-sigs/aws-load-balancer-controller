@@ -13,25 +13,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func NewResourceStack(dp *appsv1.Deployment, svc *corev1.Service, svcs []*corev1.Service, baseName string, enablePodReadinessGate bool) *ResourceStack {
+func NewResourceStack(dp *appsv1.Deployment, svc *corev1.Service, svcs []*corev1.Service, baseName string, namespaceLabels map[string]string) *ResourceStack {
 	return &ResourceStack{
-		dp:                     dp,
-		svc:                    svc,
-		nonLbTypeSvcs:          svcs,
-		baseName:               baseName,
-		enablePodReadinessGate: enablePodReadinessGate,
+		dp:              dp,
+		svc:             svc,
+		nonLbTypeSvcs:   svcs,
+		baseName:        baseName,
+		namespaceLabels: namespaceLabels,
 	}
 }
 
 // ResourceStack containing the deployment and service resources
 type ResourceStack struct {
 	// configurations
-	svc                    *corev1.Service   // Load balancer type service
-	nonLbTypeSvcs          []*corev1.Service // Use this for non-load balancer type services
-	dp                     *appsv1.Deployment
-	ns                     *corev1.Namespace
-	baseName               string
-	enablePodReadinessGate bool
+	svc             *corev1.Service   // Load balancer type service
+	nonLbTypeSvcs   []*corev1.Service // Use this for non-load balancer type services
+	dp              *appsv1.Deployment
+	ns              *corev1.Namespace
+	baseName        string
+	namespaceLabels map[string]string
 
 	// runtime variables
 	createdDP  *appsv1.Deployment
@@ -270,12 +270,10 @@ func (s *ResourceStack) allocateNamespace(ctx context.Context, f *framework.Fram
 	}
 	s.ns = ns
 	f.Logger.Info("allocated namespace", "nsName", s.ns.Name)
-	if s.enablePodReadinessGate {
-		f.Logger.Info("label namespace for podReadinessGate injection", "nsName", s.ns.Name)
+	if s.namespaceLabels != nil && len(s.ns.Labels) > 0 {
+		f.Logger.Info("labeling namespace", "nsName", s.ns.Name, "labels", s.namespaceLabels)
 		oldNS := s.ns.DeepCopy()
-		s.ns.Labels = algorithm.MergeStringMap(map[string]string{
-			"elbv2.k8s.aws/pod-readiness-gate-inject": "enabled",
-		}, s.ns.Labels)
+		s.ns.Labels = algorithm.MergeStringMap(s.namespaceLabels, s.ns.Labels)
 		err := f.K8sClient.Patch(ctx, ns, client.MergeFrom(oldNS))
 		if err != nil {
 			return err

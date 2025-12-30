@@ -110,7 +110,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 		})
 		It("Should create and verify internet-facing NLB with IP targets", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil)
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -366,7 +366,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 				Skip("Skipping tests, certificates not specified")
 			}
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil)
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -527,7 +527,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 		})
 		It("Should create and verify service", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, nil)
+				err := stack.Deploy(ctx, tf, svc, deployment, nil, map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
@@ -686,7 +686,7 @@ var _ = Describe("k8s service using ip target reconciled by the aws load balance
 		})
 		It("Should create and verify service", func() {
 			By("deploying stack", func() {
-				err := stack.Deploy(ctx, tf, svc, deployment, svcs)
+				err := stack.Deploy(ctx, tf, svc, deployment, svcs, map[string]string{})
 				Expect(err).NotTo(HaveOccurred())
 			})
 			By("checking service status for lb dns name", func() {
