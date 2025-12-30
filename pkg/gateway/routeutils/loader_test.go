@@ -204,9 +204,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"http1-http1-ns-HTTPRoute-gw-gw-ns---": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns---": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns---": true,
 			},
 		},
 		{
@@ -222,9 +222,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
+				"http1-http1-ns-HTTPRoute-gw-gw-ns---": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns---": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns---": true,
 			},
 		},
 		{
@@ -238,9 +238,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedTCPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns--": true,
-				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns--": true,
-				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns--": true,
+				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns---": true,
+				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns---": true,
+				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns---": true,
 			},
 		},
 		{
@@ -256,12 +256,12 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
-				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
-				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    true,
-				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
+				"http1-http1-ns-HTTPRoute-gw-gw-ns---": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns---": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns---": true,
+				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns---":    true,
+				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns---":    true,
+				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns---":    true,
 			},
 		},
 		{
@@ -277,12 +277,12 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				443: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": true,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": true,
-				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns--":    true,
-				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns--":    false,
-				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns--":    true,
+				"http1-http1-ns-HTTPRoute-gw-gw-ns---": true,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns---": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns---": true,
+				"tcp1-tcp1-ns-TCPRoute-gw-gw-ns---":    true,
+				"tcp2-tcp2-ns-TCPRoute-gw-gw-ns---":    false,
+				"tcp3-tcp3-ns-TCPRoute-gw-gw-ns---":    true,
 			},
 			mapperRouteStatusUpdates: []RouteData{
 				{
@@ -313,9 +313,9 @@ func Test_LoadRoutesForGateway(t *testing.T) {
 				80: loadedHTTPRoutes,
 			},
 			expectedReconcileQueue: map[string]bool{
-				"http1-http1-ns-HTTPRoute-gw-gw-ns--": false,
-				"http2-http2-ns-HTTPRoute-gw-gw-ns--": true,
-				"http3-http3-ns-HTTPRoute-gw-gw-ns--": false,
+				"http1-http1-ns-HTTPRoute-gw-gw-ns---": false,
+				"http2-http2-ns-HTTPRoute-gw-gw-ns---": true,
+				"http3-http3-ns-HTTPRoute-gw-gw-ns---": false,
 			},
 			mapperRouteStatusUpdates: []RouteData{
 				{

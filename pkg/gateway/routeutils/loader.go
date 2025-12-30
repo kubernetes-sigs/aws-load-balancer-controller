@@ -253,7 +253,13 @@ func generateRouteDataCacheKey(rd RouteData) string {
 	if rd.ParentRef.Namespace != nil {
 		namespace = string(*rd.ParentRef.Namespace)
 	}
-	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s", rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName)
+
+	parentKind := ""
+	if rd.ParentRef.Kind != nil {
+		parentKind = string(*rd.ParentRef.Kind)
+	}
+
+	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s-%s", rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName, parentKind)
 }
 
 func buildAttachedRouteMap(gw gwv1.Gateway, mappedRoutes map[int][]preLoadRouteDescriptor) map[gwv1.SectionName]int32 {
