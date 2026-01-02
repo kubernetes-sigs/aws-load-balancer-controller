@@ -203,10 +203,18 @@ func (l listenerBuilderImpl) buildL4TargetGroupTuples(stack core.Stack, routes [
 				if tgErr != nil {
 					return tgTuples, tgErr
 				}
-				tgTuples = append(tgTuples, elbv2model.TargetGroupTuple{
+
+				tuple := elbv2model.TargetGroupTuple{
 					TargetGroupARN: arn,
 					Weight:         awssdk.Int32(int32(backend.Weight)),
-				})
+				}
+
+				if listenerProtocol == elbv2model.ProtocolQUIC || listenerProtocol == elbv2model.ProtocolTCP_QUIC {
+					// QUIC protocols don't support specifying weights.
+					tuple.Weight = nil
+				}
+
+				tgTuples = append(tgTuples, tuple)
 			}
 		}
 	}

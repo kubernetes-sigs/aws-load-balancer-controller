@@ -573,24 +573,21 @@ func buildOtherNsRefHttpRoute(sectionName string, otherNs *corev1.Namespace) *gw
 	return httpr
 }
 
-func allocateNamespace(ctx context.Context, f *framework.Framework, baseName string, enablePodReadinessGate bool) (*corev1.Namespace, error) {
+func allocateNamespace(ctx context.Context, f *framework.Framework, baseName string, namespaceLabels map[string]string) (*corev1.Namespace, error) {
 	f.Logger.Info("allocating namespace")
 	ns, err := f.NSManager.AllocateNamespace(ctx, baseName)
 	if err != nil {
 		return nil, err
 	}
 	f.Logger.Info("allocated namespace", "nsName", ns.Name)
-	if enablePodReadinessGate {
-		f.Logger.Info("label namespace for podReadinessGate injection", "nsName", ns.Name)
+	if namespaceLabels != nil && len(namespaceLabels) > 0 {
+		f.Logger.Info("label namespace", "nsName", ns.Name, "labels", namespaceLabels)
 		oldNS := ns.DeepCopy()
-		ns.Labels = algorithm.MergeStringMap(map[string]string{
-			"elbv2.k8s.aws/pod-readiness-gate-inject": "enabled",
-		}, ns.Labels)
+		ns.Labels = algorithm.MergeStringMap(namespaceLabels, ns.Labels)
 		err := f.K8sClient.Patch(ctx, ns, client.MergeFrom(oldNS))
 		if err != nil {
 			return nil, err
 		}
-		f.Logger.Info("labeled namespace with podReadinessGate injection", "nsName", ns.Name)
 	}
 	return ns, nil
 }

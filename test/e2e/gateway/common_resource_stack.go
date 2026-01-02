@@ -20,40 +20,40 @@ const (
 	crossNamespacePort = 5000
 )
 
-func newCommonResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrcs []*elbv2gw.ListenerRuleConfiguration, baseName string, enablePodReadinessGate bool) *commonResourceStack {
+func newCommonResourceStack(dps []*appsv1.Deployment, svcs []*corev1.Service, gwc *gwv1.GatewayClass, gw *gwv1.Gateway, lbc *elbv2gw.LoadBalancerConfiguration, tgcs []*elbv2gw.TargetGroupConfiguration, lrcs []*elbv2gw.ListenerRuleConfiguration, baseName string, namespaceLabels map[string]string) *commonResourceStack {
 	return &commonResourceStack{
-		dps:                    dps,
-		svcs:                   svcs,
-		gwc:                    gwc,
-		gw:                     gw,
-		lbc:                    lbc,
-		tgcs:                   tgcs,
-		lrcs:                   lrcs,
-		baseName:               baseName,
-		enablePodReadinessGate: enablePodReadinessGate,
+		dps:             dps,
+		svcs:            svcs,
+		gwc:             gwc,
+		gw:              gw,
+		lbc:             lbc,
+		tgcs:            tgcs,
+		lrcs:            lrcs,
+		baseName:        baseName,
+		namespaceLabels: namespaceLabels,
 	}
 }
 
 // commonResourceStack contains resources that are common between nlb / alb gateways
 type commonResourceStack struct {
 	// configurations
-	svcs                   []*corev1.Service
-	dps                    []*appsv1.Deployment
-	gwc                    *gwv1.GatewayClass
-	gw                     *gwv1.Gateway
-	lbc                    *elbv2gw.LoadBalancerConfiguration
-	tgcs                   []*elbv2gw.TargetGroupConfiguration
-	lrcs                   []*elbv2gw.ListenerRuleConfiguration
-	ns                     *corev1.Namespace
-	baseName               string
-	enablePodReadinessGate bool
+	svcs            []*corev1.Service
+	dps             []*appsv1.Deployment
+	gwc             *gwv1.GatewayClass
+	gw              *gwv1.Gateway
+	lbc             *elbv2gw.LoadBalancerConfiguration
+	tgcs            []*elbv2gw.TargetGroupConfiguration
+	lrcs            []*elbv2gw.ListenerRuleConfiguration
+	ns              *corev1.Namespace
+	baseName        string
+	namespaceLabels map[string]string
 
 	// runtime variables
 	createdGW *gwv1.Gateway
 }
 
 func (s *commonResourceStack) Deploy(ctx context.Context, f *framework.Framework, resourceSpecificCreation func(ctx context.Context, f *framework.Framework, namespace string) error) error {
-	ns, err := allocateNamespace(ctx, f, s.baseName, s.enablePodReadinessGate)
+	ns, err := allocateNamespace(ctx, f, s.baseName, s.namespaceLabels)
 	if err != nil {
 		return err
 	}

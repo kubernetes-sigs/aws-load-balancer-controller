@@ -68,7 +68,9 @@ func (s *ALBTestStack) deploy(ctx context.Context, f *framework.Framework, gwLis
 	lbc := buildLoadBalancerConfig(lbConfSpec)
 	lrc := buildListenerRuleConfig(defaultLRConfigName, lrConfSpec)
 
-	s.albResourceStack = newALBResourceStack(dps, svcs, gwc, gw, lbc, tgcs, lrc, httprs, grpcrs, secret, "alb-gateway-e2e", readinessGateEnabled)
+	namespaceLabels := getNamespaceLabels(readinessGateEnabled)
+
+	s.albResourceStack = newALBResourceStack(dps, svcs, gwc, gw, lbc, tgcs, lrc, httprs, grpcrs, secret, "alb-gateway-e2e", namespaceLabels)
 
 	return s.albResourceStack.Deploy(ctx, f)
 }

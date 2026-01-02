@@ -2,6 +2,8 @@ package gateway
 
 import (
 	"context"
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
+	"sigs.k8s.io/aws-load-balancer-controller/test/framework"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -11,27 +13,26 @@ import (
 
 var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 	var (
-		ctx            context.Context
-		stack          NLBTestStack
-		auxiliaryStack *auxiliaryResourceStack
-		dnsName        string
-		lbARN          string
+		ctx     context.Context
+		stack   NLBTestStack
+		dnsName string
+		lbARN   string
 	)
 
 	BeforeEach(func() {
 		if !tf.Options.EnableGatewayTests {
 			Skip("Skipping gateway tests")
 		}
+
+		if tf.Options.IPFamily == framework.IPv6 {
+			Skip("QUIC does not support IPv6")
+		}
 		ctx = context.Background()
 		stack = NLBTestStack{}
-		auxiliaryStack = nil
 	})
 
 	AfterEach(func() {
 		stack.Cleanup(ctx, tf)
-		if auxiliaryStack != nil {
-			auxiliaryStack.Cleanup(ctx, tf)
-		}
 	})
 
 	Context("with QUIC protocol enabled", func() {
@@ -39,7 +40,8 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 			interf := elbv2gw.LoadBalancerSchemeInternetFacing
 			quicEnabled := true
 			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
-				Scheme: &interf,
+				Scheme:               &interf,
+				DisableSecurityGroup: awssdk.Bool(true),
 				ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 					{
 						ProtocolPort: "UDP:8080",
@@ -54,14 +56,10 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 					TargetType: &ipTargetType,
 				},
 			}
-
-			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, false)
-
 			By("deploying stack with QUIC enabled", func() {
-				err := stack.DeployQUIC(ctx, tf, lbcSpec, tgSpec, false)
-				Expect(err).NotTo(HaveOccurred())
-
-				err = auxiliaryStack.Deploy(ctx, tf)
+				err := stack.DeployQUIC(ctx, tf, lbcSpec, tgSpec, map[string]string{
+					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
+				})
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -105,7 +103,8 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 			interf := elbv2gw.LoadBalancerSchemeInternetFacing
 			quicEnabled := true
 			lbcSpec := elbv2gw.LoadBalancerConfigurationSpec{
-				Scheme: &interf,
+				Scheme:               &interf,
+				DisableSecurityGroup: awssdk.Bool(true),
 				ListenerConfigurations: &[]elbv2gw.ListenerConfiguration{
 					{
 						ProtocolPort: "TCP_UDP:8080",
@@ -121,14 +120,12 @@ var _ = Describe("test nlb gateway with QUIC protocol support", func() {
 				},
 			}
 
-			auxiliaryStack = newAuxiliaryResourceStack(ctx, tf, tgSpec, false)
-
 			By("deploying stack with QUIC enabled for TCP_UDP", func() {
-				err := stack.DeployTCP_UDP_QUIC(ctx, tf, lbcSpec, tgSpec, false)
+				err := stack.DeployTCP_QUIC(ctx, tf, lbcSpec, tgSpec, map[string]string{
+					"elbv2.k8s.aws/quic-server-id-inject": "enabled",
+				})
 				Expect(err).NotTo(HaveOccurred())
 
-				err = auxiliaryStack.Deploy(ctx, tf)
-				Expect(err).NotTo(HaveOccurred())
 			})
 
 			By("checking gateway status for lb dns name", func() {
