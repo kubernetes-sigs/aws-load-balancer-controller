@@ -225,27 +225,28 @@ on the load balancer.
 
     !!!example
         ```
-        service.beta.kubernetes.io/actions.TCP-80: {
-          "type": "forward",
-          "forwardConfig": {
-            "baseServiceWeight": 10,
-            "targetGroups": [
-              {
-                "serviceName": "service-1",
-                "servicePort": 81,
-                "weight": 20
-              },
-              {
-                "serviceName": "service-2",
-                "servicePort": 82,
-                "weight": 30
+        service.beta.kubernetes.io/actions.TCP-80: >
+          {
+            "type": "forward",
+            "forwardConfig": {
+              "baseServiceWeight": 10,
+              "targetGroups": [
+                {
+                  "serviceName": "service-1",
+                  "servicePort": 81,
+                  "weight": 20
+                },
+                {
+                  "serviceName": "service-2",
+                  "servicePort": 82,
+                  "weight": 30
+                }
+              ],
+              "targetGroupStickinessConfig": {
+                "enabled": true
               }
-            ],
-            "targetGroupStickinessConfig": {
-              "enabled": true
             }
           }
-        }
         ```
 
 ## Traffic Listening
