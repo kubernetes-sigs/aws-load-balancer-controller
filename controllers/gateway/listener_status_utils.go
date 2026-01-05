@@ -12,10 +12,14 @@ import (
 )
 
 func buildListenerStatus(controllerName string, gateway gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32, validateListenerResults *routeutils.ListenerValidationResults, isProgrammed bool) []gwv1.ListenerStatus {
+	// Discover listeners once
+	discoveredListeners := DiscoverListeners(&gateway)
+
 	var listenerStatuses []gwv1.ListenerStatus
 
 	// if validateListenerResults is nil, getListenerConditions will build condition with accepted condition
-	for _, listener := range gateway.Spec.Listeners {
+	for _, dl := range discoveredListeners.All {
+		listener := dl.Listener
 		supportedKinds, _ := routeutils.GetSupportedKinds(controllerName, listener)
 		var condition []metav1.Condition
 		if validateListenerResults == nil {

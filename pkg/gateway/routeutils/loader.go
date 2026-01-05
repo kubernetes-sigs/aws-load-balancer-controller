@@ -263,16 +263,17 @@ func generateRouteDataCacheKey(rd RouteData) string {
 }
 
 func buildAttachedRouteMap(gw gwv1.Gateway, mappedRoutes map[int][]preLoadRouteDescriptor) map[gwv1.SectionName]int32 {
+	// Discover listeners once
+	discoveredListeners := DiscoverListeners(&gw)
+
 	attachedRouteMap := make(map[gwv1.SectionName]int32)
-	for _, listener := range gw.Spec.Listeners {
-		attachedRouteMap[listener.Name] = 0
+	for _, dl := range discoveredListeners.All {
+		attachedRouteMap[dl.Name] = 0
 	}
+
 	for port, routeList := range mappedRoutes {
-		for _, listener := range gw.Spec.Listeners {
-			if listener.Port == gwv1.PortNumber(port) {
-				attachedRouteMap[listener.Name] = int32(len(routeList))
-				break
-			}
+		if name, exists := discoveredListeners.GetNameByPort(int32(port)); exists {
+			attachedRouteMap[name] = int32(len(routeList))
 		}
 	}
 	return attachedRouteMap

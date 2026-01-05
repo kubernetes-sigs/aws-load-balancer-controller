@@ -35,6 +35,9 @@ func newListenerToRouteMapper(k8sClient client.Client, logger logr.Logger) liste
 // mapGatewayAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
 // Returns: (routesByPort, compatibleHostnamesByPort, failedRoutes, matchedParentRefs, error)
 func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, error) {
+	// Discover listeners once at the beginning
+	discoveredListeners := DiscoverListeners(&gw)
+
 	result := make(map[int][]preLoadRouteDescriptor)
 	compatibleHostnamesByPort := make(map[int32]map[string][]gwv1.Hostname)
 
@@ -63,7 +66,8 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 	failedRoutesMap := make(map[string][]RouteData)
 
 	// Next, greedily looking for the route to attach to.
-	for _, listener := range gw.Spec.Listeners {
+	for _, discoveredListener := range discoveredListeners.All {
+		listener := discoveredListener.Listener
 		// used for cross serving check
 		hostnamesFromHttpRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
 		hostnamesFromGrpcRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
