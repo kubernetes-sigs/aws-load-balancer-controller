@@ -376,7 +376,7 @@ func (builder *targetGroupBuilderImpl) buildL7TargetGroupProtocol(targetGroupPro
 }
 
 func (builder *targetGroupBuilderImpl) buildL4TargetGroupProtocol(targetGroupProps *elbv2gw.TargetGroupProps, route routeutils.RouteDescriptor, listenerProtocol elbv2model.Protocol) (elbv2model.Protocol, error) {
-	if listenerProtocol == elbv2model.ProtocolTCP_UDP {
+	if listenerProtocol == elbv2model.ProtocolTCP_UDP || listenerProtocol == elbv2model.ProtocolQUIC || listenerProtocol == elbv2model.ProtocolTCP_QUIC {
 		return listenerProtocol, nil
 	}
 

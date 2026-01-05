@@ -16,7 +16,7 @@ func newAuxiliaryResourceStack(ctx context.Context, f *framework.Framework, tgSp
 	svcs := []*corev1.Service{buildServiceSpec(map[string]string{})}
 	tgcs := []*elbv2gw.TargetGroupConfiguration{buildTargetGroupConfig("aux", tgSpec, svcs[0])}
 
-	ns, err := allocateNamespace(ctx, f, "auxiliary", enablePodReadinessGate)
+	ns, err := allocateNamespace(ctx, f, "auxiliary", getNamespaceLabels(enablePodReadinessGate))
 	if err != nil {
 		panic(err)
 	}
