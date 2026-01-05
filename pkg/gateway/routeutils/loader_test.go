@@ -22,7 +22,7 @@ type mockMapper struct {
 	routeStatusUpdates []RouteData
 }
 
-func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, error) {
+func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, listeners []DiscoveredListener, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
 	matchedParentRefs := make(map[string][]gwv1.ParentReference)
 	for _, routeList := range m.mapToReturn {

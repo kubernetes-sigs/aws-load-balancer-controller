@@ -1,12 +1,10 @@
 package routeutils
 
 import (
-	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
@@ -27,19 +25,20 @@ type ListenerValidationResults struct {
 // It checks for supported route kinds, valid port ranges (1-65535), controller-compatible protocols
 // (ALB: HTTP/HTTPS/GRPC, NLB: TCP/UDP/TLS), protocol conflicts on same ports (except TCP+UDP),
 // hostname conflicts - same port trying to use same hostname
-func ValidateListeners(gw gwv1.Gateway, controllerName string, ctx context.Context, k8sClient client.Client) ListenerValidationResults {
+func validateListeners(listeners []DiscoveredListener, controllerName string) ListenerValidationResults {
 	results := ListenerValidationResults{
 		Results: make(map[gwv1.SectionName]ListenerValidationResult),
 	}
 
-	if len(gw.Spec.Listeners) == 0 {
+	if len(listeners) == 0 {
 		return results
 	}
 
 	portHostnameMap := make(map[string]bool)
 	portProtocolMap := make(map[gwv1.PortNumber]gwv1.ProtocolType)
 
-	for _, listener := range gw.Spec.Listeners {
+	for _, discoveredListener := range listeners {
+		listener := discoveredListener.Listener
 		result := ListenerValidationResult{
 			ListenerName: listener.Name,
 			IsValid:      true,
