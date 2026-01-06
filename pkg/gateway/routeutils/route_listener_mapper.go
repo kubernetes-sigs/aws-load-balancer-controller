@@ -13,7 +13,7 @@ import (
 // listenerToRouteMapper is an internal utility that will map a list of routes to the listeners of a gateway
 // if the gateway and/or route are incompatible, then the route is discarded.
 type listenerToRouteMapper interface {
-	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, listeners []DiscoveredListener, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, error)
+	mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, listeners []DiscoveredListener, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, map[gwv1.SectionName]int32, error)
 }
 
 var _ listenerToRouteMapper = &listenerToRouteMapperImpl{}
@@ -34,7 +34,7 @@ func newListenerToRouteMapper(k8sClient client.Client, logger logr.Logger) liste
 
 // mapGatewayAndRoutes will map route to the corresponding listener ports using the Gateway API spec rules.
 // Returns: (routesByPort, compatibleHostnamesByPort, failedRoutes, matchedParentRefs, error)
-func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners []DiscoveredListener, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, error) {
+func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, gw gwv1.Gateway, listeners []DiscoveredListener, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, map[gwv1.SectionName]int32, error) {
 	result := make(map[int][]preLoadRouteDescriptor)
 	compatibleHostnamesByPort := make(map[int32]map[string][]gwv1.Hostname)
 
@@ -62,9 +62,13 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 	matchedParentRefs := make(map[string]map[string]gwv1.ParentReference)
 	failedRoutesMap := make(map[string][]RouteData)
 
+	// Track route attachment to each listener.
+	routesPerSectionName := make(map[gwv1.SectionName]int32)
+
 	// Next, greedily looking for the route to attach to.
 	for _, discoveredListener := range listeners {
 		listener := discoveredListener.Listener
+		routesPerSectionName[listener.Name] = 0
 		// used for cross serving check
 		hostnamesFromHttpRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
 		hostnamesFromGrpcRoutes := make(map[types.NamespacedName][]gwv1.Hostname)
@@ -89,7 +93,7 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 
 			compatibleHostnames, allowedAttachment, failedRouteData, err := ltr.listenerAttachmentHelper.listenerAllowsAttachment(ctx, gw, listener, route, matchedParentRef, hostnamesFromHttpRoutes, hostnamesFromGrpcRoutes)
 			if err != nil {
-				return nil, nil, nil, nil, err
+				return nil, nil, nil, nil, nil, err
 			}
 
 			if failedRouteData != nil {
@@ -99,6 +103,7 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 			ltr.logger.V(1).Info("listener allows attachment", "route", route.GetRouteNamespacedName(), "allowedAttachment", allowedAttachment)
 
 			if allowedAttachment {
+				routesPerSectionName[listener.Name] = routesPerSectionName[listener.Name] + 1
 				port := int32(listener.Port)
 				if seenRoutesPerPort[int(port)] == nil {
 					seenRoutesPerPort[int(port)] = make(map[string]bool)
@@ -182,7 +187,7 @@ func (ltr *listenerToRouteMapperImpl) mapGatewayAndRoutes(ctx context.Context, g
 		}
 	}
 
-	return result, compatibleHostnamesByPort, failedRoutes, matchedParentRefsResult, nil
+	return result, compatibleHostnamesByPort, failedRoutes, matchedParentRefsResult, routesPerSectionName, nil
 }
 
 // getParentRefKey generates a unique key for a parentRef

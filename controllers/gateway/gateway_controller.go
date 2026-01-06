@@ -282,7 +282,7 @@ func (r *gatewayReconciler) reconcileHelper(ctx context.Context, req reconcile.R
 		return nil
 	}
 	r.serviceReferenceCounter.UpdateRelations(getServicesFromRoutes(allRoutes), k8s.NamespacedName(gw), false)
-	err = r.reconcileUpdate(ctx, gw, gwClass, stack, lb, backendSGRequired, secrets, loaderResults.AttachedRoutesMap)
+	err = r.reconcileUpdate(ctx, gw, stack, lb, backendSGRequired, secrets, *loaderResults)
 	if err != nil {
 		r.logger.Error(err, "Failed to process gateway update", "gw", k8s.NamespacedName(gw))
 		return err
@@ -324,8 +324,8 @@ func (r *gatewayReconciler) reconcileDelete(ctx context.Context, gw *gwv1.Gatewa
 	return nil
 }
 
-func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gateway, gwClass *gwv1.GatewayClass, stack core.Stack,
-	lb *elbv2model.LoadBalancer, backendSGRequired bool, secrets []types.NamespacedName, attachedRoutesMap map[gwv1.SectionName]int32) error {
+func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gateway, stack core.Stack,
+	lb *elbv2model.LoadBalancer, backendSGRequired bool, secrets []types.NamespacedName, loadResult routeutils.LoaderResult) error {
 	// add gateway finalizer
 	if err := r.finalizerManager.AddFinalizers(ctx, gw, r.finalizer); err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedAddFinalizer, fmt.Sprintf("Failed add gateway finalizer due to %v", err))
@@ -343,7 +343,7 @@ func (r *gatewayReconciler) reconcileUpdate(ctx context.Context, gw *gwv1.Gatewa
 		}
 	}
 
-	if err = r.updateGatewayStatusSuccess(ctx, lb.Status, gw, attachedRoutesMap); err != nil {
+	if err = r.updateGatewayStatusSuccess(ctx, lb.Status, gw, loadResult); err != nil {
 		r.eventRecorder.Event(gw, corev1.EventTypeWarning, k8s.GatewayEventReasonFailedUpdateStatus, fmt.Sprintf("Failed update status due to %v", err))
 		return err
 	}
@@ -382,7 +382,7 @@ func (r *gatewayReconciler) buildModel(ctx context.Context, gw *gwv1.Gateway, cf
 	return stack, lb, newAddOnConfig, backendSGRequired, secrets, nil
 }
 
-func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbStatus *elbv2model.LoadBalancerStatus, gw *gwv1.Gateway, attachedRoutesMap map[gwv1.SectionName]int32) error {
+func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbStatus *elbv2model.LoadBalancerStatus, gw *gwv1.Gateway, loadResult routeutils.LoaderResult) error {
 	// LB Status should always be set, if it's not, we need to prevent NPE
 	if lbStatus == nil {
 		r.logger.Info("Unable to update Gateway Status due to null LB status")
@@ -415,7 +415,7 @@ func (r *gatewayReconciler) updateGatewayStatusSuccess(ctx context.Context, lbSt
 	}
 
 	// update listeners status
-	ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, nil, isProgrammed)
+	ListenerStatuses := buildListenerStatus(*gw, loadResult.AttachedRoutesMap, loadResult.ValidationResults, isProgrammed)
 	if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 		gw.Status.Listeners = ListenerStatuses
 		needPatch = true
@@ -443,7 +443,7 @@ func (r *gatewayReconciler) updateGatewayStatusFailure(ctx context.Context, gw *
 	if loadResults != nil {
 		listenerValidationResults := loadResults.ValidationResults
 		attachedRoutesMap := loadResults.AttachedRoutesMap
-		ListenerStatuses := buildListenerStatus(r.controllerName, *gw, attachedRoutesMap, &listenerValidationResults, false)
+		ListenerStatuses := buildListenerStatus(*gw, attachedRoutesMap, listenerValidationResults, false)
 		if !isListenerStatusIdentical(gw.Status.Listeners, ListenerStatuses) {
 			gw.Status.Listeners = ListenerStatuses
 			needPatch = true

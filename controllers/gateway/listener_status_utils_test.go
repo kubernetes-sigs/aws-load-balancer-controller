@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	awssdk "github.com/aws/aws-sdk-go-v2/aws"
 	"testing"
 	"time"
 
@@ -14,37 +15,15 @@ import (
 func Test_buildListenerStatus(t *testing.T) {
 	tests := []struct {
 		name                    string
-		controllerName          string
 		gateway                 gwv1.Gateway
 		attachedRoutesMap       map[gwv1.SectionName]int32
-		validateListenerResults *routeutils.ListenerValidationResults
+		supportedKinds          []gwv1.RouteGroupKind
+		validateListenerResults routeutils.ListenerValidationResults
 		isProgrammed            bool
 		expectedListenerCount   int
 	}{
 		{
-			name:           "nil validation results",
-			controllerName: "gateway.k8s.aws/alb",
-			gateway: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 1},
-				Spec: gwv1.GatewaySpec{
-					Listeners: []gwv1.Listener{
-						{
-							Name:          "listener1",
-							Port:          80,
-							Protocol:      gwv1.HTTPProtocolType,
-							AllowedRoutes: &gwv1.AllowedRoutes{},
-						},
-					},
-				},
-			},
-			attachedRoutesMap:       map[gwv1.SectionName]int32{"listener1": 2},
-			validateListenerResults: nil,
-			isProgrammed:            true,
-			expectedListenerCount:   1,
-		},
-		{
-			name:           "with validation results",
-			controllerName: "gateway.k8s.aws/alb",
+			name: "with validation results",
 			gateway: gwv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{Generation: 2},
 				Spec: gwv1.GatewaySpec{
@@ -59,17 +38,23 @@ func Test_buildListenerStatus(t *testing.T) {
 				},
 			},
 			attachedRoutesMap: map[gwv1.SectionName]int32{"listener1": 1},
-			validateListenerResults: &routeutils.ListenerValidationResults{
+			validateListenerResults: routeutils.ListenerValidationResults{
 				Results: map[gwv1.SectionName]routeutils.ListenerValidationResult{
-					"listener1": {Reason: gwv1.ListenerReasonAccepted, Message: "accepted"},
+					"listener1": {Reason: gwv1.ListenerReasonAccepted, Message: "accepted", SupportedKinds: []gwv1.RouteGroupKind{{
+						Group: (*gwv1.Group)(awssdk.String("group")),
+						Kind:  "kind",
+					}}},
 				},
 			},
+			supportedKinds: []gwv1.RouteGroupKind{{
+				Group: (*gwv1.Group)(awssdk.String("group")),
+				Kind:  "kind",
+			}},
 			isProgrammed:          false,
 			expectedListenerCount: 1,
 		},
 		{
-			name:           "empty listeners",
-			controllerName: "gateway.k8s.aws/nlb",
+			name: "empty listeners",
 			gateway: gwv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{Generation: 3},
 				Spec: gwv1.GatewaySpec{
@@ -77,22 +62,23 @@ func Test_buildListenerStatus(t *testing.T) {
 				},
 			},
 			attachedRoutesMap:       map[gwv1.SectionName]int32{},
-			validateListenerResults: nil,
+			validateListenerResults: routeutils.ListenerValidationResults{},
 			isProgrammed:            true,
+			supportedKinds:          []gwv1.RouteGroupKind{},
 			expectedListenerCount:   0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildListenerStatus(tt.controllerName, tt.gateway, tt.attachedRoutesMap, tt.validateListenerResults, tt.isProgrammed)
+			result := buildListenerStatus(tt.gateway, tt.attachedRoutesMap, tt.validateListenerResults, tt.isProgrammed)
 
 			assert.Len(t, result, tt.expectedListenerCount)
 
 			for i, listener := range tt.gateway.Spec.Listeners {
 				assert.Equal(t, listener.Name, result[i].Name)
 				assert.Equal(t, tt.attachedRoutesMap[listener.Name], result[i].AttachedRoutes)
-				assert.NotEmpty(t, result[i].SupportedKinds)
+				assert.Equal(t, tt.supportedKinds, result[i].SupportedKinds)
 				assert.Len(t, result[i].Conditions, 4)
 			}
 		})
@@ -102,7 +88,7 @@ func Test_buildListenerStatus(t *testing.T) {
 func Test_getListenerConditions(t *testing.T) {
 	tests := []struct {
 		name                     string
-		listenerValidationResult *routeutils.ListenerValidationResult
+		listenerValidationResult routeutils.ListenerValidationResult
 		isProgrammed             bool
 		expectedConditionCount   int
 		expectedConflictReason   string
@@ -112,34 +98,8 @@ func Test_getListenerConditions(t *testing.T) {
 		gw                       gwv1.Gateway
 	}{
 		{
-			name:                     "nil validation result with programmed true",
-			listenerValidationResult: nil,
-			isProgrammed:             true,
-			expectedConditionCount:   4,
-			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
-			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
-			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
-			expectedProgrammedReason: string(gwv1.ListenerReasonProgrammed),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 1},
-			},
-		},
-		{
-			name:                     "nil validation result with programmed false",
-			listenerValidationResult: nil,
-			isProgrammed:             false,
-			expectedConditionCount:   4,
-			expectedConflictReason:   string(gwv1.ListenerReasonNoConflicts),
-			expectedAcceptedReason:   string(gwv1.ListenerReasonAccepted),
-			expectedResolvedReason:   string(gwv1.ListenerReasonResolvedRefs),
-			expectedProgrammedReason: string(gwv1.ListenerReasonPending),
-			gw: gwv1.Gateway{
-				ObjectMeta: metav1.ObjectMeta{Generation: 2},
-			},
-		},
-		{
 			name: "validation result with hostname conflict and programmed false",
-			listenerValidationResult: &routeutils.ListenerValidationResult{
+			listenerValidationResult: routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonHostnameConflict,
 				Message: "Hostname conflict",
 			},
@@ -155,7 +115,7 @@ func Test_getListenerConditions(t *testing.T) {
 		},
 		{
 			name: "validation result with protocol conflict",
-			listenerValidationResult: &routeutils.ListenerValidationResult{
+			listenerValidationResult: routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonProtocolConflict,
 				Message: "Protocol conflict",
 			},
@@ -171,7 +131,7 @@ func Test_getListenerConditions(t *testing.T) {
 		},
 		{
 			name: "validation result with port unavailable",
-			listenerValidationResult: &routeutils.ListenerValidationResult{
+			listenerValidationResult: routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonPortUnavailable,
 				Message: "Port unavailable",
 			},
@@ -187,7 +147,7 @@ func Test_getListenerConditions(t *testing.T) {
 		},
 		{
 			name: "validation result with unsupported protocol",
-			listenerValidationResult: &routeutils.ListenerValidationResult{
+			listenerValidationResult: routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonUnsupportedProtocol,
 				Message: "Unsupported protocol",
 			},
@@ -203,7 +163,7 @@ func Test_getListenerConditions(t *testing.T) {
 		},
 		{
 			name: "validation result with invalid route kinds",
-			listenerValidationResult: &routeutils.ListenerValidationResult{
+			listenerValidationResult: routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonInvalidRouteKinds,
 				Message: "Invalid route kinds",
 			},
@@ -219,7 +179,7 @@ func Test_getListenerConditions(t *testing.T) {
 		},
 		{
 			name: "validation result with ref not permitted",
-			listenerValidationResult: &routeutils.ListenerValidationResult{
+			listenerValidationResult: routeutils.ListenerValidationResult{
 				Reason:  gwv1.ListenerReasonRefNotPermitted,
 				Message: "Ref not permitted",
 			},

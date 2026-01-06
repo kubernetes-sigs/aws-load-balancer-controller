@@ -9,10 +9,11 @@ import (
 )
 
 type ListenerValidationResult struct {
-	ListenerName gwv1.SectionName
-	IsValid      bool
-	Reason       gwv1.ListenerConditionReason
-	Message      string
+	ListenerName   gwv1.SectionName
+	IsValid        bool
+	Reason         gwv1.ListenerConditionReason
+	Message        string
+	SupportedKinds []gwv1.RouteGroupKind
 }
 
 type ListenerValidationResults struct {
@@ -39,15 +40,15 @@ func validateListeners(listeners []DiscoveredListener, controllerName string) Li
 
 	for _, discoveredListener := range listeners {
 		listener := discoveredListener.Listener
+		supportedKinds, isKindSupported := getSupportedKinds(controllerName, listener)
 		result := ListenerValidationResult{
-			ListenerName: listener.Name,
-			IsValid:      true,
-			Reason:       gwv1.ListenerReasonAccepted,
-			Message:      gateway_constants.ListenerAcceptedMessage,
+			ListenerName:   listener.Name,
+			IsValid:        true,
+			Reason:         gwv1.ListenerReasonAccepted,
+			Message:        gateway_constants.ListenerAcceptedMessage,
+			SupportedKinds: supportedKinds,
 		}
 
-		// check supported kinds
-		_, isKindSupported := GetSupportedKinds(controllerName, listener)
 		if !isKindSupported {
 			result.IsValid = false
 			result.Reason = gwv1.ListenerReasonInvalidRouteKinds
@@ -108,7 +109,7 @@ func validateListeners(listeners []DiscoveredListener, controllerName string) Li
 	return results
 }
 
-func GetSupportedKinds(controllerName string, listener gwv1.Listener) ([]gwv1.RouteGroupKind, bool) {
+func getSupportedKinds(controllerName string, listener gwv1.Listener) ([]gwv1.RouteGroupKind, bool) {
 	supportedKinds := []gwv1.RouteGroupKind{}
 	groupName := gateway_constants.GatewayResourceGroupName
 	isKindSupported := true

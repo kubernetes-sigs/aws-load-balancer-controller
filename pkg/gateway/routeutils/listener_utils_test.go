@@ -375,7 +375,7 @@ func TestGetSupportedKinds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kinds, supported := GetSupportedKinds(tt.controllerName, tt.listener)
+			kinds, supported := getSupportedKinds(tt.controllerName, tt.listener)
 
 			assert.Equal(t, tt.expectedSupported, supported)
 			assert.Equal(t, tt.expectedCount, len(kinds))

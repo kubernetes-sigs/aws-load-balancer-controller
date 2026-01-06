@@ -53,7 +53,11 @@ type Loader interface {
 }
 
 type LoaderResult struct {
-	Routes            map[int32][]RouteDescriptor
+	// Routes maps a Listener port number to all the routes that wish to attach to the listener port.
+	Routes map[int32][]RouteDescriptor
+	// Listeners is a list of all listener metadata that the gateway needs to materialize.
+	Listeners []DiscoveredListener
+	// AttachedRoutesMap metadata used for updating the route status.
 	AttachedRoutesMap map[gwv1.SectionName]int32
 	ValidationResults ListenerValidationResults
 }
@@ -119,16 +123,13 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	// 2. Remove routes that aren't granted attachment by the listener.
 	// Map any routes that are granted attachment to the listener port that allows the attachment.
-	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, err := l.mapper.mapGatewayAndRoutes(ctx, gw, listeners, loadedRoutes)
+	mappedRoutes, compatibleHostnamesByPort, statusUpdates, matchedParentRefs, attachedRouteMap, err := l.mapper.mapGatewayAndRoutes(ctx, gw, listeners, loadedRoutes)
 
 	routeStatusUpdates = append(routeStatusUpdates, statusUpdates...)
 
 	if err != nil {
 		return nil, err
 	}
-
-	// Count attached routes per listener for listener status update
-	attachedRouteMap := buildAttachedRouteMap(listeners, mappedRoutes)
 
 	// 3. Load the underlying resource(s) for each route that is configured.
 	loadedRoute, childRouteLoadUpdates, err := l.loadChildResources(ctx, mappedRoutes, compatibleHostnamesByPort, gw, matchedParentRefs)
@@ -151,6 +152,7 @@ func (l *loaderImpl) LoadRoutesForGateway(ctx context.Context, gw gwv1.Gateway, 
 
 	return &LoaderResult{
 		Routes:            loadedRoute,
+		Listeners:         listeners,
 		AttachedRoutesMap: attachedRouteMap,
 		ValidationResults: listenerValidationResults,
 	}, nil
@@ -262,20 +264,4 @@ func generateRouteDataCacheKey(rd RouteData) string {
 	}
 
 	return fmt.Sprintf("%s-%s-%s-%s-%s-%s-%s-%s", rd.RouteMetadata.RouteName, rd.RouteMetadata.RouteNamespace, rd.RouteMetadata.RouteKind, rd.ParentRef.Name, namespace, port, sectionName, parentKind)
-}
-
-func buildAttachedRouteMap(discoveredListeners []DiscoveredListener, mappedRoutes map[int][]preLoadRouteDescriptor) map[gwv1.SectionName]int32 {
-	attachedRouteMap := make(map[gwv1.SectionName]int32)
-	for _, dl := range discoveredListeners {
-		attachedRouteMap[dl.Listener.Name] = 0
-	}
-	for port, routeList := range mappedRoutes {
-		for _, listener := range discoveredListeners {
-			if int32(listener.Listener.Port) == int32(port) {
-				attachedRouteMap[listener.Listener.Name] = int32(len(routeList))
-				break
-			}
-		}
-	}
-	return attachedRouteMap
 }
