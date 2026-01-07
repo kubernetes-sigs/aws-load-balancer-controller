@@ -1,20 +1,19 @@
 package routeutils
 
 import (
-	"context"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	gateway_constants "sigs.k8s.io/aws-load-balancer-controller/pkg/gateway/constants"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 type ListenerValidationResult struct {
-	ListenerName gwv1.SectionName
-	IsValid      bool
-	Reason       gwv1.ListenerConditionReason
-	Message      string
+	ListenerName   gwv1.SectionName
+	IsValid        bool
+	Reason         gwv1.ListenerConditionReason
+	Message        string
+	SupportedKinds []gwv1.RouteGroupKind
 }
 
 type ListenerValidationResults struct {
@@ -22,12 +21,12 @@ type ListenerValidationResults struct {
 	HasErrors bool
 }
 
-// ValidateListeners validates all listeners configurations in a Gateway against controller-specific requirements.
+// validateListeners validates all listeners configurations in a Gateway against controller-specific requirements.
 // it is different from listener <-> route validation
 // It checks for supported route kinds, valid port ranges (1-65535), controller-compatible protocols
 // (ALB: HTTP/HTTPS/GRPC, NLB: TCP/UDP/TLS), protocol conflicts on same ports (except TCP+UDP),
 // hostname conflicts - same port trying to use same hostname
-func ValidateListeners(gw gwv1.Gateway, controllerName string, ctx context.Context, k8sClient client.Client) ListenerValidationResults {
+func validateListeners(gw gwv1.Gateway, controllerName string) ListenerValidationResults {
 	results := ListenerValidationResults{
 		Results: make(map[gwv1.SectionName]ListenerValidationResult),
 	}
@@ -40,15 +39,16 @@ func ValidateListeners(gw gwv1.Gateway, controllerName string, ctx context.Conte
 	portProtocolMap := make(map[gwv1.PortNumber]gwv1.ProtocolType)
 
 	for _, listener := range gw.Spec.Listeners {
+		// check supported kinds
+		supportedKinds, isKindSupported := getSupportedKinds(controllerName, listener)
 		result := ListenerValidationResult{
-			ListenerName: listener.Name,
-			IsValid:      true,
-			Reason:       gwv1.ListenerReasonAccepted,
-			Message:      gateway_constants.ListenerAcceptedMessage,
+			ListenerName:   listener.Name,
+			IsValid:        true,
+			Reason:         gwv1.ListenerReasonAccepted,
+			Message:        gateway_constants.ListenerAcceptedMessage,
+			SupportedKinds: supportedKinds,
 		}
 
-		// check supported kinds
-		_, isKindSupported := GetSupportedKinds(controllerName, listener)
 		if !isKindSupported {
 			result.IsValid = false
 			result.Reason = gwv1.ListenerReasonInvalidRouteKinds
@@ -109,7 +109,7 @@ func ValidateListeners(gw gwv1.Gateway, controllerName string, ctx context.Conte
 	return results
 }
 
-func GetSupportedKinds(controllerName string, listener gwv1.Listener) ([]gwv1.RouteGroupKind, bool) {
+func getSupportedKinds(controllerName string, listener gwv1.Listener) ([]gwv1.RouteGroupKind, bool) {
 	supportedKinds := []gwv1.RouteGroupKind{}
 	groupName := gateway_constants.GatewayResourceGroupName
 	isKindSupported := true

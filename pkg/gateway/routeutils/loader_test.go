@@ -19,10 +19,11 @@ type mockMapper struct {
 	t                  *testing.T
 	expectedRoutes     []preLoadRouteDescriptor
 	mapToReturn        map[int][]preLoadRouteDescriptor
+	listenerRouteCount map[gwv1.SectionName]int32
 	routeStatusUpdates []RouteData
 }
 
-func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, error) {
+func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gateway, routes []preLoadRouteDescriptor) (map[int][]preLoadRouteDescriptor, map[int32]map[string][]gwv1.Hostname, []RouteData, map[string][]gwv1.ParentReference, map[gwv1.SectionName]int32, error) {
 	assert.ElementsMatch(m.t, m.expectedRoutes, routes)
 	matchedParentRefs := make(map[string][]gwv1.ParentReference)
 	for _, routeList := range m.mapToReturn {
@@ -31,7 +32,7 @@ func (m *mockMapper) mapGatewayAndRoutes(context context.Context, gw gwv1.Gatewa
 			matchedParentRefs[routeKey] = []gwv1.ParentReference{{}}
 		}
 	}
-	return m.mapToReturn, make(map[int32]map[string][]gwv1.Hostname), m.routeStatusUpdates, matchedParentRefs, nil
+	return m.mapToReturn, make(map[int32]map[string][]gwv1.Hostname), m.routeStatusUpdates, matchedParentRefs, m.listenerRouteCount, nil
 }
 
 var _ RouteDescriptor = &mockRoute{}
